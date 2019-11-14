@@ -53,6 +53,7 @@ a:hover, a:focus {
   height: 60px;
   color: white;
   display: block;
+  margin-bottom: 24px;
 }
 
 .App-header-text {
@@ -65,9 +66,8 @@ a:hover, a:focus {
 }
 
 .App-content {
-  width: 80%;
-  margin-right: auto;
-  margin-left: auto;
+  width: calc(100% - 128px);
+  margin: 0 64px 0 64px;
 }
 
 div.mlflow-logo {
@@ -96,13 +96,13 @@ div.header-links {
   display: inline-block;
   float: right;
   padding-top: 21px;
-  padding-right: 10%;
+  margin-right: 64px;
   font-size: 16px;
 }
 
 h1 {
-  margin-top: 32px;
-  font-size: 24px;
+  font-size: 18px;
+  margin-bottom: 24px;
   font-weight: bold;
   color: #333;
 }
@@ -112,7 +112,7 @@ h1 a, h1 a:hover, h1 a:active, h1 a:visited {
 }
 
 h2 {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: normal;
   color: #333;
 }
@@ -130,19 +130,15 @@ label {
   margin: 0;
 }
 
-div.metadata {
-  margin-top: 32px;
-}
-
 span.metadata {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: normal;
   white-space: nowrap;
   margin-right: 100px;
 }
 
 span.metadata-header {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: normal;
   color: #888;
   margin-right: 4px;
@@ -152,12 +148,6 @@ table th {
   background-color: #fafafa;
   color: #888888;
   font-weight: 500;
-}
-
-.breadcrumb-chevron {
-  font-size: 75%;
-  margin-left: 10px;
-  margin-right: 8px;
 }
 
 /* Overrides for bootstrap modal */
@@ -173,4 +163,31 @@ table th {
 
 .modal-footer .btn+.btn {
   margin-left: 16px;
+}
+
+.truncate-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.single-line {
+  height: 1.3em;
+}
+
+.unselectable {
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+img.center {
+  display: block;
+  margin: 0 auto;
+}
+
+.plotly-notifier, .plotly-notifier.notifier-note {
+  font-family: inherit !important;
+  font-size: 13px !important;
 }

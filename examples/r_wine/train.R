@@ -4,11 +4,12 @@
 
 library(mlflow)
 library(glmnet)
+library(carrier)
 
 set.seed(40)
 
 # Read the wine-quality csv file
-data <- read.csv("../wine-quality.csv")
+data <- read.csv("wine-quality.csv")
 
 # Split the data into training and test sets. (0.75, 0.25) split.
 sampled <- sample(1:nrow(data), 0.75 * nrow(data))
@@ -26,7 +27,7 @@ lambda <- mlflow_param("lambda", 0.5, "numeric")
 
 with(mlflow_start_run(), {
     model <- glmnet(train_x, train_y, alpha = alpha, lambda = lambda, family= "gaussian", standardize = FALSE)
-    predictor <- crate(~ glmnet::predict.glmnet(model, as.matrix(.x)), model)
+    predictor <- crate(~ glmnet::predict.glmnet(!!model, as.matrix(.x)), !!model)
     predicted <- predictor(test_x)
 
     rmse <- sqrt(mean((predicted - test_y) ^ 2))

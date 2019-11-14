@@ -1,22 +1,3 @@
-# Test reqs
-azure-storage
-google-cloud-storage
-h2o
-# TODO: don't pin boto version once https://github.com/spulec/moto/issues/1793 is addressed
-boto3==1.7.84
-mock==2.0.0
-moto==1.3.4
-prospector[with_pyroma]==0.12.7
-pep8==1.7.1
-pyarrow
-pylint==1.8.2
-pyspark
-pytest==3.2.1
-pytest-cov
-rstcheck==3.2
-scipy
-tensorflow
-torch
-torchvision
-pysftp
-keras
+-r travis/small-requirements.txt
+-r travis/large-requirements.txt
+-r travis/lint-requirements.txt

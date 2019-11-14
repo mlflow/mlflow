@@ -1,4 +1,6 @@
 import React, { Component } from 'react';
+import { AllHtmlEntities } from 'html-entities';
+import Plot from 'react-plotly.js';
 import PropTypes from 'prop-types';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
@@ -6,16 +8,6 @@ import './CompareRunView.css';
 import { RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
-import {
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Label,
-} from 'recharts';
 import './CompareRunScatter.css';
 import CompareRunUtil from './CompareRunUtil';
 
@@ -24,15 +16,20 @@ class CompareRunScatter extends Component {
     runInfos: PropTypes.arrayOf(RunInfo).isRequired,
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
+    runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
+
+  // Size limits for displaying keys and values in our plot axes and tooltips
+  static MAX_PLOT_KEY_LENGTH = 40;
+  static MAX_PLOT_VALUE_LENGTH = 60;
 
   constructor(props) {
     super(props);
 
-    this.renderTooltip = this.renderTooltip.bind(this);
+    this.entities = new AllHtmlEntities();
 
-    this.metricKeys = CompareRunUtil.getKeys(this.props.metricLists, true);
-    this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, true);
+    this.metricKeys = CompareRunUtil.getKeys(this.props.metricLists, false);
+    this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, false);
 
     if (this.paramKeys.length + this.metricKeys.length < 2) {
       this.state = {disabled: true};
@@ -68,12 +65,23 @@ class CompareRunScatter extends Component {
     return value === undefined ? value : value.value;
   }
 
+  /**
+   * Encode HTML entities in a string (since Plotly's tooltips take HTML)
+   */
+  encodeHtml(str) {
+    return this.entities.encode(str);
+  }
+
   render() {
     if (this.state.disabled) {
-      return <div></div>;
+      return <div/>;
     }
 
-    const scatterData = [];
+    const keyLength = CompareRunScatter.MAX_PLOT_KEY_LENGTH;
+
+    const xs = [];
+    const ys = [];
+    const tooltips = [];
 
     this.props.runInfos.forEach((_, index) => {
       const x = this.getValue(index, this.state.x);
@@ -81,11 +89,12 @@ class CompareRunScatter extends Component {
       if (x === undefined || y === undefined) {
         return;
       }
-      scatterData.push({index, x: +x, y: +y});
+      xs.push(x);
+      ys.push(y);
+      tooltips.push(this.getPlotlyTooltip(index));
     });
 
-    return (<div>
-      <h2>Scatter Plot</h2>
+    return (<div className="responsive-table-container">
       <div className="container-fluid">
         <div className="row">
           <form className="col-xs-3">
@@ -99,41 +108,53 @@ class CompareRunScatter extends Component {
             </div>
           </form>
           <div className="col-xs-9">
-            <ResponsiveContainer width="100%" aspect={1.55}>
-              <ScatterChart>
-                <XAxis type="number" dataKey='x' name='x'>
-                  {this.renderAxisLabel('x')}
-                </XAxis>
-                <YAxis type="number" dataKey='y' name='y'>
-                  {this.renderAxisLabel('y')}
-                </YAxis>
-                <CartesianGrid/>
-                <Tooltip
-                  isAnimationActive={false}
-                  cursor={{strokeDasharray: '3 3'}}
-                  content={this.renderTooltip}
-                />
-                <Scatter
-                  data={scatterData}
-                  fill='#AE76A6'
-                  isAnimationActive={false}
-                />
-              </ScatterChart>
-            </ResponsiveContainer>
+            <Plot
+              data={[
+                {
+                  x: xs,
+                  y: ys,
+                  text: tooltips,
+                  hoverinfo: "text",
+                  type: 'scatter',
+                  mode: 'markers',
+                  marker: {
+                    size: 10,
+                    color: "rgba(200, 50, 100, .75)"
+                  },
+                },
+              ]}
+              layout={{
+                margin: {
+                  t: 30
+                },
+                hovermode: "closest",
+                xaxis: {
+                  title: this.encodeHtml(Utils.truncateString(this.state["x"].key, keyLength))
+                },
+                yaxis: {
+                  title: this.encodeHtml(Utils.truncateString(this.state["y"].key, keyLength))
+                }
+              }}
+              className={"scatter-plotly"}
+              config={{
+                responsive: true,
+                displaylogo: false,
+                scrollZoom: true,
+                modeBarButtonsToRemove: [
+                  "sendDataToCloud",
+                  "select2d",
+                  "lasso2d",
+                  "resetScale2d",
+                  "hoverClosestCartesian",
+                  "hoverCompareCartesian"
+                ]
+              }}
+              useResizeHandler
+            />
           </div>
         </div>
       </div>
     </div>);
-  }
-
-  renderAxisLabel(axis) {
-    const key = this.state[axis];
-    return (<Label
-      angle={axis === "x" ? 0 : -90}
-      offset={axis === "x" ? -5 : 5}
-      value={(key.isMetric ? "Metric" : "Parameter") + ": " + key.key}
-      position={axis === "x" ? "insideBottom" : "insideLeft"}
-    />);
   }
 
   renderSelect(axis) {
@@ -151,49 +172,36 @@ class CompareRunScatter extends Component {
       >
         <optgroup label="Parameter">
           {this.paramKeys.map((p) =>
-            <option key={p} value={"param-" + p}>{p}</option>
+            <option key={"param-" + p} value={"param-" + p}>{p}</option>
           )}
         </optgroup>
         <optgroup label="Metric">
           {this.metricKeys.map((m) =>
-            <option key={m} value={"metric-" + m}>{m}</option>
+            <option key={"metric-" + m} value={"metric-" + m}>{m}</option>
           )}
         </optgroup>
       </select>);
   }
 
-  renderTooltip(item) {
-    if (item.payload.length > 0) {
-      const i = item.payload[0].payload.index;
-      return (
-        <div className="panel panel-default scatter-tooltip">
-          <div className="panel-heading">
-            <h3 className="panel-title">{this.props.runInfos[i].run_uuid}</h3>
-          </div>
-          <div className="panel-body">
-            <div className="row">
-              <div className="col-xs-6">
-                <h4>Parameters</h4>
-                <ul>{
-                  this.props.paramLists[i].map((p) =>
-                    <li key={p.key}>{p.key}: <span className="value">{p.value}</span></li>
-                  )
-                }</ul>
-              </div>
-              <div className="col-xs-6">
-                <h4>Metrics</h4>
-                <ul>
-                  {this.props.metricLists[i].map((p) =>
-                    <li key={p.key}>{p.key}: {Utils.formatMetric(p.value)}</li>
-                  )}
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
+  getPlotlyTooltip(index) {
+    const keyLength = CompareRunScatter.MAX_PLOT_KEY_LENGTH;
+    const valueLength = CompareRunScatter.MAX_PLOT_VALUE_LENGTH;
+    const runName = this.props.runDisplayNames[index];
+    let result = `<b>${this.encodeHtml(runName)}</b><br>`;
+    const paramList = this.props.paramLists[index];
+    paramList.forEach(p => {
+      result += this.encodeHtml(Utils.truncateString(p.key, keyLength)) + ': '
+        + this.encodeHtml(Utils.truncateString(p.value, valueLength)) + '<br>';
+    });
+    const metricList = this.props.metricLists[index];
+    if (metricList.length > 0) {
+      result += (paramList.length > 0) ? '<br>' : '';
+      metricList.forEach(m => {
+        result += this.encodeHtml(Utils.truncateString(m.key, keyLength)) + ': '
+          + Utils.formatMetric(m.value) + '<br>';
+      });
     }
-    return null;
+    return result;
   }
 }
 

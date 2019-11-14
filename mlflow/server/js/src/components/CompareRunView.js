@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { getExperiment, getParams, getRunInfo } from '../reducers/Reducers';
+import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import { connect } from 'react-redux';
 import './CompareRunView.css';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
@@ -11,6 +11,10 @@ import { getLatestMetrics } from '../reducers/MetricReducer';
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import CompareRunUtil from './CompareRunUtil';
 import Utils from '../utils/Utils';
+import { Tabs } from 'antd';
+import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
+
+const TabPane = Tabs.TabPane;
 
 class CompareRunView extends Component {
   static propTypes = {
@@ -19,11 +23,19 @@ class CompareRunView extends Component {
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
+    // Array of user-specified run names. Elements may be falsy (e.g. empty string or undefined) if
+    // a run was never given a name.
+    runNames: PropTypes.arrayOf(String).isRequired,
+    // Array of names to use when displaying runs. No element in this array should be falsy;
+    // we expect this array to contain user-specified run names, or default display names
+    // ("Run <uuid>") for runs without names.
+    runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
 
   render() {
     const experiment = this.props.experiment;
     const experimentId = experiment.getExperimentId();
+    const { runInfos, runNames } = this.props;
 
     return (
       <div className="CompareRunView">
@@ -48,6 +60,23 @@ class CompareRunView extends Component {
               </tr>
             </thead>
             <tbody>
+              <tr>
+                <th scope="row" className="data-value">Run Name:</th>
+                {runNames.map((runName, i) => {
+                  return (<td
+                    className="meta-info"
+                    key={runInfos[i].run_uuid}
+                    >
+                      <div
+                        className="truncate-text single-line"
+                        style={styles.compareRunTableCellContents}
+                      >
+                        {runName}
+                      </div>
+                    </td>);
+                }
+                )}
+              </tr>
               <tr>
                 <th scope="row" className="data-value">Start Time:</th>
                 {this.props.runInfos.map((run) => {
@@ -87,8 +116,17 @@ class CompareRunView extends Component {
             </tbody>
           </table>
         </div>
-
-        <CompareRunScatter runUuids={this.props.runUuids}/>
+        <Tabs>
+          <TabPane tab="Scatter Plot" key="1">
+            <CompareRunScatter
+              runUuids={this.props.runUuids}
+              runDisplayNames={this.props.runDisplayNames}
+            />
+          </TabPane>
+          <TabPane tab="Parallel Coordinates Plot" key="2">
+            <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids}/>
+          </TabPane>
+        </Tabs>
       </div>
     );
   }
@@ -108,7 +146,9 @@ class CompareRunView extends Component {
         <th scope="row" className="rowHeader">{headerMap(k, data[k])}</th>
         {data[k].map((value, i) =>
           <td className="data-value" key={this.props.runInfos[i].run_uuid}>
-            {value === undefined ? "" : formatter(value)}
+            <span className="truncate-text single-line" style={styles.compareRunTableCellContents}>
+              {value === undefined ? "" : formatter(value)}
+            </span>
           </td>
         )}
       </tr>;
@@ -116,18 +156,29 @@ class CompareRunView extends Component {
   }
 }
 
+const styles = {
+  compareRunTableCellContents: {
+    maxWidth: '200px',
+  },
+};
+
 const mapStateToProps = (state, ownProps) => {
   const runInfos = [];
   const metricLists = [];
   const paramLists = [];
+  const runNames = [];
+  const runDisplayNames = [];
   const { experimentId, runUuids } = ownProps;
   const experiment = getExperiment(experimentId, state);
   runUuids.forEach((runUuid) => {
     runInfos.push(getRunInfo(runUuid, state));
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
+    const runTags = getRunTags(runUuid, state);
+    runDisplayNames.push(Utils.getRunDisplayName(runTags, runUuid));
+    runNames.push(Utils.getRunName(runTags));
   });
-  return { experiment, runInfos, metricLists, paramLists };
+  return { experiment, runInfos, metricLists, paramLists, runNames, runDisplayNames };
 };
 
 export default connect(mapStateToProps)(CompareRunView);

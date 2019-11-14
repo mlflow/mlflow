@@ -1,33 +1,51 @@
-sudo: true
 language: python
+
+dist: trusty
 
 services:
   - docker
 
 matrix:
   include:
-    - python: 2.7
-    - python: 3.6
+    - stage: small
+    - language: python
+      name: "Lint (Python 3.6)"
+      python: 3.6
+      install:
+        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+        - pip install -r ./travis/lint-requirements.txt
+      script:
+        - ./lint.sh
     - language: r
-      dist: trusty
+      name: "R"
       cache: packages
       before_install:
+        # cache packages dramatically decreases build time, but it must not include mlflow
+        - rm -rf /home/travis/R/Library/mlflow
         - export NOT_CRAN=true
         - cd mlflow/R/mlflow
         - Rscript -e 'install.packages("devtools")'
-        - Rscript -e 'devtools::install_deps(dependencies = TRUE)'
+        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = "always")'
         - cd ../../..
+      install:
+        - source ./travis/install-common-deps.sh
       script:
         - cd mlflow/R/mlflow
+        # Building the package here populates the /home/travis/R/Library cache,
+        # and is also used when python forks into R (e.g., rfunc via models CLI).
         - R CMD build .
-        - R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
-        - cd tests
         - export LINTR_COMMENT_BOT=false
+        - cd tests
         - Rscript ../.travis.R
       after_success:
         - export COVR_RUNNING=true
         - Rscript -e 'covr::codecov()'
+      after_failure:
+        - "[ -r /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log ] && cat /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
     - language: java
+      name: "Java"
+      install:
+        - source ./travis/install-common-deps.sh
       script:
         - cd mlflow/java
         - mvn clean package -q
@@ -35,70 +53,102 @@ matrix:
       node_js:
         - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
       install:
+      name: "Node.js"
       script:
         - cd mlflow/server/js
         - npm i
-        - ./lint.sh
+        - npm run lint
         - npm test -- --coverage
+    - stage: large
+    - language: python
+      python: 2.7
+      install:
+        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-large-python-tests.sh
+    # Run Windows tests in the "large" test builder so that we don't spend Travis executor
+    # time running Windows tests if Python 3 small tests fail.
+    - os: windows
+      name: "Windows"
+      language: sh
+      before_install:
+        - choco install python3 --version=3.7.4
+      install:
+        - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
+        - pip install -r dev-requirements.txt
+        - pip install -r travis/small-requirements.txt
+        - pip install -e .
+      script:
+        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects tests
+    # Run small Python 2.7 tests in the "large" test builder so that we don't spend Travis executor
+    # time running Python 2.7 tests if Python 3 small tests fail.
+    - language: python
+      python: 2.7
+      install:
+        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-small-python-tests.sh
+    - language: python
+      python: 3.6
+      name: "Docs (rsthtml)"
+      install:
+        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+        - pip install sphinx==2.2.1 sphinx-click==2.3.0
+      script:
+        - cd docs
+        - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
 
+# Travis runs an extra top-level job for each build stage - depending on the build stage, we either
+# run small or large Python tests below.
 install:
-  - sudo mkdir -p /travis-install
-  - sudo chown travis /travis-install
-  # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
-  # We do this conditionally because it saves us some downloading if the
-  # version is the same.
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
+  - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
+       echo "skipping this step on windows.";
+    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+      INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh &&
+      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
+      sudo unzip /travis-install/protoc.zip -d /usr;
     else
-      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
+      INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
     fi
 
-  - bash /travis-install/miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  # Useful for debugging any issues with conda
-  - conda info -a
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
-  - source activate test-environment
-  - python --version
-  - pip install --upgrade pip
-  # Install Python test dependencies only if we're running Python tests
-  - if [[ ! -z "$TRAVIS_PYTHON_VERSION" ]]; then
-      pip install -r dev-requirements.txt -q;
-      pip install -r test-requirements.txt -q;
-    fi
-  - pip install .
-  - export MLFLOW_HOME=$(pwd)
-  # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
-  - sudo rm -f /etc/boto.cfg
-  # Install protoc
-  - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
-  - sudo unzip /travis-install/protoc.zip -d /usr
 script:
-  - ./lint.sh
-  - sudo ./test-generate-protos.sh
-  - pip list
-  - which mlflow
-  - echo $MLFLOW_HOME
-  - SAGEMAKER_OUT=$(mktemp)
-  - if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
-      echo "Sagemaker container build succeeded.";
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
+       echo "skipping this step on windows.";
+    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+      ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
     else
-      echo "Sagemaker container build failed, output:";
-      cat $SAGEMAKER_OUT;
+      ./travis/run-large-python-tests.sh;
+      ./travis/test-anaconda-compatibility.sh;
     fi
-  # Run tests that don't leverage specific ML frameworks
-  - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras
-    --ignore=tests/pytorch --ignore=tests/pyfunc--ignore=tests/sagemaker --ignore=tests/sklearn
-    --ignore=tests/spark --ignore=tests/tensorflow
-  # Run ML framework tests in their own Python processes. TODO: find a better method of isolating
-  # tests.
-  - pytest --verbose tests/h2o --large
-  - pytest --verbose tests/keras --large
-  - pytest --verbose tests/pytorch --large
-  - pytest --verbose tests/pyfunc --large
-  - pytest --verbose tests/sagemaker --large
-  - pytest --verbose tests/sklearn --large
-  - pytest --verbose tests/spark --large
-  - pytest --verbose tests/tensorflow --large
+
+notifications:
+  # Send Slack notifications on build being broken or fixed, and email (Pagerduty) notifications
+  # on build being broken. See
+  # https://docs.travis-ci.com/user/notifications/#changing-notification-frequency for more info.
+  email:
+    recipients:
+    - secure: "UFN6LLWRASxILSKY/hD5ugxP78Bhuq58X4H0ar6BnNl6SS70bhJFbJFuvkWBoLHAhydV876h2nBZLfTUCvf3\
+      RyOz4nvkGfRaFH3ZUnseSZSSXydFOixYjk+byDy7sjzjTKuqtQu2WKqZxT8cdtP2lWc7y/LPlLBR4cYKjQZZZWIGKef/Q\
+      JuHp50HwLq3LKqAsg9EpukBqkfxncDItvr2Fis9krRgc288BZkwQh+G5S9WNFY1Bu7G60bzfbOJJYTV3TQPnPpaMh+IsG\
+      0G+xC/gZV7bEPDHEIUFRDnnXK9msvhu55plkOnAbHWnAYiZruVWpmIj76wayjEafOiTKp8G6lVtfDZdQ+cX4c8pN4Lq37\
+      wolvZ+ZuxMt51D03iUQ5aWi0TXyV6ZMnB7r3k0yWlLr7faHt1b1bvtAPVasKKUHHjvoc0ehz+K2oaJ/my275L+gytZs6b\
+      nLUZQ0Qclcsv/Z5szquf5HwV76WKIy+nMceGYtmMwHMbQv0Z+CEGYqdeD/PwMT7HQc/NwsOQ2CL/WNRqI/7E7EZHY+8Xp\
+      anyvXFez3SsalJ8xJM7kmH2zAAHKciZQMin9ND7kWaqYOdhpPxhWcqUtyAI7N4YMKrnUap2H9OOLeKDyzhR/m9D9w5DoQ\
+      MotE8n5J3OtQQ8Yl304J/uR2QX4YwulMQKr/BmrQs="
+    on_success: "never"
+    on_failure: "always"
+# TODO(sid): Reenable Slack notifications on build failures once we've de-noised them
+#   slack:
+#     rooms:
+#       - secure: "bs4DSU5ZAkZ30StvWzzQHo+X97YIjPMKy2z2kNpbic1ScujfdkZvnYB/d/0FMWrQUTs7sY/TS918f0HvUU\
+#         gMX9bdobPoBOcBLe34pCtidrCbMzm1T3h1aRjeLKXH0IbeiuZjd0MTp0RSvTFyDknAculoZRbtFoAqwOEgkQ9jm9Feu\
+#         3cNck6TreSIxA+gf5BCetJhOJvUcCGKAUIfXxOKOp/22E+G5HoJSj9+RIEijOzNAQ9Vd7kehA/s454KSsW5WrbGeX/b\
+#         UadLr/y4MkTBH59B7E+ZUHnOUZIuptZb2pR808AvdJW3Fwc6s0sa8hmjjBZH3TgnTHBUwZ9VG+x1Q7gQFG6Ug7WQ+5N\
+#         FwIGqgYshaTomFSh9W7ITOPESlYGfW13xCO/bRGNj8DCB09aIiNgF4mPfJIF2H0yuiT4mJ9fIQQi17YuoC1Zb2gsA50\
+#         D5zZfYQosnPmgjVDYs4Jr12pAQIrk/XnC8RFA1NlmDtoDe7qguY+wdxKaC0D3yleT2DLWaxB5iSNZlbamGEFfbcB4xb\
+#         HHVb7QR2L/t3+ITsUcQ3bf1SOGnIrzVCYFFe+KzshQSaEP9fcRA9cSCbKkdQIgmsN7XOq+rlaR+S3bj2XN0g1fvGy89\
+#         7rzw6+BBe11y9g8p2yiZGKxzWDUDHseAzZllUeUfEAsr1aeG7R4y1do="
+#     on_success: "change"
+#     on_failure: "always"
+#     on_pull_requests: false

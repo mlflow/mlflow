@@ -4,7 +4,7 @@ mlflow: R interface for MLflow
 [![Build
 Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-ci.org/rstudio/mlflow)
 [![CRAN\_Status\_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow)
-[![codecov](https://codecov.io/gh/rstudio/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/rstudio/mlflow)
+[![codecov](https://codecov.io/gh/mlflow/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/mlflow/mlflow)
 
   - Install [MLflow](https://mlflow.org/) from R to track experiments
     locally.
@@ -13,24 +13,45 @@ Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-
 
 ## Installation
 
-You can install **mlflow** from GitHub as follows:
+Install `mlflow` followed by installing the `mlflow` runtime as follows:
 
 ``` r
-devtools::install_github("rstudio/mlflow", subdir = "R/mlflow")
+devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
+mlflow::install_mlflow()
 ```
 
-Then, install MLflow to manage models and experiments locally:
+Notice also that [Anaconda](https://www.anaconda.com/download/) or
+[Miniconda](https://conda.io/miniconda.html) need to be manually
+installed.
+
+### Development
+
+Install the `mlflow` package as follows:
 
 ``` r
-library(mlflow)
-mlflow_install()
+devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
 ```
 
-To upgrade to the latest version of mlflow, run the following command
-and restart your r session:
+Then install the latest released `mlflow` runtime.
 
 ``` r
-devtools::install_github("rstudio/mlflow", subdir = "R/mlflow")
+# Install latest released version
+mlflow::install_mlflow()
+```
+
+However, currently, the development runtime of `mlflow` is also
+required; which means you also need to download or clone the `mlflow`
+GitHub repo:
+
+``` bash
+git clone https://github.com/mlflow/mlflow
+```
+
+And upgrade the runtime to the development version as follows:
+
+``` r
+# Upgrade to the latest development version
+reticulate::conda_install("r-mlflow", "<local github repo>", pip = TRUE)
 ```
 
 ## Tracking
@@ -45,19 +66,10 @@ and activate a new experiment locally using `mlflow` as follows:
 
 ``` r
 library(mlflow)
-mlflow_set_active_experiment("Test")
+mlflow_set_experiment("Test")
 ```
 
-Then you can list your experiments directly from R,
-
-``` r
-mlflow_list_experiments()
-```
-
-    ##   experiment_id    name artifact_location
-    ## 1             0 Default          mlruns/0
-
-or using MLflows user interface by
+Then you can list view your experiments from MLflows user interface by
 running:
 
 ``` r
@@ -90,10 +102,10 @@ or implicitly used by running `R` with `mlflow` from the terminal as
 follows:
 
 ``` bash
-mlflow run examples/R/simple --entry-point train.R
+mlflow run examples/r_wine --entry-point train.R
 ```
 
-Notice that is equivalent to running from `examples/R/simple`,
+Notice that is equivalent to running from `examples/r_wine`,
 
 ``` bash
 Rscript -e "mlflow::mlflow_source('train.R')"
@@ -111,7 +123,10 @@ column <- mlflow_log_param("column", 1)
 mlflow_log_metric("rows", nrow(iris))
 
 # train model
-model <- lm(Sepal.Width ~ iris[[column]], iris)
+model <- lm(
+  Sepal.Width ~ x,
+  data.frame(Sepal.Width = iris$Sepal.Width, x = iris[,column])
+)
 
 # log models intercept
 mlflow_log_metric("intercept", model$coefficients[["(Intercept)"]])
@@ -129,12 +144,10 @@ library(mlflow)
 # define parameters
 my_int <- mlflow_param("my_int", 1, "integer")
 my_num <- mlflow_param("my_num", 1.0, "numeric")
-my_str <- mlflow_param("my_str", "a", "string")
 
 # log parameters
 mlflow_log_param("param_int", my_int)
 mlflow_log_param("param_num", my_num)
-mlflow_log_param("param_str", my_str)
 ```
 
 Then run `mlflow run` with custom parameters as
@@ -146,29 +159,7 @@ Then run `mlflow run` with custom parameters as
     === Running command 'source /miniconda2/bin/activate mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709 && Rscript -e "mlflow::mlflow_source('params_example.R')" --args --my_int 10 --my_num 20.0 --my_str XYZ' in run with ID '191b489b2355450a8c3cc9bf96cb1aa3' === 
     === Run (ID '191b489b2355450a8c3cc9bf96cb1aa3') succeeded ===
 
-Run results that we can view with `mlflow_ui()` or `mlflow_get_run()` as
-follows:
-
-``` r
-mlflow_get_run("191b489b2355450a8c3cc9bf96cb1aa3")
-```
-
-    $info
-                              run_uuid experiment_id  name source_type source_name
-    1 191b489b2355450a8c3cc9bf96cb1aa3             0 Run 3     PROJECT examples
-        user_id   status    start_time      end_time                           source_version
-    1 user_name FINISHED 1535045372367 1535045380361 12871326fd3123f793b6afaa81b2d3c81493c84a
-      entry_point_name                                        artifact_uri
-    1 params_example.R mlruns/0/191b489b2355450a8c3cc9bf96cb1aa3/artifacts
-    
-    $data
-      params.key params.value
-    1  param_str          XYZ
-    2     my_num         20.0
-    3  param_int           10
-    4  param_num           20
-    5     my_str          XYZ
-    6     my_int           10
+Run results that we can view with `mlflow_ui()`.
 
 ## Models
 
@@ -185,9 +176,9 @@ following lines to the previous `train.R` script:
 # train model (...)
 
 # save model
-mlflow_save_model(function(df, model) {
-  predict(model, df)
-})
+mlflow_save_model(
+  crate(~ stats::predict(model, .x), model)
+)
 ```
 
 And trigger a run with that will also save your model as follows:
@@ -206,7 +197,7 @@ The directory containing the model looks as follows:
 dir("model")
 ```
 
-    ## [1] "MLmodel"     "r_model.bin"
+    ## [1] "crate.bin" "MLmodel"
 
 and the model definition `model/MLmodel` like:
 
@@ -214,64 +205,29 @@ and the model definition `model/MLmodel` like:
 cat(paste(readLines("model/MLmodel"), collapse = "\n"))
 ```
 
-    ## time_created: 1.535526e+09
     ## flavors:
-    ##   r_function:
+    ##   crate:
     ##     version: 0.1.0
-    ##     model: r_model.bin
+    ##     model: crate.bin
+    ## time_created: 18-10-03T22:18:25.25.55
+    ## run_id: 4286a3d27974487b95b19e01b7b3caab
 
 Later on, the R model can be deployed which will perform predictions
 using
     `mlflow_rfunc_predict()`:
 
 ``` r
-mlflow_rfunc_predict("model", iris)
+mlflow_rfunc_predict("model", data = data.frame(x = c(0.3, 0.2)))
 ```
 
     ## Warning in mlflow_snapshot_warning(): Running without restoring the
     ## packages snapshot may not reload the model correctly. Consider running
     ## 'mlflow_restore_snapshot()' or setting the 'restore' parameter to 'TRUE'.
 
-    ## 3.103334366486683.115711326079513.128088285672343.134276765468753.10952284628313.084768927097443.134276765468753.10952284628313.146653725061583.115711326079513.084768927097443.121899805875933.121899805875933.1528422048583.060015007911783.06620348770823.084768927097443.103334366486683.06620348770823.103334366486683.084768927097443.103334366486683.134276765468753.103334366486683.121899805875933.10952284628313.10952284628313.097145886690273.097145886690273.128088285672343.121899805875933.084768927097443.097145886690273.078580447301023.115711326079513.10952284628313.078580447301023.115711326079513.146653725061583.103334366486683.10952284628313.140465245265173.146653725061583.10952284628313.103334366486683.121899805875933.103334366486683.134276765468753.090957406893853.10952284628312.985753250354813.02288412913332.991941730151223.078580447301023.016695649336883.06620348770823.029072608929713.115711326079513.010507169540473.097145886690273.10952284628313.053826528115373.047638048318953.041449568522543.072391967504613.004318689744053.072391967504613.060015007911783.035261088726123.072391967504613.053826528115373.041449568522543.029072608929713.041449568522543.02288412913333.010507169540472.998130209947643.004318689744053.047638048318953.06620348770823.078580447301023.078580447301023.060015007911783.047638048318953.084768927097443.047638048318953.004318689744053.029072608929713.072391967504613.078580447301023.078580447301023.041449568522543.060015007911783.10952284628313.072391967504613.06620348770823.06620348770823.035261088726123.103334366486683.06620348770823.029072608929713.060015007911782.979564770558393.029072608929713.016695649336882.948622371576323.115711326079512.967187810965573.004318689744052.973376290761983.016695649336883.02288412913332.998130209947643.06620348770823.060015007911783.02288412913333.016695649336882.942433891779912.942433891779913.047638048318952.991941730151223.072391967504612.942433891779913.029072608929713.004318689744052.973376290761983.035261088726123.041449568522543.02288412913332.973376290761982.960999331169152.930056932187083.02288412913333.029072608929713.041449568522542.942433891779913.029072608929713.02288412913333.047638048318952.991941730151223.004318689744052.991941730151223.060015007911782.998130209947643.004318689744053.004318689744053.029072608929713.016695649336883.035261088726123.05382652811537
+    ## 3.400381396714573.40656987651099
 
-    ##        1        2        3        4        5        6        7        8 
-    ## 3.103334 3.115711 3.128088 3.134277 3.109523 3.084769 3.134277 3.109523 
-    ##        9       10       11       12       13       14       15       16 
-    ## 3.146654 3.115711 3.084769 3.121900 3.121900 3.152842 3.060015 3.066203 
-    ##       17       18       19       20       21       22       23       24 
-    ## 3.084769 3.103334 3.066203 3.103334 3.084769 3.103334 3.134277 3.103334 
-    ##       25       26       27       28       29       30       31       32 
-    ## 3.121900 3.109523 3.109523 3.097146 3.097146 3.128088 3.121900 3.084769 
-    ##       33       34       35       36       37       38       39       40 
-    ## 3.097146 3.078580 3.115711 3.109523 3.078580 3.115711 3.146654 3.103334 
-    ##       41       42       43       44       45       46       47       48 
-    ## 3.109523 3.140465 3.146654 3.109523 3.103334 3.121900 3.103334 3.134277 
-    ##       49       50       51       52       53       54       55       56 
-    ## 3.090957 3.109523 2.985753 3.022884 2.991942 3.078580 3.016696 3.066203 
-    ##       57       58       59       60       61       62       63       64 
-    ## 3.029073 3.115711 3.010507 3.097146 3.109523 3.053827 3.047638 3.041450 
-    ##       65       66       67       68       69       70       71       72 
-    ## 3.072392 3.004319 3.072392 3.060015 3.035261 3.072392 3.053827 3.041450 
-    ##       73       74       75       76       77       78       79       80 
-    ## 3.029073 3.041450 3.022884 3.010507 2.998130 3.004319 3.047638 3.066203 
-    ##       81       82       83       84       85       86       87       88 
-    ## 3.078580 3.078580 3.060015 3.047638 3.084769 3.047638 3.004319 3.029073 
-    ##       89       90       91       92       93       94       95       96 
-    ## 3.072392 3.078580 3.078580 3.041450 3.060015 3.109523 3.072392 3.066203 
-    ##       97       98       99      100      101      102      103      104 
-    ## 3.066203 3.035261 3.103334 3.066203 3.029073 3.060015 2.979565 3.029073 
-    ##      105      106      107      108      109      110      111      112 
-    ## 3.016696 2.948622 3.115711 2.967188 3.004319 2.973376 3.016696 3.022884 
-    ##      113      114      115      116      117      118      119      120 
-    ## 2.998130 3.066203 3.060015 3.022884 3.016696 2.942434 2.942434 3.047638 
-    ##      121      122      123      124      125      126      127      128 
-    ## 2.991942 3.072392 2.942434 3.029073 3.004319 2.973376 3.035261 3.041450 
-    ##      129      130      131      132      133      134      135      136 
-    ## 3.022884 2.973376 2.960999 2.930057 3.022884 3.029073 3.041450 2.942434 
-    ##      137      138      139      140      141      142      143      144 
-    ## 3.029073 3.022884 3.047638 2.991942 3.004319 2.991942 3.060015 2.998130 
-    ##      145      146      147      148      149      150 
-    ## 3.004319 3.004319 3.029073 3.016696 3.035261 3.053827
+    ##        1        2 
+    ## 3.400381 3.406570
 
 ## Deployment
 
@@ -336,14 +292,4 @@ follows:
 
 ## Contributing
 
-In order to contribute, follow the [MLflow contribution
-guidelines](../../CONTRIBUTING.rst). After performing python changes,
-you can make them available in R by running:
-
-``` r
-reticulate::conda_install("r-mlflow", "../../.", pip = TRUE)
-```
-
-Please also follow the recommendations from the [Advanced R - Style
-Guide](http://adv-r.had.co.nz/Style.html) regarding naming and styling,
-run `lintr::lint_package()` to find styling issues.
+See the [MLflow contribution guidelines](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst).

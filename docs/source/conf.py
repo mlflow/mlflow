@@ -35,6 +35,7 @@ from languagesections import *
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
+    'sphinx_click.ext',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -53,7 +54,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'MLflow'
-copyright = 'Databricks 2018. All rights reserved'
+copyright = 'Databricks 2019. All rights reserved'
 author = 'Databricks'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -304,3 +305,15 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
+
+# Enable nitpicky mode to log warnings for broken references
+nitpicky = True
+nitpick_ignore = [
+    # Ignore "parent class reference not found" errors for subclasses of ``object``
+    ('py:class', 'object'),
+]
+
+linkcheck_ignore = [
+    # Ignore local URLs when validating external links
+    r'http://localhost:\d+/?',
+]

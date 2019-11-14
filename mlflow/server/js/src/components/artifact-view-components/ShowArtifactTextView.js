@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import './ShowArtifactTextView.css';
-import { CSRF_HEADER_NAME, getCsrfToken } from '../../setupCsrf';
+import { getRequestHeaders } from '../../setupAjaxHeaders';
 
 class ShowArtifactTextView extends Component {
   constructor(props) {
@@ -60,7 +60,7 @@ class ShowArtifactTextView extends Component {
     const getArtifactRequest = new Request(getSrc(this.props.path, this.props.runUuid), {
       method: 'GET',
       redirect: 'follow',
-      headers: new Headers({ [CSRF_HEADER_NAME]: getCsrfToken() })
+      headers: new Headers(getRequestHeaders(document.cookie))
     });
     fetch(getArtifactRequest).then((response) => {
       return response.blob();

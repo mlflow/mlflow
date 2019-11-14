@@ -1,31 +1,41 @@
+import yaml
+
 from mlflow.utils import PYTHON_VERSION
 
-_conda_header = """name: mlflow-env
+_conda_header = """\
+name: mlflow-env
 channels:
-  - anaconda
   - defaults
-dependencies:"""
+"""
 
 
-def _mlflow_conda_env(path, additional_conda_deps=None, additional_pip_deps=None):
+def _mlflow_conda_env(path=None, additional_conda_deps=None, additional_pip_deps=None,
+                      additional_conda_channels=None, install_mlflow=True):
     """
-    Create conda environment file. Contains default dependency on current python version.
-    :param path: local filesystem path where the conda env file is to be created.
+    Creates a Conda environment with the specified package channels and dependencies.
+
+    :param path: Local filesystem path where the conda env file is to be written. If unspecified,
+                 the conda env will not be written to the filesystem; it will still be returned
+                 in dictionary format.
     :param additional_conda_deps: List of additional conda dependencies passed as strings.
     :param additional_pip_deps: List of additional pip dependencies passed as strings.
-    :return: path where the files has been created
+    :param additional_channels: List of additional conda channels to search when resolving packages.
+    :return: ``None`` if ``path`` is specified. Otherwise, the a dictionary representation of the
+             Conda environment.
     """
-    conda_deps = ["python={}".format(PYTHON_VERSION)]
-    if additional_conda_deps:
-        conda_deps += additional_conda_deps
-    pip_deps = additional_pip_deps
-    with open(path, "w") as f:
-        f.write(_conda_header)
-        prefix = "\n  - "
-        f.write(prefix + prefix.join(conda_deps))
-        if pip_deps:
-            f.write(prefix + "pip:")
-            prefix = "\n    - "
-            f.write(prefix + prefix.join(pip_deps))
-        f.write("\n")
-    return path
+    env = yaml.safe_load(_conda_header)
+    env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
+    pip_deps = (["mlflow"] if install_mlflow else []) + (
+        additional_pip_deps if additional_pip_deps else [])
+    if additional_conda_deps is not None:
+        env["dependencies"] += additional_conda_deps
+    env["dependencies"].append({"pip": pip_deps})
+    if additional_conda_channels is not None:
+        env["channels"] += additional_conda_channels
+
+    if path is not None:
+        with open(path, "w") as out:
+            yaml.safe_dump(env, stream=out, default_flow_style=False)
+        return None
+    else:
+        return env

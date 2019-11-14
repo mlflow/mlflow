@@ -1,26 +1,32 @@
+#' @rdname mlflow_save_model
 #' @export
-mlflow_save_flavor.crate <- function(x, path = "model") {
-  serialized <- serialize(x, NULL)
+mlflow_save_model.crate <- function(model, path, ...) {
+  if (dir.exists(path)) unlink(path, recursive = TRUE)
+  dir.create(path)
+
+  serialized <- serialize(model, NULL)
 
   saveRDS(
     serialized,
-    file.path(path, "r_crate.bin")
+    file.path(path, "crate.bin")
   )
 
-  list(
-    r_crate = list(
+  res <- list(
+    crate = list(
       version = "0.1.0",
-      model = "r_crate.bin"
+      model = "crate.bin"
     )
   )
+
+  mlflow_write_model_spec(path, list(flavors = res))
 }
 
 #' @export
-mlflow_load_flavor.crate <- function(model_path) {
-  unserialize(readRDS(model_path))
+mlflow_load_flavor.mlflow_flavor_crate <- function(flavor, model_path) {
+  unserialize(readRDS(file.path(model_path, "crate.bin")))
 }
 
 #' @export
-mlflow_predict_flavor.crate <- function(model, data) {
-  model(data)
+mlflow_predict.crate <- function(model, data, ...) {
+  do.call(model, list(data, ...))
 }

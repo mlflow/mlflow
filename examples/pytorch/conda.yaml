@@ -1,0 +1,11 @@
+name: pytorch_example
+channels:
+  - defaults
+  - pytorch
+dependencies:
+  - python=3.6
+  - pytorch
+  - torchvision
+  - pip:
+    - mlflow>=1.0
+    - tensorboardX

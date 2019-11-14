@@ -44,9 +44,11 @@ class MetricPage extends Component {
       view = <NotFoundPage/>;
     }
     return (
-      <RequestStateWrapper requestIds={this.requestIds}>
-        {view}
-      </RequestStateWrapper>
+      <div className='App-content'>
+        <RequestStateWrapper requestIds={this.requestIds}>
+          {view}
+        </RequestStateWrapper>
+      </div>
     );
   }
 }

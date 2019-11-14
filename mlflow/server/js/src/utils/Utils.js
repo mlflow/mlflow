@@ -4,6 +4,9 @@ import notebookSvg from '../static/notebook.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
+import qs from 'qs';
+import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
+import { message } from 'antd';
 
 class Utils {
   /**
@@ -28,15 +31,35 @@ class Utils {
   }
 
   static runNameTag = 'mlflow.runName';
+  static sourceNameTag = 'mlflow.source.name';
+  static sourceTypeTag = 'mlflow.source.type';
+  static gitCommitTag = 'mlflow.source.git.commit';
+  static entryPointTag = 'mlflow.project.entryPoint';
+  static userTag = 'mlflow.user';
 
   static formatMetric(value) {
-    if (Math.abs(value) < 10) {
+    if (value === 0) {
+      return '0';
+    } else if (Math.abs(value) < 1e-3) {
+      return value.toExponential(3).toString();
+    } else if (Math.abs(value) < 10) {
       return (Math.round(value * 1000) / 1000).toString();
     } else if (Math.abs(value) < 100) {
       return (Math.round(value * 100) / 100).toString();
     } else {
       return (Math.round(value * 10) / 10).toString();
     }
+  }
+
+  /**
+   * Helper method for that returns a truncated version of the passed-in string (with trailing
+   * ellipsis) if the string is longer than maxLength. Otherwise, just returns the passed-in string.
+   */
+  static truncateString(string, maxLength) {
+    if (string.length > maxLength) {
+      return string.slice(0, maxLength - 3) + "...";
+    }
+    return string;
   }
 
   /**
@@ -58,10 +81,40 @@ class Utils {
   /**
    * Format timestamps from millisecond epoch time.
    */
-  static formatTimestamp(timestamp) {
+  static formatTimestamp(timestamp, format = 'yyyy-mm-dd HH:MM:ss') {
+    if (timestamp === undefined) {
+      return '(unknown)';
+    }
     const d = new Date(0);
     d.setUTCMilliseconds(timestamp);
-    return dateFormat(d, "yyyy-mm-dd HH:MM:ss");
+    return dateFormat(d, format);
+  }
+
+  static timeSince(date) {
+    const seconds = Math.max(0, Math.floor((new Date() - date) / 1000));
+
+    let interval = Math.floor(seconds / 31536000);
+
+    if (interval >= 1) {
+      return interval + ' year' + (interval === 1 ? '' : 's');
+    }
+    interval = Math.floor(seconds / 2592000);
+    if (interval >= 1) {
+      return interval + ' month' + (interval === 1 ? '' : 's');
+    }
+    interval = Math.floor(seconds / 86400);
+    if (interval >= 1) {
+      return interval + ' day' + (interval === 1 ? '' : 's');
+    }
+    interval = Math.floor(seconds / 3600);
+    if (interval >= 1) {
+      return interval + ' hour' + (interval === 1 ? '' : 's');
+    }
+    interval = Math.floor(seconds / 60);
+    if (interval >= 1) {
+      return interval + ' minute' + (interval === 1 ? '' : 's');
+    }
+    return Math.floor(seconds) + ' seconds';
   }
 
   /**
@@ -83,10 +136,6 @@ class Utils {
     }
   }
 
-  static formatUser(userId) {
-    return userId.replace(/@.*/, "");
-  }
-
   static baseName(path) {
     const pieces = path.split("/");
     return pieces[pieces.length - 1];
@@ -100,31 +149,94 @@ class Utils {
     return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
 
+  static getGitLabRegex() {
+    return /[@/]gitlab.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
+  }
+
+  static getBitbucketRegex() {
+    return /[@/]bitbucket.org[:/]([^/.]+)\/([^/#]+)#?(.*)/;
+  }
+
+  static getGitRepoUrl(sourceName) {
+    const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
+    const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
+    const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
+    let url = null;
+    if (gitHubMatch || gitLabMatch) {
+      const baseUrl = gitHubMatch ? "https://github.com/" : "https://gitlab.com/";
+      const match = gitHubMatch || gitLabMatch;
+      url = baseUrl + match[1] + "/" + match[2].replace(/.git/, '');
+      if (match[3]) {
+        url = url + "/tree/master/" + match[3];
+      }
+    } else if (bitbucketMatch) {
+      const baseUrl = "https://bitbucket.org/";
+      url = baseUrl + bitbucketMatch[1] + "/" + bitbucketMatch[2].replace(/.git/, '');
+      if (bitbucketMatch[3]) {
+        url = url + "/src/master/" + bitbucketMatch[3];
+      }
+    }
+    return url;
+  }
+
+  static getGitCommitUrl(sourceName, sourceVersion) {
+    const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
+    const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
+    const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
+    let url = null;
+    if (gitHubMatch || gitLabMatch) {
+      const baseUrl = gitHubMatch ? "https://github.com/" : "https://gitlab.com/";
+      const match = gitHubMatch || gitLabMatch;
+      url = (baseUrl + match[1] + "/" + match[2].replace(/.git/, '') +
+        "/tree/" + sourceVersion) + "/" + match[3];
+    } else if (bitbucketMatch) {
+      const baseUrl = "https://bitbucket.org/";
+      url = (baseUrl + bitbucketMatch[1] + "/" + bitbucketMatch[2].replace(/.git/, '') +
+        "/src/" + sourceVersion) + "/" + bitbucketMatch[3];
+    }
+    return url;
+  }
+
+  /**
+   * Returns a copy of the provided URL with its query parameters set to `queryParams`.
+   * @param url URL string like "http://my-mlflow-server.com/#/experiments/9.
+   * @param queryParams Optional query parameter string like "?param=12345". Query params provided
+   *        via this string will override existing query param values in `url`
+   */
+  static setQueryParams(url, queryParams) {
+    const urlObj = new URL(url);
+    urlObj.search = queryParams || "";
+    return urlObj.toString();
+  }
+
   /**
    * Renders the source name and entry point into an HTML element. Used for display.
-   * @param run MlflowMessages.RunInfo
    * @param tags Object containing tag key value pairs.
+   * @param queryParams Query params to add to certain source type links.
    */
-  static renderSource(run, tags) {
-    let res = Utils.formatSource(run);
-    if (run.source_type === "PROJECT") {
-      const match = run.source_name.match(Utils.getGitHubRegex());
-      if (match) {
-        let url = "https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '');
-        if (match[3]) {
-          url = url + "/tree/master/" + match[3];
-        }
-        res = <a href={url}>{res}</a>;
+  static renderSource(tags, queryParams) {
+    const sourceName = Utils.getSourceName(tags);
+    const sourceType = Utils.getSourceType(tags);
+    let res = Utils.formatSource(tags);
+    if (sourceType === "PROJECT") {
+      const url = Utils.getGitRepoUrl(sourceName);
+      if (url) {
+        res = <a target="_top" href={url}>{res}</a>;
       }
       return res;
-    } else if (run.source_type === "NOTEBOOK") {
+    } else if (sourceType === "NOTEBOOK") {
+      const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
       const notebookIdTag = 'mlflow.databricks.notebookID';
-      const webappUrlTag = 'mlflow.databricks.webappURL';
+      const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
       const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
-      const webappUrl = tags && tags[webappUrlTag] && tags[webappUrlTag].value;
-      if (notebookId && webappUrl) {
-        res = (<a title={run.source_name} href={`${webappUrl}/#notebook/${notebookId}`}>
-          {Utils.baseName(run.source_name)}
+      if (notebookId) {
+        let url = Utils.setQueryParams(window.location.origin, queryParams);
+        url += `#notebook/${notebookId}`;
+        if (revisionId) {
+          url += `/revision/${revisionId}`;
+        }
+        res = (<a title={sourceName} href={url} target='_top'>
+          {Utils.baseName(sourceName)}
         </a>);
       }
       return res;
@@ -141,7 +253,7 @@ class Utils {
       height: '20px',
       position: 'relative',
       top: '-1px',
-      right: '3px',
+      marginRight: '2px',
     };
     if (sourceType === "NOTEBOOK") {
       return <img title="Notebook" style={imageStyle} src={notebookSvg} />;
@@ -157,15 +269,17 @@ class Utils {
    * Renders the source name and entry point into a string. Used for sorting.
    * @param run MlflowMessages.RunInfo
    */
-  static formatSource(run) {
-    if (run.source_type === "PROJECT") {
-      let res = Utils.dropExtension(Utils.baseName(run.source_name));
-      if (run.entry_point_name && run.entry_point_name !== "main") {
-        res += ":" + run.entry_point_name;
+  static formatSource(tags) {
+    const sourceName = Utils.getSourceName(tags);
+    const entryPointName = Utils.getEntryPointName(tags);
+    if (Utils.getSourceType(tags) === "PROJECT") {
+      let res = Utils.dropExtension(Utils.baseName(sourceName));
+      if (entryPointName && entryPointName !== "main") {
+        res += ":" + entryPointName;
       }
       return res;
     } else {
-      return Utils.baseName(run.source_name);
+      return Utils.baseName(sourceName);
     }
   }
 
@@ -185,15 +299,57 @@ class Utils {
     return "";
   }
 
-  static renderVersion(run, shortVersion = true) {
-    if (run.source_version) {
-      const versionString = shortVersion ? run.source_version.substring(0, 6) : run.source_version;
-      if (run.source_type === "PROJECT") {
-        const match = run.source_name.match(Utils.getGitHubRegex());
-        if (match) {
-          const url = ("https://github.com/" + match[1] + "/" + match[2].replace(/.git/, '') +
-                     "/tree/" + run.source_version) + "/" + match[3];
-          return <a href={url}>{versionString}</a>;
+  static getSourceName(runTags) {
+    const sourceNameTag = runTags[Utils.sourceNameTag];
+    if (sourceNameTag) {
+      return sourceNameTag.value;
+    }
+    return "";
+  }
+
+  static getSourceType(runTags) {
+    const sourceTypeTag = runTags[Utils.sourceTypeTag];
+    if (sourceTypeTag) {
+      return sourceTypeTag.value;
+    }
+    return "";
+  }
+
+  static getSourceVersion(runTags) {
+    const gitCommitTag = runTags[Utils.gitCommitTag];
+    if (gitCommitTag) {
+      return gitCommitTag.value;
+    }
+    return "";
+  }
+
+  static getEntryPointName(runTags) {
+    const entryPointTag = runTags[Utils.entryPointTag];
+    if (entryPointTag) {
+      return entryPointTag.value;
+    }
+    return "";
+  }
+
+  // TODO(aaron) Remove runInfo when user_id deprecation is complete.
+  static getUser(runInfo, runTags) {
+    const userTag = runTags[Utils.userTag];
+    if (userTag) {
+      return userTag.value;
+    }
+    return runInfo.user_id;
+  }
+
+  static renderVersion(tags, shortVersion = true) {
+    const sourceVersion = Utils.getSourceVersion(tags);
+    const sourceName = Utils.getSourceName(tags);
+    const sourceType = Utils.getSourceType(tags);
+    if (sourceVersion) {
+      const versionString = shortVersion ? sourceVersion.substring(0, 6) : sourceVersion;
+      if (sourceType === "PROJECT") {
+        const url = Utils.getGitCommitUrl(sourceName, sourceVersion);
+        if (url) {
+          return <a href={url} target='_top'>{versionString}</a>;
         }
         return versionString;
       } else {
@@ -203,23 +359,81 @@ class Utils {
     return null;
   }
 
-  static getErrorMessageFromXhr(xhr) {
-    const { status } = xhr;
-    if (status === 0) {
-      return 'Request failed to send. Check your internet connection';
+  static pluralize(word, quantity) {
+    if (quantity > 1) {
+      return word + 's';
+    } else {
+      return word;
     }
-    if (status >= 400 && status < 500) {
-      if (xhr.responseJSON && xhr.responseJSON.message) {
-        return xhr.responseJSON.message;
+  }
+
+  static getRequestWithId(requests, requestId) {
+    return requests.find((r) => r.id === requestId);
+  }
+
+  static getPlotMetricKeysFromUrl(search) {
+    const params = qs.parse(search);
+    const plotMetricKeysStr = params && params['plot_metric_keys'];
+    return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
+  }
+
+  static getSearchParamsFromUrl(search) {
+    const params = qs.parse(search, {ignoreQueryPrefix: true});
+    const str = JSON.stringify(params,
+      function replaceUndefined(key, value) {
+        return (value === undefined) ? "" : value;
+      });
+
+    return params ? JSON.parse(str) : [];
+  }
+
+  static getSearchUrlFromState(state) {
+    const replaced = {};
+    for (const key in state) {
+      if (state[key] === undefined) {
+        replaced[key] = '';
+      } else {
+        replaced[key] = state[key];
       }
-      if (xhr.responseText) {
-        return xhr.responseText;
-      }
     }
-    if (status >= 500) {
-      return `Request Failed: ${xhr.statusText}`;
+    return qs.stringify(replaced);
+  }
+
+  static compareByTimestamp(history1, history2) {
+    return history1.timestamp - history2.timestamp;
+  }
+
+  static compareByStepAndTimestamp(history1, history2) {
+    const stepResult = history1.step - history2.step;
+    return stepResult === 0 ? (history1.timestamp - history2.timestamp) : stepResult;
+  }
+
+  static getVisibleTagValues(tags) {
+    // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
+    return Object.values(tags).map((t) =>
+      [t.getKey(), t.getValue()]
+    ).filter(t =>
+      !t[0].startsWith(MLFLOW_INTERNAL_PREFIX)
+    );
+  }
+
+  static getAjaxUrl(relativeUrl) {
+    if (process.env.USE_ABSOLUTE_AJAX_URLS === "true") {
+      return '/' + relativeUrl;
     }
-    return 'Unknown Error';
+    return relativeUrl;
+  }
+
+  static logErrorAndNotifyUser(e) {
+    console.error(e);
+    // not all error is wrapped by ErrorWrapper
+    if (e.getMessageField) {
+      message.error(e.getMessageField());
+    }
+  }
+
+  static isModelRegistryEnabled() {
+    return true;
   }
 }
 

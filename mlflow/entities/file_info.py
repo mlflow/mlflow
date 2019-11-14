@@ -6,10 +6,16 @@ class FileInfo(_MLflowObject):
     """
     Metadata about a file or directory.
     """
+
     def __init__(self, path, is_dir, file_size):
         self._path = path
         self._is_dir = is_dir
         self._bytes = file_size
+
+    def __eq__(self, other):
+        if type(other) is type(self):
+            return self.__dict__ == other.__dict__
+        return False
 
     @property
     def path(self):
@@ -37,8 +43,3 @@ class FileInfo(_MLflowObject):
     @classmethod
     def from_proto(cls, proto):
         return cls(proto.path, proto.is_dir, proto.file_size)
-
-    @classmethod
-    def _properties(cls):
-        # TODO: Hard coding this list of props for now. There has to be a clearer way...
-        return ["path", "is_dir", "file_size"]

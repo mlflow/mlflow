@@ -1,13 +1,16 @@
 import Utils from './Utils';
-import { RunInfo } from '../sdk/MlflowMessages';
 import React from 'react';
 import { shallow } from 'enzyme';
-
 
 test("formatMetric", () => {
   expect(Utils.formatMetric(0)).toEqual("0");
   expect(Utils.formatMetric(0.5)).toEqual("0.5");
   expect(Utils.formatMetric(0.001)).toEqual("0.001");
+
+  expect(Utils.formatMetric(0.000123445)).toEqual("1.234e-4");
+  expect(Utils.formatMetric(0.000123455)).toEqual("1.235e-4");
+  expect(Utils.formatMetric(-0.000123445)).toEqual("-1.234e-4");
+  expect(Utils.formatMetric(-0.000123455)).toEqual("-1.235e-4");
 
   expect(Utils.formatMetric(0.12345)).toEqual("0.123");
   expect(Utils.formatMetric(0.12355)).toEqual("0.124");
@@ -61,12 +64,6 @@ test("formatDuration", () => {
   expect(Utils.formatDuration(480 * 60 * 60 * 1000)).toEqual("20.0d");
 });
 
-test("formatUser", () => {
-  expect(Utils.formatUser("bob")).toEqual("bob");
-  expect(Utils.formatUser("bob.mcbob")).toEqual("bob.mcbob");
-  expect(Utils.formatUser("bob@example.com")).toEqual("bob");
-});
-
 test("baseName", () => {
   expect(Utils.baseName("foo")).toEqual("foo");
   expect(Utils.baseName("foo/bar/baz")).toEqual("baz");
@@ -75,59 +72,97 @@ test("baseName", () => {
 });
 
 test("formatSource & renderSource", () => {
-  const source_with_name = RunInfo.fromJs({
-    "source_name": "source",
-    "entry_point_name": "entry",
-    "source_type": "PROJECT",
-  });
+  const source_with_name = {
+    "mlflow.source.name": { value: "source" },
+    "mlflow.source.type": { value: "PROJECT" },
+    "mlflow.project.entryPoint": { value: "entry" },
+  };
   expect(Utils.formatSource(source_with_name)).toEqual("source:entry");
   expect(Utils.renderSource(source_with_name)).toEqual("source:entry");
 
-  const source_with_main = RunInfo.fromJs({
-    "source_name": "source1",
-    "entry_point_name": "main",
-    "source_type": "PROJECT",
-  });
+  const source_with_main = {
+    "mlflow.source.name": { value: "source1" },
+    "mlflow.source.type": { value: "PROJECT" },
+    "mlflow.project.entryPoint": { value: "main" },
+  };
   expect(Utils.formatSource(source_with_main)).toEqual("source1");
   expect(Utils.renderSource(source_with_main)).toEqual("source1");
 
-  const source_no_name = RunInfo.fromJs({
-    "source_name": "source2",
-    "source_type": "PROJECT"
-  });
+  const source_no_name = {
+    "mlflow.source.name": { value: "source2" },
+    "mlflow.source.type": { value: "PROJECT" },
+  };
   expect(Utils.formatSource(source_no_name)).toEqual("source2");
   expect(Utils.renderSource(source_no_name)).toEqual("source2");
 
-  const non_project_source = RunInfo.fromJs({
-    "source_name": "source3",
-    "entry_point_name": "entry",
-    "source_type": "NOTEBOOK",
-  });
+  const non_project_source = {
+    "mlflow.source.name": { value: "source3" },
+    "mlflow.source.type": { value: "NOTEBOOK" },
+    "mlflow.project.entryPoint": { value: "entry" },
+  };
   expect(Utils.formatSource(non_project_source)).toEqual("source3");
   expect(Utils.renderSource(non_project_source)).toEqual("source3");
 
   // formatSource should return a string, renderSource should return an HTML element.
-  const github_url = RunInfo.fromJs({
-    "source_name": "git@github.com:mlflow/mlflow-apps.git",
-    "entry_point_name": "entry",
-    "source_type": "PROJECT",
-  });
+  const github_url = {
+    "mlflow.source.name": { value: "git@github.com:mlflow/mlflow-apps.git" },
+    "mlflow.source.type": { value: "PROJECT" },
+    "mlflow.project.entryPoint": { value: "entry" },
+  };
   expect(Utils.formatSource(github_url)).toEqual("mlflow-apps:entry");
   expect(Utils.renderSource(github_url)).toEqual(
-    <a href="https://github.com/mlflow/mlflow-apps">mlflow-apps:entry</a>);
+    <a href="https://github.com/mlflow/mlflow-apps" target="_top">mlflow-apps:entry</a>);
 
+  const gitlab_url = {
+    "mlflow.source.name": { value: "git@gitlab.com:mlflow/mlflow-apps.git" },
+    "mlflow.source.type": { value: "PROJECT" },
+    "mlflow.project.entryPoint": { value: "entry" },
+  };
+  expect(Utils.formatSource(gitlab_url)).toEqual("mlflow-apps:entry");
+  expect(Utils.renderSource(gitlab_url)).toEqual(
+    <a href="https://gitlab.com/mlflow/mlflow-apps" target="_top">mlflow-apps:entry</a>);
 
-  const databricksRun = RunInfo.fromJs({
-    "source_name": "/Users/admin/test",
-    "source_type": "NOTEBOOK"
-  });
+  const bitbucket_url = {
+    "mlflow.source.name": { value: "git@bitbucket.org:mlflow/mlflow-apps.git" },
+    "mlflow.source.type": { value: "PROJECT" },
+    "mlflow.project.entryPoint": { value: "entry" },
+  };
+  expect(Utils.formatSource(bitbucket_url)).toEqual("mlflow-apps:entry");
+  expect(Utils.renderSource(bitbucket_url)).toEqual(
+    <a href="https://bitbucket.org/mlflow/mlflow-apps" target="_top">mlflow-apps:entry</a>);
+
   const databricksRunTags = {
+    "mlflow.source.name": { value: "/Users/admin/test" },
+    "mlflow.source.type": { value: "NOTEBOOK" },
     "mlflow.databricks.notebookID": { value: "13" },
     "mlflow.databricks.webappURL": { value: "https://databricks.com" },
   };
-  const wrapper = shallow(Utils.renderSource(databricksRun, databricksRunTags));
+  const wrapper = shallow(Utils.renderSource(databricksRunTags));
   expect(wrapper.is("a")).toEqual(true);
-  expect(wrapper.props().href).toEqual("https://databricks.com/#notebook/13");
+  expect(wrapper.props().href).toEqual("http://localhost/#notebook/13");
+
+  const databricksRunRevisionTags = {
+    "mlflow.source.name": { value: "/Users/admin/test" },
+    "mlflow.source.type": { value: "NOTEBOOK" },
+    "mlflow.databricks.notebookRevisionID": { value: "42" },
+    "mlflow.databricks.notebookID": { value: "13" },
+    "mlflow.databricks.webappURL": { value: "https://databricks.com" },
+  };
+  const wrapper2 = shallow(Utils.renderSource(databricksRunRevisionTags));
+  expect(wrapper2.is("a")).toEqual(true);
+  expect(wrapper2.props().href).toEqual("http://localhost/#notebook/13/revision/42");
+
+  const wrapper3 = shallow(Utils.renderSource(databricksRunRevisionTags, "?o=123"));
+  expect(wrapper3.is("a")).toEqual(true);
+  // Query params must appear before the hash, see https://tools.ietf.org/html/rfc3986#section-4.2
+  // and https://stackoverflow.com/a/34772568
+  expect(wrapper3.props().href).toEqual("http://localhost/?o=123#notebook/13/revision/42");
+});
+
+test("addQueryParams", () => {
+  expect(Utils.setQueryParams("http://localhost/foo", "?o=123")).toEqual("http://localhost/foo?o=123");
+  expect(Utils.setQueryParams("http://localhost/foo?param=val", "?o=123")).toEqual("http://localhost/foo?o=123");
+  expect(Utils.setQueryParams("http://localhost/foo?param=val", "?param=newval")).toEqual("http://localhost/foo?param=newval");
 });
 
 test("dropExtension", () => {
@@ -165,4 +200,39 @@ test("getGitHubRegex", () => {
     }
     expect([].concat(match)).toEqual(lst[1]);
   });
+});
+
+test('getPlotMetricKeysFromUrl', () => {
+  const url0 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=[]';
+  const url1 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1"]';
+  const url2 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1","metric_2"]';
+  expect(Utils.getPlotMetricKeysFromUrl(url0)).toEqual([]);
+  expect(Utils.getPlotMetricKeysFromUrl(url1)).toEqual(['metric_1']);
+  expect(Utils.getPlotMetricKeysFromUrl(url2)).toEqual(['metric_1', 'metric_2']);
+});
+
+test('getSearchParamsFromUrl', () => {
+  const url0 = '?paramKeyFilterString=filt&metricKeyFilterString=metrics&searchInput=';
+  const url1 = '?p=&q=&r=';
+  const url2 = '?';
+  const url3 = '?paramKeyFilterString=some=param&metricKeyFilterString=somemetric&searchInput=some-Input';
+  expect(Utils.getSearchParamsFromUrl(url0)).toEqual({paramKeyFilterString: "filt",
+    metricKeyFilterString: "metrics",
+    searchInput: ""});
+  expect(Utils.getSearchParamsFromUrl(url1)).toEqual({p: "", q: "", r: ""});
+  expect(Utils.getSearchParamsFromUrl(url2)).toEqual({});
+  expect(Utils.getSearchParamsFromUrl(url3)).toEqual({paramKeyFilterString: "some=param",
+    metricKeyFilterString: "somemetric",
+    searchInput: "some-Input"});
+});
+
+test('getSearchUrlFromState', () => {
+  const st0 = {};
+  const st1 = {a: "example"};
+  const st2 = {b: "bbbbbb"};
+  const st3 = {param: "params", metrics: undefined, searchInput: "someExpression"};
+  expect(Utils.getSearchUrlFromState(st0)).toEqual("");
+  expect(Utils.getSearchUrlFromState(st1)).toEqual("a=example");
+  expect(Utils.getSearchUrlFromState(st2)).toEqual("b=bbbbbb");
+  expect(Utils.getSearchUrlFromState(st3)).toEqual("param=params&metrics=&searchInput=someExpression");
 });

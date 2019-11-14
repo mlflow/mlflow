@@ -2,9 +2,11 @@ from abc import abstractmethod
 
 import os
 import signal
+import logging
 
 from mlflow.entities import RunStatus
-from mlflow.utils.logging_utils import eprint
+
+_logger = logging.getLogger(__name__)
 
 
 class SubmittedRun(object):
@@ -84,9 +86,10 @@ class LocalSubmittedRun(SubmittedRun):
             except OSError:
                 # The child process may have exited before we attempted to terminate it, so we
                 # ignore OSErrors raised during child process termination
-                eprint("Failed to terminate child process (PID %s) corresponding to MLflow "
-                       "run with ID %s. The process may have already "
-                       "exited." % (self.command_proc.pid, self._run_id))
+                _logger.info(
+                    "Failed to terminate child process (PID %s) corresponding to MLflow "
+                    "run with ID %s. The process may have already exited.",
+                    self.command_proc.pid, self._run_id)
             self.command_proc.wait()
 
     def _get_status(self):

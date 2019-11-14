@@ -1,13 +1,27 @@
 import { combineReducers } from 'redux';
 import {
-  fulfilled, GET_EXPERIMENT_API, GET_RUN_API, isFulfilledApi, isPendingApi,
+  CLOSE_ERROR_MODAL,
+  fulfilled,
+  GET_EXPERIMENT_API,
+  GET_RUN_API,
+  isFulfilledApi,
+  isPendingApi,
   isRejectedApi,
   LIST_ARTIFACTS_API,
-  LIST_EXPERIMENTS_API, SEARCH_RUNS_API, SET_TAG_API,
+  LIST_EXPERIMENTS_API,
+  OPEN_ERROR_MODAL,
+  SEARCH_RUNS_API,
+  LOAD_MORE_RUNS_API,
+  SET_EXPERIMENT_TAG_API,
+  SET_TAG_API,
+  DELETE_TAG_API,
+  rejected,
 } from '../Actions';
-import { Experiment, Run, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
+import { Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
+import modelRegistryReducers from '../model-registry/reducers';
+import _ from 'lodash';
 
 export const getExperiments = (state) => {
   return Object.values(state.entities.experimentsById);
@@ -21,16 +35,16 @@ const experimentsById = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(LIST_EXPERIMENTS_API): {
       let newState = Object.assign({}, state);
-      if (action.payload) {
+      if (action.payload && action.payload.experiments) {
         action.payload.experiments.forEach((eJson) => {
           const experiment = Experiment.fromJs(eJson);
-          newState = Object.assign(newState, {[experiment.getExperimentId()]: experiment});
+          newState = Object.assign(newState, { [experiment.getExperimentId()]: experiment });
         });
       }
       return newState;
     }
     case fulfilled(GET_EXPERIMENT_API): {
-      const {experiment} = action.payload;
+      const { experiment } = action.payload;
       return {
         ...state,
         [experiment.experiment_id]: Experiment.fromJs(experiment),
@@ -41,39 +55,30 @@ const experimentsById = (state = {}, action) => {
   }
 };
 
-export const getRunInfos = (state) => {
-  return Object.values(state.entities.runInfosByUuid).sort((a, b) => {
-    if (a.start_time < b.start_time) {
-      return 1;
-    } else if (a.start_time > b.start_time) {
-      return -1;
-    } else {
-      return 0;
-    }
-  });
-};
-
 export const getRunInfo = (runUuid, state) => {
   return state.entities.runInfosByUuid[runUuid];
 };
 
 const runInfosByUuid = (state = {}, action) => {
   switch (action.type) {
-    case fulfilled(GET_EXPERIMENT_API): {
-      let newState = { ...state };
-      if (action.payload && action.payload.runs) {
-        action.payload.runs.forEach((rJson) => {
-          const runInfo = RunInfo.fromJs(rJson);
-          newState = amendRunInfosByUuid(newState, runInfo);
-        });
-      }
-      return newState;
-    }
     case fulfilled(GET_RUN_API): {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
       return amendRunInfosByUuid(state, runInfo);
     }
     case fulfilled(SEARCH_RUNS_API): {
+      const newState = {};
+      if (action.payload && action.payload.runs) {
+        action.payload.runs.forEach((rJson) => {
+          const runInfo = RunInfo.fromJs(rJson.info);
+          newState[runInfo.getRunUuid()] = runInfo;
+        });
+      }
+      return newState;
+    }
+    case rejected(SEARCH_RUNS_API): {
+      return {};
+    }
+    case fulfilled(LOAD_MORE_RUNS_API): {
       let newState = { ...state };
       if (action.payload && action.payload.runs) {
         action.payload.runs.forEach((rJson) => {
@@ -91,7 +96,7 @@ const runInfosByUuid = (state = {}, action) => {
 const amendRunInfosByUuid = (state, runInfo) => {
   return {
     ...state,
-    [runInfo.getRunUuid()]: runInfo
+    [runInfo.getRunUuid()]: runInfo,
   };
 };
 
@@ -105,19 +110,29 @@ export const getParams = (runUuid, state) => {
 };
 
 const paramsByRunUuid = (state = {}, action) => {
+  const paramArrToObject = (params) => {
+    const paramObj = {};
+    params.forEach((p) => (paramObj[p.key] = Param.fromJs(p)));
+    return paramObj;
+  };
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
-      const runInfo = RunInfo.fromJs(action.payload.run.info);
-      return amendParamsByRunUuid(state, action.payload.run.data.params, runInfo.getRunUuid());
+      const run = action.payload.run;
+      const runUuid = run.info.run_uuid;
+      const params = run.data.params || [];
+      const newState = { ...state };
+      newState[runUuid] = paramArrToObject(params);
+      return newState;
     }
-    case fulfilled(SEARCH_RUNS_API): {
+    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(LOAD_MORE_RUNS_API): {
       const runs = action.payload.runs;
-      let newState = { ...state };
+      const newState = { ...state };
       if (runs) {
         runs.forEach((rJson) => {
-          const run = Run.fromJs(rJson);
-          newState = amendParamsByRunUuid(
-              newState, rJson.data.params, run.getInfo().getRunUuid());
+          const runUuid = rJson.info.run_uuid;
+          const params = rJson.data.params || [];
+          newState[runUuid] = paramArrToObject(params);
         });
       }
       return newState;
@@ -125,24 +140,6 @@ const paramsByRunUuid = (state = {}, action) => {
     default:
       return state;
   }
-};
-
-const amendParamsByRunUuid = (state, params, runUuid) => {
-  let newState = { ...state };
-  if (params) {
-    params.forEach((pJson) => {
-      const param = Param.fromJs(pJson);
-      const oldParams = newState[runUuid] ? newState[runUuid] : {};
-      newState = {
-        ...newState,
-        [runUuid]: {
-          ...oldParams,
-          [param.getKey()]: param,
-        }
-      };
-    });
-  }
-  return newState;
 };
 
 export const getRunTags = (runUuid, state) => {
@@ -154,27 +151,47 @@ export const getRunTags = (runUuid, state) => {
   }
 };
 
+export const getExperimentTags = (experimentId, state) => {
+  const tags = state.entities.experimentTagsByExperimentId[experimentId];
+  return tags || {};
+};
+
 const tagsByRunUuid = (state = {}, action) => {
+  const tagArrToObject = (tags) => {
+    const tagObj = {};
+    tags.forEach((tag) => (tagObj[tag.key] = RunTag.fromJs(tag)));
+    return tagObj;
+  };
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
-      return amendTagsByRunUuid(state, action.payload.run.data.tags, runInfo.getRunUuid());
+      const tags = action.payload.run.data.tags || [];
+      const runUuid = runInfo.getRunUuid();
+      const newState = { ...state };
+      newState[runUuid] = tagArrToObject(tags);
+      return newState;
     }
-    case fulfilled(SEARCH_RUNS_API): {
+    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(LOAD_MORE_RUNS_API): {
       const runs = action.payload.runs;
-      let newState = { ...state };
+      const newState = { ...state };
       if (runs) {
         runs.forEach((rJson) => {
-          const run = Run.fromJs(rJson);
-          newState = amendTagsByRunUuid(
-              newState, rJson.data.tags, run.getInfo().getRunUuid());
+          const runUuid = rJson.info.run_uuid;
+          const tags = rJson.data.tags || [];
+          newState[runUuid] = tagArrToObject(tags);
         });
       }
       return newState;
     }
     case fulfilled(SET_TAG_API): {
-      const tag = {key: action.meta.key, value: action.meta.value};
+      const tag = { key: action.meta.key, value: action.meta.value };
       return amendTagsByRunUuid(state, [tag], action.meta.runUuid);
+    }
+    case fulfilled(DELETE_TAG_API): {
+      return Object.entries(state).reduce((newState, [runUuid, run]) => {
+        return {...newState, [runUuid]: _.omit(run, action.meta.key)};
+      }, {});
     }
     default:
       return state;
@@ -192,7 +209,48 @@ const amendTagsByRunUuid = (state, tags, runUuid) => {
         [runUuid]: {
           ...oldTags,
           [tag.getKey()]: tag,
-        }
+        },
+      };
+    });
+  }
+  return newState;
+};
+
+const experimentTagsByExperimentId = (state = {}, action) => {
+  const tagArrToObject = (tags) => {
+    const tagObj = {};
+    tags.forEach((tag) => (tagObj[tag.key] = ExperimentTag.fromJs(tag)));
+    return tagObj;
+  };
+  switch (action.type) {
+    case fulfilled(GET_EXPERIMENT_API): {
+      const { experiment } = action.payload;
+      const newState = { ...state };
+      const tags = experiment.tags || [];
+      newState[experiment.experiment_id] = tagArrToObject(tags);
+      return newState;
+    }
+    case fulfilled(SET_EXPERIMENT_TAG_API): {
+      const tag = { key: action.meta.key, value: action.meta.value };
+      return amendExperimentTagsByExperimentId(state, [tag], action.meta.experimentId);
+    }
+    default:
+      return state;
+  }
+};
+
+const amendExperimentTagsByExperimentId = (state, tags, expId) => {
+  let newState = { ...state };
+  if (tags) {
+    tags.forEach((tJson) => {
+      const tag = ExperimentTag.fromJs(tJson);
+      const oldTags = newState[expId] ? newState[expId] : {};
+      newState = {
+        ...newState,
+        [expId]: {
+          ...oldTags,
+          [tag.getKey()]: tag,
+        },
       };
     });
   }
@@ -220,7 +278,7 @@ const artifactsByRunUuid = (state = {}, action) => {
         artifactNode.setChildren(files);
       } else {
         // Otherwise, traverse the queryPath to get to the appropriate artifact node.
-        const pathParts = queryPath.split("/");
+        const pathParts = queryPath.split('/');
         let curArtifactNode = artifactNode;
         pathParts.forEach((part) => {
           curArtifactNode = curArtifactNode.children[part];
@@ -263,38 +321,95 @@ const entities = combineReducers({
   latestMetricsByRunUuid,
   paramsByRunUuid,
   tagsByRunUuid,
+  experimentTagsByExperimentId,
   artifactsByRunUuid,
   artifactRootUriByRunUuid,
+  ...modelRegistryReducers,
 });
 
+export const getSharedParamKeysByRunUuids = (runUuids, state) =>
+    _.intersection(
+        ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
+    );
+
+export const getSharedMetricKeysByRunUuids = (runUuids, state) =>
+    _.intersection(
+        ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
+    );
+
+export const getAllParamKeysByRunUuids = (runUuids, state) =>
+    _.union(
+        ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
+    );
+
+export const getAllMetricKeysByRunUuids = (runUuids, state) =>
+    _.union(
+        ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
+    );
+
 export const getApis = (requestIds, state) => {
-  return requestIds.map((id) => (
-    state.apis[id]
-  ));
+  return requestIds.map((id) => state.apis[id] || {});
 };
 
 const apis = (state = {}, action) => {
   if (isPendingApi(action)) {
     return {
       ...state,
-      [action.meta.id]: { id: action.meta.id, active: true }
+      [action.meta.id]: { id: action.meta.id, active: true },
     };
   } else if (isFulfilledApi(action)) {
     return {
       ...state,
-      [action.meta.id]: { id: action.meta.id, active: false, data: action.payload }
+      [action.meta.id]: { id: action.meta.id, active: false, data: action.payload },
     };
   } else if (isRejectedApi(action)) {
     return {
       ...state,
-      [action.meta.id]: { id: action.meta.id, active: false, error: action.payload }
+      [action.meta.id]: { id: action.meta.id, active: false, error: action.payload },
     };
   } else {
     return state;
   }
 };
 
+export const isErrorModalOpen = (state) => {
+  return state.views.errorModal.isOpen;
+};
+
+export const getErrorModalText = (state) => {
+  return state.views.errorModal.text;
+};
+
+const errorModalDefault = {
+  isOpen: false,
+  text: '',
+};
+
+const errorModal = (state = errorModalDefault, action) => {
+  switch (action.type) {
+    case CLOSE_ERROR_MODAL: {
+      return {
+        ...state,
+        isOpen: false,
+      };
+    }
+    case OPEN_ERROR_MODAL: {
+      return {
+        isOpen: true,
+        text: action.text,
+      };
+    }
+    default:
+      return state;
+  }
+};
+
+const views = combineReducers({
+  errorModal,
+});
+
 export const rootReducer = combineReducers({
   entities,
+  views,
   apis,
 });

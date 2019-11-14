@@ -5,7 +5,7 @@
  *
  * @NOTE(dli) 12-21-2016
  *   This file is generated. For now, it is a snapshot of the proto messages as of
- *   Jun 3, 2018 11:41:31 AM. We will update the generation pipeline to actually
+ *   Sep 17, 2018 6:48:22 PM. We will update the generation pipeline to actually
  *   place these generated records in the correct location shortly.
  */
 
@@ -24,6 +24,9 @@ export const Metric = Immutable.Record({
 
   // optional INT64
   timestamp: undefined,
+
+  // optional INT64
+  step: undefined,
 }, 'Metric');
 
 /**
@@ -48,6 +51,9 @@ const extended_Metric = ModelBuilder.extend(Metric, {
   },
   getTimestamp() {
     return this.timestamp !== undefined ? this.timestamp : 0;
+  },
+  getStep() {
+    return this.step !== undefined ? this.step : 0;
   },
 });
 
@@ -113,15 +119,6 @@ export const RunInfo = Immutable.Record({
   experiment_id: undefined,
 
   // optional STRING
-  name: undefined,
-
-  // optional SourceType
-  source_type: undefined,
-
-  // optional STRING
-  source_name: undefined,
-
-  // optional STRING
   user_id: undefined,
 
   // optional RunStatus
@@ -134,13 +131,10 @@ export const RunInfo = Immutable.Record({
   end_time: undefined,
 
   // optional STRING
-  source_version: undefined,
+  artifact_uri: undefined,
 
   // optional STRING
-  entry_point_name: undefined,
-
-  // repeated RunTag
-  tags: Immutable.List(),
+  lifecycle_stage: undefined,
 }, 'RunInfo');
 
 /**
@@ -150,10 +144,6 @@ export const RunInfo = Immutable.Record({
  */
 RunInfo.fromJsReviver = function fromJsReviver(key, value) {
   switch (key) {
-    case 'tags':
-      return Immutable.List(value.map((element) =>
-        RunTag.fromJs(element)
-      ));
     default:
       return Immutable.fromJS(value);
   }
@@ -167,18 +157,6 @@ const extended_RunInfo = ModelBuilder.extend(RunInfo, {
   getExperimentId() {
     return this.experiment_id !== undefined ? this.experiment_id : 0;
   },
-  getName() {
-    return this.name !== undefined ? this.name : '';
-  },
-  getSourceType() {
-    return this.source_type !== undefined ? this.source_type : 'NOTEBOOK';
-  },
-  getSourceName() {
-    return this.source_name !== undefined ? this.source_name : '';
-  },
-  getUserId() {
-    return this.user_id !== undefined ? this.user_id : '';
-  },
   getStatus() {
     return this.status !== undefined ? this.status : 'RUNNING';
   },
@@ -188,11 +166,11 @@ const extended_RunInfo = ModelBuilder.extend(RunInfo, {
   getEndTime() {
     return this.end_time !== undefined ? this.end_time : 0;
   },
-  getSourceVersion() {
-    return this.source_version !== undefined ? this.source_version : '';
+  getArtifactUri() {
+    return this.artifact_uri !== undefined ? this.artifact_uri : '';
   },
-  getEntryPointName() {
-    return this.entry_point_name !== undefined ? this.entry_point_name : '';
+  getLifecycleStage() {
+    return this.lifecycle_stage !== undefined ? this.lifecycle_stage : '';
   },
 });
 
@@ -214,6 +192,9 @@ export const RunData = Immutable.Record({
 
   // repeated Param
   params: Immutable.List(),
+
+  // repeated RunTag
+  tags: Immutable.List(),
 }, 'RunData');
 
 /**
@@ -231,6 +212,11 @@ RunData.fromJsReviver = function fromJsReviver(key, value) {
     case 'params':
       return Immutable.List(value.map((element) =>
         Param.fromJs(element)
+      ));
+
+    case 'tags':
+      return Immutable.List(value.map((element) =>
+        RunTag.fromJs(element)
       ));
     default:
       return Immutable.fromJS(value);
@@ -309,6 +295,18 @@ export const Experiment = Immutable.Record({
 
   // optional STRING
   artifact_location: undefined,
+
+  // optional STRING
+  lifecycle_stage: undefined,
+
+  // optional INT64
+  last_update_time: undefined,
+
+  // optional INT64
+  creation_time: undefined,
+
+  // repeated ExperimentTag
+  tags: Immutable.List(),
 }, 'Experiment');
 
 /**
@@ -318,6 +316,10 @@ export const Experiment = Immutable.Record({
  */
 Experiment.fromJsReviver = function fromJsReviver(key, value) {
   switch (key) {
+    case 'tags':
+      return Immutable.List(value.map((element) =>
+        ExperimentTag.fromJs(element)
+      ));
     default:
       return Immutable.fromJS(value);
   }
@@ -334,6 +336,18 @@ const extended_Experiment = ModelBuilder.extend(Experiment, {
   getArtifactLocation() {
     return this.artifact_location !== undefined ? this.artifact_location : '';
   },
+  getLifecycleStage() {
+    return this.lifecycle_stage !== undefined ? this.lifecycle_stage : '';
+  },
+  getLastUpdateTime() {
+    return this.last_update_time !== undefined ? this.last_update_time : 0;
+  },
+  getCreationTime() {
+    return this.creation_time !== undefined ? this.creation_time : 0;
+  },
+  getTags() {
+    return this.tags !== undefined ? this.tags : [];
+  }
 });
 
 /**
@@ -351,6 +365,9 @@ Experiment.fromJs = function fromJs(pojo) {
 export const CreateExperiment = Immutable.Record({
   // required STRING
   name: undefined,
+
+  // optional STRING
+  artifact_location: undefined,
 }, 'CreateExperiment');
 
 /**
@@ -370,6 +387,9 @@ const extended_CreateExperiment = ModelBuilder.extend(CreateExperiment, {
   getName() {
     return this.name !== undefined ? this.name : '';
   },
+  getArtifactLocation() {
+    return this.artifact_location !== undefined ? this.artifact_location : '';
+  },
 });
 
 /**
@@ -385,7 +405,8 @@ CreateExperiment.fromJs = function fromJs(pojo) {
 };
 
 export const ListExperiments = Immutable.Record({
-
+  // optional ViewType
+  view_type: undefined,
 }, 'ListExperiments');
 
 /**
@@ -402,6 +423,9 @@ ListExperiments.fromJsReviver = function fromJsReviver(key, value) {
 
 const extended_ListExperiments = ModelBuilder.extend(ListExperiments, {
 
+  getViewType() {
+    return this.view_type !== undefined ? this.view_type : 'ACTIVE_ONLY';
+  },
 });
 
 /**
@@ -486,48 +510,6 @@ const extended_GetRun = ModelBuilder.extend(GetRun, {
 GetRun.fromJs = function fromJs(pojo) {
   const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, GetRun.fromJsReviver);
   return new extended_GetRun(pojoWithNestedImmutables);
-};
-
-export const GetMetric = Immutable.Record({
-  // required STRING
-  run_uuid: undefined,
-
-  // required STRING
-  metric_key: undefined,
-}, 'GetMetric');
-
-/**
- * By default Immutable.fromJS will translate an object field in JSON into Immutable.Map.
- * This reviver allow us to keep the Immutable.Record type when serializing JSON message
- * into nested Immutable Record class.
- */
-GetMetric.fromJsReviver = function fromJsReviver(key, value) {
-  switch (key) {
-    default:
-      return Immutable.fromJS(value);
-  }
-};
-
-const extended_GetMetric = ModelBuilder.extend(GetMetric, {
-
-  getRunUuid() {
-    return this.run_uuid !== undefined ? this.run_uuid : '';
-  },
-  getMetricKey() {
-    return this.metric_key !== undefined ? this.metric_key : '';
-  },
-});
-
-/**
- * This is a customized fromJs function used to translate plain old Javascript
- * objects into this Immutable Record.  Example usage:
- *
- *   // The pojo is your javascript object
- *   const record = GetMetric.fromJs(pojo);
- */
-GetMetric.fromJs = function fromJs(pojo) {
-  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, GetMetric.fromJsReviver);
-  return new extended_GetMetric(pojoWithNestedImmutables);
 };
 
 export const MetricSearchExpression = Immutable.Record({
@@ -648,7 +630,7 @@ const extended_SearchExpression = ModelBuilder.extend(SearchExpression, {
   getMetric() {
     return this.metric !== undefined ? this.metric : MetricSearchExpression.fromJs({});
   },
-  getParam() {
+  getParameter() {
     return this.parameter !== undefined ? this.parameter : ParameterSearchExpression.fromJs({});
   },
 });
@@ -753,8 +735,8 @@ export const SearchRuns = Immutable.Record({
   // repeated INT64
   experiment_ids: Immutable.List(),
 
-  // repeated SearchExpression
-  anded_expressions: Immutable.List(),
+  // optional ViewType
+  run_view_type: 'ACTIVE_ONLY',
 }, 'SearchRuns');
 
 /**
@@ -767,10 +749,6 @@ SearchRuns.fromJsReviver = function fromJsReviver(key, value) {
     case 'experiment_ids':
       return Immutable.List(value);
 
-    case 'anded_expressions':
-      return Immutable.List(value.map((element) =>
-        SearchExpression.fromJs(element)
-      ));
     default:
       return Immutable.fromJS(value);
   }
@@ -778,6 +756,9 @@ SearchRuns.fromJsReviver = function fromJsReviver(key, value) {
 
 const extended_SearchRuns = ModelBuilder.extend(SearchRuns, {
 
+  getRunViewType() {
+    return this.run_view_type !== undefined ? this.run_view_type : 'ACTIVE_ONLY';
+  },
 });
 
 /**
@@ -882,6 +863,47 @@ ListArtifacts.fromJs = function fromJs(pojo) {
   return new extended_ListArtifacts(pojoWithNestedImmutables);
 };
 
+export const GetArtifact = Immutable.Record({
+  // optional STRING
+  run_uuid: undefined,
+
+  // optional STRING
+  path: undefined,
+}, 'GetArtifact');
+
+/**
+ * By default Immutable.fromJS will translate an object field in JSON into Immutable.Map.
+ * This reviver allow us to keep the Immutable.Record type when serializing JSON message
+ * into nested Immutable Record class.
+ */
+GetArtifact.fromJsReviver = function fromJsReviver(key, value) {
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
+};
+
+const extended_GetArtifact = ModelBuilder.extend(GetArtifact, {
+
+  getRunUuid() {
+    return this.run_uuid !== undefined ? this.run_uuid : '';
+  },
+  getPath() {
+    return this.path !== undefined ? this.path : '';
+  },
+});
+
+/**
+ * This is a customized fromJs function used to translate plain old Javascript
+ * objects into this Immutable Record.  Example usage:
+ *
+ *   // The pojo is your javascript object
+ *   const record = GetArtifact.fromJs(pojo);
+ */
+GetArtifact.fromJs = function fromJs(pojo) {
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, GetArtifact.fromJsReviver);
+  return new extended_GetArtifact(pojoWithNestedImmutables);
+};
 
 export const GetMetricHistory = Immutable.Record({
   // required STRING
@@ -966,3 +988,46 @@ RunTag.fromJs = function fromJs(pojo) {
   const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, RunTag.fromJsReviver);
   return new extended_RunTag(pojoWithNestedImmutables);
 };
+
+export const ExperimentTag = Immutable.Record({
+  // optional STRING
+  key: undefined,
+
+  // optional STRING
+  value: undefined,
+}, 'ExperimentTag');
+
+/**
+ * By default Immutable.fromJS will translate an object field in JSON into Immutable.Map.
+ * This reviver allow us to keep the Immutable.Record type when serializing JSON message
+ * into nested Immutable Record class.
+ */
+ExperimentTag.fromJsReviver = function fromJsReviver(key, value) {
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
+};
+
+const extended_ExperimentTag = ModelBuilder.extend(ExperimentTag, {
+
+  getKey() {
+    return this.key !== undefined ? this.key : '';
+  },
+  getValue() {
+    return this.value !== undefined ? this.value : '';
+  },
+});
+
+/**
+ * This is a customized fromJs function used to translate plain old Javascript
+ * objects into this Immutable Record.  Example usage:
+ *
+ *   // The pojo is your javascript object
+ *   const record = RunTag.fromJs(pojo);
+ */
+ExperimentTag.fromJs = function fromJs(pojo) {
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, RunTag.fromJsReviver);
+  return new extended_ExperimentTag(pojoWithNestedImmutables);
+};
+

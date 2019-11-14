@@ -52,24 +52,27 @@ $(function() {
   $('div.code-section ul.section-selector li,div.plain-section ul.section-selector li').click(function(evt) {
     evt.preventDefault();
 
-    var sel_class = $(this).attr('class').replace(' docutils container', '').replace('notranslate', '');
+    var sel_class = $(this).attr('class')
+      .replace(' docutils container', '')
+      .replace('notranslate', '')
+      .replace(' selected', '');
 
     $('ul.section-selector li').each(function() {
       var parent = $(this).parent().parent();
-      
+      var my_sel_class = sel_class;
       // When the target language is not available, default to bash or python.
       if (!$('div.' + sel_class, parent).length) {
-        if ($('div.' + 'highlight-bash', parent).length)
-          sel_class = 'highlight-bash';
+        if ($('div.highlight-bash', parent).length)
+          my_sel_class = 'highlight-bash';
         else
-          sel_class = 'highlight-python';
+          my_sel_class = 'highlight-python';
       }
 
       $('div.example', parent).hide();
-      $('div.' + sel_class, parent).show();
+      $('div.' + my_sel_class, parent).show();
 
       $('ul.section-selector li', parent).removeClass('selected');
-      $('ul.section-selector li.' + sel_class, parent).addClass('selected');
+      $('ul.section-selector li.' + my_sel_class, parent).addClass('selected');
     });
   });
 

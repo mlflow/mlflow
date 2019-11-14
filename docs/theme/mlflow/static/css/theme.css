@@ -4986,7 +4986,7 @@ footer span.commit .rst-content tt,
 }
 .rst-content .section>img,
 .rst-content .section>a>img,
-.rst-content .section .plain-section img {
+.rst-content .section .container > img {
     margin-bottom: 24px
 }
 .rst-content blockquote {

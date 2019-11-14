@@ -11,3 +11,6 @@ packrat
 document.R
 Reference_Manual_mlflow.md
 .lintr
+^man-roxygen/
+^internal/
+^logs/

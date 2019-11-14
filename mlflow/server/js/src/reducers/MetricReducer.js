@@ -1,5 +1,11 @@
-import { fulfilled, GET_METRIC_HISTORY_API, GET_RUN_API, SEARCH_RUNS_API } from '../Actions';
-import { Run, RunInfo, Metric } from '../sdk/MlflowMessages';
+import {
+  fulfilled,
+  GET_METRIC_HISTORY_API,
+  GET_RUN_API,
+  LOAD_MORE_RUNS_API,
+  SEARCH_RUNS_API
+} from '../Actions';
+import { RunInfo, Metric } from '../sdk/MlflowMessages';
 
 export const getMetricsByKey = (runUuid, key, state) => {
   return state.entities.metricsByRunUuid[runUuid][key];
@@ -35,12 +41,12 @@ export const latestMetricsByRunUuid = (state = {}, action) => {
         [runUuid]: metricArrToObject(metrics),
       };
     }
-    case fulfilled(SEARCH_RUNS_API): {
+    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(LOAD_MORE_RUNS_API): {
       const newState = { ...state };
       if (action.payload.runs) {
         action.payload.runs.forEach((rJson) => {
-          const run = Run.fromJs(rJson);
-          const runUuid = run.getInfo().getRunUuid();
+          const runUuid = rJson.info.run_uuid;
           const metrics = rJson.data.metrics || [];
           newState[runUuid] = metricArrToObject(metrics);
         });

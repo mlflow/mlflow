@@ -1,6 +1,8 @@
 const url = require('url');
 const path = require('path');
 const fs = require('fs');
+const rewirePolyfills = require('react-app-rewire-polyfills');
+const rewireDefinePlugin = require('react-app-rewire-define-plugin')
 
 // copied from 'react-dev-utils/WebpackDevServerUtils'
 function mayProxy(pathname) {
@@ -34,6 +36,22 @@ function rewriteCookies(proxyRes) {
 }
 
 module.exports = {
+  webpack: function(config, env) {
+    config = rewirePolyfills(config, env);
+    config = rewireDefinePlugin(config, env, {
+      'process.env': {
+        'HIDE_HEADER': process.env.HIDE_HEADER ? JSON.stringify('true') : JSON.stringify('false'),
+        'HIDE_EXPERIMENT_LIST':
+          process.env.HIDE_EXPERIMENT_LIST ? JSON.stringify('true') : JSON.stringify('false'),
+        'SHOW_GDPR_PURGING_MESSAGES':
+          process.env.SHOW_GDPR_PURGING_MESSAGES ? JSON.stringify('true') : JSON.stringify('false'),
+        'USE_ABSOLUTE_AJAX_URLS':
+            process.env.USE_ABSOLUTE_AJAX_URLS ? JSON.stringify('true') : JSON.stringify('false'),
+      }
+    });
+    return config;
+  },
+
   devServer: function(configFunction) {
     return function(proxy, allowedHost) {
       const config = configFunction(proxy, allowedHost);

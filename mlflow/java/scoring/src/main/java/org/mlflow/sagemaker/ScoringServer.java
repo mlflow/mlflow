@@ -25,8 +25,8 @@ public class ScoringServer {
   private static final String REQUEST_CONTENT_TYPE_JSON = "application/json";
   private static final String REQUEST_CONTENT_TYPE_CSV = "text/csv";
 
-  static final String ENV_VAR_MINIMUM_SERVER_THREADS = "SCORING_SERVER_MIN_THREADS";
-  static final String ENV_VAR_MAXIMUM_SERVER_THREADS = "SCORING_SERVER_MAX_THREADS";
+  static final String ENV_VAR_MINIMUM_SERVER_THREADS = "MLFLOW_SCORING_SERVER_MIN_THREADS";
+  static final String ENV_VAR_MAXIMUM_SERVER_THREADS = "MLFLOW_SCORING_SERVER_MAX_THREADS";
 
   static final int DEFAULT_MINIMUM_SERVER_THREADS = 1;
   // Assuming an 8 core machine with hyperthreading
@@ -72,14 +72,13 @@ public class ScoringServer {
 
   private static Predictor loadPredictorFromPath(String modelPath)
       throws PredictorLoadingException {
-    Model config = null;
     try {
-      config = Model.fromRootPath(modelPath);
+      Model config = Model.fromRootPath(modelPath);
+      return (new MLeapLoader()).load(config);
     } catch (IOException e) {
       throw new PredictorLoadingException(
           "Failed to load the configuration for the MLFlow model at the specified path.");
     }
-    return (new MLeapLoader()).load(config);
   }
 
   /**
@@ -191,8 +190,9 @@ public class ScoringServer {
             String.format(
                 "Received a request with an unsupported content type: %s", requestContentType));
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        responseContent = getErrorResponseJson(
-            "Requests must have a content header of type `application/json` or `text/csv`");
+        responseContent =
+            getErrorResponseJson(
+                "Requests must have a content header of type `application/json` or `text/csv`");
       } catch (Exception e) {
         logger.error("An unknown error occurred while evaluating the prediction request.", e);
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

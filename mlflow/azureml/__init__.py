@@ -4,139 +4,328 @@ Machine Learning.
 """
 from __future__ import print_function
 
-
+import sys
 import os
 import shutil
+import tempfile
+import logging
+
+from distutils.version import StrictVersion
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.tracking.utils import _get_model_log_dir
-from mlflow.utils.logging_utils import eprint
-from mlflow.utils.file_utils import TempDir
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import PYTHON_VERSION, experimental, get_unique_resource_id
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.version import VERSION as mlflow_version
 
 
-def deploy(app_name, model_path, run_id=None, mlflow_home=None):
+_logger = logging.getLogger(__name__)
+
+
+@experimental
+def build_image(model_uri, workspace, image_name=None, model_name=None,
+                mlflow_home=None, description=None, tags=None, synchronous=True):
     """
-    Deploy an MLflow model to Azure Machine Learning.
+    Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
+    The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
+    Azure Kubernetes Service (AKS).
 
-    NOTE:
+    The resulting Azure ML ContainerImage will contain a webserver that processes model queries.
+    For information about the input data formats accepted by this webserver, see the
+    :ref:`MLflow deployment tools documentation <azureml_deployment>`.
 
-        - This command must be called from a console launched from Azure Machine Learning Workbench.
-          Caller is reponsible for setting up Azure Machine Learning environment and accounts.
+    :param model_uri: The location, in URI format, of the MLflow model used to build the Azure
+                      ML deployment image. For example:
 
-        - Azure Machine Learning cannot handle any Conda environment. In particular the Python
-          version is fixed. If the model contains Conda environment and it has been trained outside
-          of Azure Machine Learning, the Conda environment might need to be edited to work with
-          Azure Machine Learning.
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-    :param app_name: Name of the deployed application.
-    :param model_path: Local or MLflow-run-relative path to the model to be deployed.
-    :param run_id: MLflow run ID.
-    :param mlflow_home: Directory containing checkout of the MLflow GitHub project or
-                        current directory if not specified.
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
+
+    :param image_name: The name to assign the Azure Container Image that will be created. If
+                       unspecified, a unique image name will be generated.
+    :param model_name: The name to assign the Azure Model will be created. If unspecified,
+                       a unique model name will be generated.
+    :param workspace: The AzureML workspace in which to build the image. This is a
+                      `azureml.core.Workspace` object.
+    :param mlflow_home: Path to a local copy of the MLflow GitHub repository. If specified, the
+                        image will install MLflow from this directory. Otherwise, it will install
+                        MLflow from pip.
+    :param description: A string description to associate with the Azure Container Image and the
+                        Azure Model that will be created. For more information, see
+                        `<https://docs.microsoft.com/en-us/python/api/azureml-core/
+                        azureml.core.image.container.containerimageconfig?view=azure-ml-py>`_ and
+                        `<https://docs.microsoft.com/en-us/python/api/azureml-core/
+                        azureml.core.model.model?view=azure-ml-py#register>`_.
+    :param tags: A collection of tags, represented as a dictionary of string key-value pairs, to
+                 associate with the Azure Container Image and the Azure Model that will be created.
+                 These tags are added to a set of default tags that include the model uri,
+                 and more. For more information, see
+                 `<https://docs.microsoft.com/en-us/python/api/azureml-core/
+                 azureml.core.image.container.containerimageconfig?view-azure-ml-py>`_ and
+                 `<https://docs.microsoft.com/en-us/python/api/azureml-core/
+                 azureml.core.model.model?view=azure-ml-py#register>`_.
+    :param synchronous: If ``True``, this method blocks until the image creation procedure
+                        terminates before returning. If ``False``, the method returns immediately,
+                        but the returned image will not be available until the asynchronous
+                        creation process completes. Use the
+                        ``azureml.core.Image.wait_for_creation()`` function to wait for the creation
+                        process to complete.
+    :return: A tuple containing the following elements in order:
+            - An ``azureml.core.image.ContainerImage`` object containing metadata for the new image.
+            - An ``azureml.core.model.Model`` object containing metadata for the new model.
+
+    >>> import mlflow.azureml
+    >>> from azureml.core import Workspace
+    >>> from azureml.core.webservice import AciWebservice, Webservice
+    >>>
+    >>> # Load or create an Azure ML Workspace
+    >>> workspace_name = "<Name of your Azure ML workspace>"
+    >>> subscription_id = "<Your Azure subscription ID>"
+    >>> resource_group = "<Name of the Azure resource group in which to create Azure ML resources>"
+    >>> location = "<Name of the Azure location (region) in which to create Azure ML resources>"
+    >>> azure_workspace = Workspace.create(name=workspace_name,
+    >>>                                    subscription_id=subscription_id,
+    >>>                                    resource_group=resource_group,
+    >>>                                    location=location,
+    >>>                                    create_resource_group=True,
+    >>>                                    exist_okay=True)
+    >>>
+    >>> # Build an Azure ML Container Image for an MLflow model
+    >>> azure_image, azure_model = mlflow.azureml.build_image(
+    >>>                                 model_uri="<model_uri>",
+    >>>                                 workspace=azure_workspace,
+    >>>                                 synchronous=True)
+    >>> # If your image build failed, you can access build logs at the following URI:
+    >>> print("Access the following URI for build logs: {}".format(azure_image.image_build_log_uri))
+    >>>
+    >>> # Deploy the image to Azure Container Instances (ACI) for real-time serving
+    >>> webservice_deployment_config = AciWebservice.deploy_configuration()
+    >>> webservice = Webservice.deploy_from_image(
+    >>>                    image=azure_image, workspace=azure_workspace, name="<deployment-name>")
+    >>> webservice.wait_for_deployment()
     """
-    if run_id:
-        model_path = _get_model_log_dir(model_path, run_id)
+    # The Azure ML SDK is only compatible with Python 3. However, the `mlflow.azureml` module should
+    # still be accessible for import from Python 2. Therefore, we will only import from the SDK
+    # upon method invocation.
+    # pylint: disable=import-error
+    from azureml.core.image import ContainerImage
+    from azureml.core.model import Model as AzureModel
+
+    absolute_model_path = _download_artifact_from_uri(model_uri)
+
+    model_pyfunc_conf = _load_pyfunc_conf(model_path=absolute_model_path)
+    model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
+    if model_python_version is not None and\
+            StrictVersion(model_python_version) < StrictVersion("3.0.0"):
+        raise MlflowException(
+                message=("Azure ML can only deploy models trained in Python 3 and above. See"
+                         " the following MLflow GitHub issue for a thorough explanation of this"
+                         " limitation and a workaround to enable support for deploying models"
+                         " trained in Python 2: https://github.com/mlflow/mlflow/issues/668"),
+                error_code=INVALID_PARAMETER_VALUE)
+
+    tags = _build_tags(model_uri=model_uri, model_python_version=model_python_version,
+                       user_tags=tags)
+
+    if image_name is None:
+        image_name = _get_mlflow_azure_resource_name()
+    if model_name is None:
+        model_name = _get_mlflow_azure_resource_name()
+
+    with TempDir(chdr=True) as tmp:
+        model_directory_path = tmp.path("model")
+        tmp_model_path = os.path.join(
+            model_directory_path,
+            _copy_file_or_tree(src=absolute_model_path, dst=model_directory_path))
+
+        registered_model = AzureModel.register(workspace=workspace, model_path=tmp_model_path,
+                                               model_name=model_name, tags=tags,
+                                               description=description)
+        _logger.info("Registered an Azure Model with name: `%s` and version: `%s`",
+                     registered_model.name, registered_model.version)
+
+        # Create an execution script (entry point) for the image's model server. Azure ML requires
+        # the container's execution script to be located in the current working directory during
+        # image creation, so we create the execution script as a temporary file in the current
+        # working directory.
+        execution_script_path = tmp.path("execution_script.py")
+        _create_execution_script(output_path=execution_script_path, azure_model=registered_model)
+        # Azure ML copies the execution script into the image's application root directory by
+        # prepending "/var/azureml-app" to the specified script path. The script is then executed
+        # by referencing its path relative to the "/var/azureml-app" directory. Unfortunately,
+        # if the script path is an absolute path, Azure ML attempts to reference it directly,
+        # resulting in a failure. To circumvent this problem, we provide Azure ML with the relative
+        # script path. Because the execution script was created in the current working directory,
+        # this relative path is the script path's base name.
+        execution_script_path = os.path.basename(execution_script_path)
+
+        if mlflow_home is not None:
+            _logger.info(
+                "Copying the specified mlflow_home directory: `%s` to a temporary location for"
+                " container creation",
+                mlflow_home)
+            mlflow_home = os.path.join(tmp.path(),
+                                       _copy_project(src_path=mlflow_home, dst_path=tmp.path()))
+            image_file_dependencies = [mlflow_home]
+        else:
+            image_file_dependencies = None
+        dockerfile_path = tmp.path("Dockerfile")
+        _create_dockerfile(output_path=dockerfile_path, mlflow_path=mlflow_home)
+
+        conda_env_path = None
+        if pyfunc.ENV in model_pyfunc_conf:
+            conda_env_path = os.path.join(tmp_model_path, model_pyfunc_conf[pyfunc.ENV])
+
+        image_configuration = ContainerImage.image_configuration(
+                execution_script=execution_script_path,
+                runtime="python",
+                docker_file=dockerfile_path,
+                dependencies=image_file_dependencies,
+                conda_file=conda_env_path,
+                description=description,
+                tags=tags,
+        )
+        image = ContainerImage.create(workspace=workspace,
+                                      name=image_name,
+                                      image_config=image_configuration,
+                                      models=[registered_model])
+        _logger.info("Building an Azure Container Image with name: `%s` and version: `%s`",
+                     image.name, image.version)
+        if synchronous:
+            image.wait_for_creation(show_output=True)
+        return image, registered_model
+
+
+def _build_tags(model_uri, model_python_version=None, user_tags=None):
+    """
+    :param model_uri: URI to the MLflow model.
+    :param model_python_version: The version of Python that was used to train the model, if
+                                 the model was trained in Python.
+    :param user_tags: A collection of user-specified tags to append to the set of default tags.
+    """
+    tags = dict(user_tags) if user_tags is not None else {}
+    tags["model_uri"] = model_uri
+    if model_python_version is not None:
+        tags["python_version"] = model_python_version
+    return tags
+
+
+def _create_execution_script(output_path, azure_model):
+    """
+    Creates an Azure-compatibele execution script (entry point) for a model server backed by
+    the specified model. This script is created as a temporary file in the current working
+    directory.
+
+    :param output_path: The path where the execution script will be written.
+    :param azure_model: The Azure Model that the execution script will load for inference.
+    :return: A reference to the temporary file containing the execution script.
+    """
+    execution_script_text = SCORE_SRC.format(
+            model_name=azure_model.name, model_version=azure_model.version)
+
+    with open(output_path, "w") as f:
+        f.write(execution_script_text)
+
+
+def _create_dockerfile(output_path, mlflow_path=None):
+    """
+    Creates a Dockerfile containing additional Docker build steps to execute
+    when building the Azure container image. These build steps perform the following tasks:
+
+    - Install MLflow
+
+    :param output_path: The path where the Dockerfile will be written.
+    :param mlflow_path: Path to a local copy of the MLflow GitHub repository. If specified, the
+                        Dockerfile command for MLflow installation will install MLflow from this
+                        directory. Otherwise, it will install MLflow from pip.
+    """
+    docker_cmds = ["RUN apt-get update && apt-get install -y default-jre"]
+    docker_cmds.append("RUN pip install azureml-sdk")
+
+    if mlflow_path is not None:
+        mlflow_install_cmd = "RUN pip install -e {mlflow_path}".format(
+            mlflow_path=_get_container_path(mlflow_path))
+    elif not mlflow_version.endswith("dev"):
+        mlflow_install_cmd = "RUN pip install mlflow=={mlflow_version}".format(
+            mlflow_version=mlflow_version)
+    else:
+        raise MlflowException(
+                "You are running a 'dev' version of MLflow: `{mlflow_version}` that cannot be"
+                " installed from pip. In order to build a container image, either specify the"
+                " path to a local copy of the MLflow GitHub repository using the `mlflow_home`"
+                " parameter or install a release version of MLflow from pip".format(
+                    mlflow_version=mlflow_version))
+    docker_cmds.append(mlflow_install_cmd)
+
+    with open(output_path, "w") as f:
+        f.write("\n".join(docker_cmds))
+
+
+def _get_container_path(local_path):
+    """
+    Given a local path to a resource, obtains the path at which this resource will exist
+    when it is copied into the Azure ML container image.
+    """
+    if local_path.startswith("/"):
+        local_path = local_path[1:]
+    return os.path.join("/var/azureml-app", local_path)
+
+
+def _load_pyfunc_conf(model_path):
+    """
+    Loads the `python_function` flavor configuration for the specified model or throws an exception
+    if the model does not contain the `python_function` flavor.
+
+    :param model_path: The absolute path to the model.
+    :return: The model's `python_function` flavor configuration.
+    """
     model_path = os.path.abspath(model_path)
-    with TempDir(chdr=True, remove_on_exit=True):
-        exec_str = _export(app_name, model_path, mlflow_home=mlflow_home)
-        eprint("executing", '"{}"'.format(exec_str))
-        # Use os.system instead of subprocess due to the fact that currently all azureml commands
-        # have to be called within the same shell (launched from azureml workbench app by the user).
-        # We can change this once there is a python api (or general cli) available.
-        os.system(exec_str)
-
-
-def export(output, model_path, run_id=None, mlflow_home=None):
-    """
-    Export an MLflow model with everything needed to deploy on Azure Machine Learning.
-    Output includes sh script with command to deploy the generated model to Azure Machine Learning.
-
-    NOTE:
-
-        - This command does not need an Azure Machine Learning environment to run.
-
-        - Azure Machine Learning cannot handle any Conda environment. In particular the Python
-          version is fixed. If the model contains Conda environment and it has been trained outside
-          of Azure Machine Learning, the Conda environment might need to be edited to work with
-          Azure Machine Learning.
-
-    :param output: Output folder where the model is going to be exported to.
-    :param model_path: Local or MLflow run relative path to the model to be exported.
-    :param run_id: MLflow run ID.
-    :param mlflow_home: Directory containing checkout of the MLflow GitHub project or
-                        current directory if not specified.
-    """
-    output = os.path.abspath(output)
-    if os.path.exists(output):
-        raise Exception("output folder {} already exists".format(output))
-    os.mkdir(output)
-    if run_id:
-        model_path = _get_model_log_dir(model_path, run_id)
-    model_path = os.path.abspath(model_path)
-    curr_dir = os.path.abspath(os.getcwd())
-    os.chdir(output)
-    try:
-        exec_str = _export("$1", model_path, mlflow_home=mlflow_home)
-        with open("create_service.sh", "w") as f:
-            f.write("\n".join(["#! /bin/sh", "cd {}".format(output), exec_str, ""]))
-    finally:
-        os.chdir(curr_dir)
-
-
-def _export(app_name, model_path, mlflow_home):
-    conf = _load_conf(model_path)
-    score_py = "score.py"  # NOTE: azure ml requires the main module to be in the current directory
-
-    with open(score_py, "w") as f:
-        f.write(SCORE_SRC)
-
-    deps = ""
-    mlflow_dep = "mlflow=={}".format(mlflow_version)
-
-    if mlflow_home:
-        eprint("MLFLOW_HOME =", mlflow_home)
-        # copy current version of mlflow
-        mlflow_dir = mlflow.utils.file_utils._copy_project(src_path=mlflow_home, dst_path="./")
-        deps = "-d {}".format(mlflow_dir)
-        mlflow_dep = "-e /var/azureml-app/{}".format(mlflow_dir)
-
-    with open("requirements.txt", "w") as f:
-        f.write(mlflow_dep + "\n")
-
-    shutil.copytree(src=model_path, dst="model")
-
-    env = "-c {}".format(os.path.join("model", conf[pyfunc.ENV])) \
-        if pyfunc.ENV in conf else ""
-    cmd = "az ml service create realtime -n {name} " + \
-          "--model-file model -f score.py {conda_env} {deps} -r python -p requirements.txt"
-    return cmd.format(name=app_name, conda_env=env, deps=deps)
-
-
-def _load_conf(path):
-    path = os.path.abspath(path)
-    model = Model.load(os.path.join(path, "MLmodel"))
+    model = Model.load(os.path.join(model_path, "MLmodel"))
     if pyfunc.FLAVOR_NAME not in model.flavors:
-        raise Exception("Supports only pyfunc format.")
+        raise MlflowException(
+                message=("The specified model does not contain the `python_function` flavor. This "
+                         " flavor is required for model deployment required for model deployment."),
+                error_code=INVALID_PARAMETER_VALUE)
     return model.flavors[pyfunc.FLAVOR_NAME]
+
+
+def _get_mlflow_azure_resource_name():
+    """
+    :return: A unique name for an Azure resource indicating that the resource was created by
+             MLflow
+    """
+    azureml_max_resource_length = 32
+    resource_prefix = "mlflow-"
+    unique_id = get_unique_resource_id(
+            max_length=(azureml_max_resource_length - len(resource_prefix)))
+    return resource_prefix + unique_id
 
 
 SCORE_SRC = """
 import pandas as pd
 
+from azureml.core.model import Model
 from mlflow.pyfunc import load_pyfunc
-from mlflow.utils import get_jsonable_obj
+from mlflow.pyfunc.scoring_server import parse_json_input, _get_jsonable_obj
 
 
 def init():
     global model
-    model = load_pyfunc("model")
+    model_path = Model.get_model_path(model_name="{model_name}", version={model_version})
+    model = load_pyfunc(model_path)
 
 
-def run(s):
-    input_df = pd.read_json(s, orient="records")
-    return get_jsonable_obj(model.predict(input_df))
+def run(json_input):
+    input_df = parse_json_input(json_input=json_input, orient="split")
+    return _get_jsonable_obj(model.predict(input_df), pandas_orient="records")
 
 """

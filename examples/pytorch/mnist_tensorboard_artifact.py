@@ -34,14 +34,17 @@ parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                     help='learning rate (default: 0.01)')
 parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
                     help='SGD momentum (default: 0.5)')
-parser.add_argument('--no-cuda', action='store_true', default=False,
-                    help='disables CUDA training')
+parser.add_argument('--enable-cuda', type=str, choices=['True', 'False'], default='True',
+                    help='enables or disables CUDA training')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--log-interval', type=int, default=100, metavar='N',
                     help='how many batches to wait before logging training status')
 args = parser.parse_args()
-args.cuda = not args.no_cuda and torch.cuda.is_available()
+
+enable_cuda_flag = True if args.enable_cuda == 'True' else False
+
+args.cuda = enable_cuda_flag and torch.cuda.is_available()
 
 torch.manual_seed(args.seed)
 if args.cuda:
@@ -60,7 +63,7 @@ test_loader = torch.utils.data.DataLoader(
                        transforms.ToTensor(),
                        transforms.Normalize((0.1307,), (0.3081,))
                    ])),
-    batch_size=args.batch_size, shuffle=True, **kwargs)
+    batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
 class Net(nn.Module):
     def __init__(self):
@@ -148,7 +151,7 @@ with mlflow.start_run():
     # Log our parameters into mlflow
     for key, value in vars(args).items():
         mlflow.log_param(key, value)
-    
+
     # Create a SummaryWriter to write TensorBoard events locally
     output_dir = dirpath = tempfile.mkdtemp()
     writer = SummaryWriter(output_dir)

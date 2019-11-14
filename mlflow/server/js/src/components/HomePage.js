@@ -1,78 +1,41 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import ExperimentPage from './ExperimentPage';
 import { connect } from 'react-redux';
 import { getUUID, listExperimentsApi } from '../Actions';
 import RequestStateWrapper from './RequestStateWrapper';
 import './HomePage.css';
-import ExperimentListView from './ExperimentListView';
+import HomeView from './HomeView';
 
 class HomePage extends Component {
-  constructor(props) {
-    super(props);
-    this.onClickListExperiments = this.onClickListExperiments.bind(this);
-  }
-
   static propTypes = {
-    match: PropTypes.object.isRequired,
     dispatchListExperimentsApi: PropTypes.func.isRequired,
-    experimentId: PropTypes.number.isRequired,
+    experimentId: PropTypes.number,
   };
 
   state = {
-    listExperimentsExpanded: true,
     listExperimentsRequestId: getUUID(),
   };
 
   componentWillMount() {
-    this.props.dispatchListExperimentsApi(this.state.listExperimentsRequestId);
-  }
-
-  onClickListExperiments() {
-    this.setState({ listExperimentsExpanded: !this.state.listExperimentsExpanded });
+    if (process.env.HIDE_EXPERIMENT_LIST !== 'true') {
+      this.props.dispatchListExperimentsApi(this.state.listExperimentsRequestId);
+    }
   }
 
   render() {
-    if (this.state.listExperimentsExpanded) {
-      return (
-        <div className="outer-container">
-          <div className="HomePage-experiment-list-container">
-            <RequestStateWrapper requestIds={[this.state.listExperimentsRequestId]}>
-              <div className="collapsed-expander-container">
-                <ExperimentListView
-                  activeExperimentId={this.props.experimentId}
-                  onClickListExperiments={this.onClickListExperiments}
-                />
-              </div>
-            </RequestStateWrapper>
-          </div>
-          <div className="experiment-view-container">
-            <ExperimentPage match={this.props.match}/>
-          </div>
-          <div className="experiment-view-right"/>
-        </div>
-      );
-    } else {
-      return (
-        <div>
-          <div className="collapsed-expander-container">
-            <i onClick={this.onClickListExperiments}
-               title="Show experiment list"
-               className="expander fa fa-chevron-right login-icon"/>
-          </div>
-          <div className="experiment-page-container">
-            <ExperimentPage match={this.props.match}/>
-          </div>
-        </div>
-      );
-    }
+    const homeView = <HomeView experimentId={this.props.experimentId}/>;
+    return process.env.HIDE_EXPERIMENT_LIST === 'true' ? homeView : (
+      <RequestStateWrapper requestIds={[this.state.listExperimentsRequestId]}>
+        {homeView}
+      </RequestStateWrapper>
+    );
   }
 }
 
 const mapStateToProps = (state, ownProps) => {
   const { match } = ownProps;
   if (match.url === "/") {
-    return { experimentId: 0 };
+    return {};
   }
   return { experimentId: parseInt(match.params.experimentId, 10) };
 };
@@ -80,7 +43,7 @@ const mapStateToProps = (state, ownProps) => {
 const mapDispatchToProps = (dispatch) => {
   return {
     dispatchListExperimentsApi: (requestId) => {
-      dispatch(listExperimentsApi(requestId));
+      return dispatch(listExperimentsApi(requestId));
     }
   };
 };

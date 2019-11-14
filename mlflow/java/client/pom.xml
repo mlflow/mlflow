@@ -5,13 +5,12 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>0.7.0</version>
+    <version>1.4.1-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>mlflow-client</artifactId>
   <packaging>jar</packaging>
-  <version>0.7.0</version>
   <name>MLflow Tracking API</name>
   <url>http://mlflow.org</url>
   <properties>
@@ -61,6 +60,11 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-jdk14</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -137,6 +141,15 @@
               <shadedPattern>${mlflow.shade.packageName}.ini4j</shadedPattern>
             </relocation>
           </relocations>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.DontIncludeResourceTransformer">
+              <resources>
+                <resource>public-suffix-list.txt</resource>
+                <resource>log4j.properties</resource>
+                <resource>.proto</resource>
+              </resources>
+            </transformer>
+          </transformers>
         </configuration>
         <executions>
           <execution>

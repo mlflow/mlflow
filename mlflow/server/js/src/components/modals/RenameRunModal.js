@@ -25,7 +25,7 @@ const modalStyles = {
   }
 };
 
-class RenameRunModal extends Component {
+export class RenameRunModal extends Component {
   constructor(props) {
     super(props);
     this.handleSubmit = this.handleSubmit.bind(this);
@@ -34,7 +34,7 @@ class RenameRunModal extends Component {
 
   state = {
     isSubmittingState: false,
-  }
+  };
 
   static propTypes = {
     open: PropTypes.bool,
@@ -43,7 +43,7 @@ class RenameRunModal extends Component {
     runName: PropTypes.string.isRequired,
     onClose: PropTypes.func.isRequired,
     dispatch: PropTypes.func.isRequired,
-  }
+  };
 
   /**
    * Form-submission handler with method signature as prescribed by Formik.
@@ -68,9 +68,9 @@ class RenameRunModal extends Component {
       }).catch((err) => {
         this.setState({ isSubmittingState: false });
         setSubmitting(false);
-        setStatus({errorMsg: err.message});
+        setStatus({errorMsg: err.getUserVisibleError()});
       });
-  }
+  };
 
 
   renderForm() {

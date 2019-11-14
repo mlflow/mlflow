@@ -1,7 +1,13 @@
+import os
+import logging
+import subprocess
+
 from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.utils.logging_utils import eprint
 from databricks_cli.configure import provider
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_dbutils():
@@ -27,15 +33,39 @@ def _get_extra_context(context_key):
     return java_dbutils.notebook().getContext().extraContext().get(context_key).get()
 
 
+def _get_property_from_spark_context(key):
+    try:
+        from pyspark import TaskContext  # pylint: disable=import-error
+        task_context = TaskContext.get()
+        if task_context:
+            return task_context.getLocalProperty(key)
+    except Exception:  # pylint: disable=broad-except
+        return None
+
+
 def is_in_databricks_notebook():
+    if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
+        return True
     try:
         return _get_extra_context("aclPathOfAclRoot").startswith('/workspace')
     except Exception:  # pylint: disable=broad-except
         return False
 
 
+def is_dbfs_fuse_available():
+    with open(os.devnull, 'w') as devnull_stderr, open(os.devnull, 'w') as devnull_stdout:
+        try:
+            return subprocess.call(
+                ["mountpoint", "/dbfs"], stderr=devnull_stderr, stdout=devnull_stdout) == 0
+        except Exception:  # pylint: disable=broad-except
+            return False
+
+
 def get_notebook_id():
     """Should only be called if is_in_databricks_notebook is true"""
+    notebook_id = _get_property_from_spark_context("spark.databricks.notebook.id")
+    if notebook_id is not None:
+        return notebook_id
     acl_path = _get_extra_context("aclPathOfAclRoot")
     if acl_path.startswith('/workspace'):
         return acl_path.split('/')[-1]
@@ -44,11 +74,17 @@ def get_notebook_id():
 
 def get_notebook_path():
     """Should only be called if is_in_databricks_notebook is true"""
+    path = _get_property_from_spark_context("spark.databricks.notebook.path")
+    if path is not None:
+        return path
     return _get_extra_context("notebook_path")
 
 
 def get_webapp_url():
     """Should only be called if is_in_databricks_notebook is true"""
+    url = _get_property_from_spark_context("spark.databricks.api.url")
+    if url is not None:
+        return url
     return _get_extra_context("api_url")
 
 
@@ -69,14 +105,14 @@ def get_databricks_host_creds(profile=None):
         authentication information necessary to talk to the Databricks server.
     """
     if not hasattr(provider, 'get_config'):
-        eprint("Warning: support for databricks-cli<0.8.0 is deprecated and will be removed"
-               " in a future version.")
+        _logger.warning(
+            "Support for databricks-cli<0.8.0 is deprecated and will be removed"
+            " in a future version.")
         config = provider.get_config_for_profile(profile)
     elif profile:
         config = provider.ProfileConfigProvider(profile).get_config()
     else:
         config = provider.get_config()
-
     if not config or not config.host:
         _fail_malformed_databricks_auth(profile)
 

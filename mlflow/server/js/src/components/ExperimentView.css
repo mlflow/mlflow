@@ -13,13 +13,17 @@
   border-bottom: 1px solid #e2e2e2;
 }
 
-.ExperimentView th.top-row {
+.ExperimentView .metadata-list td, .ExperimentView .metadata-list th {
+  border: none;
+}
+
+.ExperimentView .top-row {
   text-align: center;
   border-bottom: none;
   border-top: none;
 }
 
-.ExperimentView th.bottom-row {
+.ExperimentView .bottom-row {
   text-align: left;
   border-top: none;
 }
@@ -54,11 +58,25 @@
 }
 
 .ExperimentView-search-controls {
-  margin-top: 30px;
+  margin-top: 8px;
+  min-width: 800px;
+}
+
+.ExperimentView-info {
+  margin-top: 8px;
+}
+
+.ExperimentView-info .note-view-outer-container {
+  width: 100%;
+  height: auto;
+}
+
+.ExperimentView-info .note-editor-button-area {
+  padding-bottom: 12px;
 }
 
 .ExperimentView-run-buttons{
-  margin-top: 30px;
+  margin-top: 16px;
   margin-bottom: 16px;
 }
 
@@ -66,11 +84,35 @@
   display: inline-block;
   width: 50%;
   min-width: 210px;
-  margin-top: 16px;
+  margin-top: 8px;
 }
 
-.ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter, .ExperimentView-search {
-  padding-right: 16px;
+.ExperimentView-search {
+  display: flex;
+  align-items: center;
+}
+
+.ExperimentView-search-input {
+  flex: 1;
+  width: auto;
+}
+
+.ExperimentView-search-help {
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.ExperimentView-lifecycle-input {
+  width: 156px;
+  padding-right: 8px;
+}
+
+.ExperimentView-lifecycle-button {
+  width: 100px;
+}
+
+.ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter, .ExperimentView-search-input, .ExperimentView-lifecycle-input {
+  padding-right: 8px;
 }
 
 .ExperimentView-search-buttons {
@@ -81,7 +123,7 @@
 .ExperimentView-search-buttons .btn {
   display: block;
   width: 100%;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .ExperimentView-search-inputs {
@@ -89,13 +131,13 @@
 }
 
 .ExperimentView-search-controls .filter-label {
-  width: 110px;
+  width: 92px;
   float: left;
   margin-top: 6px;
 }
 
 .ExperimentView-search-controls .filter-wrapper {
-  margin-left: 110px;
+  margin-left: 92px;
 }
 
 .ExperimentView-search-controls input {
@@ -106,58 +148,152 @@
   margin-right: 30px;
 }
 
+.clear-button {
+  margin-bottom: 0;
+  height: 32px;
+}
+
 div.error-message {
-  margin-left: 100px;
+  margin-top: 8px;
+  margin-left: 0;
   /*width: auto;*/
 }
 span.error-message {
-  color: red;
+  color: #db1905;
 }
 
 .metric-filler-bg {
   position: relative;
+  background-color: #f7f7f7;
+  width: 50px;
+  display: inline-block;
 }
 
 .metric-filler-fg {
   background-color: #def1ff;
   position: absolute;
-  left: -3px;
   top: -1px;
   height: 22px;
+  display: inline-block;
 }
 
 .metric-text {
   position: relative;
 }
 
-.ExperimentView th.sortable {
+.ExperimentView .sortable {
   white-space: nowrap;
   cursor: pointer;
 
   /* Prevent double click text select */
   -webkit-user-select: none; /* Safari */
-   -khtml-user-select: none; /* Konqueror HTML */
-     -moz-user-select: none; /* Firefox */
-      -ms-user-select: none; /* Internet Explorer/Edge */
-          user-select: none;
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none;
 }
 
-.ExperimentView th.sortable::after {
-  content: " ";
-  font-size: 0;
+.ExperimentView .metric-param-sort-toggle {
+  color: #888;
+  cursor: pointer;
+}
+
+.ExperimentView .underline-on-hover:hover {
+  text-decoration: underline;
+}
+
+.ExperimentView .metric-param-value {
+  margin-left: 4px;
+}
+
+.ExperimentView .highlighted {
+  border-radius: 5px;
+  background-color: rgba(255, 242, 172, 0.5);
+  color: black;
+}
+
+/** Container with a max width & text-truncation for use in the experiment runs table */
+.ExperimentView .run-table-container {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+  height: 100%;
+}
+
+.ExperimentView .metric-param-container-cell {
+  min-width: 280px;
+  padding: 8px;
+}
+
+.ExperimentView .metric-param-cell {
   display: inline-block;
-  margin: 0 0 0 4px;
-  border-style: solid;
-  border-color: transparent;
-  border-width: 0 5px 8.7px 5px;
+  width: 250px;
+  padding: 0;
 }
 
-.ExperimentView th.sorted.asc::after {
-  border-color: transparent transparent #888 transparent;
-  border-width: 0 5px 8.7px 5px;
+.ExperimentView .tag-cell-item {
+  height: 100%;
 }
 
-.ExperimentView th.sorted.desc::after {
-  border-color: #888 transparent transparent transparent;
-  border-width: 8.7px 5px 0 5px;
+.ExperimentView-expander:hover {
+  cursor: pointer;
+}
+
+.ExperimentView .ReactVirtualized__Table__headerRow {
+  overflow: visible;
+  text-transform: inherit;
+  font-weight: inherit;
+}
+
+.ExperimentView .ReactVirtualized__Table__Grid:focus {
+  outline: 0;
+}
+
+/* Workaround as per https://github.com/bvaughn/react-virtualized/issues/876#issuecomment-367029529 */
+.ExperimentView .ReactVirtualized__Table__rowColumn {
+  overflow: visible !important;
+}
+
+.ExperimentView .ReactVirtualized__Table__headerColumn {
+  color: rgb(136, 136, 136);
+}
+
+.ExperimentView .ReactVirtualized__Table .run-table-container {
+  padding: 8px;
+}
+
+.ExperimentView .ReactVirtualized__Table  .run-table-container.metric-param-sort-toggle {
+  padding: 0;
+}
+
+.ExperimentView .ReactVirtualized__Table  .run-table-container.metric-param-value {
+  padding: 0;
+}
+
+/**
+ * Style for ancestor elements of the runs table. Arranges its children along a vertical axis
+ * via (flex-direction: column). If the parent element has 'display: flex' set, will fill up
+ * 100% of the available vertical space (via 'flex: 1 1 auto')
+ */
+.runs-table-flex-container {
+  flex: 1 1 auto;
+  flex-direction: column;
+  display: flex;
+}
+
+.ExperimentView .ReactVirtualized__Table__row:hover {
+  background-color: #f5f5f5;
+}
+
+.search-input-tooltip .ant-popover-inner-content {
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  border-radius: 4px;
+}
+
+.search-input-tooltip.ant-popover-placement-bottom > .ant-popover-content > .ant-popover-arrow {
+  border-top-color: rgba(0, 0, 0, 0.75);
+  border-left-color: rgba(0, 0, 0, 0.75);
 }

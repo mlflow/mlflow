@@ -1,18 +1,24 @@
 import React, { Component } from 'react';
 import './RequestStateWrapper.css';
-import spinner from '../static/mlflow-spinner.png';
 import { connect } from 'react-redux';
 import { getApis } from '../reducers/Reducers';
 import PropTypes from 'prop-types';
+import {Spinner} from "./Spinner";
 
-class RequestStateWrapper extends Component {
+export class RequestStateWrapper extends Component {
   static propTypes = {
+    // Should this component render the child before all the requests are complete?
     shouldOptimisticallyRender: PropTypes.bool,
     requests: PropTypes.arrayOf(PropTypes.object).isRequired,
-    children: PropTypes.node,
+    // (isLoading: boolean, shouldRenderError: boolean, requests) => null | undefined | ReactNode.
+    // This function is called when all requests are complete or some requests failed.
+    // It's the function's responsibility to render a ReactNode or an error view depending on the
+    // parameters passed in.
+    children: PropTypes.oneOfType([PropTypes.func, PropTypes.element]),
   };
 
   static defaultProps = {
+    requests: [],
     shouldOptimisticallyRender: false,
   };
 
@@ -27,11 +33,10 @@ class RequestStateWrapper extends Component {
     });
   }
 
-  // eslint-disable-next-line no-unused-vars
-  static getDerivedStateFromProps(nextProps, prevState) {
-    const shouldRender = nextProps.requests.every((r) => {
-      return r.active === false && r.error === undefined;
-    });
+  static getDerivedStateFromProps(nextProps) {
+    const shouldRender = nextProps.requests.length ? nextProps.requests.every((r) => {
+      return r && r.active === false;
+    }) : false;
     return {
       shouldRender,
       shouldRenderError: RequestStateWrapper.getErrorRequests(nextProps.requests).length > 0,
@@ -39,35 +44,29 @@ class RequestStateWrapper extends Component {
   }
 
   render() {
-    const { children } = this.props;
-    if (this.state.shouldRender) {
-      return <div>{children}</div>;
+    const { children, requests } = this.props;
+    const { shouldRender, shouldRenderError } = this.state;
+    if (shouldRender || shouldRenderError || this.props.shouldOptimisticallyRender) {
+      if (typeof children === "function") {
+        return children(!shouldRender, shouldRenderError, requests);
+      }
+      if (shouldRenderError) {
+        triggerError(requests);
+      }
+      return children;
     }
-    if (this.state.shouldRenderError) {
-      const errorRequests = RequestStateWrapper.getErrorRequests(this.props.requests);
-      const api = errorRequests.length > 0 ? errorRequests[0] : "";
-      console.log("ERROR", api.error);
-      return (
-        <div className="RequestStateWrapper-error">
-          {api.error.xhr.status}: {api.error.xhr.statusText}
-        </div>
-      );
-    }
-    if (this.props.shouldOptimisticallyRender) {
-      return <div>{children}</div>;
-    }
-    return (
-      <div className="RequestStateWrapper-spinner">
-        <img alt="Page loading..." src={spinner}/>
-      </div>
-    );
+    return <Spinner/>;
   }
 }
 
-const mapStateToProps = (state, ownProps) => {
-  return Object.assign({}, ownProps, {
-    requests: getApis(ownProps.requestIds, state)
-  });
+export const triggerError = (requests) => {
+  // This triggers the OOPS error boundary.
+  console.error("ERROR", requests);
+  throw Error("GOTO error boundary");
 };
+
+const mapStateToProps = (state, ownProps) => ({
+  requests: getApis(ownProps.requestIds, state),
+});
 
 export default connect(mapStateToProps)(RequestStateWrapper);

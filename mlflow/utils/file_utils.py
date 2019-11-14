@@ -1,12 +1,22 @@
+import codecs
 import gzip
 import os
+import posixpath
 import shutil
+import sys
 import tarfile
 import tempfile
+
+from six.moves.urllib.request import pathname2url
+from six.moves.urllib.parse import unquote
+from six.moves import urllib
 
 import yaml
 
 from mlflow.entities import FileInfo
+from mlflow.exceptions import MissingConfigException
+
+ENCODING = "utf-8"
 
 
 def is_directory(name):
@@ -19,11 +29,6 @@ def is_file(name):
 
 def exists(name):
     return os.path.exists(name)
-
-
-def build_path(*path_segments):
-    """ Returns the path formed by joining the passed-in path segments. """
-    return os.path.join(*path_segments)
 
 
 def list_all(root, filter_func=lambda x: True, full_path=False):
@@ -121,7 +126,7 @@ def write_yaml(root, file_name, data, overwrite=False):
     :param overwrite: If True, will overwrite existing files
     """
     if not exists(root):
-        raise Exception("Parent directory '%s' does not exist." % root)
+        raise MissingConfigException("Parent directory '%s' does not exist." % root)
 
     file_path = os.path.join(root, file_name)
     yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
@@ -130,7 +135,7 @@ def write_yaml(root, file_name, data, overwrite=False):
         raise Exception("Yaml file '%s' exists as '%s" % (file_path, yaml_file_name))
 
     try:
-        with open(yaml_file_name, 'w') as yaml_file:
+        with codecs.open(yaml_file_name, mode='w', encoding=ENCODING) as yaml_file:
             yaml.safe_dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
     except Exception as e:
         raise e
@@ -146,14 +151,14 @@ def read_yaml(root, file_name):
     :return: Data in yaml file as dictionary
     """
     if not exists(root):
-        raise Exception("Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root))
+        raise MissingConfigException(
+            "Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root))
 
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
-        raise Exception("Yaml file '%s' does not exist." % file_path)
-
+        raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
     try:
-        with open(file_path, 'r') as yaml_file:
+        with codecs.open(file_path, mode='r', encoding=ENCODING) as yaml_file:
             return yaml.safe_load(yaml_file)
     except Exception as e:
         raise e
@@ -198,7 +203,7 @@ def read_file_lines(parent_path, file_name):
     :return: All lines in the file as an array.
     """
     file_path = os.path.join(parent_path, file_name)
-    with open(file_path, 'r') as f:
+    with codecs.open(file_path, mode='r', encoding=ENCODING) as f:
         return f.readlines()
 
 
@@ -212,7 +217,7 @@ def read_file(parent_path, file_name):
     :return: The contents of the file.
     """
     file_path = os.path.join(parent_path, file_name)
-    with open(file_path, 'r') as f:
+    with codecs.open(file_path, mode='r', encoding=ENCODING) as f:
         return f.read()
 
 
@@ -250,7 +255,7 @@ def mv(target, new_parent):
 
 
 def write_to(filename, data):
-    with open(filename, "w") as handle:
+    with codecs.open(filename, mode="w", encoding=ENCODING) as handle:
         handle.write(data)
 
 
@@ -271,7 +276,7 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
             tar.add(source_dir, arcname=archive_name, filter=_filter_timestamps)
         # When gzipping the tar, don't include the tar's filename or modification time in the
         # zipped archive (see https://docs.python.org/3/library/gzip.html#gzip.GzipFile)
-        with gzip.GzipFile(filename="", fileobj=open(output_filename, 'wb'), mode='wb', mtime=0)\
+        with gzip.GzipFile(filename="", fileobj=open(output_filename, 'wb'), mode='wb', mtime=0) \
                 as gzipped_tar, open(unzipped_filename, 'rb') as tar:
             gzipped_tar.write(tar.read())
     finally:
@@ -315,16 +320,71 @@ def _copy_project(src_path, dst_path=""):
     return mlflow_dir
 
 
-def _copy_file_or_tree(src, dst, dst_dir):
-    name = os.path.join(dst_dir, os.path.basename(os.path.abspath(src)))
-    if dst_dir:
-        os.mkdir(os.path.join(dst, dst_dir))
+def _copy_file_or_tree(src, dst, dst_dir=None):
+    """
+    :return: The path to the copied artifacts, relative to `dst`
+    """
+    dst_subpath = os.path.basename(os.path.abspath(src))
+    if dst_dir is not None:
+        dst_subpath = os.path.join(dst_dir, dst_subpath)
+    dst_path = os.path.join(dst, dst_subpath)
     if os.path.isfile(src):
-        shutil.copy(src=src, dst=os.path.join(dst, name))
+        dst_dirpath = os.path.dirname(dst_path)
+        if not os.path.exists(dst_dirpath):
+            os.makedirs(dst_dirpath)
+        shutil.copy(src=src, dst=dst_path)
     else:
-        shutil.copytree(src=src, dst=os.path.join(dst, name))
-    return name
+        shutil.copytree(src=src, dst=dst_path)
+    return dst_subpath
 
 
 def get_parent_dir(path):
     return os.path.abspath(os.path.join(path, os.pardir))
+
+
+def relative_path_to_artifact_path(path):
+    if os.path == posixpath:
+        return path
+    if os.path.abspath(path) == path:
+        raise Exception("This method only works with relative paths.")
+    return unquote(pathname2url(path))
+
+
+def path_to_local_file_uri(path):
+    """
+    Convert local filesystem path to local file uri.
+    """
+    path = pathname2url(path)
+    if path == posixpath.abspath(path):
+        return "file://{path}".format(path=path)
+    else:
+        return "file:{path}".format(path=path)
+
+
+def path_to_local_sqlite_uri(path):
+    """
+    Convert local filesystem path to sqlite uri.
+    """
+    path = posixpath.abspath(pathname2url(os.path.abspath(path)))
+    prefix = "sqlite://" if sys.platform == "win32" else "sqlite:///"
+    return prefix + path
+
+
+def local_file_uri_to_path(uri):
+    """
+    Convert URI to local filesystem path.
+    No-op if the uri does not have the expected scheme.
+    """
+    path = urllib.parse.urlparse(uri).path if uri.startswith("file:") else uri
+    return urllib.request.url2pathname(path)
+
+
+def get_local_path_or_none(path_or_uri):
+    """Check if the argument is a local path (no scheme or file:///) and return local path if true,
+    None otherwise.
+    """
+    parsed_uri = urllib.parse.urlparse(path_or_uri)
+    if len(parsed_uri.scheme) == 0 or parsed_uri.scheme == "file" and len(parsed_uri.netloc) == 0:
+        return local_file_uri_to_path(path_or_uri)
+    else:
+        return None

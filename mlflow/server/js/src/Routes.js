@@ -7,14 +7,18 @@ class Routes {
 
   static experimentPageRoute = "/experiments/:experimentId";
 
+  static experimentPageSearchRoute = "/experiments/:experimentId/:searchString";
+
   static getRunPageRoute(experimentId, runUuid) {
     return `/experiments/${experimentId}/runs/${runUuid}`;
   }
 
   static runPageRoute = "/experiments/:experimentId/runs/:runUuid";
 
-  static getMetricPageRoute(runUuids, metricKey, experimentId) {
-    return `/metric/${metricKey}?runs=${JSON.stringify(runUuids)}&experiment=${experimentId}`;
+  static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys) {
+    return `/metric/${encodeURIComponent(metricKey)}?runs=${JSON.stringify(runUuids)}&` +
+      `experiment=${experimentId}` +
+      `&plot_metric_keys=${JSON.stringify(plotMetricKeys || [metricKey])}`;
   }
 
   static metricPageRoute = "/metric/:metricKey";
