@@ -19,10 +19,8 @@ from fbprophet.diagnostics import performance_metrics
 
 class FbProphetWrapper(mlflow.pyfunc.PythonModel):
 
-    m = None
-
     def __init__(self, model):
-        m = model
+        self.model = model
         super(FbProphetWrapper, self).__init__()
 
 
@@ -31,11 +29,11 @@ class FbProphetWrapper(mlflow.pyfunc.PythonModel):
         return
 
     def predict(self, context, model_input):
-        future = m.make_future_dataframe(periods=model_input['periods'])
-        return m.predict(future)
+        future = self.model.make_future_dataframe(periods=model_input['periods'])
+        return self.model.predict(future)
 
 conda_env = {
-    'channels': ['defaults'],
+    'channels': ['defaults', 'conda-forge'],
     'dependencies': [
       'fbprophet={}'.format(fbprophet.__version__),
       'cloudpickle={}'.format(cloudpickle.__version__),
