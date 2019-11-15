@@ -150,7 +150,6 @@ def create_tf_estimator_model(dir, export):
     train_y = train.pop('Species')
     test_y = test.pop('Species')
 
-
     def input_fn(features, labels, training=True, batch_size=256):
         """An input function for training or evaluating"""
         # Convert the inputs to a Dataset.
