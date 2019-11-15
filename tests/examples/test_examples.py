@@ -37,12 +37,12 @@ def test_mlflow_run_example(tracking_uri_mock, directory, params):
 ])
 def test_command_example(tmpdir, directory, command):
 
-    os.environ['MLFLOW_TRACKING_URI'] = str(tmpdir.join("mlruns"))
+    os.environ['MLFLOW_TRACKING_URI'] = path_to_local_file_uri(str(tmpdir.join("mlruns")))
     cwd_dir = os.path.join(EXAMPLES_DIR, directory)
 
     try:
         process.exec_cmd(command,
-                         cwd=path_to_local_file_uri(cwd_dir))
+                         cwd=cwd_dir)
     finally:
         shutil.rmtree(str(tmpdir))
         del os.environ['MLFLOW_TRACKING_URI']
