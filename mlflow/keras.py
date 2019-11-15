@@ -422,7 +422,7 @@ def autolog():
     @gorilla.patch(keras.Model)
     def fit(self, *args, **kwargs):
         if not mlflow.active_run():
-            mlflow.start_run()
+            try_mlflow_log(mlflow.start_run)
             auto_end_run = True
         else:
             auto_end_run = False
@@ -441,13 +441,13 @@ def autolog():
 
         result = original(self, *args, **kwargs)
         if auto_end_run:
-            mlflow.end_run()
+            try_mlflow_log(mlflow.end_run)
         return result
 
     @gorilla.patch(keras.Model)
     def fit_generator(self, *args, **kwargs):
         if not mlflow.active_run():
-            mlflow.start_run()
+            try_mlflow_log(mlflow.start_run)
             auto_end_run = True
         else:
             auto_end_run = False
@@ -466,7 +466,7 @@ def autolog():
 
         result = original(self, *args, **kwargs)
         if auto_end_run:
-            mlflow.end_run()
+            try_mlflow_log(mlflow.end_run)
         return result
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
