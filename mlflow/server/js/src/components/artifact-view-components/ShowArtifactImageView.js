@@ -21,11 +21,21 @@ class ShowArtifactImageView extends Component {
   };
 
   componentDidMount = () => {
+    // For a gif image, we don't have to do anything here because img tag fetches the image.
+    if (this.isGif()) {
+      return;
+    }
+
+    // For a static image, call fetchImage to load the image and convert it to data URI for plotly.
     this.fetchImage();
   };
 
   componentDidUpdate = prevProps => {
-    if (prevProps.path !== this.props.path) {
+    if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+      if (this.isGif()) {
+        return;
+      }
+
       this.fetchImage();
     }
   };
@@ -41,13 +51,6 @@ class ShowArtifactImageView extends Component {
 
   fetchImage = () => {
     this.setState({ loading: true });
-
-    // gif
-    if (this.isGif()) {
-      return;
-    }
-
-    // static image
     const img = new Image();
     img.setAttribute('crossOrigin', 'anonymous');
     img.onload = () => {
@@ -70,6 +73,7 @@ class ShowArtifactImageView extends Component {
         <div style={{ display: loading ? 'block' : 'none' }}>Loading...</div>
         <img
           src={this.getSrc()}
+          onLoadStart={() => this.setState({ loading: true })}
           onLoad={() => this.setState({ loading: false })}
           style={{ height: '100%', display: loading ? 'none' : 'block' }}
         />
