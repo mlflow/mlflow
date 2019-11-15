@@ -255,6 +255,7 @@ def tf_estimator_random_data_run(manual_run, export):
 @pytest.mark.parametrize('export', [True, False])
 def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
     assert 'loss' in tf_estimator_random_data_run.data.metrics
+    assert 'steps' in tf_estimator_random_data_run.data.params
     metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, 'loss')
     assert all((x.step-1) % 100 == 0 for x in metrics)
 
