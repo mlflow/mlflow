@@ -705,6 +705,36 @@ def autolog(every_n_iter=100):
         if _AUTO_END_RUN:
             mlflow.end_run()
         _AUTO_END_RUN = False
+
+        return result
+
+    @gorilla.patch(tensorflow.keras.Model)
+    def fit_generator(self, *args, **kwargs):
+        global _AUTO_END_RUN
+        if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
+            _AUTO_END_RUN = True
+
+        original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit_generator')
+
+        # Checking if the 'callback' argument of fit() is set
+        if len(args) >= 5:
+            tmp_list = list(args)
+            tmp_list[4], log_dir = _setup_callbacks(tmp_list[4])
+            args = tuple(tmp_list)
+        elif 'callbacks' in kwargs:
+            kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
+        else:
+            kwargs['callbacks'], log_dir = _setup_callbacks([])
+        result = original(self, *args, **kwargs)
+        _flush_queue()
+        _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
+        shutil.rmtree(log_dir)
+
+        if _AUTO_END_RUN:
+            try_mlflow_log(mlflow.end_run)
+        _AUTO_END_RUN = False
+
         return result
 
     @gorilla.patch(EventFileWriter)
@@ -725,6 +755,7 @@ def autolog(every_n_iter=100):
         gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings),
         gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings),
         gorilla.Patch(tensorflow.keras.Model, 'fit', fit, settings=settings),
+        gorilla.Patch(tensorflow.keras.Model, 'fit_generator', fit_generator, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_saved_model',
                       export_saved_model, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_savedmodel',
