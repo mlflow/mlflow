@@ -584,7 +584,7 @@ def _log_event(event):
     Extracts metric information from the event protobuf
     """
     if not mlflow.active_run():
-        try_mlflow_log(mlflow.start_run())
+        try_mlflow_log(mlflow.start_run)
         global _AUTO_END_RUN
         _AUTO_END_RUN = True
         global _AUTOLOG_RUN_ID
@@ -664,7 +664,7 @@ def autolog(every_n_iter=100):
     def train(self, *args, **kwargs):
         global _AUTO_END_RUN
         if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run())
+            try_mlflow_log(mlflow.start_run)
             _AUTO_END_RUN = True
             global _AUTOLOG_RUN_ID
             _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
@@ -684,7 +684,7 @@ def autolog(every_n_iter=100):
         result = original(self, *args, **kwargs)
 
         if _AUTO_END_RUN:
-            try_mlflow_log(mlflow.end_run())
+            try_mlflow_log(mlflow.end_run)
         _AUTO_END_RUN = False
 
         return result
@@ -695,9 +695,9 @@ def autolog(every_n_iter=100):
         if not mlflow.active_run():
             global _AUTOLOG_RUN_ID
             if _AUTOLOG_RUN_ID:
-                try_mlflow_log(mlflow.start_run(_AUTOLOG_RUN_ID))
+                try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
-                try_mlflow_log(mlflow.start_run())
+                try_mlflow_log(mlflow.start_run)
             _AUTO_END_RUN = True
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_saved_model')
@@ -717,9 +717,9 @@ def autolog(every_n_iter=100):
         if not mlflow.active_run():
             global _AUTOLOG_RUN_ID
             if _AUTOLOG_RUN_ID:
-                try_mlflow_log(mlflow.start_run(_AUTOLOG_RUN_ID))
+                try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
-                try_mlflow_log(mlflow.start_run())
+                try_mlflow_log(mlflow.start_run)
             _AUTO_END_RUN = True
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_savedmodel')
