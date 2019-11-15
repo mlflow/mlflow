@@ -167,56 +167,85 @@ def test_tf_core_autolog_logs_scalars(tf_core_random_tensors):
     assert mlflow.active_run() is None
 
 
+def create_tf_estimator_model(dir, export):
+    CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
+    SPECIES = ['Setosa', 'Versicolor', 'Virginica']
+
+    train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
+                        names=CSV_COLUMN_NAMES, header=0)
+    test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
+                       names=CSV_COLUMN_NAMES, header=0)
+
+    train_y = train.pop('Species')
+    test_y = test.pop('Species')
+
+    def input_fn(features, labels, training=True, batch_size=256):
+        """An input function for training or evaluating"""
+        # Convert the inputs to a Dataset.
+        dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))
+
+        # Shuffle and repeat if you are in training mode.
+        if training:
+            dataset = dataset.shuffle(1000).repeat()
+
+        return dataset.batch(batch_size)
+
+    my_feature_columns = []
+    for key in train.keys():
+        my_feature_columns.append(tf.feature_column.numeric_column(key=key))
+
+    feature_spec = {}
+    for feature in CSV_COLUMN_NAMES:
+        feature_spec[feature] = tf.placeholder(dtype="float", name=feature, shape=[150])
+
+    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+
+    classifier = tf.estimator.DNNClassifier(
+        feature_columns=my_feature_columns,
+        # Two hidden layers of 10 nodes each.
+        hidden_units=[30, 10],
+        # The model must choose between 3 classes.
+        n_classes=3,
+        model_dir=dir)
+
+    classifier.train(
+        input_fn=lambda: input_fn(train, train_y, training=True),
+        steps=500)
+    if export:
+        classifier.export_saved_model(dir, receiver_fn)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize('export', [True, False])
+def test_tf_keras_autolog_ends_auto_created_run(export):
+    mlflow.tensorflow.autolog()
+    dir = tempfile.mkdtemp()
+    try:
+        create_tf_estimator_model(dir, export)
+        assert mlflow.active_run() is None
+    finally:
+        shutil.rmtree(dir)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize('export', [True, False])
+def test_tf_keras_autolog_persists_manually_created_run(export):
+    with mlflow.start_run() as run:
+        dir = tempfile.mkdtemp()
+        try:
+            create_tf_estimator_model(dir, export)
+            assert mlflow.active_run()
+            assert mlflow.active_run().info.run_id == run.info.run_id
+        finally:
+            shutil.rmtree(dir)
+
+
 @pytest.fixture
 def tf_estimator_random_data_run(manual_run, export):
     mlflow.tensorflow.autolog()
     dir = tempfile.mkdtemp()
     try:
-        CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
-        SPECIES = ['Setosa', 'Versicolor', 'Virginica']
-
-        train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
-                            names=CSV_COLUMN_NAMES, header=0)
-        test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
-                           names=CSV_COLUMN_NAMES, header=0)
-
-        train_y = train.pop('Species')
-        test_y = test.pop('Species')
-
-        def input_fn(features, labels, training=True, batch_size=256):
-            """An input function for training or evaluating"""
-            # Convert the inputs to a Dataset.
-            dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))
-
-            # Shuffle and repeat if you are in training mode.
-            if training:
-                dataset = dataset.shuffle(1000).repeat()
-
-            return dataset.batch(batch_size)
-
-        my_feature_columns = []
-        for key in train.keys():
-            my_feature_columns.append(tf.feature_column.numeric_column(key=key))
-
-        feature_spec = {}
-        for feature in CSV_COLUMN_NAMES:
-            feature_spec[feature] = tf.placeholder(dtype="float", name=feature, shape=[150])
-
-        receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
-
-        classifier = tf.estimator.DNNClassifier(
-            feature_columns=my_feature_columns,
-            # Two hidden layers of 10 nodes each.
-            hidden_units=[30, 10],
-            # The model must choose between 3 classes.
-            n_classes=3,
-            model_dir=dir)
-
-        classifier.train(
-            input_fn=lambda: input_fn(train, train_y, training=True),
-            steps=500)
-        if export:
-            classifier.export_saved_model(dir, receiver_fn)
+        create_tf_estimator_model(dir, export)
         return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
     finally:
         shutil.rmtree(dir)
