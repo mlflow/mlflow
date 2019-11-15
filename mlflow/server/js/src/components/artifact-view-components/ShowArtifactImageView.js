@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import './ShowArtifactImageView.css';
 import { getSrc } from './ShowArtifactPage';
 import Plot from 'react-plotly.js';
+import Utils from '../../utils/Utils';
 
 class ShowArtifactImageView extends Component {
   constructor(props) {
@@ -73,6 +74,7 @@ class ShowArtifactImageView extends Component {
         <div style={{ display: loading ? 'block' : 'none' }}>Loading...</div>
         <img
           src={this.getSrc()}
+          alt={Utils.baseName(this.props.path)}
           onLoadStart={() => this.setState({ loading: true })}
           onLoad={() => this.setState({ loading: false })}
           style={{ height: '100%', display: loading ? 'none' : 'block' }}
