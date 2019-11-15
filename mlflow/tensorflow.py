@@ -583,7 +583,7 @@ def _log_event(event):
     Extracts metric information from the event protobuf
     """
     if not mlflow.active_run():
-        mlflow.start_run()
+        try_mlflow_log(mlflow.start_run)
         global _AUTO_END_RUN
         _AUTO_END_RUN = True
     if event.WhichOneof('what') == 'summary':
@@ -683,7 +683,7 @@ def autolog(every_n_iter=100):
     def fit(self, *args, **kwargs):
         global _AUTO_END_RUN
         if not mlflow.active_run():
-            mlflow.start_run()
+            try_mlflow_log(mlflow.start_run)
             _AUTO_END_RUN = True
 
         original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
@@ -703,7 +703,7 @@ def autolog(every_n_iter=100):
         shutil.rmtree(log_dir)
 
         if _AUTO_END_RUN:
-            mlflow.end_run()
+            try_mlflow_log(mlflow.end_run)
         _AUTO_END_RUN = False
 
         return result
