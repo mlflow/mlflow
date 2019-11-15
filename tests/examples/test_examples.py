@@ -4,6 +4,7 @@ import os.path
 import shutil
 from mlflow import cli
 from mlflow.utils import process
+from mlflow.utils.file_utils import path_to_local_file_uri
 from tests.integration.utils import invoke_cli_runner
 import pytest
 
@@ -41,7 +42,7 @@ def test_command_example(tmpdir, directory, command):
 
     try:
         process.exec_cmd(command,
-                         cwd=cwd_dir)
+                         cwd=path_to_local_file_uri(cwd_dir))
     finally:
         shutil.rmtree(str(tmpdir))
         del os.environ['MLFLOW_TRACKING_URI']
