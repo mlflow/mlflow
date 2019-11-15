@@ -237,7 +237,7 @@ or once `tf.estimator` models are exported via `tf.estimator.export_saved_model(
 
 **Note**: When a run is automatically created by `mlflow.tensorflow.autolog`, a call to `tf.estimator.train()` will end the current run but will not log the trained model to that run.
 To track a model in the same run, you will need to call `tf.estimator.export_saved_model()`, which will start the most recent `autolog`-created run
-and logs the model there. The run will be automatically ended afterwards.
+and log the model there. The run will be automatically ended afterwards.
 
 If a run exists when `autolog()` captures data, MLflow will log to that run and not automatically end that run after training.
 
