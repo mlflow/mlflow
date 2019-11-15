@@ -707,7 +707,7 @@ def autolog(every_n_iter=100):
                        tf_signature_def_key='predict',
                        artifact_path='model')
         if _AUTO_END_RUN:
-            try_mlflow_log(mlflow.end_run())
+            try_mlflow_log(mlflow.end_run)
         _AUTO_END_RUN = False
         return serialized
 
@@ -729,7 +729,7 @@ def autolog(every_n_iter=100):
                        tf_signature_def_key='predict',
                        artifact_path='model')
         if _AUTO_END_RUN:
-            try_mlflow_log(mlflow.end_run())
+            try_mlflow_log(mlflow.end_run)
         _AUTO_END_RUN = False
         return serialized
 
