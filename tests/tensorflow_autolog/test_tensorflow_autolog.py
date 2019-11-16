@@ -228,38 +228,29 @@ def create_tf_estimator_model(dir, export):
 
 @pytest.mark.large
 @pytest.mark.parametrize('export', [True, False])
-def test_tf_keras_autolog_ends_auto_created_run(export):
+def test_tf_keras_autolog_ends_auto_created_run(tmpdir, export):
+    dir = tmpdir.mkdir("test")
     mlflow.tensorflow.autolog()
-    dir = tempfile.mkdtemp()
-    try:
-        create_tf_estimator_model(dir, export)
-        assert mlflow.active_run() is None
-    finally:
-        shutil.rmtree(dir)
+    create_tf_estimator_model(str(dir), export)
+    assert mlflow.active_run() is None
 
 
 @pytest.mark.large
 @pytest.mark.parametrize('export', [True, False])
-def test_tf_keras_autolog_persists_manually_created_run(export):
+def test_tf_keras_autolog_persists_manually_created_run(tmpdir, export):
+    dir = tmpdir.mkdir("test")
     with mlflow.start_run() as run:
-        dir = tempfile.mkdtemp()
-        try:
-            create_tf_estimator_model(dir, export)
-            assert mlflow.active_run()
-            assert mlflow.active_run().info.run_id == run.info.run_id
-        finally:
-            shutil.rmtree(dir)
+        create_tf_estimator_model(str(dir), export)
+        assert mlflow.active_run()
+        assert mlflow.active_run().info.run_id == run.info.run_id
 
 
 @pytest.fixture
-def tf_estimator_random_data_run(manual_run, export):
+def tf_estimator_random_data_run(tmpdir, manual_run, export):
+    dir = tmpdir.mkdir("test")
     mlflow.tensorflow.autolog()
-    dir = tempfile.mkdtemp()
-    try:
-        create_tf_estimator_model(dir, export)
-        return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
-    finally:
-        shutil.rmtree(dir)
+    create_tf_estimator_model(str(dir), export)
+    return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
 
 @pytest.mark.large
@@ -283,9 +274,9 @@ def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_d
 
 
 @pytest.fixture
-def duplicate_autolog_tf_estimator_run(manual_run, export):
+def duplicate_autolog_tf_estimator_run(tmpdir, manual_run, export):
     mlflow.tensorflow.autolog(every_n_iter=23)  # 23 is prime; no false positives in test
-    run = tf_estimator_random_data_run(manual_run, export)
+    run = tf_estimator_random_data_run(tmpdir, manual_run, export)
     return run  # should be autologged every 4 steps
 
 
