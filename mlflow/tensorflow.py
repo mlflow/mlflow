@@ -584,8 +584,6 @@ def _log_event(event):
     """
     if not mlflow.active_run():
         try_mlflow_log(mlflow.start_run)
-        global _AUTO_END_RUN
-        _AUTO_END_RUN = True
         global _AUTOLOG_RUN_ID
         _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
     if event.WhichOneof('what') == 'summary':
@@ -680,7 +678,7 @@ def autolog(every_n_iter=100):
 
         result = original(self, *args, **kwargs)
 
-        if _AUTOLOG_RUN_ID:
+        if mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID:
             try_mlflow_log(mlflow.end_run)
 
         return result
@@ -703,15 +701,15 @@ def autolog(every_n_iter=100):
                        tf_meta_graph_tags=[tag_constants.SERVING],
                        tf_signature_def_key='predict',
                        artifact_path='model')
-        if _AUTOLOG_RUN_ID or auto_end:
+        if mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID or auto_end:
             try_mlflow_log(mlflow.end_run)
         return serialized
 
     @gorilla.patch(tensorflow.estimator.Estimator)
     def export_savedmodel(self, *args, **kwargs):
         auto_end = False
+        global _AUTOLOG_RUN_ID
         if not mlflow.active_run():
-            global _AUTOLOG_RUN_ID
             if _AUTOLOG_RUN_ID:
                 try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
@@ -725,16 +723,16 @@ def autolog(every_n_iter=100):
                        tf_meta_graph_tags=[tag_constants.SERVING],
                        tf_signature_def_key='predict',
                        artifact_path='model')
-        if _AUTO_END_RUN or auto_end:
+        if mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID or auto_end:
             try_mlflow_log(mlflow.end_run)
         return serialized
 
     @gorilla.patch(tensorflow.keras.Model)
     def fit(self, *args, **kwargs):
-        global _AUTO_END_RUN
+        global _AUTOLOG_RUN_ID
         if not mlflow.active_run():
             try_mlflow_log(mlflow.start_run)
-            _AUTO_END_RUN = True
+            _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
 
         original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
 
@@ -752,18 +750,17 @@ def autolog(every_n_iter=100):
         _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
         shutil.rmtree(log_dir)
 
-        if _AUTO_END_RUN:
+        if mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID:
             try_mlflow_log(mlflow.end_run)
-        _AUTO_END_RUN = False
 
         return result
 
     @gorilla.patch(tensorflow.keras.Model)
     def fit_generator(self, *args, **kwargs):
-        global _AUTO_END_RUN
+        global _AUTOLOG_RUN_ID
         if not mlflow.active_run():
             try_mlflow_log(mlflow.start_run)
-            _AUTO_END_RUN = True
+            _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
 
         original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit_generator')
 
@@ -781,9 +778,8 @@ def autolog(every_n_iter=100):
         _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
         shutil.rmtree(log_dir)
 
-        if _AUTO_END_RUN:
+        if mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID:
             try_mlflow_log(mlflow.end_run)
-        _AUTO_END_RUN = False
 
         return result
 
