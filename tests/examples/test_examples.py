@@ -25,6 +25,7 @@ def test_mlflow_run_example(tracking_uri_mock, directory, params):
     invoke_cli_runner(cli.run, cli_run_list)
 
 
+@pytest.mark.large
 @pytest.mark.parametrize("directory, command", [
     ('quickstart', ['python', 'mlflow_tracking.py']),
 ])
