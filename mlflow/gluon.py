@@ -2,6 +2,7 @@ import os
 
 import gorilla
 import mxnet as mx
+import yaml
 from mxnet import gluon
 from mxnet import sym
 from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd
@@ -14,6 +15,7 @@ from mlflow.models import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log
+from mlflow.utils.environment import _mlflow_conda_env
 
 FLAVOR_NAME = "gluon"
 _MODEL_SAVE_PATH = "net"
@@ -72,13 +74,30 @@ def _load_pyfunc(path):
 
 
 @experimental
-def save_model(gluon_model, path, mlflow_model=Model()):
+def save_model(gluon_model, path, mlflow_model=Model(), conda_env=None):
     """
     Save a Gluon model to a path on the local file system.
 
     :param gluon_model: Gluon model to be saved. Must be already hybridized.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
+    :param conda_env: Either a dictionary representation of a Conda environment or
+                      the path to a Conda environment yaml file.
+                      If provided, this decribes the environment this model should be
+                      run in. At minimum, it should specify the dependencies
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
+                      :func:`mlflow.gluon.get_default_conda_env()` environment is added to
+                      the model. The following is an *example* dictionary representation of a
+                      Conda environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'mxnet=1.5.0'
+                            ]
+                        }
 
     >>> from mxnet.gluon import Trainer
     >>> from mxnet.gluon.contrib import estimator
@@ -111,17 +130,52 @@ def save_model(gluon_model, path, mlflow_model=Model()):
     gluon_model.export(os.path.join(data_path, _MODEL_SAVE_PATH))
     with open(os.path.join(path, "architecture.txt"), "w") as fp:
         fp.write(str(gluon_model))
+    conda_env_subpath = "conda.yaml"
+    if conda_env is None:
+        conda_env = get_default_conda_env()
+    elif not isinstance(conda_env, dict):
+        with open(conda_env, "r") as f:
+            conda_env = yaml.safe_load(f)
+    with open(os.path.join(path, conda_env_subpath), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon")
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
+def get_default_conda_env():
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+             :func:`save_model()` and :func:`log_model()`.
+    """
+    pip_deps = ["mxnet=={}".format(mx.__version__)]
+
+    return _mlflow_conda_env(additional_pip_deps=pip_deps)
+
+
 @experimental
-def log_model(gluon_model, artifact_path):
+def log_model(gluon_model, artifact_path, conda_env=None):
     """
     Log a Gluon model as an MLflow artifact for the current run.
 
     :param gluon_model: Gluon model to be saved. Must be already hybridized.
     :param artifact_path: Run-relative artifact path.
+    :param conda_env: Either a dictionary representation of a Conda environment or
+                      the path to a Conda environment yaml file.
+                      If provided, this decribes the environment this model should be
+                      run in. At minimum, it should specify the dependencies
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
+                      :func:`mlflow.gluon.get_default_conda_env()` environment is added to
+                      the model. The following is an *example* dictionary representation of a
+                      Conda environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'mxnet=1.5.0'
+                            ]
+                        }
 
     >>> from mxnet.gluon import Trainer
     >>> from mxnet.gluon.contrib import estimator
@@ -143,7 +197,8 @@ def log_model(gluon_model, artifact_path):
     >>>   est.fit(train_data=train_data, epochs=100, val_data=validation_data)
     >>>   mlflow.gluon.log_model(net, "model")
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.gluon, gluon_model=gluon_model)
+    Model.log(artifact_path=artifact_path, flavor=mlflow.gluon, gluon_model=gluon_model,
+              conda_env=conda_env)
 
 
 @experimental
