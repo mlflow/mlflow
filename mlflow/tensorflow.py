@@ -53,6 +53,9 @@ _metric_queue = []
 
 _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
+# For tracking if the run was started by autologging.
+_AUTO_END_RUN = False
+
 
 def get_default_conda_env():
     """
@@ -451,8 +454,7 @@ class __MLflowTfKerasCallback(Callback):
         Records model structural information as params after training finishes.
     """
     def __init__(self):
-        if mlflow.active_run() is None:
-            mlflow.start_run()
+        pass
 
     def __enter__(self):
         pass
@@ -497,11 +499,10 @@ class __MLflowTfKerasCallback(Callback):
 class __MLflowTfKeras2Callback(Callback):
     """
         Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
-        Records model structural information as params after training finishes.
+        Records model structural information as params when training starts.
     """
     def __init__(self):
-        if mlflow.active_run() is None:
-            mlflow.start_run()
+        pass
 
     def __enter__(self):
         pass
@@ -581,8 +582,10 @@ def _log_event(event):
     """
     Extracts metric information from the event protobuf
     """
-    if mlflow.active_run() is None:
-        mlflow.start_run()
+    if not mlflow.active_run():
+        try_mlflow_log(mlflow.start_run)
+        global _AUTO_END_RUN
+        _AUTO_END_RUN = True
     if event.WhichOneof('what') == 'summary':
         summary = event.summary
         for v in summary.value:
@@ -678,7 +681,13 @@ def autolog(every_n_iter=100):
 
     @gorilla.patch(tensorflow.keras.Model)
     def fit(self, *args, **kwargs):
+        global _AUTO_END_RUN
+        if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
+            _AUTO_END_RUN = True
+
         original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
+
         # Checking if the 'callback' argument of fit() is set
         if len(args) >= 6:
             tmp_list = list(args)
@@ -692,6 +701,40 @@ def autolog(every_n_iter=100):
         _flush_queue()
         _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
         shutil.rmtree(log_dir)
+
+        if _AUTO_END_RUN:
+            try_mlflow_log(mlflow.end_run)
+        _AUTO_END_RUN = False
+
+        return result
+
+    @gorilla.patch(tensorflow.keras.Model)
+    def fit_generator(self, *args, **kwargs):
+        global _AUTO_END_RUN
+        if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
+            _AUTO_END_RUN = True
+
+        original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit_generator')
+
+        # Checking if the 'callback' argument of fit() is set
+        if len(args) >= 5:
+            tmp_list = list(args)
+            tmp_list[4], log_dir = _setup_callbacks(tmp_list[4])
+            args = tuple(tmp_list)
+        elif 'callbacks' in kwargs:
+            kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
+        else:
+            kwargs['callbacks'], log_dir = _setup_callbacks([])
+        result = original(self, *args, **kwargs)
+        _flush_queue()
+        _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
+        shutil.rmtree(log_dir)
+
+        if _AUTO_END_RUN:
+            try_mlflow_log(mlflow.end_run)
+        _AUTO_END_RUN = False
+
         return result
 
     @gorilla.patch(EventFileWriter)
@@ -712,6 +755,7 @@ def autolog(every_n_iter=100):
         gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings),
         gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings),
         gorilla.Patch(tensorflow.keras.Model, 'fit', fit, settings=settings),
+        gorilla.Patch(tensorflow.keras.Model, 'fit_generator', fit_generator, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_saved_model',
                       export_saved_model, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_savedmodel',
