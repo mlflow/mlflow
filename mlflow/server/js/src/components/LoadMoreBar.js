@@ -69,5 +69,5 @@ const styles = {
   loadMoreButton: {
     paddingLeft: 16,
     paddingRight: 16,
-  }
+  },
 };
