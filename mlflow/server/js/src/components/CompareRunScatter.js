@@ -39,19 +39,19 @@ class CompareRunScatter extends Component {
         x: this.paramKeys.length > 0 ?
         {
           key: this.paramKeys[0],
-          isMetric: false
+          isMetric: false,
         } : {
           key: this.metricKeys[1],
-          isMetric: true
+          isMetric: true,
         },
         y: this.metricKeys.length > 0 ?
         {
           key: this.metricKeys[0],
-          isMetric: true
+          isMetric: true,
         } : {
           key: this.paramKeys[1],
-          isMetric: false
-        }
+          isMetric: false,
+        },
       };
     }
   }
@@ -119,21 +119,21 @@ class CompareRunScatter extends Component {
                   mode: 'markers',
                   marker: {
                     size: 10,
-                    color: "rgba(200, 50, 100, .75)"
+                    color: "rgba(200, 50, 100, .75)",
                   },
                 },
               ]}
               layout={{
                 margin: {
-                  t: 30
+                  t: 30,
                 },
                 hovermode: "closest",
                 xaxis: {
-                  title: this.encodeHtml(Utils.truncateString(this.state["x"].key, keyLength))
+                  title: this.encodeHtml(Utils.truncateString(this.state["x"].key, keyLength)),
                 },
                 yaxis: {
-                  title: this.encodeHtml(Utils.truncateString(this.state["y"].key, keyLength))
-                }
+                  title: this.encodeHtml(Utils.truncateString(this.state["y"].key, keyLength)),
+                },
               }}
               className={"scatter-plotly"}
               config={{
@@ -146,8 +146,8 @@ class CompareRunScatter extends Component {
                   "lasso2d",
                   "resetScale2d",
                   "hoverClosestCartesian",
-                  "hoverCompareCartesian"
-                ]
+                  "hoverCompareCartesian",
+                ],
               }}
               useResizeHandler
             />
