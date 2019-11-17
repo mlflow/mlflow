@@ -322,7 +322,7 @@ def test_order_by_metric_with_nans_and_infs():
 ])
 def test_invalid_order_by(order_by, error_message):
     with pytest.raises(MlflowException) as e:
-        SearchUtils._parse_order_by(order_by)
+        SearchUtils.parse_order_by(order_by)
     assert error_message in e.value.message
 
 

@@ -4,6 +4,7 @@ import uuid
 import math
 import posixpath
 import sqlalchemy
+import sqlalchemy.sql.expression as sql
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
@@ -576,7 +577,15 @@ class SqlAlchemyStore(AbstractStore):
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
-        # TODO: push search query into backend database layer
+
+        def compute_next_token(current_size):
+            next_token = None
+            if max_results == current_size:
+                final_offset = offset + max_results
+                next_token = SearchUtils.create_page_token(final_offset)
+
+            return next_token
+
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
                                   "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
@@ -590,23 +599,26 @@ class SqlAlchemyStore(AbstractStore):
             # tags. These run attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
+            parsed_filters = SearchUtils.parse_search_filter(filter_string)
+            parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
+
             query = session.query(SqlRun)
+            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session) + sorting_joins:
+                query = query.join(j)
 
-            parsed = SearchUtils.parse_search_filter(filter_string)
-            for s in _get_sqlalchemy_filter_clauses(parsed, session):
-                query = query.join(s)
-
+            offset = SearchUtils.parse_start_offset_from_page_token(page_token)
             queried_runs = query.distinct() \
                 .options(*self._get_eager_run_query_options()) \
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed)) \
-                .all()
-            runs = [run.to_mlflow_entity() for run in queried_runs]
+                    *_get_attributes_filtering_clauses(parsed_filters)) \
+                .order_by(*parsed_orderby) \
+                .offset(offset).limit(max_results).all()
 
-        sorted_runs = SearchUtils.sort(runs, order_by)
-        runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
+            runs = [run.to_mlflow_entity() for run in queried_runs]
+            next_page_token = compute_next_token(len(runs))
+
         return runs, next_page_token
 
     def log_batch(self, run_id, metrics, params, tags):
@@ -688,3 +700,64 @@ def _get_sqlalchemy_filter_clauses(parsed, session):
         if filter_query is not None:
             filters.append(filter_query)
     return filters
+
+
+def _get_orderby_clauses(order_by_list, session):
+    """Sorts a set of runs based on their natural ordering and an overriding set of order_bys.
+    Runs are naturally ordered first by start time descending, then by run id for tie-breaking.
+    """
+
+    clauses = []
+    ordering_joins = []
+    clause_id = 0
+    # contrary to filters, it is not easily feasible to separately handle sorting
+    # on attributes and on joined tables as we must keep all clauses in the same order
+    if order_by_list:
+        for order_by_clause in order_by_list:
+            clause_id += 1
+            (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
+            if SearchUtils.is_attribute(key_type, '='):
+                order_value = getattr(SqlRun, SqlRun.get_attribute_name(key))
+            else:
+                if SearchUtils.is_metric(key_type, '='):  # any valid comparator
+                    entity = SqlLatestMetric
+                elif SearchUtils.is_tag(key_type, '='):
+                    entity = SqlTag
+                elif SearchUtils.is_param(key_type, '='):
+                    entity = SqlParam
+                else:
+                    raise MlflowException("Invalid identifier type '%s'" % key_type,
+                                          error_code=INVALID_PARAMETER_VALUE)
+
+                # build a subquery first because we will join it in the main request so that the
+                # metric we want to sort on is available when we apply the sorting clause
+                subquery = session \
+                    .query(entity) \
+                    .filter(entity.key == key) \
+                    .subquery()
+
+                ordering_joins.append(subquery)
+                order_value = subquery.c.value
+
+            # sqlite does not support NULLS LAST expression, so we sort first by
+            # presence of the field (and is_nan for metrics), then by actual value
+            # As the subqueries are created independently and used later in the
+            # same main query, the CASE WHEN columns need to have unique names to
+            # avoid ambiguity
+            if SearchUtils.is_metric(key_type, '='):
+                clauses.append(sql.case([
+                    (subquery.c.is_nan.is_(True), 1),
+                    (order_value.is_(None), 1)
+                ], else_=0).label('clause_%s' % clause_id))
+            else:  # other entities do not have an 'is_nan' field
+                clauses.append(sql.case([(order_value.is_(None), 1)], else_=0)
+                               .label('clause_%s' % clause_id))
+
+            if ascending:
+                clauses.append(order_value)
+            else:
+                clauses.append(order_value.desc())
+
+    clauses.append(SqlRun.start_time.desc())
+    clauses.append(SqlRun.run_uuid)
+    return clauses, ordering_joins
