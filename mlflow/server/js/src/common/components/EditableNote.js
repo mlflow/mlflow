@@ -53,7 +53,7 @@ export class EditableNote extends Component {
         .catch((e) => {
           this.setState({
             confirmLoading: false,
-            error: e.getMessageField ? e.getMessageField() : 'Failed to submit'
+            error: e.getMessageField ? e.getMessageField() : 'Failed to submit',
           });
         });
     }
@@ -63,7 +63,7 @@ export class EditableNote extends Component {
     // Reset to the last defaultMarkdown passed in as props.
     this.setState({
       markdown: this.props.defaultMarkdown,
-      selectedTab: this.props.defaultSelectedTab
+      selectedTab: this.props.defaultSelectedTab,
     });
     const { onCancel } = this.props;
     if (onCancel) {
