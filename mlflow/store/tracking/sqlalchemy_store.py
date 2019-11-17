@@ -1,15 +1,14 @@
 import logging
 import uuid
-from contextlib import contextmanager
 
 import math
 import posixpath
-from alembic.script import ScriptDirectory
 import sqlalchemy
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
+import mlflow.store.db.utils
 from mlflow.store.tracking.dbmodels.models import SqlExperiment, SqlRun, \
     SqlMetric, SqlParam, SqlTag, SqlExperimentTag, SqlLatestMetric
 from mlflow.store.db.base_sql_model import Base
@@ -19,14 +18,12 @@ from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
-from mlflow.tracking.utils import _is_local_uri
-from mlflow.utils import extract_db_type_from_uri
+from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
     _validate_run_id, _validate_metric, _validate_experiment_tag, _validate_tag
-from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _get_schema_version
-from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 
 
 _logger = logging.getLogger(__name__)
@@ -81,12 +78,11 @@ class SqlAlchemyStore(AbstractStore):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = default_artifact_root
-        self.engine = sqlalchemy.create_engine(db_uri, pool_pre_ping=True)
-        insp = sqlalchemy.inspect(self.engine)
+        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine(db_uri)
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
         # DB migrations
-        expected_tables = set([
+        expected_tables = [
             SqlExperiment.__tablename__,
             SqlRun.__tablename__,
             SqlMetric.__tablename__,
@@ -94,80 +90,21 @@ class SqlAlchemyStore(AbstractStore):
             SqlTag.__tablename__,
             SqlExperimentTag.__tablename__,
             SqlLatestMetric.__tablename__,
-        ])
-        if len(expected_tables & set(insp.get_table_names())) == 0:
-            SqlAlchemyStore._initialize_tables(self.engine)
+        ]
+        inspected_tables = set(sqlalchemy.inspect(self.engine).get_table_names())
+        if any([table not in inspected_tables for table in expected_tables]):
+            mlflow.store.db.utils._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = self._get_managed_session_maker(SessionMaker)
-        SqlAlchemyStore._verify_schema(self.engine)
+        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(SessionMaker)
+        mlflow.store.db.utils._verify_schema(self.engine)
 
-        if _is_local_uri(default_artifact_root):
+        if is_local_uri(default_artifact_root):
             mkdir(local_file_uri_to_path(default_artifact_root))
 
         if len(self.list_experiments()) == 0:
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
-
-    @staticmethod
-    def _initialize_tables(engine):
-        _logger.info("Creating initial MLflow database tables...")
-        InitialBase.metadata.create_all(engine)
-        engine_url = str(engine.url)
-        _upgrade_db(engine_url)
-
-    @staticmethod
-    def _get_latest_schema_revision():
-        """Get latest schema revision as a string."""
-        # We aren't executing any commands against a DB, so we leave the DB URL unspecified
-        config = _get_alembic_config(db_url="")
-        script = ScriptDirectory.from_config(config)
-        heads = script.get_heads()
-        if len(heads) != 1:
-            raise MlflowException("Migration script directory was in unexpected state. Got %s head "
-                                  "database versions but expected only 1. Found versions: %s"
-                                  % (len(heads), heads))
-        return heads[0]
-
-    @staticmethod
-    def _verify_schema(engine):
-        head_revision = SqlAlchemyStore._get_latest_schema_revision()
-        current_rev = _get_schema_version(engine)
-        if current_rev != head_revision:
-            raise MlflowException(
-                "Detected out-of-date database schema (found version %s, but expected %s). "
-                "Take a backup of your database, then run 'mlflow db upgrade <database_uri>' "
-                "to migrate your database to the latest schema. NOTE: schema migration may "
-                "result in database downtime - please consult your database's documentation for "
-                "more detail." % (current_rev, head_revision))
-
-    @staticmethod
-    def _get_managed_session_maker(SessionMaker):
-        """
-        Creates a factory for producing exception-safe SQLAlchemy sessions that are made available
-        using a context manager. Any session produced by this factory is automatically committed
-        if no exceptions are encountered within its associated context. If an exception is
-        encountered, the session is rolled back. Finally, any session produced by this factory is
-        automatically closed when the session's associated context is exited.
-        """
-
-        @contextmanager
-        def make_managed_session():
-            """Provide a transactional scope around a series of operations."""
-            session = SessionMaker()
-            try:
-                yield session
-                session.commit()
-            except MlflowException:
-                session.rollback()
-                raise
-            except Exception as e:
-                session.rollback()
-                raise MlflowException(message=e, error_code=INTERNAL_ERROR)
-            finally:
-                session.close()
-
-        return make_managed_session
 
     def _set_zero_value_insertion_for_autoincrement_column(self, session):
         if self.db_type == MYSQL:
@@ -204,7 +141,7 @@ class SqlAlchemyStore(AbstractStore):
         }
 
         def decorate(s):
-            if isinstance(s, str):
+            if is_string_type(s):
                 return "'{}'".format(s)
             else:
                 return "{}".format(s)
@@ -647,22 +584,28 @@ class SqlAlchemyStore(AbstractStore):
                                   INVALID_PARAMETER_VALUE)
 
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
+
         with self.ManagedSessionMaker() as session:
             # Fetch the appropriate runs and eagerly load their summary metrics, params, and
             # tags. These run attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
-            queried_runs = session \
-                .query(SqlRun) \
+            query = session.query(SqlRun)
+
+            parsed = SearchUtils.parse_search_filter(filter_string)
+            for s in _get_sqlalchemy_filter_clauses(parsed, session):
+                query = query.join(s)
+
+            queried_runs = query.distinct() \
                 .options(*self._get_eager_run_query_options()) \
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
-                    SqlRun.lifecycle_stage.in_(stages)) \
+                    SqlRun.lifecycle_stage.in_(stages),
+                    *_get_attributes_filtering_clauses(parsed)) \
                 .all()
             runs = [run.to_mlflow_entity() for run in queried_runs]
 
-        filtered = SearchUtils.filter(runs, filter_string)
-        sorted_runs = SearchUtils.sort(filtered, order_by)
+        sorted_runs = SearchUtils.sort(runs, order_by)
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
         return runs, next_page_token
 
@@ -684,3 +627,64 @@ class SqlAlchemyStore(AbstractStore):
             raise e
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
+
+
+def _get_attributes_filtering_clauses(parsed):
+    clauses = []
+    for sql_statement in parsed:
+        key_type = sql_statement.get('type')
+        key_name = sql_statement.get('key')
+        value = sql_statement.get('value')
+        comparator = sql_statement.get('comparator')
+        if SearchUtils.is_attribute(key_type, comparator):
+            # validity of the comparator is checked in SearchUtils.parse_search_filter()
+            op = SearchUtils.filter_ops.get(comparator)
+            if op:
+                # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
+                # by the call to parse_search_filter
+                attribute_name = SqlRun.get_attribute_name(key_name)
+                clauses.append(op(getattr(SqlRun, attribute_name), value))
+    return clauses
+
+
+def _to_sqlalchemy_filtering_statement(sql_statement, session):
+    key_type = sql_statement.get('type')
+    key_name = sql_statement.get('key')
+    value = sql_statement.get('value')
+    comparator = sql_statement.get('comparator')
+
+    if SearchUtils.is_metric(key_type, comparator):
+        entity = SqlLatestMetric
+        value = float(value)
+    elif SearchUtils.is_param(key_type, comparator):
+        entity = SqlParam
+    elif SearchUtils.is_tag(key_type, comparator):
+        entity = SqlTag
+    elif SearchUtils.is_attribute(key_type, comparator):
+        return None
+    else:
+        raise MlflowException("Invalid search expression type '%s'" % key_type,
+                              error_code=INVALID_PARAMETER_VALUE)
+
+    # validity of the comparator is checked in SearchUtils.parse_search_filter()
+    op = SearchUtils.filter_ops.get(comparator)
+    if op:
+        return (
+            session
+            .query(entity)
+            .filter(entity.key == key_name, op(entity.value, value))
+            .subquery()
+        )
+    else:
+        return None
+
+
+def _get_sqlalchemy_filter_clauses(parsed, session):
+    """creates SqlAlchemy subqueries
+    that will be inner-joined to SQLRun to act as multi-clause filters."""
+    filters = []
+    for sql_statement in parsed:
+        filter_query = _to_sqlalchemy_filtering_statement(sql_statement, session)
+        if filter_query is not None:
+            filters.append(filter_query)
+    return filters

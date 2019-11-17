@@ -3,20 +3,17 @@ from __future__ import print_function
 import os
 import sys
 
-from six.moves import urllib
-
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
-from mlflow.tracking.registry import TrackingStoreRegistry
+from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils import env, rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.uri import get_db_profile_from_uri
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
-_LOCAL_FS_URI_PREFIX = "file:///"
-_REMOTE_URI_PREFIX = "http://"
 
 # Extra environment variables which take precedence for setting the basic/bearer
 # auth on http requests.
@@ -70,23 +67,6 @@ def get_tracking_uri():
         return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
 
 
-def _is_local_uri(uri):
-    """Returns true if this is a local file path (/foo or file:/foo)."""
-    scheme = urllib.parse.urlparse(uri).scheme
-    return uri != 'databricks' and (scheme == '' or scheme == 'file')
-
-
-def _is_http_uri(uri):
-    scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == 'http' or scheme == 'https'
-
-
-def _is_databricks_uri(uri):
-    """Databricks URIs look like 'databricks' (default profile) or 'databricks://profile'"""
-    scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == 'databricks' or uri == 'databricks'
-
-
 def _get_file_store(store_uri, **_):
     return FileStore(store_uri, store_uri)
 
@@ -109,17 +89,6 @@ def _get_rest_store(store_uri, **_):
         )
 
     return RestStore(get_default_host_creds)
-
-
-def get_db_profile_from_uri(uri):
-    """
-    Get the Databricks profile specified by the tracking URI (if any), otherwise
-    returns None.
-    """
-    parsed_uri = urllib.parse.urlparse(uri)
-    if parsed_uri.scheme == "databricks":
-        return parsed_uri.netloc
-    return None
 
 
 def _get_databricks_rest_store(store_uri, **_):

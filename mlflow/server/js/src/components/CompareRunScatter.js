@@ -139,6 +139,7 @@ class CompareRunScatter extends Component {
               config={{
                 responsive: true,
                 displaylogo: false,
+                scrollZoom: true,
                 modeBarButtonsToRemove: [
                   "sendDataToCloud",
                   "select2d",

@@ -3,7 +3,7 @@ import { connect } from 'react-redux';
 import Utils from '../utils/Utils';
 import PropTypes from 'prop-types';
 import { Form, Input, Button, message } from 'antd';
-import { getUUID, setTagApi } from '../Actions';
+import { getUUID, setTagApi, deleteTagApi } from '../Actions';
 import { EditableFormTable } from './tables/EditableFormTable';
 import _ from 'lodash';
 
@@ -13,6 +13,7 @@ export class EditableTagsTableView extends React.Component {
     tags: PropTypes.object.isRequired,
     form: PropTypes.object.isRequired,
     setTagApi: PropTypes.func.isRequired,
+    deleteTagApi: PropTypes.func.isRequired
   };
 
   state = { isRequestPending: false };
@@ -72,6 +73,15 @@ export class EditableTagsTableView extends React.Component {
       });
   };
 
+  handleDeleteTag = ({ name }) => {
+    const { runUuid, deleteTagApi: deleteTag } = this.props;
+    return deleteTag(runUuid, name, this.requestId)
+      .catch((ex) => {
+        console.error(ex);
+        message.error('Failed to delete tag. Error: ' + ex.getUserVisibleError());
+      });
+  };
+
   tagNameValidator = (rule, value, callback) => {
     const tagNamesSet = this.getTagNamesAsSet();
     callback(tagNamesSet.has(value) ? `Tag "${value}" already exists.` : undefined);
@@ -88,6 +98,7 @@ export class EditableTagsTableView extends React.Component {
           columns={this.tableColumns}
           data={this.getData()}
           onSaveEdit={this.handleSaveEdit}
+          onDelete={this.handleDeleteTag}
         />
         <div style={styles.addTagForm.wrapper}>
           <h2 style={styles.addTagForm.label}>Add Tag</h2>
@@ -131,6 +142,6 @@ const styles = {
   }
 };
 
-const mapDispatchToProps = { setTagApi };
+const mapDispatchToProps = { setTagApi, deleteTagApi };
 
 export default connect(undefined, mapDispatchToProps)(Form.create()(EditableTagsTableView));

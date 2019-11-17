@@ -1,5 +1,8 @@
 module.exports = {
-  'extends': 'airbnb-base',
+  'extends': [
+    'airbnb-base',
+    'react-app',
+  ],
   'parser': 'babel-eslint',
   'plugins': [
     'react',
@@ -34,7 +37,7 @@ module.exports = {
       },
     },
     'react': {
-      'version': '0.14.8',
+      'version': 'detect',
     },
   },
   'rules': {

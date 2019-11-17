@@ -53,6 +53,9 @@ _metric_queue = []
 
 _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
+# For tracking if the run was started by autologging.
+_AUTO_END_RUN = False
+
 
 def get_default_conda_env():
     """
@@ -69,7 +72,7 @@ def get_default_conda_env():
 
 @keyword_only
 def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,
-              conda_env=None):
+              conda_env=None, registered_model_name=None):
     """
     Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
     for the current run. This method operates on TensorFlow variables and graphs that have been
@@ -114,11 +117,15 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                                 'tensorflow=1.8.0'
                             ]
                         }
-
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.tensorflow,
                      tf_saved_model_dir=tf_saved_model_dir, tf_meta_graph_tags=tf_meta_graph_tags,
-                     tf_signature_def_key=tf_signature_def_key, conda_env=conda_env)
+                     tf_signature_def_key=tf_signature_def_key, conda_env=conda_env,
+                     registered_model_name=registered_model_name)
 
 
 @keyword_only
@@ -443,12 +450,11 @@ class _TF2Wrapper(object):
 
 class __MLflowTfKerasCallback(Callback):
     """
-        Callback for auto-logging parameters (we rely on TensorBoard for metrics).
+        Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
         Records model structural information as params after training finishes.
     """
     def __init__(self):
-        if mlflow.active_run() is None:
-            mlflow.start_run()
+        pass
 
     def __enter__(self):
         pass
@@ -456,10 +462,7 @@ class __MLflowTfKerasCallback(Callback):
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def on_epoch_end(self, epoch, logs=None):
-        pass
-
-    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+    def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
         opt = self.model.optimizer
         if hasattr(opt, 'optimizer'):
             opt = opt.optimizer
@@ -471,10 +474,66 @@ class __MLflowTfKerasCallback(Callback):
             epsilon = opt._epsilon if type(opt._epsilon) is float \
                 else tensorflow.keras.backend.eval(opt._epsilon)
             try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
-        l = []
-        self.model.summary(print_fn=l.append)
-        summary = '\n'.join(l)
-        try_mlflow_log(mlflow.set_tag, 'summary', summary)
+
+        sum_list = []
+        self.model.summary(print_fn=sum_list.append)
+        summary = '\n'.join(sum_list)
+        try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
+
+        tempdir = tempfile.mkdtemp()
+        try:
+            summary_file = os.path.join(tempdir, "model_summary.txt")
+            with open(summary_file, 'w') as f:
+                f.write(summary)
+            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+        finally:
+            shutil.rmtree(tempdir)
+
+    def on_epoch_end(self, epoch, logs=None):
+        pass
+
+    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+        try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
+
+
+class __MLflowTfKeras2Callback(Callback):
+    """
+        Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
+        Records model structural information as params when training starts.
+    """
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
+        config = self.model.optimizer.get_config()
+        for attribute in config:
+            try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
+
+        sum_list = []
+        self.model.summary(print_fn=sum_list.append)
+        summary = '\n'.join(sum_list)
+        try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
+
+        tempdir = tempfile.mkdtemp()
+        try:
+            summary_file = os.path.join(tempdir, "model_summary.txt")
+            with open(summary_file, 'w') as f:
+                f.write(summary)
+            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+        finally:
+            shutil.rmtree(tempdir)
+
+    def on_epoch_end(self, epoch, logs=None):
+        if (epoch-1) % _LOG_EVERY_N_STEPS == 0:
+            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+
+    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
 
 
@@ -523,8 +582,10 @@ def _log_event(event):
     """
     Extracts metric information from the event protobuf
     """
-    if mlflow.active_run() is None:
-        mlflow.start_run()
+    if not mlflow.active_run():
+        try_mlflow_log(mlflow.start_run)
+        global _AUTO_END_RUN
+        _AUTO_END_RUN = True
     if event.WhichOneof('what') == 'summary':
         summary = event.summary
         for v in summary.value:
@@ -551,12 +612,15 @@ def _setup_callbacks(lst):
     tb = _get_tensorboard_callback(lst)
     if tb is None:
         log_dir = tempfile.mkdtemp()
-        l = lst + [TensorBoard(log_dir)]
+        out_list = lst + [TensorBoard(log_dir)]
     else:
         log_dir = tb.log_dir
-        l = lst
-    l += [__MLflowTfKerasCallback()]
-    return l, log_dir
+        out_list = lst
+    if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
+        out_list += [__MLflowTfKerasCallback()]
+    else:
+        out_list += [__MLflowTfKeras2Callback()]
+    return out_list, log_dir
 
 
 @experimental
@@ -590,7 +654,7 @@ def autolog(every_n_iter=100):
         from tensorflow.python.summary.writer.writer import FileWriter
     except ImportError:
         warnings.warn("Could not log to MLflow. Only TensorFlow versions" +
-                      "1.12 <= v < 2.0.0 are supported.")
+                      "1.12 <= v <= 2.0.0 are supported.")
         return
 
     @gorilla.patch(tensorflow.estimator.Estimator)
@@ -617,11 +681,18 @@ def autolog(every_n_iter=100):
 
     @gorilla.patch(tensorflow.keras.Model)
     def fit(self, *args, **kwargs):
+        global _AUTO_END_RUN
+        if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
+            _AUTO_END_RUN = True
+
         original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
+
+        # Checking if the 'callback' argument of fit() is set
         if len(args) >= 6:
-            l = list(args)
-            l[5], log_dir = _setup_callbacks(l[5])
-            args = tuple(l)
+            tmp_list = list(args)
+            tmp_list[5], log_dir = _setup_callbacks(tmp_list[5])
+            args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
             kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
         else:
@@ -630,6 +701,40 @@ def autolog(every_n_iter=100):
         _flush_queue()
         _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
         shutil.rmtree(log_dir)
+
+        if _AUTO_END_RUN:
+            try_mlflow_log(mlflow.end_run)
+        _AUTO_END_RUN = False
+
+        return result
+
+    @gorilla.patch(tensorflow.keras.Model)
+    def fit_generator(self, *args, **kwargs):
+        global _AUTO_END_RUN
+        if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
+            _AUTO_END_RUN = True
+
+        original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit_generator')
+
+        # Checking if the 'callback' argument of fit() is set
+        if len(args) >= 5:
+            tmp_list = list(args)
+            tmp_list[4], log_dir = _setup_callbacks(tmp_list[4])
+            args = tuple(tmp_list)
+        elif 'callbacks' in kwargs:
+            kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
+        else:
+            kwargs['callbacks'], log_dir = _setup_callbacks([])
+        result = original(self, *args, **kwargs)
+        _flush_queue()
+        _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
+        shutil.rmtree(log_dir)
+
+        if _AUTO_END_RUN:
+            try_mlflow_log(mlflow.end_run)
+        _AUTO_END_RUN = False
+
         return result
 
     @gorilla.patch(EventFileWriter)
@@ -650,6 +755,7 @@ def autolog(every_n_iter=100):
         gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings),
         gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings),
         gorilla.Patch(tensorflow.keras.Model, 'fit', fit, settings=settings),
+        gorilla.Patch(tensorflow.keras.Model, 'fit_generator', fit_generator, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_saved_model',
                       export_saved_model, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_savedmodel',

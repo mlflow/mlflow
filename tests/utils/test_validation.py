@@ -4,9 +4,11 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
-from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
-    _validate_tag_name, _validate_run_id, _validate_batch_log_data, \
-    _validate_batch_log_limits, _validate_experiment_artifact_location, _validate_db_type_string
+from mlflow.utils.validation import (
+    _validate_metric_name, _validate_param_name, _validate_tag_name, _validate_run_id,
+    _validate_batch_log_data, _validate_batch_log_limits, _validate_experiment_artifact_location,
+    _validate_db_type_string, _validate_experiment_name
+)
 
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a", "Ab-5_", "a/b/c", "a.b.c", ".a", "b.", "a..a/._./o_O/.e.", "a b/c d",
@@ -119,6 +121,15 @@ def test_validate_experiment_artifact_location():
     _validate_experiment_artifact_location(None)
     with pytest.raises(MlflowException):
         _validate_experiment_artifact_location('runs:/blah/bleh/blergh')
+
+
+def test_validate_experiment_name():
+    _validate_experiment_name("validstring")
+    bytestring = b'test byte string'
+    _validate_experiment_name(bytestring.decode("utf-8"))
+    for invalid_name in ["", 12, 12.7, None, {}, []]:
+        with pytest.raises(MlflowException):
+            _validate_experiment_name(invalid_name)
 
 
 def test_db_type():

@@ -29,7 +29,7 @@ class HtmlTableView extends Component {
         </tr>
           { this.props.values.map((vArray, index) => (
             <tr key={index} style={styles['tr']}>
-              { vArray.map((v, idx) => {
+              {vArray.map((v, idx) => {
                 let style;
                 if (idx === 0) {
                   style = styles['td-first'] || styles['td'];
@@ -37,8 +37,7 @@ class HtmlTableView extends Component {
                   style = styles['td'];
                 }
                 return <td key={idx} style={style}>{v}</td>;
-              }
-              )}
+              })}
             </tr>
           ))}
         </tbody>
