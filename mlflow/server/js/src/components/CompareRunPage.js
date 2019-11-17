@@ -10,7 +10,7 @@ class CompareRunPage extends Component {
   static propTypes = {
     experimentId: PropTypes.number.isRequired,
     runUuids: PropTypes.arrayOf(String).isRequired,
-    dispatch: PropTypes.func.isRequired
+    dispatch: PropTypes.func.isRequired,
   };
 
   componentWillMount() {

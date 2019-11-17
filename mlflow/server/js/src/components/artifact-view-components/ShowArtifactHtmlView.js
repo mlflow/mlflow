@@ -19,7 +19,7 @@ class ShowArtifactHtmlView extends Component {
   state = {
     loading: true,
     error: undefined,
-    html: undefined
+    html: undefined,
   };
 
   componentWillMount() {
@@ -72,7 +72,7 @@ class ShowArtifactHtmlView extends Component {
     const getArtifactRequest = new Request(getSrc(this.props.path, this.props.runUuid), {
       method: 'GET',
       redirect: 'follow',
-      headers: new Headers(getRequestHeaders(document.cookie))
+      headers: new Headers(getRequestHeaders(document.cookie)),
     });
     fetch(getArtifactRequest).then((response) => {
       return response.blob();

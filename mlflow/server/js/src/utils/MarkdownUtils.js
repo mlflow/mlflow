@@ -27,8 +27,8 @@ const sanitizerOptions = {
   allowedAttributes: {
     a: ['href', 'name', 'target'],
     img: ['src', 'longdesc'],
-    div: ['itemscope', 'itemtype']
-  }
+    div: ['itemscope', 'itemtype'],
+  },
 };
 
 export const sanitizeConvertedHtml = (dirtyHtml) => {

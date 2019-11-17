@@ -13,15 +13,15 @@ const activeRequest = {
 const completeRequest = {
   id: 'a',
   active: false,
-  data: { run_id: "run_id" }
+  data: { run_id: "run_id" },
 };
 
 const errorRequest = {
   id: 'a',
   active: false,
   error: new ErrorWrapper({
-    responseText: `{"error_code": "${ErrorCodes.RESOURCE_DOES_NOT_EXIST}"}`
-  })
+    responseText: `{"error_code": "${ErrorCodes.RESOURCE_DOES_NOT_EXIST}"}`,
+  }),
 };
 
 test("Renders loading page when requests are not complete", () => {

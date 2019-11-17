@@ -24,7 +24,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
       selectedParamKeys,
       selectedMetricKeys,
       handleParamsSelectChange,
-      handleMetricsSelectChange
+      handleMetricsSelectChange,
     } = this.props;
     return (
       <div className='plot-controls'>

@@ -17,7 +17,7 @@ const modalStyles = {
     backgroundColor: 'rgba(33, 37, 41, .75)',
     /* otherwise bootstrap's active button zIndex will take over */
     zIndex: 3,
-  }
+  },
 };
 
 export class ConfirmModal extends Component {

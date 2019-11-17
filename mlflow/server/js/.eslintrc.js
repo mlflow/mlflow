@@ -53,7 +53,7 @@ module.exports = {
     'callback-return': 2,
     'camelcase': "off",
     'class-methods-use-this': 0,
-    'comma-dangle': "off",
+    'comma-dangle': [2, "always-multiline"],
     'comma-spacing': 2,
     'comma-style': 2,
     'computed-property-spacing': 2,

@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import {
   getBasename, getExtension, IMAGE_EXTENSIONS,
-  TEXT_EXTENSIONS
+  TEXT_EXTENSIONS,
 } from '../utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
 import { decorators, Treebeard } from 'react-treebeard';
@@ -290,16 +290,16 @@ const TREEBEARD_STYLE = {
     },
     node: {
       base: {
-        position: 'relative'
+        position: 'relative',
       },
       link: {
         cursor: 'pointer',
         position: 'relative',
         padding: '0px 5px',
-        display: 'block'
+        display: 'block',
       },
       activeLink: {
-        background: '#c7c2d0'
+        background: '#c7c2d0',
       },
       toggle: {
         base: {
@@ -308,27 +308,27 @@ const TREEBEARD_STYLE = {
           verticalAlign: 'top',
           marginLeft: '-5px',
           height: '24px',
-          width: '24px'
+          width: '24px',
         },
         wrapper: {
           position: 'absolute',
           top: '50%',
           left: '50%',
           margin: '-12px 0 0 -4px',
-          height: '14px'
+          height: '14px',
         },
         height: 7,
         width: 7,
         arrow: {
           fill: '#7a7a7a',
-          strokeWidth: 0
-        }
+          strokeWidth: 0,
+        },
       },
       header: {
         base: {
           display: 'inline-block',
           verticalAlign: 'top',
-          color: '#333'
+          color: '#333',
         },
         connector: {
           width: '2px',
@@ -337,19 +337,19 @@ const TREEBEARD_STYLE = {
           borderBottom: 'solid 2px black',
           position: 'absolute',
           top: '0px',
-          left: '-21px'
+          left: '-21px',
         },
         title: {
           lineHeight: '24px',
-          verticalAlign: 'middle'
-        }
+          verticalAlign: 'middle',
+        },
       },
       subtree: {
         listStyle: 'none',
-        paddingLeft: '19px'
+        paddingLeft: '19px',
       },
-    }
-  }
+    },
+  },
 };
 
 // eslint-disable-next-line react/prop-types

@@ -56,7 +56,7 @@ export class MetricsPlotView extends React.Component {
         type: 'scatter',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
         line: { shape: 'spline', smoothing: lineSmoothness },
-        marker: {opacity: isSingleHistory || showPoint ? 1 : 0 }
+        marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
       };
     });
     const props = { data };

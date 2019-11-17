@@ -16,7 +16,7 @@ describe('unit tests', () => {
         dataIndex: 'value',
         width: 200,
         editable: true,
-      }
+      },
     ],
     data: [
       { key: 'tag1', name: 'tag1', value: 'value1' },
@@ -25,7 +25,7 @@ describe('unit tests', () => {
     // eslint-disable-next-line no-unused-vars
     form: { getFieldDecorator: jest.fn(opts => c => c) },
     onSaveEdit: () => {},
-    onDelete: () => {}
+    onDelete: () => {},
   };
 
   test('should render with minimal props without exploding', () => {

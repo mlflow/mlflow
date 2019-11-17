@@ -153,7 +153,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
       runInfos,
       tagsList,
       runsExpanded,
-      getRow: this.getRow
+      getRow: this.getRow,
     });
     const columns = [
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "th"),

@@ -88,7 +88,7 @@ test("mapStateToProps doesn't blow up if the searchRunsApi is pending", () => {
   const newProps = mapStateToProps(state, {
     lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
     searchRunsRequestId: searchRunsId,
-    experimentId: experiment.experiment_id
+    experimentId: experiment.experiment_id,
   });
   expect(newProps).toEqual({
     runInfos: [],

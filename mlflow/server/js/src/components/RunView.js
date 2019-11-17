@@ -104,7 +104,7 @@ class RunView extends Component {
         width: 'auto',
         minWidth: '200px',
         marginRight: '80px',
-      }
+      },
     };
     const runCommand = this.getRunCommand();
     const editIcon = <a onClick={this.startEditingDescription}><Icon type='form' /></a>;

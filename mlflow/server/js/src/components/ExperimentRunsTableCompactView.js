@@ -31,7 +31,7 @@ const styles = {
     cursor: "pointer",
   },
   sortKeyName: {
-    display: "inline-block"
+    display: "inline-block",
   },
   metricParamCellContent: {
     display: "inline-block",
@@ -40,7 +40,7 @@ const styles = {
   metricParamNameContainer: {
     verticalAlign: "middle",
     display: "inline-block",
-    overflow: "hidden"
+    overflow: "hidden",
   },
   unbaggedMetricParamColHeader: {
     verticalAlign: "middle",
@@ -48,14 +48,14 @@ const styles = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     padding: "8px 0px 8px 8px",
-    height: "100%"
+    height: "100%",
   },
   columnStyle: {
     display: "flex",
     alignItems: "flex-start",
   },
   baggedCellContainer: {
-    whiteSpace: 'normal'
+    whiteSpace: 'normal',
   },
 };
 
@@ -142,7 +142,7 @@ class ExperimentRunsTableCompactView extends React.Component {
         hasExpander, expanderOpen, () => {
           onExpand(runInfo.run_uuid, childrenIds);
           this.setState({ expanding: true });
-        }, runInfo.run_uuid, "div")
+        }, runInfo.run_uuid, "div"),
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(
       runInfo,
@@ -360,7 +360,7 @@ class ExperimentRunsTableCompactView extends React.Component {
       unbaggedParams,
       nextPageToken,
       loadingMore,
-      handleLoadMoreRuns
+      handleLoadMoreRuns,
     } = this.props;
     const rows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,

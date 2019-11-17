@@ -16,7 +16,7 @@ class RenameRunFormView extends Component {
     onSubmit: PropTypes.func.isRequired,
     onClose: PropTypes.func.isRequired,
     runName: PropTypes.string.isRequired,
-    experimentId: PropTypes.number.isRequired
+    experimentId: PropTypes.number.isRequired,
   }
 
   renderForm = (renderProps) => {

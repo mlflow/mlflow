@@ -13,7 +13,7 @@ export class EditableTagsTableView extends React.Component {
     tags: PropTypes.object.isRequired,
     form: PropTypes.object.isRequired,
     setTagApi: PropTypes.func.isRequired,
-    deleteTagApi: PropTypes.func.isRequired
+    deleteTagApi: PropTypes.func.isRequired,
   };
 
   state = { isRequestPending: false };
@@ -29,7 +29,7 @@ export class EditableTagsTableView extends React.Component {
       dataIndex: 'value',
       width: 200,
       editable: true,
-    }
+    },
   ];
 
   requestId = getUUID();
@@ -115,7 +115,7 @@ export class EditableTagsTableView extends React.Component {
             </Form.Item>
             <Form.Item>
               {getFieldDecorator('value', {
-                rules: []
+                rules: [],
               })(
                 <Input placeholder='Value' style={styles.addTagForm.valueInput}/>
               )}
@@ -139,7 +139,7 @@ const styles = {
     form: { marginBottom: 20 },
     nameInput: { width: 186 },
     valueInput: { width: 186 },
-  }
+  },
 };
 
 const mapDispatchToProps = { setTagApi, deleteTagApi };
