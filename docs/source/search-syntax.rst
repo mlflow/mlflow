@@ -89,7 +89,6 @@ You can search using two run attributes contained in :py:class:`mlflow.entities.
   
   - The experiment ID is implicitly selected by the search API. 
   - A run's ``lifecycle_stage`` attribute is not allowed because it is already encoded as a part of the API's ``run_view_type`` field. To search for runs using ``run_id``, it is more efficient to use ``get_run`` APIs. 
-  - The ``start_time`` and ``end_time`` attributes are not supported.
   
 .. rubric:: Example
 
