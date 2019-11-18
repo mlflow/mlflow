@@ -235,7 +235,7 @@ If no active run exists when `autolog()` captures data, MLflow will automaticall
 Once training ends via calls to `tf.estimator.train()`, `tf.keras.fit()`, `tf.keras.fit_generator()`, `keras.fit()` or `keras.fit_generator()`,
 or once `tf.estimator` models are exported via `tf.estimator.export_saved_model()`, MLflow will automatically end that run.
 
-**Note**: When a run is automatically created by `mlflow.tensorflow.autolog`, a call to `tf.estimator.train()` will end the current run but will not log the trained model to that run.
+**Note**: When using the `tf.Estimator()` API, `mlflow.tensorflow.autolog` will record training metrics & params passed to `train`. Autologging also logs the models saved by `tf.estimator.export_saved_model()` to MLflow.
 To track a model in the same run, you will need to call `tf.estimator.export_saved_model()`, which will start the most recent `autolog`-created run
 and log the model there. The run will be automatically ended afterwards.
 
