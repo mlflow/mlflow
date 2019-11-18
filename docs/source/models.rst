@@ -299,6 +299,18 @@ Models with the ``onnx`` flavor in native ONNX format.
 
 For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
 
+MXNet Gluon (``gluon``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``gluon`` model flavor enables logging of `Gluon models
+<https://mxnet.incubator.apache.org/api/python/docs/api/gluon/index.html>`_ in MLflow format via
+the :py:func:`mlflow.gluon.save_model()` and :py:func:`mlflow.gluon.log_model()` methods. These
+methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.gluon.load_model()`
+method to load MLflow Models with the ``gluon`` flavor in native Gluon format.
+
+For more information, see :py:mod:`mlflow.gluon`.
+
 Model Customization
 -------------------
 

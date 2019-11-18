@@ -138,7 +138,8 @@ def save_model(gluon_model, path, mlflow_model=Model(), conda_env=None):
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon")
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon",
+                        data=data_subpath, env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
