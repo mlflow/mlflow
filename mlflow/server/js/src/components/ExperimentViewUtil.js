@@ -34,7 +34,7 @@ export default class ExperimentViewUtil {
       pointer: 'cursor',
     },
     runInfoCell: {
-      maxWidth: 250
+      maxWidth: 250,
     },
   };
 

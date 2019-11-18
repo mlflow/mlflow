@@ -69,7 +69,7 @@ test('URL can encode a complete search', () => {
   expectSearchState(history.push.mock.calls[0][0], {
     "metrics": "metric0, metric1",
     "params": "key_filter",
-    "search": "metrics.metric0 > 3"
+    "search": "metrics.metric0 > 3",
   });
   const searchRunsCall = searchRunsApi.mock.calls[1];
   expect(searchRunsCall[1]).toEqual("metrics.metric0 > 3");
@@ -116,7 +116,7 @@ test('should render permission denied view when getExperiment yields permission 
   const experimentPageInstance = getExperimentPageMock().instance();
   const errorMessage = "Access Denied";
   const responseErrorWrapper = new ErrorWrapper({
-    responseText: `{"error_code": "${ErrorCodes.PERMISSION_DENIED}", "message": "${errorMessage}"}`
+    responseText: `{"error_code": "${ErrorCodes.PERMISSION_DENIED}", "message": "${errorMessage}"}`,
   });
   const searchRunsErrorRequest = {
     id: experimentPageInstance.searchRunsRequestId,
@@ -140,7 +140,7 @@ test('should render permission denied view when getExperiment yields permission 
 test('should render experiment view when search error occurs', () => {
   const experimentPageInstance = getExperimentPageMock().instance();
   const responseErrorWrapper = new ErrorWrapper({
-    responseText: `{"error_code": "${ErrorCodes.INVALID_PARAMETER_VALUE}", "message": "Invalid"}`
+    responseText: `{"error_code": "${ErrorCodes.INVALID_PARAMETER_VALUE}", "message": "Invalid"}`,
   });
   const searchRunsErrorRequest = {
     id: experimentPageInstance.searchRunsRequestId,

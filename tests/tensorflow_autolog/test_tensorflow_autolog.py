@@ -61,7 +61,9 @@ def create_tf_keras_model():
 
 
 @pytest.mark.large
-def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels):
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels,
+                                                fit_variant):
     mlflow.tensorflow.autolog()
 
     data = random_train_data
@@ -75,8 +77,9 @@ def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_ho
 
 
 @pytest.mark.large
-def test_tf_keras_autolog_persists_manually_created_run(random_train_data,
-                                                        random_one_hot_labels):
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels,
+                                                        fit_variant):
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
         data = random_train_data
@@ -91,7 +94,7 @@ def test_tf_keras_autolog_persists_manually_created_run(random_train_data,
 
 
 @pytest.fixture
-def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_run):
+def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_run, fit_variant):
     mlflow.tensorflow.autolog(every_n_iter=5)
 
     data = random_train_data
@@ -99,12 +102,19 @@ def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_ru
 
     model = create_tf_keras_model()
 
-    model.fit(data, labels, epochs=10)
+    if fit_variant == 'fit_generator':
+        def generator():
+            while True:
+                yield data, labels
+        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
+    else:
+        model.fit(data, labels, epochs=10)
 
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
 
 @pytest.mark.large
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     data = tf_keras_random_data_run.data
 
@@ -122,6 +132,7 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
     artifacts = client.list_artifacts(tf_keras_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)

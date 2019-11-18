@@ -71,8 +71,8 @@ export const triggerError = (requests) => {
 const mapStateToProps = (state, ownProps) => ({
   requests: getApis(ownProps.requestIds, state),
   asyncRequests: ownProps.asyncRequestIds !== undefined ?
-  getApis(ownProps.asyncRequestIds, state) :
-  []
+    getApis(ownProps.asyncRequestIds, state) :
+    [],
 });
 
 export default connect(mapStateToProps)(RequestStateWrapper);

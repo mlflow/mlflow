@@ -5,8 +5,8 @@ export const emptyState = {
   entities: {
     runInfosByUuid: {},
     experimentsById: {},
-    experimentTagsByExperimentId: {}
-  }
+    experimentTagsByExperimentId: {},
+  },
 };
 
 export const addApiToState = (state, api) => {
@@ -16,7 +16,7 @@ export const addApiToState = (state, api) => {
     apis: {
       ...oldApi,
       [api.id]: api,
-    }
+    },
   };
 };
 
@@ -29,8 +29,8 @@ export const addExperimentToState = (state, experiment) => {
       experimentsById: {
         ...oldExperiments,
         [experiment.experiment_id]: experiment,
-      }
-    }
+      },
+    },
   };
 };
 
@@ -47,9 +47,9 @@ export const addExperimentTagsToState = (state, experiment_id, tags) => {
       ...state.entities,
       experimentTagsByExperimentId: {
         ...oldExperimentTags,
-        [experiment_id]: tagsArrToObject(tags)
-      }
-    }
+        [experiment_id]: tagsArrToObject(tags),
+      },
+    },
   };
 };
 
