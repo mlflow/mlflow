@@ -29,7 +29,7 @@ class FbProphetWrapper(mlflow.pyfunc.PythonModel):
         return
 
     def predict(self, context, model_input):
-        future = self.model.make_future_dataframe(periods=model_input['periods'])
+        future = self.model.make_future_dataframe(periods=model_input['periods'][0])
         return self.model.predict(future)
 
 conda_env = {
