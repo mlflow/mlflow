@@ -10,7 +10,7 @@ class AppErrorBoundary extends Component {
   }
 
   static propTypes = {
-    children: PropTypes.node
+    children: PropTypes.node,
   };
 
   // eslint-disable-next-line no-unused-vars

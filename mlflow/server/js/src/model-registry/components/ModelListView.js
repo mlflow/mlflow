@@ -58,7 +58,7 @@ export class ModelListView extends React.Component {
               {`Version ${versionNumber}`}
             </Link>
           ) : EMPTY_CELL_PLACEHOLDER;
-        }
+        },
       },
       {
         title: StageTagComponents[Stages.STAGING],
