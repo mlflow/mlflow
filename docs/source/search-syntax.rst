@@ -105,8 +105,6 @@ MLflow Tags
 
 You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search for the name of an MLflow run, specify ``tags."mlflow.runName"`` or ``tags.`mlflow.runName```. 
 
-.. note:: Databricks does not support searching for a user with the tag ``tags."mlflow.user"``.
-
 .. rubric:: Examples
 
 .. code-block:: sql
