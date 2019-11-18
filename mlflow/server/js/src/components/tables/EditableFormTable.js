@@ -38,7 +38,7 @@ class EditableCell extends React.Component {
               <Form.Item style={{ margin: 0 }}>
                 {getFieldDecorator(dataIndex, {
                   rules: [],
-                  defaultMarkdown: record[dataIndex],
+                  initialValue: record[dataIndex],
                 })(<Input onKeyDown={this.handleKeyPress} />)}
               </Form.Item>
             ) : (
