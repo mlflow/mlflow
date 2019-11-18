@@ -61,7 +61,7 @@ class RunPage extends Component {
             this.getExperimentRequestId,
           ]}
           asyncRequestIds={[
-            this.listArtifactRequestId
+            this.listArtifactRequestId,
           ]}
         >
           {(isLoading, shouldRenderError, requests, asyncRequests) => {
