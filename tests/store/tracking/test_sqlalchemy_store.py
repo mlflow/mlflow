@@ -1555,6 +1555,13 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
             self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i, "pval-%s" % i))
             self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i, "tval-%s" % i))
 
+    def test_set_status_scheduled(self):
+        """
+        Constraints are not tested by sqlite. Use mysql to test it
+        """
+        run = self._run_factory()
+        self.store.update_run_info(run.info.run_id, 'KILLED', 10)
+
 
 @mock.patch('sqlalchemy.orm.session.Session', spec=True)
 class TestZeroValueInsertion(unittest.TestCase):
