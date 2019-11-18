@@ -660,9 +660,10 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(SqlRun.experiment_id.in_(experiment_ids),
                         SqlRun.lifecycle_stage.in_(stages),
                         *_get_attributes_filtering_clauses(parsed_filters)) \
-                .order_by(*parsed_orderby) \
-                .offset(offset).limit(max_results)
+                .order_by(*parsed_orderby)
 
+            total_run_count = queried_runs.count()
+            queried_runs = queried_runs.offset(offset).limit(max_results)
             all_runs = queried_runs.all()
 
             # equivalent to subquery load strategy but includes filter feature
@@ -682,7 +683,7 @@ class SqlAlchemyStore(AbstractStore):
             runs = [run.to_mlflow_entity() for run in all_runs]
             next_page_token = compute_next_token(len(runs))
 
-        return runs, next_page_token
+        return runs, next_page_token, total_run_count
 
     def log_batch(self, run_id, metrics, params, tags):
         _validate_run_id(run_id)

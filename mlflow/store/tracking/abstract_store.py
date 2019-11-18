@@ -229,10 +229,11 @@ class AbstractStore:
             attribute of the object; however, some store implementations may not support pagination
             and thus the returned token would not be meaningful in such cases.
         """
-        runs, token = self._search_runs(experiment_ids, filter_string, run_view_type, max_results,
-                                        order_by, page_token,
-                                        metrics_whitelist, params_whitelist, tags_whitelist)
-        return PagedList(runs, token)
+        runs, token, total_run_count = self._search_runs(experiment_ids, filter_string,
+                                                         run_view_type, max_results,
+                                                         order_by, page_token, metrics_whitelist,
+                                                         params_whitelist, tags_whitelist)
+        return PagedList(runs, token, total_run_count)
 
     @abstractmethod
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,

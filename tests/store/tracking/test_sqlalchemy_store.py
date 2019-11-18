@@ -1457,6 +1457,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             'latest_metrics', self.store.engine, if_exists='append', index=False)
         return experiment_id, run_ids
 
+    def test_search_runs_returns_expected_correct_total_run_count(self):
+        """
+        This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
+        that search queries returns the correct total run count
+        """
+        experiment_id, _ = self._generate_large_data(1000)
+
+        run_results = self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100,
+                                             order_by=None, page_token=None)
+        assert run_results.total_run_count == 1000
+
     def test_search_runs_returns_expected_results_with_whitelisting(self):
         """
         This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure

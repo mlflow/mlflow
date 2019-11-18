@@ -963,6 +963,7 @@ message SearchRuns {
     // Runs that match the search criteria.
     repeated Run runs = 1;
     optional string next_page_token = 2;
+    optional int32 total_run_count = 3;
   }
 
   // this whitelist message exists to be able to have an optional whitelist :

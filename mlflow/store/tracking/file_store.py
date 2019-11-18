@@ -612,7 +612,7 @@ class FileStore(AbstractStore):
         filtered = SearchUtils.filter(runs, filter_string)
         sorted_runs = SearchUtils.sort(filtered, order_by)
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
-        return runs, next_page_token
+        return runs, next_page_token, len(sorted_runs)
 
     def log_metric(self, run_id, metric):
         _validate_run_id(run_id)

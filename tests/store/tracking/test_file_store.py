@@ -491,6 +491,7 @@ class TestFileStore(unittest.TestCase):
         runs = sorted([fs.create_run(exp, 'user', 1000, []).info.run_id
                        for r in range(10)])
         result = fs.search_runs([exp], None, ViewType.ALL, max_results=4)
+        assert result.total_run_count == 10
         assert [r.info.run_id for r in result] == runs[0:4]
         assert result.token is not None
         result = fs.search_runs([exp], None, ViewType.ALL, max_results=4,

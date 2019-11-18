@@ -124,8 +124,10 @@ def test_search_runs():
     view_type = mock.Mock()
     runs = [mock.Mock(), mock.Mock()]
     token = "adfoiweroh12334kj129318934u"
+    total_run_count = 10
 
-    with mock.patch.object(AbstractStoreTestImpl, "_search_runs", return_value=(runs, token)):
+    with mock.patch.object(AbstractStoreTestImpl, "_search_runs",
+                           return_value=(runs, token, total_run_count)):
         store = AbstractStoreTestImpl()
         result = store.search_runs([experiment_id], None, view_type)
         for i in range(len(result)):

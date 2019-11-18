@@ -384,6 +384,8 @@ def _search_runs():
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:
         response_message.next_page_token = run_entities.token
+    if run_entities.total_run_count:
+        response_message.total_run_count = run_entities.total_run_count
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
     return response
