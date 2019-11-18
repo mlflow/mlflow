@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import './ShowArtifactImageView.css';
 import { getSrc } from './ShowArtifactPage';
 import Plot from 'react-plotly.js';
+import Utils from '../../utils/Utils';
 
 class ShowArtifactImageView extends Component {
   constructor(props) {
@@ -21,11 +22,21 @@ class ShowArtifactImageView extends Component {
   };
 
   componentDidMount = () => {
+    // For a gif image, we don't have to do anything here because img tag fetches the image.
+    if (this.isGif()) {
+      return;
+    }
+
+    // For a static image, call fetchImage to load the image and convert it to data URI for plotly.
     this.fetchImage();
   };
 
   componentDidUpdate = prevProps => {
-    if (prevProps.path !== this.props.path) {
+    if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+      if (this.isGif()) {
+        return;
+      }
+
       this.fetchImage();
     }
   };
@@ -33,6 +44,10 @@ class ShowArtifactImageView extends Component {
   getSrc = () => {
     const { path, runUuid } = this.props;
     return getSrc(path, runUuid);
+  };
+
+  isGif = () => {
+    return this.props.path.endsWith('.gif');
   };
 
   fetchImage = () => {
@@ -52,61 +67,72 @@ class ShowArtifactImageView extends Component {
     img.src = this.getSrc();
   };
 
-  render() {
+  renderGif = () => {
+    const { loading } = this.state;
+    return (
+      <React.Fragment>
+        <div style={{ display: loading ? 'block' : 'none' }}>Loading...</div>
+        <img
+          src={this.getSrc()}
+          alt={Utils.baseName(this.props.path)}
+          onLoadStart={() => this.setState({ loading: true })}
+          onLoad={() => this.setState({ loading: false })}
+          style={{ height: '100%', display: loading ? 'none' : 'block' }}
+        />
+      </React.Fragment>
+    );
+  };
+
+  renderStaticImage = () => {
     const { loading, dataURL, width, height } = this.state;
 
     if (loading) return <div>Loading...</div>;
 
     return (
+      <Plot
+        layout={{
+          width: width * (500 / height),
+          height: 500,
+          xaxis: { visible: false, range: [0, width] },
+          yaxis: { visible: false, range: [0, height], scaleanchor: 'x', scaleratio: 1 },
+          images: [
+            {
+              source: dataURL,
+              xref: 'x',
+              yref: 'y',
+              x: 0,
+              y: 0,
+              xanchor: 'left',
+              yanchor: 'bottom',
+              sizex: width,
+              sizey: height,
+            },
+          ],
+          margin: { l: 0, r: 0, t: 0, b: 0 },
+        }}
+        config={{
+          displaylogo: false,
+          scrollZoom: true,
+          doubleClick: 'reset',
+          modeBarButtonsToRemove: [
+            'hoverCompareCartesian',
+            'hoverClosestCartesian',
+            'lasso2d',
+            'sendDataToCloud',
+            'select2d',
+            'toggleSpikelines',
+          ],
+        }}
+        useResizeHandler
+      />
+    );
+  };
+
+  render() {
+    return (
       <div className="image-outer-container">
         <div className="image-container">
-          {
-            <Plot
-              data={[
-                {
-                  x: [0, width],
-                  y: [0, height],
-                  type: 'scatter',
-                  mode: 'markers',
-                  marker: { opacity: 0, size: 0 },
-                  hoverinfo: 'none',
-                },
-              ]}
-              layout={{
-                width: width * (500 / height),
-                height: 500,
-                xaxis: { visible: false, autorange: true },
-                yaxis: { visible: false, autorange: true, scaleanchor: 'x', scaleratio: 1 },
-                images: [
-                  {
-                    source: dataURL,
-                    xref: 'x',
-                    yref: 'y',
-                    x: 0,
-                    y: 0,
-                    xanchor: 'left',
-                    yanchor: 'bottom',
-                    sizex: width,
-                    sizey: height,
-                  },
-                ],
-                margin: { l: 0, r: 0, t: 0, b: 0 },
-              }}
-              config={{
-                displaylogo: false,
-                scrollZoom: true,
-                modeBarButtonsToRemove: [
-                  'hoverCompareCartesian',
-                  'hoverClosestCartesian',
-                  'lasso2d',
-                  'sendDataToCloud',
-                  'select2d',
-                  'toggleSpikelines',
-                ],
-              }}
-              useResizeHandler
-            />
-          }
+          {this.isGif() ? this.renderGif() : this.renderStaticImage()}
         </div>
       </div>
     );
