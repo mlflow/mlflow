@@ -1,0 +1,12 @@
+.mde-text {
+  border: 2px solid #0092E1;
+}
+
+.editable-note-actions {
+  margin-top: 16px;
+}
+
+.editable-note-actions button + button {
+  margin-left: 16px;
+}
+

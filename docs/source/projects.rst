@@ -221,7 +221,20 @@ Docker container environment
   specified, Docker searches for this image on the system that runs the MLflow project. If the 
   image is not found, Docker attempts to pull it from `DockerHub <https://hub.docker.com/>`_.
 
-  .. rubric:: Example 2: Image in a remote registry
+  .. rubric:: Example 2: Mounting volumes and specifying environment variables
+
+  You can also specify local volumes to mount in the docker image (as you normally would with Docker's `-v` option), and additional environment variables (as per Docker's `-e` option). Environment variables can either be copied from the host system's environment variables, or specified as new variables for the Docker environment. The `environment` field should be a list. Elements in this list can either be lists of two strings (for defining a new variable) or single strings (for copying variables from the host system). For example:
+  
+  .. code-block:: yaml
+
+    docker_env:
+      image: mlflow-docker-example-environment
+      volumes: ["/local/path:/container/mount/path"]
+      environment: [["NEW_ENV_VAR", "new_var_value"], "VAR_TO_COPY_FROM_HOST_ENVIRONMENT"]
+
+  In this example our docker container will have one additional local volume mounted, and two additional environment variables: one newly-defined, and one copied from the host system.
+
+  .. rubric:: Example 3: Image in a remote registry
 
   .. code-block:: yaml
     

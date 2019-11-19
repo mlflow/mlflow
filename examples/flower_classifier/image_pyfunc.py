@@ -156,15 +156,15 @@ def _load_pyfunc(path):
     return KerasImageClassifierPyfunc(g, sess, keras_model, image_dims, domain=domain)
 
 
-conda_env_template = """        
+conda_env_template = """
 name: flower_classifier
 channels:
   - defaults
   - anaconda
 dependencies:
   - python=={python_version}
-  - keras=={keras_version}  
-  - {tf_name}=={tf_version} 
-  - pip:    
+  - keras=={keras_version}
+  - {tf_name}=={tf_version}
+  - pip:
     - pillow=={pillow_version}
 """

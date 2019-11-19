@@ -1,5 +1,5 @@
 import React from 'react';
-import { Table, Input, Form, Icon } from 'antd';
+import { Table, Input, Form, Icon, Popconfirm } from 'antd';
 import PropTypes from 'prop-types';
 
 import './EditableFormTable.css';
@@ -29,7 +29,7 @@ class EditableCell extends React.Component {
   };
 
   render() {
-    const { editing, dataIndex, title, record, children } = this.props;
+    const { editing, dataIndex, record, children } = this.props;
     return (
       <EditableContext.Consumer>
         {({ getFieldDecorator }) => (
@@ -37,12 +37,7 @@ class EditableCell extends React.Component {
             {editing ? (
               <Form.Item style={{ margin: 0 }}>
                 {getFieldDecorator(dataIndex, {
-                  rules: [
-                    {
-                      required: true,
-                      message: `${title} is required.`,
-                    },
-                  ],
+                  rules: [],
                   initialValue: record[dataIndex],
                 })(<Input onKeyDown={this.handleKeyPress} />)}
               </Form.Item>
@@ -61,6 +56,7 @@ export class EditableTable extends React.Component {
     columns: PropTypes.arrayOf(Object).isRequired,
     data: PropTypes.arrayOf(Object).isRequired,
     onSaveEdit: PropTypes.func.isRequired,
+    onDelete: PropTypes.func.isRequired,
     form: PropTypes.object.isRequired,
   };
 
@@ -106,9 +102,25 @@ export class EditableTable extends React.Component {
             <a onClick={() => this.cancel(record.key)}>Cancel</a>
           </span>
         ) : (
-          <a disabled={editingKey !== ''} onClick={() => this.edit(record.key)}>
-            <Icon type='edit' />
-          </a>
+          <span>
+            <a
+              disabled={editingKey !== ''}
+              onClick={() => this.edit(record.key)}
+              style={{ marginRight: 10 }}
+            >
+              <Icon type="edit" />
+            </a>
+            <Popconfirm
+              title="Are you sure you want to delete this tag？"
+              okText="Confirm"
+              cancelText="Cancel"
+              onConfirm={() => this.delete(record.key)}
+            >
+              <a disabled={editingKey !== ''}>
+                <i className="far fa-trash-alt"/>
+              </a>
+            </Popconfirm>
+          </span>
         );
       },
     },
@@ -134,6 +146,16 @@ export class EditableTable extends React.Component {
     });
   };
 
+  delete = (key) => {
+    const record = this.props.data.find((r) => r.key === key);
+    if (record) {
+      this.setState({ isRequestPending: true });
+      this.props.onDelete({ ...record }).then(() => {
+        this.setState({ editingKey: '', isRequestPending: false });
+      });
+    }
+  }
+
   edit = (key) => {
     this.setState({ editingKey: key });
   };
@@ -154,6 +176,7 @@ export class EditableTable extends React.Component {
           columns={this.columns}
           size='middle'
           pagination={false}
+          locale={{ emptyText: 'No tags found.' }}
         />
       </EditableContext.Provider>
     );

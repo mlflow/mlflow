@@ -34,7 +34,7 @@ def exec_cmd(cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, 
                                  stdin=subprocess.PIPE, **kwargs)
         child.communicate(cmd_stdin)
         exit_code = child.wait()
-        if throw_on_error and exit_code is not 0:
+        if throw_on_error and exit_code != 0:
             raise ShellCommandException("Non-zero exitcode: %s" % (exit_code))
         return exit_code
     else:
@@ -43,7 +43,7 @@ def exec_cmd(cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, 
             cwd=cwd, universal_newlines=True, **kwargs)
         (stdout, stderr) = child.communicate(cmd_stdin)
         exit_code = child.wait()
-        if throw_on_error and exit_code is not 0:
+        if throw_on_error and exit_code != 0:
             raise ShellCommandException("Non-zero exit code: %s\n\nSTDOUT:\n%s\n\nSTDERR:%s" %
                                         (exit_code, stdout, stderr))
         return exit_code, stdout, stderr
