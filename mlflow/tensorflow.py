@@ -27,6 +27,7 @@ import mlflow
 import tensorflow
 import mlflow.keras
 from distutils.version import LooseVersion
+from contextlib import contextmanager
 from tensorflow.keras.callbacks import Callback, TensorBoard  # pylint: disable=import-error
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
@@ -54,7 +55,7 @@ _metric_queue = []
 _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 # For tracking if the run was started by autologging.
-_AUTO_END_RUN = False
+_AUTOLOG_RUN_ID = None
 
 
 def get_default_conda_env():
@@ -584,8 +585,8 @@ def _log_event(event):
     """
     if not mlflow.active_run():
         try_mlflow_log(mlflow.start_run)
-        global _AUTO_END_RUN
-        _AUTO_END_RUN = True
+        global _AUTOLOG_RUN_ID
+        _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
     if event.WhichOneof('what') == 'summary':
         summary = event.summary
         for v in summary.value:
@@ -657,8 +658,47 @@ def autolog(every_n_iter=100):
                       "1.12 <= v <= 2.0.0 are supported.")
         return
 
+    @contextmanager
+    def _manage_active_run():
+        if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
+            global _AUTOLOG_RUN_ID
+            if mlflow.active_run() is not None:  # defensive check in case `mlflow.start_run` fails
+                _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
+        yield mlflow.active_run()
+        if mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID:
+            try_mlflow_log(mlflow.end_run)
+
+    @gorilla.patch(tensorflow.estimator.Estimator)
+    def train(self, *args, **kwargs):
+        with _manage_active_run():
+            original = gorilla.get_original_attribute(tensorflow.estimator.Estimator, 'train')
+
+            # Checking step and max_step parameters for logging
+            if len(args) >= 3:
+                try_mlflow_log(mlflow.log_param, 'steps', args[2])
+                if len(args) >= 4:
+                    try_mlflow_log(mlflow.log_param, 'max_steps', args[3])
+            if 'steps' in kwargs:
+                try_mlflow_log(mlflow.log_param, 'steps', kwargs['steps'])
+            if 'max_steps' in kwargs:
+                try_mlflow_log(mlflow.log_param, 'max_steps', kwargs['max_steps'])
+
+            result = original(self, *args, **kwargs)
+
+            return result
+
     @gorilla.patch(tensorflow.estimator.Estimator)
     def export_saved_model(self, *args, **kwargs):
+        auto_end = False
+        if not mlflow.active_run():
+            global _AUTOLOG_RUN_ID
+            if _AUTOLOG_RUN_ID:
+                try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
+            else:
+                try_mlflow_log(mlflow.start_run)
+                auto_end = True
+
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_saved_model')
         serialized = original(self, *args, **kwargs)
@@ -666,10 +706,22 @@ def autolog(every_n_iter=100):
                        tf_meta_graph_tags=[tag_constants.SERVING],
                        tf_signature_def_key='predict',
                        artifact_path='model')
+        if (mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID)\
+                or auto_end:
+            try_mlflow_log(mlflow.end_run)
         return serialized
 
     @gorilla.patch(tensorflow.estimator.Estimator)
     def export_savedmodel(self, *args, **kwargs):
+        auto_end = False
+        global _AUTOLOG_RUN_ID
+        if not mlflow.active_run():
+            if _AUTOLOG_RUN_ID:
+                try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
+            else:
+                try_mlflow_log(mlflow.start_run)
+                auto_end = True
+
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_savedmodel')
         serialized = original(self, *args, **kwargs)
@@ -677,65 +729,52 @@ def autolog(every_n_iter=100):
                        tf_meta_graph_tags=[tag_constants.SERVING],
                        tf_signature_def_key='predict',
                        artifact_path='model')
+        if (mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID)\
+                or auto_end:
+            try_mlflow_log(mlflow.end_run)
         return serialized
 
     @gorilla.patch(tensorflow.keras.Model)
     def fit(self, *args, **kwargs):
-        global _AUTO_END_RUN
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            _AUTO_END_RUN = True
+        with _manage_active_run():
+            original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
 
-        original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
+            # Checking if the 'callback' argument of fit() is set
+            if len(args) >= 6:
+                tmp_list = list(args)
+                tmp_list[5], log_dir = _setup_callbacks(tmp_list[5])
+                args = tuple(tmp_list)
+            elif 'callbacks' in kwargs:
+                kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
+            else:
+                kwargs['callbacks'], log_dir = _setup_callbacks([])
+            result = original(self, *args, **kwargs)
+            _flush_queue()
+            _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
+            shutil.rmtree(log_dir)
 
-        # Checking if the 'callback' argument of fit() is set
-        if len(args) >= 6:
-            tmp_list = list(args)
-            tmp_list[5], log_dir = _setup_callbacks(tmp_list[5])
-            args = tuple(tmp_list)
-        elif 'callbacks' in kwargs:
-            kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
-        else:
-            kwargs['callbacks'], log_dir = _setup_callbacks([])
-        result = original(self, *args, **kwargs)
-        _flush_queue()
-        _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
-        shutil.rmtree(log_dir)
-
-        if _AUTO_END_RUN:
-            try_mlflow_log(mlflow.end_run)
-        _AUTO_END_RUN = False
-
-        return result
+            return result
 
     @gorilla.patch(tensorflow.keras.Model)
     def fit_generator(self, *args, **kwargs):
-        global _AUTO_END_RUN
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            _AUTO_END_RUN = True
+        with _manage_active_run():
+            original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit_generator')
 
-        original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit_generator')
+            # Checking if the 'callback' argument of fit() is set
+            if len(args) >= 5:
+                tmp_list = list(args)
+                tmp_list[4], log_dir = _setup_callbacks(tmp_list[4])
+                args = tuple(tmp_list)
+            elif 'callbacks' in kwargs:
+                kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
+            else:
+                kwargs['callbacks'], log_dir = _setup_callbacks([])
+            result = original(self, *args, **kwargs)
+            _flush_queue()
+            _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
+            shutil.rmtree(log_dir)
 
-        # Checking if the 'callback' argument of fit() is set
-        if len(args) >= 5:
-            tmp_list = list(args)
-            tmp_list[4], log_dir = _setup_callbacks(tmp_list[4])
-            args = tuple(tmp_list)
-        elif 'callbacks' in kwargs:
-            kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
-        else:
-            kwargs['callbacks'], log_dir = _setup_callbacks([])
-        result = original(self, *args, **kwargs)
-        _flush_queue()
-        _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
-        shutil.rmtree(log_dir)
-
-        if _AUTO_END_RUN:
-            try_mlflow_log(mlflow.end_run)
-        _AUTO_END_RUN = False
-
-        return result
+            return result
 
     @gorilla.patch(EventFileWriter)
     def add_event(self, event):
@@ -754,6 +793,7 @@ def autolog(every_n_iter=100):
     patches = [
         gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings),
         gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings),
+        gorilla.Patch(tensorflow.estimator.Estimator, 'train', train, settings=settings),
         gorilla.Patch(tensorflow.keras.Model, 'fit', fit, settings=settings),
         gorilla.Patch(tensorflow.keras.Model, 'fit_generator', fit_generator, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_saved_model',
