@@ -20,7 +20,7 @@ export class ModelStageTransitionDropdown extends React.Component {
     handleConfirm: undefined,
   };
 
-  handleMenuItemClick = (activity) => {
+  handleMenuItemClick = activity => {
     const { onSelect } = this.props;
     this.setState({
       confirmModalVisible: true,
@@ -38,9 +38,9 @@ export class ModelStageTransitionDropdown extends React.Component {
     this.setState({ confirmModalVisible: false });
   };
 
-  getNoneCurrentStages = (currentStage) => {
+  getNoneCurrentStages = currentStage => {
     const stages = Object.values(Stages);
-    _.remove(stages, (s) => s === currentStage);
+    _.remove(stages, s => s === currentStage);
     return stages;
   };
 
@@ -49,7 +49,7 @@ export class ModelStageTransitionDropdown extends React.Component {
     const nonCurrentStages = this.getNoneCurrentStages(currentStage);
     return (
       <Menu onSelect={onSelect}>
-        {nonCurrentStages.map((stage) => (
+        {nonCurrentStages.map(stage => (
           <Menu.Item
             key={`transition-to-${stage}`}
             onClick={() =>
@@ -108,7 +108,7 @@ export class ModelStageTransitionDropdown extends React.Component {
   }
 }
 
-export const renderActivityDescription = (activity) => {
+export const renderActivityDescription = activity => {
   return activity ? (
     <div>
       Transition to

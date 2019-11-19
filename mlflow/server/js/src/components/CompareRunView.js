@@ -79,7 +79,7 @@ class CompareRunView extends Component {
               </tr>
               <tr>
                 <th scope="row" className="data-value">Start Time:</th>
-                {this.props.runInfos.map((run) => {
+                {this.props.runInfos.map(run => {
                   const startTime =
                     run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
                   return <td className="meta-info" key={run.run_uuid}>{startTime}</td>;
@@ -132,7 +132,7 @@ class CompareRunView extends Component {
   }
 
   // eslint-disable-next-line no-unused-vars
-  renderDataRows(list, headerMap = (key, data) => key, formatter = (value) => value) {
+  renderDataRows(list, headerMap = (key, data) => key, formatter = value => value) {
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
     keys.forEach(k => data[k] = []);
@@ -170,7 +170,7 @@ const mapStateToProps = (state, ownProps) => {
   const runDisplayNames = [];
   const { experimentId, runUuids } = ownProps;
   const experiment = getExperiment(experimentId, state);
-  runUuids.forEach((runUuid) => {
+  runUuids.forEach(runUuid => {
     runInfos.push(getRunInfo(runUuid, state));
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));

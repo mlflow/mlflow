@@ -38,7 +38,7 @@ class ArtifactPage extends Component {
     }
   };
 
-  handleActiveNodeChange = (activeNodeIsDirectory) => {
+  handleActiveNodeChange = activeNodeIsDirectory => {
     this.setState({ activeNodeIsDirectory });
   };
 

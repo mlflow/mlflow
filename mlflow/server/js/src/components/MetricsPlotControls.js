@@ -30,7 +30,7 @@ export class MetricsPlotControls extends React.Component {
 
   getAllMetricKeys = () => {
     const { distinctMetricKeys } = this.props;
-    return distinctMetricKeys.map((metricKey) => ({
+    return distinctMetricKeys.map(metricKey => ({
       title: metricKey,
       value: metricKey,
       key: metricKey,

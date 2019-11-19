@@ -25,7 +25,7 @@ class RegisterModelFormComponent extends React.Component {
     selectedModel: null,
   };
 
-  handleModelSelectChange = (selectedModel) => {
+  handleModelSelectChange = selectedModel => {
     this.setState({ selectedModel });
   };
 
@@ -59,7 +59,7 @@ class RegisterModelFormComponent extends React.Component {
                 <i className='fa fa-plus fa-fw' style={{ fontSize: 13 }} /> Create New Model
               </Option>
               <OptGroup label='Models'>
-                {Object.values(modelByName).map((model) => (
+                {Object.values(modelByName).map(model => (
                   <Option value={model.name} key={model.name}>
                     {model.name}
                   </Option>

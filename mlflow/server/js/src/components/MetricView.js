@@ -40,7 +40,7 @@ class MetricView extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { experimentId, runUuids } = ownProps;
   const experiment = experimentId !== null ? getExperiment(experimentId, state) : null;
-  const runNames = runUuids.map((runUuid) => {
+  const runNames = runUuids.map(runUuid => {
     const tags = getRunTags(runUuid, state);
     return Utils.getRunDisplayName(tags, runUuid);
   });

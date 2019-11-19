@@ -16,7 +16,7 @@ export const setupAjaxHeaders = () => {
   });
 };
 
-export const getRequestHeaders = (documentCookie) => {
+export const getRequestHeaders = documentCookie => {
   const headerCookiePrefix = "mlflow-request-header-";
   const parsedCookie = cookie.parse(documentCookie);
   console.log(parsedCookie);

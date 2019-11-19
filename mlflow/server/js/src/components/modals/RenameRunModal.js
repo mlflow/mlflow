@@ -65,7 +65,7 @@ export class RenameRunModal extends Component {
         this.setState({ isSubmittingState: false });
         setSubmitting(false);
         this.onRequestCloseHandler();
-      }).catch((err) => {
+      }).catch(err => {
         this.setState({ isSubmittingState: false });
         setSubmitting(false);
         setStatus({errorMsg: err.getUserVisibleError()});

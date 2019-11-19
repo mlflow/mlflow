@@ -44,7 +44,7 @@ export const createModelVersionApi = (name, source, runId, id = getUUID()) => ({
 
 export const SEARCH_MODEL_VERSIONS = 'SEARCH_MODEL_VERSIONS';
 export const searchModelVersionsApi = (filterObj, id = getUUID()) => {
-  const filter = Object.keys(filterObj).map((key) => `${key}='${filterObj[key]}'`).join('&');
+  const filter = Object.keys(filterObj).map(key => `${key}='${filterObj[key]}'`).join('&');
   return {
     type: SEARCH_MODEL_VERSIONS,
     payload: wrapDeferred(Services.searchModelVersions, { filter }),

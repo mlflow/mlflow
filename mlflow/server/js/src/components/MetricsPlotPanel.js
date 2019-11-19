@@ -51,7 +51,7 @@ export class MetricsPlotPanel extends React.Component {
     if (
       metrics &&
       metrics.length &&
-      _.every(metrics, (metric) => metric.history && metric.history.length === 1)
+      _.every(metrics, metric => metric.history && metric.history.length === 1)
     ) {
       return CHART_TYPE_BAR;
     }
@@ -74,8 +74,8 @@ export class MetricsPlotPanel extends React.Component {
   loadMetricHistory = (runUuids, metricKeys) => {
     const requestIds = [];
     const { latestMetricsByRunUuid } = this.props;
-    runUuids.forEach((runUuid) => {
-      metricKeys.forEach((metricKey) => {
+    runUuids.forEach(runUuid => {
+      metricKeys.forEach(metricKey => {
         if (latestMetricsByRunUuid[runUuid][metricKey]) {
           const id = getUUID();
           this.props.getMetricHistoryApi(runUuid, metricKey, id);
@@ -93,10 +93,10 @@ export class MetricsPlotPanel extends React.Component {
     const { metricsWithRunInfoAndHistory } = this.props;
 
     // Take only selected metrics
-    const metrics = metricsWithRunInfoAndHistory.filter((m) => selectedMetricsSet.has(m.metricKey));
+    const metrics = metricsWithRunInfoAndHistory.filter(m => selectedMetricsSet.has(m.metricKey));
 
     // Sort metric history based on selected x-axis
-    metrics.forEach((metric) => {
+    metrics.forEach(metric => {
       const isStep =
         selectedXAxis === X_AXIS_STEP && metric.history[0] && _.isNumber(metric.history[0].step);
       // Metric history can be large. Doing an in-place here to save memory
@@ -105,26 +105,26 @@ export class MetricsPlotPanel extends React.Component {
     return metrics;
   };
 
-  handleYAxisLogScaleChange = (yAxisLogScale) => {
+  handleYAxisLogScaleChange = yAxisLogScale => {
     this.setState({ yAxisLogScale });
   };
 
-  handleXAxisChange = (e) => {
+  handleXAxisChange = e => {
     this.setState({ selectedXAxis: e.target.value });
   };
 
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
     const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
-    this.setState((prevState) => ({
+    this.setState(prevState => ({
       selectedMetricKeys: metricValues,
       historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
     }));
     this.updateUrlWithSelectedMetrics(metricValues);
   };
 
-  handleShowPointChange = (showPoint) => this.setState({ showPoint });
+  handleShowPointChange = showPoint => this.setState({ showPoint });
 
-  handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
+  handleLineSmoothChange = lineSmoothness => this.setState({ lineSmoothness });
 
   render() {
     const { runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
@@ -181,7 +181,7 @@ const mapStateToProps = (state, ownProps) => {
   const { latestMetricsByRunUuid, metricsByRunUuid } = state.entities;
 
   // All metric keys from all runUuids, non-distinct
-  const metricKeys = _.flatMap(runUuids, (runUuid) => {
+  const metricKeys = _.flatMap(runUuids, runUuid => {
     const latestMetrics = latestMetricsByRunUuid[runUuid];
     return latestMetrics ? Object.keys(latestMetrics) : [];
   });
@@ -191,13 +191,13 @@ const mapStateToProps = (state, ownProps) => {
 
   // Flat array of all metrics, with history and information of the run it belongs to
   // This is used for underlying MetricsPlotView & predicting chartType for MetricsPlotControls
-  const metricsWithRunInfoAndHistory = _.flatMap(runUuids, (runUuid) => {
+  const metricsWithRunInfoAndHistory = _.flatMap(runUuids, runUuid => {
     const runDisplayName = Utils.getRunDisplayName(getRunTags(runUuid, state), runUuid);
     runDisplayNames.push(runDisplayName);
     const metricsHistory = metricsByRunUuid[runUuid];
     return metricsHistory
-      ? Object.keys(metricsHistory).map((metricKey) => {
-        const history = metricsHistory[metricKey].map((entry) => ({
+      ? Object.keys(metricsHistory).map(metricKey => {
+        const history = metricsHistory[metricKey].map(entry => ({
           key: entry.key,
           value: entry.value,
           step: Number.parseInt(entry.step, 10) || 0, // default step to 0

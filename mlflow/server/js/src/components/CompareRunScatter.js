@@ -162,7 +162,7 @@ class CompareRunScatter extends Component {
       <select
         className="form-control"
         id={axis + "-axis-selector"}
-        onChange={(e) => {
+        onChange={e => {
           const [prefix, ...keyParts] = e.target.value.split("-");
           const key = keyParts.join("-");
           const isMetric = prefix === "metric";
@@ -171,12 +171,12 @@ class CompareRunScatter extends Component {
         value={(this.state[axis].isMetric ? "metric-" : "param-") + this.state[axis].key}
       >
         <optgroup label="Parameter">
-          {this.paramKeys.map((p) =>
+          {this.paramKeys.map(p =>
             <option key={"param-" + p} value={"param-" + p}>{p}</option>
           )}
         </optgroup>
         <optgroup label="Metric">
-          {this.metricKeys.map((m) =>
+          {this.metricKeys.map(m =>
             <option key={"metric-" + m} value={"metric-" + m}>{m}</option>
           )}
         </optgroup>
@@ -210,7 +210,7 @@ const mapStateToProps = (state, ownProps) => {
   const metricLists = [];
   const paramLists = [];
   const { runUuids } = ownProps;
-  runUuids.forEach((runUuid) => {
+  runUuids.forEach(runUuid => {
     runInfos.push(getRunInfo(runUuid, state));
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));

@@ -13,7 +13,7 @@ export class LineSmoothSlider extends React.Component {
     inputValue: 0,
   };
 
-  onChange = (value) => {
+  onChange = value => {
     if (Number.isNaN(value)) {
       return;
     }

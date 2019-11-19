@@ -28,13 +28,13 @@ export class RequestStateWrapper extends Component {
   };
 
   static getErrorRequests(requests) {
-    return requests.filter((r) => {
+    return requests.filter(r => {
       return r.error !== undefined;
     });
   }
 
   static getDerivedStateFromProps(nextProps) {
-    const shouldRender = nextProps.requests.length ? nextProps.requests.every((r) => {
+    const shouldRender = nextProps.requests.length ? nextProps.requests.every(r => {
       return r && r.active === false;
     }) : false;
     return {
@@ -59,7 +59,7 @@ export class RequestStateWrapper extends Component {
   }
 }
 
-export const triggerError = (requests) => {
+export const triggerError = requests => {
   // This triggers the OOPS error boundary.
   console.error("ERROR", requests);
   throw Error("GOTO error boundary");

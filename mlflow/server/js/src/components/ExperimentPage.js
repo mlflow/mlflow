@@ -52,13 +52,13 @@ export class ExperimentPage extends Component {
 
     this.props
       .getExperimentApi(experimentId, this.getExperimentRequestId)
-      .catch((e) => {
+      .catch(e => {
         console.error(e);
       });
     this.props
       .searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId)
       .then(this.updateNextPageToken)
-      .catch((e) => {
+      .catch(e => {
         Utils.logErrorAndNotifyUser(e);
         this.setState({ nextPageToken: null, loadingMore: false });
       });
@@ -90,7 +90,7 @@ export class ExperimentPage extends Component {
         this.loadMoreRunsRequestId,
       )
       .then(this.updateNextPageToken)
-      .catch((e) => {
+      .catch(e => {
         Utils.logErrorAndNotifyUser(e);
         this.setState({ nextPageToken: null, loadingMore: false });
       });
@@ -171,7 +171,7 @@ export class ExperimentPage extends Component {
         this.searchRunsRequestId,
       )
       .then(this.updateNextPageToken)
-      .catch((e) => {
+      .catch(e => {
         Utils.logErrorAndNotifyUser(e);
         this.setState({ nextPageToken: null, loadingMore: false });
       });
@@ -286,7 +286,7 @@ const mapDispatchToProps = {
   loadMoreRunsApi,
 };
 
-const lifecycleFilterToRunViewType = (lifecycleFilter) => {
+const lifecycleFilterToRunViewType = lifecycleFilter => {
   if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
     return ViewType.ACTIVE_ONLY;
   } else {

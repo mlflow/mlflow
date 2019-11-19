@@ -3,27 +3,27 @@ import ErrorCodes from './sdk/ErrorCodes';
 
 export const SEARCH_MAX_RESULTS = 100;
 
-export const isPendingApi = (action) => {
+export const isPendingApi = action => {
   return action.type.endsWith("_PENDING");
 };
 
-export const pending = (apiActionType) => {
+export const pending = apiActionType => {
   return `${apiActionType}_PENDING`;
 };
 
-export const isFulfilledApi = (action) => {
+export const isFulfilledApi = action => {
   return action.type.endsWith("_FULFILLED");
 };
 
-export const fulfilled = (apiActionType) => {
+export const fulfilled = apiActionType => {
   return `${apiActionType}_FULFILLED`;
 };
 
-export const isRejectedApi = (action) => {
+export const isRejectedApi = action => {
   return action.type.endsWith("_REJECTED");
 };
 
-export const rejected = (apiActionType) => {
+export const rejected = apiActionType => {
   return `${apiActionType}_REJECTED`;
 };
 
@@ -56,7 +56,7 @@ export const getRunApi = (runUuid, id = getUUID()) => {
 
 export const DELETE_RUN_API = 'DELETE_RUN_API';
 export const deleteRunApi = (runUuid, id = getUUID()) => {
-  return (dispatch) => {
+  return dispatch => {
     const deleteResponse = dispatch({
       type: DELETE_RUN_API,
       payload: wrapDeferred(MlflowService.deleteRun, { run_id: runUuid }),
@@ -68,7 +68,7 @@ export const deleteRunApi = (runUuid, id = getUUID()) => {
 
 export const RESTORE_RUN_API = 'RESTORE_RUN_API';
 export const restoreRunApi = (runUuid, id = getUUID()) => {
-  return (dispatch) => {
+  return dispatch => {
     const restoreResponse = dispatch({
       type: RESTORE_RUN_API,
       payload: wrapDeferred(MlflowService.restoreRun, { run_id: runUuid }),
@@ -178,7 +178,7 @@ export const closeErrorModal = () => {
 };
 
 export const OPEN_ERROR_MODAL = 'OPEN_ERROR_MODAL';
-export const openErrorModal = (text) => {
+export const openErrorModal = text => {
   return {
     type: OPEN_ERROR_MODAL,
     text,
@@ -212,7 +212,7 @@ export const wrapDeferred = (deferred, data, timeLeftMs = 60000, sleepMs = 1000)
       success: response => {
         resolve(response);
       },
-      error: (xhr) => {
+      error: xhr => {
         if (xhr.status === 429) {
           if (timeLeftMs > 0) {
             console.warn("Request failed with status code 429, message " +
@@ -226,8 +226,8 @@ export const wrapDeferred = (deferred, data, timeLeftMs = 60000, sleepMs = 1000)
             return new Promise(resolveRetry => setTimeout(resolveRetry, sleepMs)).then(() => {
               return wrapDeferred(deferred, data, newTimeLeft, newSleepMs);
             }).then(
-                (successResponse) => resolve(successResponse),
-                (failureResponse) => reject(failureResponse)
+                successResponse => resolve(successResponse),
+                failureResponse => reject(failureResponse)
             );
           }
         }

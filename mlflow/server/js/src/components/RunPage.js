@@ -67,7 +67,7 @@ class RunPage extends Component {
             }
             return <RunView
               runUuid={this.props.runUuid}
-              getMetricPagePath={(key) =>
+              getMetricPagePath={key =>
                 Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
               }
               experimentId={this.props.experimentId}

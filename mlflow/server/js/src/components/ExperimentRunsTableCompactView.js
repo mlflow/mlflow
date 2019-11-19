@@ -150,21 +150,21 @@ class ExperimentRunsTableCompactView extends React.Component {
       isParent,
       "div",
       this.handleCellToggle,
-    ).forEach((col) => rowContents.push(col));
+    ).forEach(col => rowContents.push(col));
 
     const unbaggedParamSet = new Set(unbaggedParams);
     const unbaggedMetricSet = new Set(unbaggedMetrics);
-    const baggedParams = paramKeyList.filter((paramKey) =>
+    const baggedParams = paramKeyList.filter(paramKey =>
       !unbaggedParamSet.has(paramKey) && paramsMap[paramKey] !== undefined);
-    const baggedMetrics = metricKeyList.filter((metricKey) =>
+    const baggedMetrics = metricKeyList.filter(metricKey =>
       !unbaggedMetricSet.has(metricKey) && metricsMap[metricKey] !== undefined);
 
     // Add params (unbagged, then bagged)
-    unbaggedParams.forEach((paramKey) => {
+    unbaggedParams.forEach(paramKey => {
       rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap, "div"));
     });
     // Add bagged params
-    const paramsCellContents = baggedParams.map((paramKey) => {
+    const paramsCellContents = baggedParams.map(paramKey => {
       const keyname = "param-" + paramKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(orderByKey, orderByAsc,
         ExperimentViewUtil.makeCanonicalKey("params", paramKey));
@@ -188,13 +188,13 @@ class ExperimentRunsTableCompactView extends React.Component {
     }
 
     // Add metrics (unbagged, then bagged)
-    unbaggedMetrics.forEach((metricKey) => {
+    unbaggedMetrics.forEach(metricKey => {
       rowContents.push(
         ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges, "div"));
     });
 
     // Add bagged metrics
-    const metricsCellContents = baggedMetrics.map((metricKey) => {
+    const metricsCellContents = baggedMetrics.map(metricKey => {
       const keyname = "metric-" + metricKey;
       const sortIcon = ExperimentViewUtil.getSortIcon(orderByKey, orderByAsc,
         ExperimentViewUtil.makeCanonicalKey("metrics", metricKey));
@@ -373,8 +373,8 @@ class ExperimentRunsTableCompactView extends React.Component {
       ExperimentViewUtil.getExpanderHeader("div"),
     ];
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, orderByKey, orderByAsc, "div")
-      .forEach((headerCell) => headerCells.push(headerCell));
-    this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
+      .forEach(headerCell => headerCells.push(headerCell));
+    this.getMetricParamHeaderCells().forEach(cell => headerCells.push(cell));
     const showLoadMore = (nextPageToken && this.state.isAtScrollBottom) || this.props.loadingMore;
     return (
       <div id="autosizer-container" className="runs-table-flex-container">
@@ -457,7 +457,7 @@ class ExperimentRunsTableCompactView extends React.Component {
                   return base;
                 }}
               >
-                {[...Array(NUM_RUN_METADATA_COLS).keys()].map((colIdx) => {
+                {[...Array(NUM_RUN_METADATA_COLS).keys()].map(colIdx => {
                   return <Column
                     dataKey={'column-' + colIdx}
                     key={'column-' + colIdx}

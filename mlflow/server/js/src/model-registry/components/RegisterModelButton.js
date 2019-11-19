@@ -54,7 +54,7 @@ class RegisterModelButton extends React.Component {
     this.formComponent.handleModelSelectChange();
   };
 
-  handleRegistrationFailure = (e) => {
+  handleRegistrationFailure = e => {
     this.setState({ confirmLoading: false });
     Utils.logErrorAndNotifyUser(e);
   };
@@ -105,11 +105,11 @@ class RegisterModelButton extends React.Component {
     });
   };
 
-  saveFormRef = (form) => {
+  saveFormRef = form => {
     this.form = form;
   };
 
-  saveFormComponentRef = (formComponent) => {
+  saveFormComponentRef = formComponent => {
     this.formComponent = formComponent;
   };
 
@@ -159,7 +159,7 @@ class RegisterModelButton extends React.Component {
   }
 }
 
-const mapStateToProps = (state) => ({
+const mapStateToProps = state => ({
   modelByName: state.entities.modelByName,
 });
 

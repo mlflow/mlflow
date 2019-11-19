@@ -112,11 +112,11 @@ export class ArtifactView extends Component {
     });
   };
 
-  getTreebeardData = (artifactNode) => {
+  getTreebeardData = artifactNode => {
     const isRoot = artifactNode.isRoot;
     if (isRoot) {
       if (artifactNode.children) {
-        return Object.values(artifactNode.children).map((c) => this.getTreebeardData(c));
+        return Object.values(artifactNode.children).map(c => this.getTreebeardData(c));
       }
       // This case should never happen since we should never call this function on an empty root.
       throw Error("unreachable code.");
@@ -140,7 +140,7 @@ export class ArtifactView extends Component {
     }
 
     if (artifactNode.children) {
-      children = Object.values(artifactNode.children).map((c) => this.getTreebeardData(c));
+      children = Object.values(artifactNode.children).map(c => this.getTreebeardData(c));
     }
 
     if (this.state.activeNodeId === id) {

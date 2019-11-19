@@ -33,7 +33,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
     const { sequence } = this.state;
     const { paramDimensions, metricDimensions, metricKeys } = this.props;
     const lastMetricKey = this.findLastKeyFromState(metricKeys);
-    const lastMetricDimension = this.props.metricDimensions.find((d) => d.label === lastMetricKey);
+    const lastMetricDimension = this.props.metricDimensions.find(d => d.label === lastMetricKey);
     const colorScaleConfigs = ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(
       lastMetricDimension,
     );
@@ -52,7 +52,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
   }
 
   static getDimensionsOrderedBySequence(dimensions, sequence) {
-    return _.sortBy(dimensions, [(dimension) => sequence.indexOf(dimension.label)]);
+    return _.sortBy(dimensions, [dimension => sequence.indexOf(dimension.label)]);
   }
 
   static getLabelElementsFromDom = () => Array.from(document.querySelectorAll(AXIS_LABEL_CLS));
@@ -60,7 +60,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
   findLastKeyFromState(keys) {
     const { sequence } = this.state;
     const keySet = new Set(keys);
-    return _.findLast(sequence, (key) => keySet.has(key));
+    return _.findLast(sequence, key => keySet.has(key));
   }
 
   static getColorScaleConfigsForDimension(dimension) {
@@ -86,19 +86,19 @@ export class ParallelCoordinatesPlotView extends React.Component {
     // TODO(Zangr) 2019-06-20 This assumes name uniqueness across params & metrics. Find a way to
     // make it more deterministic. Ex. Add add different data attributes to indicate axis kind.
     ParallelCoordinatesPlotView.getLabelElementsFromDom()
-      .filter((el) => metricsKeySet.has(el.innerHTML))
-      .forEach((el) => {
+      .filter(el => metricsKeySet.has(el.innerHTML))
+      .forEach(el => {
         el.style.fill = 'green';
         el.style.fontWeight = 'bold';
       });
   };
 
-  maybeUpdateStateForColorScale = (currentSequenceFromPlotly) => {
+  maybeUpdateStateForColorScale = currentSequenceFromPlotly => {
     const rightmostMetricKeyFromState = this.findLastKeyFromState(this.props.metricKeys);
     const metricsKeySet = new Set(this.props.metricKeys);
     const rightmostMetricKeyFromPlotly = _.findLast(
       currentSequenceFromPlotly,
-      (key) => metricsKeySet.has(key),
+      key => metricsKeySet.has(key),
     );
     // Currently we always render color scale based on the rightmost metric axis, so if that changes
     // we need to setState with the new axes sequence to trigger a rerender.
@@ -109,7 +109,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
 
   handlePlotUpdate = ({ data: [{ dimensions }] }) => {
     this.updateMetricAxisLabelStyle();
-    this.maybeUpdateStateForColorScale(dimensions.map((d) => d.label));
+    this.maybeUpdateStateForColorScale(dimensions.map(d => d.label));
   };
 
   render() {
@@ -127,7 +127,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
   }
 }
 
-export const generateAttributesForCategoricalDimension = (labels) => {
+export const generateAttributesForCategoricalDimension = labels => {
   // Create a lookup from label to its own alphabetical sorted order.
   // Ex. ['A', 'B', 'C'] => { 'A': '0', 'B': '1', 'C': '2' }
   const sortedUniqLabels = _.uniq(labels).sort();
@@ -135,7 +135,7 @@ export const generateAttributesForCategoricalDimension = (labels) => {
   const attributes = {};
 
   // Values are assigned to their alphabetical sorted index number
-  attributes.values = labels.map((label) => Number(labelToIndexStr[label]));
+  attributes.values = labels.map(label => Number(labelToIndexStr[label]));
 
   // Default to alphabetical order for categorical axis here. Ex. [0, 1, 2, 3 ...]
   attributes.tickvals = _.range(sortedUniqLabels.length);
@@ -165,10 +165,10 @@ export const createDimension = (key, runUuids, entryByRunUuid) => {
   const dataType = inferType(key, runUuids, entryByRunUuid);
   if (dataType === 'string') {
     attributes = generateAttributesForCategoricalDimension(
-      runUuids.map((runUuid) => entryByRunUuid[runUuid][key].value),
+      runUuids.map(runUuid => entryByRunUuid[runUuid][key].value),
     );
   } else {
-    attributes.values = runUuids.map((runUuid) => {
+    attributes.values = runUuids.map(runUuid => {
       const { value } = entryByRunUuid[runUuid][key];
       return isNaN(value) ? 0 : Number(value); // Default NaN to zero here
     });
@@ -186,14 +186,14 @@ const mapStateToProps = (state, ownProps) => {
   const { latestMetricsByRunUuid, paramsByRunUuid } = state.entities;
   // Show only runs that have all the parameters/metrics we chose to plot, since the parallel
   // coordinates plot can't easily handle data points that are missing a dimension.
-  const validRunUuids = runUuids.filter((uuid) => {
-    return paramKeys.every((key) => paramsByRunUuid[uuid][key] !== undefined) &&
-      metricKeys.every((key) => latestMetricsByRunUuid[uuid][key] !== undefined);
+  const validRunUuids = runUuids.filter(uuid => {
+    return paramKeys.every(key => paramsByRunUuid[uuid][key] !== undefined) &&
+      metricKeys.every(key => latestMetricsByRunUuid[uuid][key] !== undefined);
   });
-  const paramDimensions = paramKeys.map((paramKey) =>
+  const paramDimensions = paramKeys.map(paramKey =>
     createDimension(paramKey, validRunUuids, paramsByRunUuid),
   );
-  const metricDimensions = metricKeys.map((metricKey) =>
+  const metricDimensions = metricKeys.map(metricKey =>
     createDimension(metricKey, validRunUuids, latestMetricsByRunUuid),
   );
   return { paramDimensions, metricDimensions };

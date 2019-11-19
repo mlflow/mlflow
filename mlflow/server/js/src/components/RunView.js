@@ -73,7 +73,7 @@ class RunView extends Component {
     this.setState({ showNoteEditor: false });
   };
 
-  handleSubmitEditNote = (note) => {
+  handleSubmitEditNote = note => {
     return this.props
       .handleSetRunTag(NOTE_CONTENT_TAG, note)
       .then(() => {
@@ -81,7 +81,7 @@ class RunView extends Component {
       });
   };
 
-  startEditingDescription = (e) => {
+  startEditingDescription = e => {
     e.stopPropagation();
     this.setState({ showNoteEditor: true });
   };
@@ -247,14 +247,14 @@ export default connect(mapStateToProps)(RunView);
 
 // Private helper functions.
 
-const getParamValues = (params) => {
-  return Object.values(params).sort().map((p) =>
+const getParamValues = params => {
+  return Object.values(params).sort().map(p =>
     [p.getKey(), p.getValue()]
   );
 };
 
 const getMetricValues = (latestMetrics, getMetricPagePath) => {
-  return Object.values(latestMetrics).sort().map((m) => {
+  return Object.values(latestMetrics).sort().map(m => {
     const key = m.key;
     return [
       <Link to={getMetricPagePath(key)} title="Plot chart">
@@ -266,7 +266,7 @@ const getMetricValues = (latestMetrics, getMetricPagePath) => {
   });
 };
 
-const shellEscape = (str) => {
+const shellEscape = str => {
   if ((/["\r\n\t ]/).test(str)) {
     return '"' + str.replace(/"/g, '\\"') + '"';
   }

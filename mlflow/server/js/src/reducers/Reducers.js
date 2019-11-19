@@ -23,7 +23,7 @@ import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
 import modelRegistryReducers from '../model-registry/reducers';
 import _ from 'lodash';
 
-export const getExperiments = (state) => {
+export const getExperiments = state => {
   return Object.values(state.entities.experimentsById);
 };
 
@@ -36,7 +36,7 @@ const experimentsById = (state = {}, action) => {
     case fulfilled(LIST_EXPERIMENTS_API): {
       let newState = Object.assign({}, state);
       if (action.payload && action.payload.experiments) {
-        action.payload.experiments.forEach((eJson) => {
+        action.payload.experiments.forEach(eJson => {
           const experiment = Experiment.fromJs(eJson);
           newState = Object.assign(newState, { [experiment.getExperimentId()]: experiment });
         });
@@ -68,7 +68,7 @@ const runInfosByUuid = (state = {}, action) => {
     case fulfilled(SEARCH_RUNS_API): {
       const newState = {};
       if (action.payload && action.payload.runs) {
-        action.payload.runs.forEach((rJson) => {
+        action.payload.runs.forEach(rJson => {
           const runInfo = RunInfo.fromJs(rJson.info);
           newState[runInfo.getRunUuid()] = runInfo;
         });
@@ -81,7 +81,7 @@ const runInfosByUuid = (state = {}, action) => {
     case fulfilled(LOAD_MORE_RUNS_API): {
       let newState = { ...state };
       if (action.payload && action.payload.runs) {
-        action.payload.runs.forEach((rJson) => {
+        action.payload.runs.forEach(rJson => {
           const runInfo = RunInfo.fromJs(rJson.info);
           newState = amendRunInfosByUuid(newState, runInfo);
         });
@@ -110,9 +110,9 @@ export const getParams = (runUuid, state) => {
 };
 
 const paramsByRunUuid = (state = {}, action) => {
-  const paramArrToObject = (params) => {
+  const paramArrToObject = params => {
     const paramObj = {};
-    params.forEach((p) => (paramObj[p.key] = Param.fromJs(p)));
+    params.forEach(p => (paramObj[p.key] = Param.fromJs(p)));
     return paramObj;
   };
   switch (action.type) {
@@ -129,7 +129,7 @@ const paramsByRunUuid = (state = {}, action) => {
       const runs = action.payload.runs;
       const newState = { ...state };
       if (runs) {
-        runs.forEach((rJson) => {
+        runs.forEach(rJson => {
           const runUuid = rJson.info.run_uuid;
           const params = rJson.data.params || [];
           newState[runUuid] = paramArrToObject(params);
@@ -157,9 +157,9 @@ export const getExperimentTags = (experimentId, state) => {
 };
 
 const tagsByRunUuid = (state = {}, action) => {
-  const tagArrToObject = (tags) => {
+  const tagArrToObject = tags => {
     const tagObj = {};
-    tags.forEach((tag) => (tagObj[tag.key] = RunTag.fromJs(tag)));
+    tags.forEach(tag => (tagObj[tag.key] = RunTag.fromJs(tag)));
     return tagObj;
   };
   switch (action.type) {
@@ -176,7 +176,7 @@ const tagsByRunUuid = (state = {}, action) => {
       const runs = action.payload.runs;
       const newState = { ...state };
       if (runs) {
-        runs.forEach((rJson) => {
+        runs.forEach(rJson => {
           const runUuid = rJson.info.run_uuid;
           const tags = rJson.data.tags || [];
           newState[runUuid] = tagArrToObject(tags);
@@ -201,7 +201,7 @@ const tagsByRunUuid = (state = {}, action) => {
 const amendTagsByRunUuid = (state, tags, runUuid) => {
   let newState = { ...state };
   if (tags) {
-    tags.forEach((tJson) => {
+    tags.forEach(tJson => {
       const tag = RunTag.fromJs(tJson);
       const oldTags = newState[runUuid] ? newState[runUuid] : {};
       newState = {
@@ -217,9 +217,9 @@ const amendTagsByRunUuid = (state, tags, runUuid) => {
 };
 
 const experimentTagsByExperimentId = (state = {}, action) => {
-  const tagArrToObject = (tags) => {
+  const tagArrToObject = tags => {
     const tagObj = {};
-    tags.forEach((tag) => (tagObj[tag.key] = ExperimentTag.fromJs(tag)));
+    tags.forEach(tag => (tagObj[tag.key] = ExperimentTag.fromJs(tag)));
     return tagObj;
   };
   switch (action.type) {
@@ -242,7 +242,7 @@ const experimentTagsByExperimentId = (state = {}, action) => {
 const amendExperimentTagsByExperimentId = (state, tags, expId) => {
   let newState = { ...state };
   if (tags) {
-    tags.forEach((tJson) => {
+    tags.forEach(tJson => {
       const tag = ExperimentTag.fromJs(tJson);
       const oldTags = newState[expId] ? newState[expId] : {};
       newState = {
@@ -280,7 +280,7 @@ const artifactsByRunUuid = (state = {}, action) => {
         // Otherwise, traverse the queryPath to get to the appropriate artifact node.
         const pathParts = queryPath.split('/');
         let curArtifactNode = artifactNode;
-        pathParts.forEach((part) => {
+        pathParts.forEach(part => {
           curArtifactNode = curArtifactNode.children[part];
         });
         // Then set children on that artifact node.
@@ -329,26 +329,26 @@ const entities = combineReducers({
 
 export const getSharedParamKeysByRunUuids = (runUuids, state) =>
     _.intersection(
-        ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
+        ...runUuids.map(runUuid => Object.keys(state.entities.paramsByRunUuid[runUuid])),
     );
 
 export const getSharedMetricKeysByRunUuids = (runUuids, state) =>
     _.intersection(
-        ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
+        ...runUuids.map(runUuid => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
     );
 
 export const getAllParamKeysByRunUuids = (runUuids, state) =>
     _.union(
-        ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
+        ...runUuids.map(runUuid => Object.keys(state.entities.paramsByRunUuid[runUuid])),
     );
 
 export const getAllMetricKeysByRunUuids = (runUuids, state) =>
     _.union(
-        ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
+        ...runUuids.map(runUuid => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
     );
 
 export const getApis = (requestIds, state) => {
-  return requestIds.map((id) => state.apis[id] || {});
+  return requestIds.map(id => state.apis[id] || {});
 };
 
 const apis = (state = {}, action) => {
@@ -372,11 +372,11 @@ const apis = (state = {}, action) => {
   }
 };
 
-export const isErrorModalOpen = (state) => {
+export const isErrorModalOpen = state => {
   return state.views.errorModal.isOpen;
 };
 
-export const getErrorModalText = (state) => {
+export const getErrorModalText = state => {
   return state.views.errorModal.text;
 };
 

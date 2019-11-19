@@ -34,17 +34,17 @@ export class EditableTagsTableView extends React.Component {
 
   requestId = getUUID();
 
-  getData = () => _.sortBy(Utils.getVisibleTagValues(this.props.tags).map((values) => ({
+  getData = () => _.sortBy(Utils.getVisibleTagValues(this.props.tags).map(values => ({
     key: values[0],
     name: values[0],
     value: values[1],
   })), 'name');
 
   getTagNamesAsSet = () => new Set(
-    Utils.getVisibleTagValues(this.props.tags).map((values) => values[0])
+    Utils.getVisibleTagValues(this.props.tags).map(values => values[0])
   );
 
-  handleAddTag = (e) => {
+  handleAddTag = e => {
     e.preventDefault();
     const { form, runUuid, setTagApi: setTag } = this.props;
     form.validateFields((err, values) => {
@@ -55,7 +55,7 @@ export class EditableTagsTableView extends React.Component {
             this.setState({ isRequestPending: false });
             form.resetFields();
           })
-          .catch((ex) => {
+          .catch(ex => {
             this.setState({ isRequestPending: false });
             console.error(ex);
             message.error('Failed to add tag. Error: ' + ex.getUserVisibleError());
@@ -67,7 +67,7 @@ export class EditableTagsTableView extends React.Component {
   handleSaveEdit = ({ name, value }) => {
     const { runUuid, setTagApi: setTag } = this.props;
     return setTag(runUuid, name, value, this.requestId)
-      .catch((ex) => {
+      .catch(ex => {
         console.error(ex);
         message.error('Failed to set tag. Error: ' + ex.getUserVisibleError());
       });
@@ -76,7 +76,7 @@ export class EditableTagsTableView extends React.Component {
   handleDeleteTag = ({ name }) => {
     const { runUuid, deleteTagApi: deleteTag } = this.props;
     return deleteTag(runUuid, name, this.requestId)
-      .catch((ex) => {
+      .catch(ex => {
         console.error(ex);
         message.error('Failed to delete tag. Error: ' + ex.getUserVisibleError());
       });

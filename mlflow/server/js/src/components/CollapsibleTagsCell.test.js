@@ -8,9 +8,9 @@ describe('unit tests', () => {
   let instance;
   let minimalProps;
 
-  const setupProps = (numTags) => {
+  const setupProps = numTags => {
     const tags = [];
-    _.range(numTags).forEach((n) => {
+    _.range(numTags).forEach(n => {
       tags[`tag${n}`] = { getKey: () => `tag${n}`, getValue: () => `value${n}` };
     });
     return { tags, onToggle: jest.fn() };

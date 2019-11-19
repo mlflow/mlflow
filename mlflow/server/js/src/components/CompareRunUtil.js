@@ -4,7 +4,7 @@ export default class CompareRunUtil {
    */
   static findInList(data, key) {
     let found = undefined;
-    data.forEach((value) => {
+    data.forEach(value => {
       if (value.key === key) {
         found = value;
       }
@@ -17,8 +17,8 @@ export default class CompareRunUtil {
    */
   static getKeys(lists, numeric) {
     const keys = {};
-    lists.forEach((list) =>
-      list.forEach((item) => {
+    lists.forEach(list =>
+      list.forEach(item => {
         if (!(item.key in keys)) {
           keys[item.key] = true;
         }

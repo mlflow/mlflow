@@ -20,7 +20,7 @@ class RestoreRunModal extends Component {
 
   handleSubmit() {
     const restorePromises = [];
-    this.props.selectedRunIds.forEach((runId) => {
+    this.props.selectedRunIds.forEach(runId => {
       restorePromises.push(this.props.dispatch(restoreRunApi(runId)));
     });
     return Promise.all(restorePromises).catch(() => {

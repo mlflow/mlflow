@@ -62,7 +62,7 @@ class ErrorModal extends Component {
   }
 }
 
-const mapStateToProps = (state) => {
+const mapStateToProps = state => {
   const isOpen = isErrorModalOpen(state);
   const text = getErrorModalText(state);
   return {
@@ -71,7 +71,7 @@ const mapStateToProps = (state) => {
   };
 };
 
-const mapDispatchToProps = (dispatch) => {
+const mapDispatchToProps = dispatch => {
   return {
     onClose: () => {
       dispatch(closeErrorModal());

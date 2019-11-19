@@ -46,7 +46,7 @@ export class ModelVersionTable extends React.Component {
       {
         title: VERSION_COLUMN,
         dataIndex: 'version',
-        render: (version) => (
+        render: version => (
           <Link to={getModelVersionPageRoute(modelName, version)}>
             {`Version ${version}`}
           </Link>
@@ -55,7 +55,7 @@ export class ModelVersionTable extends React.Component {
       {
         title: CREATED_AT_COLUMN,
         dataIndex: 'creation_timestamp',
-        render: (creationTimestamp) => <span>{Utils.formatTimestamp(creationTimestamp)}</span>,
+        render: creationTimestamp => <span>{Utils.formatTimestamp(creationTimestamp)}</span>,
       },
       {
         title: CREATED_BY_COLUMN,
@@ -64,19 +64,19 @@ export class ModelVersionTable extends React.Component {
       {
         title: STAGE_COLUMN,
         dataIndex: 'current_stage',
-        render: (currentStage) => {
+        render: currentStage => {
           return StageTagComponents[currentStage];
         },
       },
     ];
   };
 
-  getRowKey = (record) => record.creation_timestamp;
+  getRowKey = record => record.creation_timestamp;
 
   render() {
     const { modelVersions, activeStageOnly } = this.props;
     const versions = activeStageOnly
-      ? modelVersions.filter((v) => ACTIVE_STAGES.includes(v.current_stage))
+      ? modelVersions.filter(v => ACTIVE_STAGES.includes(v.current_stage))
       : modelVersions;
     return (
       <Table

@@ -22,7 +22,7 @@ class MetricPage extends Component {
       this.props.dispatch(getExperimentApi(this.props.experimentId, experimentRequestId));
       this.requestIds.push(experimentRequestId);
     }
-    this.props.runUuids.forEach((runUuid) => {
+    this.props.runUuids.forEach(runUuid => {
       const getMetricHistoryReqId = getUUID();
       this.requestIds.push(getMetricHistoryReqId);
       this.props.dispatch(getMetricHistoryApi(runUuid, this.props.metricKey,

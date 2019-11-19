@@ -192,7 +192,7 @@ test("getGitHubRegex", () => {
     ["https://some-other-site.com?q=github.com/mlflow/mlflow-apps.git", [null]],
     ["ssh@some-server:mlflow/mlflow-apps.git", [null]],
   ];
-  urlAndExpected.forEach((lst) => {
+  urlAndExpected.forEach(lst => {
     const url = lst[0];
     const match = url.match(gitHubRegex);
     if (match) {

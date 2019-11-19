@@ -30,7 +30,7 @@ class ModelListPage extends React.Component {
   }
 }
 
-const mapStateToProps = (state) => {
+const mapStateToProps = state => {
   const models = Object.values(state.entities.modelByName);
   return { models };
 };

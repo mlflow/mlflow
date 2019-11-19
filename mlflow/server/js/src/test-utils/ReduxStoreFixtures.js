@@ -36,9 +36,9 @@ export const addExperimentToState = (state, experiment) => {
 
 export const addExperimentTagsToState = (state, experiment_id, tags) => {
   const oldExperimentTags = state.entities.experimentTagsByExperimentId;
-  const tagsArrToObject = (tagsArr) => {
+  const tagsArrToObject = tagsArr => {
     const tagObj = {};
-    tagsArr.forEach((tag) => (tagObj[tag.key] = RunTag.fromJs(tag)));
+    tagsArr.forEach(tag => (tagObj[tag.key] = RunTag.fromJs(tag)));
     return tagObj;
   };
   return {
@@ -53,7 +53,7 @@ export const addExperimentTagsToState = (state, experiment_id, tags) => {
   };
 };
 
-export const createPendingApi = (id) => {
+export const createPendingApi = id => {
   return { id, active: true };
 };
 

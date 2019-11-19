@@ -19,7 +19,7 @@ class Utils {
     const ret = {};
     keyValueList.forEach((keyValueObj, i) => {
       const curRunUuid = runUuids[i];
-      Object.keys(keyValueObj).forEach((key) => {
+      Object.keys(keyValueObj).forEach(key => {
         const cur = ret[key] || {};
         ret[key] = {
           ...cur,
@@ -70,7 +70,7 @@ class Utils {
    * @returns Same list but all of the timestamps casted to numbers.
    */
   static convertTimestampToInt(metrics) {
-    return metrics.map((metric) => {
+    return metrics.map(metric => {
       return {
         ...metric,
         timestamp: Number.parseFloat(metric.timestamp),
@@ -368,7 +368,7 @@ class Utils {
   }
 
   static getRequestWithId(requests, requestId) {
-    return requests.find((r) => r.id === requestId);
+    return requests.find(r => r.id === requestId);
   }
 
   static getPlotMetricKeysFromUrl(search) {
@@ -410,7 +410,7 @@ class Utils {
 
   static getVisibleTagValues(tags) {
     // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
-    return Object.values(tags).map((t) =>
+    return Object.values(tags).map(t =>
       [t.getKey(), t.getValue()]
     ).filter(t =>
       !t[0].startsWith(MLFLOW_INTERNAL_PREFIX)

@@ -117,12 +117,12 @@ class ShowArtifactMapView extends Component {
       headers: new Headers(getRequestHeaders(document.cookie)),
     });
     fetch(getArtifactRequest)
-      .then((response) => {
+      .then(response => {
         return response.blob();
       })
-      .then((blob) => {
+      .then(blob => {
         const fileReader = new FileReader();
-        fileReader.onload = (event) => {
+        fileReader.onload = event => {
           try {
             this.setState({ features: JSON.parse(event.target.result), loading: false });
           } catch (error) {
@@ -132,7 +132,7 @@ class ShowArtifactMapView extends Component {
         };
         fileReader.readAsText(blob);
       })
-      .catch((error) => {
+      .catch(error => {
         console.error(error);
         this.setState({ error, loading: false, features: undefined });
       });

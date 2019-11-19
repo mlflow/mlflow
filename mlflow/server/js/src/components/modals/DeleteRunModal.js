@@ -20,7 +20,7 @@ class DeleteRunModal extends Component {
 
   handleSubmit() {
     const deletePromises = [];
-    this.props.selectedRunIds.forEach((runId) => {
+    this.props.selectedRunIds.forEach(runId => {
       deletePromises.push(this.props.dispatch(deleteRunApi(runId)));
     });
     return Promise.all(deletePromises).catch(() => {

@@ -16,7 +16,7 @@ const modelByName = (state = {}, action) => {
       const models = detailedModels && detailedModels.map(inlineModel);
       const nameToModelMap = {};
       if (models) {
-        models.forEach((model) => (nameToModelMap[model.name] = model));
+        models.forEach(model => (nameToModelMap[model.name] = model));
       }
       return {
         ...nameToModelMap,
@@ -107,15 +107,15 @@ export const getModelVersions = (state, modelName) => {
   return modelVersions && Object.values(modelVersions);
 };
 
-export const getAllModelVersions = (state) => {
+export const getAllModelVersions = state => {
   return _.flatMap(
     Object.values(state.entities.modelVersionsByModel),
-    (modelVersionByVersion) => Object.values(modelVersionByVersion),
+    modelVersionByVersion => Object.values(modelVersionByVersion),
   );
 };
 
 // Inline the `name` field nested inside `registered_model` and `version` in `model_version`
-const inlineModel = (model) => {
+const inlineModel = model => {
   const { registered_model, latest_versions } = model;
   return {
     ...model,
@@ -125,7 +125,7 @@ const inlineModel = (model) => {
 };
 
 // Inline the `version` field nested inside `model_version`
-const inlineModelVersion = (modelVersion) => ({
+const inlineModelVersion = modelVersion => ({
   ...modelVersion,
   version: modelVersion.model_version.version,
 });

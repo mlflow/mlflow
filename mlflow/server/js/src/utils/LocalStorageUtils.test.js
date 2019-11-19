@@ -7,7 +7,7 @@ test('Setting key-value pairs in one scope does not affect the other', () => {
   const store2 = LocalStorageUtils.getStoreForComponent("SomeTestComponent", 2);
   const persistedState0 = new ExperimentPagePersistedState({searchInput: "params.ollKorrect"});
   const persistedState1 = new ExperimentPagePersistedState({searchInput: "metrics.ok"});
-  [store1, store2].forEach((otherStore) => {
+  [store1, store2].forEach(otherStore => {
     store0.setItem("myKey", "myCoolVal");
     otherStore.setItem("myKey", "thisValIsBetterYo");
     expect(store0.getItem("myKey")).toEqual("myCoolVal");

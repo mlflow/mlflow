@@ -36,14 +36,14 @@ export class ModelView extends React.Component {
     isDeleteModalConfirmLoading: false,
   };
 
-  handleStageFilterChange = (e) => {
+  handleStageFilterChange = e => {
     this.setState({ stageFilter: e.target.value });
   };
 
   getActiveVersionsCount() {
     const { modelVersions } = this.props;
     return modelVersions
-      ? modelVersions.filter((v) => ACTIVE_STAGES.includes(v.current_stage)).length
+      ? modelVersions.filter(v => ACTIVE_STAGES.includes(v.current_stage)).length
       : 0;
   }
 
@@ -51,7 +51,7 @@ export class ModelView extends React.Component {
     this.setState({ showDescriptionEditor: false });
   };
 
-  handleSubmitEditDescription = (description) => {
+  handleSubmitEditDescription = description => {
     return this.props
       .handleEditDescription(description)
       .then(() => {
@@ -59,7 +59,7 @@ export class ModelView extends React.Component {
       });
   };
 
-  startEditingDescription = (e) => {
+  startEditingDescription = e => {
     e.stopPropagation();
     this.setState({ showDescriptionEditor: true });
   };
@@ -101,7 +101,7 @@ export class ModelView extends React.Component {
       .then(() => {
         history.push(modelListPageRoute);
       })
-      .catch((e) => {
+      .catch(e => {
         this.hideConfirmLoading();
         Utils.logErrorAndNotifyUser(e);
       });

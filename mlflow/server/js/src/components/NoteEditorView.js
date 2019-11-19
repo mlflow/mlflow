@@ -37,7 +37,7 @@ class NoteEditorView extends Component {
     defaultSelectedTab: 'write',
   }
 
-  handleMdeValueChange = (markdown) => {
+  handleMdeValueChange = markdown => {
     this.setState({ markdown });
   }
 
@@ -61,7 +61,7 @@ class NoteEditorView extends Component {
       .then(() => {
         this.setState({ isSubmitting: false, error: undefined });
         this.props.submitCallback(undefined);
-      }).catch((err) => {
+      }).catch(err => {
         this.setState({ isSubmitting: false, error: err, errorAlertDismissed: false });
         this.props.submitCallback(err);
       }
@@ -72,7 +72,7 @@ class NoteEditorView extends Component {
     this.props.cancelCallback();
   }
 
-  handleTabChange = (selectedTab) => {
+  handleTabChange = selectedTab => {
     this.setState({ selectedTab });
   }
 
@@ -137,7 +137,7 @@ class NoteEditorView extends Component {
             generateMarkdownPreview={() =>
               Promise.resolve(this.getSanitizedHtmlContent())
             }
-            getIcon={(name) => <TooltipIcon name={name} />}
+            getIcon={name => <TooltipIcon name={name} />}
           />
         </div>
         <this.renderButtonToolbar/>

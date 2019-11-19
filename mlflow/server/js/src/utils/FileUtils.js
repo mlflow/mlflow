@@ -1,9 +1,9 @@
-export const getBasename = (path) => {
+export const getBasename = path => {
   const parts = path.split('/');
   return parts[parts.length - 1];
 };
 
-export const getExtension = (path) => {
+export const getExtension = path => {
   const parts = path.split(/[./]/);
   return parts[parts.length - 1];
 };

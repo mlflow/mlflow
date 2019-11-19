@@ -31,6 +31,6 @@ const sanitizerOptions = {
   },
 };
 
-export const sanitizeConvertedHtml = (dirtyHtml) => {
+export const sanitizeConvertedHtml = dirtyHtml => {
   return sanitizeHtml(dirtyHtml, sanitizerOptions);
 };

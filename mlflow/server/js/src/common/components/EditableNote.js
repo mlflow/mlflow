@@ -33,11 +33,11 @@ export class EditableNote extends Component {
 
   converter = getConverter();
 
-  handleMdeValueChange = (markdown) => {
+  handleMdeValueChange = markdown => {
     this.setState({ markdown });
   };
 
-  handleTabChange = (selectedTab) => {
+  handleTabChange = selectedTab => {
     this.setState({ selectedTab });
   }
 
@@ -50,7 +50,7 @@ export class EditableNote extends Component {
         .then(() => {
           this.setState({ confirmLoading: false, error: null });
         })
-        .catch((e) => {
+        .catch(e => {
           this.setState({
             confirmLoading: false,
             error: e.getMessageField ? e.getMessageField() : 'Failed to submit',
@@ -117,10 +117,10 @@ export class EditableNote extends Component {
                 onChange={this.handleMdeValueChange}
                 selectedTab={selectedTab}
                 onTabChange={this.handleTabChange}
-                generateMarkdownPreview={(md) =>
+                generateMarkdownPreview={md =>
                   Promise.resolve(this.getSanitizedHtmlContent(md))
                 }
-                getIcon={(name) => <TooltipIcon name={name} />}
+                getIcon={name => <TooltipIcon name={name} />}
               />
             </div>
             {error && (

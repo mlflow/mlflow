@@ -19,14 +19,14 @@ class RenameRunFormView extends Component {
     experimentId: PropTypes.number.isRequired,
   }
 
-  renderForm = (renderProps) => {
+  renderForm = renderProps => {
     const {
       handleSubmit,
       isSubmitting,
       status,
     } = renderProps;
     const saveText = isSubmitting ? "Saving..." : "Save";
-    const handleFocus = (event) => {
+    const handleFocus = event => {
       event.target.select();
     };
     return <form onSubmit={handleSubmit} className="rename-run-form">

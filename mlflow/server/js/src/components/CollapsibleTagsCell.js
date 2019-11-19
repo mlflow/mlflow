@@ -16,7 +16,7 @@ export class CollapsibleTagsCell extends React.Component {
   };
 
   handleToggleCollapse = () => {
-    this.setState((prevState) => ({ collapsed: !prevState.collapsed }));
+    this.setState(prevState => ({ collapsed: !prevState.collapsed }));
     if (this.props.onToggle) {
       this.props.onToggle();
     }
@@ -29,7 +29,7 @@ export class CollapsibleTagsCell extends React.Component {
       : visibleTags;
     return (
       <div>
-        {tagsToDisplay.map((entry) => {
+        {tagsToDisplay.map(entry => {
           const tagName = entry[0];
           const value = entry[1];
           return (

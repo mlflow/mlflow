@@ -42,7 +42,7 @@ export class ModelVersionView extends React.Component {
       .then(() => {
         history.push(getModelPageRoute(name));
       })
-      .catch((e) => {
+      .catch(e => {
         this.hideConfirmLoading();
         Utils.logErrorAndNotifyUser(e);
       });
@@ -68,7 +68,7 @@ export class ModelVersionView extends React.Component {
     this.setState({ showDescriptionEditor: false });
   };
 
-  handleSubmitEditDescription = (description) => {
+  handleSubmitEditDescription = description => {
     return this.props
       .handleEditDescription(description)
       .then(() => {
@@ -76,7 +76,7 @@ export class ModelVersionView extends React.Component {
       });
   };
 
-  startEditingDescription = (e) => {
+  startEditingDescription = e => {
     e.stopPropagation();
     this.setState({ showDescriptionEditor: true });
   };

@@ -62,11 +62,11 @@ class ShowArtifactTextView extends Component {
       redirect: 'follow',
       headers: new Headers(getRequestHeaders(document.cookie)),
     });
-    fetch(getArtifactRequest).then((response) => {
+    fetch(getArtifactRequest).then(response => {
       return response.blob();
-    }).then((blob) => {
+    }).then(blob => {
       const fileReader = new FileReader();
-      fileReader.onload = (event) => {
+      fileReader.onload = event => {
         this.setState({ text: event.target.result, loading: false });
       };
       fileReader.readAsText(blob);

@@ -40,9 +40,9 @@ const mapStateToProps = (state, ownProps) => {
   return { experimentId: parseInt(match.params.experimentId, 10) };
 };
 
-const mapDispatchToProps = (dispatch) => {
+const mapDispatchToProps = dispatch => {
   return {
-    dispatchListExperimentsApi: (requestId) => {
+    dispatchListExperimentsApi: requestId => {
       return dispatch(listExperimentsApi(requestId));
     },
   };

@@ -13,7 +13,7 @@ export class ArtifactNode {
     node.isLoaded = this.isLoaded;
     if (this.children) {
       const copiedChildren = {};
-      Object.keys(this.children).forEach((name) => {
+      Object.keys(this.children).forEach(name => {
         copiedChildren[name] = this.children[name].deepCopy();
       });
       node.children = copiedChildren;
@@ -25,7 +25,7 @@ export class ArtifactNode {
     if (fileInfos) {
       this.children = {};
       this.isLoaded = true;
-      fileInfos.forEach((fileInfo) => {
+      fileInfos.forEach(fileInfo => {
         // basename is the last part of the path for this fileInfo.
         const pathParts = fileInfo.path.split("/");
         const basename = pathParts[pathParts.length - 1];
@@ -43,7 +43,7 @@ export class ArtifactNode {
   static findChild(node, path) {
     const parts = path.split('/');
     let ret = node;
-    parts.forEach((part) => {
+    parts.forEach(part => {
       if (ret.children && ret.children[part] !== undefined) {
         ret = ret.children[part];
       } else {

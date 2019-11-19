@@ -6,9 +6,9 @@ import ExperimentPage from './ExperimentPage';
 import { getExperiments } from '../reducers/Reducers';
 import NoExperimentView from './NoExperimentView';
 
-export const getFirstActiveExperiment = (experiments) => {
+export const getFirstActiveExperiment = experiments => {
   const sorted = experiments.concat().sort((a, b) => (a.experiment_id - b.experiment_id));
-  return sorted.find((e) => e.lifecycle_stage === "active");
+  return sorted.find(e => e.lifecycle_stage === "active");
 };
 
 class HomeView extends Component {

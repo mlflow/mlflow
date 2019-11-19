@@ -18,7 +18,7 @@ class CompareRunPage extends Component {
     const experimentRequestId = getUUID();
     this.props.dispatch(getExperimentApi(this.props.experimentId, experimentRequestId));
     this.requestIds.push(experimentRequestId);
-    this.props.runUuids.forEach((runUuid) => {
+    this.props.runUuids.forEach(runUuid => {
       const requestId = getUUID();
       this.requestIds.push(requestId);
       this.props.dispatch(getRunApi(runUuid, requestId));

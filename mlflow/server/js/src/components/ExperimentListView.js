@@ -79,7 +79,7 @@ export class ExperimentListView extends Component {
   }
 }
 
-const mapStateToProps = (state) => {
+const mapStateToProps = state => {
   const experiments = getExperiments(state);
   experiments.sort((a, b) => {
     return parseInt(a.getExperimentId(), 10) - parseInt(b.getExperimentId(), 10);

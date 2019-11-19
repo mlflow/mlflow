@@ -26,9 +26,9 @@ export const getLatestMetrics = (runUuid, state) => {
  * Return latest metrics by run UUID (object of run UUID -> object of metric key -> Metric object)
  */
 export const latestMetricsByRunUuid = (state = {}, action) => {
-  const metricArrToObject = (metrics) => {
+  const metricArrToObject = metrics => {
     const metricObj = {};
-    metrics.forEach((m) => metricObj[m.key] = Metric.fromJs(m));
+    metrics.forEach(m => metricObj[m.key] = Metric.fromJs(m));
     return metricObj;
   };
   switch (action.type) {
@@ -45,7 +45,7 @@ export const latestMetricsByRunUuid = (state = {}, action) => {
     case fulfilled(LOAD_MORE_RUNS_API): {
       const newState = { ...state };
       if (action.payload.runs) {
-        action.payload.runs.forEach((rJson) => {
+        action.payload.runs.forEach(rJson => {
           const runUuid = rJson.info.run_uuid;
           const metrics = rJson.data.metrics || [];
           newState[runUuid] = metricArrToObject(metrics);
@@ -93,7 +93,7 @@ const metricsByKey = (state = {}, action, metrics) => {
   switch (action.type) {
     case fulfilled(GET_METRIC_HISTORY_API): {
       const key = action.meta.key;
-      newState[key] = metrics.map((m) => Metric.fromJs(m));
+      newState[key] = metrics.map(m => Metric.fromJs(m));
       return newState;
     }
     default:

@@ -31,11 +31,11 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     selectedMetricKeys: this.props.sharedMetricKeys.slice(0, 1),
   };
 
-  handleParamsSelectChange = (paramValues) => {
+  handleParamsSelectChange = paramValues => {
     this.setState({ selectedParamKeys: paramValues });
   };
 
-  handleMetricsSelectChange = (metricValues) => {
+  handleMetricsSelectChange = metricValues => {
     this.setState({ selectedMetricKeys: metricValues });
   };
 

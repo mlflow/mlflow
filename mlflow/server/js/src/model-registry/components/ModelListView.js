@@ -11,11 +11,11 @@ const NAME_COLUMN = 'Name';
 const LATEST_VERSION_COLUMN = 'Latest Version';
 const LAST_MODIFIED_COLUMN = 'Last Modified';
 
-const getOverallLatestVersionNumber = (latest_versions) =>
-  latest_versions && Math.max(...latest_versions.map((v) => v.version));
+const getOverallLatestVersionNumber = latest_versions =>
+  latest_versions && Math.max(...latest_versions.map(v => v.version));
 
 const getLatestVersionNumberByStage = (latest_versions, stage) => {
-  const modelVersion = latest_versions && latest_versions.find((v) => v.current_stage === stage);
+  const modelVersion = latest_versions && latest_versions.find(v => v.current_stage === stage);
   return modelVersion && modelVersion.version;
 };
 
@@ -93,17 +93,17 @@ export class ModelListView extends React.Component {
     ];
   };
 
-  getRowKey = (record) => record.name;
+  getRowKey = record => record.name;
 
   getFilteredModels() {
     const { models } = this.props;
     const { nameFilter } = this.state;
-    return models.filter((model) =>
+    return models.filter(model =>
       model.registered_model.name.toLowerCase().includes(nameFilter.toLowerCase()),
     );
   }
 
-  handleSearchByName = (e) => {
+  handleSearchByName = e => {
     // SyntheticEvent is pooled in React, to access the event properties in an asynchronous way like
     // debounce & throttling, we need to call event.persist() on the event.
     // https://reactjs.org/docs/events.html#event-pooling
@@ -111,7 +111,7 @@ export class ModelListView extends React.Component {
     this.emitNameFilterChangeDebounced(e);
   };
 
-  emitNameFilterChangeDebounced = _.debounce((e) => {
+  emitNameFilterChangeDebounced = _.debounce(e => {
     this.setState({ nameFilter: e.target.value });
   }, 200);
 

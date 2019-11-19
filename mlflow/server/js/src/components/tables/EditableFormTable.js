@@ -19,7 +19,7 @@ class EditableCell extends React.Component {
     recordKey: PropTypes.string,
   };
 
-  handleKeyPress = (event) => {
+  handleKeyPress = event => {
     const { save, recordKey, cancel } = this.props;
     if (event.key === 'Enter') {
       save(recordKey);
@@ -67,12 +67,12 @@ export class EditableTable extends React.Component {
   }
 
   initColumns = () => [
-    ...this.props.columns.map((col) =>
+    ...this.props.columns.map(col =>
       (col.editable
         ? {
           ...col,
           // `onCell` returns props to be added to EditableCell
-          onCell: (record) => ({
+          onCell: record => ({
             record,
             dataIndex: col.dataIndex,
             title: col.title,
@@ -126,16 +126,16 @@ export class EditableTable extends React.Component {
     },
   ];
 
-  isEditing = (record) => record.key === this.state.editingKey;
+  isEditing = record => record.key === this.state.editingKey;
 
   cancel = () => {
     this.setState({ editingKey: '' });
   };
 
-  save = (key) => {
+  save = key => {
     this.props.form.validateFields((err, values) => {
       if (!err) {
-        const record = this.props.data.find((r) => r.key === key);
+        const record = this.props.data.find(r => r.key === key);
         if (record) {
           this.setState({ isRequestPending: true });
           this.props.onSaveEdit({ ...record, ...values }).then(() => {
@@ -146,8 +146,8 @@ export class EditableTable extends React.Component {
     });
   };
 
-  delete = (key) => {
-    const record = this.props.data.find((r) => r.key === key);
+  delete = key => {
+    const record = this.props.data.find(r => r.key === key);
     if (record) {
       this.setState({ isRequestPending: true });
       this.props.onDelete({ ...record }).then(() => {
@@ -156,7 +156,7 @@ export class EditableTable extends React.Component {
     }
   }
 
-  edit = (key) => {
+  edit = key => {
     this.setState({ editingKey: key });
   };
 

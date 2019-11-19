@@ -41,7 +41,7 @@ class ModelVersionPage extends React.Component {
 
   criticalInitialRequestIds = [this.initGetModelVersionDetailsRequestId];
 
-  loadData = (isInitialLoading) => {
+  loadData = isInitialLoading => {
     this.getModelVersionDetailAndRunInfo(isInitialLoading).catch(console.error);
   };
 
@@ -65,7 +65,7 @@ class ModelVersionPage extends React.Component {
       });
   }
 
-  handleStageTransitionDropdownSelect = (activity) => {
+  handleStageTransitionDropdownSelect = activity => {
     const { modelVersion } = this.props;
     const toStage = activity.model_registry_data.transition.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {
@@ -80,7 +80,7 @@ class ModelVersionPage extends React.Component {
     }
   };
 
-  handleEditDescription = (description) => {
+  handleEditDescription = description => {
     const { modelVersion } = this.props;
     return this.props
       .updateModelVersionApi(

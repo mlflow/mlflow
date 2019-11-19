@@ -66,14 +66,14 @@ class ExperimentRunsTableMultiColumnView extends Component {
         "td"),
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, "td")
-      .forEach((col) => rowContents.push(col));
-    paramKeyList.forEach((paramKey) => {
+      .forEach(col => rowContents.push(col));
+    paramKeyList.forEach(paramKey => {
       rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap, "td"));
     });
     if (numParams === 0) {
       rowContents.push(<td className="left-border" key={"meta-param-empty"}/>);
     }
-    metricKeyList.forEach((metricKey) => {
+    metricKeyList.forEach(metricKey => {
       rowContents.push(
         ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges, "td"));
     });
@@ -160,8 +160,8 @@ class ExperimentRunsTableMultiColumnView extends Component {
       ExperimentViewUtil.getExpanderHeader("th"),
     ];
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, orderByKey, orderByAsc, "th")
-      .forEach((cell) => columns.push(cell));
-    this.getMetricParamHeaderCells().forEach((cell) => columns.push(cell));
+      .forEach(cell => columns.push(cell));
+    this.getMetricParamHeaderCells().forEach(cell => columns.push(cell));
     return (<Table className="ExperimentViewMultiColumn" hover>
       <colgroup span="9"/>
       <colgroup span={paramKeyList.length}/>

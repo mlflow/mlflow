@@ -186,7 +186,7 @@ export class ExperimentView extends Component {
     // Compute the actual runs selected. (A run cannot be selected if it is not passed in as a
     // prop)
     const newRunsSelected = {};
-    nextProps.runInfos.forEach((rInfo) => {
+    nextProps.runInfos.forEach(rInfo => {
       const prevRunSelected = prevState.runsSelected[rInfo.run_uuid];
       if (prevRunSelected) {
         newRunsSelected[rInfo.run_uuid] = prevRunSelected;
@@ -273,7 +273,7 @@ export class ExperimentView extends Component {
     this.setState({showNotesEditor: false});
   }
 
-  startEditingDescription = (e) => {
+  startEditingDescription = e => {
     e.stopPropagation();
     this.setState({ showNotesEditor: true });
   };
@@ -574,7 +574,7 @@ export class ExperimentView extends Component {
     const newExpanderState = !ExperimentViewUtil.isExpanderOpen(
       this.state.persistedState.runsExpanded, runId);
     const newRunsHiddenByExpander = {...this.state.persistedState.runsHiddenByExpander};
-    childrenIds.forEach((childId) => {
+    childrenIds.forEach(childId => {
       newRunsHiddenByExpander[childId] = !newExpanderState;
     });
     const newPersistedStateFields = {
@@ -593,7 +593,7 @@ export class ExperimentView extends Component {
     // Deselect the children
     const newRunsSelected = {...this.state.runsSelected};
     if (newExpanderState === false) {
-      childrenIds.forEach((childId) => {
+      childrenIds.forEach(childId => {
         if (newRunsSelected[childId]) {
           delete newRunsSelected[childId];
         }
@@ -744,14 +744,14 @@ export class ExperimentView extends Component {
       const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
       const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
 
-      paramKeyList.forEach((paramKey) => {
+      paramKeyList.forEach(paramKey => {
         if (paramsMap[paramKey]) {
           row.push(paramsMap[paramKey].getValue());
         } else {
           row.push("");
         }
       });
-      metricKeyList.forEach((metricKey) => {
+      metricKeyList.forEach(metricKey => {
         if (metricsMap[metricKey]) {
           row.push(metricsMap[metricKey].getValue());
         } else {
@@ -771,11 +771,11 @@ export const mapStateToProps = (state, ownProps) => {
   // The runUuids we should serve.
   const { runInfosByUuid } = state.entities;
   const runUuids = Object.values(runInfosByUuid)
-    .filter((r) => r.experiment_id === ownProps.experimentId.toString())
-    .map((r) => r.run_uuid);
+    .filter(r => r.experiment_id === ownProps.experimentId.toString())
+    .map(r => r.run_uuid);
 
-  const runInfos = runUuids.map((run_id) => getRunInfo(run_id, state))
-    .filter((rInfo) => {
+  const runInfos = runUuids.map(run_id => getRunInfo(run_id, state))
+    .filter(rInfo => {
       if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
         return rInfo.lifecycle_stage === 'active';
       } else {
@@ -785,23 +785,23 @@ export const mapStateToProps = (state, ownProps) => {
   const experiment = getExperiment(ownProps.experimentId, state);
   const metricKeysSet = new Set();
   const paramKeysSet = new Set();
-  const metricsList = runInfos.map((runInfo) => {
+  const metricsList = runInfos.map(runInfo => {
     const metricsByRunUuid = getLatestMetrics(runInfo.getRunUuid(), state);
     const metrics = Object.values(metricsByRunUuid || {});
-    metrics.forEach((metric) => {
+    metrics.forEach(metric => {
       metricKeysSet.add(metric.key);
     });
     return metrics;
   });
-  const paramsList = runInfos.map((runInfo) => {
+  const paramsList = runInfos.map(runInfo => {
     const params = Object.values(getParams(runInfo.getRunUuid(), state));
-    params.forEach((param) => {
+    params.forEach(param => {
       paramKeysSet.add(param.key);
     });
     return params;
   });
 
-  const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
+  const tagsList = runInfos.map(runInfo => getRunTags(runInfo.getRunUuid(), state));
   const experimentTags = getExperimentTags(experiment.experiment_id, state);
   return {
     runInfos,

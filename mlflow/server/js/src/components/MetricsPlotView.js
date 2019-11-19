@@ -41,18 +41,18 @@ export class MetricsPlotView extends React.Component {
 
   getPlotPropsForLineChart = () => {
     const { metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness, isComparing } = this.props;
-    const data = metrics.map((metric) => {
+    const data = metrics.map(metric => {
       const { metricKey, runDisplayName, history } = metric;
       const isSingleHistory = history.length === 0;
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
-        x: history.map((entry) => {
+        x: history.map(entry => {
           if (xAxis === X_AXIS_STEP) {
             return entry.step;
           }
           return MetricsPlotView.parseTimestamp(entry.timestamp, history, xAxis);
         }),
-        y: history.map((entry) => entry.value),
+        y: history.map(entry => entry.value),
         type: 'scatter',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
         line: { shape: 'spline', smoothing: lineSmoothness },
@@ -89,12 +89,12 @@ export class MetricsPlotView extends React.Component {
       'metricKey',
     );
 
-    const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map((history) => history.metricKey);
+    const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map(history => history.metricKey);
 
     const data = runUuids.map((runUuid, i) => ({
       name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
       x: sortedMetricKeys,
-      y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
+      y: arrayOfHistorySortedByMetricKey.map(history => history[runUuid]),
       type: 'bar',
     }));
 

@@ -42,7 +42,7 @@ export class ModelPage extends React.Component {
     this.initGetRegisteredModelDetailsApiId,
   ];
 
-  handleEditDescription = (description) => {
+  handleEditDescription = description => {
     const { model } = this.props;
     return this.props
       .updateRegisteredModelApi(
@@ -62,7 +62,7 @@ export class ModelPage extends React.Component {
     );
   };
 
-  loadData = (isInitialLoading) => {
+  loadData = isInitialLoading => {
     const { modelName } = this.props;
     return Promise.all([
       this.props.getRegisteredModelDetailsApi(

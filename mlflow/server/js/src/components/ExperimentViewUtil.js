@@ -240,7 +240,7 @@ export default class ExperimentViewUtil {
    */
   static toMetricsMap(metrics) {
     const ret = {};
-    metrics.forEach((metric) => {
+    metrics.forEach(metric => {
       ret[metric.key] = metric;
     });
     return ret;
@@ -251,7 +251,7 @@ export default class ExperimentViewUtil {
    */
   static toParamsMap(params) {
     const ret = {};
-    params.forEach((param) => {
+    params.forEach(param => {
       ret[param.key] = param;
     });
     return ret;
@@ -370,7 +370,7 @@ export default class ExperimentViewUtil {
         parentIdToChildren[root.value] = newList;
       }
     });
-    const parentRows = [...Array(runInfos.length).keys()].flatMap((idx) => {
+    const parentRows = [...Array(runInfos.length).keys()].flatMap(idx => {
       if (treeNodes[idx].isCycle() || !treeNodes[idx].isRoot()) return [];
       const runId = runInfos[idx].run_uuid;
       let hasExpander = false;
@@ -389,13 +389,13 @@ export default class ExperimentViewUtil {
       }];
     });
     const mergedRows = [];
-    parentRows.forEach((r) => {
+    parentRows.forEach(r => {
       const runId = r.runId;
       mergedRows.push(r);
       const childrenIdxs = parentIdToChildren[runId];
       if (childrenIdxs) {
         if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
-          const childrenRows = childrenIdxs.map((idx) => {
+          const childrenRows = childrenIdxs.map(idx => {
             return { idx, isParent: false, hasExpander: false };
           });
           mergedRows.push(...childrenRows);
@@ -408,7 +408,7 @@ export default class ExperimentViewUtil {
   static getRows({ runInfos, tagsList, runsExpanded, getRow }) {
     const mergedRows = ExperimentViewUtil.getRowRenderMetadata(
       { runInfos, tagsList, runsExpanded });
-    return mergedRows.map((rowMetadata) => getRow(rowMetadata));
+    return mergedRows.map(rowMetadata => getRow(rowMetadata));
   }
 
   static renderRows(rows) {
