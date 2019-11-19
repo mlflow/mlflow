@@ -122,6 +122,7 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert 'epoch_loss' in data.metrics
     assert 'epochs' in data.params
     assert data.params['epochs'] == '10'
+    assert 'initial_epoch' not in data.params
     assert 'callbacks' not in data.params
     assert 'validation_data' not in data.params
     assert 'optimizer_name' in data.params
