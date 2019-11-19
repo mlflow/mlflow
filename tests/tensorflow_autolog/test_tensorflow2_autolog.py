@@ -131,6 +131,10 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     data = tf_keras_random_data_run.data
     assert 'accuracy' in data.metrics
     assert 'loss' in data.metrics
+    assert 'epochs' in data.params
+    assert data.params['epochs'] == '10'
+    assert 'callbacks' not in data.params
+    assert 'validation_data' not in data.params
     assert 'opt_name' in data.params
     assert data.params['opt_name'] == 'Adam'
     assert 'opt_learning_rate' in data.params
