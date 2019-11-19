@@ -1,5 +1,5 @@
 """
-The ``mlflow`` module provides an API for starting and managing MLflow runs.
+The ``mlflow`` module provides a high-level "fluent" API for starting and managing MLflow runs.
 For example:
 
 .. code:: python
@@ -19,7 +19,7 @@ You can also use syntax like this:
 
 which automatically terminates the run at the end of the block.
 
-The tracking API is not currently threadsafe. Any concurrent callers to the tracking API must
+The fluent tracking API is not currently threadsafe. Any concurrent callers to the tracking API must
 implement mutual exclusion manually.
 
 For a lower level API, see the :py:mod:`mlflow.tracking` module.
