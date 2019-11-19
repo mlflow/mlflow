@@ -116,11 +116,16 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
     data = keras_random_data_run.data
     assert 'accuracy' in data.metrics
     assert 'loss' in data.metrics
+    # Testing explicitly passed parameters are logged correctly
     assert 'epochs' in data.params
     assert data.params['epochs'] == '10'
-    assert 'initial_epoch' not in data.params
+    # Testing default parameters are logged correctly
+    assert 'initial_epoch' in data.params
+    assert data.params['initial_epoch']
+    # Testing unwanted parameters are not logged
     assert 'callbacks' not in data.params
     assert 'validation_data' not in data.params
+    # Testing optimizer parameters are logged
     assert 'optimizer_name' in data.params
     assert data.params['optimizer_name'] == 'Adam'
     assert 'epsilon' in data.params

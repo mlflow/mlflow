@@ -429,7 +429,7 @@ def autolog():
 
         original = gorilla.get_original_attribute(keras.Model, 'fit')
 
-        unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data']
+        unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data', 'verbose']
 
         param_logger(original, args, kwargs, unlogged_params)
 
@@ -458,7 +458,7 @@ def autolog():
 
         original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
 
-        unlogged_params = ['self', 'generator', 'callbacks', 'validation_data']
+        unlogged_params = ['self', 'generator', 'callbacks', 'validation_data', 'verbose']
 
         param_logger(original, args, kwargs, unlogged_params)
 
