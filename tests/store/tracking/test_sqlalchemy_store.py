@@ -1539,6 +1539,28 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                              ViewType.ALL, max_results=5)
         assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
 
+    def test_search_runs_keep_all_runs_when_sorting(self):
+        experiment_id = self.store.create_experiment('test_experiment1')
+
+        r1 = self.store.create_run(
+            experiment_id=experiment_id,
+            start_time=0,
+            tags=(),
+            user_id='Me').info.run_uuid
+        r2 = self.store.create_run(
+            experiment_id=experiment_id,
+            start_time=0,
+            tags=(),
+            user_id='Me').info.run_uuid
+        self.store.set_tag(r1, RunTag(key="t1", value="1"))
+        self.store.set_tag(r1, RunTag(key="t2", value="1"))
+        self.store.set_tag(r2, RunTag(key="t2", value="1"))
+
+        run_results = self.store.search_runs([experiment_id],
+                                             None,
+                                             ViewType.ALL, max_results=1000, order_by=["tag.t1"])
+        assert len(run_results) == 2
+
     def test_get_attribute_name(self):
         assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
         assert(models.SqlRun.get_attribute_name("status") == "status")

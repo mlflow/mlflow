@@ -663,8 +663,10 @@ class SqlAlchemyStore(AbstractStore):
             parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
 
             query = session.query(SqlRun)
-            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session) + sorting_joins:
+            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session):
                 query = query.join(j)
+            for j in sorting_joins:
+                query = query.outerjoin(j)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
             queried_runs = query \
