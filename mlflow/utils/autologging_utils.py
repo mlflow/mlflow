@@ -22,16 +22,12 @@ def param_logger(fn, args=[], kwargs=None, unlogged=[]):
     :param unlogged: parameters not to be logged
     :return: None
     """
-    print("args len: " + str(len(args)))
-    print("kwargs: " + str(kwargs))
     # Names of all parameters for the function
     all_param_names = inspect.getargspec(fn)[0]
-    print("all_param_names: " + str(all_param_names))
 
     # Default values of all parameters with default values. Has length of n, and corresponds
     # to values of last n elements in all_param_names
     all_default_values = inspect.getargspec(fn)[3]
-    print("all_default_values: " + str(all_default_values))
 
     # Checking if default values are present for logging. Known bug that getargspec will return an
     # empty argspec for certain functions, despite the functions having an argspec.
@@ -39,7 +35,6 @@ def param_logger(fn, args=[], kwargs=None, unlogged=[]):
         # Removing the first len(args) elements from all_param_names - these are values already
         # passed in explicitly by the user and don't need to be logged with default values.
         kwargs_and_default_names = all_param_names[len(args):]
-        print("kwargs_and_default_names:" + str(kwargs_and_default_names))
 
         # If there are more parameter names than default values left, we know that the parameters
         # not covered by the default values are passed in as kwargs (assuming all non-default
@@ -58,11 +53,9 @@ def param_logger(fn, args=[], kwargs=None, unlogged=[]):
         # Filtering out the parameters that have been passed in by the user as a kwarg.
         default_params_to_be_logged = []
         for param in default_params:
-            print(param[0])
             if param[0] not in kwargs:
                 default_params_to_be_logged += [param]
 
-        print("default params to be logged: " + str(default_params_to_be_logged))
         for param in default_params_to_be_logged:
             if param[0] not in unlogged:
                 try_mlflow_log(mlflow.log_param, param[0], param[1])
