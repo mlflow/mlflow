@@ -28,7 +28,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, param_logger
+from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
 
 FLAVOR_NAME = "keras"
@@ -431,7 +431,7 @@ def autolog():
 
         unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data', 'verbose']
 
-        param_logger(original, args, kwargs, unlogged_params)
+        log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
         # Checking if the 'callback' argument of fit() is set
         if len(args) >= 6:
@@ -460,7 +460,7 @@ def autolog():
 
         unlogged_params = ['self', 'generator', 'callbacks', 'validation_data', 'verbose']
 
-        param_logger(original, args, kwargs, unlogged_params)
+        log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
         # Checking if the 'callback' argument of fit() is set
         if len(args) >= 5:

@@ -13,7 +13,7 @@ def try_mlflow_log(fn, *args, **kwargs):
         warnings.warn("Logging to MLflow failed: " + str(e), stacklevel=2)
 
 
-def param_logger(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
+def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
     """
     Log parameters explicitly passed to a function.
     :param fn: function whose parameters are to be logged

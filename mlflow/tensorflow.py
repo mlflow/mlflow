@@ -38,7 +38,7 @@ from mlflow.utils import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.autologging_utils import try_mlflow_log, param_logger
+from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 from mlflow.entities import Metric
 
 
@@ -741,7 +741,7 @@ def autolog(every_n_iter=100):
 
             unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data', 'verbose']
 
-            param_logger(original, args, kwargs, unlogged_params)
+            log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
             # Checking if the 'callback' argument of fit() is set
             if len(args) >= 6:
@@ -766,7 +766,7 @@ def autolog(every_n_iter=100):
 
             unlogged_params = ['self', 'generator', 'callbacks', 'validation_data', 'verbose']
 
-            param_logger(original, args, kwargs, unlogged_params)
+            log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
             # Checking if the 'callback' argument of fit() is set
             if len(args) >= 5:
