@@ -138,7 +138,7 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``xgboost`` flavor.
     """
-    return _XGModelWrapper(_load_model(path))
+    return _XGBModelWrapper(_load_model(path))
 
 
 def load_model(model_uri):
@@ -165,7 +165,7 @@ def load_model(model_uri):
     return _load_model(path=xgb_model_file_path)
 
 
-class _XGModelWrapper:
+class _XGBModelWrapper:
     def __init__(self, xgb_model):
         self.xgb_model = xgb_model
 
