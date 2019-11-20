@@ -42,7 +42,7 @@ def param_logger(fn, args=[], kwargs=None, unlogged=[]):
         print("kwargs_and_default_names:" + str(kwargs_and_default_names))
 
         # If there are more parameter names than default values left, we know that the parameters
-        # notcovered by the default values are passed in as kwargs (assuming all non-default
+        # not covered by the default values are passed in as kwargs (assuming all non-default
         # parameters are passed to the function)
         if len(kwargs_and_default_names) > len(all_default_values):
             kwargs_and_default_names = kwargs_and_default_names[len(kwargs_and_default_names)
