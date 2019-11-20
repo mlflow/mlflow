@@ -58,7 +58,9 @@ def param_logger(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
             if param[0] not in kwargs:
                 default_params_to_be_logged += [param]
 
-        for param in default_params_to_be_logged:
+        for param_key, param_val in default_params_to_be_logged:
+            if param_key not in unlogged:
+                try_mlflow_log(mlflow.log_param, param_key, param_val)        
             if param[0] not in unlogged:
                 try_mlflow_log(mlflow.log_param, param[0], param[1])
 
