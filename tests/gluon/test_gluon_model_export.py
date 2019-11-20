@@ -94,7 +94,7 @@ def test_model_log_load(gluon_model, model_data, model_path):
     _, _, test_data = model_data
     expected = nd.argmax(gluon_model(test_data), axis=1)
 
-    artifact_path="model"
+    artifact_path = "model"
     with mlflow.start_run():
         mlflow.gluon.log_model(gluon_model, artifact_path=artifact_path)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
@@ -172,7 +172,7 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
     _, _, test_data = model_data
     expected = nd.argmax(gluon_model(test_data), axis=1)
 
-    artifact_path="model"
+    artifact_path = "model"
     with mlflow.start_run():
         mlflow.gluon.log_model(gluon_model, artifact_path=artifact_path)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
