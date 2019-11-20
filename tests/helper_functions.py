@@ -14,6 +14,7 @@ import sys
 import pandas as pd
 import pytest
 
+import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
 from mlflow.utils.file_utils import read_yaml, write_yaml
@@ -127,13 +128,24 @@ def pyfunc_serve_and_score_model(
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     env.update(MLFLOW_TRACKING_URI=mlflow.get_tracking_uri())
+    env.update(MLFLOW_HOME=_get_mlflow_home())
     port = get_safe_port()
-    scoring_cmd = ['mlflow', 'models', 'serve', '-m', model_uri, "-p", str(port)]
+    scoring_cmd = ['mlflow', 'models', 'serve', '-m', model_uri, "-p", str(port),
+                   "--install-mlflow"]
     if extra_args is not None:
         scoring_cmd += extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
     return _evaluate_scoring_proc(
         proc, port, data, content_type, activity_polling_timeout_seconds)
+
+
+def _get_mlflow_home():
+    """
+    :return: The path to the MLflow installation root directory
+    """
+    mlflow_module_path = os.path.dirname(os.path.abspath(mlflow.__file__))
+    # The MLflow root directory is one level about the mlflow module location
+    return os.path.join(mlflow_module_path, os.pardir)
 
 
 def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):

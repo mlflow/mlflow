@@ -2,6 +2,7 @@ import os
 
 import gorilla
 import mxnet as mx
+import pandas as pd
 import yaml
 from mxnet import gluon
 from mxnet import sym
@@ -59,8 +60,15 @@ class _GluonModelWrapper:
     def __init__(self, gluon_model):
         self.gluon_model = gluon_model
 
-    def predict(self, ndarray):
-        return self.gluon_model(ndarray)
+    def predict(self, df):
+        """
+        :param df: A Pandas DataFrame containing input array values. A DataFrame input,
+                   `df` is converted to an MXNet ndarray via `ndarray = mx.nd.array(df.values)`.
+        :return: A Pandas DataFrame containing output array values. The underlying MXNet array
+                 can be extracted from the output DataFrame as `ndarray = mx.nd.array(df.values)`.
+        """
+        ndarray = mx.nd.array(df.values)
+        return pd.DataFrame(self.gluon_model(ndarray).asnumpy())
 
 
 def _load_pyfunc(path):
