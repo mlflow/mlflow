@@ -12,5 +12,5 @@ print("Loaded model from URI: {}".format(model_uri))
 
 data = {'periods':[5]}
 df = pd.DataFrame(data)
-out = model.predict(model_input=data)
+out = model.predict(model_input=df)
 print(out)
