@@ -12,6 +12,7 @@ def register_model(model_uri, name):
     Create a new model version in model registry for the model files specified by ``model_uri``.
     Note that this method assumes the model registry backend URI is the same as that of the
     tracking backend.
+
     :param model_uri: URI referring to the MLmodel directory. Use a ``runs:/`` URI if you want to
                       record the run ID with the model in model registry. ``models:/`` URIs are
                       currently not supported.

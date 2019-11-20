@@ -15,6 +15,7 @@ from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _v
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
+from mlflow.utils.string_utils import is_string_type
 
 
 class TrackingServiceClient(object):
@@ -333,7 +334,7 @@ class TrackingServiceClient(object):
             expressions. If the underlying tracking store supports pagination, the token for
             the next page may be obtained via the ``token`` attribute of the returned object.
         """
-        if isinstance(experiment_ids, int) or isinstance(experiment_ids, str):
+        if isinstance(experiment_ids, int) or is_string_type(experiment_ids):
             experiment_ids = [experiment_ids]
         return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
                                       run_view_type=run_view_type, max_results=max_results,

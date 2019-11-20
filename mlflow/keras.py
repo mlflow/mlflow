@@ -14,6 +14,8 @@ import importlib
 import os
 import yaml
 import gorilla
+import tempfile
+import shutil
 
 import pandas as pd
 
@@ -379,15 +381,9 @@ def autolog():
         """
         Callback for auto-logging metrics and parameters.
         Records available logs after each epoch.
-        Records model structural information as params after training finishes.
+        Records model structural information as params when training begins
         """
-
-        def on_epoch_end(self, epoch, logs=None):
-            if not logs:
-                return
-            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
-
-        def on_train_end(self, logs=None):
+        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
             try_mlflow_log(mlflow.log_param, 'num_layers', len(self.model.layers))
             try_mlflow_log(mlflow.log_param, 'optimizer_name', type(self.model.optimizer).__name__)
             if hasattr(self.model.optimizer, 'lr'):
@@ -400,37 +396,78 @@ def autolog():
                     type(self.model.optimizer.epsilon) is float \
                     else keras.backend.eval(self.model.optimizer.epsilon)
                 try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
+
             sum_list = []
             self.model.summary(print_fn=sum_list.append)
             summary = '\n'.join(sum_list)
-            try_mlflow_log(mlflow.set_tag, 'summary', summary)
+            try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
+
+            tempdir = tempfile.mkdtemp()
+            try:
+                summary_file = os.path.join(tempdir, "model_summary.txt")
+                with open(summary_file, 'w') as f:
+                    f.write(summary)
+                try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+            finally:
+                shutil.rmtree(tempdir)
+
+        def on_epoch_end(self, epoch, logs=None):
+            if not logs:
+                return
+            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+
+        def on_train_end(self, logs=None):
             try_mlflow_log(log_model, self.model, artifact_path='model')
 
     @gorilla.patch(keras.Model)
     def fit(self, *args, **kwargs):
+        if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
+            auto_end_run = True
+        else:
+            auto_end_run = False
+
         original = gorilla.get_original_attribute(keras.Model, 'fit')
+
+        # Checking if the 'callback' argument of fit() is set
         if len(args) >= 6:
-            l = list(args)
-            l[5] += [__MLflowKerasCallback()]
-            args = tuple(l)
+            tmp_list = list(args)
+            tmp_list[5] += [__MLflowKerasCallback()]
+            args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
-        return original(self, *args, **kwargs)
+
+        result = original(self, *args, **kwargs)
+        if auto_end_run:
+            try_mlflow_log(mlflow.end_run)
+        return result
 
     @gorilla.patch(keras.Model)
     def fit_generator(self, *args, **kwargs):
+        if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
+            auto_end_run = True
+        else:
+            auto_end_run = False
+
         original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
+
+        # Checking if the 'callback' argument of fit() is set
         if len(args) >= 5:
-            l = list(args)
-            l[4] += [__MLflowKerasCallback()]
-            args = tuple(l)
+            tmp_list = list(args)
+            tmp_list[4] += [__MLflowKerasCallback()]
+            args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
-        return original(self, *args, **kwargs)
+
+        result = original(self, *args, **kwargs)
+        if auto_end_run:
+            try_mlflow_log(mlflow.end_run)
+        return result
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     gorilla.apply(gorilla.Patch(keras.Model, 'fit', fit, settings=settings))

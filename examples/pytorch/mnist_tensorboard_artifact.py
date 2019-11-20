@@ -63,7 +63,7 @@ test_loader = torch.utils.data.DataLoader(
                        transforms.ToTensor(),
                        transforms.Normalize((0.1307,), (0.3081,))
                    ])),
-    batch_size=args.batch_size, shuffle=True, **kwargs)
+    batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
 class Net(nn.Module):
     def __init__(self):

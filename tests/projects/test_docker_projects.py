@@ -17,6 +17,7 @@ from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from mlflow.projects import _project_spec
+from mlflow.exceptions import MlflowException
 
 
 def _build_uri(base_uri, subdirectory):
@@ -242,3 +243,46 @@ def test_docker_unknown_uri_artifact_cmd_and_envs():
         "file-plugin://some_path")
     assert cmd == []
     assert envs == {}
+
+
+@pytest.mark.parametrize("volumes, environment, os_environ, expected", [
+    ([], ["VAR1"], {"VAR1": "value1"}, [("-e", "VAR1=value1")]),
+    ([], ["VAR1"], {}, ["should_crash", ("-e", "VAR1=value1")]),
+    ([], ["VAR1"], {"OTHER_VAR": "value1"}, ["should_crash", ("-e", "VAR1=value1")]),
+    (
+        [], ["VAR1", ["VAR2", "value2"]], {"VAR1": "value1"},
+        [("-e", "VAR1=value1"), ("-e", "VAR2=value2")]
+    ),
+    ([], [["VAR2", "value2"]], {"VAR1": "value1"}, [("-e", "VAR2=value2")]),
+    (
+        ["/path:/path"], ["VAR1"], {"VAR1": "value1"},
+        [("-e", "VAR1=value1"), ("-v", "/path:/path")]
+    ),
+    (
+        ["/path:/path"], [["VAR2", "value2"]], {"VAR1": "value1"},
+        [("-e", "VAR2=value2"), ("-v", "/path:/path")]
+    )
+])
+def test_docker_user_specified_env_vars(volumes, environment, expected, os_environ):
+    active_run = mock.MagicMock()
+    run_info = mock.MagicMock()
+    run_info.run_id = "fake_run_id"
+    run_info.experiment_id = "fake_experiment_id"
+    run_info.artifact_uri = "/tmp/mlruns/artifacts"
+    active_run.info = run_info
+    image = mock.MagicMock()
+    image.tags = ["image:tag"]
+
+    if "should_crash" in expected:
+        expected.remove("should_crash")
+        with pytest.raises(MlflowException):
+            with mock.patch.dict("os.environ", os_environ):
+                mlflow.projects._get_docker_command(
+                    image, active_run, volumes, environment)
+    else:
+        with mock.patch.dict("os.environ", os_environ):
+            docker_command = mlflow.projects._get_docker_command(
+                image, active_run, volumes, environment)
+        for exp_type, expected in expected:
+            assert expected in docker_command
+            assert docker_command[docker_command.index(expected) - 1] == exp_type

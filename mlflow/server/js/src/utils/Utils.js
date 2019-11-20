@@ -23,7 +23,7 @@ class Utils {
         const cur = ret[key] || {};
         ret[key] = {
           ...cur,
-          [curRunUuid]: keyValueObj[key]
+          [curRunUuid]: keyValueObj[key],
         };
       });
     });
@@ -38,7 +38,11 @@ class Utils {
   static userTag = 'mlflow.user';
 
   static formatMetric(value) {
-    if (Math.abs(value) < 10) {
+    if (value === 0) {
+      return '0';
+    } else if (Math.abs(value) < 1e-3) {
+      return value.toExponential(3).toString();
+    } else if (Math.abs(value) < 10) {
       return (Math.round(value * 1000) / 1000).toString();
     } else if (Math.abs(value) < 100) {
       return (Math.round(value * 100) / 100).toString();
@@ -252,13 +256,13 @@ class Utils {
       marginRight: '2px',
     };
     if (sourceType === "NOTEBOOK") {
-      return <img title="Notebook" style={imageStyle} src={notebookSvg} />;
+      return <img alt="" title="Notebook" style={imageStyle} src={notebookSvg} />;
     } else if (sourceType === "LOCAL") {
-      return <img title="Local Source" style={imageStyle} src={laptopSvg} />;
+      return <img alt="" title="Local Source" style={imageStyle} src={laptopSvg} />;
     } else if (sourceType === "PROJECT") {
-      return <img title="Project" style={imageStyle} src={projectSvg} />;
+      return <img alt="" title="Project" style={imageStyle} src={projectSvg} />;
     }
-    return <img style={imageStyle} src={emptySvg} />;
+    return <img alt="" style={imageStyle} src={emptySvg} />;
   }
 
   /**

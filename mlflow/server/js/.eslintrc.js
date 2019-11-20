@@ -1,5 +1,8 @@
 module.exports = {
-  'extends': 'airbnb-base',
+  'extends': [
+    'airbnb-base',
+    'react-app',
+  ],
   'parser': 'babel-eslint',
   'plugins': [
     'react',
@@ -34,7 +37,7 @@ module.exports = {
       },
     },
     'react': {
-      'version': '0.14.8',
+      'version': 'detect',
     },
   },
   'rules': {
@@ -50,7 +53,7 @@ module.exports = {
     'callback-return': 2,
     'camelcase': "off",
     'class-methods-use-this': 0,
-    'comma-dangle': "off",
+    'comma-dangle': [2, "always-multiline"],
     'comma-spacing': 2,
     'comma-style': 2,
     'computed-property-spacing': 2,

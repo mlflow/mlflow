@@ -69,7 +69,7 @@ call :py:func:`mlflow.set_tracking_uri`.
 There are different kinds of remote tracking URIs:
 
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
-- Database encoded as ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. Mlflow supports the dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. For more details, see `SQLAlchemy database uri <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
+- Database encoded as ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. MLflow supports the dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. For more details, see `SQLAlchemy database uri <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
 - HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLFlow tracking server <tracking_server>`.
 - Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
   `See docs <http://docs.databricks.com/applications/mlflow/logging-from-outside-databricks.html>`_ on
@@ -217,19 +217,25 @@ log statements. See example usages with `Keras <https://github.com/mlflow/mlflow
 
 Autologging captures the following information:
 
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                                     |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Keras            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model); on training end                                   |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.keras``     | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs; on training end                 |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.estimator`` | TensorBoard metrics                                    | --                                                       | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model); on call to ``tf.estimator.export_saved_model`` |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                                            |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                                                        |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+| Keras            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end                      |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.keras``     | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs on training end    |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.estimator`` | TensorBoard metrics                                    | steps, max_steps                                         | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call to ``tf.estimator.export_saved_model``                     |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                                                               |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 
 Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`. 
+
+If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information to.
+Once training ends via calls to ``tf.estimator.train()``, ``tf.keras.fit()``, ``tf.keras.fit_generator()``, ``keras.fit()`` or ``keras.fit_generator()``,
+or once ``tf.estimator`` models are exported via ``tf.estimator.export_saved_model()``, MLflow will automatically end that run.
+
+If a run exists when ``autolog()`` captures data, MLflow will log to that run and not automatically end that run after training.
 
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
@@ -428,6 +434,19 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
   (for example, ``mlflow experiments create --artifact-location s3://<my-bucket>``), the artifact root
   is a path inside the file store. Typically this is not an appropriate location, as the client and
   server probably refer to different physical locations (that is, the same path on different disks).
+
+SQLAlchemy Options
+~~~~~~~~~~~~~~~~~~
+
+You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalchemy.org/en/latest/core/pooling.html>`_ using environment variables.
+
++-----------------------------------------+-----------------------------+
+| MLFlow Environment Variable             | SQLAlchemy QueuePool Option |
++-----------------------------------------+-----------------------------+
+| ``MLFLOW_SQLALCHEMYSTORE_POOL_SIZE``    | ``pool_size``               |
++-----------------------------------------+-----------------------------+
+| ``MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW`` | ``max_overflow``            |
++-----------------------------------------+-----------------------------+
 
 Artifact Stores
 ~~~~~~~~~~~~~~~~

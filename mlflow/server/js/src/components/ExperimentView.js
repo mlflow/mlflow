@@ -8,6 +8,7 @@ import {
   getRunInfo,
   getRunTags,
   getExperimentTags } from '../reducers/Reducers';
+import { setExperimentTagApi, getUUID } from '../Actions';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 import { Button, DropdownButton, MenuItem } from 'react-bootstrap';
@@ -20,18 +21,18 @@ import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
-import { NoteInfo } from "../utils/NoteUtils";
-import NoteEditorView from "./NoteEditorView";
-import NoteShowView from "./NoteShowView";
+import { NoteInfo, NOTE_CONTENT_TAG } from "../utils/NoteUtils";
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
 import { Icon, Popover, Descriptions } from 'antd';
+import { CollapsibleSection } from '../common/components/CollapsibleSection';
+import { EditableNote } from '../common/components/EditableNote';
+
 
 import Utils from '../utils/Utils';
-import {Spinner} from "./Spinner";
+import { Spinner } from "./Spinner";
 
 export const DEFAULT_EXPANDED_VALUE = false;
-const NOTES_KEY = 'notes';
 
 export class ExperimentView extends Component {
   constructor(props) {
@@ -57,10 +58,9 @@ export class ExperimentView extends Component {
     this.onExpand = this.onExpand.bind(this);
     this.addBagged = this.addBagged.bind(this);
     this.removeBagged = this.removeBagged.bind(this);
-    this.handleExposeNotesEditorClick = this.handleExposeNotesEditorClick.bind(this);
-    this.handleSubmittedNote = this.handleSubmittedNote.bind(this);
-    this.handleNoteEditorViewCancel = this.handleNoteEditorViewCancel.bind(this);
     this.renderNoteSection = this.renderNoteSection.bind(this);
+    this.handleSubmitEditNote = this.handleSubmitEditNote.bind(this);
+    this.handleCancelEditNote = this.handleCancelEditNote.bind(this);
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
     this.state = {
@@ -110,6 +110,7 @@ export class ExperimentView extends Component {
     nextPageToken: PropTypes.string,
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
+    setExperimentTagApi: PropTypes.func.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -256,65 +257,45 @@ export class ExperimentView extends Component {
       {
         persistedState: new ExperimentViewPersistedState({
           ...this.state.persistedState,
-          [stateKey]: unbagged.concat([colName])
-        }).toJSON()
+          [stateKey]: unbagged.concat([colName]),
+        }).toJSON(),
       });
   }
 
-  handleExposeNotesEditorClick() {
-    this.setState({ showNotesEditor: true, showNotes: true });
+  handleSubmitEditNote(note) {
+    const { experiment_id } = this.props.experiment;
+    this.props
+      .setExperimentTagApi(experiment_id, NOTE_CONTENT_TAG, note, getUUID())
+      .then(() => this.setState({ showNotesEditor: false }));
   }
 
-  handleNoteEditorViewCancel() {
-    this.setState({ showNotesEditor: false });
+  handleCancelEditNote() {
+    this.setState({showNotesEditor: false});
   }
 
-  returnOnClickFunction(notesKey) {
-    if (this.state.showNotesEditor) {
-      return undefined;
-    } else {
-      return () => this.onClickExpander(notesKey);
-    }
-  }
+  startEditingDescription = (e) => {
+    e.stopPropagation();
+    this.setState({ showNotesEditor: true });
+  };
 
   renderNoteSection(noteInfo) {
-    if (this.state.showNotes) {
-      if (this.state.showNotesEditor) {
-        return <NoteEditorView
-            experimentId={this.props.experiment.experiment_id}
-            type={"experiment"}
-            noteInfo={noteInfo}
-            submitCallback={this.handleSubmittedNote}
-            cancelCallback={this.handleNoteEditorViewCancel}/>;
-      } else if (noteInfo) {
-        return <NoteShowView content={noteInfo.content} noteType={"experiment"}/>;
-      } else {
-        return null;
-      }
-    }
-    return null;
-  }
+    const { showNotesEditor } = this.state;
 
-  onClickExpander(key) {
-    switch (key) {
-      case NOTES_KEY: {
-        this.setState({ showNotes: !this.state.showNotes });
-        return;
-      }
-      default:
-        return;
-    }
-  }
+    const editIcon = <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
 
-  getExpanderClassName(key) {
-    switch (key) {
-      case NOTES_KEY: {
-        return this.state.showNotes ? 'fa-caret-down' : 'fa-caret-right';
-      }
-      default: {
-        return null;
-      }
-    }
+    return (
+      <CollapsibleSection
+        title={<span>Notes {showNotesEditor ? null : editIcon}</span>}
+        forceOpen={showNotesEditor}
+      >
+        <EditableNote
+          defaultMarkdown={noteInfo && noteInfo.content}
+          onSubmit={this.handleSubmitEditNote}
+          onCancel={this.handleCancelEditNote}
+          showEditor={showNotesEditor}
+        />
+      </CollapsibleSection>
+    );
   }
 
   render() {
@@ -371,22 +352,6 @@ export class ExperimentView extends Component {
           <Descriptions.Item label='Artifact Location'>{artifact_location}</Descriptions.Item>
         </Descriptions>
         <div className="ExperimentView-info">
-          <h2 className="table-name">
-                <span className="metadata">
-                  <span
-                      onClick={this.returnOnClickFunction(NOTES_KEY)}
-                      className="metadata-header">
-                    <i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/>{' '}Description:
-                  </span>
-                  {!this.state.showNotes || !this.state.showNotesEditor ?
-                      <a onClick={this.handleExposeNotesEditorClick} >
-                        <Icon type="form" />
-                      </a>
-                      :
-                      null
-                  }
-                </span>
-          </h2>
           {this.renderNoteSection(noteInfo)}
         </div>
         <div className="ExperimentView-runs runs-table-flex-container">
@@ -413,7 +378,8 @@ export class ExperimentView extends Component {
                     <input
                       className="ExperimentView-searchInput"
                       type="text"
-                      placeholder={'metrics.rmse < 1 and params.model = "tree"'}
+                      placeholder={'metrics.rmse < 1 and params.model = "tree" and ' +
+                                   'tags.mlflow.source.type = "LOCAL"'}
                       value={this.state.searchInput}
                       onChange={this.onSearchInput}
                     />
@@ -539,12 +505,6 @@ export class ExperimentView extends Component {
     );
   }
 
-  handleSubmittedNote(err) {
-    if (!err) {
-      this.setState({ showNotesEditor: false });
-    }
-  }
-
   onSortBy(orderByKey, orderByAsc) {
     this.initiateSearch({orderByKey, orderByAsc});
   }
@@ -589,7 +549,7 @@ export class ExperimentView extends Component {
         runsSelected: {
           ...this.state.runsSelected,
           [runUuid]: true,
-        }
+        },
       });
     }
   }
@@ -666,7 +626,7 @@ export class ExperimentView extends Component {
       paramKeyFilterInput,
       metricKeyFilterInput,
       searchInput,
-      lifecycleFilterInput
+      lifecycleFilterInput,
     } = this.state;
     this.initiateSearch({paramKeyFilterInput, metricKeyFilterInput, searchInput,
       lifecycleFilterInput});
@@ -855,13 +815,17 @@ export const mapStateToProps = (state, ownProps) => {
   };
 };
 
+const mapDispatchToProps = {
+  setExperimentTagApi,
+};
+
 const styles = {
   lifecycleButtonLabel: {
-    width: '32px'
+    width: '32px',
   },
   lifecycleButtonFilterWrapper: {
     marginLeft: '48px',
   },
 };
 
-export default withRouter(connect(mapStateToProps)(ExperimentView));
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(ExperimentView));

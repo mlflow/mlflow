@@ -106,8 +106,9 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     # back compat for int experiment_id
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
     if len(_active_run_stack) > 0 and not nested:
-        raise Exception(("Run with UUID {} is already active. To start a nested " +
-                        "run, call start_run with nested=True").format(
+        raise Exception(("Run with UUID {} is already active. To start a new run, first end the " +
+                         "current run with mlflow.end_run(). To start a nested " +
+                         "run, call start_run with nested=True").format(
             _active_run_stack[0].info.run_id))
     if run_id:
         existing_run_id = run_id

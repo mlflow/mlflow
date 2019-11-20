@@ -19,7 +19,7 @@ const modalStyles = {
   },
   overlay: {
     backgroundColor: 'rgba(33, 37, 41, .75)',
-  }
+  },
 };
 
 class ErrorModal extends Component {
@@ -75,7 +75,7 @@ const mapDispatchToProps = (dispatch) => {
   return {
     onClose: () => {
       dispatch(closeErrorModal());
-    }
+    },
   };
 };
 
