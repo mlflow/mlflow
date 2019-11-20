@@ -1,6 +1,5 @@
 # The data set used in this example is from 'https://raw.githubusercontent.com/facebook/prophet/master/examples/example_wp_log_peyton_manning.csv'
 
-import os
 import warnings
 import sys
 
