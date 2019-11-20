@@ -105,7 +105,7 @@ def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels,
                 yield data, labels
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
     else:
-        model.fit(data, labels, epochs=10)
+        model.fit(data, labels, epochs=10, steps_per_epoch=1)
 
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
@@ -119,9 +119,8 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
     # Testing explicitly passed parameters are logged correctly
     assert 'epochs' in data.params
     assert data.params['epochs'] == '10'
-    # Testing default parameters are logged correctly
-    assert 'initial_epoch' in data.params
-    assert data.params['initial_epoch']
+    assert 'steps_per_epoch' in data.params
+    assert data.params['steps_per_epoch'] == '1'
     # Testing unwanted parameters are not logged
     assert 'callbacks' not in data.params
     assert 'validation_data' not in data.params
@@ -135,6 +134,15 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
     artifacts = client.list_artifacts(keras_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert 'model_summary.txt' in artifacts
+
+
+@pytest.mark.large
+@pytest.mark.parametrize('fit_variant', ['fit'])
+def test_keras_autolog_logs_default_params(keras_random_data_run):
+    # Logging default parameters does not work with keras.Model.fit_generator
+    data = keras_random_data_run.data
+    assert 'initial_epoch' in data.params
+    assert data.params['initial_epoch'] == '0'
 
 
 @pytest.mark.large
