@@ -237,6 +237,8 @@ or once ``tf.estimator`` models are exported via ``tf.estimator.export_saved_mod
 
 If a run exists when ``autolog()`` captures data, MLflow will log to that run and not automatically end that run after training.
 
+**Note** Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
+
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
 
