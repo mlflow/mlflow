@@ -22,16 +22,13 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     :param unlogged: parameters not to be logged
     :return: None
     """
-    # Names of all parameters for the function
-    all_param_names = inspect.getargspec(fn)[0]  # pylint: disable=W1505
-
-    # Default values of all parameters with default values. Has length of n, and corresponds
-    # to values of last n elements in all_param_names
-    all_default_values = inspect.getargspec(fn)[3]  # pylint: disable=W1505
+    # all_default_values has length n, corresponding to values of the
+    # last n elements in all_param_names
+    all_param_names, _, _, all_default_values = inspect.getargspec(fn)  # pylint: disable=W1505
 
     # Checking if default values are present for logging. Known bug that getargspec will return an
     # empty argspec for certain functions, despite the functions having an argspec.
-    if all_default_values:
+    if all_default_values is not None and len(all_default_values):
         # Removing the first len(args) elements from all_param_names - these are values already
         # passed in explicitly by the user and don't need to be logged with default values.
         kwargs_and_default_names = all_param_names[len(args):]
