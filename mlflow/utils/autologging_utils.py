@@ -13,7 +13,7 @@ def try_mlflow_log(fn, *args, **kwargs):
         warnings.warn("Logging to MLflow failed: " + str(e), stacklevel=2)
 
 
-def param_logger(fn, args=[], kwargs=None, unlogged=[]):
+def param_logger(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
     """
     Log parameters explicitly passed to a function.
     :param fn: function whose parameters are to be logged
@@ -23,11 +23,11 @@ def param_logger(fn, args=[], kwargs=None, unlogged=[]):
     :return: None
     """
     # Names of all parameters for the function
-    all_param_names = inspect.getargspec(fn)[0]
+    all_param_names = inspect.getargspec(fn)[0]  # pylint: disable=W1505
 
     # Default values of all parameters with default values. Has length of n, and corresponds
     # to values of last n elements in all_param_names
-    all_default_values = inspect.getargspec(fn)[3]
+    all_default_values = inspect.getargspec(fn)[3]  # pylint: disable=W1505
 
     # Checking if default values are present for logging. Known bug that getargspec will return an
     # empty argspec for certain functions, despite the functions having an argspec.
@@ -61,7 +61,7 @@ def param_logger(fn, args=[], kwargs=None, unlogged=[]):
                 try_mlflow_log(mlflow.log_param, param[0], param[1])
 
     # List of tuples of parameter names and args that are passed by the user
-    params_list = zip(inspect.getargspec(fn)[0][:len(args)], args)
+    params_list = zip(inspect.getargspec(fn)[0][:len(args)], args)  # pylint: disable=W1505
 
     for param in params_list:
         if param[0] not in unlogged:
