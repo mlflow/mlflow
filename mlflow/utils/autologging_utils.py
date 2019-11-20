@@ -29,12 +29,15 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     # Checking if default values are present for logging. Known bug that getargspec will return an
     # empty argspec for certain functions, despite the functions having an argspec.
     if all_default_values is not None and len(all_default_values):
-        # Removing the first len(args) elements from all_param_names - these are values already
-        # passed in explicitly by the user and don't need to be logged with default values.
+
+        # Now, compute the names of all params that were not supplied by the user (e.g. all params
+        # for which we use the default value). Start by removing the first len(args) elements from 
+        # all_param_names - these are names of params passed as positional arguments
+        # by the user and don't need to be logged with default values.
         kwargs_and_default_names = all_param_names[len(args):]
 
         # If there are more parameter names than default values left, we know that the parameters
-        # not covered by the default values are passed in as kwargs (assuming all non-default
+        # not covered by the default values were passed by the user as kwargs (assuming all non-default
         # parameters are passed to the function)
         if len(kwargs_and_default_names) > len(all_default_values):
             kwargs_and_default_names = kwargs_and_default_names[len(kwargs_and_default_names)
@@ -53,7 +56,9 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
             if param[0] not in kwargs:
                 default_params_to_be_logged += [param]
 
-        for param in default_params_to_be_logged:
+        for param_key, param_val in default_params_to_be_logged:
+            if param_key not in unlogged:
+                try_mlflow_log(mlflow.log_param, param_key, param_val)        
             if param[0] not in unlogged:
                 try_mlflow_log(mlflow.log_param, param[0], param[1])
 
