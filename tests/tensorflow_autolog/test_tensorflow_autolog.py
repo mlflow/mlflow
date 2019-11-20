@@ -228,7 +228,7 @@ def create_tf_estimator_model(dir, export):
 
 @pytest.mark.large
 @pytest.mark.parametrize('export', [True, False])
-def test_tf_keras_autolog_ends_auto_created_run(tmpdir, export):
+def test_tf_estimator_autolog_ends_auto_created_run(tmpdir, export):
     dir = tmpdir.mkdir("test")
     mlflow.tensorflow.autolog()
     create_tf_estimator_model(str(dir), export)
@@ -237,7 +237,7 @@ def test_tf_keras_autolog_ends_auto_created_run(tmpdir, export):
 
 @pytest.mark.large
 @pytest.mark.parametrize('export', [True, False])
-def test_tf_keras_autolog_persists_manually_created_run(tmpdir, export):
+def test_tf_estimator_autolog_persists_manually_created_run(tmpdir, export):
     dir = tmpdir.mkdir("test")
     with mlflow.start_run() as run:
         create_tf_estimator_model(str(dir), export)
