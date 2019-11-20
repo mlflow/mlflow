@@ -36,7 +36,6 @@ def param_logger(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
         # for which we use the default value). Start by removing the first len(args) elements from 
         # all_param_names - these are names of params passed as positional arguments
         # by the user and don't need to be logged with default values.
-        # passed in explicitly by the user and don't need to be logged with default values.
         kwargs_and_default_names = all_param_names[len(args):]
 
         # If there are more parameter names than default values left, we know that the parameters
