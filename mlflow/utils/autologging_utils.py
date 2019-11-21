@@ -13,34 +13,38 @@ def try_mlflow_log(fn, *args, **kwargs):
         warnings.warn("Logging to MLflow failed: " + str(e), stacklevel=2)
 
 
-def get_unspecified_default_args(args, kwargs, all_param_names, all_default_values):
-    # Compute the names of all params that were not supplied by the user (e.g. all params
-    # for which we use the default value). Start by removing the first len(args) elements from
-    # all_param_names - these are names of params passed as positional arguments
-    # by the user and don't need to be logged with default values.
-    kwargs_and_default_names = all_param_names[len(args):]
+def get_unspecified_default_args(user_args, user_kwargs, all_param_names, all_default_values):
+    """
+    Determine which arguments' defaults are used, given args and kwargs that are passed in.
 
-    # If there are more parameter names than default values left, we know that the parameters
-    # not covered by the default values were passed by the user as kwargs (assuming all non-default
-    # parameters are passed to the function)
-    if len(kwargs_and_default_names) > len(all_default_values):
-        kwargs_and_default_names = kwargs_and_default_names[len(kwargs_and_default_names)
-                                                            - len(all_default_values):]
-    # Otherwise, if there are more default values than parameter names, we know that some of the
-    # parameters with default values have been entered by the user in args
-    elif len(kwargs_and_default_names) < len(all_default_values):
-        all_default_values = all_default_values[len(all_default_values)
-                                                - len(kwargs_and_default_names):]
+    :param user_args: arguments passed in by the user
+    :param user_kwargs: kwargs passed in by the user
+    :param all_param_names: names of all of the parameters of the function
+    :param all_default_values: values of all default parameters
+    :return: a dictionary mapping arguments not specified by the user -> default value
+    """
+    num_default_args = len(all_default_values)
 
-    # Filtering out the parameters that have been passed in by the user as a kwarg.
-    default_param_names = set(kwargs_and_default_names) - set(kwargs.keys())
+    # all_default_values correspond to the last len(all_default_values) elements of the arguments
+    default_param_names = all_param_names[-num_default_args:]
 
-    default_params_dict = dict(zip(kwargs_and_default_names, all_default_values))
+    default_args = dict(zip(default_param_names, all_default_values))
 
-    for name in [name for name in default_params_dict.keys() if name not in default_param_names]:
-        del default_params_dict[name]
+    # The set of keyword arguments that should not be logged with default values
+    user_specified_arg_names = set(user_kwargs.keys())
 
-    return default_params_dict
+    num_args_without_default_value = len(all_param_names) - len(all_default_values)
+    num_user_args = len(user_args)
+
+    # This checks if the user passed values for arguments with default values
+    if num_user_args > num_args_without_default_value:
+        num_default_args_passed_as_positional = num_user_args - num_args_without_default_value
+        # Adding the set of positional arguments that should not be logged with default values
+        names_to_exclude = default_param_names[:num_default_args_passed_as_positional]
+        user_specified_arg_names.update(names_to_exclude)
+
+    return {name: value for name, value in default_args.items() 
+            if name not in user_specified_arg_names}
 
 
 def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
