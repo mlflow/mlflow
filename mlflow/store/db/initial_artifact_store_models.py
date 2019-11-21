@@ -48,14 +48,15 @@ class SqlArtifact(Base):
         PrimaryKeyConstraint('artifact_id', name='artifact_pk'),
     )
 
-    def to_file_info(self):
+    def to_file_info(self, base_path):
         """
         Convert DB model to corresponding FileInfo object.
 
         :return: :py:class:`mlflow.entities.FileInfo`.
         """
         return FileInfo(
-            path=os.path.join(self.group_path, self.artifact_name),
+            path=os.path.relpath(path=os.path.join(self.group_path, self.artifact_name),
+                                 start=base_path),
             is_dir=False,
             file_size=self.artifact_initial_size)
 

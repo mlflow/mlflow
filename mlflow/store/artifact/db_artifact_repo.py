@@ -3,16 +3,17 @@ import os
 from abc import ABCMeta
 import sqlalchemy
 import tempfile
+
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 
 from contextlib import contextmanager
 
-from mlflow.utils import extract_db_type_from_uri
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.utils.uri import extract_db_type_from_uri
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.exceptions import MlflowException
-from mlflow.store.dbmodels.initial_artifact_store_models import Base as InitialBase
-from mlflow.store.dbmodels.initial_artifact_store_models import SqlArtifact
+from mlflow.store.db.initial_artifact_store_models import Base as InitialBase
+from mlflow.store.db.initial_artifact_store_models import SqlArtifact
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from sqlalchemy import or_
 from six.moves import urllib
@@ -42,7 +43,7 @@ def extract_db_uri_and_root_path(repo_uri):
     parsed_uri = urllib.parse.urlparse(repo_uri)
     scheme = parsed_uri.scheme
     scheme_plus_count = scheme.count('+')
-    if scheme_plus_count != 0 and scheme_plus_count != 1:
+    if scheme_plus_count > 1:
         error_msg = "Invalid database scheme in the URI: '%s'. %s" % (scheme, _INVALID_DB_URI_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
 
@@ -204,16 +205,25 @@ class DBArtifactRepository(ArtifactRepository):
 
         :return: List of artifacts as FileInfo listed directly under path.
         """
-        path = os.path.normpath(path)
-        with self.ManagedSessionMaker() as session:
+        if path is not None:
+            path = os.path.normpath(path)
             regex = os.path.join(path, '%')
-            return [artifact.to_file_info()
-                    for artifact in
-                    session.query(SqlArtifact).filter(
-                        or_(SqlArtifact.group_path.like(
-                            os.path.normpath(os.path.join(self.root, regex))),
-                            SqlArtifact.group_path == os.path.normpath(
-                                os.path.join(self.root, path))))]
+            with self.ManagedSessionMaker() as session:
+                return [artifact.to_file_info(self.root)
+                        for artifact in
+                        session.query(SqlArtifact).filter(
+                            or_(SqlArtifact.group_path.like(
+                                os.path.normpath(os.path.join(self.root, regex))),
+                                SqlArtifact.group_path == os.path.normpath(
+                                    os.path.join(self.root, path))))]
+        else:
+            regex = "%"
+            with self.ManagedSessionMaker() as session:
+                return [artifact.to_file_info(self.root)
+                        for artifact in
+                        session.query(SqlArtifact).filter(
+                            SqlArtifact.group_path.like(
+                                os.path.normpath(os.path.join(self.root, regex))))]
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
@@ -247,13 +257,7 @@ class DBArtifactRepository(ArtifactRepository):
                     # prevent an infinite loop (sometimes the current path is listed e.g. as ".")
                     if file_info.path == "." or file_info.path == artifact_path:
                         continue
-                    if self.root == "":
-                        download_artifacts_into(artifact_path=file_info.path,
-                                                dest_dir=local_path)
-                    else:
-                        relative_file_path = file_info.path.split(self.root + os.sep, 1)[1]
-                        download_artifacts_into(artifact_path=relative_file_path,
-                                                dest_dir=local_path)
+                    download_artifacts_into(artifact_path=file_info.path, dest_dir=local_path)
             else:
                 self._download_file(remote_file_path=artifact_path, local_path=local_path)
             return local_path

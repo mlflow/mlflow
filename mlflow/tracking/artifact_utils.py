@@ -11,6 +11,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository, \
     get_artifact_repository_type, ArtifactRepositoryType
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.store.artifact.db_artifact_repo import ROOT_PATH_BASE
 
@@ -67,8 +68,10 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
             prefix = parsed_uri.scheme + ":"
             parsed_uri = parsed_uri._replace(scheme="")
 
-        # For models:/ URIs, it doesn't make sense to initialize a ModelsArtifactRepository with only
-        # the model name portion of the URI, then call download_artifacts with the version info.
+        # For models:/ URIs, it doesn't make sense to initialize a
+        # ModelsArtifactRepository with only
+        # the model name portion of the URI, then call download_artifacts
+        # with the version info.
         if ModelsArtifactRepository.is_models_uri(artifact_uri):
             root_uri = artifact_uri
             artifact_path = ""

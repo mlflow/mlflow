@@ -3,8 +3,9 @@ import os
 import tempfile
 import unittest
 
-from mlflow.store.dbmodels import initial_artifact_store_models
-from mlflow.store.db_artifact_repo import DBArtifactRepository, extract_db_uri_and_root_path
+from mlflow.store.db import initial_artifact_store_models
+from mlflow.store.artifact.db_artifact_repo import DBArtifactRepository, \
+    extract_db_uri_and_root_path
 from mlflow.utils.file_utils import TempDir
 
 DB_URI = 'sqlite:///'
@@ -149,55 +150,43 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.store.log_artifacts(root_dir._path, 'new_path2/path')
             self.assertEqual(len(self.store.list_artifacts('new_path/path')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path/path')]
-            self.assertTrue(filenames.__contains__(
-                os.path.join(root_uri, os.path.normpath('new_path/path'), 'file_one.txt')))
-            self.assertTrue(
-                filenames.__contains__(
-                    os.path.join(root_uri, os.path.normpath('new_path/path/subdir'),
-                                 'file_two.txt')))
-            self.assertTrue(
-                filenames.__contains__(
-                    os.path.join(root_uri, os.path.normpath('new_path/path/subdir'),
-                                 'file_three.txt')))
+
+            self.assertTrue(filenames.__contains__(os.path.normpath(
+                'new_path/path/file_one.txt')))
+            self.assertTrue(filenames.__contains__(os.path.normpath(
+                'new_path/path/subdir/file_two.txt')))
+            self.assertTrue(filenames.__contains__(os.path.normpath(
+                'new_path/path/subdir/file_three.txt')))
 
             self.assertEqual(len(self.store.list_artifacts('new_path')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path')]
-            self.assertTrue(filenames.__contains__(
-                os.path.join(root_uri, os.path.normpath('new_path/path'), 'file_one.txt')))
-            self.assertTrue(
-                filenames.__contains__(
-                    os.path.join(root_uri, os.path.normpath('new_path/path/subdir'),
-                                 'file_two.txt')))
-            self.assertTrue(
-                filenames.__contains__(
-                    os.path.join(root_uri, os.path.normpath('new_path/path/subdir'),
-                                 'file_three.txt')))
+
+            self.assertTrue(filenames.__contains__(os.path.normpath(
+                'new_path/path/file_one.txt')))
+            self.assertTrue(filenames.__contains__(os.path.normpath(
+                'new_path/path/subdir/file_two.txt')))
+            self.assertTrue(filenames.__contains__(os.path.normpath(
+                'new_path/path/subdir/file_three.txt')))
 
             self.assertEqual(len(self.store.list_artifacts('new_path2/path')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path2/path')]
-            self.assertTrue(filenames.__contains__(
-                os.path.join(root_uri, os.path.normpath('new_path2/path'), 'file_one.txt')))
-            self.assertTrue(
-                filenames.__contains__(
-                    os.path.join(root_uri, os.path.normpath('new_path2/path/subdir'),
-                                 'file_two.txt')))
-            self.assertTrue(
-                filenames.__contains__(
-                    os.path.join(root_uri, os.path.normpath('new_path2/path/subdir'),
-                                 'file_three.txt')))
+
+            self.assertTrue(filenames.__contains__(os.path.normpath(
+                'new_path2/path/file_one.txt')))
+            self.assertTrue(filenames.__contains__(os.path.normpath(
+                'new_path2/path/subdir/file_two.txt')))
+            self.assertTrue(filenames.__contains__(os.path.normpath(
+                'new_path2/path/subdir/file_three.txt')))
 
             self.assertEqual(len(self.store.list_artifacts('new_path2')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path2')]
-            self.assertTrue(filenames.__contains__(
-                os.path.join(root_uri, os.path.normpath('new_path2/path'), 'file_one.txt')))
-            self.assertTrue(
-                filenames.__contains__(
-                    os.path.join(root_uri, os.path.normpath('new_path2/path/subdir'),
-                                 'file_two.txt')))
-            self.assertTrue(
-                filenames.__contains__(
-                    os.path.join(root_uri, os.path.normpath('new_path2/path/subdir'),
-                                 'file_three.txt')))
+
+            self.assertTrue(filenames.__contains__(os.path.normpath(
+                'new_path2/path/file_one.txt')))
+            self.assertTrue(filenames.__contains__(os.path.normpath(
+                'new_path2/path/subdir/file_two.txt')))
+            self.assertTrue(filenames.__contains__(os.path.normpath(
+                'new_path2/path/subdir/file_three.txt')))
 
     def test_download_file_artifact(self):
         with TempDir() as root_dir:
