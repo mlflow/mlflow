@@ -9,16 +9,17 @@ def try_mlflow_log(fn, *args, **kwargs):
     """
     try:
         fn(*args, **kwargs)
+        print("SUCCESSFUL LOG")
     except Exception as e:  # pylint: disable=broad-except
         warnings.warn("Logging to MLflow failed: " + str(e), stacklevel=2)
 
 
 def get_unspecified_default_args(user_args, user_kwargs, all_param_names, all_default_values):
     """
-    Determine which arguments' defaults are used, given args and kwargs that are passed in.
-
-    :param user_args: arguments passed in by the user
-    :param user_kwargs: kwargs passed in by the user
+    Determine which default values are used in a call, given args and kwargs that are passed in.
+    
+    :param user_args: list of arguments passed in by the user
+    :param user_kwargs: dictionary of kwargs passed in by the user
     :param all_param_names: names of all of the parameters of the function
     :param all_default_values: values of all default parameters
     :return: a dictionary mapping arguments not specified by the user -> default value
@@ -27,7 +28,7 @@ def get_unspecified_default_args(user_args, user_kwargs, all_param_names, all_de
 
     # all_default_values correspond to the last len(all_default_values) elements of the arguments
     default_param_names = all_param_names[-num_default_args:]
-
+    
     default_args = dict(zip(default_param_names, all_default_values))
 
     # The set of keyword arguments that should not be logged with default values
@@ -35,7 +36,7 @@ def get_unspecified_default_args(user_args, user_kwargs, all_param_names, all_de
 
     num_args_without_default_value = len(all_param_names) - len(all_default_values)
     num_user_args = len(user_args)
-
+    
     # This checks if the user passed values for arguments with default values
     if num_user_args > num_args_without_default_value:
         num_default_args_passed_as_positional = num_user_args - num_args_without_default_value
@@ -43,7 +44,7 @@ def get_unspecified_default_args(user_args, user_kwargs, all_param_names, all_de
         names_to_exclude = default_param_names[:num_default_args_passed_as_positional]
         user_specified_arg_names.update(names_to_exclude)
 
-    return {name: value for name, value in default_args.items() 
+    return {name: value for name, value in default_args.items()
             if name not in user_specified_arg_names}
 
 
@@ -79,6 +80,9 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     try_mlflow_log(mlflow.log_params, args_dict)
 
     # Logging the kwargs passed by the user
+    print("KWARG LOGGING")
     for param_name in kwargs:
         if param_name not in unlogged:
+            print("LOGGING")
+            print(mlflow.active_run().info.run_id)
             try_mlflow_log(mlflow.log_param, param_name, kwargs[param_name])
