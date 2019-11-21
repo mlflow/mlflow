@@ -1,6 +1,6 @@
 """
-The ``mlflow.xgboost`` module provides an API for logging and loading XGBoost models. This module exports
-XGBoost models with the following flavors:
+The ``mlflow.xgboost`` module provides an API for logging and loading XGBoost models.
+This module exports XGBoost models with the following flavors:
 
 XGBoost (native) format
     This is the main flavor that can be loaded back into XGBoost.
