@@ -19,6 +19,7 @@ EXAMPLES_DIR = 'examples'
     ('sklearn_elasticnet_wine', ['-P', 'alpha=0.5']),
     (os.path.join("sklearn_elasticnet_diabetes", "linux"), []),
     ('h2o', []),
+    ('prophet', []),
 ])
 def test_mlflow_run_example(tracking_uri_mock, directory, params):
     cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params
