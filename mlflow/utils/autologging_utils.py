@@ -28,7 +28,7 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
 
     # Checking if default values are present for logging. Known bug that getargspec will return an
     # empty argspec for certain functions, despite the functions having an argspec.
-    if all_default_values is not None and len(all_default_values):
+    if all_default_values is not None and len(all_default_values) > 0:
 
         # Now, compute the names of all params that were not supplied by the user (e.g. all params
         # for which we use the default value). Start by removing the first len(args) elements from 
