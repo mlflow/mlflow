@@ -48,27 +48,23 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
             all_default_values = all_default_values[len(all_default_values)
                                                     - len(kwargs_and_default_names):]
 
-        default_params = zip(kwargs_and_default_names, all_default_values)
-
         # Filtering out the parameters that have been passed in by the user as a kwarg.
-        default_params_to_be_logged = []
-        for param in default_params:
-            if param[0] not in kwargs:
-                default_params_to_be_logged += [param]
+        default_param_names = set(kwargs_and_default_names) - set(kwargs.keys())
 
-        for param_key, param_val in default_params_to_be_logged:
-            if param_key not in unlogged:
-                try_mlflow_log(mlflow.log_param, param_key, param_val)        
-            if param[0] not in unlogged:
-                try_mlflow_log(mlflow.log_param, param[0], param[1])
+        default_params = dict(zip(kwargs_and_default_names, all_default_values))
 
-    # List of tuples of parameter names and args that are passed by the user
-    params_list = zip(inspect.getargspec(fn)[0][:len(args)], args)  # pylint: disable=W1505
+        for name in default_param_names:
+            if name not in unlogged:
+                try_mlflow_log(mlflow.log_param, name, default_params[name])
 
-    for param in params_list:
-        if param[0] not in unlogged:
-            try_mlflow_log(mlflow.log_param, param[0], param[1])
+    # Logging the arguments passed by the user
+    args_dict = dict((param_name, param_val) for param_name, param_val
+                     in zip(all_param_names[:len(args)], args)
+                     if param_name not in unlogged)
 
+    try_mlflow_log(mlflow.log_params, args_dict)
+
+    # Logging the kwargs passed by the user
     for param_name in kwargs:
         if param_name not in unlogged:
             try_mlflow_log(mlflow.log_param, param_name, kwargs[param_name])
