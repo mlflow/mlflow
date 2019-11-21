@@ -105,7 +105,7 @@ For example:
 
 .. code-block:: py
 
-  mlflow.pytorch.load_model("models:/mymodel/1.0")
+  mlflow.pytorch.load_model("models:/mymodel/1")
 
 ..
     TODO: example app and data
