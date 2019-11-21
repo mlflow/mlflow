@@ -109,7 +109,7 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
                 metrics = training_run.data.metrics
 
                 # cap the loss at the loss of the null model
-                train_loss = min(null_valid_loss,
+                train_loss = min(null_train_loss,
                                  metrics["train_{}".format(metric)])
                 valid_loss = min(null_valid_loss,
                                  metrics["val_{}".format(metric)])
