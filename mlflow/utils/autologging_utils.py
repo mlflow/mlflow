@@ -69,20 +69,16 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
 
         for name in [name for name in defaults.keys() if name in unlogged]:
             del defaults[name]
-
         try_mlflow_log(mlflow.log_params, defaults)
 
     # Logging the arguments passed by the user
     args_dict = dict((param_name, param_val) for param_name, param_val
                      in zip(all_param_names[:len(args)], args)
                      if param_name not in unlogged)
-
-    try_mlflow_log(mlflow.log_params, args_dict)
+    if len(args_dict.keys()) > 0:
+        try_mlflow_log(mlflow.log_params, args_dict)
 
     # Logging the kwargs passed by the user
-    print("KWARG LOGGING")
     for param_name in kwargs:
         if param_name not in unlogged:
-            print("LOGGING")
-            print(mlflow.active_run().info.run_id)
             try_mlflow_log(mlflow.log_param, param_name, kwargs[param_name])
