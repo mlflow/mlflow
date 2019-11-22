@@ -23,17 +23,16 @@ def get_unspecified_default_args(user_args, user_kwargs, all_param_names, all_de
     :param all_default_values: values of all default parameters
     :return: a dictionary mapping arguments not specified by the user -> default value
     """
-    num_default_args = len(all_default_values)
+    num_args_without_default_value = len(all_param_names) - len(all_default_values)
 
     # all_default_values correspond to the last len(all_default_values) elements of the arguments
-    default_param_names = all_param_names[-num_default_args:]
+    default_param_names = all_param_names[num_args_without_default_value:]
 
     default_args = dict(zip(default_param_names, all_default_values))
 
     # The set of keyword arguments that should not be logged with default values
     user_specified_arg_names = set(user_kwargs.keys())
 
-    num_args_without_default_value = len(all_param_names) - len(all_default_values)
     num_user_args = len(user_args)
 
     # This checks if the user passed values for arguments with default values
