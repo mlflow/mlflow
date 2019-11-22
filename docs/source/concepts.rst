@@ -48,7 +48,7 @@ MLflow Components
 
 MLflow provides three components to help manage the ML workflow:
 
-**MLflow Tracking** is an API and UI for logging parameters, code versions, metrics, and output files
+**MLflow Tracking** is an API and UI for logging parameters, code versions, metrics, and artifacts
 when running your machine learning code and for later visualizing the results. You can use MLflow Tracking in
 any environment (for example, a standalone script or a notebook) to log results to local files or to a
 server, then compare multiple runs. Teams can also use it to compare results from different users.
@@ -70,6 +70,42 @@ supporting the "Python function" flavor can be deployed to a Docker-based REST s
 platforms such as Azure ML and AWS SageMaker, and as a user-defined function in Apache Spark for
 batch and streaming inference. If you output MLflow Models using the Tracking API, MLflow also
 automatically remembers which Project and run they came from.
+
+.. _artifact-locations:
+
+Referencing Artifacts
+---------------------
+
+When you specify the location of an artifact in MLflow APIs, the syntax depends on whether you are invoking the Tracking, Models, or Projects API. 
+For the Tracking API, you specify the artifact location using a (run ID, relative path) tuple. For the Models and Projects APIs, you specify the artifact location in the follow ways:
+
+- ``/Users/me/path/to/local/model``
+- ``relative/path/to/local/model``
+- ``<scheme>/<scheme-dependent-path>``. For example:
+
+  - ``s3://my_bucket/path/to/model``
+  - ``hdfs://<host>:<port>/<path>``
+  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+  - ``models:/<model_name>/<model_version>``
+  - ``models:/<model_name>/<stage>``
+
+For example:
+
+.. rubric:: Tracking API
+
+.. code-block:: py
+
+  mlflow.log_artifacts("<mlflow_run_id>", "/path/to/artifact")
+  
+.. rubric:: Models API
+
+.. code-block:: py
+
+  mlflow.pytorch.log_model("runs:/<mlflow_run_id>/run-relative/path/to/model", registered_model_name="mymodel")
+
+.. code-block:: py
+
+  mlflow.pytorch.load_model("models:/mymodel/1")
 
 ..
     TODO: example app and data

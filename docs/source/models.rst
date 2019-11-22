@@ -496,7 +496,7 @@ Not all deployment methods are available for all model flavors.
 Deploy MLflow models
 ^^^^^^^^^^^^^^^^^^^^
 MLflow can deploy models locally as local REST API endpoints or to directly score files. In addition,
-MLflow can package models as self contained Docker images with the REST API endpoint. The image can
+MLflow can package models as self-contained Docker images with the REST API endpoint. The image can
 be used to safely deploy the model to various environments such as Kubernetes.
 
 You deploy MLflow model locally or generate a Docker image using the CLI interface to the
@@ -567,7 +567,7 @@ accepts the following data formats as input:
 
 * :py:func:`build_image <mlflow.azureml.build_image>` registers an MLflow Model with an existing Azure ML workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
 
-  .. _Azure ML SDK: https://docs.microsoft.com/en-us/python/api/overview/azure/ml/intro?view=azure-ml-py
+.. _Azure ML SDK: https://docs.microsoft.com/python/api/overview/azure/ml/intro?view=azure-ml-py
 
 .. rubric:: Example workflow using the Python API
 
