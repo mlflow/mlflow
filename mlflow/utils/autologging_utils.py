@@ -17,7 +17,7 @@ def try_mlflow_log(fn, *args, **kwargs):
 def get_unspecified_default_args(user_args, user_kwargs, all_param_names, all_default_values):
     """
     Determine which default values are used in a call, given args and kwargs that are passed in.
-    
+
     :param user_args: list of arguments passed in by the user
     :param user_kwargs: dictionary of kwargs passed in by the user
     :param all_param_names: names of all of the parameters of the function
@@ -28,7 +28,7 @@ def get_unspecified_default_args(user_args, user_kwargs, all_param_names, all_de
 
     # all_default_values correspond to the last len(all_default_values) elements of the arguments
     default_param_names = all_param_names[-num_default_args:]
-    
+
     default_args = dict(zip(default_param_names, all_default_values))
 
     # The set of keyword arguments that should not be logged with default values
@@ -36,7 +36,7 @@ def get_unspecified_default_args(user_args, user_kwargs, all_param_names, all_de
 
     num_args_without_default_value = len(all_param_names) - len(all_default_values)
     num_user_args = len(user_args)
-    
+
     # This checks if the user passed values for arguments with default values
     if num_user_args > num_args_without_default_value:
         num_default_args_passed_as_positional = num_user_args - num_args_without_default_value
