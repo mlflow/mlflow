@@ -509,7 +509,7 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
                       containing file dependencies). These files are *prepended* to the system
                       path before the model is loaded.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. This decribes the environment this model should
+                      Conda environment yaml file. This decsribes the environment this model should
                       be run in. If ``python_model`` is not ``None``, the Conda environment must
                       at least specify the dependencies contained in
                       :func:`get_default_conda_env()`. If ``None``, the default
@@ -624,7 +624,7 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                       containing file dependencies). These files are *prepended* to the system
                       path before the model is loaded.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. This decribes the environment this model should
+                      Conda environment yaml file. This decsribes the environment this model should
                       be run in. If ``python_model`` is not ``None``, the Conda environment must
                       at least specify the dependencies contained in
                       :func:`get_default_conda_env()`. If `None`, the default
@@ -700,7 +700,7 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
                       containing file dependencies). These files are *prepended* to the system
                       path before the model is loaded.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
+                      Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in.
     :return: Model configuration containing model info.
     """
