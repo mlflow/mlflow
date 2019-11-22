@@ -116,7 +116,7 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
                       resolved entries as the ``artifacts`` property of the ``context``
                       attribute. If ``None``, no artifacts are added to the model.
     :param conda_env: Either a dictionary representation of a Conda environment or the
-                      path to a Conda environment yaml file. If provided, this decribes the
+                      path to a Conda environment yaml file. If provided, this decsribes the
                       environment this model should be run in. At minimum, it should specify
                       the dependencies
                       contained in :func:`get_default_conda_env()`. If ``None``, the default
