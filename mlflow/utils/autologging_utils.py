@@ -9,7 +9,6 @@ def try_mlflow_log(fn, *args, **kwargs):
     """
     try:
         fn(*args, **kwargs)
-        print("SUCCESSFUL LOG")
     except Exception as e:  # pylint: disable=broad-except
         warnings.warn("Logging to MLflow failed: " + str(e), stacklevel=2)
 
