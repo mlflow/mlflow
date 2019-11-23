@@ -88,7 +88,7 @@ def save_model(xgb_model, path, conda_env=None, mlflow_model=Model()):
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.xgb",
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.xgboost",
                         data=model_data_subpath, env=conda_env_subpath)
     mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
@@ -131,7 +131,9 @@ def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=No
 
 def _load_model(path):
     import xgboost as xgb
-    return xgb.Booster().load_model(os.path.abspath(path))
+    model = xgb.Booster()
+    model.load_model(os.path.abspath(path))
+    return model
 
 
 def _load_pyfunc(path):
