@@ -25,6 +25,7 @@ import os
 import yaml
 import logging
 import posixpath
+import re
 
 import mlflow
 from mlflow import pyfunc, mleap
@@ -53,10 +54,13 @@ def get_default_conda_env():
              :func:`save_model()` and :func:`log_model()`.
     """
     import pyspark
+    # Strip the suffix from `dev` versions of PySpark, which are not
+    # available for installation from Anaconda or PyPI
+    pyspark_version = re.sub(r"\.dev.*", "", pyspark.__version__)
 
     return _mlflow_conda_env(
         additional_conda_deps=[
-            "pyspark={}".format(pyspark.__version__),
+            "pyspark={}".format(pyspark_version),
         ],
         additional_pip_deps=None,
         additional_conda_channels=None)
