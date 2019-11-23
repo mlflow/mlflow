@@ -492,7 +492,7 @@ def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_ir
     with mock.patch("pyspark.__version__", new_callable=mock_version_standard):
         default_conda_env_standard = sparkm.get_default_conda_env()
 
-    for dev_version in ["2.4.0.dev0", "2.4.0.dev", "2.4.0.dev1", "2.4.0.dev.a", "2.4.0.devb"]:
+    for dev_version in ["2.4.0.dev0", "2.4.0.dev", "2.4.0.dev1", "2.4.0dev.a", "2.4.0.devb"]:
         mock_version_dev = mock.PropertyMock(return_value=dev_version)
         with mock.patch("pyspark.__version__", new_callable=mock_version_dev):
             default_conda_env_dev = sparkm.get_default_conda_env()
@@ -512,6 +512,11 @@ def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_ir
             with open(conda_env_path, "r") as f:
                 persisted_conda_env_dev = yaml.safe_load(f)
             assert(persisted_conda_env_dev == default_conda_env_standard)
+
+    for unaffected_version in ["2.0", "2.3.4", "2"]:
+        mock_version = mock.PropertyMock(return_value=unaffected_version)
+        with mock.patch("pyspark.__version__", new_callable=mock_version):
+            assert unaffected_version in yaml.safe_dump(sparkm.get_default_conda_env())
 
 
 @pytest.mark.large

@@ -56,7 +56,7 @@ def get_default_conda_env():
     import pyspark
     # Strip the suffix from `dev` versions of PySpark, which are not
     # available for installation from Anaconda or PyPI
-    pyspark_version = re.sub(r"\.dev.*", "", pyspark.__version__)
+    pyspark_version = re.sub(r"dev.*", "", pyspark.__version__).rstrip(".")
 
     return _mlflow_conda_env(
         additional_conda_deps=[
