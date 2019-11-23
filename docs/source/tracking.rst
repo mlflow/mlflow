@@ -240,6 +240,22 @@ If a run exists when ``autolog()`` captures data, MLflow will log to that run an
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
 
+Automatic Logging from Gluon (experimental)
+==================================================================
+Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
+log statements. See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
+
+Autologging captures the following information:
+
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                                     |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| Gluon            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Gluon model); on training end                                   |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+
+**Note**: this feature is experimental - the API and format of the logged data are subject to change.
+
+
 .. _organizing_runs_in_experiments:
 
 Organizing Runs in Experiments
@@ -326,39 +342,6 @@ You can access all of the functions in the Tracking UI programmatically. This ma
 * Determine the artifact URI for a run to feed some of its artifacts into a new run when executing a workflow. For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
 * Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLFlow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 * Run automated parameter search algorithms, where you query the metrics from various runs to submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
-
-.. _artifact-locations:
-
-Referencing Artifacts
----------------------
-
-When you specify the location of an artifact in MLflow APIs, the syntax depends on whether you
-are invoking the Tracking, Models, or Projects API. For the Tracking API, you specify the artifact location using a (run ID, relative path) tuple. For the Models and Projects APIs, you specify the artifact location in the follow ways:
-
-- ``/Users/me/path/to/local/model``
-- ``relative/path/to/local/model``
-- ``<scheme>/<scheme-dependent-path>``. For example:
-
-  - ``s3://my_bucket/path/to/model``
-  - ``hdfs://<host>:<port>/<path>``
-  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-
-For example:
-
-.. rubric:: Tracking API
-
-.. code-block:: py
-
-  mlflow.log_artifacts("<mlflow_run_id>", "/path/to/artifact")
-  
-.. rubric:: Models API
-
-.. code-block:: py
-
-  mlflow.pytorch.load_model("runs:/<mlflow_run_id>/run-relative/path/to/model")
-
-
-
 
 
 .. _tracking_server:
