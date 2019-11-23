@@ -237,7 +237,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.xgboost.log_model(xgb_model=xgb_model.model, artifact_path=artifact_path,
-                                conda_env=None)
+                                 conda_env=None)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id,
             artifact_path=artifact_path)
