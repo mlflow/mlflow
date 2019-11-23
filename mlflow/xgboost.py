@@ -19,6 +19,7 @@ from mlflow.models import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.exceptions import MlflowException
 
 FLAVOR_NAME = "xgboost"
 
@@ -32,6 +33,7 @@ def get_default_conda_env():
 
     return _mlflow_conda_env(
         additional_conda_deps=None,
+        # XGBoost is not yet available via the default conda channels, so we install it via pip
         additional_pip_deps=[
             "xgboost=={}".format(xgb.__version__),
         ],
@@ -69,7 +71,7 @@ def save_model(xgb_model, path, conda_env=None, mlflow_model=Model()):
 
     path = os.path.abspath(path)
     if os.path.exists(path):
-        raise Exception("Path '{}' already exists".format(path))
+        raise MlflowException("Path '{}' already exists".format(path))
     model_data_subpath = "model.xgb"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(path)
