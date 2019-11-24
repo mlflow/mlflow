@@ -122,7 +122,7 @@ def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=No
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param kwargs: kwargs to pass to ``xgb.save_model`` method.
+    :param kwargs: kwargs to pass to ``xgboost.save_model`` method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.xgboost,
               registered_model_name=registered_model_name,
