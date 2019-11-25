@@ -455,3 +455,84 @@ class _PyFuncModelWrapper(object):
         spark_df = self.spark.createDataFrame(pandas_df)
         return [x.prediction for x in
                 self.spark_model.transform(spark_df).select("prediction").collect()]
+
+
+
+import textwrap
+
+from mlflow.tracking.client import MlflowClient
+import mlflow
+
+JAVA_PACKAGE = "org.sid.hello1"
+SPARK_TABLE_INFO_TAG_NAME = "sparkTableInfo"
+
+class _SparkDataAutologgingSubscriber(object):
+    """
+    Listener, intended to be instantiated as a Singleton, that logs Spark table information propagated
+    from Java to the current MLflow run, starting a run if necessary
+    """
+    @staticmethod
+    def get_manager():
+        jvm = SparkContext.getOrCreate()._jvm
+        manager = getattr(jvm, "{}.{}".format(JAVA_PACKAGE, "SparkDataSourceEventPublisher"))
+        return manager
+
+    def __init__(self):
+        self.uuid = None
+
+    def toString(self):
+        # For debugging purposes, e.g. inspecting Manager.listeners
+        return "_SparkDataAutologgingSubscriber<uuid=%s>" % self.uuid
+
+    def ping(self):
+        return None
+
+    def _get_table_info_string(self, path, version, format):
+        if format == "delta":
+            return "path={path},version={version},format={format}".format(path=path, version=version, format=format)
+        return "path={path}".format(path=path)
+
+    def notify(self, path, version, format):
+        """This method is required by Scala Listener interface
+        we defined above.
+        """
+        # If there's an active run, simply set the tag on it
+        client = MlflowClient()
+        active_run = mlflow.active_run()
+        active_run_id = active_run.info.run_id if active_run is not None else os.environ.get("MLFLOW_RUN_ID")
+        table_info_string = self._get_table_info_string(path, version, format)
+        if active_run_id is not None:
+            existing_run = client.get_run(active_run_id)
+            existing_tag = existing_run.data.tags.get(SPARK_TABLE_INFO_TAG_NAME)
+            new_table_info = []
+            if existing_tag is not None:
+                # If we already logged the current table info, exit early
+                if table_info_string in existing_tag:
+                    return
+                new_table_info.append(existing_tag)
+            new_table_info.append(table_info_string)
+            # print("Setting tag %s on run Id %s" % active_run_id)
+            client.set_tag(active_run_id, SPARK_TABLE_INFO_TAG_NAME, "\n".join(new_table_info))
+        # Otherwise, create a run & log to it, setting the MLFLOW_RUN_ID env variable
+        else:
+            mlflow.start_run()
+            # TODO: make this legit via try_mlflow_log
+            try:
+                mlflow.set_tag(SPARK_TABLE_INFO_TAG_NAME, table_info_string)
+                active_run_id = mlflow.active_run().info.run_id
+            finally:
+                mlflow.end_run("RUNNING")
+            os.environ["MLFLOW_RUN_ID"] = active_run_id
+
+    def register(self):
+        manager = _SparkDataAutologgingSubscriber.get_manager()
+        self.uuid = manager.register(self)
+        return self.uuid
+
+    def unregister(self):
+        manager =  _SparkDataAutologgingSubscriber.get_manager()
+        manager.unregister(self.uuid)
+        self.uuid = None
+
+    class Java:
+        implements = ["{}.SparkDataSourceEventSubscriber".format(JAVA_PACKAGE)]
