@@ -108,7 +108,7 @@ def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_ru
                 yield data, labels
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
     else:
-        model.fit(data, labels, epochs=10)
+        model.fit(data, labels, epochs=10, steps_per_epoch=1)
 
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
@@ -117,9 +117,20 @@ def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_ru
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     data = tf_keras_random_data_run.data
-
     assert 'epoch_acc' in data.metrics
     assert 'epoch_loss' in data.metrics
+    # Testing explicitly passed parameters are logged correctly
+    assert 'epochs' in data.params
+    assert data.params['epochs'] == '10'
+    assert 'steps_per_epoch' in data.params
+    assert data.params['steps_per_epoch'] == '1'
+    # Testing default parameters are logged correctly
+    assert 'initial_epoch' in data.params
+    assert data.params['initial_epoch'] == '0'
+    # Testing unwanted parameters are not logged
+    assert 'callbacks' not in data.params
+    assert 'validation_data' not in data.params
+    # Testing optimizer parameters are logged
     assert 'optimizer_name' in data.params
     assert data.params['optimizer_name'] == 'AdamOptimizer'
     assert 'model_summary' in data.tags
