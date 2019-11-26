@@ -10,6 +10,7 @@ export MLFLOW_HOME=$(pwd)
 pytest --cov=mlflow --verbose --ignore=tests/h2o --ignore=tests/keras \
   --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
   --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog \
-  --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx tests
+  --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx \
+  --ignore=tests/xgboost tests
 
 test $err = 0
