@@ -173,4 +173,4 @@ class _LGBModelWrapper:
 
     def predict(self, dataframe):
         import lightgbm as lgb
-        return self.lgb_model.predict(lgb.Dataset(dataframe))
+        return self.lgb_model.predict(dataframe)
