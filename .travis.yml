@@ -1,9 +1,7 @@
-dist: trusty
-
-services:
-  - docker
-
 jobs:
+  dist: trusty
+  services:
+    - docker
   include:
     - stage: small
     - language: python
