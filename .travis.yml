@@ -5,11 +5,7 @@ dist: trusty
 services:
   - docker
 
-default: true
-
-matrix:
-  exclude:
-    - default: true
+jobs:
   include:
     - stage: small
     - language: python
