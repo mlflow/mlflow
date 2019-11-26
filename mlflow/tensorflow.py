@@ -38,7 +38,7 @@ from mlflow.utils import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.autologging_utils import try_mlflow_log
+from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 from mlflow.entities import Metric
 
 
@@ -741,6 +741,10 @@ def autolog(every_n_iter=100):
         with _manage_active_run():
             original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
 
+            unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data', 'verbose']
+
+            log_fn_args_as_params(original, args, kwargs, unlogged_params)
+
             # Checking if the 'callback' argument of fit() is set
             if len(args) >= 6:
                 tmp_list = list(args)
@@ -761,6 +765,10 @@ def autolog(every_n_iter=100):
     def fit_generator(self, *args, **kwargs):
         with _manage_active_run():
             original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit_generator')
+
+            unlogged_params = ['self', 'generator', 'callbacks', 'validation_data', 'verbose']
+
+            log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
             # Checking if the 'callback' argument of fit() is set
             if len(args) >= 5:
