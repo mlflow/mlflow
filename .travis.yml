@@ -9,6 +9,15 @@ matrix:
   include:
     - stage: small
     - language: python
+      name: "Small Python tests (Python 3.6)"
+      python: 3.6
+      install:
+        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+        - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
+        - sudo unzip /travis-install/protoc.zip -d /usr
+      script:
+        - ./travis/run-small-python-tests.sh && ./test-generate-protos.sh
+    - language: python
       name: "Lint (Python 3.6)"
       python: 3.6
       install:
@@ -61,11 +70,21 @@ matrix:
         - npm test -- --coverage
     - stage: large
     - language: python
+      name: "Large Python tests (Python 3.6)"
+      python: 3.6
+      install:
+        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-large-python-tests.sh
+        - ./travis/test-anaconda-compatibility.sh
+    - language: python
+      name: "Large Python tests (Python 2.7)"
       python: 2.7
       install:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
         - ./travis/run-large-python-tests.sh
+        - ./travis/test-anaconda-compatibility.sh
     # Run Windows tests in the "large" test builder so that we don't spend Travis executor
     # time running Windows tests if Python 3 small tests fail.
     - os: windows
@@ -83,6 +102,7 @@ matrix:
     # Run small Python 2.7 tests in the "large" test builder so that we don't spend Travis executor
     # time running Python 2.7 tests if Python 3 small tests fail.
     - language: python
+      name: "Small Python tests (Python 2.7)"
       python: 2.7
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
@@ -97,30 +117,6 @@ matrix:
       script:
         - cd docs
         - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
-
-# Travis runs an extra top-level job for each build stage - depending on the build stage, we either
-# run small or large Python tests below.
-install:
-  - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
-  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
-       echo "skipping this step on windows.";
-    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh &&
-      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
-      sudo unzip /travis-install/protoc.zip -d /usr;
-    else
-      INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
-    fi
-
-script:
-  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
-       echo "skipping this step on windows.";
-    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
-    else
-      ./travis/run-large-python-tests.sh;
-      ./travis/test-anaconda-compatibility.sh;
-    fi
 
 notifications:
   # Send Slack notifications on build being broken or fixed, and email (Pagerduty) notifications
