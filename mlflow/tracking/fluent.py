@@ -174,8 +174,8 @@ def active_run():
     """Get the currently active ``Run``, or None if no such run exists.
 
     ***Note***: You cannot access currently-active run attributes
-    (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order to access
-    such attributes, use the :py:class:`mlflow.tracking.MlflowClient` as follows:
+    (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
+    to access such attributes, use the :py:class:`mlflow.tracking.MlflowClient` as follows:
 
     .. code-block:: py
 
