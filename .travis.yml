@@ -1,7 +1,4 @@
-jobs:
-  dist: trusty
-  services:
-    - docker
+matrix:
   include:
     - stage: small
     - language: python
