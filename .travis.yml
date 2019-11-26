@@ -15,7 +15,7 @@ matrix:
       python: 3.6
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-        - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
+        - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
         - sudo unzip /travis-install/protoc.zip -d /usr
       script:
         - ./travis/run-small-python-tests.sh && ./test-generate-protos.sh
