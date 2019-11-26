@@ -12,7 +12,7 @@ from mlflow.utils.process import exec_cmd
 # the cli and the forked gunicorn processes.
 BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
 ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
-PROMETHEUS_EXPORTER_ENV_VAR = "_MLFLOW_ACTIVATE_PROMETHEUS_EXPORTER"
+PROMETHEUS_EXPORTER_ENV_VAR = "_MLFLOW_EXPOSE_PROMETHEUS_METRICS"
 
 REL_STATIC_DIR = "js/build"
 
@@ -65,7 +65,7 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers):
 
 
 def _run_server(file_store_path, default_artifact_root, host, port, static_prefix=None,
-                workers=None, gunicorn_opts=None, waitress_opts=None, activate_prometheus=False):
+                workers=None, gunicorn_opts=None, waitress_opts=None, expose_prometheus=False):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
     :param static_prefix: If set, the index.html asset will be served from the path static_prefix.
@@ -80,7 +80,7 @@ def _run_server(file_store_path, default_artifact_root, host, port, static_prefi
     if static_prefix:
         env_map[STATIC_PREFIX_ENV_VAR] = static_prefix
 
-    if activate_prometheus:
+    if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = '1'
 
     # TODO: eventually may want waitress on non-win32
