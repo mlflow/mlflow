@@ -374,15 +374,26 @@ in the Databricks docs
 `Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview
 of how to use the feature is as follows:
 
-Create a JSON file containing the 
-`cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
-for your run. Then, run your project using the command
+1. Create a JSON file containing the
+`new cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
+for your run. For example:
 
-.. code-block:: bash
+  .. code-block:: json
 
-  mlflow run <project_uri> -b databricks --backend-config <json-cluster-spec>
+    {
+      "spark_version": "5.5.x-scala2.11",
+      "node_type_id": "i3.xlarge",
+      "aws_attributes": {"availability": "ON_DEMAND"},
+      "num_workers": 4
+    }
 
-where ``<project_uri>`` is a Git repository URI or a folder.
+2. Run your project using the following command:
+
+  .. code-block:: bash
+
+    mlflow run <project_uri> -b databricks --backend-config <json-new-cluster-spec>
+
+  where ``<project_uri>`` is a Git repository URI or a folder.
 
 .. important::
 
