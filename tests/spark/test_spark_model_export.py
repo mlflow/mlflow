@@ -487,6 +487,39 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 
 
 @pytest.mark.large
+def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_iris, model_path):
+    mock_version_standard = mock.PropertyMock(return_value="2.4.0")
+    with mock.patch("pyspark.__version__", new_callable=mock_version_standard):
+        default_conda_env_standard = sparkm.get_default_conda_env()
+
+    for dev_version in ["2.4.0.dev0", "2.4.0.dev", "2.4.0.dev1", "2.4.0dev.a", "2.4.0.devb"]:
+        mock_version_dev = mock.PropertyMock(return_value=dev_version)
+        with mock.patch("pyspark.__version__", new_callable=mock_version_dev):
+            default_conda_env_dev = sparkm.get_default_conda_env()
+            assert(default_conda_env_dev == default_conda_env_standard)
+
+            with mlflow.start_run():
+                sparkm.log_model(
+                    spark_model=spark_model_iris.model, artifact_path="model", conda_env=None)
+                model_uri = "runs:/{run_id}/{artifact_path}".format(
+                    run_id=mlflow.active_run().info.run_id,
+                    artifact_path="model")
+
+            model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+            pyfunc_conf = _get_flavor_configuration(
+                model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+            conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+            with open(conda_env_path, "r") as f:
+                persisted_conda_env_dev = yaml.safe_load(f)
+            assert(persisted_conda_env_dev == default_conda_env_standard)
+
+    for unaffected_version in ["2.0", "2.3.4", "2"]:
+        mock_version = mock.PropertyMock(return_value=unaffected_version)
+        with mock.patch("pyspark.__version__", new_callable=mock_version):
+            assert unaffected_version in yaml.safe_dump(sparkm.get_default_conda_env())
+
+
+@pytest.mark.large
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")

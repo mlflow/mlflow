@@ -25,6 +25,7 @@ import os
 import yaml
 import logging
 import posixpath
+import re
 
 import mlflow
 from mlflow import pyfunc, mleap
@@ -50,13 +51,21 @@ _logger = logging.getLogger(__name__)
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+             :func:`save_model()` and :func:`log_model()`. This Conda environment
+             contains the current version of PySpark that is installed on the caller's
+             system. ``dev`` versions of PySpark are replaced with stable versions in
+             the resulting Conda environment (e.g., if you are running PySpark version
+             ``2.4.5.dev0``, invoking this method produces a Conda environment with a
+             dependency on PySpark version ``2.4.5``).
     """
     import pyspark
+    # Strip the suffix from `dev` versions of PySpark, which are not
+    # available for installation from Anaconda or PyPI
+    pyspark_version = re.sub(r"(\.?)dev.*", "", pyspark.__version__)
 
     return _mlflow_conda_env(
         additional_conda_deps=[
-            "pyspark={}".format(pyspark.__version__),
+            "pyspark={}".format(pyspark_version),
         ],
         additional_pip_deps=None,
         additional_conda_channels=None)
