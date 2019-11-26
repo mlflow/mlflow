@@ -6,25 +6,27 @@ import tempfile
 import textwrap
 import time
 import logging
+import posixpath
 
 from six.moves import shlex_quote
 
+from mlflow import tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
-from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
+from mlflow.utils.uri import get_db_profile_from_uri, is_databricks_uri, is_http_uri
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
 DB_CONTAINER_BASE = "/databricks/mlflow"
 # Base directory within driver container for storing project archives
-DB_TARFILE_BASE = os.path.join(DB_CONTAINER_BASE, "project-tars")
+DB_TARFILE_BASE = posixpath.join(DB_CONTAINER_BASE, "project-tars")
 # Base directory directory within driver container for storing extracted project directories
-DB_PROJECTS_BASE = os.path.join(DB_CONTAINER_BASE, "projects")
+DB_PROJECTS_BASE = posixpath.join(DB_CONTAINER_BASE, "projects")
 # Name to use for project directory when archiving it for upload to DBFS; the TAR will contain
 # a single directory with this name
 DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
@@ -35,12 +37,13 @@ DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 _logger = logging.getLogger(__name__)
 
 
-def before_run_validations(tracking_uri, cluster_spec):
+def before_run_validations(tracking_uri, backend_config):
     """Validations to perform before running a project on Databricks."""
-    if cluster_spec is None:
-        raise ExecutionException("Cluster spec must be provided when launching MLflow project "
+    if backend_config is None:
+        raise ExecutionException("Backend spec must be provided when launching MLflow project "
                                  "runs on Databricks.")
-    if tracking.utils._is_local_uri(tracking_uri):
+    if not is_databricks_uri(tracking_uri) and \
+            not is_http_uri(tracking_uri):
         raise ExecutionException(
             "When running on Databricks, the MLflow tracking URI must be of the form "
             "'databricks' or 'databricks://profile', or a remote HTTP URI accessible to both the "
@@ -76,7 +79,13 @@ class DatabricksJobRunner(object):
         _logger.info("=== Uploading project to DBFS path %s ===", dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
         with open(src_path, 'rb') as f:
-            self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
+            try:
+                self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
+            except MlflowException as e:
+                if "Error 409" in e.message and "File already exists" in e.message:
+                    _logger.info("=== Did not overwrite existing DBFS path %s ===", dbfs_fuse_uri)
+                else:
+                    raise e
 
     def _dbfs_path_exists(self, dbfs_path):
         """
@@ -112,7 +121,7 @@ class DatabricksJobRunner(object):
                             a directory containing an MLproject file).
         """
         temp_tarfile_dir = tempfile.mkdtemp()
-        temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
+        temp_tar_filename = os.path.join(temp_tarfile_dir, "project.tar.gz")
 
         def custom_filter(x):
             return None if os.path.basename(x.name) == "mlruns" else x
@@ -123,9 +132,9 @@ class DatabricksJobRunner(object):
             with open(temp_tar_filename, "rb") as tarred_project:
                 tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
             # TODO: Get subdirectory for experiment from the tracking server
-            dbfs_path = os.path.join(DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
-                                     "projects-code", "%s.tar.gz" % tarfile_hash)
-            dbfs_fuse_uri = os.path.join("/dbfs", dbfs_path)
+            dbfs_path = posixpath.join(DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
+                                       "projects-code", "%s.tar.gz" % tarfile_hash)
+            dbfs_fuse_uri = posixpath.join("/dbfs", dbfs_path)
             if not self._dbfs_path_exists(dbfs_path):
                 self._upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
                 _logger.info("=== Finished uploading project to %s ===", dbfs_fuse_uri)
@@ -225,10 +234,10 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     Generate MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks.
     """
     # Strip ".gz" and ".tar" file extensions from base filename of the tarfile
-    tar_hash = os.path.splitext(os.path.splitext(os.path.basename(dbfs_fuse_tar_uri))[0])[0]
-    container_tar_path = os.path.abspath(os.path.join(DB_TARFILE_BASE,
-                                                      os.path.basename(dbfs_fuse_tar_uri)))
-    project_dir = os.path.join(DB_PROJECTS_BASE, tar_hash)
+    tar_hash = posixpath.splitext(posixpath.splitext(posixpath.basename(dbfs_fuse_tar_uri))[0])[0]
+    container_tar_path = posixpath.abspath(posixpath.join(DB_TARFILE_BASE,
+                                           posixpath.basename(dbfs_fuse_tar_uri)))
+    project_dir = posixpath.join(DB_PROJECTS_BASE, tar_hash)
     mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
                                             "--entry-point", entry_point]))
     if run_id:
@@ -263,8 +272,8 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
-    profile = tracking.utils.get_db_profile_from_uri(tracking.get_tracking_uri())
-    run_id = remote_run.info.run_uuid
+    profile = get_db_profile_from_uri(tracking.get_tracking_uri())
+    run_id = remote_run.info.run_id
     db_job_runner = DatabricksJobRunner(databricks_profile=profile)
     db_run_id = db_job_runner.run_databricks(
         uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id)

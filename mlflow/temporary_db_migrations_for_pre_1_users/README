@@ -1,0 +1,4 @@
+This directory contains configuration scripts and database migration logic for upgrading
+MLflow tracking databases created before MLflow 1.0 to an MLflow-1.0-compatible schema.
+To run database migrations, use the `mlflow db upgrade` CLI command. Note that this directory will
+be removed in MLflow 1.1.

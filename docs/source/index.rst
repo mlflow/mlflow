@@ -26,14 +26,10 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     tracking
     projects
     models
+    model-registry
     cli
     search-syntax
     python_api/index
     R-api
     java_api/index
     rest-api
-
-.. warning::
-
-    The current version of MLflow is a beta release. This means that APIs and storage formats
-    are subject to breaking change.

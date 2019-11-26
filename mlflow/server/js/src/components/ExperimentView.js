@@ -1,33 +1,38 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
-import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../reducers/Reducers';
+import {
+  getExperiment,
+  getParams,
+  getRunInfo,
+  getRunTags,
+  getExperimentTags } from '../reducers/Reducers';
+import { setExperimentTagApi, getUUID } from '../Actions';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
-import { Button, ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
+import { Button, DropdownButton, MenuItem } from 'react-bootstrap';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
-
-import ExperimentRunsTableMultiColumnView from "./ExperimentRunsTableMultiColumnView";
 import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
-
+import { NoteInfo, NOTE_CONTENT_TAG } from "../utils/NoteUtils";
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
-import { Icon, Popover } from 'antd';
+import { Icon, Popover, Descriptions } from 'antd';
+import { CollapsibleSection } from '../common/components/CollapsibleSection';
+import { EditableNote } from '../common/components/EditableNote';
+
 
 import Utils from '../utils/Utils';
-import {Spinner} from "./Spinner";
+import { Spinner } from "./Spinner";
 
 export const DEFAULT_EXPANDED_VALUE = false;
-
 
 export class ExperimentView extends Component {
   constructor(props) {
@@ -44,7 +49,7 @@ export class ExperimentView extends Component {
     this.isAllChecked = this.isAllChecked.bind(this);
     this.onCheckbox = this.onCheckbox.bind(this);
     this.onCheckAll = this.onCheckAll.bind(this);
-    this.setSortBy = this.setSortBy.bind(this);
+    this.initiateSearch = this.initiateSearch.bind(this);
     this.onDeleteRun = this.onDeleteRun.bind(this);
     this.onRestoreRun = this.onRestoreRun.bind(this);
     this.onLifecycleFilterInput = this.onLifecycleFilterInput.bind(this);
@@ -53,11 +58,16 @@ export class ExperimentView extends Component {
     this.onExpand = this.onExpand.bind(this);
     this.addBagged = this.addBagged.bind(this);
     this.removeBagged = this.removeBagged.bind(this);
+    this.renderNoteSection = this.renderNoteSection.bind(this);
+    this.handleSubmitEditNote = this.handleSubmitEditNote.bind(this);
+    this.handleCancelEditNote = this.handleCancelEditNote.bind(this);
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
     this.state = {
       ...ExperimentView.getDefaultUnpersistedState(),
       persistedState: persistedState.toJSON(),
+      showNotesEditor: false,
+      showNotes: true,
     };
   }
 
@@ -78,6 +88,8 @@ export class ExperimentView extends Component {
     metricsList: PropTypes.arrayOf(Array).isRequired,
     // List of tags dictionary in all the visible runs.
     tagsList: PropTypes.arrayOf(Object).isRequired,
+    // Object of experiment tags
+    experimentTags: PropTypes.instanceOf(Object).isRequired,
 
     // Input to the paramKeyFilter field
     paramKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
@@ -87,10 +99,18 @@ export class ExperimentView extends Component {
     // Input to the lifecycleFilter field
     lifecycleFilter: PropTypes.string.isRequired,
 
+    orderByKey: PropTypes.string,
+    orderByAsc: PropTypes.bool.isRequired,
+
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
     searchRunsError: PropTypes.string,
     isLoading: PropTypes.bool.isRequired,
+
+    nextPageToken: PropTypes.string,
+    handleLoadMoreRuns: PropTypes.func.isRequired,
+    loadingMore: PropTypes.bool.isRequired,
+    setExperimentTagApi: PropTypes.func.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -185,15 +205,6 @@ export class ExperimentView extends Component {
     };
   }
 
-  setShowMultiColumns(value) {
-    this.setState({
-      persistedState: new ExperimentViewPersistedState({
-        ...this.state.persistedState,
-        showMultiColumns: value,
-      }).toJSON(),
-    });
-  }
-
   onDeleteRun() {
     this.setState({ showDeleteRunModal: true });
   }
@@ -246,17 +257,58 @@ export class ExperimentView extends Component {
       {
         persistedState: new ExperimentViewPersistedState({
           ...this.state.persistedState,
-          [stateKey]: unbagged.concat([colName])
-        }).toJSON()
+          [stateKey]: unbagged.concat([colName]),
+        }).toJSON(),
       });
+  }
+
+  handleSubmitEditNote(note) {
+    const { experiment_id } = this.props.experiment;
+    this.props
+      .setExperimentTagApi(experiment_id, NOTE_CONTENT_TAG, note, getUUID())
+      .then(() => this.setState({ showNotesEditor: false }));
+  }
+
+  handleCancelEditNote() {
+    this.setState({showNotesEditor: false});
+  }
+
+  startEditingDescription = (e) => {
+    e.stopPropagation();
+    this.setState({ showNotesEditor: true });
+  };
+
+  renderNoteSection(noteInfo) {
+    const { showNotesEditor } = this.state;
+
+    const editIcon = <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
+
+    return (
+      <CollapsibleSection
+        title={<span>Notes {showNotesEditor ? null : editIcon}</span>}
+        forceOpen={showNotesEditor}
+      >
+        <EditableNote
+          defaultMarkdown={noteInfo && noteInfo.content}
+          onSubmit={this.handleSubmitEditNote}
+          onCancel={this.handleCancelEditNote}
+          showEditor={showNotesEditor}
+        />
+      </CollapsibleSection>
+    );
   }
 
   render() {
     const { experiment_id, name, artifact_location } = this.props.experiment;
+    const { experimentTags } = this.props;
     const {
       runInfos,
       paramKeyFilter,
       metricKeyFilter,
+      isLoading,
+      loadingMore,
+      nextPageToken,
+      handleLoadMoreRuns,
     } = this.props;
 
     // Apply our parameter and metric key filters to just pass the filtered, sorted lists
@@ -269,6 +321,7 @@ export class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
+    const noteInfo = NoteInfo.fromTags(experimentTags);
     const searchInputHelpTooltipContent = (
       <div className="search-input-tooltip-content">
         Search runs using a simplified version of the SQL <b>WHERE</b> clause.<br/>
@@ -294,15 +347,12 @@ export class ExperimentView extends Component {
           selectedRunIds={Object.keys(this.state.runsSelected)}
         />
         <h1>{name}</h1>
-        <div className="metadata">
-          <span className="metadata">
-            <span className="metadata-header">Experiment ID:</span>
-            {experiment_id}
-          </span>
-          <span className="metadata">
-            <span className="metadata-header">Artifact Location:</span>
-            {artifact_location}
-          </span>
+        <Descriptions className='metadata-list'>
+          <Descriptions.Item label='Experiment ID'>{experiment_id}</Descriptions.Item>
+          <Descriptions.Item label='Artifact Location'>{artifact_location}</Descriptions.Item>
+        </Descriptions>
+        <div className="ExperimentView-info">
+          {this.renderNoteSection(noteInfo)}
         </div>
         <div className="ExperimentView-runs runs-table-flex-container">
           {this.props.searchRunsError ?
@@ -328,7 +378,8 @@ export class ExperimentView extends Component {
                     <input
                       className="ExperimentView-searchInput"
                       type="text"
-                      placeholder={'metrics.rmse < 1 and params.model = "tree"'}
+                      placeholder={'metrics.rmse < 1 and params.model = "tree" and ' +
+                                   'tags.mlflow.source.type = "LOCAL"'}
                       value={this.state.searchInput}
                       onChange={this.onSearchInput}
                     />
@@ -385,8 +436,8 @@ export class ExperimentView extends Component {
                   </div>
                 </div>
                 <div className="ExperimentView-metricKeyFilter">
-                  <label className="filter-label">Filter Metrics:</label>
-                  <div className="filter-wrapper">
+                  <label className="filter-label metrics-filter-label">Filter Metrics:</label>
+                  <div className="filter-wrapper metrics-filter-wrapper">
                     <input type="text"
                            placeholder="rmse, r2"
                            value={this.state.metricKeyFilterInput}
@@ -399,7 +450,7 @@ export class ExperimentView extends Component {
           </form>
           <div className="ExperimentView-run-buttons">
             <span className="run-count">
-              {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
+              Showing {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
             </span>
             <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
               Compare
@@ -419,66 +470,34 @@ export class ExperimentView extends Component {
             <Button onClick={this.onDownloadCsv}>
               Download CSV <i className="fas fa-download"/>
             </Button>
-            <span style={{cursor: "pointer"}}>
-                <ButtonGroup style={styles.tableToggleButtonGroup}>
-                <Button
-                  onClick={() => this.setShowMultiColumns(false)}
-                  title="Compact view"
-                  className={classNames({ "active": !this.state.persistedState.showMultiColumns })}
-                >
-                  <i className={"fas fa-list"}/>
-                </Button>
-                <Button
-                  onClick={() => this.setShowMultiColumns(true)}
-                  title="Grid view"
-                  className={classNames({ "active": this.state.persistedState.showMultiColumns })}
-                >
-                  <i className={"fas fa-table"}/>
-                </Button>
-                </ButtonGroup>
-            </span>
           </div>
-          {this.props.isLoading ?
-            <Spinner showImmediately/> :
-            (this.state.persistedState.showMultiColumns ?
-                <ExperimentRunsTableMultiColumnView
-                  onCheckbox={this.onCheckbox}
-                  runInfos={this.props.runInfos}
-                  paramsList={this.props.paramsList}
-                  metricsList={this.props.metricsList}
-                  tagsList={this.props.tagsList}
-                  paramKeyList={paramKeyList}
-                  metricKeyList={metricKeyList}
-                  onCheckAll={this.onCheckAll}
-                  isAllChecked={this.isAllChecked()}
-                  onSortBy={this.onSortBy}
-                  sortState={this.state.persistedState.sort}
-                  runsSelected={this.state.runsSelected}
-                  runsExpanded={this.state.persistedState.runsExpanded}
-                  onExpand={this.onExpand}
-                /> :
-                <ExperimentRunsTableCompactView
-                  onCheckbox={this.onCheckbox}
-                  runInfos={this.props.runInfos}
-                  // Bagged param and metric keys
-                  paramKeyList={paramKeyList}
-                  metricKeyList={metricKeyList}
-                  paramsList={this.props.paramsList}
-                  metricsList={this.props.metricsList}
-                  tagsList={this.props.tagsList}
-                  onCheckAll={this.onCheckAll}
-                  isAllChecked={this.isAllChecked()}
-                  onSortBy={this.onSortBy}
-                  sortState={this.state.persistedState.sort}
-                  runsSelected={this.state.runsSelected}
-                  setSortByHandler={this.setSortBy}
-                  runsExpanded={this.state.persistedState.runsExpanded}
-                  onExpand={this.onExpand}
-                  unbaggedMetrics={unbaggedMetricKeyList}
-                  unbaggedParams={unbaggedParamKeyList}
-                  onAddBagged={this.addBagged}
-                  onRemoveBagged={this.removeBagged}
-                />
+          {isLoading ?
+            <Spinner showImmediately/> : (
+              <ExperimentRunsTableCompactView
+                onCheckbox={this.onCheckbox}
+                runInfos={this.props.runInfos}
+                // Bagged param and metric keys
+                paramKeyList={paramKeyList}
+                metricKeyList={metricKeyList}
+                paramsList={this.props.paramsList}
+                metricsList={this.props.metricsList}
+                tagsList={this.props.tagsList}
+                onCheckAll={this.onCheckAll}
+                isAllChecked={this.isAllChecked()}
+                onSortBy={this.onSortBy}
+                orderByKey={this.props.orderByKey}
+                orderByAsc={this.props.orderByAsc}
+                runsSelected={this.state.runsSelected}
+                runsExpanded={this.state.persistedState.runsExpanded}
+                onExpand={this.onExpand}
+                unbaggedMetrics={unbaggedMetricKeyList}
+                unbaggedParams={unbaggedParamKeyList}
+                onAddBagged={this.addBagged}
+                onRemoveBagged={this.removeBagged}
+                nextPageToken={nextPageToken}
+                handleLoadMoreRuns={handleLoadMoreRuns}
+                loadingMore={loadingMore}
+              />
             )
           }
         </div>
@@ -486,25 +505,38 @@ export class ExperimentView extends Component {
     );
   }
 
-  onSortBy(isMetric, isParam, key) {
-    const sort = this.state.persistedState.sort;
-    this.setSortBy(isMetric, isParam, key, !sort.ascending);
+  onSortBy(orderByKey, orderByAsc) {
+    this.initiateSearch({orderByKey, orderByAsc});
   }
 
-  setSortBy(isMetric, isParam, key, ascending) {
-    const newSortState = {
-      ascending: ascending,
-      key: key,
-      isMetric: isMetric,
-      isParam: isParam
-    };
-    this.setState(
-      {
-        persistedState: new ExperimentViewPersistedState({
-          ...this.state.persistedState,
-          sort: newSortState,
-        }).toJSON(),
-      });
+  initiateSearch({
+      paramKeyFilterInput,
+      metricKeyFilterInput,
+      searchInput,
+      lifecycleFilterInput,
+      orderByKey,
+      orderByAsc,
+    }) {
+    const myParamKeyFilterInput = (paramKeyFilterInput !== undefined ?
+      paramKeyFilterInput : this.state.paramKeyFilterInput);
+    const myMetricKeyFilterInput = (metricKeyFilterInput !== undefined ?
+      metricKeyFilterInput : this.state.metricKeyFilterInput);
+    const mySearchInput = (searchInput !== undefined ? searchInput : this.state.searchInput);
+    const myLifecycleFilterInput = (lifecycleFilterInput !== undefined ?
+      lifecycleFilterInput : this.state.lifecycleFilterInput);
+    const myOrderByKey = (orderByKey !== undefined ? orderByKey : this.props.orderByKey);
+    const myOrderByAsc = (orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc);
+
+    try {
+      this.props.onSearch(myParamKeyFilterInput, myMetricKeyFilterInput, mySearchInput,
+        myLifecycleFilterInput, myOrderByKey, myOrderByAsc);
+    } catch (ex) {
+      if (ex.errorMessage !== undefined) {
+        this.setState({ searchErrorMessage: ex.errorMessage });
+      } else {
+        throw ex;
+      }
+    }
   }
 
   onCheckbox(runUuid) {
@@ -517,7 +549,7 @@ export class ExperimentView extends Component {
         runsSelected: {
           ...this.state.runsSelected,
           [runUuid]: true,
-        }
+        },
       });
     }
   }
@@ -594,25 +626,20 @@ export class ExperimentView extends Component {
       paramKeyFilterInput,
       metricKeyFilterInput,
       searchInput,
-      lifecycleFilterInput
+      lifecycleFilterInput,
     } = this.state;
-    try {
-      this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput,
-        lifecycleFilterInput);
-    } catch (ex) {
-      this.setState({ searchErrorMessage: ex.errorMessage });
-    }
+    this.initiateSearch({paramKeyFilterInput, metricKeyFilterInput, searchInput,
+      lifecycleFilterInput});
   }
 
   onClear() {
-    // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
-    // attributes to their default values.
-    const newPersistedState = new ExperimentViewPersistedState({
-      showMultiColumns: this.state.persistedState.showMultiColumns,
-    });
+    // When user clicks "Clear", reset persisted state attributes to their default values.
+    const newPersistedState = new ExperimentViewPersistedState();
     this.setState({persistedState: newPersistedState.toJSON()}, () => {
       this.snapshotComponentState();
-      this.props.onSearch("", "", "", LIFECYCLE_FILTER.ACTIVE);
+      this.initiateSearch({paramKeyFilterInput: "", metricKeyFilterInput: "",
+        searchInput: "", lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
+        orderByKey: null, orderByAsc: true});
     });
   }
 
@@ -708,9 +735,9 @@ export class ExperimentView extends Component {
       const row = [
         runInfo.run_uuid,
         Utils.getRunName(tagsList[index]), // add run name to csv export row
-        runInfo.source_type,
-        runInfo.source_name,
-        runInfo.user_id,
+        Utils.getSourceType(tagsList[index]),
+        Utils.getSourceName(tagsList[index]),
+        Utils.getUser(runInfo, tagsList[index]),
         runInfo.status,
       ];
 
@@ -739,29 +766,28 @@ export class ExperimentView extends Component {
 }
 
 export const mapStateToProps = (state, ownProps) => {
-  const { lifecycleFilter, searchRunsRequestId } = ownProps;
-  const searchRunApi = getApis([searchRunsRequestId], state)[0];
+  const { lifecycleFilter } = ownProps;
+
   // The runUuids we should serve.
-  let runUuids;
-  if (searchRunApi.data && searchRunApi.data.runs) {
-    runUuids = new Set(searchRunApi.data.runs.map((r) => r.info.run_uuid));
-  } else {
-    runUuids = new Set();
-  }
-  const runInfos = getRunInfos(state).filter((rInfo) =>
-    runUuids.has(rInfo.getRunUuid())
-  ).filter((rInfo) => {
-    if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
-      return rInfo.lifecycle_stage === 'active';
-    } else {
-      return rInfo.lifecycle_stage === 'deleted';
-    }
-  });
+  const { runInfosByUuid } = state.entities;
+  const runUuids = Object.values(runInfosByUuid)
+    .filter((r) => r.experiment_id === ownProps.experimentId.toString())
+    .map((r) => r.run_uuid);
+
+  const runInfos = runUuids.map((run_id) => getRunInfo(run_id, state))
+    .filter((rInfo) => {
+      if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
+        return rInfo.lifecycle_stage === 'active';
+      } else {
+        return rInfo.lifecycle_stage === 'deleted';
+      }
+    });
   const experiment = getExperiment(ownProps.experimentId, state);
   const metricKeysSet = new Set();
   const paramKeysSet = new Set();
   const metricsList = runInfos.map((runInfo) => {
-    const metrics = Object.values(getLatestMetrics(runInfo.getRunUuid(), state));
+    const metricsByRunUuid = getLatestMetrics(runInfo.getRunUuid(), state);
+    const metrics = Object.values(metricsByRunUuid || {});
     metrics.forEach((metric) => {
       metricKeysSet.add(metric.key);
     });
@@ -776,6 +802,7 @@ export const mapStateToProps = (state, ownProps) => {
   });
 
   const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
+  const experimentTags = getExperimentTags(experiment.experiment_id, state);
   return {
     runInfos,
     experiment,
@@ -784,19 +811,21 @@ export const mapStateToProps = (state, ownProps) => {
     metricsList,
     paramsList,
     tagsList,
+    experimentTags,
   };
+};
+
+const mapDispatchToProps = {
+  setExperimentTagApi,
 };
 
 const styles = {
   lifecycleButtonLabel: {
-    width: '32px'
+    width: '32px',
   },
   lifecycleButtonFilterWrapper: {
     marginLeft: '48px',
   },
-  tableToggleButtonGroup: {
-    marginLeft: '16px',
-  },
 };
 
-export default withRouter(connect(mapStateToProps)(ExperimentView));
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(ExperimentView));

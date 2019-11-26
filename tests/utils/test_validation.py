@@ -4,9 +4,11 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
-from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
-                                    _validate_tag_name, _validate_run_id, \
-                                    _validate_batch_log_data, _validate_batch_log_limits
+from mlflow.utils.validation import (
+    _validate_metric_name, _validate_param_name, _validate_tag_name, _validate_run_id,
+    _validate_batch_log_data, _validate_batch_log_limits, _validate_experiment_artifact_location,
+    _validate_db_type_string, _validate_experiment_name
+)
 
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a", "Ab-5_", "a/b/c", "a.b.c", ".a", "b.", "a..a/._./o_O/.e.", "a b/c d",
@@ -112,3 +114,31 @@ def test_validate_batch_log_data():
     _validate_batch_log_data(
         metrics=[Metric("metric-key", 1.0, 0, 0)], params=[Param("param-key", "param-val")],
         tags=[RunTag("tag-key", "tag-val")])
+
+
+def test_validate_experiment_artifact_location():
+    _validate_experiment_artifact_location('abcde')
+    _validate_experiment_artifact_location(None)
+    with pytest.raises(MlflowException):
+        _validate_experiment_artifact_location('runs:/blah/bleh/blergh')
+
+
+def test_validate_experiment_name():
+    _validate_experiment_name("validstring")
+    bytestring = b'test byte string'
+    _validate_experiment_name(bytestring.decode("utf-8"))
+    for invalid_name in ["", 12, 12.7, None, {}, []]:
+        with pytest.raises(MlflowException):
+            _validate_experiment_name(invalid_name)
+
+
+def test_db_type():
+    for db_type in ["mysql", "mssql", "postgresql", "sqlite"]:
+        # should not raise an exception
+        _validate_db_type_string(db_type)
+
+    # error cases
+    for db_type in ["MySQL", "mongo", "cassandra", "sql", ""]:
+        with pytest.raises(MlflowException) as e:
+            _validate_db_type_string(db_type)
+        assert "Invalid database engine" in e.value.message

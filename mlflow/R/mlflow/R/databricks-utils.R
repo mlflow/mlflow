@@ -28,6 +28,9 @@ databricks_config_as_env <- function(config) {
   if (config$config_source != "cfgfile") { # pass the auth info via environment vars
     res <- config[!is.na(config)]
     res$config_source <- NULL
+    if (!as.logical(res$insecure)) {
+      res$insecure <- NULL
+    }
     names(res) <- lapply(names(res), function (x) config_variable_map[[x]])
     res
   } else if (!is.na(Sys.getenv(DATABRICKS_CONFIG_FILE, NA))) {
@@ -95,8 +98,7 @@ get_databricks_config <- function(profile) {
   config
 }
 
-mlflow_get_run_context.mlflow_databricks_client <- function(client, source_name, source_version,
-                                                            source_type, experiment_id, ...) {
+mlflow_get_run_context.mlflow_databricks_client <- function(client, experiment_id, ...) {
   if (exists(".databricks_internals")) {
     notebook_info <- do.call(".get_notebook_info", list(), envir = get(".databricks_internals",
                                                                        envir = .GlobalEnv))
@@ -105,11 +107,11 @@ mlflow_get_run_context.mlflow_databricks_client <- function(client, source_name,
       tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_ID]] <- notebook_info$id
       tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_PATH]] <- notebook_info$path
       tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_WEBAPP_URL]] <- notebook_info$webapp_url
+      tags[[MLFLOW_TAGS$MLFLOW_SOURCE_NAME]] <- notebook_info$path
+      tags[[MLFLOW_TAGS$MLFLOW_SOURCE_VERSION]] <- get_source_version()
+      tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$NOTEBOOK
       list(
         client = client,
-        source_version = source_version %||% get_source_version(),
-        source_type =  MLFLOW_SOURCE_TYPE$NOTEBOOK,
-        source_name = notebook_info$path,
         tags = tags,
         experiment_id = experiment_id %||% notebook_info$id,
         ...

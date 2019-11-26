@@ -3,6 +3,7 @@ package org.mlflow.tracking.creds;
 import java.util.Map;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.mlflow.tracking.utils.DatabricksContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,21 +18,17 @@ public class DatabricksDynamicHostCredsProvider implements MlflowHostCredsProvid
   }
 
   public static DatabricksDynamicHostCredsProvider createIfAvailable() {
-    return createIfAvailable("com.databricks.config.DatabricksClientSettingsProvider");
+    return createIfAvailable(DatabricksContext.CONFIG_PROVIDER_CLASS_NAME);
   }
 
   @VisibleForTesting
   static DatabricksDynamicHostCredsProvider createIfAvailable(String className) {
-    try {
-      Class<?> cls = Class.forName(className);
-      return new DatabricksDynamicHostCredsProvider((Map<String, String>) cls.newInstance());
-    } catch (ClassNotFoundException e) {
-      return null;
-    } catch (IllegalAccessException | InstantiationException e) {
-      logger.warn("Found but failed to invoke dynamic config provider", e);
+    Map<String, String> configProvider =
+      DatabricksContext.getConfigProviderIfAvailable(className);
+    if (configProvider == null) {
       return null;
     }
-
+    return new DatabricksDynamicHostCredsProvider(configProvider);
   }
 
   @Override

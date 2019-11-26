@@ -17,8 +17,8 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracking.utils import _get_model_log_dir
-from mlflow.utils import PYTHON_VERSION, get_unique_resource_id
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import PYTHON_VERSION, experimental, get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.version import VERSION as mlflow_version
 
@@ -26,7 +26,8 @@ from mlflow.version import VERSION as mlflow_version
 _logger = logging.getLogger(__name__)
 
 
-def build_image(model_path, workspace, run_id=None, image_name=None, model_name=None,
+@experimental
+def build_image(model_uri, workspace, image_name=None, model_name=None,
                 mlflow_home=None, description=None, tags=None, synchronous=True):
     """
     Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
@@ -37,10 +38,20 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     For information about the input data formats accepted by this webserver, see the
     :ref:`MLflow deployment tools documentation <azureml_deployment>`.
 
-    :param model_path: The path to MLflow model for which the image will be built. If a run id
-                       is specified, this is should be a run-relative path. Otherwise, it
-                       should be a local path.
-    :param run_id: MLflow run ID.
+    :param model_uri: The location, in URI format, of the MLflow model used to build the Azure
+                      ML deployment image. For example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                      artifact-locations>`_.
+
     :param image_name: The name to assign the Azure Container Image that will be created. If
                        unspecified, a unique image name will be generated.
     :param model_name: The name to assign the Azure Model will be created. If unspecified,
@@ -53,25 +64,26 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     :param description: A string description to associate with the Azure Container Image and the
                         Azure Model that will be created. For more information, see
                         `<https://docs.microsoft.com/en-us/python/api/azureml-core/
-                        azureml.core.image.container.containerimageconfig>`_ and
+                        azureml.core.image.container.containerimageconfig?view=azure-ml-py>`_ and
                         `<https://docs.microsoft.com/en-us/python/api/azureml-core/
                         azureml.core.model.model?view=azure-ml-py#register>`_.
     :param tags: A collection of tags, represented as a dictionary of string key-value pairs, to
                  associate with the Azure Container Image and the Azure Model that will be created.
-                 These tags will be added to a set of default tags that include the model path,
-                 the model run id (if specified), and more. For more information, see
+                 These tags are added to a set of default tags that include the model uri,
+                 and more. For more information, see
                  `<https://docs.microsoft.com/en-us/python/api/azureml-core/
-                 azureml.core.image.container.containerimageconfig>`_ and
+                 azureml.core.image.container.containerimageconfig?view-azure-ml-py>`_ and
                  `<https://docs.microsoft.com/en-us/python/api/azureml-core/
                  azureml.core.model.model?view=azure-ml-py#register>`_.
-    :param synchronous: If `True`, this method will block until the image creation procedure
-                        terminates before returning. If `False`, the method will return immediately,
+    :param synchronous: If ``True``, this method blocks until the image creation procedure
+                        terminates before returning. If ``False``, the method returns immediately,
                         but the returned image will not be available until the asynchronous
-                        creation process completes. The `azureml.core.Image.wait_for_creation()`
-                        function can be used to wait for the creation process to complete.
+                        creation process completes. Use the
+                        ``azureml.core.Image.wait_for_creation()`` function to wait for the creation
+                        process to complete.
     :return: A tuple containing the following elements in order:
-             - An `azureml.core.image.ContainerImage` object containing metadata for the new image.
-             - An `azureml.core.model.Model` object containing metadata for the new model.
+            - An ``azureml.core.image.ContainerImage`` object containing metadata for the new image.
+            - An ``azureml.core.model.Model`` object containing metadata for the new model.
 
     >>> import mlflow.azureml
     >>> from azureml.core import Workspace
@@ -91,7 +103,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     >>>
     >>> # Build an Azure ML Container Image for an MLflow model
     >>> azure_image, azure_model = mlflow.azureml.build_image(
-    >>>                                 model_path="<model_path>",
+    >>>                                 model_uri="<model_uri>",
     >>>                                 workspace=azure_workspace,
     >>>                                 synchronous=True)
     >>> # If your image build failed, you can access build logs at the following URI:
@@ -110,24 +122,21 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     from azureml.core.image import ContainerImage
     from azureml.core.model import Model as AzureModel
 
-    if run_id is not None:
-        absolute_model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
-    else:
-        absolute_model_path = os.path.abspath(model_path)
+    absolute_model_path = _download_artifact_from_uri(model_uri)
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=absolute_model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
     if model_python_version is not None and\
             StrictVersion(model_python_version) < StrictVersion("3.0.0"):
         raise MlflowException(
-                message=("Azure ML can only deploy models trained in Python 3 or above! Please see"
+                message=("Azure ML can only deploy models trained in Python 3 and above. See"
                          " the following MLflow GitHub issue for a thorough explanation of this"
                          " limitation and a workaround to enable support for deploying models"
                          " trained in Python 2: https://github.com/mlflow/mlflow/issues/668"),
                 error_code=INVALID_PARAMETER_VALUE)
 
-    tags = _build_tags(relative_model_path=model_path, run_id=run_id,
-                       model_python_version=model_python_version, user_tags=tags)
+    tags = _build_tags(model_uri=model_uri, model_python_version=model_python_version,
+                       user_tags=tags)
 
     if image_name is None:
         image_name = _get_mlflow_azure_resource_name()
@@ -198,20 +207,15 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         return image, registered_model
 
 
-def _build_tags(relative_model_path, run_id, model_python_version=None, user_tags=None):
+def _build_tags(model_uri, model_python_version=None, user_tags=None):
     """
-    :param model_path: The path to MLflow model for which the image is being built. If a run id
-                       is specified, this is a run-relative path. Otherwise, it is a local path.
-    :param run_id: MLflow run ID.
-    :param model_pyfunc_conf: The configuration for the `python_function` flavor within the
-                              specified model's "MLmodel" configuration.
+    :param model_uri: URI to the MLflow model.
+    :param model_python_version: The version of Python that was used to train the model, if
+                                 the model was trained in Python.
     :param user_tags: A collection of user-specified tags to append to the set of default tags.
     """
     tags = dict(user_tags) if user_tags is not None else {}
-    tags["model_path"] = relative_model_path if run_id is not None\
-        else os.path.abspath(relative_model_path)
-    if run_id is not None:
-        tags["run_id"] = run_id
+    tags["model_uri"] = model_uri
     if model_python_version is not None:
         tags["python_version"] = model_python_version
     return tags
@@ -246,7 +250,8 @@ def _create_dockerfile(output_path, mlflow_path=None):
                         Dockerfile command for MLflow installation will install MLflow from this
                         directory. Otherwise, it will install MLflow from pip.
     """
-    docker_cmds = ["RUN pip install azureml-sdk"]
+    docker_cmds = ["RUN apt-get update && apt-get install -y default-jre"]
+    docker_cmds.append("RUN pip install azureml-sdk")
 
     if mlflow_path is not None:
         mlflow_install_cmd = "RUN pip install -e {mlflow_path}".format(
@@ -312,8 +317,7 @@ import pandas as pd
 
 from azureml.core.model import Model
 from mlflow.pyfunc import load_pyfunc
-from mlflow.pyfunc.scoring_server import parse_json_input
-from mlflow.utils import get_jsonable_obj
+from mlflow.pyfunc.scoring_server import parse_json_input, _get_jsonable_obj
 
 
 def init():
@@ -324,6 +328,6 @@ def init():
 
 def run(json_input):
     input_df = parse_json_input(json_input=json_input, orient="split")
-    return get_jsonable_obj(model.predict(input_df), pandas_orient="records")
+    return _get_jsonable_obj(model.predict(input_df), pandas_orient="records")
 
 """

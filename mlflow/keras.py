@@ -10,48 +10,87 @@ Keras (native) format
 
 from __future__ import absolute_import
 
+import importlib
 import os
 import yaml
+import gorilla
+import tempfile
+import shutil
 
-import keras
-import keras.backend as K
 import pandas as pd
-import tensorflow as tf
 
+from distutils.version import LooseVersion
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
+from mlflow.exceptions import MlflowException
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
+
 
 FLAVOR_NAME = "keras"
-
-DEFAULT_CONDA_ENV = _mlflow_conda_env(
-    additional_conda_deps=[
-        "keras={}".format(keras.__version__),
-        # The Keras pyfunc representation requires the TensorFlow
-        # backend for Keras. Therefore, the conda environment must
-        # include TensorFlow
-        "tensorflow=={}".format(tf.__version__),
-    ],
-    additional_pip_deps=None,
-    additional_conda_channels=None,
-)
+# File name to which custom objects cloudpickle is saved - used during save and load
+_CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
+_KERAS_MODULE_SPEC_PATH = "keras_module.txt"
+# File name to which keras model is saved
+_MODEL_SAVE_PATH = "model.h5"
 
 
-def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
+def get_default_conda_env(include_cloudpickle=False, keras_module=None):
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+             :func:`save_model()` and :func:`log_model()`.
+    """
+    import tensorflow as tf
+    conda_deps = []  # if we use tf.keras we only need to declare dependency on tensorflow
+    pip_deps = []
+    if keras_module is None:
+        import keras
+        keras_module = keras
+    if keras_module.__name__ == "keras":
+        # Temporary fix: the created conda environment has issues installing keras >= 2.3.1
+        if LooseVersion(keras_module.__version__) < LooseVersion('2.3.1'):
+            conda_deps.append("keras=={}".format(keras_module.__version__))
+        else:
+            pip_deps.append("keras=={}".format(keras_module.__version__))
+    if include_cloudpickle:
+        import cloudpickle
+        pip_deps.append("cloudpickle=={}".format(cloudpickle.__version__))
+    # Temporary fix: conda-forge currently does not have tensorflow > 1.14
+    # The Keras pyfunc representation requires the TensorFlow
+    # backend for Keras. Therefore, the conda environment must
+    # include TensorFlow
+    if LooseVersion(tf.__version__) < LooseVersion('2.0.0'):
+        conda_deps.append("tensorflow=={}".format(tf.__version__))
+    else:
+        if pip_deps is not None:
+            pip_deps.append("tensorflow=={}".format(tf.__version__))
+        else:
+            pip_deps.append("tensorflow=={}".format(tf.__version__))
+
+    return _mlflow_conda_env(
+        additional_conda_deps=conda_deps,
+        additional_pip_deps=pip_deps,
+        additional_conda_channels=None)
+
+
+def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_objects=None,
+               keras_module=None, **kwargs):
     """
     Save a Keras model to a path on the local file system.
 
     :param keras_model: Keras model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.keras.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.keras.DEFAULT_CONDA_ENV`` environment will be added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
+                      Conda environment yaml file. If provided, this decsribes the environment
+                      this model should be run in. At minimum, it should specify the
+                      dependencies contained in :func:`get_default_conda_env()`. If
+                      ``None``, the default :func:`get_default_conda_env()` environment is
+                      added to the model. The following is an *example* dictionary
+                      representation of a Conda environment::
 
                         {
                             'name': 'mlflow-env',
@@ -62,8 +101,16 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
                                 'tensorflow=1.8.0'
                             ]
                         }
-
     :param mlflow_model: MLflow model config this flavor is being added to.
+    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
+                           custom classes or functions associated with the Keras model. MLflow saves
+                           these custom layers using CloudPickle and restores them automatically
+                           when the model is loaded with :py:func:`mlflow.keras.load_model` and
+                           :py:func:`mlflow.pyfunc.load_model`.
+    :param keras_module: Keras module to be used to save / load the model
+                         (``keras`` or ``tf.keras``). If not provided, MLflow will
+                         attempt to infer the Keras module based on the given model.
+    :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     >>> import mlflow
     >>> # Build, compile, and train your model
@@ -75,41 +122,79 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
     ... # Save the model as an MLflow Model
     >>> mlflow.keras.save_model(keras_model, keras_model_path)
     """
+    if keras_module is None:
+        def _is_plain_keras(model):
+            try:
+                # NB: Network is the first parent with save method
+                import keras.engine.network
+                return isinstance(model, keras.engine.network.Network)
+            except ImportError:
+                return False
+
+        def _is_tf_keras(model):
+            try:
+                # NB: Network is not exposed in tf.keras, we check for Model instead.
+                import tensorflow.keras.models
+                return isinstance(model, tensorflow.keras.models.Model)
+            except ImportError:
+                return False
+
+        if _is_plain_keras(keras_model):
+            keras_module = importlib.import_module("keras")
+        elif _is_tf_keras(keras_model):
+            keras_module = importlib.import_module("tensorflow.keras")
+        else:
+            raise MlflowException("Unable to infer keras module from the model, please specify "
+                                  "which keras module ('keras' or 'tensorflow.keras') is to be "
+                                  "used to save and load the model.")
+    elif type(keras_module) == str:
+        keras_module = importlib.import_module(keras_module)
+
     path = os.path.abspath(path)
     if os.path.exists(path):
-        raise Exception("Path '{}' already exists".format(path))
-    os.makedirs(path)
-    model_data_subpath = "model.h5"
-    keras_model.save(os.path.join(path, model_data_subpath))
-
+        raise MlflowException("Path '{}' already exists".format(path))
+    data_subpath = "data"
+    data_path = os.path.join(path, data_subpath)
+    os.makedirs(data_path)
+    if custom_objects is not None:
+        _save_custom_objects(data_path, custom_objects)
+    with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
+        f.write(keras_module.__name__)
+    model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
+    keras_model.save(os.path.join(path, model_subpath), **kwargs)
+    mlflow_model.add_flavor(FLAVOR_NAME,
+                            keras_module=keras_module.__name__,
+                            keras_version=keras_module.__version__,
+                            data=data_subpath)
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = DEFAULT_CONDA_ENV
+        conda_env = get_default_conda_env(include_cloudpickle=custom_objects is not None,
+                                          keras_module=keras_module)
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.keras",
-                        data=model_data_subpath, env=conda_env_subpath)
-    mlflow_model.add_flavor(FLAVOR_NAME, keras_version=keras.__version__, data=model_data_subpath)
+                        data=data_subpath, env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
+def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, keras_module=None,
+              registered_model_name=None, **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
     :param keras_model: Keras model to be saved.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.keras.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.keras.DEFAULT_CONDA_ENV`` environment will be added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
+    :param conda_env: Either a dictionary representation of a Conda environment or
+                      the path to a Conda environment yaml file.
+                      If provided, this describes the environment this model should be
+                      run in. At minimum, it should specify the dependencies
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
+                      :func:`mlflow.keras.get_default_conda_env()` environment is added to
+                      the model. The following is an *example* dictionary representation of a
+                      Conda environment::
 
                         {
                             'name': 'mlflow-env',
@@ -121,6 +206,18 @@ def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
                             ]
                         }
 
+    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
+                           custom classes or functions associated with the Keras model. MLflow saves
+                           these custom layers using CloudPickle and restores them automatically
+                           when the model is loaded with :py:func:`mlflow.keras.load_model` and
+                           :py:func:`mlflow.pyfunc.load_model`.
+    :param keras_module: Keras module to be used to save / load the model
+                         (``keras`` or ``tf.keras``). If not provided, MLflow will
+                         attempt to infer the Keras module based on the given model.
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     >>> from keras import Dense, layers
@@ -135,23 +232,52 @@ def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
     >>>   mlflow.keras.log_model(keras_model, "models")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
-              keras_model=keras_model, conda_env=conda_env, **kwargs)
+              keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects,
+              keras_module=keras_module, registered_model_name=registered_model_name, **kwargs)
 
 
-def _load_model(model_file):
-    import keras.models
-    import h5py
+def _save_custom_objects(path, custom_objects):
+    """
+    Save custom objects dictionary to a cloudpickle file so a model can be easily loaded later.
 
+    :param path: An absolute path that points to the data directory within /path/to/model.
+    :param custom_objects: Keras ``custom_objects`` is a dictionary mapping
+                           names (strings) to custom classes or functions to be considered
+                           during deserialization. MLflow saves these custom layers using
+                           CloudPickle and restores them automatically when the model is
+                           loaded with :py:func:`mlflow.keras.load_model` and
+                           :py:func:`mlflow.pyfunc.load_model`.
+    """
+    import cloudpickle
+    custom_objects_path = os.path.join(path, _CUSTOM_OBJECTS_SAVE_PATH)
+    with open(custom_objects_path, "wb") as out_f:
+        cloudpickle.dump(custom_objects, out_f)
+
+
+def _load_model(model_path, keras_module, **kwargs):
+    keras_models = importlib.import_module(keras_module.__name__ + ".models")
+    custom_objects = kwargs.pop("custom_objects", {})
+    custom_objects_path = None
+    if os.path.isdir(model_path):
+        if os.path.isfile(os.path.join(model_path, _CUSTOM_OBJECTS_SAVE_PATH)):
+            custom_objects_path = os.path.join(model_path, _CUSTOM_OBJECTS_SAVE_PATH)
+        model_path = os.path.join(model_path, _MODEL_SAVE_PATH)
+    if custom_objects_path is not None:
+        import cloudpickle
+        with open(custom_objects_path, "rb") as in_f:
+            pickled_custom_objects = cloudpickle.load(in_f)
+            pickled_custom_objects.update(custom_objects)
+            custom_objects = pickled_custom_objects
     from distutils.version import StrictVersion
-
-    if StrictVersion(keras.__version__) >= StrictVersion("2.2.3"):
+    if StrictVersion(keras_module.__version__.split('-')[0]) >= StrictVersion("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
-        with h5py.File(os.path.abspath(model_file), "r") as model_file:
-            return keras.models.load_model(model_file)
+        import h5py
+        with h5py.File(os.path.abspath(model_path), "r") as model_path:
+            return keras_models.load_model(model_path, custom_objects=custom_objects, **kwargs)
     else:
         # NOTE: Older versions of Keras only handle filepath.
-        return keras.models.load_model(model_file)
+        return keras_models.load_model(model_path, custom_objects=custom_objects, **kwargs)
 
 
 class _KerasModelWrapper:
@@ -161,49 +287,198 @@ class _KerasModelWrapper:
         self._sess = sess
 
     def predict(self, dataframe):
-        with self._graph.as_default():
-            with self._sess.as_default():
-                predicted = pd.DataFrame(self.keras_model.predict(dataframe))
+        # In TensorFlow < 2.0, we use a graph and session to predict
+        if self._graph is not None:
+            with self._graph.as_default():
+                with self._sess.as_default():
+                    predicted = pd.DataFrame(self.keras_model.predict(dataframe))
+        # In TensorFlow >= 2.0, we do not use a graph and session to predict
+        else:
+            predicted = pd.DataFrame(self.keras_model.predict(dataframe))
         predicted.index = dataframe.index
         return predicted
 
 
-def _load_pyfunc(model_file):
+def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+
+    :param path: Local filesystem path to the MLflow Model with the ``keras`` flavor.
     """
-    if K._BACKEND == 'tensorflow':
-        graph = tf.Graph()
-        sess = tf.Session(graph=graph)
-        # By default tf backed models depend on the global graph and session.
-        # We create an use new Graph and Session and store them with the model
-        # This way the model is independent on the global state.
-        with graph.as_default():
-            with sess.as_default():  # pylint:disable=not-context-manager
-                K.set_learning_phase(0)
-                m = _load_model(model_file)
-        return _KerasModelWrapper(m, graph, sess)
+    import tensorflow as tf
+    if os.path.isfile(os.path.join(path, _KERAS_MODULE_SPEC_PATH)):
+        with open(os.path.join(path, _KERAS_MODULE_SPEC_PATH), "r") as f:
+            keras_module = importlib.import_module(f.read())
     else:
-        raise Exception("Unsupported backend '%s'" % K._BACKEND)
+        import keras
+        keras_module = keras
+
+    K = importlib.import_module(keras_module.__name__ + ".backend")
+    if keras_module.__name__ == "tensorflow.keras" or K.backend() == 'tensorflow':
+        if LooseVersion(tf.__version__) < LooseVersion('2.0.0'):
+            graph = tf.Graph()
+            sess = tf.Session(graph=graph)
+            # By default tf backed models depend on the global graph and session.
+            # We create an use new Graph and Session and store them with the model
+            # This way the model is independent on the global state.
+            with graph.as_default():
+                with sess.as_default():  # pylint:disable=not-context-manager
+                    K.set_learning_phase(0)
+                    m = _load_model(path, keras_module=keras_module, compile=False)
+                    return _KerasModelWrapper(m, graph, sess)
+        else:
+            K.set_learning_phase(0)
+            m = _load_model(path, keras_module=keras_module, compile=False)
+            return _KerasModelWrapper(m, None, None)
+
+    else:
+        raise MlflowException("Unsupported backend '%s'" % K._BACKEND)
 
 
-def load_model(path, run_id=None):
+def load_model(model_uri, **kwargs):
     """
-    Load a Keras model from a local file (if ``run_id`` is None) or a run.
+    Load a Keras model from a local file or a run.
 
-    :param path: Local filesystem path or run-relative artifact path to the model saved
-                 by :py:func:`mlflow.keras.log_model`.
-    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
+    Extra arguments are passed through to keras.load_model.
 
-    >>> # Load persisted model as a Keras model or as a PyFunc, call predict() on a Pandas DataFrame
-    >>> keras_model = mlflow.keras.load_model("models", run_id="96771d893a5e46159d9f3b49bf9013e2")
+    :param model_uri: The location, in URI format, of the MLflow model. For example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                      artifact-locations>`_.
+
+    :return: A Keras model instance.
+
+    >>> # Load persisted model as a Keras model or as a PyFunc, call predict() on a pandas DataFrame
+    >>> keras_model = mlflow.keras.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2" + "/models")
     >>> predictions = keras_model.predict(x_test)
     """
-    if run_id is not None:
-        path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    path = os.path.abspath(path)
-    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
-    # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
-    # `data` key; in this case, we assume the model artifact path to be `model.h5`
-    keras_model_artifacts_path = os.path.join(path, flavor_conf.get("data", "model.h5"))
-    return _load_model(model_file=keras_model_artifacts_path)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
+    keras_model_artifacts_path = os.path.join(
+        local_model_path,
+        flavor_conf.get("data", _MODEL_SAVE_PATH))
+    return _load_model(model_path=keras_model_artifacts_path, keras_module=keras_module, **kwargs)
+
+
+@experimental
+def autolog():
+    """
+    Enable automatic logging from Keras to MLflow.
+    Logs loss and any other metrics specified in the fit
+    function, and optimizer data as parameters. Model checkpoints
+    are logged as artifacts to a 'models' directory.
+    """
+    import keras
+
+    class __MLflowKerasCallback(keras.callbacks.Callback):
+        """
+        Callback for auto-logging metrics and parameters.
+        Records available logs after each epoch.
+        Records model structural information as params when training begins
+        """
+        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
+            try_mlflow_log(mlflow.log_param, 'num_layers', len(self.model.layers))
+            try_mlflow_log(mlflow.log_param, 'optimizer_name', type(self.model.optimizer).__name__)
+            if hasattr(self.model.optimizer, 'lr'):
+                lr = self.model.optimizer.lr if \
+                    type(self.model.optimizer.lr) is float \
+                    else keras.backend.eval(self.model.optimizer.lr)
+                try_mlflow_log(mlflow.log_param, 'learning_rate', lr)
+            if hasattr(self.model.optimizer, 'epsilon'):
+                epsilon = self.model.optimizer.epsilon if \
+                    type(self.model.optimizer.epsilon) is float \
+                    else keras.backend.eval(self.model.optimizer.epsilon)
+                try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
+
+            sum_list = []
+            self.model.summary(print_fn=sum_list.append)
+            summary = '\n'.join(sum_list)
+            try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
+
+            tempdir = tempfile.mkdtemp()
+            try:
+                summary_file = os.path.join(tempdir, "model_summary.txt")
+                with open(summary_file, 'w') as f:
+                    f.write(summary)
+                try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+            finally:
+                shutil.rmtree(tempdir)
+
+        def on_epoch_end(self, epoch, logs=None):
+            if not logs:
+                return
+            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+
+        def on_train_end(self, logs=None):
+            try_mlflow_log(log_model, self.model, artifact_path='model')
+
+    @gorilla.patch(keras.Model)
+    def fit(self, *args, **kwargs):
+        if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
+            auto_end_run = True
+        else:
+            auto_end_run = False
+
+        original = gorilla.get_original_attribute(keras.Model, 'fit')
+
+        unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data', 'verbose']
+
+        log_fn_args_as_params(original, args, kwargs, unlogged_params)
+
+        # Checking if the 'callback' argument of fit() is set
+        if len(args) >= 6:
+            tmp_list = list(args)
+            tmp_list[5] += [__MLflowKerasCallback()]
+            args = tuple(tmp_list)
+        elif 'callbacks' in kwargs:
+            kwargs['callbacks'] += [__MLflowKerasCallback()]
+        else:
+            kwargs['callbacks'] = [__MLflowKerasCallback()]
+
+        result = original(self, *args, **kwargs)
+        if auto_end_run:
+            try_mlflow_log(mlflow.end_run)
+        return result
+
+    @gorilla.patch(keras.Model)
+    def fit_generator(self, *args, **kwargs):
+        if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
+            auto_end_run = True
+        else:
+            auto_end_run = False
+
+        original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
+
+        unlogged_params = ['self', 'generator', 'callbacks', 'validation_data', 'verbose']
+
+        log_fn_args_as_params(original, args, kwargs, unlogged_params)
+
+        # Checking if the 'callback' argument of fit() is set
+        if len(args) >= 5:
+            tmp_list = list(args)
+            tmp_list[4] += [__MLflowKerasCallback()]
+            args = tuple(tmp_list)
+        elif 'callbacks' in kwargs:
+            kwargs['callbacks'] += [__MLflowKerasCallback()]
+        else:
+            kwargs['callbacks'] = [__MLflowKerasCallback()]
+
+        result = original(self, *args, **kwargs)
+        if auto_end_run:
+            try_mlflow_log(mlflow.end_run)
+        return result
+
+    settings = gorilla.Settings(allow_hit=True, store_hit=True)
+    gorilla.apply(gorilla.Patch(keras.Model, 'fit', fit, settings=settings))
+    gorilla.apply(gorilla.Patch(keras.Model, 'fit_generator', fit_generator, settings=settings))

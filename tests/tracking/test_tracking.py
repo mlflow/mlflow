@@ -13,18 +13,22 @@ import mlflow
 from mlflow import tracking
 from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
-from mlflow.store.file_store import FileStore
+from mlflow.store.tracking.file_store import FileStore
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import start_run, end_run
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
+from mlflow.tracking.fluent import start_run
+from mlflow.utils.file_utils import local_file_uri_to_path
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
+    MLFLOW_SOURCE_TYPE
+from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
-from tests.projects.utils import tracking_uri_mock
+# pylint: disable=unused-argument
 
 
 def test_create_experiment(tracking_uri_mock):
     with pytest.raises(TypeError):
-        mlflow.create_experiment()
+        mlflow.create_experiment()  # pylint: disable=no-value-for-parameter
 
     with pytest.raises(Exception):
         mlflow.create_experiment(None)
@@ -70,7 +74,7 @@ def test_create_experiments_with_bad_name_types(name):
 
 def test_set_experiment(tracking_uri_mock, reset_active_experiment):
     with pytest.raises(TypeError):
-        mlflow.set_experiment()
+        mlflow.set_experiment()  # pylint: disable=no-value-for-parameter
 
     with pytest.raises(Exception):
         mlflow.set_experiment(None)
@@ -103,6 +107,23 @@ def test_set_experiment_with_deleted_experiment_name(tracking_uri_mock):
         mlflow.set_experiment(name)
 
 
+def test_list_experiments(tracking_uri_mock):
+    def _assert_exps(ids_to_lifecycle_stage, view_type_arg):
+        result = set([(exp.experiment_id, exp.lifecycle_stage)
+                      for exp in client.list_experiments(view_type=view_type_arg)])
+        assert result == set([(exp_id, stage) for exp_id, stage in ids_to_lifecycle_stage.items()])
+    experiment_id = mlflow.create_experiment("exp_1")
+    assert experiment_id == '1'
+    client = tracking.MlflowClient()
+    _assert_exps({'0': LifecycleStage.ACTIVE, '1': LifecycleStage.ACTIVE}, ViewType.ACTIVE_ONLY)
+    _assert_exps({'0': LifecycleStage.ACTIVE, '1': LifecycleStage.ACTIVE}, ViewType.ALL)
+    _assert_exps({}, ViewType.DELETED_ONLY)
+    client.delete_experiment(experiment_id)
+    _assert_exps({'0': LifecycleStage.ACTIVE}, ViewType.ACTIVE_ONLY)
+    _assert_exps({'0': LifecycleStage.ACTIVE, '1': LifecycleStage.DELETED}, ViewType.ALL)
+    _assert_exps({'1': LifecycleStage.DELETED}, ViewType.DELETED_ONLY)
+
+
 def test_set_experiment_with_zero_id(reset_mock, reset_active_experiment):
     reset_mock(MlflowClient, "get_experiment_by_name",
                mock.Mock(return_value=attrdict.AttrDict(
@@ -118,40 +139,56 @@ def test_set_experiment_with_zero_id(reset_mock, reset_active_experiment):
 
 def test_start_run_context_manager(tracking_uri_mock):
     with start_run() as first_run:
-        first_uuid = first_run.info.run_uuid
+        first_uuid = first_run.info.run_id
         # Check that start_run() causes the run information to be persisted in the store
         persisted_run = tracking.MlflowClient().get_run(first_uuid)
         assert persisted_run is not None
         assert persisted_run.info == first_run.info
     finished_run = tracking.MlflowClient().get_run(first_uuid)
-    assert finished_run.info.status == RunStatus.FINISHED
+    assert finished_run.info.status == RunStatus.to_string(RunStatus.FINISHED)
     # Launch a separate run that fails, verify the run status is FAILED and the run UUID is
     # different
     with pytest.raises(Exception):
         with start_run() as second_run:
-            second_run_id = second_run.info.run_uuid
+            second_run_id = second_run.info.run_id
             raise Exception("Failing run!")
     assert second_run_id != first_uuid
     finished_run2 = tracking.MlflowClient().get_run(second_run_id)
-    assert finished_run2.info.status == RunStatus.FAILED
+    assert finished_run2.info.status == RunStatus.to_string(RunStatus.FAILED)
 
 
 def test_start_and_end_run(tracking_uri_mock):
     # Use the start_run() and end_run() APIs without a `with` block, verify they work.
-    active_run = start_run()
-    mlflow.log_metric("name_1", 25)
-    end_run()
-    finished_run = tracking.MlflowClient().get_run(active_run.info.run_uuid)
+
+    with start_run() as active_run:
+        mlflow.log_metric("name_1", 25)
+    finished_run = tracking.MlflowClient().get_run(active_run.info.run_id)
     # Validate metrics
     assert len(finished_run.data.metrics) == 1
     assert finished_run.data.metrics["name_1"] == 25
+
+
+def test_metric_timestamp(tracking_uri_mock):
+    with mlflow.start_run() as active_run:
+        mlflow.log_metric("name_1", 25)
+        mlflow.log_metric("name_1", 30)
+        run_id = active_run.info.run_uuid
+    # Check that metric timestamps are between run start and finish
+    client = mlflow.tracking.MlflowClient()
+    history = client.get_metric_history(run_id, "name_1")
+    finished_run = client.get_run(run_id)
+    assert len(history) == 2
+    assert all([
+        m.timestamp >= finished_run.info.start_time and m.timestamp <= finished_run.info.end_time
+        for m in history
+    ])
 
 
 def test_log_batch(tracking_uri_mock, tmpdir):
     expected_metrics = {"metric-key0": 1.0, "metric-key1": 4.0}
     expected_params = {"param-key0": "param-val0", "param-key1": "param-val1"}
     exact_expected_tags = {"tag-key0": "tag-val0", "tag-key1": "tag-val1"}
-    approx_expected_tags = set([MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
+    approx_expected_tags = set([MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
 
     t = int(time.time())
     sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[0])
@@ -161,21 +198,20 @@ def test_log_batch(tracking_uri_mock, tmpdir):
     tags = [RunTag(key=key, value=value) for key, value in exact_expected_tags.items()]
 
     with start_run() as active_run:
-        run_uuid = active_run.info.run_uuid
-        mlflow.tracking.MlflowClient().log_batch(run_id=run_uuid, metrics=metrics, params=params,
+        run_id = active_run.info.run_id
+        mlflow.tracking.MlflowClient().log_batch(run_id=run_id, metrics=metrics, params=params,
                                                  tags=tags)
-    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    client = tracking.MlflowClient()
+    finished_run = client.get_run(run_id)
     # Validate metrics
     assert len(finished_run.data.metrics) == 2
     for key, value in finished_run.data.metrics.items():
         assert expected_metrics[key] == value
-    # TODO: use client get_metric_history API here instead once it exists
-    fs = FileStore(os.path.join(tmpdir.strpath, "mlruns"))
-    metric_history0 = fs.get_metric_history(run_uuid, "metric-key0")
+    metric_history0 = client.get_metric_history(run_id, "metric-key0")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history0]) == set([
         (1.0, t, 0),
     ])
-    metric_history1 = fs.get_metric_history(run_uuid, "metric-key1")
+    metric_history1 = client.get_metric_history(run_id, "metric-key1")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history1]) == set([
         (4.0, t, 1),
     ])
@@ -189,44 +225,104 @@ def test_log_batch(tracking_uri_mock, tmpdir):
             assert exact_expected_tags[tag_key] == tag_value
     # Validate params
     assert finished_run.data.params == expected_params
+    # test that log_batch works with fewer params
+    new_tags = {"1": "2", "3": "4", "5": "6"}
+    tags = [RunTag(key=key, value=value) for key, value in new_tags.items()]
+    client.log_batch(run_id=run_id, tags=tags)
+    finished_run_2 = client.get_run(run_id)
+    # Validate tags (for automatically-set tags)
+    assert len(finished_run_2.data.tags) == len(finished_run.data.tags) + 3
+    for tag_key, tag_value in finished_run_2.data.tags.items():
+        if tag_key in new_tags:
+            assert new_tags[tag_key] == tag_value
 
 
-def test_log_metric(tracking_uri_mock, tmpdir):
+def test_log_metric(tracking_uri_mock):
     with start_run() as active_run, mock.patch("time.time") as time_mock:
-        time_mock.side_effect = range(300, 400)
-        run_uuid = active_run.info.run_uuid
+        time_mock.side_effect = [123 for _ in range(100)]
+        run_id = active_run.info.run_id
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_2", -3)
         mlflow.log_metric("name_1", 30, 5)
         mlflow.log_metric("name_1", 40, -2)
         mlflow.log_metric("nested/nested/name", 40)
-    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate metrics
     assert len(finished_run.data.metrics) == 3
     expected_pairs = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
     for key, value in finished_run.data.metrics.items():
         assert expected_pairs[key] == value
-    # TODO: use client get_metric_history API here instead once it exists
-    fs = FileStore(os.path.join(tmpdir.strpath, "mlruns"))
-    metric_history_name1 = fs.get_metric_history(run_uuid, "name_1")
+    client = tracking.MlflowClient()
+    metric_history_name1 = client.get_metric_history(run_id, "name_1")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == set([
-        (25, 300, 0),
-        (30, 302, 5),
-        (40, 303, -2),
+        (25, 123 * 1000, 0),
+        (30, 123 * 1000, 5),
+        (40, 123 * 1000, -2),
     ])
-    metric_history_name2 = fs.get_metric_history(run_uuid, "name_2")
+    metric_history_name2 = client.get_metric_history(run_id, "name_2")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name2]) == set([
-        (-3, 301, 0),
+        (-3, 123 * 1000, 0),
+    ])
+
+
+def test_log_metrics_uses_millisecond_timestamp_resolution_fluent(tracking_uri_mock):
+    with start_run() as active_run, mock.patch("time.time") as time_mock:
+        time_mock.side_effect = lambda: 123
+        mlflow.log_metrics({
+            "name_1": 25,
+            "name_2": -3,
+        })
+        mlflow.log_metrics({
+            "name_1": 30,
+        })
+        mlflow.log_metrics({
+            "name_1": 40,
+        })
+        run_id = active_run.info.run_id
+
+    client = tracking.MlflowClient()
+    metric_history_name1 = client.get_metric_history(run_id, "name_1")
+    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set([
+        (25, 123 * 1000),
+        (30, 123 * 1000),
+        (40, 123 * 1000),
+    ])
+    metric_history_name2 = client.get_metric_history(run_id, "name_2")
+    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([
+        (-3, 123 * 1000),
+    ])
+
+
+def test_log_metrics_uses_millisecond_timestamp_resolution_client(tracking_uri_mock):
+    with start_run() as active_run, mock.patch("time.time") as time_mock:
+        time_mock.side_effect = lambda: 123
+        mlflow_client = tracking.MlflowClient()
+        run_id = active_run.info.run_id
+
+        mlflow_client.log_metric(run_id=run_id, key="name_1", value=25)
+        mlflow_client.log_metric(run_id=run_id, key="name_2", value=-3)
+        mlflow_client.log_metric(run_id=run_id, key="name_1", value=30)
+        mlflow_client.log_metric(run_id=run_id, key="name_1", value=40)
+
+    metric_history_name1 = mlflow_client.get_metric_history(run_id, "name_1")
+    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set([
+        (25, 123 * 1000),
+        (30, 123 * 1000),
+        (40, 123 * 1000),
+    ])
+    metric_history_name2 = mlflow_client.get_metric_history(run_id, "name_2")
+    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([
+        (-3, 123 * 1000),
     ])
 
 
 @pytest.mark.parametrize("step_kwarg", [None, -10, 5])
-def test_log_metrics(tracking_uri_mock, step_kwarg):
+def test_log_metrics_uses_common_timestamp_and_step_per_invocation(tracking_uri_mock, step_kwarg):
     expected_metrics = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
     with start_run() as active_run:
-        run_uuid = active_run.info.run_uuid
+        run_id = active_run.info.run_id
         mlflow.log_metrics(expected_metrics, step=step_kwarg)
-    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate metric key/values match what we expect, and that all metrics have the same timestamp
     assert len(finished_run.data.metrics) == len(expected_metrics)
     for key, value in finished_run.data.metrics.items():
@@ -245,49 +341,48 @@ def get_store_mock(tmpdir):
 
 
 def test_set_tags(tracking_uri_mock):
-    exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
-    approx_expected_tags = set([MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
+    exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
+    approx_expected_tags = set([MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
     with start_run() as active_run:
-        run_uuid = active_run.info.run_uuid
+        run_id = active_run.info.run_id
         mlflow.set_tags(exact_expected_tags)
-    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate tags
     assert len(finished_run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
     for tag_key, tag_val in finished_run.data.tags.items():
         if tag_key in approx_expected_tags:
             pass
         else:
-            assert exact_expected_tags[tag_key] == tag_val
+            assert str(exact_expected_tags[tag_key]) == tag_val
 
 
 def test_log_metric_validation(tracking_uri_mock):
     with start_run() as active_run:
-        run_uuid = active_run.info.run_uuid
+        run_id = active_run.info.run_id
         with pytest.raises(MlflowException) as e:
             mlflow.log_metric("name_1", "apple")
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    finished_run = tracking.MlflowClient().get_run(run_id)
     assert len(finished_run.data.metrics) == 0
 
 
 def test_log_param(tracking_uri_mock):
     with start_run() as active_run:
-        run_uuid = active_run.info.run_uuid
+        run_id = active_run.info.run_id
         mlflow.log_param("name_1", "a")
         mlflow.log_param("name_2", "b")
-        mlflow.log_param("name_1", "c")
         mlflow.log_param("nested/nested/name", 5)
-    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate params
-    assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    assert finished_run.data.params == {"name_1": "a", "name_2": "b", "nested/nested/name": "5"}
 
 
 def test_log_params(tracking_uri_mock):
-    expected_params = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    expected_params = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
     with start_run() as active_run:
-        run_uuid = active_run.info.run_uuid
+        run_id = active_run.info.run_id
         mlflow.log_params(expected_params)
-    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate params
     assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
 
@@ -306,12 +401,52 @@ def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
         for kwarg, bad_values in bad_kwargs.items():
             for bad_kwarg_value in bad_values:
                 final_kwargs = {
-                    "run_id":  active_run.info.run_uuid, "metrics": [], "params": [], "tags": [],
+                    "run_id":  active_run.info.run_id, "metrics": [], "params": [], "tags": [],
                 }
                 final_kwargs[kwarg] = bad_kwarg_value
                 with pytest.raises(MlflowException) as e:
                     tracking.MlflowClient().log_batch(**final_kwargs)
                 assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_log_artifact_with_dirs(tracking_uri_mock, tmpdir):
+    # Test log artifact with a directory
+    art_dir = tmpdir.mkdir("parent")
+    file0 = art_dir.join("file0")
+    file0.write("something")
+    file1 = art_dir.join("file1")
+    file1.write("something")
+    sub_dir = art_dir.mkdir("child")
+    with start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        mlflow.log_artifact(str(art_dir))
+        base = os.path.basename(str(art_dir))
+        assert os.listdir(run_artifact_dir) == [base]
+        assert set(os.listdir(os.path.join(run_artifact_dir, base))) == \
+            {'child', 'file0', 'file1'}
+        with open(os.path.join(run_artifact_dir, base, "file0")) as f:
+            assert f.read() == "something"
+    # Test log artifact with directory and specified parent folder
+    art_dir = tmpdir.mkdir("dir")
+    with start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        mlflow.log_artifact(str(art_dir), "some_parent")
+        assert os.listdir(run_artifact_dir) == [os.path.basename("some_parent")]
+        assert os.listdir(os.path.join(run_artifact_dir, "some_parent")) == \
+            [os.path.basename(str(art_dir))]
+    sub_dir = art_dir.mkdir("another_dir")
+    with start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        mlflow.log_artifact(str(art_dir), "parent/and_child")
+        assert os.listdir(os.path.join(run_artifact_dir, "parent", "and_child")) == \
+            [os.path.basename(str(art_dir))]
+        assert os.listdir(os.path.join(run_artifact_dir,
+                                       "parent", "and_child",
+                                       os.path.basename(str(art_dir)))) == \
+            [os.path.basename(str(sub_dir))]
 
 
 def test_log_artifact(tracking_uri_mock):
@@ -327,7 +462,8 @@ def test_log_artifact(tracking_uri_mock):
     artifact_parent_dirs = ["some_parent_dir", None]
     for parent_dir in artifact_parent_dirs:
         with start_run():
-            run_artifact_dir = mlflow.get_artifact_uri()
+            artifact_uri = mlflow.get_artifact_uri()
+            run_artifact_dir = local_file_uri_to_path(artifact_uri)
             mlflow.log_artifact(path0, parent_dir)
         expected_dir = os.path.join(run_artifact_dir, parent_dir) \
             if parent_dir is not None else run_artifact_dir
@@ -337,7 +473,9 @@ def test_log_artifact(tracking_uri_mock):
     # Log multiple artifacts, verify they exist in the directory returned by get_artifact_uri
     for parent_dir in artifact_parent_dirs:
         with start_run():
-            run_artifact_dir = mlflow.get_artifact_uri()
+            artifact_uri = mlflow.get_artifact_uri()
+            run_artifact_dir = local_file_uri_to_path(artifact_uri)
+
             mlflow.log_artifacts(artifact_src_dir, parent_dir)
         # Check that the logged artifacts match
         expected_artifact_output_dir = os.path.join(run_artifact_dir, parent_dir) \
@@ -349,49 +487,30 @@ def test_log_artifact(tracking_uri_mock):
         assert len(dir_comparison.funny_files) == 0
 
 
-def test_uri_types():
-    from mlflow.tracking import utils
-    assert utils._is_local_uri("mlruns")
-    assert utils._is_local_uri("./mlruns")
-    assert utils._is_local_uri("file:///foo/mlruns")
-    assert not utils._is_local_uri("https://whatever")
-    assert not utils._is_local_uri("http://whatever")
-    assert not utils._is_local_uri("databricks")
-    assert not utils._is_local_uri("databricks:whatever")
-    assert not utils._is_local_uri("databricks://whatever")
-
-    assert utils._is_databricks_uri("databricks")
-    assert utils._is_databricks_uri("databricks:whatever")
-    assert utils._is_databricks_uri("databricks://whatever")
-    assert not utils._is_databricks_uri("mlruns")
-    assert not utils._is_databricks_uri("http://whatever")
-
-    assert utils._is_http_uri("http://whatever")
-    assert utils._is_http_uri("https://whatever")
-    assert not utils._is_http_uri("file://whatever")
-    assert not utils._is_http_uri("databricks://whatever")
-    assert not utils._is_http_uri("mlruns")
-
-
 def test_with_startrun():
     run_id = None
-    import time
     t0 = int(time.time() * 1000)
     with mlflow.start_run() as active_run:
         assert mlflow.active_run() == active_run
-        run_id = active_run.info.run_uuid
+        run_id = active_run.info.run_id
     t1 = int(time.time() * 1000)
     run_info = mlflow.tracking._get_store().get_run(run_id).info
-    assert run_info.status == RunStatus.from_string("FINISHED")
+    assert run_info.status == "FINISHED"
     assert t0 <= run_info.end_time and run_info.end_time <= t1
     assert mlflow.active_run() is None
 
 
 def test_parent_create_run(tracking_uri_mock):
+
     with mlflow.start_run() as parent_run:
+        parent_run_id = parent_run.info.run_id
+    os.environ[_RUN_ID_ENV_VAR] = parent_run_id
+    with mlflow.start_run() as parent_run:
+        assert parent_run.info.run_id == parent_run_id
         with pytest.raises(Exception, match='To start a nested run'):
             mlflow.start_run()
         with mlflow.start_run(nested=True) as child_run:
+            assert child_run.info.run_id != parent_run_id
             with mlflow.start_run(nested=True) as grand_child_run:
                 pass
 
@@ -399,18 +518,18 @@ def test_parent_create_run(tracking_uri_mock):
         tags = tracking.MlflowClient().get_run(child_id).data.tags
         assert tags[MLFLOW_PARENT_RUN_ID] == expected_parent_id
 
-    verify_has_parent_id_tag(child_run.info.run_uuid, parent_run.info.run_uuid)
-    verify_has_parent_id_tag(grand_child_run.info.run_uuid, child_run.info.run_uuid)
+    verify_has_parent_id_tag(child_run.info.run_id, parent_run.info.run_id)
+    verify_has_parent_id_tag(grand_child_run.info.run_id, child_run.info.run_id)
     assert mlflow.active_run() is None
 
 
 def test_start_deleted_run():
     run_id = None
     with mlflow.start_run() as active_run:
-        run_id = active_run.info.run_uuid
+        run_id = active_run.info.run_id
     tracking.MlflowClient().delete_run(run_id)
     with pytest.raises(MlflowException, matches='because it is in the deleted state.'):
-        with mlflow.start_run(run_uuid=run_id):
+        with mlflow.start_run(run_id=run_id):
             pass
     assert mlflow.active_run() is None
 
@@ -435,9 +554,9 @@ def test_get_artifact_uri_with_artifact_path_unspecified_returns_artifact_root_d
 def test_get_artifact_uri_uses_currently_active_run_id():
     artifact_path = "artifact"
     with mlflow.start_run() as active_run:
-        assert mlflow.get_artifact_uri(artifact_path=artifact_path) ==\
-            tracking.utils.get_artifact_uri(
-                run_id=active_run.info.run_uuid, artifact_path=artifact_path)
+        assert mlflow.get_artifact_uri(artifact_path=artifact_path) == \
+               tracking.artifact_utils.get_artifact_uri(
+                run_id=active_run.info.run_id, artifact_path=artifact_path)
 
 
 def test_search_runs(tracking_uri_mock, reset_active_experiment):
@@ -445,20 +564,20 @@ def test_search_runs(tracking_uri_mock, reset_active_experiment):
     # Create a run and verify that the current active experiment is the one we just set
     logged_runs = {}
     with mlflow.start_run() as active_run:
-        logged_runs["first"] = active_run.info.run_uuid
+        logged_runs["first"] = active_run.info.run_id
         mlflow.log_metric("m1", 0.001)
         mlflow.log_metric("m2", 0.002)
         mlflow.log_metric("m1", 0.002)
         mlflow.log_param("p1", "a")
         mlflow.set_tag("t1", "first-tag-val")
     with mlflow.start_run() as active_run:
-        logged_runs["second"] = active_run.info.run_uuid
+        logged_runs["second"] = active_run.info.run_id
         mlflow.log_metric("m1", 0.008)
         mlflow.log_param("p2", "aa")
         mlflow.set_tag("t2", "second-tag-val")
 
     def verify_runs(runs, expected_set):
-        assert set([r.info.run_uuid for r in runs]) == set([logged_runs[r] for r in expected_set])
+        assert set([r.info.run_id for r in runs]) == set([logged_runs[r] for r in expected_set])
 
     experiment_id = MlflowClient().get_experiment_by_name("exp-for-search").experiment_id
 
@@ -510,7 +629,7 @@ def test_search_runs(tracking_uri_mock, reset_active_experiment):
 
 
 def test_search_runs_multiple_experiments(tracking_uri_mock, reset_active_experiment):
-    experiment_ids = [mlflow.create_experiment("exp__{}".format(id)) for id in range(1, 4)]
+    experiment_ids = [mlflow.create_experiment("exp__{}".format(exp_id)) for exp_id in range(1, 4)]
     for eid in experiment_ids:
         with mlflow.start_run(experiment_id=eid):
             mlflow.log_metric("m0", 1)

@@ -31,7 +31,7 @@ mlflow_source <- function(uri) {
     },
     interrupt = function(cnd) mlflow_end_run(status = "KILLED"),
     finally = {
-      mlflow_end_run()
+      if (!is.null(mlflow_get_active_run_id())) mlflow_end_run(status = "FAILED")
       clear_run_params()
     }
   )

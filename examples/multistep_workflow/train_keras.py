@@ -4,12 +4,10 @@ ratings dataset (see etl_data.py) and an ALS model (see als.py), which we
 will use to supplement our input and train using.
 """
 import click
-import tempfile
 
 import mlflow
 import mlflow.keras
 import mlflow.spark
-import time
 
 from itertools import chain
 import pyspark
@@ -17,11 +15,10 @@ from pyspark.sql.functions import *
 from pyspark.sql.types import *
 
 import tensorflow as tf
-import keras
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.callbacks import ModelCheckpoint, EarlyStopping
-from keras.regularizers import l2
+import tensorflow.keras as keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import numpy as np
 import pandas as pd
 
@@ -99,7 +96,7 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
     mlflow.log_metric("train_mse", train_mse)
 
     print('The model had a MSE on the test set of {0}'.format(test_mse))
-    mlflow.keras.save_model(model, "keras-model")
+    mlflow.keras.log_model(model, "keras-model")
 
 
 if __name__ == '__main__':

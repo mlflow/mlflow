@@ -2,7 +2,7 @@
 % Please edit documentation in R/tracking-server.R
 \name{mlflow_server}
 \alias{mlflow_server}
-\title{Run the MLflow Tracking Server}
+\title{Run MLflow Tracking Server}
 \usage{
 mlflow_server(file_store = "mlruns", default_artifact_root = NULL,
   host = "127.0.0.1", port = 5000, workers = 4,

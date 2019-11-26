@@ -7,5 +7,5 @@ dependencies:
   - pytorch
   - torchvision
   - pip:
-    - mlflow
+    - mlflow>=1.0
     - tensorboardX

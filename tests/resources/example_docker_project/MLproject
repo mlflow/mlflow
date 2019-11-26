@@ -9,4 +9,4 @@ entry_points:
   test_tracking:
     parameters:
       use_start_run: bool
-    command: "python docker_tracking_test.py {use_start_run}"
+    command: "python scripts/docker_tracking_test.py {use_start_run}"

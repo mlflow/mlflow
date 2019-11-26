@@ -3398,7 +3398,7 @@ public final class Service {
   }
   /**
    * <pre>
-   * Run data (metrics, params, etc).
+   * Run data (metrics, params, and tags).
    * </pre>
    *
    * Protobuf type {@code mlflow.RunData}
@@ -3861,7 +3861,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Run data (metrics, params, etc).
+     * Run data (metrics, params, and tags).
      * </pre>
      *
      * Protobuf type {@code mlflow.RunData}
@@ -5972,6 +5972,858 @@ public final class Service {
 
   }
 
+  public interface ExperimentTagOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.ExperimentTag)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * The tag key.
+     * </pre>
+     *
+     * <code>optional string key = 1;</code>
+     */
+    boolean hasKey();
+    /**
+     * <pre>
+     * The tag key.
+     * </pre>
+     *
+     * <code>optional string key = 1;</code>
+     */
+    java.lang.String getKey();
+    /**
+     * <pre>
+     * The tag key.
+     * </pre>
+     *
+     * <code>optional string key = 1;</code>
+     */
+    com.google.protobuf.ByteString
+        getKeyBytes();
+
+    /**
+     * <pre>
+     * The tag value.
+     * </pre>
+     *
+     * <code>optional string value = 2;</code>
+     */
+    boolean hasValue();
+    /**
+     * <pre>
+     * The tag value.
+     * </pre>
+     *
+     * <code>optional string value = 2;</code>
+     */
+    java.lang.String getValue();
+    /**
+     * <pre>
+     * The tag value.
+     * </pre>
+     *
+     * <code>optional string value = 2;</code>
+     */
+    com.google.protobuf.ByteString
+        getValueBytes();
+  }
+  /**
+   * <pre>
+   * Tag for an experiment.
+   * </pre>
+   *
+   * Protobuf type {@code mlflow.ExperimentTag}
+   */
+  public  static final class ExperimentTag extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.ExperimentTag)
+      ExperimentTagOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use ExperimentTag.newBuilder() to construct.
+    private ExperimentTag(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private ExperimentTag() {
+      key_ = "";
+      value_ = "";
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private ExperimentTag(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              key_ = bs;
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              value_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_ExperimentTag_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_ExperimentTag_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.Service.ExperimentTag.class, org.mlflow.api.proto.Service.ExperimentTag.Builder.class);
+    }
+
+    private int bitField0_;
+    public static final int KEY_FIELD_NUMBER = 1;
+    private volatile java.lang.Object key_;
+    /**
+     * <pre>
+     * The tag key.
+     * </pre>
+     *
+     * <code>optional string key = 1;</code>
+     */
+    public boolean hasKey() {
+      return ((bitField0_ & 0x00000001) == 0x00000001);
+    }
+    /**
+     * <pre>
+     * The tag key.
+     * </pre>
+     *
+     * <code>optional string key = 1;</code>
+     */
+    public java.lang.String getKey() {
+      java.lang.Object ref = key_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          key_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * The tag key.
+     * </pre>
+     *
+     * <code>optional string key = 1;</code>
+     */
+    public com.google.protobuf.ByteString
+        getKeyBytes() {
+      java.lang.Object ref = key_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        key_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int VALUE_FIELD_NUMBER = 2;
+    private volatile java.lang.Object value_;
+    /**
+     * <pre>
+     * The tag value.
+     * </pre>
+     *
+     * <code>optional string value = 2;</code>
+     */
+    public boolean hasValue() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * The tag value.
+     * </pre>
+     *
+     * <code>optional string value = 2;</code>
+     */
+    public java.lang.String getValue() {
+      java.lang.Object ref = value_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          value_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * The tag value.
+     * </pre>
+     *
+     * <code>optional string value = 2;</code>
+     */
+    public com.google.protobuf.ByteString
+        getValueBytes() {
+      java.lang.Object ref = value_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        value_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, key_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, value_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, key_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, value_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.Service.ExperimentTag)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.Service.ExperimentTag other = (org.mlflow.api.proto.Service.ExperimentTag) obj;
+
+      boolean result = true;
+      result = result && (hasKey() == other.hasKey());
+      if (hasKey()) {
+        result = result && getKey()
+            .equals(other.getKey());
+      }
+      result = result && (hasValue() == other.hasValue());
+      if (hasValue()) {
+        result = result && getValue()
+            .equals(other.getValue());
+      }
+      result = result && unknownFields.equals(other.unknownFields);
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasKey()) {
+        hash = (37 * hash) + KEY_FIELD_NUMBER;
+        hash = (53 * hash) + getKey().hashCode();
+      }
+      if (hasValue()) {
+        hash = (37 * hash) + VALUE_FIELD_NUMBER;
+        hash = (53 * hash) + getValue().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.Service.ExperimentTag parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentTag parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentTag parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentTag parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentTag parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentTag parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentTag parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentTag parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentTag parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentTag parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentTag parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentTag parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.Service.ExperimentTag prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * <pre>
+     * Tag for an experiment.
+     * </pre>
+     *
+     * Protobuf type {@code mlflow.ExperimentTag}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.ExperimentTag)
+        org.mlflow.api.proto.Service.ExperimentTagOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_ExperimentTag_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_ExperimentTag_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.ExperimentTag.class, org.mlflow.api.proto.Service.ExperimentTag.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.Service.ExperimentTag.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        key_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        value_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_ExperimentTag_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ExperimentTag getDefaultInstanceForType() {
+        return org.mlflow.api.proto.Service.ExperimentTag.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ExperimentTag build() {
+        org.mlflow.api.proto.Service.ExperimentTag result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ExperimentTag buildPartial() {
+        org.mlflow.api.proto.Service.ExperimentTag result = new org.mlflow.api.proto.Service.ExperimentTag(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.key_ = key_;
+        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.value_ = value_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.Service.ExperimentTag) {
+          return mergeFrom((org.mlflow.api.proto.Service.ExperimentTag)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.Service.ExperimentTag other) {
+        if (other == org.mlflow.api.proto.Service.ExperimentTag.getDefaultInstance()) return this;
+        if (other.hasKey()) {
+          bitField0_ |= 0x00000001;
+          key_ = other.key_;
+          onChanged();
+        }
+        if (other.hasValue()) {
+          bitField0_ |= 0x00000002;
+          value_ = other.value_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.Service.ExperimentTag parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.Service.ExperimentTag) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object key_ = "";
+      /**
+       * <pre>
+       * The tag key.
+       * </pre>
+       *
+       * <code>optional string key = 1;</code>
+       */
+      public boolean hasKey() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <pre>
+       * The tag key.
+       * </pre>
+       *
+       * <code>optional string key = 1;</code>
+       */
+      public java.lang.String getKey() {
+        java.lang.Object ref = key_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            key_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The tag key.
+       * </pre>
+       *
+       * <code>optional string key = 1;</code>
+       */
+      public com.google.protobuf.ByteString
+          getKeyBytes() {
+        java.lang.Object ref = key_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          key_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The tag key.
+       * </pre>
+       *
+       * <code>optional string key = 1;</code>
+       */
+      public Builder setKey(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        key_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The tag key.
+       * </pre>
+       *
+       * <code>optional string key = 1;</code>
+       */
+      public Builder clearKey() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        key_ = getDefaultInstance().getKey();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The tag key.
+       * </pre>
+       *
+       * <code>optional string key = 1;</code>
+       */
+      public Builder setKeyBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        key_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object value_ = "";
+      /**
+       * <pre>
+       * The tag value.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       */
+      public boolean hasValue() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * The tag value.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       */
+      public java.lang.String getValue() {
+        java.lang.Object ref = value_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            value_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The tag value.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       */
+      public com.google.protobuf.ByteString
+          getValueBytes() {
+        java.lang.Object ref = value_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          value_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The tag value.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       */
+      public Builder setValue(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        value_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The tag value.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       */
+      public Builder clearValue() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        value_ = getDefaultInstance().getValue();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The tag value.
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       */
+      public Builder setValueBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        value_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.ExperimentTag)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.ExperimentTag)
+    private static final org.mlflow.api.proto.Service.ExperimentTag DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.ExperimentTag();
+    }
+
+    public static org.mlflow.api.proto.Service.ExperimentTag getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<ExperimentTag>
+        PARSER = new com.google.protobuf.AbstractParser<ExperimentTag>() {
+      @java.lang.Override
+      public ExperimentTag parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new ExperimentTag(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<ExperimentTag> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<ExperimentTag> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.ExperimentTag getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   public interface RunInfoOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.RunInfo)
       com.google.protobuf.MessageOrBuilder {
@@ -5981,12 +6833,40 @@ public final class Service {
      * Unique identifier for the run.
      * </pre>
      *
+     * <code>optional string run_id = 15;</code>
+     */
+    boolean hasRunId();
+    /**
+     * <pre>
+     * Unique identifier for the run.
+     * </pre>
+     *
+     * <code>optional string run_id = 15;</code>
+     */
+    java.lang.String getRunId();
+    /**
+     * <pre>
+     * Unique identifier for the run.
+     * </pre>
+     *
+     * <code>optional string run_id = 15;</code>
+     */
+    com.google.protobuf.ByteString
+        getRunIdBytes();
+
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] Unique identifier for the run. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
      * <code>optional string run_uuid = 1;</code>
      */
     boolean hasRunUuid();
     /**
      * <pre>
-     * Unique identifier for the run.
+     * [Deprecated, use run_id instead] Unique identifier for the run. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
      * <code>optional string run_uuid = 1;</code>
@@ -5994,7 +6874,8 @@ public final class Service {
     java.lang.String getRunUuid();
     /**
      * <pre>
-     * Unique identifier for the run.
+     * [Deprecated, use run_id instead] Unique identifier for the run. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
      * <code>optional string run_uuid = 1;</code>
@@ -6030,92 +6911,9 @@ public final class Service {
 
     /**
      * <pre>
-     * Human readable name that identifies this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string name = 3;</code>
-     */
-    boolean hasName();
-    /**
-     * <pre>
-     * Human readable name that identifies this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string name = 3;</code>
-     */
-    java.lang.String getName();
-    /**
-     * <pre>
-     * Human readable name that identifies this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string name = 3;</code>
-     */
-    com.google.protobuf.ByteString
-        getNameBytes();
-
-    /**
-     * <pre>
-     * Source type.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    boolean hasSourceType();
-    /**
-     * <pre>
-     * Source type.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    org.mlflow.api.proto.Service.SourceType getSourceType();
-
-    /**
-     * <pre>
-     * Source identifier: GitHub URL, name of notebook, name of job, etc.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    boolean hasSourceName();
-    /**
-     * <pre>
-     * Source identifier: GitHub URL, name of notebook, name of job, etc.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    java.lang.String getSourceName();
-    /**
-     * <pre>
-     * Source identifier: GitHub URL, name of notebook, name of job, etc.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    com.google.protobuf.ByteString
-        getSourceNameBytes();
-
-    /**
-     * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6124,6 +6922,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6132,6 +6932,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6189,70 +6991,6 @@ public final class Service {
      * <code>optional int64 end_time = 9;</code>
      */
     long getEndTime();
-
-    /**
-     * <pre>
-     * Git commit hash of the code used for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 10;</code>
-     */
-    boolean hasSourceVersion();
-    /**
-     * <pre>
-     * Git commit hash of the code used for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 10;</code>
-     */
-    java.lang.String getSourceVersion();
-    /**
-     * <pre>
-     * Git commit hash of the code used for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 10;</code>
-     */
-    com.google.protobuf.ByteString
-        getSourceVersionBytes();
-
-    /**
-     * <pre>
-     * Name of the entry point for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 11;</code>
-     */
-    boolean hasEntryPointName();
-    /**
-     * <pre>
-     * Name of the entry point for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 11;</code>
-     */
-    java.lang.String getEntryPointName();
-    /**
-     * <pre>
-     * Name of the entry point for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 11;</code>
-     */
-    com.google.protobuf.ByteString
-        getEntryPointNameBytes();
 
     /**
      * <pre>
@@ -6332,17 +7070,13 @@ public final class Service {
       super(builder);
     }
     private RunInfo() {
+      runId_ = "";
       runUuid_ = "";
       experimentId_ = "";
-      name_ = "";
-      sourceType_ = 1;
-      sourceName_ = "";
       userId_ = "";
       status_ = 1;
       startTime_ = 0L;
       endTime_ = 0L;
-      sourceVersion_ = "";
-      entryPointName_ = "";
       artifactUri_ = "";
       lifecycleStage_ = "";
     }
@@ -6373,43 +7107,19 @@ public final class Service {
               break;
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
+              bitField0_ |= 0x00000002;
               runUuid_ = bs;
               break;
             }
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
-              experimentId_ = bs;
-              break;
-            }
-            case 26: {
-              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000004;
-              name_ = bs;
-              break;
-            }
-            case 32: {
-              int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.Service.SourceType value = org.mlflow.api.proto.Service.SourceType.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(4, rawValue);
-              } else {
-                bitField0_ |= 0x00000008;
-                sourceType_ = rawValue;
-              }
-              break;
-            }
-            case 42: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000010;
-              sourceName_ = bs;
+              experimentId_ = bs;
               break;
             }
             case 50: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000020;
+              bitField0_ |= 0x00000008;
               userId_ = bs;
               break;
             }
@@ -6420,43 +7130,37 @@ public final class Service {
               if (value == null) {
                 unknownFields.mergeVarintField(7, rawValue);
               } else {
-                bitField0_ |= 0x00000040;
+                bitField0_ |= 0x00000010;
                 status_ = rawValue;
               }
               break;
             }
             case 64: {
-              bitField0_ |= 0x00000080;
+              bitField0_ |= 0x00000020;
               startTime_ = input.readInt64();
               break;
             }
             case 72: {
-              bitField0_ |= 0x00000100;
+              bitField0_ |= 0x00000040;
               endTime_ = input.readInt64();
-              break;
-            }
-            case 82: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000200;
-              sourceVersion_ = bs;
-              break;
-            }
-            case 90: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000400;
-              entryPointName_ = bs;
               break;
             }
             case 106: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000800;
+              bitField0_ |= 0x00000080;
               artifactUri_ = bs;
               break;
             }
             case 114: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00001000;
+              bitField0_ |= 0x00000100;
               lifecycleStage_ = bs;
+              break;
+            }
+            case 122: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              runId_ = bs;
               break;
             }
             default: {
@@ -6492,21 +7196,77 @@ public final class Service {
     }
 
     private int bitField0_;
-    public static final int RUN_UUID_FIELD_NUMBER = 1;
-    private volatile java.lang.Object runUuid_;
+    public static final int RUN_ID_FIELD_NUMBER = 15;
+    private volatile java.lang.Object runId_;
     /**
      * <pre>
      * Unique identifier for the run.
      * </pre>
      *
-     * <code>optional string run_uuid = 1;</code>
+     * <code>optional string run_id = 15;</code>
      */
-    public boolean hasRunUuid() {
+    public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
      * <pre>
      * Unique identifier for the run.
+     * </pre>
+     *
+     * <code>optional string run_id = 15;</code>
+     */
+    public java.lang.String getRunId() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Unique identifier for the run.
+     * </pre>
+     *
+     * <code>optional string run_id = 15;</code>
+     */
+    public com.google.protobuf.ByteString
+        getRunIdBytes() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int RUN_UUID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object runUuid_;
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] Unique identifier for the run. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
+     */
+    public boolean hasRunUuid() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] Unique identifier for the run. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
      * <code>optional string run_uuid = 1;</code>
@@ -6527,7 +7287,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Unique identifier for the run.
+     * [Deprecated, use run_id instead] Unique identifier for the run. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
      * <code>optional string run_uuid = 1;</code>
@@ -6556,7 +7317,7 @@ public final class Service {
      * <code>optional string experiment_id = 2;</code>
      */
     public boolean hasExperimentId() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     /**
      * <pre>
@@ -6600,170 +7361,25 @@ public final class Service {
       }
     }
 
-    public static final int NAME_FIELD_NUMBER = 3;
-    private volatile java.lang.Object name_;
-    /**
-     * <pre>
-     * Human readable name that identifies this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string name = 3;</code>
-     */
-    public boolean hasName() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
-    }
-    /**
-     * <pre>
-     * Human readable name that identifies this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string name = 3;</code>
-     */
-    public java.lang.String getName() {
-      java.lang.Object ref = name_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          name_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Human readable name that identifies this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string name = 3;</code>
-     */
-    public com.google.protobuf.ByteString
-        getNameBytes() {
-      java.lang.Object ref = name_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        name_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int SOURCE_TYPE_FIELD_NUMBER = 4;
-    private int sourceType_;
-    /**
-     * <pre>
-     * Source type.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    public boolean hasSourceType() {
-      return ((bitField0_ & 0x00000008) == 0x00000008);
-    }
-    /**
-     * <pre>
-     * Source type.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    public org.mlflow.api.proto.Service.SourceType getSourceType() {
-      @SuppressWarnings("deprecation")
-      org.mlflow.api.proto.Service.SourceType result = org.mlflow.api.proto.Service.SourceType.valueOf(sourceType_);
-      return result == null ? org.mlflow.api.proto.Service.SourceType.NOTEBOOK : result;
-    }
-
-    public static final int SOURCE_NAME_FIELD_NUMBER = 5;
-    private volatile java.lang.Object sourceName_;
-    /**
-     * <pre>
-     * Source identifier: GitHub URL, name of notebook, name of job, etc.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    public boolean hasSourceName() {
-      return ((bitField0_ & 0x00000010) == 0x00000010);
-    }
-    /**
-     * <pre>
-     * Source identifier: GitHub URL, name of notebook, name of job, etc.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    public java.lang.String getSourceName() {
-      java.lang.Object ref = sourceName_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          sourceName_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Source identifier: GitHub URL, name of notebook, name of job, etc.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    public com.google.protobuf.ByteString
-        getSourceNameBytes() {
-      java.lang.Object ref = sourceName_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        sourceName_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     public static final int USER_ID_FIELD_NUMBER = 6;
     private volatile java.lang.Object userId_;
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
      */
     public boolean hasUserId() {
-      return ((bitField0_ & 0x00000020) == 0x00000020);
+      return ((bitField0_ & 0x00000008) == 0x00000008);
     }
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6785,6 +7401,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6813,7 +7431,7 @@ public final class Service {
      * <code>optional .mlflow.RunStatus status = 7;</code>
      */
     public boolean hasStatus() {
-      return ((bitField0_ & 0x00000040) == 0x00000040);
+      return ((bitField0_ & 0x00000010) == 0x00000010);
     }
     /**
      * <pre>
@@ -6838,7 +7456,7 @@ public final class Service {
      * <code>optional int64 start_time = 8;</code>
      */
     public boolean hasStartTime() {
-      return ((bitField0_ & 0x00000080) == 0x00000080);
+      return ((bitField0_ & 0x00000020) == 0x00000020);
     }
     /**
      * <pre>
@@ -6861,7 +7479,7 @@ public final class Service {
      * <code>optional int64 end_time = 9;</code>
      */
     public boolean hasEndTime() {
-      return ((bitField0_ & 0x00000100) == 0x00000100);
+      return ((bitField0_ & 0x00000040) == 0x00000040);
     }
     /**
      * <pre>
@@ -6872,126 +7490,6 @@ public final class Service {
      */
     public long getEndTime() {
       return endTime_;
-    }
-
-    public static final int SOURCE_VERSION_FIELD_NUMBER = 10;
-    private volatile java.lang.Object sourceVersion_;
-    /**
-     * <pre>
-     * Git commit hash of the code used for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 10;</code>
-     */
-    public boolean hasSourceVersion() {
-      return ((bitField0_ & 0x00000200) == 0x00000200);
-    }
-    /**
-     * <pre>
-     * Git commit hash of the code used for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 10;</code>
-     */
-    public java.lang.String getSourceVersion() {
-      java.lang.Object ref = sourceVersion_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          sourceVersion_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Git commit hash of the code used for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 10;</code>
-     */
-    public com.google.protobuf.ByteString
-        getSourceVersionBytes() {
-      java.lang.Object ref = sourceVersion_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        sourceVersion_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int ENTRY_POINT_NAME_FIELD_NUMBER = 11;
-    private volatile java.lang.Object entryPointName_;
-    /**
-     * <pre>
-     * Name of the entry point for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 11;</code>
-     */
-    public boolean hasEntryPointName() {
-      return ((bitField0_ & 0x00000400) == 0x00000400);
-    }
-    /**
-     * <pre>
-     * Name of the entry point for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 11;</code>
-     */
-    public java.lang.String getEntryPointName() {
-      java.lang.Object ref = entryPointName_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          entryPointName_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Name of the entry point for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 11;</code>
-     */
-    public com.google.protobuf.ByteString
-        getEntryPointNameBytes() {
-      java.lang.Object ref = entryPointName_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        entryPointName_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
     }
 
     public static final int ARTIFACT_URI_FIELD_NUMBER = 13;
@@ -7007,7 +7505,7 @@ public final class Service {
      * <code>optional string artifact_uri = 13;</code>
      */
     public boolean hasArtifactUri() {
-      return ((bitField0_ & 0x00000800) == 0x00000800);
+      return ((bitField0_ & 0x00000080) == 0x00000080);
     }
     /**
      * <pre>
@@ -7067,7 +7565,7 @@ public final class Service {
      * <code>optional string lifecycle_stage = 14;</code>
      */
     public boolean hasLifecycleStage() {
-      return ((bitField0_ & 0x00001000) == 0x00001000);
+      return ((bitField0_ & 0x00000100) == 0x00000100);
     }
     /**
      * <pre>
@@ -7125,44 +7623,32 @@ public final class Service {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, experimentId_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, name_);
-      }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
-        output.writeEnum(4, sourceType_);
-      }
-      if (((bitField0_ & 0x00000010) == 0x00000010)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, sourceName_);
-      }
-      if (((bitField0_ & 0x00000020) == 0x00000020)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 6, userId_);
       }
-      if (((bitField0_ & 0x00000040) == 0x00000040)) {
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
         output.writeEnum(7, status_);
       }
-      if (((bitField0_ & 0x00000080) == 0x00000080)) {
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
         output.writeInt64(8, startTime_);
       }
-      if (((bitField0_ & 0x00000100) == 0x00000100)) {
+      if (((bitField0_ & 0x00000040) == 0x00000040)) {
         output.writeInt64(9, endTime_);
       }
-      if (((bitField0_ & 0x00000200) == 0x00000200)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, sourceVersion_);
-      }
-      if (((bitField0_ & 0x00000400) == 0x00000400)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 11, entryPointName_);
-      }
-      if (((bitField0_ & 0x00000800) == 0x00000800)) {
+      if (((bitField0_ & 0x00000080) == 0x00000080)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 13, artifactUri_);
       }
-      if (((bitField0_ & 0x00001000) == 0x00001000)) {
+      if (((bitField0_ & 0x00000100) == 0x00000100)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 14, lifecycleStage_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 15, runId_);
       }
       unknownFields.writeTo(output);
     }
@@ -7173,48 +7659,35 @@ public final class Service {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, experimentId_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, name_);
-      }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(4, sourceType_);
-      }
-      if (((bitField0_ & 0x00000010) == 0x00000010)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, sourceName_);
-      }
-      if (((bitField0_ & 0x00000020) == 0x00000020)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, userId_);
       }
-      if (((bitField0_ & 0x00000040) == 0x00000040)) {
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
         size += com.google.protobuf.CodedOutputStream
           .computeEnumSize(7, status_);
       }
-      if (((bitField0_ & 0x00000080) == 0x00000080)) {
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(8, startTime_);
       }
-      if (((bitField0_ & 0x00000100) == 0x00000100)) {
+      if (((bitField0_ & 0x00000040) == 0x00000040)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(9, endTime_);
       }
-      if (((bitField0_ & 0x00000200) == 0x00000200)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, sourceVersion_);
-      }
-      if (((bitField0_ & 0x00000400) == 0x00000400)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, entryPointName_);
-      }
-      if (((bitField0_ & 0x00000800) == 0x00000800)) {
+      if (((bitField0_ & 0x00000080) == 0x00000080)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(13, artifactUri_);
       }
-      if (((bitField0_ & 0x00001000) == 0x00001000)) {
+      if (((bitField0_ & 0x00000100) == 0x00000100)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(14, lifecycleStage_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(15, runId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -7232,6 +7705,11 @@ public final class Service {
       org.mlflow.api.proto.Service.RunInfo other = (org.mlflow.api.proto.Service.RunInfo) obj;
 
       boolean result = true;
+      result = result && (hasRunId() == other.hasRunId());
+      if (hasRunId()) {
+        result = result && getRunId()
+            .equals(other.getRunId());
+      }
       result = result && (hasRunUuid() == other.hasRunUuid());
       if (hasRunUuid()) {
         result = result && getRunUuid()
@@ -7241,20 +7719,6 @@ public final class Service {
       if (hasExperimentId()) {
         result = result && getExperimentId()
             .equals(other.getExperimentId());
-      }
-      result = result && (hasName() == other.hasName());
-      if (hasName()) {
-        result = result && getName()
-            .equals(other.getName());
-      }
-      result = result && (hasSourceType() == other.hasSourceType());
-      if (hasSourceType()) {
-        result = result && sourceType_ == other.sourceType_;
-      }
-      result = result && (hasSourceName() == other.hasSourceName());
-      if (hasSourceName()) {
-        result = result && getSourceName()
-            .equals(other.getSourceName());
       }
       result = result && (hasUserId() == other.hasUserId());
       if (hasUserId()) {
@@ -7274,16 +7738,6 @@ public final class Service {
       if (hasEndTime()) {
         result = result && (getEndTime()
             == other.getEndTime());
-      }
-      result = result && (hasSourceVersion() == other.hasSourceVersion());
-      if (hasSourceVersion()) {
-        result = result && getSourceVersion()
-            .equals(other.getSourceVersion());
-      }
-      result = result && (hasEntryPointName() == other.hasEntryPointName());
-      if (hasEntryPointName()) {
-        result = result && getEntryPointName()
-            .equals(other.getEntryPointName());
       }
       result = result && (hasArtifactUri() == other.hasArtifactUri());
       if (hasArtifactUri()) {
@@ -7306,6 +7760,10 @@ public final class Service {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasRunId()) {
+        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRunId().hashCode();
+      }
       if (hasRunUuid()) {
         hash = (37 * hash) + RUN_UUID_FIELD_NUMBER;
         hash = (53 * hash) + getRunUuid().hashCode();
@@ -7313,18 +7771,6 @@ public final class Service {
       if (hasExperimentId()) {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
         hash = (53 * hash) + getExperimentId().hashCode();
-      }
-      if (hasName()) {
-        hash = (37 * hash) + NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getName().hashCode();
-      }
-      if (hasSourceType()) {
-        hash = (37 * hash) + SOURCE_TYPE_FIELD_NUMBER;
-        hash = (53 * hash) + sourceType_;
-      }
-      if (hasSourceName()) {
-        hash = (37 * hash) + SOURCE_NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getSourceName().hashCode();
       }
       if (hasUserId()) {
         hash = (37 * hash) + USER_ID_FIELD_NUMBER;
@@ -7343,14 +7789,6 @@ public final class Service {
         hash = (37 * hash) + END_TIME_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getEndTime());
-      }
-      if (hasSourceVersion()) {
-        hash = (37 * hash) + SOURCE_VERSION_FIELD_NUMBER;
-        hash = (53 * hash) + getSourceVersion().hashCode();
-      }
-      if (hasEntryPointName()) {
-        hash = (37 * hash) + ENTRY_POINT_NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getEntryPointName().hashCode();
       }
       if (hasArtifactUri()) {
         hash = (37 * hash) + ARTIFACT_URI_FIELD_NUMBER;
@@ -7497,32 +7935,24 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        runUuid_ = "";
+        runId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        experimentId_ = "";
+        runUuid_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        name_ = "";
+        experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
-        sourceType_ = 1;
-        bitField0_ = (bitField0_ & ~0x00000008);
-        sourceName_ = "";
-        bitField0_ = (bitField0_ & ~0x00000010);
         userId_ = "";
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000008);
         status_ = 1;
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000010);
         startTime_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000020);
         endTime_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00000100);
-        sourceVersion_ = "";
-        bitField0_ = (bitField0_ & ~0x00000200);
-        entryPointName_ = "";
-        bitField0_ = (bitField0_ & ~0x00000400);
+        bitField0_ = (bitField0_ & ~0x00000040);
         artifactUri_ = "";
-        bitField0_ = (bitField0_ & ~0x00000800);
+        bitField0_ = (bitField0_ & ~0x00000080);
         lifecycleStage_ = "";
-        bitField0_ = (bitField0_ & ~0x00001000);
+        bitField0_ = (bitField0_ & ~0x00000100);
         return this;
       }
 
@@ -7554,53 +7984,37 @@ public final class Service {
         if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
           to_bitField0_ |= 0x00000001;
         }
-        result.runUuid_ = runUuid_;
+        result.runId_ = runId_;
         if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
           to_bitField0_ |= 0x00000002;
         }
-        result.experimentId_ = experimentId_;
+        result.runUuid_ = runUuid_;
         if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000004;
         }
-        result.name_ = name_;
+        result.experimentId_ = experimentId_;
         if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
           to_bitField0_ |= 0x00000008;
         }
-        result.sourceType_ = sourceType_;
+        result.userId_ = userId_;
         if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
           to_bitField0_ |= 0x00000010;
         }
-        result.sourceName_ = sourceName_;
+        result.status_ = status_;
         if (((from_bitField0_ & 0x00000020) == 0x00000020)) {
           to_bitField0_ |= 0x00000020;
         }
-        result.userId_ = userId_;
+        result.startTime_ = startTime_;
         if (((from_bitField0_ & 0x00000040) == 0x00000040)) {
           to_bitField0_ |= 0x00000040;
         }
-        result.status_ = status_;
+        result.endTime_ = endTime_;
         if (((from_bitField0_ & 0x00000080) == 0x00000080)) {
           to_bitField0_ |= 0x00000080;
         }
-        result.startTime_ = startTime_;
+        result.artifactUri_ = artifactUri_;
         if (((from_bitField0_ & 0x00000100) == 0x00000100)) {
           to_bitField0_ |= 0x00000100;
-        }
-        result.endTime_ = endTime_;
-        if (((from_bitField0_ & 0x00000200) == 0x00000200)) {
-          to_bitField0_ |= 0x00000200;
-        }
-        result.sourceVersion_ = sourceVersion_;
-        if (((from_bitField0_ & 0x00000400) == 0x00000400)) {
-          to_bitField0_ |= 0x00000400;
-        }
-        result.entryPointName_ = entryPointName_;
-        if (((from_bitField0_ & 0x00000800) == 0x00000800)) {
-          to_bitField0_ |= 0x00000800;
-        }
-        result.artifactUri_ = artifactUri_;
-        if (((from_bitField0_ & 0x00001000) == 0x00001000)) {
-          to_bitField0_ |= 0x00001000;
         }
         result.lifecycleStage_ = lifecycleStage_;
         result.bitField0_ = to_bitField0_;
@@ -7652,31 +8066,23 @@ public final class Service {
 
       public Builder mergeFrom(org.mlflow.api.proto.Service.RunInfo other) {
         if (other == org.mlflow.api.proto.Service.RunInfo.getDefaultInstance()) return this;
-        if (other.hasRunUuid()) {
+        if (other.hasRunId()) {
           bitField0_ |= 0x00000001;
+          runId_ = other.runId_;
+          onChanged();
+        }
+        if (other.hasRunUuid()) {
+          bitField0_ |= 0x00000002;
           runUuid_ = other.runUuid_;
           onChanged();
         }
         if (other.hasExperimentId()) {
-          bitField0_ |= 0x00000002;
+          bitField0_ |= 0x00000004;
           experimentId_ = other.experimentId_;
           onChanged();
         }
-        if (other.hasName()) {
-          bitField0_ |= 0x00000004;
-          name_ = other.name_;
-          onChanged();
-        }
-        if (other.hasSourceType()) {
-          setSourceType(other.getSourceType());
-        }
-        if (other.hasSourceName()) {
-          bitField0_ |= 0x00000010;
-          sourceName_ = other.sourceName_;
-          onChanged();
-        }
         if (other.hasUserId()) {
-          bitField0_ |= 0x00000020;
+          bitField0_ |= 0x00000008;
           userId_ = other.userId_;
           onChanged();
         }
@@ -7689,23 +8095,13 @@ public final class Service {
         if (other.hasEndTime()) {
           setEndTime(other.getEndTime());
         }
-        if (other.hasSourceVersion()) {
-          bitField0_ |= 0x00000200;
-          sourceVersion_ = other.sourceVersion_;
-          onChanged();
-        }
-        if (other.hasEntryPointName()) {
-          bitField0_ |= 0x00000400;
-          entryPointName_ = other.entryPointName_;
-          onChanged();
-        }
         if (other.hasArtifactUri()) {
-          bitField0_ |= 0x00000800;
+          bitField0_ |= 0x00000080;
           artifactUri_ = other.artifactUri_;
           onChanged();
         }
         if (other.hasLifecycleStage()) {
-          bitField0_ |= 0x00001000;
+          bitField0_ |= 0x00000100;
           lifecycleStage_ = other.lifecycleStage_;
           onChanged();
         }
@@ -7739,20 +8135,122 @@ public final class Service {
       }
       private int bitField0_;
 
-      private java.lang.Object runUuid_ = "";
+      private java.lang.Object runId_ = "";
       /**
        * <pre>
        * Unique identifier for the run.
        * </pre>
        *
-       * <code>optional string run_uuid = 1;</code>
+       * <code>optional string run_id = 15;</code>
        */
-      public boolean hasRunUuid() {
+      public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
        * <pre>
        * Unique identifier for the run.
+       * </pre>
+       *
+       * <code>optional string run_id = 15;</code>
+       */
+      public java.lang.String getRunId() {
+        java.lang.Object ref = runId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Unique identifier for the run.
+       * </pre>
+       *
+       * <code>optional string run_id = 15;</code>
+       */
+      public com.google.protobuf.ByteString
+          getRunIdBytes() {
+        java.lang.Object ref = runId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Unique identifier for the run.
+       * </pre>
+       *
+       * <code>optional string run_id = 15;</code>
+       */
+      public Builder setRunId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Unique identifier for the run.
+       * </pre>
+       *
+       * <code>optional string run_id = 15;</code>
+       */
+      public Builder clearRunId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        runId_ = getDefaultInstance().getRunId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Unique identifier for the run.
+       * </pre>
+       *
+       * <code>optional string run_id = 15;</code>
+       */
+      public Builder setRunIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object runUuid_ = "";
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] Unique identifier for the run. This field will
+       * be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
+       */
+      public boolean hasRunUuid() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] Unique identifier for the run. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
        * <code>optional string run_uuid = 1;</code>
@@ -7773,7 +8271,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Unique identifier for the run.
+       * [Deprecated, use run_id instead] Unique identifier for the run. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
        * <code>optional string run_uuid = 1;</code>
@@ -7793,7 +8292,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Unique identifier for the run.
+       * [Deprecated, use run_id instead] Unique identifier for the run. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
        * <code>optional string run_uuid = 1;</code>
@@ -7803,27 +8303,29 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Unique identifier for the run.
+       * [Deprecated, use run_id instead] Unique identifier for the run. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
        * <code>optional string run_uuid = 1;</code>
        */
       public Builder clearRunUuid() {
-        bitField0_ = (bitField0_ & ~0x00000001);
+        bitField0_ = (bitField0_ & ~0x00000002);
         runUuid_ = getDefaultInstance().getRunUuid();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Unique identifier for the run.
+       * [Deprecated, use run_id instead] Unique identifier for the run. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
        * <code>optional string run_uuid = 1;</code>
@@ -7833,7 +8335,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
@@ -7848,7 +8350,7 @@ public final class Service {
        * <code>optional string experiment_id = 2;</code>
        */
       public boolean hasExperimentId() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <pre>
@@ -7903,7 +8405,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000002;
+  bitField0_ |= 0x00000004;
         experimentId_ = value;
         onChanged();
         return this;
@@ -7916,7 +8418,7 @@ public final class Service {
        * <code>optional string experiment_id = 2;</code>
        */
       public Builder clearExperimentId() {
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000004);
         experimentId_ = getDefaultInstance().getExperimentId();
         onChanged();
         return this;
@@ -7933,293 +8435,8 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000002;
+  bitField0_ |= 0x00000004;
         experimentId_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object name_ = "";
-      /**
-       * <pre>
-       * Human readable name that identifies this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string name = 3;</code>
-       */
-      public boolean hasName() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
-      }
-      /**
-       * <pre>
-       * Human readable name that identifies this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string name = 3;</code>
-       */
-      public java.lang.String getName() {
-        java.lang.Object ref = name_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            name_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Human readable name that identifies this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string name = 3;</code>
-       */
-      public com.google.protobuf.ByteString
-          getNameBytes() {
-        java.lang.Object ref = name_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          name_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Human readable name that identifies this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string name = 3;</code>
-       */
-      public Builder setName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        name_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Human readable name that identifies this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string name = 3;</code>
-       */
-      public Builder clearName() {
-        bitField0_ = (bitField0_ & ~0x00000004);
-        name_ = getDefaultInstance().getName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Human readable name that identifies this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string name = 3;</code>
-       */
-      public Builder setNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        name_ = value;
-        onChanged();
-        return this;
-      }
-
-      private int sourceType_ = 1;
-      /**
-       * <pre>
-       * Source type.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public boolean hasSourceType() {
-        return ((bitField0_ & 0x00000008) == 0x00000008);
-      }
-      /**
-       * <pre>
-       * Source type.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public org.mlflow.api.proto.Service.SourceType getSourceType() {
-        @SuppressWarnings("deprecation")
-        org.mlflow.api.proto.Service.SourceType result = org.mlflow.api.proto.Service.SourceType.valueOf(sourceType_);
-        return result == null ? org.mlflow.api.proto.Service.SourceType.NOTEBOOK : result;
-      }
-      /**
-       * <pre>
-       * Source type.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public Builder setSourceType(org.mlflow.api.proto.Service.SourceType value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        bitField0_ |= 0x00000008;
-        sourceType_ = value.getNumber();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Source type.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public Builder clearSourceType() {
-        bitField0_ = (bitField0_ & ~0x00000008);
-        sourceType_ = 1;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object sourceName_ = "";
-      /**
-       * <pre>
-       * Source identifier: GitHub URL, name of notebook, name of job, etc.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public boolean hasSourceName() {
-        return ((bitField0_ & 0x00000010) == 0x00000010);
-      }
-      /**
-       * <pre>
-       * Source identifier: GitHub URL, name of notebook, name of job, etc.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public java.lang.String getSourceName() {
-        java.lang.Object ref = sourceName_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            sourceName_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Source identifier: GitHub URL, name of notebook, name of job, etc.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public com.google.protobuf.ByteString
-          getSourceNameBytes() {
-        java.lang.Object ref = sourceName_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          sourceName_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Source identifier: GitHub URL, name of notebook, name of job, etc.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public Builder setSourceName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000010;
-        sourceName_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Source identifier: GitHub URL, name of notebook, name of job, etc.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public Builder clearSourceName() {
-        bitField0_ = (bitField0_ & ~0x00000010);
-        sourceName_ = getDefaultInstance().getSourceName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Source identifier: GitHub URL, name of notebook, name of job, etc.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public Builder setSourceNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000010;
-        sourceName_ = value;
         onChanged();
         return this;
       }
@@ -8228,16 +8445,20 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
        */
       public boolean hasUserId() {
-        return ((bitField0_ & 0x00000020) == 0x00000020);
+        return ((bitField0_ & 0x00000008) == 0x00000008);
       }
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -8259,6 +8480,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -8279,6 +8502,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -8288,7 +8513,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000008;
         userId_ = value;
         onChanged();
         return this;
@@ -8296,12 +8521,14 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
        */
       public Builder clearUserId() {
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000008);
         userId_ = getDefaultInstance().getUserId();
         onChanged();
         return this;
@@ -8309,6 +8536,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -8318,7 +8547,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000008;
         userId_ = value;
         onChanged();
         return this;
@@ -8333,7 +8562,7 @@ public final class Service {
        * <code>optional .mlflow.RunStatus status = 7;</code>
        */
       public boolean hasStatus() {
-        return ((bitField0_ & 0x00000040) == 0x00000040);
+        return ((bitField0_ & 0x00000010) == 0x00000010);
       }
       /**
        * <pre>
@@ -8358,7 +8587,7 @@ public final class Service {
         if (value == null) {
           throw new NullPointerException();
         }
-        bitField0_ |= 0x00000040;
+        bitField0_ |= 0x00000010;
         status_ = value.getNumber();
         onChanged();
         return this;
@@ -8371,7 +8600,7 @@ public final class Service {
        * <code>optional .mlflow.RunStatus status = 7;</code>
        */
       public Builder clearStatus() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000010);
         status_ = 1;
         onChanged();
         return this;
@@ -8386,7 +8615,7 @@ public final class Service {
        * <code>optional int64 start_time = 8;</code>
        */
       public boolean hasStartTime() {
-        return ((bitField0_ & 0x00000080) == 0x00000080);
+        return ((bitField0_ & 0x00000020) == 0x00000020);
       }
       /**
        * <pre>
@@ -8406,7 +8635,7 @@ public final class Service {
        * <code>optional int64 start_time = 8;</code>
        */
       public Builder setStartTime(long value) {
-        bitField0_ |= 0x00000080;
+        bitField0_ |= 0x00000020;
         startTime_ = value;
         onChanged();
         return this;
@@ -8419,7 +8648,7 @@ public final class Service {
        * <code>optional int64 start_time = 8;</code>
        */
       public Builder clearStartTime() {
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000020);
         startTime_ = 0L;
         onChanged();
         return this;
@@ -8434,7 +8663,7 @@ public final class Service {
        * <code>optional int64 end_time = 9;</code>
        */
       public boolean hasEndTime() {
-        return ((bitField0_ & 0x00000100) == 0x00000100);
+        return ((bitField0_ & 0x00000040) == 0x00000040);
       }
       /**
        * <pre>
@@ -8454,7 +8683,7 @@ public final class Service {
        * <code>optional int64 end_time = 9;</code>
        */
       public Builder setEndTime(long value) {
-        bitField0_ |= 0x00000100;
+        bitField0_ |= 0x00000040;
         endTime_ = value;
         onChanged();
         return this;
@@ -8467,232 +8696,8 @@ public final class Service {
        * <code>optional int64 end_time = 9;</code>
        */
       public Builder clearEndTime() {
-        bitField0_ = (bitField0_ & ~0x00000100);
+        bitField0_ = (bitField0_ & ~0x00000040);
         endTime_ = 0L;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object sourceVersion_ = "";
-      /**
-       * <pre>
-       * Git commit hash of the code used for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 10;</code>
-       */
-      public boolean hasSourceVersion() {
-        return ((bitField0_ & 0x00000200) == 0x00000200);
-      }
-      /**
-       * <pre>
-       * Git commit hash of the code used for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 10;</code>
-       */
-      public java.lang.String getSourceVersion() {
-        java.lang.Object ref = sourceVersion_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            sourceVersion_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Git commit hash of the code used for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 10;</code>
-       */
-      public com.google.protobuf.ByteString
-          getSourceVersionBytes() {
-        java.lang.Object ref = sourceVersion_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          sourceVersion_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Git commit hash of the code used for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 10;</code>
-       */
-      public Builder setSourceVersion(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000200;
-        sourceVersion_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Git commit hash of the code used for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 10;</code>
-       */
-      public Builder clearSourceVersion() {
-        bitField0_ = (bitField0_ & ~0x00000200);
-        sourceVersion_ = getDefaultInstance().getSourceVersion();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Git commit hash of the code used for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 10;</code>
-       */
-      public Builder setSourceVersionBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000200;
-        sourceVersion_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object entryPointName_ = "";
-      /**
-       * <pre>
-       * Name of the entry point for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 11;</code>
-       */
-      public boolean hasEntryPointName() {
-        return ((bitField0_ & 0x00000400) == 0x00000400);
-      }
-      /**
-       * <pre>
-       * Name of the entry point for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 11;</code>
-       */
-      public java.lang.String getEntryPointName() {
-        java.lang.Object ref = entryPointName_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            entryPointName_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Name of the entry point for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 11;</code>
-       */
-      public com.google.protobuf.ByteString
-          getEntryPointNameBytes() {
-        java.lang.Object ref = entryPointName_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          entryPointName_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Name of the entry point for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 11;</code>
-       */
-      public Builder setEntryPointName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000400;
-        entryPointName_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Name of the entry point for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 11;</code>
-       */
-      public Builder clearEntryPointName() {
-        bitField0_ = (bitField0_ & ~0x00000400);
-        entryPointName_ = getDefaultInstance().getEntryPointName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Name of the entry point for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 11;</code>
-       */
-      public Builder setEntryPointNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000400;
-        entryPointName_ = value;
         onChanged();
         return this;
       }
@@ -8709,7 +8714,7 @@ public final class Service {
        * <code>optional string artifact_uri = 13;</code>
        */
       public boolean hasArtifactUri() {
-        return ((bitField0_ & 0x00000800) == 0x00000800);
+        return ((bitField0_ & 0x00000080) == 0x00000080);
       }
       /**
        * <pre>
@@ -8773,7 +8778,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000800;
+  bitField0_ |= 0x00000080;
         artifactUri_ = value;
         onChanged();
         return this;
@@ -8789,7 +8794,7 @@ public final class Service {
        * <code>optional string artifact_uri = 13;</code>
        */
       public Builder clearArtifactUri() {
-        bitField0_ = (bitField0_ & ~0x00000800);
+        bitField0_ = (bitField0_ & ~0x00000080);
         artifactUri_ = getDefaultInstance().getArtifactUri();
         onChanged();
         return this;
@@ -8809,7 +8814,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000800;
+  bitField0_ |= 0x00000080;
         artifactUri_ = value;
         onChanged();
         return this;
@@ -8824,7 +8829,7 @@ public final class Service {
        * <code>optional string lifecycle_stage = 14;</code>
        */
       public boolean hasLifecycleStage() {
-        return ((bitField0_ & 0x00001000) == 0x00001000);
+        return ((bitField0_ & 0x00000100) == 0x00000100);
       }
       /**
        * <pre>
@@ -8879,7 +8884,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00001000;
+  bitField0_ |= 0x00000100;
         lifecycleStage_ = value;
         onChanged();
         return this;
@@ -8892,7 +8897,7 @@ public final class Service {
        * <code>optional string lifecycle_stage = 14;</code>
        */
       public Builder clearLifecycleStage() {
-        bitField0_ = (bitField0_ & ~0x00001000);
+        bitField0_ = (bitField0_ & ~0x00000100);
         lifecycleStage_ = getDefaultInstance().getLifecycleStage();
         onChanged();
         return this;
@@ -8909,7 +8914,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00001000;
+  bitField0_ |= 0x00000100;
         lifecycleStage_ = value;
         onChanged();
         return this;
@@ -9111,6 +9116,50 @@ public final class Service {
      * <code>optional int64 creation_time = 6;</code>
      */
     long getCreationTime();
+
+    /**
+     * <pre>
+     * Tags: Additional metadata key-value pairs.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+     */
+    java.util.List<org.mlflow.api.proto.Service.ExperimentTag> 
+        getTagsList();
+    /**
+     * <pre>
+     * Tags: Additional metadata key-value pairs.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+     */
+    org.mlflow.api.proto.Service.ExperimentTag getTags(int index);
+    /**
+     * <pre>
+     * Tags: Additional metadata key-value pairs.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+     */
+    int getTagsCount();
+    /**
+     * <pre>
+     * Tags: Additional metadata key-value pairs.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+     */
+    java.util.List<? extends org.mlflow.api.proto.Service.ExperimentTagOrBuilder> 
+        getTagsOrBuilderList();
+    /**
+     * <pre>
+     * Tags: Additional metadata key-value pairs.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+     */
+    org.mlflow.api.proto.Service.ExperimentTagOrBuilder getTagsOrBuilder(
+        int index);
   }
   /**
    * <pre>
@@ -9135,6 +9184,7 @@ public final class Service {
       lifecycleStage_ = "";
       lastUpdateTime_ = 0L;
       creationTime_ = 0L;
+      tags_ = java.util.Collections.emptyList();
     }
 
     @java.lang.Override
@@ -9195,6 +9245,15 @@ public final class Service {
               creationTime_ = input.readInt64();
               break;
             }
+            case 58: {
+              if (!((mutable_bitField0_ & 0x00000040) == 0x00000040)) {
+                tags_ = new java.util.ArrayList<org.mlflow.api.proto.Service.ExperimentTag>();
+                mutable_bitField0_ |= 0x00000040;
+              }
+              tags_.add(
+                  input.readMessage(org.mlflow.api.proto.Service.ExperimentTag.PARSER, extensionRegistry));
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -9210,6 +9269,9 @@ public final class Service {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
+        if (((mutable_bitField0_ & 0x00000040) == 0x00000040)) {
+          tags_ = java.util.Collections.unmodifiableList(tags_);
+        }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
       }
@@ -9493,6 +9555,61 @@ public final class Service {
       return creationTime_;
     }
 
+    public static final int TAGS_FIELD_NUMBER = 7;
+    private java.util.List<org.mlflow.api.proto.Service.ExperimentTag> tags_;
+    /**
+     * <pre>
+     * Tags: Additional metadata key-value pairs.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+     */
+    public java.util.List<org.mlflow.api.proto.Service.ExperimentTag> getTagsList() {
+      return tags_;
+    }
+    /**
+     * <pre>
+     * Tags: Additional metadata key-value pairs.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+     */
+    public java.util.List<? extends org.mlflow.api.proto.Service.ExperimentTagOrBuilder> 
+        getTagsOrBuilderList() {
+      return tags_;
+    }
+    /**
+     * <pre>
+     * Tags: Additional metadata key-value pairs.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+     */
+    public int getTagsCount() {
+      return tags_.size();
+    }
+    /**
+     * <pre>
+     * Tags: Additional metadata key-value pairs.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+     */
+    public org.mlflow.api.proto.Service.ExperimentTag getTags(int index) {
+      return tags_.get(index);
+    }
+    /**
+     * <pre>
+     * Tags: Additional metadata key-value pairs.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+     */
+    public org.mlflow.api.proto.Service.ExperimentTagOrBuilder getTagsOrBuilder(
+        int index) {
+      return tags_.get(index);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -9525,6 +9642,9 @@ public final class Service {
       if (((bitField0_ & 0x00000020) == 0x00000020)) {
         output.writeInt64(6, creationTime_);
       }
+      for (int i = 0; i < tags_.size(); i++) {
+        output.writeMessage(7, tags_.get(i));
+      }
       unknownFields.writeTo(output);
     }
 
@@ -9553,6 +9673,10 @@ public final class Service {
       if (((bitField0_ & 0x00000020) == 0x00000020)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(6, creationTime_);
+      }
+      for (int i = 0; i < tags_.size(); i++) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(7, tags_.get(i));
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -9600,6 +9724,8 @@ public final class Service {
         result = result && (getCreationTime()
             == other.getCreationTime());
       }
+      result = result && getTagsList()
+          .equals(other.getTagsList());
       result = result && unknownFields.equals(other.unknownFields);
       return result;
     }
@@ -9636,6 +9762,10 @@ public final class Service {
         hash = (37 * hash) + CREATION_TIME_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getCreationTime());
+      }
+      if (getTagsCount() > 0) {
+        hash = (37 * hash) + TAGS_FIELD_NUMBER;
+        hash = (53 * hash) + getTagsList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -9769,6 +9899,7 @@ public final class Service {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
+          getTagsFieldBuilder();
         }
       }
       @java.lang.Override
@@ -9786,6 +9917,12 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000010);
         creationTime_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000020);
+        if (tagsBuilder_ == null) {
+          tags_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000040);
+        } else {
+          tagsBuilder_.clear();
+        }
         return this;
       }
 
@@ -9838,6 +9975,15 @@ public final class Service {
           to_bitField0_ |= 0x00000020;
         }
         result.creationTime_ = creationTime_;
+        if (tagsBuilder_ == null) {
+          if (((bitField0_ & 0x00000040) == 0x00000040)) {
+            tags_ = java.util.Collections.unmodifiableList(tags_);
+            bitField0_ = (bitField0_ & ~0x00000040);
+          }
+          result.tags_ = tags_;
+        } else {
+          result.tags_ = tagsBuilder_.build();
+        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -9912,6 +10058,32 @@ public final class Service {
         }
         if (other.hasCreationTime()) {
           setCreationTime(other.getCreationTime());
+        }
+        if (tagsBuilder_ == null) {
+          if (!other.tags_.isEmpty()) {
+            if (tags_.isEmpty()) {
+              tags_ = other.tags_;
+              bitField0_ = (bitField0_ & ~0x00000040);
+            } else {
+              ensureTagsIsMutable();
+              tags_.addAll(other.tags_);
+            }
+            onChanged();
+          }
+        } else {
+          if (!other.tags_.isEmpty()) {
+            if (tagsBuilder_.isEmpty()) {
+              tagsBuilder_.dispose();
+              tagsBuilder_ = null;
+              tags_ = other.tags_;
+              bitField0_ = (bitField0_ & ~0x00000040);
+              tagsBuilder_ = 
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                   getTagsFieldBuilder() : null;
+            } else {
+              tagsBuilder_.addAllMessages(other.tags_);
+            }
+          }
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -10444,6 +10616,318 @@ public final class Service {
         onChanged();
         return this;
       }
+
+      private java.util.List<org.mlflow.api.proto.Service.ExperimentTag> tags_ =
+        java.util.Collections.emptyList();
+      private void ensureTagsIsMutable() {
+        if (!((bitField0_ & 0x00000040) == 0x00000040)) {
+          tags_ = new java.util.ArrayList<org.mlflow.api.proto.Service.ExperimentTag>(tags_);
+          bitField0_ |= 0x00000040;
+         }
+      }
+
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          org.mlflow.api.proto.Service.ExperimentTag, org.mlflow.api.proto.Service.ExperimentTag.Builder, org.mlflow.api.proto.Service.ExperimentTagOrBuilder> tagsBuilder_;
+
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public java.util.List<org.mlflow.api.proto.Service.ExperimentTag> getTagsList() {
+        if (tagsBuilder_ == null) {
+          return java.util.Collections.unmodifiableList(tags_);
+        } else {
+          return tagsBuilder_.getMessageList();
+        }
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public int getTagsCount() {
+        if (tagsBuilder_ == null) {
+          return tags_.size();
+        } else {
+          return tagsBuilder_.getCount();
+        }
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public org.mlflow.api.proto.Service.ExperimentTag getTags(int index) {
+        if (tagsBuilder_ == null) {
+          return tags_.get(index);
+        } else {
+          return tagsBuilder_.getMessage(index);
+        }
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public Builder setTags(
+          int index, org.mlflow.api.proto.Service.ExperimentTag value) {
+        if (tagsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureTagsIsMutable();
+          tags_.set(index, value);
+          onChanged();
+        } else {
+          tagsBuilder_.setMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public Builder setTags(
+          int index, org.mlflow.api.proto.Service.ExperimentTag.Builder builderForValue) {
+        if (tagsBuilder_ == null) {
+          ensureTagsIsMutable();
+          tags_.set(index, builderForValue.build());
+          onChanged();
+        } else {
+          tagsBuilder_.setMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public Builder addTags(org.mlflow.api.proto.Service.ExperimentTag value) {
+        if (tagsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureTagsIsMutable();
+          tags_.add(value);
+          onChanged();
+        } else {
+          tagsBuilder_.addMessage(value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public Builder addTags(
+          int index, org.mlflow.api.proto.Service.ExperimentTag value) {
+        if (tagsBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureTagsIsMutable();
+          tags_.add(index, value);
+          onChanged();
+        } else {
+          tagsBuilder_.addMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public Builder addTags(
+          org.mlflow.api.proto.Service.ExperimentTag.Builder builderForValue) {
+        if (tagsBuilder_ == null) {
+          ensureTagsIsMutable();
+          tags_.add(builderForValue.build());
+          onChanged();
+        } else {
+          tagsBuilder_.addMessage(builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public Builder addTags(
+          int index, org.mlflow.api.proto.Service.ExperimentTag.Builder builderForValue) {
+        if (tagsBuilder_ == null) {
+          ensureTagsIsMutable();
+          tags_.add(index, builderForValue.build());
+          onChanged();
+        } else {
+          tagsBuilder_.addMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public Builder addAllTags(
+          java.lang.Iterable<? extends org.mlflow.api.proto.Service.ExperimentTag> values) {
+        if (tagsBuilder_ == null) {
+          ensureTagsIsMutable();
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, tags_);
+          onChanged();
+        } else {
+          tagsBuilder_.addAllMessages(values);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public Builder clearTags() {
+        if (tagsBuilder_ == null) {
+          tags_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000040);
+          onChanged();
+        } else {
+          tagsBuilder_.clear();
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public Builder removeTags(int index) {
+        if (tagsBuilder_ == null) {
+          ensureTagsIsMutable();
+          tags_.remove(index);
+          onChanged();
+        } else {
+          tagsBuilder_.remove(index);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public org.mlflow.api.proto.Service.ExperimentTag.Builder getTagsBuilder(
+          int index) {
+        return getTagsFieldBuilder().getBuilder(index);
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public org.mlflow.api.proto.Service.ExperimentTagOrBuilder getTagsOrBuilder(
+          int index) {
+        if (tagsBuilder_ == null) {
+          return tags_.get(index);  } else {
+          return tagsBuilder_.getMessageOrBuilder(index);
+        }
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public java.util.List<? extends org.mlflow.api.proto.Service.ExperimentTagOrBuilder> 
+           getTagsOrBuilderList() {
+        if (tagsBuilder_ != null) {
+          return tagsBuilder_.getMessageOrBuilderList();
+        } else {
+          return java.util.Collections.unmodifiableList(tags_);
+        }
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public org.mlflow.api.proto.Service.ExperimentTag.Builder addTagsBuilder() {
+        return getTagsFieldBuilder().addBuilder(
+            org.mlflow.api.proto.Service.ExperimentTag.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public org.mlflow.api.proto.Service.ExperimentTag.Builder addTagsBuilder(
+          int index) {
+        return getTagsFieldBuilder().addBuilder(
+            index, org.mlflow.api.proto.Service.ExperimentTag.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * Tags: Additional metadata key-value pairs.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentTag tags = 7;</code>
+       */
+      public java.util.List<org.mlflow.api.proto.Service.ExperimentTag.Builder> 
+           getTagsBuilderList() {
+        return getTagsFieldBuilder().getBuilderList();
+      }
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          org.mlflow.api.proto.Service.ExperimentTag, org.mlflow.api.proto.Service.ExperimentTag.Builder, org.mlflow.api.proto.Service.ExperimentTagOrBuilder> 
+          getTagsFieldBuilder() {
+        if (tagsBuilder_ == null) {
+          tagsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+              org.mlflow.api.proto.Service.ExperimentTag, org.mlflow.api.proto.Service.ExperimentTag.Builder, org.mlflow.api.proto.Service.ExperimentTagOrBuilder>(
+                  tags_,
+                  ((bitField0_ & 0x00000040) == 0x00000040),
+                  getParentForChildren(),
+                  isClean());
+          tags_ = null;
+        }
+        return tagsBuilder_;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -10506,7 +10990,7 @@ public final class Service {
      * Experiment name.
      * </pre>
      *
-     * <code>optional string name = 1 [(.validate_required) = true];</code>
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasName();
     /**
@@ -10514,7 +10998,7 @@ public final class Service {
      * Experiment name.
      * </pre>
      *
-     * <code>optional string name = 1 [(.validate_required) = true];</code>
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getName();
     /**
@@ -10522,7 +11006,7 @@ public final class Service {
      * Experiment name.
      * </pre>
      *
-     * <code>optional string name = 1 [(.validate_required) = true];</code>
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getNameBytes();
@@ -11280,7 +11764,7 @@ public final class Service {
      * Experiment name.
      * </pre>
      *
-     * <code>optional string name = 1 [(.validate_required) = true];</code>
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -11290,7 +11774,7 @@ public final class Service {
      * Experiment name.
      * </pre>
      *
-     * <code>optional string name = 1 [(.validate_required) = true];</code>
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getName() {
       java.lang.Object ref = name_;
@@ -11311,7 +11795,7 @@ public final class Service {
      * Experiment name.
      * </pre>
      *
-     * <code>optional string name = 1 [(.validate_required) = true];</code>
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getNameBytes() {
@@ -11732,7 +12216,7 @@ public final class Service {
        * Experiment name.
        * </pre>
        *
-       * <code>optional string name = 1 [(.validate_required) = true];</code>
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -11742,7 +12226,7 @@ public final class Service {
        * Experiment name.
        * </pre>
        *
-       * <code>optional string name = 1 [(.validate_required) = true];</code>
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getName() {
         java.lang.Object ref = name_;
@@ -11763,7 +12247,7 @@ public final class Service {
        * Experiment name.
        * </pre>
        *
-       * <code>optional string name = 1 [(.validate_required) = true];</code>
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getNameBytes() {
@@ -11783,7 +12267,7 @@ public final class Service {
        * Experiment name.
        * </pre>
        *
-       * <code>optional string name = 1 [(.validate_required) = true];</code>
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setName(
           java.lang.String value) {
@@ -11800,7 +12284,7 @@ public final class Service {
        * Experiment name.
        * </pre>
        *
-       * <code>optional string name = 1 [(.validate_required) = true];</code>
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearName() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -11813,7 +12297,7 @@ public final class Service {
        * Experiment name.
        * </pre>
        *
-       * <code>optional string name = 1 [(.validate_required) = true];</code>
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setNameBytes(
           com.google.protobuf.ByteString value) {
@@ -12097,7 +12581,7 @@ public final class Service {
 
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12106,7 +12590,7 @@ public final class Service {
           getExperimentsList();
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12114,7 +12598,7 @@ public final class Service {
       org.mlflow.api.proto.Service.Experiment getExperiments(int index);
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12122,7 +12606,7 @@ public final class Service {
       int getExperimentsCount();
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12131,7 +12615,7 @@ public final class Service {
           getExperimentsOrBuilderList();
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12227,7 +12711,7 @@ public final class Service {
       private java.util.List<org.mlflow.api.proto.Service.Experiment> experiments_;
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12237,7 +12721,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12248,7 +12732,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12258,7 +12742,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12268,7 +12752,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12635,7 +13119,7 @@ public final class Service {
 
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12649,7 +13133,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12663,7 +13147,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12677,7 +13161,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12698,7 +13182,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12716,7 +13200,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12736,7 +13220,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12757,7 +13241,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12775,7 +13259,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12793,7 +13277,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12812,7 +13296,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12829,7 +13313,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12846,7 +13330,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12857,7 +13341,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12871,7 +13355,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12886,7 +13370,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12897,7 +13381,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12909,7 +13393,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -13445,7 +13929,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasExperimentId();
     /**
@@ -13453,7 +13937,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getExperimentId();
     /**
@@ -13461,7 +13945,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getExperimentIdBytes();
@@ -13550,7 +14034,7 @@ public final class Service {
 
       /**
        * <pre>
-       * Returns experiment details.
+       * Experiment details.
        * </pre>
        *
        * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13558,7 +14042,7 @@ public final class Service {
       boolean hasExperiment();
       /**
        * <pre>
-       * Returns experiment details.
+       * Experiment details.
        * </pre>
        *
        * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13566,7 +14050,7 @@ public final class Service {
       org.mlflow.api.proto.Service.Experiment getExperiment();
       /**
        * <pre>
-       * Returns experiment details.
+       * Experiment details.
        * </pre>
        *
        * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13575,46 +14059,61 @@ public final class Service {
 
       /**
        * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
+       * A collection of active runs in the experiment. Note: this may not contain
+       * all of the experiment's active runs.
+       * This field is deprecated. Please use the "Search Runs" API to fetch
+       * runs within an experiment.
        * </pre>
        *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
+       * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
        */
-      java.util.List<org.mlflow.api.proto.Service.RunInfo> 
+      @java.lang.Deprecated java.util.List<org.mlflow.api.proto.Service.RunInfo> 
           getRunsList();
       /**
        * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
+       * A collection of active runs in the experiment. Note: this may not contain
+       * all of the experiment's active runs.
+       * This field is deprecated. Please use the "Search Runs" API to fetch
+       * runs within an experiment.
        * </pre>
        *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
+       * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
        */
-      org.mlflow.api.proto.Service.RunInfo getRuns(int index);
+      @java.lang.Deprecated org.mlflow.api.proto.Service.RunInfo getRuns(int index);
       /**
        * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
+       * A collection of active runs in the experiment. Note: this may not contain
+       * all of the experiment's active runs.
+       * This field is deprecated. Please use the "Search Runs" API to fetch
+       * runs within an experiment.
        * </pre>
        *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
+       * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
        */
-      int getRunsCount();
+      @java.lang.Deprecated int getRunsCount();
       /**
        * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
+       * A collection of active runs in the experiment. Note: this may not contain
+       * all of the experiment's active runs.
+       * This field is deprecated. Please use the "Search Runs" API to fetch
+       * runs within an experiment.
        * </pre>
        *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
+       * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
        */
-      java.util.List<? extends org.mlflow.api.proto.Service.RunInfoOrBuilder> 
+      @java.lang.Deprecated java.util.List<? extends org.mlflow.api.proto.Service.RunInfoOrBuilder> 
           getRunsOrBuilderList();
       /**
        * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
+       * A collection of active runs in the experiment. Note: this may not contain
+       * all of the experiment's active runs.
+       * This field is deprecated. Please use the "Search Runs" API to fetch
+       * runs within an experiment.
        * </pre>
        *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
+       * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
        */
-      org.mlflow.api.proto.Service.RunInfoOrBuilder getRunsOrBuilder(
+      @java.lang.Deprecated org.mlflow.api.proto.Service.RunInfoOrBuilder getRunsOrBuilder(
           int index);
     }
     /**
@@ -13719,7 +14218,7 @@ public final class Service {
       private org.mlflow.api.proto.Service.Experiment experiment_;
       /**
        * <pre>
-       * Returns experiment details.
+       * Experiment details.
        * </pre>
        *
        * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13729,7 +14228,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Returns experiment details.
+       * Experiment details.
        * </pre>
        *
        * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13739,7 +14238,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Returns experiment details.
+       * Experiment details.
        * </pre>
        *
        * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13752,53 +14251,68 @@ public final class Service {
       private java.util.List<org.mlflow.api.proto.Service.RunInfo> runs_;
       /**
        * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
+       * A collection of active runs in the experiment. Note: this may not contain
+       * all of the experiment's active runs.
+       * This field is deprecated. Please use the "Search Runs" API to fetch
+       * runs within an experiment.
        * </pre>
        *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
+       * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
        */
-      public java.util.List<org.mlflow.api.proto.Service.RunInfo> getRunsList() {
+      @java.lang.Deprecated public java.util.List<org.mlflow.api.proto.Service.RunInfo> getRunsList() {
         return runs_;
       }
       /**
        * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
+       * A collection of active runs in the experiment. Note: this may not contain
+       * all of the experiment's active runs.
+       * This field is deprecated. Please use the "Search Runs" API to fetch
+       * runs within an experiment.
        * </pre>
        *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
+       * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
        */
-      public java.util.List<? extends org.mlflow.api.proto.Service.RunInfoOrBuilder> 
+      @java.lang.Deprecated public java.util.List<? extends org.mlflow.api.proto.Service.RunInfoOrBuilder> 
           getRunsOrBuilderList() {
         return runs_;
       }
       /**
        * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
+       * A collection of active runs in the experiment. Note: this may not contain
+       * all of the experiment's active runs.
+       * This field is deprecated. Please use the "Search Runs" API to fetch
+       * runs within an experiment.
        * </pre>
        *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
+       * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
        */
-      public int getRunsCount() {
+      @java.lang.Deprecated public int getRunsCount() {
         return runs_.size();
       }
       /**
        * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
+       * A collection of active runs in the experiment. Note: this may not contain
+       * all of the experiment's active runs.
+       * This field is deprecated. Please use the "Search Runs" API to fetch
+       * runs within an experiment.
        * </pre>
        *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
+       * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
        */
-      public org.mlflow.api.proto.Service.RunInfo getRuns(int index) {
+      @java.lang.Deprecated public org.mlflow.api.proto.Service.RunInfo getRuns(int index) {
         return runs_.get(index);
       }
       /**
        * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
+       * A collection of active runs in the experiment. Note: this may not contain
+       * all of the experiment's active runs.
+       * This field is deprecated. Please use the "Search Runs" API to fetch
+       * runs within an experiment.
        * </pre>
        *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
+       * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
        */
-      public org.mlflow.api.proto.Service.RunInfoOrBuilder getRunsOrBuilder(
+      @java.lang.Deprecated public org.mlflow.api.proto.Service.RunInfoOrBuilder getRunsOrBuilder(
           int index) {
         return runs_.get(index);
       }
@@ -14187,7 +14701,7 @@ public final class Service {
             org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder> experimentBuilder_;
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -14197,7 +14711,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -14211,7 +14725,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -14231,7 +14745,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -14249,7 +14763,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -14273,7 +14787,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -14290,7 +14804,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -14302,7 +14816,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -14317,7 +14831,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -14350,12 +14864,15 @@ public final class Service {
 
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public java.util.List<org.mlflow.api.proto.Service.RunInfo> getRunsList() {
+        @java.lang.Deprecated public java.util.List<org.mlflow.api.proto.Service.RunInfo> getRunsList() {
           if (runsBuilder_ == null) {
             return java.util.Collections.unmodifiableList(runs_);
           } else {
@@ -14364,12 +14881,15 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public int getRunsCount() {
+        @java.lang.Deprecated public int getRunsCount() {
           if (runsBuilder_ == null) {
             return runs_.size();
           } else {
@@ -14378,12 +14898,15 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public org.mlflow.api.proto.Service.RunInfo getRuns(int index) {
+        @java.lang.Deprecated public org.mlflow.api.proto.Service.RunInfo getRuns(int index) {
           if (runsBuilder_ == null) {
             return runs_.get(index);
           } else {
@@ -14392,12 +14915,15 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public Builder setRuns(
+        @java.lang.Deprecated public Builder setRuns(
             int index, org.mlflow.api.proto.Service.RunInfo value) {
           if (runsBuilder_ == null) {
             if (value == null) {
@@ -14413,12 +14939,15 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public Builder setRuns(
+        @java.lang.Deprecated public Builder setRuns(
             int index, org.mlflow.api.proto.Service.RunInfo.Builder builderForValue) {
           if (runsBuilder_ == null) {
             ensureRunsIsMutable();
@@ -14431,12 +14960,15 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public Builder addRuns(org.mlflow.api.proto.Service.RunInfo value) {
+        @java.lang.Deprecated public Builder addRuns(org.mlflow.api.proto.Service.RunInfo value) {
           if (runsBuilder_ == null) {
             if (value == null) {
               throw new NullPointerException();
@@ -14451,12 +14983,15 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public Builder addRuns(
+        @java.lang.Deprecated public Builder addRuns(
             int index, org.mlflow.api.proto.Service.RunInfo value) {
           if (runsBuilder_ == null) {
             if (value == null) {
@@ -14472,12 +15007,15 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public Builder addRuns(
+        @java.lang.Deprecated public Builder addRuns(
             org.mlflow.api.proto.Service.RunInfo.Builder builderForValue) {
           if (runsBuilder_ == null) {
             ensureRunsIsMutable();
@@ -14490,12 +15028,15 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public Builder addRuns(
+        @java.lang.Deprecated public Builder addRuns(
             int index, org.mlflow.api.proto.Service.RunInfo.Builder builderForValue) {
           if (runsBuilder_ == null) {
             ensureRunsIsMutable();
@@ -14508,12 +15049,15 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public Builder addAllRuns(
+        @java.lang.Deprecated public Builder addAllRuns(
             java.lang.Iterable<? extends org.mlflow.api.proto.Service.RunInfo> values) {
           if (runsBuilder_ == null) {
             ensureRunsIsMutable();
@@ -14527,12 +15071,15 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public Builder clearRuns() {
+        @java.lang.Deprecated public Builder clearRuns() {
           if (runsBuilder_ == null) {
             runs_ = java.util.Collections.emptyList();
             bitField0_ = (bitField0_ & ~0x00000002);
@@ -14544,12 +15091,15 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public Builder removeRuns(int index) {
+        @java.lang.Deprecated public Builder removeRuns(int index) {
           if (runsBuilder_ == null) {
             ensureRunsIsMutable();
             runs_.remove(index);
@@ -14561,23 +15111,29 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public org.mlflow.api.proto.Service.RunInfo.Builder getRunsBuilder(
+        @java.lang.Deprecated public org.mlflow.api.proto.Service.RunInfo.Builder getRunsBuilder(
             int index) {
           return getRunsFieldBuilder().getBuilder(index);
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public org.mlflow.api.proto.Service.RunInfoOrBuilder getRunsOrBuilder(
+        @java.lang.Deprecated public org.mlflow.api.proto.Service.RunInfoOrBuilder getRunsOrBuilder(
             int index) {
           if (runsBuilder_ == null) {
             return runs_.get(index);  } else {
@@ -14586,12 +15142,15 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public java.util.List<? extends org.mlflow.api.proto.Service.RunInfoOrBuilder> 
+        @java.lang.Deprecated public java.util.List<? extends org.mlflow.api.proto.Service.RunInfoOrBuilder> 
              getRunsOrBuilderList() {
           if (runsBuilder_ != null) {
             return runsBuilder_.getMessageOrBuilderList();
@@ -14601,35 +15160,44 @@ public final class Service {
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public org.mlflow.api.proto.Service.RunInfo.Builder addRunsBuilder() {
+        @java.lang.Deprecated public org.mlflow.api.proto.Service.RunInfo.Builder addRunsBuilder() {
           return getRunsFieldBuilder().addBuilder(
               org.mlflow.api.proto.Service.RunInfo.getDefaultInstance());
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public org.mlflow.api.proto.Service.RunInfo.Builder addRunsBuilder(
+        @java.lang.Deprecated public org.mlflow.api.proto.Service.RunInfo.Builder addRunsBuilder(
             int index) {
           return getRunsFieldBuilder().addBuilder(
               index, org.mlflow.api.proto.Service.RunInfo.getDefaultInstance());
         }
         /**
          * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
+         * A collection of active runs in the experiment. Note: this may not contain
+         * all of the experiment's active runs.
+         * This field is deprecated. Please use the "Search Runs" API to fetch
+         * runs within an experiment.
          * </pre>
          *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
+         * <code>repeated .mlflow.RunInfo runs = 2 [deprecated = true];</code>
          */
-        public java.util.List<org.mlflow.api.proto.Service.RunInfo.Builder> 
+        @java.lang.Deprecated public java.util.List<org.mlflow.api.proto.Service.RunInfo.Builder> 
              getRunsBuilderList() {
           return getRunsFieldBuilder().getBuilderList();
         }
@@ -14708,7 +15276,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasExperimentId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -14718,7 +15286,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getExperimentId() {
       java.lang.Object ref = experimentId_;
@@ -14739,7 +15307,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getExperimentIdBytes() {
@@ -15077,7 +15645,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasExperimentId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -15087,7 +15655,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getExperimentId() {
         java.lang.Object ref = experimentId_;
@@ -15108,7 +15676,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getExperimentIdBytes() {
@@ -15128,7 +15696,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setExperimentId(
           java.lang.String value) {
@@ -15145,7 +15713,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearExperimentId() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -15158,7 +15726,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setExperimentIdBytes(
           com.google.protobuf.ByteString value) {
@@ -15232,7 +15800,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasExperimentId();
     /**
@@ -15240,7 +15808,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getExperimentId();
     /**
@@ -15248,7 +15816,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getExperimentIdBytes();
@@ -15751,7 +16319,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasExperimentId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -15761,7 +16329,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getExperimentId() {
       java.lang.Object ref = experimentId_;
@@ -15782,7 +16350,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getExperimentIdBytes() {
@@ -16120,7 +16688,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasExperimentId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -16130,7 +16698,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getExperimentId() {
         java.lang.Object ref = experimentId_;
@@ -16151,7 +16719,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getExperimentIdBytes() {
@@ -16171,7 +16739,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setExperimentId(
           java.lang.String value) {
@@ -16188,7 +16756,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearExperimentId() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -16201,7 +16769,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setExperimentIdBytes(
           com.google.protobuf.ByteString value) {
@@ -16272,26 +16840,26 @@ public final class Service {
 
     /**
      * <pre>
-     * Identifier to get an experiment
+     * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasExperimentId();
     /**
      * <pre>
-     * Identifier to get an experiment
+     * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getExperimentId();
     /**
      * <pre>
-     * Identifier to get an experiment
+     * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getExperimentIdBytes();
@@ -16791,20 +17359,20 @@ public final class Service {
     private volatile java.lang.Object experimentId_;
     /**
      * <pre>
-     * Identifier to get an experiment
+     * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasExperimentId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
      * <pre>
-     * Identifier to get an experiment
+     * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getExperimentId() {
       java.lang.Object ref = experimentId_;
@@ -16822,10 +17390,10 @@ public final class Service {
     }
     /**
      * <pre>
-     * Identifier to get an experiment
+     * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getExperimentIdBytes() {
@@ -17160,20 +17728,20 @@ public final class Service {
       private java.lang.Object experimentId_ = "";
       /**
        * <pre>
-       * Identifier to get an experiment
+       * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasExperimentId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
        * <pre>
-       * Identifier to get an experiment
+       * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getExperimentId() {
         java.lang.Object ref = experimentId_;
@@ -17191,10 +17759,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Identifier to get an experiment
+       * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getExperimentIdBytes() {
@@ -17211,10 +17779,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Identifier to get an experiment
+       * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setExperimentId(
           java.lang.String value) {
@@ -17228,10 +17796,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Identifier to get an experiment
+       * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearExperimentId() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -17241,10 +17809,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Identifier to get an experiment
+       * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setExperimentIdBytes(
           com.google.protobuf.ByteString value) {
@@ -17318,7 +17886,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasExperimentId();
     /**
@@ -17326,7 +17894,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getExperimentId();
     /**
@@ -17334,14 +17902,14 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getExperimentIdBytes();
 
     /**
      * <pre>
-     * If provided, the experiment's name will be changed to this. The new name must be unique.
+     * If provided, the experiment's name is changed to the new name. The new name must be unique.
      * </pre>
      *
      * <code>optional string new_name = 2;</code>
@@ -17349,7 +17917,7 @@ public final class Service {
     boolean hasNewName();
     /**
      * <pre>
-     * If provided, the experiment's name will be changed to this. The new name must be unique.
+     * If provided, the experiment's name is changed to the new name. The new name must be unique.
      * </pre>
      *
      * <code>optional string new_name = 2;</code>
@@ -17357,7 +17925,7 @@ public final class Service {
     java.lang.String getNewName();
     /**
      * <pre>
-     * If provided, the experiment's name will be changed to this. The new name must be unique.
+     * If provided, the experiment's name is changed to the new name. The new name must be unique.
      * </pre>
      *
      * <code>optional string new_name = 2;</code>
@@ -17870,7 +18438,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasExperimentId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -17880,7 +18448,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getExperimentId() {
       java.lang.Object ref = experimentId_;
@@ -17901,7 +18469,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getExperimentIdBytes() {
@@ -17921,7 +18489,7 @@ public final class Service {
     private volatile java.lang.Object newName_;
     /**
      * <pre>
-     * If provided, the experiment's name will be changed to this. The new name must be unique.
+     * If provided, the experiment's name is changed to the new name. The new name must be unique.
      * </pre>
      *
      * <code>optional string new_name = 2;</code>
@@ -17931,7 +18499,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * If provided, the experiment's name will be changed to this. The new name must be unique.
+     * If provided, the experiment's name is changed to the new name. The new name must be unique.
      * </pre>
      *
      * <code>optional string new_name = 2;</code>
@@ -17952,7 +18520,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * If provided, the experiment's name will be changed to this. The new name must be unique.
+     * If provided, the experiment's name is changed to the new name. The new name must be unique.
      * </pre>
      *
      * <code>optional string new_name = 2;</code>
@@ -18319,7 +18887,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasExperimentId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -18329,7 +18897,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getExperimentId() {
         java.lang.Object ref = experimentId_;
@@ -18350,7 +18918,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getExperimentIdBytes() {
@@ -18370,7 +18938,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setExperimentId(
           java.lang.String value) {
@@ -18387,7 +18955,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearExperimentId() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -18400,7 +18968,7 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setExperimentIdBytes(
           com.google.protobuf.ByteString value) {
@@ -18416,7 +18984,7 @@ public final class Service {
       private java.lang.Object newName_ = "";
       /**
        * <pre>
-       * If provided, the experiment's name will be changed to this. The new name must be unique.
+       * If provided, the experiment's name is changed to the new name. The new name must be unique.
        * </pre>
        *
        * <code>optional string new_name = 2;</code>
@@ -18426,7 +18994,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * If provided, the experiment's name will be changed to this. The new name must be unique.
+       * If provided, the experiment's name is changed to the new name. The new name must be unique.
        * </pre>
        *
        * <code>optional string new_name = 2;</code>
@@ -18447,7 +19015,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * If provided, the experiment's name will be changed to this. The new name must be unique.
+       * If provided, the experiment's name is changed to the new name. The new name must be unique.
        * </pre>
        *
        * <code>optional string new_name = 2;</code>
@@ -18467,7 +19035,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * If provided, the experiment's name will be changed to this. The new name must be unique.
+       * If provided, the experiment's name is changed to the new name. The new name must be unique.
        * </pre>
        *
        * <code>optional string new_name = 2;</code>
@@ -18484,7 +19052,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * If provided, the experiment's name will be changed to this. The new name must be unique.
+       * If provided, the experiment's name is changed to the new name. The new name must be unique.
        * </pre>
        *
        * <code>optional string new_name = 2;</code>
@@ -18497,7 +19065,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * If provided, the experiment's name will be changed to this. The new name must be unique.
+       * If provided, the experiment's name is changed to the new name. The new name must be unique.
        * </pre>
        *
        * <code>optional string new_name = 2;</code>
@@ -18598,6 +19166,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -18606,6 +19176,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -18614,6 +19186,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -18623,127 +19197,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Human readable name for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string run_name = 3;</code>
-     */
-    boolean hasRunName();
-    /**
-     * <pre>
-     * Human readable name for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string run_name = 3;</code>
-     */
-    java.lang.String getRunName();
-    /**
-     * <pre>
-     * Human readable name for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string run_name = 3;</code>
-     */
-    com.google.protobuf.ByteString
-        getRunNameBytes();
-
-    /**
-     * <pre>
-     * Originating source for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    boolean hasSourceType();
-    /**
-     * <pre>
-     * Originating source for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    org.mlflow.api.proto.Service.SourceType getSourceType();
-
-    /**
-     * <pre>
-     * String descriptor for the run's source. For example, name or description of a notebook, or the
-     * URL or path to a project.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    boolean hasSourceName();
-    /**
-     * <pre>
-     * String descriptor for the run's source. For example, name or description of a notebook, or the
-     * URL or path to a project.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    java.lang.String getSourceName();
-    /**
-     * <pre>
-     * String descriptor for the run's source. For example, name or description of a notebook, or the
-     * URL or path to a project.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    com.google.protobuf.ByteString
-        getSourceNameBytes();
-
-    /**
-     * <pre>
-     * Name of the project entry point associated with the current run, if any.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 6;</code>
-     */
-    boolean hasEntryPointName();
-    /**
-     * <pre>
-     * Name of the project entry point associated with the current run, if any.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 6;</code>
-     */
-    java.lang.String getEntryPointName();
-    /**
-     * <pre>
-     * Name of the project entry point associated with the current run, if any.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 6;</code>
-     */
-    com.google.protobuf.ByteString
-        getEntryPointNameBytes();
-
-    /**
-     * <pre>
-     * Unix timestamp of when the run started in milliseconds.
+     * Unix timestamp in milliseconds of when the run started.
      * </pre>
      *
      * <code>optional int64 start_time = 7;</code>
@@ -18751,44 +19205,12 @@ public final class Service {
     boolean hasStartTime();
     /**
      * <pre>
-     * Unix timestamp of when the run started in milliseconds.
+     * Unix timestamp in milliseconds of when the run started.
      * </pre>
      *
      * <code>optional int64 start_time = 7;</code>
      */
     long getStartTime();
-
-    /**
-     * <pre>
-     * Git commit hash of the source code used to create run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 8;</code>
-     */
-    boolean hasSourceVersion();
-    /**
-     * <pre>
-     * Git commit hash of the source code used to create run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 8;</code>
-     */
-    java.lang.String getSourceVersion();
-    /**
-     * <pre>
-     * Git commit hash of the source code used to create run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 8;</code>
-     */
-    com.google.protobuf.ByteString
-        getSourceVersionBytes();
 
     /**
      * <pre>
@@ -18833,38 +19255,6 @@ public final class Service {
      */
     org.mlflow.api.proto.Service.RunTagOrBuilder getTagsOrBuilder(
         int index);
-
-    /**
-     * <pre>
-     * ID of the parent run which started this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string parent_run_id = 10;</code>
-     */
-    boolean hasParentRunId();
-    /**
-     * <pre>
-     * ID of the parent run which started this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string parent_run_id = 10;</code>
-     */
-    java.lang.String getParentRunId();
-    /**
-     * <pre>
-     * ID of the parent run which started this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string parent_run_id = 10;</code>
-     */
-    com.google.protobuf.ByteString
-        getParentRunIdBytes();
   }
   /**
    * Protobuf type {@code mlflow.CreateRun}
@@ -18881,14 +19271,8 @@ public final class Service {
     private CreateRun() {
       experimentId_ = "";
       userId_ = "";
-      runName_ = "";
-      sourceType_ = 1;
-      sourceName_ = "";
-      entryPointName_ = "";
       startTime_ = 0L;
-      sourceVersion_ = "";
       tags_ = java.util.Collections.emptyList();
-      parentRunId_ = "";
     }
 
     @java.lang.Override
@@ -18927,60 +19311,18 @@ public final class Service {
               userId_ = bs;
               break;
             }
-            case 26: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000004;
-              runName_ = bs;
-              break;
-            }
-            case 32: {
-              int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.Service.SourceType value = org.mlflow.api.proto.Service.SourceType.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(4, rawValue);
-              } else {
-                bitField0_ |= 0x00000008;
-                sourceType_ = rawValue;
-              }
-              break;
-            }
-            case 42: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000010;
-              sourceName_ = bs;
-              break;
-            }
-            case 50: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000020;
-              entryPointName_ = bs;
-              break;
-            }
             case 56: {
-              bitField0_ |= 0x00000040;
+              bitField0_ |= 0x00000004;
               startTime_ = input.readInt64();
               break;
             }
-            case 66: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000080;
-              sourceVersion_ = bs;
-              break;
-            }
             case 74: {
-              if (!((mutable_bitField0_ & 0x00000100) == 0x00000100)) {
+              if (!((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
                 tags_ = new java.util.ArrayList<org.mlflow.api.proto.Service.RunTag>();
-                mutable_bitField0_ |= 0x00000100;
+                mutable_bitField0_ |= 0x00000008;
               }
               tags_.add(
                   input.readMessage(org.mlflow.api.proto.Service.RunTag.PARSER, extensionRegistry));
-              break;
-            }
-            case 82: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000100;
-              parentRunId_ = bs;
               break;
             }
             default: {
@@ -18998,7 +19340,7 @@ public final class Service {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000100) == 0x00000100)) {
+        if (((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
           tags_ = java.util.Collections.unmodifiableList(tags_);
         }
         this.unknownFields = unknownFields.build();
@@ -19755,6 +20097,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -19765,6 +20109,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -19786,6 +20132,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -19804,299 +20152,27 @@ public final class Service {
       }
     }
 
-    public static final int RUN_NAME_FIELD_NUMBER = 3;
-    private volatile java.lang.Object runName_;
-    /**
-     * <pre>
-     * Human readable name for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string run_name = 3;</code>
-     */
-    public boolean hasRunName() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
-    }
-    /**
-     * <pre>
-     * Human readable name for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string run_name = 3;</code>
-     */
-    public java.lang.String getRunName() {
-      java.lang.Object ref = runName_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          runName_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Human readable name for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string run_name = 3;</code>
-     */
-    public com.google.protobuf.ByteString
-        getRunNameBytes() {
-      java.lang.Object ref = runName_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        runName_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int SOURCE_TYPE_FIELD_NUMBER = 4;
-    private int sourceType_;
-    /**
-     * <pre>
-     * Originating source for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    public boolean hasSourceType() {
-      return ((bitField0_ & 0x00000008) == 0x00000008);
-    }
-    /**
-     * <pre>
-     * Originating source for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    public org.mlflow.api.proto.Service.SourceType getSourceType() {
-      @SuppressWarnings("deprecation")
-      org.mlflow.api.proto.Service.SourceType result = org.mlflow.api.proto.Service.SourceType.valueOf(sourceType_);
-      return result == null ? org.mlflow.api.proto.Service.SourceType.NOTEBOOK : result;
-    }
-
-    public static final int SOURCE_NAME_FIELD_NUMBER = 5;
-    private volatile java.lang.Object sourceName_;
-    /**
-     * <pre>
-     * String descriptor for the run's source. For example, name or description of a notebook, or the
-     * URL or path to a project.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    public boolean hasSourceName() {
-      return ((bitField0_ & 0x00000010) == 0x00000010);
-    }
-    /**
-     * <pre>
-     * String descriptor for the run's source. For example, name or description of a notebook, or the
-     * URL or path to a project.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    public java.lang.String getSourceName() {
-      java.lang.Object ref = sourceName_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          sourceName_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * String descriptor for the run's source. For example, name or description of a notebook, or the
-     * URL or path to a project.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    public com.google.protobuf.ByteString
-        getSourceNameBytes() {
-      java.lang.Object ref = sourceName_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        sourceName_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int ENTRY_POINT_NAME_FIELD_NUMBER = 6;
-    private volatile java.lang.Object entryPointName_;
-    /**
-     * <pre>
-     * Name of the project entry point associated with the current run, if any.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 6;</code>
-     */
-    public boolean hasEntryPointName() {
-      return ((bitField0_ & 0x00000020) == 0x00000020);
-    }
-    /**
-     * <pre>
-     * Name of the project entry point associated with the current run, if any.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 6;</code>
-     */
-    public java.lang.String getEntryPointName() {
-      java.lang.Object ref = entryPointName_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          entryPointName_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Name of the project entry point associated with the current run, if any.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 6;</code>
-     */
-    public com.google.protobuf.ByteString
-        getEntryPointNameBytes() {
-      java.lang.Object ref = entryPointName_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        entryPointName_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     public static final int START_TIME_FIELD_NUMBER = 7;
     private long startTime_;
     /**
      * <pre>
-     * Unix timestamp of when the run started in milliseconds.
+     * Unix timestamp in milliseconds of when the run started.
      * </pre>
      *
      * <code>optional int64 start_time = 7;</code>
      */
     public boolean hasStartTime() {
-      return ((bitField0_ & 0x00000040) == 0x00000040);
+      return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     /**
      * <pre>
-     * Unix timestamp of when the run started in milliseconds.
+     * Unix timestamp in milliseconds of when the run started.
      * </pre>
      *
      * <code>optional int64 start_time = 7;</code>
      */
     public long getStartTime() {
       return startTime_;
-    }
-
-    public static final int SOURCE_VERSION_FIELD_NUMBER = 8;
-    private volatile java.lang.Object sourceVersion_;
-    /**
-     * <pre>
-     * Git commit hash of the source code used to create run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 8;</code>
-     */
-    public boolean hasSourceVersion() {
-      return ((bitField0_ & 0x00000080) == 0x00000080);
-    }
-    /**
-     * <pre>
-     * Git commit hash of the source code used to create run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 8;</code>
-     */
-    public java.lang.String getSourceVersion() {
-      java.lang.Object ref = sourceVersion_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          sourceVersion_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Git commit hash of the source code used to create run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 8;</code>
-     */
-    public com.google.protobuf.ByteString
-        getSourceVersionBytes() {
-      java.lang.Object ref = sourceVersion_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        sourceVersion_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
     }
 
     public static final int TAGS_FIELD_NUMBER = 9;
@@ -20154,66 +20230,6 @@ public final class Service {
       return tags_.get(index);
     }
 
-    public static final int PARENT_RUN_ID_FIELD_NUMBER = 10;
-    private volatile java.lang.Object parentRunId_;
-    /**
-     * <pre>
-     * ID of the parent run which started this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string parent_run_id = 10;</code>
-     */
-    public boolean hasParentRunId() {
-      return ((bitField0_ & 0x00000100) == 0x00000100);
-    }
-    /**
-     * <pre>
-     * ID of the parent run which started this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string parent_run_id = 10;</code>
-     */
-    public java.lang.String getParentRunId() {
-      java.lang.Object ref = parentRunId_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          parentRunId_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * ID of the parent run which started this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string parent_run_id = 10;</code>
-     */
-    public com.google.protobuf.ByteString
-        getParentRunIdBytes() {
-      java.lang.Object ref = parentRunId_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        parentRunId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -20235,28 +20251,10 @@ public final class Service {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, userId_);
       }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, runName_);
-      }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
-        output.writeEnum(4, sourceType_);
-      }
-      if (((bitField0_ & 0x00000010) == 0x00000010)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, sourceName_);
-      }
-      if (((bitField0_ & 0x00000020) == 0x00000020)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, entryPointName_);
-      }
-      if (((bitField0_ & 0x00000040) == 0x00000040)) {
         output.writeInt64(7, startTime_);
-      }
-      if (((bitField0_ & 0x00000080) == 0x00000080)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 8, sourceVersion_);
       }
       for (int i = 0; i < tags_.size(); i++) {
         output.writeMessage(9, tags_.get(i));
-      }
-      if (((bitField0_ & 0x00000100) == 0x00000100)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, parentRunId_);
       }
       unknownFields.writeTo(output);
     }
@@ -20274,31 +20272,12 @@ public final class Service {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, userId_);
       }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, runName_);
-      }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(4, sourceType_);
-      }
-      if (((bitField0_ & 0x00000010) == 0x00000010)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, sourceName_);
-      }
-      if (((bitField0_ & 0x00000020) == 0x00000020)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, entryPointName_);
-      }
-      if (((bitField0_ & 0x00000040) == 0x00000040)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(7, startTime_);
-      }
-      if (((bitField0_ & 0x00000080) == 0x00000080)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, sourceVersion_);
       }
       for (int i = 0; i < tags_.size(); i++) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(9, tags_.get(i));
-      }
-      if (((bitField0_ & 0x00000100) == 0x00000100)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, parentRunId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -20326,42 +20305,13 @@ public final class Service {
         result = result && getUserId()
             .equals(other.getUserId());
       }
-      result = result && (hasRunName() == other.hasRunName());
-      if (hasRunName()) {
-        result = result && getRunName()
-            .equals(other.getRunName());
-      }
-      result = result && (hasSourceType() == other.hasSourceType());
-      if (hasSourceType()) {
-        result = result && sourceType_ == other.sourceType_;
-      }
-      result = result && (hasSourceName() == other.hasSourceName());
-      if (hasSourceName()) {
-        result = result && getSourceName()
-            .equals(other.getSourceName());
-      }
-      result = result && (hasEntryPointName() == other.hasEntryPointName());
-      if (hasEntryPointName()) {
-        result = result && getEntryPointName()
-            .equals(other.getEntryPointName());
-      }
       result = result && (hasStartTime() == other.hasStartTime());
       if (hasStartTime()) {
         result = result && (getStartTime()
             == other.getStartTime());
       }
-      result = result && (hasSourceVersion() == other.hasSourceVersion());
-      if (hasSourceVersion()) {
-        result = result && getSourceVersion()
-            .equals(other.getSourceVersion());
-      }
       result = result && getTagsList()
           .equals(other.getTagsList());
-      result = result && (hasParentRunId() == other.hasParentRunId());
-      if (hasParentRunId()) {
-        result = result && getParentRunId()
-            .equals(other.getParentRunId());
-      }
       result = result && unknownFields.equals(other.unknownFields);
       return result;
     }
@@ -20381,38 +20331,14 @@ public final class Service {
         hash = (37 * hash) + USER_ID_FIELD_NUMBER;
         hash = (53 * hash) + getUserId().hashCode();
       }
-      if (hasRunName()) {
-        hash = (37 * hash) + RUN_NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getRunName().hashCode();
-      }
-      if (hasSourceType()) {
-        hash = (37 * hash) + SOURCE_TYPE_FIELD_NUMBER;
-        hash = (53 * hash) + sourceType_;
-      }
-      if (hasSourceName()) {
-        hash = (37 * hash) + SOURCE_NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getSourceName().hashCode();
-      }
-      if (hasEntryPointName()) {
-        hash = (37 * hash) + ENTRY_POINT_NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getEntryPointName().hashCode();
-      }
       if (hasStartTime()) {
         hash = (37 * hash) + START_TIME_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getStartTime());
       }
-      if (hasSourceVersion()) {
-        hash = (37 * hash) + SOURCE_VERSION_FIELD_NUMBER;
-        hash = (53 * hash) + getSourceVersion().hashCode();
-      }
       if (getTagsCount() > 0) {
         hash = (37 * hash) + TAGS_FIELD_NUMBER;
         hash = (53 * hash) + getTagsList().hashCode();
-      }
-      if (hasParentRunId()) {
-        hash = (37 * hash) + PARENT_RUN_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getParentRunId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -20552,26 +20478,14 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000001);
         userId_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        runName_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
-        sourceType_ = 1;
-        bitField0_ = (bitField0_ & ~0x00000008);
-        sourceName_ = "";
-        bitField0_ = (bitField0_ & ~0x00000010);
-        entryPointName_ = "";
-        bitField0_ = (bitField0_ & ~0x00000020);
         startTime_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00000040);
-        sourceVersion_ = "";
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000004);
         if (tagsBuilder_ == null) {
           tags_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000100);
+          bitField0_ = (bitField0_ & ~0x00000008);
         } else {
           tagsBuilder_.clear();
         }
-        parentRunId_ = "";
-        bitField0_ = (bitField0_ & ~0x00000200);
         return this;
       }
 
@@ -20611,40 +20525,16 @@ public final class Service {
         if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000004;
         }
-        result.runName_ = runName_;
-        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
-          to_bitField0_ |= 0x00000008;
-        }
-        result.sourceType_ = sourceType_;
-        if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
-          to_bitField0_ |= 0x00000010;
-        }
-        result.sourceName_ = sourceName_;
-        if (((from_bitField0_ & 0x00000020) == 0x00000020)) {
-          to_bitField0_ |= 0x00000020;
-        }
-        result.entryPointName_ = entryPointName_;
-        if (((from_bitField0_ & 0x00000040) == 0x00000040)) {
-          to_bitField0_ |= 0x00000040;
-        }
         result.startTime_ = startTime_;
-        if (((from_bitField0_ & 0x00000080) == 0x00000080)) {
-          to_bitField0_ |= 0x00000080;
-        }
-        result.sourceVersion_ = sourceVersion_;
         if (tagsBuilder_ == null) {
-          if (((bitField0_ & 0x00000100) == 0x00000100)) {
+          if (((bitField0_ & 0x00000008) == 0x00000008)) {
             tags_ = java.util.Collections.unmodifiableList(tags_);
-            bitField0_ = (bitField0_ & ~0x00000100);
+            bitField0_ = (bitField0_ & ~0x00000008);
           }
           result.tags_ = tags_;
         } else {
           result.tags_ = tagsBuilder_.build();
         }
-        if (((from_bitField0_ & 0x00000200) == 0x00000200)) {
-          to_bitField0_ |= 0x00000100;
-        }
-        result.parentRunId_ = parentRunId_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -20704,37 +20594,14 @@ public final class Service {
           userId_ = other.userId_;
           onChanged();
         }
-        if (other.hasRunName()) {
-          bitField0_ |= 0x00000004;
-          runName_ = other.runName_;
-          onChanged();
-        }
-        if (other.hasSourceType()) {
-          setSourceType(other.getSourceType());
-        }
-        if (other.hasSourceName()) {
-          bitField0_ |= 0x00000010;
-          sourceName_ = other.sourceName_;
-          onChanged();
-        }
-        if (other.hasEntryPointName()) {
-          bitField0_ |= 0x00000020;
-          entryPointName_ = other.entryPointName_;
-          onChanged();
-        }
         if (other.hasStartTime()) {
           setStartTime(other.getStartTime());
-        }
-        if (other.hasSourceVersion()) {
-          bitField0_ |= 0x00000080;
-          sourceVersion_ = other.sourceVersion_;
-          onChanged();
         }
         if (tagsBuilder_ == null) {
           if (!other.tags_.isEmpty()) {
             if (tags_.isEmpty()) {
               tags_ = other.tags_;
-              bitField0_ = (bitField0_ & ~0x00000100);
+              bitField0_ = (bitField0_ & ~0x00000008);
             } else {
               ensureTagsIsMutable();
               tags_.addAll(other.tags_);
@@ -20747,7 +20614,7 @@ public final class Service {
               tagsBuilder_.dispose();
               tagsBuilder_ = null;
               tags_ = other.tags_;
-              bitField0_ = (bitField0_ & ~0x00000100);
+              bitField0_ = (bitField0_ & ~0x00000008);
               tagsBuilder_ = 
                 com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
                    getTagsFieldBuilder() : null;
@@ -20755,11 +20622,6 @@ public final class Service {
               tagsBuilder_.addAllMessages(other.tags_);
             }
           }
-        }
-        if (other.hasParentRunId()) {
-          bitField0_ |= 0x00000200;
-          parentRunId_ = other.parentRunId_;
-          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -20895,6 +20757,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -20905,6 +20769,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -20926,6 +20792,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -20946,6 +20814,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -20963,6 +20833,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -20976,6 +20848,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -20991,423 +20865,20 @@ public final class Service {
         return this;
       }
 
-      private java.lang.Object runName_ = "";
-      /**
-       * <pre>
-       * Human readable name for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string run_name = 3;</code>
-       */
-      public boolean hasRunName() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
-      }
-      /**
-       * <pre>
-       * Human readable name for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string run_name = 3;</code>
-       */
-      public java.lang.String getRunName() {
-        java.lang.Object ref = runName_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            runName_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Human readable name for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string run_name = 3;</code>
-       */
-      public com.google.protobuf.ByteString
-          getRunNameBytes() {
-        java.lang.Object ref = runName_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          runName_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Human readable name for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string run_name = 3;</code>
-       */
-      public Builder setRunName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        runName_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Human readable name for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string run_name = 3;</code>
-       */
-      public Builder clearRunName() {
-        bitField0_ = (bitField0_ & ~0x00000004);
-        runName_ = getDefaultInstance().getRunName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Human readable name for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string run_name = 3;</code>
-       */
-      public Builder setRunNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        runName_ = value;
-        onChanged();
-        return this;
-      }
-
-      private int sourceType_ = 1;
-      /**
-       * <pre>
-       * Originating source for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public boolean hasSourceType() {
-        return ((bitField0_ & 0x00000008) == 0x00000008);
-      }
-      /**
-       * <pre>
-       * Originating source for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public org.mlflow.api.proto.Service.SourceType getSourceType() {
-        @SuppressWarnings("deprecation")
-        org.mlflow.api.proto.Service.SourceType result = org.mlflow.api.proto.Service.SourceType.valueOf(sourceType_);
-        return result == null ? org.mlflow.api.proto.Service.SourceType.NOTEBOOK : result;
-      }
-      /**
-       * <pre>
-       * Originating source for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public Builder setSourceType(org.mlflow.api.proto.Service.SourceType value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        bitField0_ |= 0x00000008;
-        sourceType_ = value.getNumber();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Originating source for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public Builder clearSourceType() {
-        bitField0_ = (bitField0_ & ~0x00000008);
-        sourceType_ = 1;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object sourceName_ = "";
-      /**
-       * <pre>
-       * String descriptor for the run's source. For example, name or description of a notebook, or the
-       * URL or path to a project.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public boolean hasSourceName() {
-        return ((bitField0_ & 0x00000010) == 0x00000010);
-      }
-      /**
-       * <pre>
-       * String descriptor for the run's source. For example, name or description of a notebook, or the
-       * URL or path to a project.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public java.lang.String getSourceName() {
-        java.lang.Object ref = sourceName_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            sourceName_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * String descriptor for the run's source. For example, name or description of a notebook, or the
-       * URL or path to a project.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public com.google.protobuf.ByteString
-          getSourceNameBytes() {
-        java.lang.Object ref = sourceName_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          sourceName_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * String descriptor for the run's source. For example, name or description of a notebook, or the
-       * URL or path to a project.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public Builder setSourceName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000010;
-        sourceName_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * String descriptor for the run's source. For example, name or description of a notebook, or the
-       * URL or path to a project.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public Builder clearSourceName() {
-        bitField0_ = (bitField0_ & ~0x00000010);
-        sourceName_ = getDefaultInstance().getSourceName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * String descriptor for the run's source. For example, name or description of a notebook, or the
-       * URL or path to a project.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public Builder setSourceNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000010;
-        sourceName_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object entryPointName_ = "";
-      /**
-       * <pre>
-       * Name of the project entry point associated with the current run, if any.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 6;</code>
-       */
-      public boolean hasEntryPointName() {
-        return ((bitField0_ & 0x00000020) == 0x00000020);
-      }
-      /**
-       * <pre>
-       * Name of the project entry point associated with the current run, if any.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 6;</code>
-       */
-      public java.lang.String getEntryPointName() {
-        java.lang.Object ref = entryPointName_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            entryPointName_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Name of the project entry point associated with the current run, if any.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 6;</code>
-       */
-      public com.google.protobuf.ByteString
-          getEntryPointNameBytes() {
-        java.lang.Object ref = entryPointName_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          entryPointName_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Name of the project entry point associated with the current run, if any.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 6;</code>
-       */
-      public Builder setEntryPointName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000020;
-        entryPointName_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Name of the project entry point associated with the current run, if any.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 6;</code>
-       */
-      public Builder clearEntryPointName() {
-        bitField0_ = (bitField0_ & ~0x00000020);
-        entryPointName_ = getDefaultInstance().getEntryPointName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Name of the project entry point associated with the current run, if any.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 6;</code>
-       */
-      public Builder setEntryPointNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000020;
-        entryPointName_ = value;
-        onChanged();
-        return this;
-      }
-
       private long startTime_ ;
       /**
        * <pre>
-       * Unix timestamp of when the run started in milliseconds.
+       * Unix timestamp in milliseconds of when the run started.
        * </pre>
        *
        * <code>optional int64 start_time = 7;</code>
        */
       public boolean hasStartTime() {
-        return ((bitField0_ & 0x00000040) == 0x00000040);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <pre>
-       * Unix timestamp of when the run started in milliseconds.
+       * Unix timestamp in milliseconds of when the run started.
        * </pre>
        *
        * <code>optional int64 start_time = 7;</code>
@@ -21417,139 +20888,27 @@ public final class Service {
       }
       /**
        * <pre>
-       * Unix timestamp of when the run started in milliseconds.
+       * Unix timestamp in milliseconds of when the run started.
        * </pre>
        *
        * <code>optional int64 start_time = 7;</code>
        */
       public Builder setStartTime(long value) {
-        bitField0_ |= 0x00000040;
+        bitField0_ |= 0x00000004;
         startTime_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Unix timestamp of when the run started in milliseconds.
+       * Unix timestamp in milliseconds of when the run started.
        * </pre>
        *
        * <code>optional int64 start_time = 7;</code>
        */
       public Builder clearStartTime() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000004);
         startTime_ = 0L;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object sourceVersion_ = "";
-      /**
-       * <pre>
-       * Git commit hash of the source code used to create run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 8;</code>
-       */
-      public boolean hasSourceVersion() {
-        return ((bitField0_ & 0x00000080) == 0x00000080);
-      }
-      /**
-       * <pre>
-       * Git commit hash of the source code used to create run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 8;</code>
-       */
-      public java.lang.String getSourceVersion() {
-        java.lang.Object ref = sourceVersion_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            sourceVersion_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Git commit hash of the source code used to create run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 8;</code>
-       */
-      public com.google.protobuf.ByteString
-          getSourceVersionBytes() {
-        java.lang.Object ref = sourceVersion_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          sourceVersion_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Git commit hash of the source code used to create run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 8;</code>
-       */
-      public Builder setSourceVersion(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000080;
-        sourceVersion_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Git commit hash of the source code used to create run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 8;</code>
-       */
-      public Builder clearSourceVersion() {
-        bitField0_ = (bitField0_ & ~0x00000080);
-        sourceVersion_ = getDefaultInstance().getSourceVersion();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Git commit hash of the source code used to create run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 8;</code>
-       */
-      public Builder setSourceVersionBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000080;
-        sourceVersion_ = value;
         onChanged();
         return this;
       }
@@ -21557,9 +20916,9 @@ public final class Service {
       private java.util.List<org.mlflow.api.proto.Service.RunTag> tags_ =
         java.util.Collections.emptyList();
       private void ensureTagsIsMutable() {
-        if (!((bitField0_ & 0x00000100) == 0x00000100)) {
+        if (!((bitField0_ & 0x00000008) == 0x00000008)) {
           tags_ = new java.util.ArrayList<org.mlflow.api.proto.Service.RunTag>(tags_);
-          bitField0_ |= 0x00000100;
+          bitField0_ |= 0x00000008;
          }
       }
 
@@ -21753,7 +21112,7 @@ public final class Service {
       public Builder clearTags() {
         if (tagsBuilder_ == null) {
           tags_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000100);
+          bitField0_ = (bitField0_ & ~0x00000008);
           onChanged();
         } else {
           tagsBuilder_.clear();
@@ -21858,124 +21217,12 @@ public final class Service {
           tagsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
               org.mlflow.api.proto.Service.RunTag, org.mlflow.api.proto.Service.RunTag.Builder, org.mlflow.api.proto.Service.RunTagOrBuilder>(
                   tags_,
-                  ((bitField0_ & 0x00000100) == 0x00000100),
+                  ((bitField0_ & 0x00000008) == 0x00000008),
                   getParentForChildren(),
                   isClean());
           tags_ = null;
         }
         return tagsBuilder_;
-      }
-
-      private java.lang.Object parentRunId_ = "";
-      /**
-       * <pre>
-       * ID of the parent run which started this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string parent_run_id = 10;</code>
-       */
-      public boolean hasParentRunId() {
-        return ((bitField0_ & 0x00000200) == 0x00000200);
-      }
-      /**
-       * <pre>
-       * ID of the parent run which started this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string parent_run_id = 10;</code>
-       */
-      public java.lang.String getParentRunId() {
-        java.lang.Object ref = parentRunId_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            parentRunId_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * ID of the parent run which started this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string parent_run_id = 10;</code>
-       */
-      public com.google.protobuf.ByteString
-          getParentRunIdBytes() {
-        java.lang.Object ref = parentRunId_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          parentRunId_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * ID of the parent run which started this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string parent_run_id = 10;</code>
-       */
-      public Builder setParentRunId(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000200;
-        parentRunId_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * ID of the parent run which started this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string parent_run_id = 10;</code>
-       */
-      public Builder clearParentRunId() {
-        bitField0_ = (bitField0_ & ~0x00000200);
-        parentRunId_ = getDefaultInstance().getParentRunId();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * ID of the parent run which started this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string parent_run_id = 10;</code>
-       */
-      public Builder setParentRunIdBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000200;
-        parentRunId_ = value;
-        onChanged();
-        return this;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -22036,26 +21283,55 @@ public final class Service {
 
     /**
      * <pre>
-     * ID of the run to update.
+     * ID of the run to update. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 4;</code>
+     */
+    boolean hasRunId();
+    /**
+     * <pre>
+     * ID of the run to update. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 4;</code>
+     */
+    java.lang.String getRunId();
+    /**
+     * <pre>
+     * ID of the run to update. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 4;</code>
+     */
+    com.google.protobuf.ByteString
+        getRunIdBytes();
+
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run to update.. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
      */
     boolean hasRunUuid();
     /**
      * <pre>
-     * ID of the run to update.
+     * [Deprecated, use run_id instead] ID of the run to update.. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     java.lang.String getRunUuid();
     /**
      * <pre>
-     * ID of the run to update.
+     * [Deprecated, use run_id instead] ID of the run to update.. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     com.google.protobuf.ByteString
         getRunUuidBytes();
@@ -22079,7 +21355,7 @@ public final class Service {
 
     /**
      * <pre>
-     *Unix timestamp of when the run ended in milliseconds.
+     *Unix timestamp in milliseconds of when the run ended.
      * </pre>
      *
      * <code>optional int64 end_time = 3;</code>
@@ -22087,7 +21363,7 @@ public final class Service {
     boolean hasEndTime();
     /**
      * <pre>
-     *Unix timestamp of when the run ended in milliseconds.
+     *Unix timestamp in milliseconds of when the run ended.
      * </pre>
      *
      * <code>optional int64 end_time = 3;</code>
@@ -22107,6 +21383,7 @@ public final class Service {
       super(builder);
     }
     private UpdateRun() {
+      runId_ = "";
       runUuid_ = "";
       status_ = 1;
       endTime_ = 0L;
@@ -22138,7 +21415,7 @@ public final class Service {
               break;
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
+              bitField0_ |= 0x00000002;
               runUuid_ = bs;
               break;
             }
@@ -22149,14 +21426,20 @@ public final class Service {
               if (value == null) {
                 unknownFields.mergeVarintField(2, rawValue);
               } else {
-                bitField0_ |= 0x00000002;
+                bitField0_ |= 0x00000004;
                 status_ = rawValue;
               }
               break;
             }
             case 24: {
-              bitField0_ |= 0x00000004;
+              bitField0_ |= 0x00000008;
               endTime_ = input.readInt64();
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              runId_ = bs;
               break;
             }
             default: {
@@ -22869,24 +22152,80 @@ public final class Service {
     }
 
     private int bitField0_;
-    public static final int RUN_UUID_FIELD_NUMBER = 1;
-    private volatile java.lang.Object runUuid_;
+    public static final int RUN_ID_FIELD_NUMBER = 4;
+    private volatile java.lang.Object runId_;
     /**
      * <pre>
-     * ID of the run to update.
+     * ID of the run to update. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 4;</code>
      */
-    public boolean hasRunUuid() {
+    public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
      * <pre>
-     * ID of the run to update.
+     * ID of the run to update. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 4;</code>
+     */
+    public java.lang.String getRunId() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the run to update. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 4;</code>
+     */
+    public com.google.protobuf.ByteString
+        getRunIdBytes() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int RUN_UUID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object runUuid_;
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run to update.. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
+     */
+    public boolean hasRunUuid() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run to update.. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
      */
     public java.lang.String getRunUuid() {
       java.lang.Object ref = runUuid_;
@@ -22904,10 +22243,11 @@ public final class Service {
     }
     /**
      * <pre>
-     * ID of the run to update.
+     * [Deprecated, use run_id instead] ID of the run to update.. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     public com.google.protobuf.ByteString
         getRunUuidBytes() {
@@ -22933,7 +22273,7 @@ public final class Service {
      * <code>optional .mlflow.RunStatus status = 2;</code>
      */
     public boolean hasStatus() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     /**
      * <pre>
@@ -22952,17 +22292,17 @@ public final class Service {
     private long endTime_;
     /**
      * <pre>
-     *Unix timestamp of when the run ended in milliseconds.
+     *Unix timestamp in milliseconds of when the run ended.
      * </pre>
      *
      * <code>optional int64 end_time = 3;</code>
      */
     public boolean hasEndTime() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
+      return ((bitField0_ & 0x00000008) == 0x00000008);
     }
     /**
      * <pre>
-     *Unix timestamp of when the run ended in milliseconds.
+     *Unix timestamp in milliseconds of when the run ended.
      * </pre>
      *
      * <code>optional int64 end_time = 3;</code>
@@ -22985,14 +22325,17 @@ public final class Service {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         output.writeEnum(2, status_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
         output.writeInt64(3, endTime_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, runId_);
       }
       unknownFields.writeTo(output);
     }
@@ -23003,16 +22346,19 @@ public final class Service {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runUuid_);
-      }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(2, status_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runUuid_);
       }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(2, status_);
+      }
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+        size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(3, endTime_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, runId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -23030,6 +22376,11 @@ public final class Service {
       org.mlflow.api.proto.Service.UpdateRun other = (org.mlflow.api.proto.Service.UpdateRun) obj;
 
       boolean result = true;
+      result = result && (hasRunId() == other.hasRunId());
+      if (hasRunId()) {
+        result = result && getRunId()
+            .equals(other.getRunId());
+      }
       result = result && (hasRunUuid() == other.hasRunUuid());
       if (hasRunUuid()) {
         result = result && getRunUuid()
@@ -23055,6 +22406,10 @@ public final class Service {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasRunId()) {
+        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRunId().hashCode();
+      }
       if (hasRunUuid()) {
         hash = (37 * hash) + RUN_UUID_FIELD_NUMBER;
         hash = (53 * hash) + getRunUuid().hashCode();
@@ -23201,12 +22556,14 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        runUuid_ = "";
+        runId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        status_ = 1;
+        runUuid_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        endTime_ = 0L;
+        status_ = 1;
         bitField0_ = (bitField0_ & ~0x00000004);
+        endTime_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
 
@@ -23238,13 +22595,17 @@ public final class Service {
         if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
           to_bitField0_ |= 0x00000001;
         }
-        result.runUuid_ = runUuid_;
+        result.runId_ = runId_;
         if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
           to_bitField0_ |= 0x00000002;
         }
-        result.status_ = status_;
+        result.runUuid_ = runUuid_;
         if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000004;
+        }
+        result.status_ = status_;
+        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
+          to_bitField0_ |= 0x00000008;
         }
         result.endTime_ = endTime_;
         result.bitField0_ = to_bitField0_;
@@ -23296,8 +22657,13 @@ public final class Service {
 
       public Builder mergeFrom(org.mlflow.api.proto.Service.UpdateRun other) {
         if (other == org.mlflow.api.proto.Service.UpdateRun.getDefaultInstance()) return this;
-        if (other.hasRunUuid()) {
+        if (other.hasRunId()) {
           bitField0_ |= 0x00000001;
+          runId_ = other.runId_;
+          onChanged();
+        }
+        if (other.hasRunUuid()) {
+          bitField0_ |= 0x00000002;
           runUuid_ = other.runUuid_;
           onChanged();
         }
@@ -23337,23 +22703,125 @@ public final class Service {
       }
       private int bitField0_;
 
-      private java.lang.Object runUuid_ = "";
+      private java.lang.Object runId_ = "";
       /**
        * <pre>
-       * ID of the run to update.
+       * ID of the run to update. Must be provided.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_id = 4;</code>
        */
-      public boolean hasRunUuid() {
+      public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
        * <pre>
-       * ID of the run to update.
+       * ID of the run to update. Must be provided.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_id = 4;</code>
+       */
+      public java.lang.String getRunId() {
+        java.lang.Object ref = runId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run to update. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 4;</code>
+       */
+      public com.google.protobuf.ByteString
+          getRunIdBytes() {
+        java.lang.Object ref = runId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run to update. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 4;</code>
+       */
+      public Builder setRunId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run to update. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 4;</code>
+       */
+      public Builder clearRunId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        runId_ = getDefaultInstance().getRunId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run to update. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 4;</code>
+       */
+      public Builder setRunIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object runUuid_ = "";
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] ID of the run to update.. This field will
+       * be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
+       */
+      public boolean hasRunUuid() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] ID of the run to update.. This field will
+       * be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
        */
       public java.lang.String getRunUuid() {
         java.lang.Object ref = runUuid_;
@@ -23371,10 +22839,11 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run to update.
+       * [Deprecated, use run_id instead] ID of the run to update.. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public com.google.protobuf.ByteString
           getRunUuidBytes() {
@@ -23391,47 +22860,50 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run to update.
+       * [Deprecated, use run_id instead] ID of the run to update.. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder setRunUuid(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run to update.
+       * [Deprecated, use run_id instead] ID of the run to update.. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder clearRunUuid() {
-        bitField0_ = (bitField0_ & ~0x00000001);
+        bitField0_ = (bitField0_ & ~0x00000002);
         runUuid_ = getDefaultInstance().getRunUuid();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run to update.
+       * [Deprecated, use run_id instead] ID of the run to update.. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder setRunUuidBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
@@ -23446,7 +22918,7 @@ public final class Service {
        * <code>optional .mlflow.RunStatus status = 2;</code>
        */
       public boolean hasStatus() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <pre>
@@ -23471,7 +22943,7 @@ public final class Service {
         if (value == null) {
           throw new NullPointerException();
         }
-        bitField0_ |= 0x00000002;
+        bitField0_ |= 0x00000004;
         status_ = value.getNumber();
         onChanged();
         return this;
@@ -23484,7 +22956,7 @@ public final class Service {
        * <code>optional .mlflow.RunStatus status = 2;</code>
        */
       public Builder clearStatus() {
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000004);
         status_ = 1;
         onChanged();
         return this;
@@ -23493,17 +22965,17 @@ public final class Service {
       private long endTime_ ;
       /**
        * <pre>
-       *Unix timestamp of when the run ended in milliseconds.
+       *Unix timestamp in milliseconds of when the run ended.
        * </pre>
        *
        * <code>optional int64 end_time = 3;</code>
        */
       public boolean hasEndTime() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000008) == 0x00000008);
       }
       /**
        * <pre>
-       *Unix timestamp of when the run ended in milliseconds.
+       *Unix timestamp in milliseconds of when the run ended.
        * </pre>
        *
        * <code>optional int64 end_time = 3;</code>
@@ -23513,26 +22985,26 @@ public final class Service {
       }
       /**
        * <pre>
-       *Unix timestamp of when the run ended in milliseconds.
+       *Unix timestamp in milliseconds of when the run ended.
        * </pre>
        *
        * <code>optional int64 end_time = 3;</code>
        */
       public Builder setEndTime(long value) {
-        bitField0_ |= 0x00000004;
+        bitField0_ |= 0x00000008;
         endTime_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       *Unix timestamp of when the run ended in milliseconds.
+       *Unix timestamp in milliseconds of when the run ended.
        * </pre>
        *
        * <code>optional int64 end_time = 3;</code>
        */
       public Builder clearEndTime() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000008);
         endTime_ = 0L;
         onChanged();
         return this;
@@ -23595,15 +23067,27 @@ public final class Service {
       com.google.protobuf.MessageOrBuilder {
 
     /**
-     * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+     * <pre>
+     * ID of the run to delete.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasRunId();
     /**
-     * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+     * <pre>
+     * ID of the run to delete.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getRunId();
     /**
-     * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+     * <pre>
+     * ID of the run to delete.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getRunIdBytes();
@@ -24102,13 +23586,21 @@ public final class Service {
     public static final int RUN_ID_FIELD_NUMBER = 1;
     private volatile java.lang.Object runId_;
     /**
-     * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+     * <pre>
+     * ID of the run to delete.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
-     * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+     * <pre>
+     * ID of the run to delete.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getRunId() {
       java.lang.Object ref = runId_;
@@ -24125,7 +23617,11 @@ public final class Service {
       }
     }
     /**
-     * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+     * <pre>
+     * ID of the run to delete.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getRunIdBytes() {
@@ -24459,13 +23955,21 @@ public final class Service {
 
       private java.lang.Object runId_ = "";
       /**
-       * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+       * <pre>
+       * ID of the run to delete.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
-       * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+       * <pre>
+       * ID of the run to delete.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getRunId() {
         java.lang.Object ref = runId_;
@@ -24482,7 +23986,11 @@ public final class Service {
         }
       }
       /**
-       * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+       * <pre>
+       * ID of the run to delete.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getRunIdBytes() {
@@ -24498,7 +24006,11 @@ public final class Service {
         }
       }
       /**
-       * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+       * <pre>
+       * ID of the run to delete.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunId(
           java.lang.String value) {
@@ -24511,7 +24023,11 @@ public final class Service {
         return this;
       }
       /**
-       * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+       * <pre>
+       * ID of the run to delete.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearRunId() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -24520,7 +24036,11 @@ public final class Service {
         return this;
       }
       /**
-       * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+       * <pre>
+       * ID of the run to delete.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunIdBytes(
           com.google.protobuf.ByteString value) {
@@ -24590,15 +24110,27 @@ public final class Service {
       com.google.protobuf.MessageOrBuilder {
 
     /**
-     * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+     * <pre>
+     * ID of the run to restore.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasRunId();
     /**
-     * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+     * <pre>
+     * ID of the run to restore.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getRunId();
     /**
-     * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+     * <pre>
+     * ID of the run to restore.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getRunIdBytes();
@@ -25097,13 +24629,21 @@ public final class Service {
     public static final int RUN_ID_FIELD_NUMBER = 1;
     private volatile java.lang.Object runId_;
     /**
-     * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+     * <pre>
+     * ID of the run to restore.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
-     * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+     * <pre>
+     * ID of the run to restore.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getRunId() {
       java.lang.Object ref = runId_;
@@ -25120,7 +24660,11 @@ public final class Service {
       }
     }
     /**
-     * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+     * <pre>
+     * ID of the run to restore.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getRunIdBytes() {
@@ -25454,13 +24998,21 @@ public final class Service {
 
       private java.lang.Object runId_ = "";
       /**
-       * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+       * <pre>
+       * ID of the run to restore.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
-       * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+       * <pre>
+       * ID of the run to restore.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getRunId() {
         java.lang.Object ref = runId_;
@@ -25477,7 +25029,11 @@ public final class Service {
         }
       }
       /**
-       * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+       * <pre>
+       * ID of the run to restore.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getRunIdBytes() {
@@ -25493,7 +25049,11 @@ public final class Service {
         }
       }
       /**
-       * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+       * <pre>
+       * ID of the run to restore.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunId(
           java.lang.String value) {
@@ -25506,7 +25066,11 @@ public final class Service {
         return this;
       }
       /**
-       * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+       * <pre>
+       * ID of the run to restore.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearRunId() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -25515,7 +25079,11 @@ public final class Service {
         return this;
       }
       /**
-       * <code>optional string run_id = 1 [(.validate_required) = true];</code>
+       * <pre>
+       * ID of the run to restore.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunIdBytes(
           com.google.protobuf.ByteString value) {
@@ -25586,26 +25154,55 @@ public final class Service {
 
     /**
      * <pre>
-     * ID of the run under which to log the metric.
+     * ID of the run under which to log the metric. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 6;</code>
+     */
+    boolean hasRunId();
+    /**
+     * <pre>
+     * ID of the run under which to log the metric. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 6;</code>
+     */
+    java.lang.String getRunId();
+    /**
+     * <pre>
+     * ID of the run under which to log the metric. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 6;</code>
+     */
+    com.google.protobuf.ByteString
+        getRunIdBytes();
+
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
      */
     boolean hasRunUuid();
     /**
      * <pre>
-     * ID of the run under which to log the metric.
+     * [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     java.lang.String getRunUuid();
     /**
      * <pre>
-     * ID of the run under which to log the metric.
+     * [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     com.google.protobuf.ByteString
         getRunUuidBytes();
@@ -25615,7 +25212,7 @@ public final class Service {
      * Name of the metric.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasKey();
     /**
@@ -25623,7 +25220,7 @@ public final class Service {
      * Name of the metric.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getKey();
     /**
@@ -25631,7 +25228,7 @@ public final class Service {
      * Name of the metric.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getKeyBytes();
@@ -25641,7 +25238,7 @@ public final class Service {
      * Double value of the metric being logged.
      * </pre>
      *
-     * <code>optional double value = 3 [(.validate_required) = true];</code>
+     * <code>optional double value = 3 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasValue();
     /**
@@ -25649,7 +25246,7 @@ public final class Service {
      * Double value of the metric being logged.
      * </pre>
      *
-     * <code>optional double value = 3 [(.validate_required) = true];</code>
+     * <code>optional double value = 3 [(.mlflow.validate_required) = true];</code>
      */
     double getValue();
 
@@ -25658,7 +25255,7 @@ public final class Service {
      * Unix timestamp in milliseconds at the time metric was logged.
      * </pre>
      *
-     * <code>optional int64 timestamp = 4 [(.validate_required) = true];</code>
+     * <code>optional int64 timestamp = 4 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasTimestamp();
     /**
@@ -25666,7 +25263,7 @@ public final class Service {
      * Unix timestamp in milliseconds at the time metric was logged.
      * </pre>
      *
-     * <code>optional int64 timestamp = 4 [(.validate_required) = true];</code>
+     * <code>optional int64 timestamp = 4 [(.mlflow.validate_required) = true];</code>
      */
     long getTimestamp();
 
@@ -25700,6 +25297,7 @@ public final class Service {
       super(builder);
     }
     private LogMetric() {
+      runId_ = "";
       runUuid_ = "";
       key_ = "";
       value_ = 0D;
@@ -25733,29 +25331,35 @@ public final class Service {
               break;
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
+              bitField0_ |= 0x00000002;
               runUuid_ = bs;
               break;
             }
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
+              bitField0_ |= 0x00000004;
               key_ = bs;
               break;
             }
             case 25: {
-              bitField0_ |= 0x00000004;
+              bitField0_ |= 0x00000008;
               value_ = input.readDouble();
               break;
             }
             case 32: {
-              bitField0_ |= 0x00000008;
+              bitField0_ |= 0x00000010;
               timestamp_ = input.readInt64();
               break;
             }
             case 40: {
-              bitField0_ |= 0x00000010;
+              bitField0_ |= 0x00000020;
               step_ = input.readInt64();
+              break;
+            }
+            case 50: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              runId_ = bs;
               break;
             }
             default: {
@@ -26203,24 +25807,80 @@ public final class Service {
     }
 
     private int bitField0_;
-    public static final int RUN_UUID_FIELD_NUMBER = 1;
-    private volatile java.lang.Object runUuid_;
+    public static final int RUN_ID_FIELD_NUMBER = 6;
+    private volatile java.lang.Object runId_;
     /**
      * <pre>
-     * ID of the run under which to log the metric.
+     * ID of the run under which to log the metric. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 6;</code>
      */
-    public boolean hasRunUuid() {
+    public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
      * <pre>
-     * ID of the run under which to log the metric.
+     * ID of the run under which to log the metric. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 6;</code>
+     */
+    public java.lang.String getRunId() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the run under which to log the metric. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 6;</code>
+     */
+    public com.google.protobuf.ByteString
+        getRunIdBytes() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int RUN_UUID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object runUuid_;
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
+     */
+    public boolean hasRunUuid() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
      */
     public java.lang.String getRunUuid() {
       java.lang.Object ref = runUuid_;
@@ -26238,10 +25898,11 @@ public final class Service {
     }
     /**
      * <pre>
-     * ID of the run under which to log the metric.
+     * [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     public com.google.protobuf.ByteString
         getRunUuidBytes() {
@@ -26264,17 +25925,17 @@ public final class Service {
      * Name of the metric.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasKey() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     /**
      * <pre>
      * Name of the metric.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getKey() {
       java.lang.Object ref = key_;
@@ -26295,7 +25956,7 @@ public final class Service {
      * Name of the metric.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getKeyBytes() {
@@ -26318,17 +25979,17 @@ public final class Service {
      * Double value of the metric being logged.
      * </pre>
      *
-     * <code>optional double value = 3 [(.validate_required) = true];</code>
+     * <code>optional double value = 3 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasValue() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
+      return ((bitField0_ & 0x00000008) == 0x00000008);
     }
     /**
      * <pre>
      * Double value of the metric being logged.
      * </pre>
      *
-     * <code>optional double value = 3 [(.validate_required) = true];</code>
+     * <code>optional double value = 3 [(.mlflow.validate_required) = true];</code>
      */
     public double getValue() {
       return value_;
@@ -26341,17 +26002,17 @@ public final class Service {
      * Unix timestamp in milliseconds at the time metric was logged.
      * </pre>
      *
-     * <code>optional int64 timestamp = 4 [(.validate_required) = true];</code>
+     * <code>optional int64 timestamp = 4 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasTimestamp() {
-      return ((bitField0_ & 0x00000008) == 0x00000008);
+      return ((bitField0_ & 0x00000010) == 0x00000010);
     }
     /**
      * <pre>
      * Unix timestamp in milliseconds at the time metric was logged.
      * </pre>
      *
-     * <code>optional int64 timestamp = 4 [(.validate_required) = true];</code>
+     * <code>optional int64 timestamp = 4 [(.mlflow.validate_required) = true];</code>
      */
     public long getTimestamp() {
       return timestamp_;
@@ -26367,7 +26028,7 @@ public final class Service {
      * <code>optional int64 step = 5 [default = 0];</code>
      */
     public boolean hasStep() {
-      return ((bitField0_ & 0x00000010) == 0x00000010);
+      return ((bitField0_ & 0x00000020) == 0x00000020);
     }
     /**
      * <pre>
@@ -26394,20 +26055,23 @@ public final class Service {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, key_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
         output.writeDouble(3, value_);
       }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
         output.writeInt64(4, timestamp_);
       }
-      if (((bitField0_ & 0x00000010) == 0x00000010)) {
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
         output.writeInt64(5, step_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, runId_);
       }
       unknownFields.writeTo(output);
     }
@@ -26418,23 +26082,26 @@ public final class Service {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, key_);
-      }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeDoubleSize(3, value_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, key_);
       }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(4, timestamp_);
+          .computeDoubleSize(3, value_);
       }
       if (((bitField0_ & 0x00000010) == 0x00000010)) {
         size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(4, timestamp_);
+      }
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
+        size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(5, step_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, runId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -26452,6 +26119,11 @@ public final class Service {
       org.mlflow.api.proto.Service.LogMetric other = (org.mlflow.api.proto.Service.LogMetric) obj;
 
       boolean result = true;
+      result = result && (hasRunId() == other.hasRunId());
+      if (hasRunId()) {
+        result = result && getRunId()
+            .equals(other.getRunId());
+      }
       result = result && (hasRunUuid() == other.hasRunUuid());
       if (hasRunUuid()) {
         result = result && getRunUuid()
@@ -26490,6 +26162,10 @@ public final class Service {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasRunId()) {
+        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRunId().hashCode();
+      }
       if (hasRunUuid()) {
         hash = (37 * hash) + RUN_UUID_FIELD_NUMBER;
         hash = (53 * hash) + getRunUuid().hashCode();
@@ -26646,16 +26322,18 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        runUuid_ = "";
+        runId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        key_ = "";
+        runUuid_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        value_ = 0D;
+        key_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
-        timestamp_ = 0L;
+        value_ = 0D;
         bitField0_ = (bitField0_ & ~0x00000008);
-        step_ = 0L;
+        timestamp_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000010);
+        step_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000020);
         return this;
       }
 
@@ -26687,21 +26365,25 @@ public final class Service {
         if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
           to_bitField0_ |= 0x00000001;
         }
-        result.runUuid_ = runUuid_;
+        result.runId_ = runId_;
         if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
           to_bitField0_ |= 0x00000002;
         }
-        result.key_ = key_;
+        result.runUuid_ = runUuid_;
         if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000004;
         }
-        result.value_ = value_;
+        result.key_ = key_;
         if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
           to_bitField0_ |= 0x00000008;
         }
-        result.timestamp_ = timestamp_;
+        result.value_ = value_;
         if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
           to_bitField0_ |= 0x00000010;
+        }
+        result.timestamp_ = timestamp_;
+        if (((from_bitField0_ & 0x00000020) == 0x00000020)) {
+          to_bitField0_ |= 0x00000020;
         }
         result.step_ = step_;
         result.bitField0_ = to_bitField0_;
@@ -26753,13 +26435,18 @@ public final class Service {
 
       public Builder mergeFrom(org.mlflow.api.proto.Service.LogMetric other) {
         if (other == org.mlflow.api.proto.Service.LogMetric.getDefaultInstance()) return this;
-        if (other.hasRunUuid()) {
+        if (other.hasRunId()) {
           bitField0_ |= 0x00000001;
+          runId_ = other.runId_;
+          onChanged();
+        }
+        if (other.hasRunUuid()) {
+          bitField0_ |= 0x00000002;
           runUuid_ = other.runUuid_;
           onChanged();
         }
         if (other.hasKey()) {
-          bitField0_ |= 0x00000002;
+          bitField0_ |= 0x00000004;
           key_ = other.key_;
           onChanged();
         }
@@ -26802,23 +26489,125 @@ public final class Service {
       }
       private int bitField0_;
 
-      private java.lang.Object runUuid_ = "";
+      private java.lang.Object runId_ = "";
       /**
        * <pre>
-       * ID of the run under which to log the metric.
+       * ID of the run under which to log the metric. Must be provided.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_id = 6;</code>
        */
-      public boolean hasRunUuid() {
+      public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
        * <pre>
-       * ID of the run under which to log the metric.
+       * ID of the run under which to log the metric. Must be provided.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_id = 6;</code>
+       */
+      public java.lang.String getRunId() {
+        java.lang.Object ref = runId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run under which to log the metric. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 6;</code>
+       */
+      public com.google.protobuf.ByteString
+          getRunIdBytes() {
+        java.lang.Object ref = runId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run under which to log the metric. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 6;</code>
+       */
+      public Builder setRunId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run under which to log the metric. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 6;</code>
+       */
+      public Builder clearRunId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        runId_ = getDefaultInstance().getRunId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run under which to log the metric. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 6;</code>
+       */
+      public Builder setRunIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object runUuid_ = "";
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+       * be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
+       */
+      public boolean hasRunUuid() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+       * be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
        */
       public java.lang.String getRunUuid() {
         java.lang.Object ref = runUuid_;
@@ -26836,10 +26625,11 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run under which to log the metric.
+       * [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public com.google.protobuf.ByteString
           getRunUuidBytes() {
@@ -26856,47 +26646,50 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run under which to log the metric.
+       * [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder setRunUuid(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run under which to log the metric.
+       * [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder clearRunUuid() {
-        bitField0_ = (bitField0_ & ~0x00000001);
+        bitField0_ = (bitField0_ & ~0x00000002);
         runUuid_ = getDefaultInstance().getRunUuid();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run under which to log the metric.
+       * [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder setRunUuidBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
@@ -26908,17 +26701,17 @@ public final class Service {
        * Name of the metric.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasKey() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <pre>
        * Name of the metric.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getKey() {
         java.lang.Object ref = key_;
@@ -26939,7 +26732,7 @@ public final class Service {
        * Name of the metric.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getKeyBytes() {
@@ -26959,14 +26752,14 @@ public final class Service {
        * Name of the metric.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setKey(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000002;
+  bitField0_ |= 0x00000004;
         key_ = value;
         onChanged();
         return this;
@@ -26976,10 +26769,10 @@ public final class Service {
        * Name of the metric.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearKey() {
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000004);
         key_ = getDefaultInstance().getKey();
         onChanged();
         return this;
@@ -26989,14 +26782,14 @@ public final class Service {
        * Name of the metric.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setKeyBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000002;
+  bitField0_ |= 0x00000004;
         key_ = value;
         onChanged();
         return this;
@@ -27008,17 +26801,17 @@ public final class Service {
        * Double value of the metric being logged.
        * </pre>
        *
-       * <code>optional double value = 3 [(.validate_required) = true];</code>
+       * <code>optional double value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasValue() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000008) == 0x00000008);
       }
       /**
        * <pre>
        * Double value of the metric being logged.
        * </pre>
        *
-       * <code>optional double value = 3 [(.validate_required) = true];</code>
+       * <code>optional double value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public double getValue() {
         return value_;
@@ -27028,10 +26821,10 @@ public final class Service {
        * Double value of the metric being logged.
        * </pre>
        *
-       * <code>optional double value = 3 [(.validate_required) = true];</code>
+       * <code>optional double value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setValue(double value) {
-        bitField0_ |= 0x00000004;
+        bitField0_ |= 0x00000008;
         value_ = value;
         onChanged();
         return this;
@@ -27041,10 +26834,10 @@ public final class Service {
        * Double value of the metric being logged.
        * </pre>
        *
-       * <code>optional double value = 3 [(.validate_required) = true];</code>
+       * <code>optional double value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearValue() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000008);
         value_ = 0D;
         onChanged();
         return this;
@@ -27056,17 +26849,17 @@ public final class Service {
        * Unix timestamp in milliseconds at the time metric was logged.
        * </pre>
        *
-       * <code>optional int64 timestamp = 4 [(.validate_required) = true];</code>
+       * <code>optional int64 timestamp = 4 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasTimestamp() {
-        return ((bitField0_ & 0x00000008) == 0x00000008);
+        return ((bitField0_ & 0x00000010) == 0x00000010);
       }
       /**
        * <pre>
        * Unix timestamp in milliseconds at the time metric was logged.
        * </pre>
        *
-       * <code>optional int64 timestamp = 4 [(.validate_required) = true];</code>
+       * <code>optional int64 timestamp = 4 [(.mlflow.validate_required) = true];</code>
        */
       public long getTimestamp() {
         return timestamp_;
@@ -27076,10 +26869,10 @@ public final class Service {
        * Unix timestamp in milliseconds at the time metric was logged.
        * </pre>
        *
-       * <code>optional int64 timestamp = 4 [(.validate_required) = true];</code>
+       * <code>optional int64 timestamp = 4 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setTimestamp(long value) {
-        bitField0_ |= 0x00000008;
+        bitField0_ |= 0x00000010;
         timestamp_ = value;
         onChanged();
         return this;
@@ -27089,10 +26882,10 @@ public final class Service {
        * Unix timestamp in milliseconds at the time metric was logged.
        * </pre>
        *
-       * <code>optional int64 timestamp = 4 [(.validate_required) = true];</code>
+       * <code>optional int64 timestamp = 4 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearTimestamp() {
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000010);
         timestamp_ = 0L;
         onChanged();
         return this;
@@ -27107,7 +26900,7 @@ public final class Service {
        * <code>optional int64 step = 5 [default = 0];</code>
        */
       public boolean hasStep() {
-        return ((bitField0_ & 0x00000010) == 0x00000010);
+        return ((bitField0_ & 0x00000020) == 0x00000020);
       }
       /**
        * <pre>
@@ -27127,7 +26920,7 @@ public final class Service {
        * <code>optional int64 step = 5 [default = 0];</code>
        */
       public Builder setStep(long value) {
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000020;
         step_ = value;
         onChanged();
         return this;
@@ -27140,7 +26933,7 @@ public final class Service {
        * <code>optional int64 step = 5 [default = 0];</code>
        */
       public Builder clearStep() {
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000020);
         step_ = 0L;
         onChanged();
         return this;
@@ -27204,26 +26997,55 @@ public final class Service {
 
     /**
      * <pre>
-     * ID of the run under which to log the param.
+     * ID of the run under which to log the param. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 4;</code>
+     */
+    boolean hasRunId();
+    /**
+     * <pre>
+     * ID of the run under which to log the param. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 4;</code>
+     */
+    java.lang.String getRunId();
+    /**
+     * <pre>
+     * ID of the run under which to log the param. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 4;</code>
+     */
+    com.google.protobuf.ByteString
+        getRunIdBytes();
+
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
      */
     boolean hasRunUuid();
     /**
      * <pre>
-     * ID of the run under which to log the param.
+     * [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     java.lang.String getRunUuid();
     /**
      * <pre>
-     * ID of the run under which to log the param.
+     * [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     com.google.protobuf.ByteString
         getRunUuidBytes();
@@ -27233,7 +27055,7 @@ public final class Service {
      * Name of the param. Maximum size is 255 bytes.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasKey();
     /**
@@ -27241,7 +27063,7 @@ public final class Service {
      * Name of the param. Maximum size is 255 bytes.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getKey();
     /**
@@ -27249,7 +27071,7 @@ public final class Service {
      * Name of the param. Maximum size is 255 bytes.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getKeyBytes();
@@ -27259,7 +27081,7 @@ public final class Service {
      * String value of the param being logged. Maximum size is 500 bytes.
      * </pre>
      *
-     * <code>optional string value = 3 [(.validate_required) = true];</code>
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasValue();
     /**
@@ -27267,7 +27089,7 @@ public final class Service {
      * String value of the param being logged. Maximum size is 500 bytes.
      * </pre>
      *
-     * <code>optional string value = 3 [(.validate_required) = true];</code>
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getValue();
     /**
@@ -27275,7 +27097,7 @@ public final class Service {
      * String value of the param being logged. Maximum size is 500 bytes.
      * </pre>
      *
-     * <code>optional string value = 3 [(.validate_required) = true];</code>
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getValueBytes();
@@ -27293,6 +27115,7 @@ public final class Service {
       super(builder);
     }
     private LogParam() {
+      runId_ = "";
       runUuid_ = "";
       key_ = "";
       value_ = "";
@@ -27324,20 +27147,26 @@ public final class Service {
               break;
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
+              bitField0_ |= 0x00000002;
               runUuid_ = bs;
               break;
             }
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
+              bitField0_ |= 0x00000004;
               key_ = bs;
               break;
             }
             case 26: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000004;
+              bitField0_ |= 0x00000008;
               value_ = bs;
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              runId_ = bs;
               break;
             }
             default: {
@@ -27785,24 +27614,80 @@ public final class Service {
     }
 
     private int bitField0_;
-    public static final int RUN_UUID_FIELD_NUMBER = 1;
-    private volatile java.lang.Object runUuid_;
+    public static final int RUN_ID_FIELD_NUMBER = 4;
+    private volatile java.lang.Object runId_;
     /**
      * <pre>
-     * ID of the run under which to log the param.
+     * ID of the run under which to log the param. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 4;</code>
      */
-    public boolean hasRunUuid() {
+    public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
      * <pre>
-     * ID of the run under which to log the param.
+     * ID of the run under which to log the param. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 4;</code>
+     */
+    public java.lang.String getRunId() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the run under which to log the param. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 4;</code>
+     */
+    public com.google.protobuf.ByteString
+        getRunIdBytes() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int RUN_UUID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object runUuid_;
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
+     */
+    public boolean hasRunUuid() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
      */
     public java.lang.String getRunUuid() {
       java.lang.Object ref = runUuid_;
@@ -27820,10 +27705,11 @@ public final class Service {
     }
     /**
      * <pre>
-     * ID of the run under which to log the param.
+     * [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     public com.google.protobuf.ByteString
         getRunUuidBytes() {
@@ -27846,17 +27732,17 @@ public final class Service {
      * Name of the param. Maximum size is 255 bytes.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasKey() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     /**
      * <pre>
      * Name of the param. Maximum size is 255 bytes.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getKey() {
       java.lang.Object ref = key_;
@@ -27877,7 +27763,7 @@ public final class Service {
      * Name of the param. Maximum size is 255 bytes.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getKeyBytes() {
@@ -27900,17 +27786,17 @@ public final class Service {
      * String value of the param being logged. Maximum size is 500 bytes.
      * </pre>
      *
-     * <code>optional string value = 3 [(.validate_required) = true];</code>
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasValue() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
+      return ((bitField0_ & 0x00000008) == 0x00000008);
     }
     /**
      * <pre>
      * String value of the param being logged. Maximum size is 500 bytes.
      * </pre>
      *
-     * <code>optional string value = 3 [(.validate_required) = true];</code>
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getValue() {
       java.lang.Object ref = value_;
@@ -27931,7 +27817,7 @@ public final class Service {
      * String value of the param being logged. Maximum size is 500 bytes.
      * </pre>
      *
-     * <code>optional string value = 3 [(.validate_required) = true];</code>
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getValueBytes() {
@@ -27961,14 +27847,17 @@ public final class Service {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, key_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 3, value_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, runId_);
       }
       unknownFields.writeTo(output);
     }
@@ -27979,14 +27868,17 @@ public final class Service {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, key_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, value_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, runId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -28004,6 +27896,11 @@ public final class Service {
       org.mlflow.api.proto.Service.LogParam other = (org.mlflow.api.proto.Service.LogParam) obj;
 
       boolean result = true;
+      result = result && (hasRunId() == other.hasRunId());
+      if (hasRunId()) {
+        result = result && getRunId()
+            .equals(other.getRunId());
+      }
       result = result && (hasRunUuid() == other.hasRunUuid());
       if (hasRunUuid()) {
         result = result && getRunUuid()
@@ -28030,6 +27927,10 @@ public final class Service {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasRunId()) {
+        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRunId().hashCode();
+      }
       if (hasRunUuid()) {
         hash = (37 * hash) + RUN_UUID_FIELD_NUMBER;
         hash = (53 * hash) + getRunUuid().hashCode();
@@ -28175,12 +28076,14 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        runUuid_ = "";
+        runId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        key_ = "";
+        runUuid_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        value_ = "";
+        key_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
+        value_ = "";
+        bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
 
@@ -28212,13 +28115,17 @@ public final class Service {
         if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
           to_bitField0_ |= 0x00000001;
         }
-        result.runUuid_ = runUuid_;
+        result.runId_ = runId_;
         if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
           to_bitField0_ |= 0x00000002;
         }
-        result.key_ = key_;
+        result.runUuid_ = runUuid_;
         if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000004;
+        }
+        result.key_ = key_;
+        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
+          to_bitField0_ |= 0x00000008;
         }
         result.value_ = value_;
         result.bitField0_ = to_bitField0_;
@@ -28270,18 +28177,23 @@ public final class Service {
 
       public Builder mergeFrom(org.mlflow.api.proto.Service.LogParam other) {
         if (other == org.mlflow.api.proto.Service.LogParam.getDefaultInstance()) return this;
-        if (other.hasRunUuid()) {
+        if (other.hasRunId()) {
           bitField0_ |= 0x00000001;
+          runId_ = other.runId_;
+          onChanged();
+        }
+        if (other.hasRunUuid()) {
+          bitField0_ |= 0x00000002;
           runUuid_ = other.runUuid_;
           onChanged();
         }
         if (other.hasKey()) {
-          bitField0_ |= 0x00000002;
+          bitField0_ |= 0x00000004;
           key_ = other.key_;
           onChanged();
         }
         if (other.hasValue()) {
-          bitField0_ |= 0x00000004;
+          bitField0_ |= 0x00000008;
           value_ = other.value_;
           onChanged();
         }
@@ -28315,23 +28227,125 @@ public final class Service {
       }
       private int bitField0_;
 
-      private java.lang.Object runUuid_ = "";
+      private java.lang.Object runId_ = "";
       /**
        * <pre>
-       * ID of the run under which to log the param.
+       * ID of the run under which to log the param. Must be provided.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_id = 4;</code>
        */
-      public boolean hasRunUuid() {
+      public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
        * <pre>
-       * ID of the run under which to log the param.
+       * ID of the run under which to log the param. Must be provided.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_id = 4;</code>
+       */
+      public java.lang.String getRunId() {
+        java.lang.Object ref = runId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run under which to log the param. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 4;</code>
+       */
+      public com.google.protobuf.ByteString
+          getRunIdBytes() {
+        java.lang.Object ref = runId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run under which to log the param. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 4;</code>
+       */
+      public Builder setRunId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run under which to log the param. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 4;</code>
+       */
+      public Builder clearRunId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        runId_ = getDefaultInstance().getRunId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run under which to log the param. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 4;</code>
+       */
+      public Builder setRunIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object runUuid_ = "";
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+       * be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
+       */
+      public boolean hasRunUuid() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+       * be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
        */
       public java.lang.String getRunUuid() {
         java.lang.Object ref = runUuid_;
@@ -28349,10 +28363,11 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run under which to log the param.
+       * [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public com.google.protobuf.ByteString
           getRunUuidBytes() {
@@ -28369,47 +28384,50 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run under which to log the param.
+       * [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder setRunUuid(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run under which to log the param.
+       * [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder clearRunUuid() {
-        bitField0_ = (bitField0_ & ~0x00000001);
+        bitField0_ = (bitField0_ & ~0x00000002);
         runUuid_ = getDefaultInstance().getRunUuid();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run under which to log the param.
+       * [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder setRunUuidBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
@@ -28421,17 +28439,17 @@ public final class Service {
        * Name of the param. Maximum size is 255 bytes.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasKey() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <pre>
        * Name of the param. Maximum size is 255 bytes.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getKey() {
         java.lang.Object ref = key_;
@@ -28452,7 +28470,7 @@ public final class Service {
        * Name of the param. Maximum size is 255 bytes.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getKeyBytes() {
@@ -28472,14 +28490,14 @@ public final class Service {
        * Name of the param. Maximum size is 255 bytes.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setKey(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000002;
+  bitField0_ |= 0x00000004;
         key_ = value;
         onChanged();
         return this;
@@ -28489,10 +28507,10 @@ public final class Service {
        * Name of the param. Maximum size is 255 bytes.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearKey() {
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000004);
         key_ = getDefaultInstance().getKey();
         onChanged();
         return this;
@@ -28502,14 +28520,14 @@ public final class Service {
        * Name of the param. Maximum size is 255 bytes.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setKeyBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000002;
+  bitField0_ |= 0x00000004;
         key_ = value;
         onChanged();
         return this;
@@ -28521,17 +28539,17 @@ public final class Service {
        * String value of the param being logged. Maximum size is 500 bytes.
        * </pre>
        *
-       * <code>optional string value = 3 [(.validate_required) = true];</code>
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasValue() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000008) == 0x00000008);
       }
       /**
        * <pre>
        * String value of the param being logged. Maximum size is 500 bytes.
        * </pre>
        *
-       * <code>optional string value = 3 [(.validate_required) = true];</code>
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getValue() {
         java.lang.Object ref = value_;
@@ -28552,7 +28570,7 @@ public final class Service {
        * String value of the param being logged. Maximum size is 500 bytes.
        * </pre>
        *
-       * <code>optional string value = 3 [(.validate_required) = true];</code>
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getValueBytes() {
@@ -28572,14 +28590,14 @@ public final class Service {
        * String value of the param being logged. Maximum size is 500 bytes.
        * </pre>
        *
-       * <code>optional string value = 3 [(.validate_required) = true];</code>
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setValue(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000008;
         value_ = value;
         onChanged();
         return this;
@@ -28589,10 +28607,10 @@ public final class Service {
        * String value of the param being logged. Maximum size is 500 bytes.
        * </pre>
        *
-       * <code>optional string value = 3 [(.validate_required) = true];</code>
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearValue() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000008);
         value_ = getDefaultInstance().getValue();
         onChanged();
         return this;
@@ -28602,14 +28620,14 @@ public final class Service {
        * String value of the param being logged. Maximum size is 500 bytes.
        * </pre>
        *
-       * <code>optional string value = 3 [(.validate_required) = true];</code>
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setValueBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000008;
         value_ = value;
         onChanged();
         return this;
@@ -28667,84 +28685,1612 @@ public final class Service {
 
   }
 
-  public interface SetTagOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.SetTag)
+  public interface SetExperimentTagOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.SetExperimentTag)
       com.google.protobuf.MessageOrBuilder {
 
     /**
      * <pre>
-     * ID of the run under which to set the tag.
+     * ID of the experiment under which to log the tag. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
-    boolean hasRunUuid();
+    boolean hasExperimentId();
     /**
      * <pre>
-     * ID of the run under which to set the tag.
+     * ID of the experiment under which to log the tag. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
-    java.lang.String getRunUuid();
+    java.lang.String getExperimentId();
     /**
      * <pre>
-     * ID of the run under which to set the tag.
+     * ID of the experiment under which to log the tag. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
-        getRunUuidBytes();
+        getExperimentIdBytes();
 
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasKey();
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getKey();
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getKeyBytes();
 
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
-     * <code>optional string value = 3 [(.validate_required) = true];</code>
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasValue();
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
-     * <code>optional string value = 3 [(.validate_required) = true];</code>
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getValue();
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
-     * <code>optional string value = 3 [(.validate_required) = true];</code>
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
+     */
+    com.google.protobuf.ByteString
+        getValueBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.SetExperimentTag}
+   */
+  public  static final class SetExperimentTag extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.SetExperimentTag)
+      SetExperimentTagOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use SetExperimentTag.newBuilder() to construct.
+    private SetExperimentTag(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private SetExperimentTag() {
+      experimentId_ = "";
+      key_ = "";
+      value_ = "";
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private SetExperimentTag(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              experimentId_ = bs;
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              key_ = bs;
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000004;
+              value_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_SetExperimentTag_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_SetExperimentTag_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.Service.SetExperimentTag.class, org.mlflow.api.proto.Service.SetExperimentTag.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.SetExperimentTag.Response)
+        com.google.protobuf.MessageOrBuilder {
+    }
+    /**
+     * Protobuf type {@code mlflow.SetExperimentTag.Response}
+     */
+    public  static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.SetExperimentTag.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SetExperimentTag_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SetExperimentTag_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.SetExperimentTag.Response.class, org.mlflow.api.proto.Service.SetExperimentTag.Response.Builder.class);
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.Service.SetExperimentTag.Response)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.Service.SetExperimentTag.Response other = (org.mlflow.api.proto.Service.SetExperimentTag.Response) obj;
+
+        boolean result = true;
+        result = result && unknownFields.equals(other.unknownFields);
+        return result;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.Service.SetExperimentTag.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.SetExperimentTag.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.SetExperimentTag.Response)
+          org.mlflow.api.proto.Service.SetExperimentTag.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_SetExperimentTag_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_SetExperimentTag_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.Service.SetExperimentTag.Response.class, org.mlflow.api.proto.Service.SetExperimentTag.Response.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.Service.SetExperimentTag.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_SetExperimentTag_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.SetExperimentTag.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.Service.SetExperimentTag.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.SetExperimentTag.Response build() {
+          org.mlflow.api.proto.Service.SetExperimentTag.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.SetExperimentTag.Response buildPartial() {
+          org.mlflow.api.proto.Service.SetExperimentTag.Response result = new org.mlflow.api.proto.Service.SetExperimentTag.Response(this);
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return (Builder) super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return (Builder) super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return (Builder) super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return (Builder) super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return (Builder) super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return (Builder) super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.Service.SetExperimentTag.Response) {
+            return mergeFrom((org.mlflow.api.proto.Service.SetExperimentTag.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.Service.SetExperimentTag.Response other) {
+          if (other == org.mlflow.api.proto.Service.SetExperimentTag.Response.getDefaultInstance()) return this;
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.Service.SetExperimentTag.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.Service.SetExperimentTag.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.SetExperimentTag.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.SetExperimentTag.Response)
+      private static final org.mlflow.api.proto.Service.SetExperimentTag.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.SetExperimentTag.Response();
+      }
+
+      public static org.mlflow.api.proto.Service.SetExperimentTag.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SetExperimentTag.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int EXPERIMENT_ID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object experimentId_;
+    /**
+     * <pre>
+     * ID of the experiment under which to log the tag. Must be provided.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    public boolean hasExperimentId() {
+      return ((bitField0_ & 0x00000001) == 0x00000001);
+    }
+    /**
+     * <pre>
+     * ID of the experiment under which to log the tag. Must be provided.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    public java.lang.String getExperimentId() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          experimentId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the experiment under which to log the tag. Must be provided.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    public com.google.protobuf.ByteString
+        getExperimentIdBytes() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        experimentId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int KEY_FIELD_NUMBER = 2;
+    private volatile java.lang.Object key_;
+    /**
+     * <pre>
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
+     * </pre>
+     *
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+     */
+    public boolean hasKey() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
+     * </pre>
+     *
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+     */
+    public java.lang.String getKey() {
+      java.lang.Object ref = key_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          key_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
+     * </pre>
+     *
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+     */
+    public com.google.protobuf.ByteString
+        getKeyBytes() {
+      java.lang.Object ref = key_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        key_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int VALUE_FIELD_NUMBER = 3;
+    private volatile java.lang.Object value_;
+    /**
+     * <pre>
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+     * </pre>
+     *
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
+     */
+    public boolean hasValue() {
+      return ((bitField0_ & 0x00000004) == 0x00000004);
+    }
+    /**
+     * <pre>
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+     * </pre>
+     *
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
+     */
+    public java.lang.String getValue() {
+      java.lang.Object ref = value_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          value_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+     * </pre>
+     *
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
+     */
+    public com.google.protobuf.ByteString
+        getValueBytes() {
+      java.lang.Object ref = value_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        value_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentId_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, key_);
+      }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, value_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, experimentId_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, key_);
+      }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, value_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.Service.SetExperimentTag)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.Service.SetExperimentTag other = (org.mlflow.api.proto.Service.SetExperimentTag) obj;
+
+      boolean result = true;
+      result = result && (hasExperimentId() == other.hasExperimentId());
+      if (hasExperimentId()) {
+        result = result && getExperimentId()
+            .equals(other.getExperimentId());
+      }
+      result = result && (hasKey() == other.hasKey());
+      if (hasKey()) {
+        result = result && getKey()
+            .equals(other.getKey());
+      }
+      result = result && (hasValue() == other.hasValue());
+      if (hasValue()) {
+        result = result && getValue()
+            .equals(other.getValue());
+      }
+      result = result && unknownFields.equals(other.unknownFields);
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasExperimentId()) {
+        hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getExperimentId().hashCode();
+      }
+      if (hasKey()) {
+        hash = (37 * hash) + KEY_FIELD_NUMBER;
+        hash = (53 * hash) + getKey().hashCode();
+      }
+      if (hasValue()) {
+        hash = (37 * hash) + VALUE_FIELD_NUMBER;
+        hash = (53 * hash) + getValue().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.Service.SetExperimentTag parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.SetExperimentTag parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SetExperimentTag parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.SetExperimentTag parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SetExperimentTag parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.SetExperimentTag parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SetExperimentTag parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.SetExperimentTag parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SetExperimentTag parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.SetExperimentTag parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SetExperimentTag parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.SetExperimentTag parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.Service.SetExperimentTag prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.SetExperimentTag}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.SetExperimentTag)
+        org.mlflow.api.proto.Service.SetExperimentTagOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SetExperimentTag_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SetExperimentTag_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.SetExperimentTag.class, org.mlflow.api.proto.Service.SetExperimentTag.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.Service.SetExperimentTag.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        experimentId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        key_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
+        value_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SetExperimentTag_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SetExperimentTag getDefaultInstanceForType() {
+        return org.mlflow.api.proto.Service.SetExperimentTag.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SetExperimentTag build() {
+        org.mlflow.api.proto.Service.SetExperimentTag result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SetExperimentTag buildPartial() {
+        org.mlflow.api.proto.Service.SetExperimentTag result = new org.mlflow.api.proto.Service.SetExperimentTag(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.experimentId_ = experimentId_;
+        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.key_ = key_;
+        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.value_ = value_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.Service.SetExperimentTag) {
+          return mergeFrom((org.mlflow.api.proto.Service.SetExperimentTag)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.Service.SetExperimentTag other) {
+        if (other == org.mlflow.api.proto.Service.SetExperimentTag.getDefaultInstance()) return this;
+        if (other.hasExperimentId()) {
+          bitField0_ |= 0x00000001;
+          experimentId_ = other.experimentId_;
+          onChanged();
+        }
+        if (other.hasKey()) {
+          bitField0_ |= 0x00000002;
+          key_ = other.key_;
+          onChanged();
+        }
+        if (other.hasValue()) {
+          bitField0_ |= 0x00000004;
+          value_ = other.value_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.Service.SetExperimentTag parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.Service.SetExperimentTag) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object experimentId_ = "";
+      /**
+       * <pre>
+       * ID of the experiment under which to log the tag. Must be provided.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public boolean hasExperimentId() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <pre>
+       * ID of the experiment under which to log the tag. Must be provided.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public java.lang.String getExperimentId() {
+        java.lang.Object ref = experimentId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            experimentId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the experiment under which to log the tag. Must be provided.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public com.google.protobuf.ByteString
+          getExperimentIdBytes() {
+        java.lang.Object ref = experimentId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          experimentId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the experiment under which to log the tag. Must be provided.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder setExperimentId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        experimentId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the experiment under which to log the tag. Must be provided.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder clearExperimentId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        experimentId_ = getDefaultInstance().getExperimentId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the experiment under which to log the tag. Must be provided.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder setExperimentIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        experimentId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object key_ = "";
+      /**
+       * <pre>
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
+       * </pre>
+       *
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+       */
+      public boolean hasKey() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
+       * </pre>
+       *
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+       */
+      public java.lang.String getKey() {
+        java.lang.Object ref = key_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            key_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
+       * </pre>
+       *
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+       */
+      public com.google.protobuf.ByteString
+          getKeyBytes() {
+        java.lang.Object ref = key_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          key_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
+       * </pre>
+       *
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder setKey(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        key_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
+       * </pre>
+       *
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder clearKey() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        key_ = getDefaultInstance().getKey();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
+       * </pre>
+       *
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder setKeyBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        key_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object value_ = "";
+      /**
+       * <pre>
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+       * </pre>
+       *
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
+       */
+      public boolean hasValue() {
+        return ((bitField0_ & 0x00000004) == 0x00000004);
+      }
+      /**
+       * <pre>
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+       * </pre>
+       *
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
+       */
+      public java.lang.String getValue() {
+        java.lang.Object ref = value_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            value_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+       * </pre>
+       *
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
+       */
+      public com.google.protobuf.ByteString
+          getValueBytes() {
+        java.lang.Object ref = value_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          value_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+       * </pre>
+       *
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder setValue(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        value_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+       * </pre>
+       *
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder clearValue() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        value_ = getDefaultInstance().getValue();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+       * </pre>
+       *
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder setValueBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        value_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.SetExperimentTag)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.SetExperimentTag)
+    private static final org.mlflow.api.proto.Service.SetExperimentTag DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.SetExperimentTag();
+    }
+
+    public static org.mlflow.api.proto.Service.SetExperimentTag getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<SetExperimentTag>
+        PARSER = new com.google.protobuf.AbstractParser<SetExperimentTag>() {
+      @java.lang.Override
+      public SetExperimentTag parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new SetExperimentTag(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<SetExperimentTag> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<SetExperimentTag> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.SetExperimentTag getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface SetTagOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.SetTag)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * ID of the run under which to log the tag. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 4;</code>
+     */
+    boolean hasRunId();
+    /**
+     * <pre>
+     * ID of the run under which to log the tag. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 4;</code>
+     */
+    java.lang.String getRunId();
+    /**
+     * <pre>
+     * ID of the run under which to log the tag. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 4;</code>
+     */
+    com.google.protobuf.ByteString
+        getRunIdBytes();
+
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
+     */
+    boolean hasRunUuid();
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
+     */
+    java.lang.String getRunUuid();
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
+     */
+    com.google.protobuf.ByteString
+        getRunUuidBytes();
+
+    /**
+     * <pre>
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
+     * </pre>
+     *
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+     */
+    boolean hasKey();
+    /**
+     * <pre>
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
+     * </pre>
+     *
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+     */
+    java.lang.String getKey();
+    /**
+     * <pre>
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
+     * </pre>
+     *
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+     */
+    com.google.protobuf.ByteString
+        getKeyBytes();
+
+    /**
+     * <pre>
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+     * </pre>
+     *
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
+     */
+    boolean hasValue();
+    /**
+     * <pre>
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+     * </pre>
+     *
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
+     */
+    java.lang.String getValue();
+    /**
+     * <pre>
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+     * </pre>
+     *
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getValueBytes();
@@ -28762,6 +30308,7 @@ public final class Service {
       super(builder);
     }
     private SetTag() {
+      runId_ = "";
       runUuid_ = "";
       key_ = "";
       value_ = "";
@@ -28793,20 +30340,26 @@ public final class Service {
               break;
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
+              bitField0_ |= 0x00000002;
               runUuid_ = bs;
               break;
             }
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
+              bitField0_ |= 0x00000004;
               key_ = bs;
               break;
             }
             case 26: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000004;
+              bitField0_ |= 0x00000008;
               value_ = bs;
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              runId_ = bs;
               break;
             }
             default: {
@@ -29254,24 +30807,80 @@ public final class Service {
     }
 
     private int bitField0_;
-    public static final int RUN_UUID_FIELD_NUMBER = 1;
-    private volatile java.lang.Object runUuid_;
+    public static final int RUN_ID_FIELD_NUMBER = 4;
+    private volatile java.lang.Object runId_;
     /**
      * <pre>
-     * ID of the run under which to set the tag.
+     * ID of the run under which to log the tag. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 4;</code>
      */
-    public boolean hasRunUuid() {
+    public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
      * <pre>
-     * ID of the run under which to set the tag.
+     * ID of the run under which to log the tag. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 4;</code>
+     */
+    public java.lang.String getRunId() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the run under which to log the tag. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 4;</code>
+     */
+    public com.google.protobuf.ByteString
+        getRunIdBytes() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int RUN_UUID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object runUuid_;
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
+     */
+    public boolean hasRunUuid() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
      */
     public java.lang.String getRunUuid() {
       java.lang.Object ref = runUuid_;
@@ -29289,10 +30898,11 @@ public final class Service {
     }
     /**
      * <pre>
-     * ID of the run under which to set the tag.
+     * [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     public com.google.protobuf.ByteString
         getRunUuidBytes() {
@@ -29312,20 +30922,22 @@ public final class Service {
     private volatile java.lang.Object key_;
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasKey() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getKey() {
       java.lang.Object ref = key_;
@@ -29343,10 +30955,11 @@ public final class Service {
     }
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
-     * <code>optional string key = 2 [(.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getKeyBytes() {
@@ -29366,20 +30979,22 @@ public final class Service {
     private volatile java.lang.Object value_;
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
-     * <code>optional string value = 3 [(.validate_required) = true];</code>
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasValue() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
+      return ((bitField0_ & 0x00000008) == 0x00000008);
     }
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
-     * <code>optional string value = 3 [(.validate_required) = true];</code>
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getValue() {
       java.lang.Object ref = value_;
@@ -29397,10 +31012,11 @@ public final class Service {
     }
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
-     * <code>optional string value = 3 [(.validate_required) = true];</code>
+     * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getValueBytes() {
@@ -29430,14 +31046,17 @@ public final class Service {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, key_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 3, value_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, runId_);
       }
       unknownFields.writeTo(output);
     }
@@ -29448,14 +31067,17 @@ public final class Service {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, key_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, value_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, runId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -29473,6 +31095,11 @@ public final class Service {
       org.mlflow.api.proto.Service.SetTag other = (org.mlflow.api.proto.Service.SetTag) obj;
 
       boolean result = true;
+      result = result && (hasRunId() == other.hasRunId());
+      if (hasRunId()) {
+        result = result && getRunId()
+            .equals(other.getRunId());
+      }
       result = result && (hasRunUuid() == other.hasRunUuid());
       if (hasRunUuid()) {
         result = result && getRunUuid()
@@ -29499,6 +31126,10 @@ public final class Service {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasRunId()) {
+        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRunId().hashCode();
+      }
       if (hasRunUuid()) {
         hash = (37 * hash) + RUN_UUID_FIELD_NUMBER;
         hash = (53 * hash) + getRunUuid().hashCode();
@@ -29644,12 +31275,14 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        runUuid_ = "";
+        runId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        key_ = "";
+        runUuid_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        value_ = "";
+        key_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
+        value_ = "";
+        bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
 
@@ -29681,13 +31314,17 @@ public final class Service {
         if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
           to_bitField0_ |= 0x00000001;
         }
-        result.runUuid_ = runUuid_;
+        result.runId_ = runId_;
         if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
           to_bitField0_ |= 0x00000002;
         }
-        result.key_ = key_;
+        result.runUuid_ = runUuid_;
         if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000004;
+        }
+        result.key_ = key_;
+        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
+          to_bitField0_ |= 0x00000008;
         }
         result.value_ = value_;
         result.bitField0_ = to_bitField0_;
@@ -29739,18 +31376,23 @@ public final class Service {
 
       public Builder mergeFrom(org.mlflow.api.proto.Service.SetTag other) {
         if (other == org.mlflow.api.proto.Service.SetTag.getDefaultInstance()) return this;
-        if (other.hasRunUuid()) {
+        if (other.hasRunId()) {
           bitField0_ |= 0x00000001;
+          runId_ = other.runId_;
+          onChanged();
+        }
+        if (other.hasRunUuid()) {
+          bitField0_ |= 0x00000002;
           runUuid_ = other.runUuid_;
           onChanged();
         }
         if (other.hasKey()) {
-          bitField0_ |= 0x00000002;
+          bitField0_ |= 0x00000004;
           key_ = other.key_;
           onChanged();
         }
         if (other.hasValue()) {
-          bitField0_ |= 0x00000004;
+          bitField0_ |= 0x00000008;
           value_ = other.value_;
           onChanged();
         }
@@ -29784,23 +31426,125 @@ public final class Service {
       }
       private int bitField0_;
 
-      private java.lang.Object runUuid_ = "";
+      private java.lang.Object runId_ = "";
       /**
        * <pre>
-       * ID of the run under which to set the tag.
+       * ID of the run under which to log the tag. Must be provided.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_id = 4;</code>
        */
-      public boolean hasRunUuid() {
+      public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
        * <pre>
-       * ID of the run under which to set the tag.
+       * ID of the run under which to log the tag. Must be provided.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_id = 4;</code>
+       */
+      public java.lang.String getRunId() {
+        java.lang.Object ref = runId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run under which to log the tag. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 4;</code>
+       */
+      public com.google.protobuf.ByteString
+          getRunIdBytes() {
+        java.lang.Object ref = runId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run under which to log the tag. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 4;</code>
+       */
+      public Builder setRunId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run under which to log the tag. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 4;</code>
+       */
+      public Builder clearRunId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        runId_ = getDefaultInstance().getRunId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run under which to log the tag. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 4;</code>
+       */
+      public Builder setRunIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object runUuid_ = "";
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+       * be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
+       */
+      public boolean hasRunUuid() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+       * be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
        */
       public java.lang.String getRunUuid() {
         java.lang.Object ref = runUuid_;
@@ -29818,10 +31562,11 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run under which to set the tag.
+       * [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public com.google.protobuf.ByteString
           getRunUuidBytes() {
@@ -29838,47 +31583,50 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run under which to set the tag.
+       * [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder setRunUuid(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run under which to set the tag.
+       * [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder clearRunUuid() {
-        bitField0_ = (bitField0_ & ~0x00000001);
+        bitField0_ = (bitField0_ & ~0x00000002);
         runUuid_ = getDefaultInstance().getRunUuid();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run under which to set the tag.
+       * [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder setRunUuidBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
@@ -29887,20 +31635,22 @@ public final class Service {
       private java.lang.Object key_ = "";
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasKey() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getKey() {
         java.lang.Object ref = key_;
@@ -29918,10 +31668,11 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getKeyBytes() {
@@ -29938,47 +31689,50 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setKey(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000002;
+  bitField0_ |= 0x00000004;
         key_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearKey() {
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000004);
         key_ = getDefaultInstance().getKey();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
-       * <code>optional string key = 2 [(.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setKeyBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000002;
+  bitField0_ |= 0x00000004;
         key_ = value;
         onChanged();
         return this;
@@ -29987,20 +31741,22 @@ public final class Service {
       private java.lang.Object value_ = "";
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
-       * <code>optional string value = 3 [(.validate_required) = true];</code>
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasValue() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000008) == 0x00000008);
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
-       * <code>optional string value = 3 [(.validate_required) = true];</code>
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getValue() {
         java.lang.Object ref = value_;
@@ -30018,10 +31774,11 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
-       * <code>optional string value = 3 [(.validate_required) = true];</code>
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getValueBytes() {
@@ -30038,47 +31795,50 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
-       * <code>optional string value = 3 [(.validate_required) = true];</code>
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setValue(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000008;
         value_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
-       * <code>optional string value = 3 [(.validate_required) = true];</code>
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearValue() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000008);
         value_ = getDefaultInstance().getValue();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
-       * <code>optional string value = 3 [(.validate_required) = true];</code>
+       * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setValueBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000008;
         value_ = value;
         onChanged();
         return this;
@@ -30136,32 +31896,1317 @@ public final class Service {
 
   }
 
+  public interface DeleteTagOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.DeleteTag)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * ID of the run that the tag was logged under. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    boolean hasRunId();
+    /**
+     * <pre>
+     * ID of the run that the tag was logged under. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    java.lang.String getRunId();
+    /**
+     * <pre>
+     * ID of the run that the tag was logged under. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    com.google.protobuf.ByteString
+        getRunIdBytes();
+
+    /**
+     * <pre>
+     * Name of the tag. Maximum size is 255 bytes. Must be provided.
+     * </pre>
+     *
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+     */
+    boolean hasKey();
+    /**
+     * <pre>
+     * Name of the tag. Maximum size is 255 bytes. Must be provided.
+     * </pre>
+     *
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+     */
+    java.lang.String getKey();
+    /**
+     * <pre>
+     * Name of the tag. Maximum size is 255 bytes. Must be provided.
+     * </pre>
+     *
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+     */
+    com.google.protobuf.ByteString
+        getKeyBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.DeleteTag}
+   */
+  public  static final class DeleteTag extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.DeleteTag)
+      DeleteTagOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use DeleteTag.newBuilder() to construct.
+    private DeleteTag(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private DeleteTag() {
+      runId_ = "";
+      key_ = "";
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private DeleteTag(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              runId_ = bs;
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              key_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_DeleteTag_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_DeleteTag_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.Service.DeleteTag.class, org.mlflow.api.proto.Service.DeleteTag.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.DeleteTag.Response)
+        com.google.protobuf.MessageOrBuilder {
+    }
+    /**
+     * Protobuf type {@code mlflow.DeleteTag.Response}
+     */
+    public  static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.DeleteTag.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_DeleteTag_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_DeleteTag_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.DeleteTag.Response.class, org.mlflow.api.proto.Service.DeleteTag.Response.Builder.class);
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.Service.DeleteTag.Response)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.Service.DeleteTag.Response other = (org.mlflow.api.proto.Service.DeleteTag.Response) obj;
+
+        boolean result = true;
+        result = result && unknownFields.equals(other.unknownFields);
+        return result;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.Service.DeleteTag.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.DeleteTag.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.DeleteTag.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.DeleteTag.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.DeleteTag.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.DeleteTag.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.DeleteTag.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.DeleteTag.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.DeleteTag.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.DeleteTag.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.DeleteTag.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.DeleteTag.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.Service.DeleteTag.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.DeleteTag.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.DeleteTag.Response)
+          org.mlflow.api.proto.Service.DeleteTag.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_DeleteTag_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_DeleteTag_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.Service.DeleteTag.Response.class, org.mlflow.api.proto.Service.DeleteTag.Response.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.Service.DeleteTag.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_DeleteTag_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.DeleteTag.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.Service.DeleteTag.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.DeleteTag.Response build() {
+          org.mlflow.api.proto.Service.DeleteTag.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.DeleteTag.Response buildPartial() {
+          org.mlflow.api.proto.Service.DeleteTag.Response result = new org.mlflow.api.proto.Service.DeleteTag.Response(this);
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return (Builder) super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return (Builder) super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return (Builder) super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return (Builder) super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return (Builder) super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return (Builder) super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.Service.DeleteTag.Response) {
+            return mergeFrom((org.mlflow.api.proto.Service.DeleteTag.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.Service.DeleteTag.Response other) {
+          if (other == org.mlflow.api.proto.Service.DeleteTag.Response.getDefaultInstance()) return this;
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.Service.DeleteTag.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.Service.DeleteTag.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.DeleteTag.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.DeleteTag.Response)
+      private static final org.mlflow.api.proto.Service.DeleteTag.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.DeleteTag.Response();
+      }
+
+      public static org.mlflow.api.proto.Service.DeleteTag.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.DeleteTag.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int RUN_ID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object runId_;
+    /**
+     * <pre>
+     * ID of the run that the tag was logged under. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    public boolean hasRunId() {
+      return ((bitField0_ & 0x00000001) == 0x00000001);
+    }
+    /**
+     * <pre>
+     * ID of the run that the tag was logged under. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    public java.lang.String getRunId() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the run that the tag was logged under. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    public com.google.protobuf.ByteString
+        getRunIdBytes() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int KEY_FIELD_NUMBER = 2;
+    private volatile java.lang.Object key_;
+    /**
+     * <pre>
+     * Name of the tag. Maximum size is 255 bytes. Must be provided.
+     * </pre>
+     *
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+     */
+    public boolean hasKey() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * Name of the tag. Maximum size is 255 bytes. Must be provided.
+     * </pre>
+     *
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+     */
+    public java.lang.String getKey() {
+      java.lang.Object ref = key_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          key_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Name of the tag. Maximum size is 255 bytes. Must be provided.
+     * </pre>
+     *
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+     */
+    public com.google.protobuf.ByteString
+        getKeyBytes() {
+      java.lang.Object ref = key_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        key_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runId_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, key_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runId_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, key_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.Service.DeleteTag)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.Service.DeleteTag other = (org.mlflow.api.proto.Service.DeleteTag) obj;
+
+      boolean result = true;
+      result = result && (hasRunId() == other.hasRunId());
+      if (hasRunId()) {
+        result = result && getRunId()
+            .equals(other.getRunId());
+      }
+      result = result && (hasKey() == other.hasKey());
+      if (hasKey()) {
+        result = result && getKey()
+            .equals(other.getKey());
+      }
+      result = result && unknownFields.equals(other.unknownFields);
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasRunId()) {
+        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRunId().hashCode();
+      }
+      if (hasKey()) {
+        hash = (37 * hash) + KEY_FIELD_NUMBER;
+        hash = (53 * hash) + getKey().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.Service.DeleteTag parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.DeleteTag parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.DeleteTag parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.DeleteTag parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.DeleteTag parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.DeleteTag parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.DeleteTag parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.DeleteTag parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.DeleteTag parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.DeleteTag parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.DeleteTag parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.DeleteTag parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.Service.DeleteTag prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.DeleteTag}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.DeleteTag)
+        org.mlflow.api.proto.Service.DeleteTagOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_DeleteTag_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_DeleteTag_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.DeleteTag.class, org.mlflow.api.proto.Service.DeleteTag.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.Service.DeleteTag.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        runId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        key_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_DeleteTag_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.DeleteTag getDefaultInstanceForType() {
+        return org.mlflow.api.proto.Service.DeleteTag.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.DeleteTag build() {
+        org.mlflow.api.proto.Service.DeleteTag result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.DeleteTag buildPartial() {
+        org.mlflow.api.proto.Service.DeleteTag result = new org.mlflow.api.proto.Service.DeleteTag(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.runId_ = runId_;
+        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.key_ = key_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.Service.DeleteTag) {
+          return mergeFrom((org.mlflow.api.proto.Service.DeleteTag)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.Service.DeleteTag other) {
+        if (other == org.mlflow.api.proto.Service.DeleteTag.getDefaultInstance()) return this;
+        if (other.hasRunId()) {
+          bitField0_ |= 0x00000001;
+          runId_ = other.runId_;
+          onChanged();
+        }
+        if (other.hasKey()) {
+          bitField0_ |= 0x00000002;
+          key_ = other.key_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.Service.DeleteTag parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.Service.DeleteTag) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object runId_ = "";
+      /**
+       * <pre>
+       * ID of the run that the tag was logged under. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public boolean hasRunId() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <pre>
+       * ID of the run that the tag was logged under. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public java.lang.String getRunId() {
+        java.lang.Object ref = runId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run that the tag was logged under. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public com.google.protobuf.ByteString
+          getRunIdBytes() {
+        java.lang.Object ref = runId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run that the tag was logged under. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder setRunId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run that the tag was logged under. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder clearRunId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        runId_ = getDefaultInstance().getRunId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run that the tag was logged under. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder setRunIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object key_ = "";
+      /**
+       * <pre>
+       * Name of the tag. Maximum size is 255 bytes. Must be provided.
+       * </pre>
+       *
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+       */
+      public boolean hasKey() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * Name of the tag. Maximum size is 255 bytes. Must be provided.
+       * </pre>
+       *
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+       */
+      public java.lang.String getKey() {
+        java.lang.Object ref = key_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            key_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the tag. Maximum size is 255 bytes. Must be provided.
+       * </pre>
+       *
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+       */
+      public com.google.protobuf.ByteString
+          getKeyBytes() {
+        java.lang.Object ref = key_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          key_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the tag. Maximum size is 255 bytes. Must be provided.
+       * </pre>
+       *
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder setKey(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        key_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the tag. Maximum size is 255 bytes. Must be provided.
+       * </pre>
+       *
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder clearKey() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        key_ = getDefaultInstance().getKey();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the tag. Maximum size is 255 bytes. Must be provided.
+       * </pre>
+       *
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder setKeyBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        key_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.DeleteTag)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.DeleteTag)
+    private static final org.mlflow.api.proto.Service.DeleteTag DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.DeleteTag();
+    }
+
+    public static org.mlflow.api.proto.Service.DeleteTag getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<DeleteTag>
+        PARSER = new com.google.protobuf.AbstractParser<DeleteTag>() {
+      @java.lang.Override
+      public DeleteTag parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new DeleteTag(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<DeleteTag> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<DeleteTag> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.DeleteTag getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   public interface GetRunOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.GetRun)
       com.google.protobuf.MessageOrBuilder {
 
     /**
      * <pre>
-     * ID of the run to fetch.
+     * ID of the run to fetch. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 2;</code>
+     */
+    boolean hasRunId();
+    /**
+     * <pre>
+     * ID of the run to fetch. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 2;</code>
+     */
+    java.lang.String getRunId();
+    /**
+     * <pre>
+     * ID of the run to fetch. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 2;</code>
+     */
+    com.google.protobuf.ByteString
+        getRunIdBytes();
+
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run to fetch. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
      */
     boolean hasRunUuid();
     /**
      * <pre>
-     * ID of the run to fetch.
+     * [Deprecated, use run_id instead] ID of the run to fetch. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     java.lang.String getRunUuid();
     /**
      * <pre>
-     * ID of the run to fetch.
+     * [Deprecated, use run_id instead] ID of the run to fetch. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     com.google.protobuf.ByteString
         getRunUuidBytes();
@@ -30179,6 +33224,7 @@ public final class Service {
       super(builder);
     }
     private GetRun() {
+      runId_ = "";
       runUuid_ = "";
     }
 
@@ -30208,8 +33254,14 @@ public final class Service {
               break;
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
+              bitField0_ |= 0x00000002;
               runUuid_ = bs;
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              runId_ = bs;
               break;
             }
             default: {
@@ -30250,7 +33302,7 @@ public final class Service {
 
       /**
        * <pre>
-       * Run metadata (name, start time, etc) and data (metrics, params, etc).
+       * Run metadata (name, start time, etc) and data (metrics, params, and tags).
        * </pre>
        *
        * <code>optional .mlflow.Run run = 1;</code>
@@ -30258,7 +33310,7 @@ public final class Service {
       boolean hasRun();
       /**
        * <pre>
-       * Run metadata (name, start time, etc) and data (metrics, params, etc).
+       * Run metadata (name, start time, etc) and data (metrics, params, and tags).
        * </pre>
        *
        * <code>optional .mlflow.Run run = 1;</code>
@@ -30266,7 +33318,7 @@ public final class Service {
       org.mlflow.api.proto.Service.Run getRun();
       /**
        * <pre>
-       * Run metadata (name, start time, etc) and data (metrics, params, etc).
+       * Run metadata (name, start time, etc) and data (metrics, params, and tags).
        * </pre>
        *
        * <code>optional .mlflow.Run run = 1;</code>
@@ -30362,7 +33414,7 @@ public final class Service {
       private org.mlflow.api.proto.Service.Run run_;
       /**
        * <pre>
-       * Run metadata (name, start time, etc) and data (metrics, params, etc).
+       * Run metadata (name, start time, etc) and data (metrics, params, and tags).
        * </pre>
        *
        * <code>optional .mlflow.Run run = 1;</code>
@@ -30372,7 +33424,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Run metadata (name, start time, etc) and data (metrics, params, etc).
+       * Run metadata (name, start time, etc) and data (metrics, params, and tags).
        * </pre>
        *
        * <code>optional .mlflow.Run run = 1;</code>
@@ -30382,7 +33434,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Run metadata (name, start time, etc) and data (metrics, params, etc).
+       * Run metadata (name, start time, etc) and data (metrics, params, and tags).
        * </pre>
        *
        * <code>optional .mlflow.Run run = 1;</code>
@@ -30720,7 +33772,7 @@ public final class Service {
             org.mlflow.api.proto.Service.Run, org.mlflow.api.proto.Service.Run.Builder, org.mlflow.api.proto.Service.RunOrBuilder> runBuilder_;
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -30730,7 +33782,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -30744,7 +33796,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -30764,7 +33816,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -30782,7 +33834,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -30806,7 +33858,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -30823,7 +33875,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -30835,7 +33887,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -30850,7 +33902,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -30922,24 +33974,80 @@ public final class Service {
     }
 
     private int bitField0_;
-    public static final int RUN_UUID_FIELD_NUMBER = 1;
-    private volatile java.lang.Object runUuid_;
+    public static final int RUN_ID_FIELD_NUMBER = 2;
+    private volatile java.lang.Object runId_;
     /**
      * <pre>
-     * ID of the run to fetch.
+     * ID of the run to fetch. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 2;</code>
      */
-    public boolean hasRunUuid() {
+    public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
      * <pre>
-     * ID of the run to fetch.
+     * ID of the run to fetch. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 2;</code>
+     */
+    public java.lang.String getRunId() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the run to fetch. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 2;</code>
+     */
+    public com.google.protobuf.ByteString
+        getRunIdBytes() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int RUN_UUID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object runUuid_;
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run to fetch. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
+     */
+    public boolean hasRunUuid() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run to fetch. This field will
+     * be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
      */
     public java.lang.String getRunUuid() {
       java.lang.Object ref = runUuid_;
@@ -30957,10 +34065,11 @@ public final class Service {
     }
     /**
      * <pre>
-     * ID of the run to fetch.
+     * [Deprecated, use run_id instead] ID of the run to fetch. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     public com.google.protobuf.ByteString
         getRunUuidBytes() {
@@ -30990,8 +34099,11 @@ public final class Service {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runUuid_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, runId_);
       }
       unknownFields.writeTo(output);
     }
@@ -31002,8 +34114,11 @@ public final class Service {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runUuid_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, runId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -31021,6 +34136,11 @@ public final class Service {
       org.mlflow.api.proto.Service.GetRun other = (org.mlflow.api.proto.Service.GetRun) obj;
 
       boolean result = true;
+      result = result && (hasRunId() == other.hasRunId());
+      if (hasRunId()) {
+        result = result && getRunId()
+            .equals(other.getRunId());
+      }
       result = result && (hasRunUuid() == other.hasRunUuid());
       if (hasRunUuid()) {
         result = result && getRunUuid()
@@ -31037,6 +34157,10 @@ public final class Service {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasRunId()) {
+        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRunId().hashCode();
+      }
       if (hasRunUuid()) {
         hash = (37 * hash) + RUN_UUID_FIELD_NUMBER;
         hash = (53 * hash) + getRunUuid().hashCode();
@@ -31174,8 +34298,10 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        runUuid_ = "";
+        runId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
+        runUuid_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -31206,6 +34332,10 @@ public final class Service {
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
           to_bitField0_ |= 0x00000001;
+        }
+        result.runId_ = runId_;
+        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          to_bitField0_ |= 0x00000002;
         }
         result.runUuid_ = runUuid_;
         result.bitField0_ = to_bitField0_;
@@ -31257,8 +34387,13 @@ public final class Service {
 
       public Builder mergeFrom(org.mlflow.api.proto.Service.GetRun other) {
         if (other == org.mlflow.api.proto.Service.GetRun.getDefaultInstance()) return this;
-        if (other.hasRunUuid()) {
+        if (other.hasRunId()) {
           bitField0_ |= 0x00000001;
+          runId_ = other.runId_;
+          onChanged();
+        }
+        if (other.hasRunUuid()) {
+          bitField0_ |= 0x00000002;
           runUuid_ = other.runUuid_;
           onChanged();
         }
@@ -31292,23 +34427,125 @@ public final class Service {
       }
       private int bitField0_;
 
-      private java.lang.Object runUuid_ = "";
+      private java.lang.Object runId_ = "";
       /**
        * <pre>
-       * ID of the run to fetch.
+       * ID of the run to fetch. Must be provided.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_id = 2;</code>
        */
-      public boolean hasRunUuid() {
+      public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
        * <pre>
-       * ID of the run to fetch.
+       * ID of the run to fetch. Must be provided.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_id = 2;</code>
+       */
+      public java.lang.String getRunId() {
+        java.lang.Object ref = runId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run to fetch. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 2;</code>
+       */
+      public com.google.protobuf.ByteString
+          getRunIdBytes() {
+        java.lang.Object ref = runId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run to fetch. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 2;</code>
+       */
+      public Builder setRunId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run to fetch. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 2;</code>
+       */
+      public Builder clearRunId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        runId_ = getDefaultInstance().getRunId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run to fetch. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 2;</code>
+       */
+      public Builder setRunIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object runUuid_ = "";
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] ID of the run to fetch. This field will
+       * be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
+       */
+      public boolean hasRunUuid() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] ID of the run to fetch. This field will
+       * be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
        */
       public java.lang.String getRunUuid() {
         java.lang.Object ref = runUuid_;
@@ -31326,10 +34563,11 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run to fetch.
+       * [Deprecated, use run_id instead] ID of the run to fetch. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public com.google.protobuf.ByteString
           getRunUuidBytes() {
@@ -31346,47 +34584,50 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run to fetch.
+       * [Deprecated, use run_id instead] ID of the run to fetch. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder setRunUuid(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run to fetch.
+       * [Deprecated, use run_id instead] ID of the run to fetch. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder clearRunUuid() {
-        bitField0_ = (bitField0_ & ~0x00000001);
+        bitField0_ = (bitField0_ & ~0x00000002);
         runUuid_ = getDefaultInstance().getRunUuid();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run to fetch.
+       * [Deprecated, use run_id instead] ID of the run to fetch. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder setRunUuidBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
@@ -31444,5646 +34685,6 @@ public final class Service {
 
   }
 
-  public interface SearchExpressionOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.SearchExpression)
-      com.google.protobuf.MessageOrBuilder {
-
-    /**
-     * <pre>
-     * A metric search expression.
-     * </pre>
-     *
-     * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-     */
-    boolean hasMetric();
-    /**
-     * <pre>
-     * A metric search expression.
-     * </pre>
-     *
-     * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-     */
-    org.mlflow.api.proto.Service.MetricSearchExpression getMetric();
-    /**
-     * <pre>
-     * A metric search expression.
-     * </pre>
-     *
-     * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-     */
-    org.mlflow.api.proto.Service.MetricSearchExpressionOrBuilder getMetricOrBuilder();
-
-    /**
-     * <pre>
-     * A parameter search expression.
-     * </pre>
-     *
-     * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-     */
-    boolean hasParameter();
-    /**
-     * <pre>
-     * A parameter search expression.
-     * </pre>
-     *
-     * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-     */
-    org.mlflow.api.proto.Service.ParameterSearchExpression getParameter();
-    /**
-     * <pre>
-     * A parameter search expression.
-     * </pre>
-     *
-     * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-     */
-    org.mlflow.api.proto.Service.ParameterSearchExpressionOrBuilder getParameterOrBuilder();
-
-    public org.mlflow.api.proto.Service.SearchExpression.ExpressionCase getExpressionCase();
-  }
-  /**
-   * Protobuf type {@code mlflow.SearchExpression}
-   */
-  public  static final class SearchExpression extends
-      com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.SearchExpression)
-      SearchExpressionOrBuilder {
-  private static final long serialVersionUID = 0L;
-    // Use SearchExpression.newBuilder() to construct.
-    private SearchExpression(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-      super(builder);
-    }
-    private SearchExpression() {
-    }
-
-    @java.lang.Override
-    public final com.google.protobuf.UnknownFieldSet
-    getUnknownFields() {
-      return this.unknownFields;
-    }
-    private SearchExpression(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      this();
-      if (extensionRegistry == null) {
-        throw new java.lang.NullPointerException();
-      }
-      int mutable_bitField0_ = 0;
-      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder();
-      try {
-        boolean done = false;
-        while (!done) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              done = true;
-              break;
-            case 10: {
-              org.mlflow.api.proto.Service.MetricSearchExpression.Builder subBuilder = null;
-              if (expressionCase_ == 1) {
-                subBuilder = ((org.mlflow.api.proto.Service.MetricSearchExpression) expression_).toBuilder();
-              }
-              expression_ =
-                  input.readMessage(org.mlflow.api.proto.Service.MetricSearchExpression.PARSER, extensionRegistry);
-              if (subBuilder != null) {
-                subBuilder.mergeFrom((org.mlflow.api.proto.Service.MetricSearchExpression) expression_);
-                expression_ = subBuilder.buildPartial();
-              }
-              expressionCase_ = 1;
-              break;
-            }
-            case 18: {
-              org.mlflow.api.proto.Service.ParameterSearchExpression.Builder subBuilder = null;
-              if (expressionCase_ == 2) {
-                subBuilder = ((org.mlflow.api.proto.Service.ParameterSearchExpression) expression_).toBuilder();
-              }
-              expression_ =
-                  input.readMessage(org.mlflow.api.proto.Service.ParameterSearchExpression.PARSER, extensionRegistry);
-              if (subBuilder != null) {
-                subBuilder.mergeFrom((org.mlflow.api.proto.Service.ParameterSearchExpression) expression_);
-                expression_ = subBuilder.buildPartial();
-              }
-              expressionCase_ = 2;
-              break;
-            }
-            default: {
-              if (!parseUnknownField(
-                  input, unknownFields, extensionRegistry, tag)) {
-                done = true;
-              }
-              break;
-            }
-          }
-        }
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(this);
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(
-            e).setUnfinishedMessage(this);
-      } finally {
-        this.unknownFields = unknownFields.build();
-        makeExtensionsImmutable();
-      }
-    }
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExpression_descriptor;
-    }
-
-    @java.lang.Override
-    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-        internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExpression_fieldAccessorTable
-          .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.Service.SearchExpression.class, org.mlflow.api.proto.Service.SearchExpression.Builder.class);
-    }
-
-    private int bitField0_;
-    private int expressionCase_ = 0;
-    private java.lang.Object expression_;
-    public enum ExpressionCase
-        implements com.google.protobuf.Internal.EnumLite {
-      METRIC(1),
-      PARAMETER(2),
-      EXPRESSION_NOT_SET(0);
-      private final int value;
-      private ExpressionCase(int value) {
-        this.value = value;
-      }
-      /**
-       * @deprecated Use {@link #forNumber(int)} instead.
-       */
-      @java.lang.Deprecated
-      public static ExpressionCase valueOf(int value) {
-        return forNumber(value);
-      }
-
-      public static ExpressionCase forNumber(int value) {
-        switch (value) {
-          case 1: return METRIC;
-          case 2: return PARAMETER;
-          case 0: return EXPRESSION_NOT_SET;
-          default: return null;
-        }
-      }
-      public int getNumber() {
-        return this.value;
-      }
-    };
-
-    public ExpressionCase
-    getExpressionCase() {
-      return ExpressionCase.forNumber(
-          expressionCase_);
-    }
-
-    public static final int METRIC_FIELD_NUMBER = 1;
-    /**
-     * <pre>
-     * A metric search expression.
-     * </pre>
-     *
-     * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-     */
-    public boolean hasMetric() {
-      return expressionCase_ == 1;
-    }
-    /**
-     * <pre>
-     * A metric search expression.
-     * </pre>
-     *
-     * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-     */
-    public org.mlflow.api.proto.Service.MetricSearchExpression getMetric() {
-      if (expressionCase_ == 1) {
-         return (org.mlflow.api.proto.Service.MetricSearchExpression) expression_;
-      }
-      return org.mlflow.api.proto.Service.MetricSearchExpression.getDefaultInstance();
-    }
-    /**
-     * <pre>
-     * A metric search expression.
-     * </pre>
-     *
-     * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-     */
-    public org.mlflow.api.proto.Service.MetricSearchExpressionOrBuilder getMetricOrBuilder() {
-      if (expressionCase_ == 1) {
-         return (org.mlflow.api.proto.Service.MetricSearchExpression) expression_;
-      }
-      return org.mlflow.api.proto.Service.MetricSearchExpression.getDefaultInstance();
-    }
-
-    public static final int PARAMETER_FIELD_NUMBER = 2;
-    /**
-     * <pre>
-     * A parameter search expression.
-     * </pre>
-     *
-     * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-     */
-    public boolean hasParameter() {
-      return expressionCase_ == 2;
-    }
-    /**
-     * <pre>
-     * A parameter search expression.
-     * </pre>
-     *
-     * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.ParameterSearchExpression getParameter() {
-      if (expressionCase_ == 2) {
-         return (org.mlflow.api.proto.Service.ParameterSearchExpression) expression_;
-      }
-      return org.mlflow.api.proto.Service.ParameterSearchExpression.getDefaultInstance();
-    }
-    /**
-     * <pre>
-     * A parameter search expression.
-     * </pre>
-     *
-     * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.ParameterSearchExpressionOrBuilder getParameterOrBuilder() {
-      if (expressionCase_ == 2) {
-         return (org.mlflow.api.proto.Service.ParameterSearchExpression) expression_;
-      }
-      return org.mlflow.api.proto.Service.ParameterSearchExpression.getDefaultInstance();
-    }
-
-    private byte memoizedIsInitialized = -1;
-    @java.lang.Override
-    public final boolean isInitialized() {
-      byte isInitialized = memoizedIsInitialized;
-      if (isInitialized == 1) return true;
-      if (isInitialized == 0) return false;
-
-      memoizedIsInitialized = 1;
-      return true;
-    }
-
-    @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output)
-                        throws java.io.IOException {
-      if (expressionCase_ == 1) {
-        output.writeMessage(1, (org.mlflow.api.proto.Service.MetricSearchExpression) expression_);
-      }
-      if (expressionCase_ == 2) {
-        output.writeMessage(2, (org.mlflow.api.proto.Service.ParameterSearchExpression) expression_);
-      }
-      unknownFields.writeTo(output);
-    }
-
-    @java.lang.Override
-    public int getSerializedSize() {
-      int size = memoizedSize;
-      if (size != -1) return size;
-
-      size = 0;
-      if (expressionCase_ == 1) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(1, (org.mlflow.api.proto.Service.MetricSearchExpression) expression_);
-      }
-      if (expressionCase_ == 2) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(2, (org.mlflow.api.proto.Service.ParameterSearchExpression) expression_);
-      }
-      size += unknownFields.getSerializedSize();
-      memoizedSize = size;
-      return size;
-    }
-
-    @java.lang.Override
-    public boolean equals(final java.lang.Object obj) {
-      if (obj == this) {
-       return true;
-      }
-      if (!(obj instanceof org.mlflow.api.proto.Service.SearchExpression)) {
-        return super.equals(obj);
-      }
-      org.mlflow.api.proto.Service.SearchExpression other = (org.mlflow.api.proto.Service.SearchExpression) obj;
-
-      boolean result = true;
-      result = result && getExpressionCase().equals(
-          other.getExpressionCase());
-      if (!result) return false;
-      switch (expressionCase_) {
-        case 1:
-          result = result && getMetric()
-              .equals(other.getMetric());
-          break;
-        case 2:
-          result = result && getParameter()
-              .equals(other.getParameter());
-          break;
-        case 0:
-        default:
-      }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
-    }
-
-    @java.lang.Override
-    public int hashCode() {
-      if (memoizedHashCode != 0) {
-        return memoizedHashCode;
-      }
-      int hash = 41;
-      hash = (19 * hash) + getDescriptor().hashCode();
-      switch (expressionCase_) {
-        case 1:
-          hash = (37 * hash) + METRIC_FIELD_NUMBER;
-          hash = (53 * hash) + getMetric().hashCode();
-          break;
-        case 2:
-          hash = (37 * hash) + PARAMETER_FIELD_NUMBER;
-          hash = (53 * hash) + getParameter().hashCode();
-          break;
-        case 0:
-        default:
-      }
-      hash = (29 * hash) + unknownFields.hashCode();
-      memoizedHashCode = hash;
-      return hash;
-    }
-
-    public static org.mlflow.api.proto.Service.SearchExpression parseFrom(
-        java.nio.ByteBuffer data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.SearchExpression parseFrom(
-        java.nio.ByteBuffer data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.SearchExpression parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.SearchExpression parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.SearchExpression parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.SearchExpression parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.SearchExpression parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.SearchExpression parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.SearchExpression parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.SearchExpression parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.SearchExpression parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.SearchExpression parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-
-    @java.lang.Override
-    public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder() {
-      return DEFAULT_INSTANCE.toBuilder();
-    }
-    public static Builder newBuilder(org.mlflow.api.proto.Service.SearchExpression prototype) {
-      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-    }
-    @java.lang.Override
-    public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE
-          ? new Builder() : new Builder().mergeFrom(this);
-    }
-
-    @java.lang.Override
-    protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-      Builder builder = new Builder(parent);
-      return builder;
-    }
-    /**
-     * Protobuf type {@code mlflow.SearchExpression}
-     */
-    public static final class Builder extends
-        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.SearchExpression)
-        org.mlflow.api.proto.Service.SearchExpressionOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExpression_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExpression_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.Service.SearchExpression.class, org.mlflow.api.proto.Service.SearchExpression.Builder.class);
-      }
-
-      // Construct using org.mlflow.api.proto.Service.SearchExpression.newBuilder()
-      private Builder() {
-        maybeForceBuilderInitialization();
-      }
-
-      private Builder(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
-        maybeForceBuilderInitialization();
-      }
-      private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessageV3
-                .alwaysUseFieldBuilders) {
-        }
-      }
-      @java.lang.Override
-      public Builder clear() {
-        super.clear();
-        expressionCase_ = 0;
-        expression_ = null;
-        return this;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor
-          getDescriptorForType() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExpression_descriptor;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.SearchExpression getDefaultInstanceForType() {
-        return org.mlflow.api.proto.Service.SearchExpression.getDefaultInstance();
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.SearchExpression build() {
-        org.mlflow.api.proto.Service.SearchExpression result = buildPartial();
-        if (!result.isInitialized()) {
-          throw newUninitializedMessageException(result);
-        }
-        return result;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.SearchExpression buildPartial() {
-        org.mlflow.api.proto.Service.SearchExpression result = new org.mlflow.api.proto.Service.SearchExpression(this);
-        int from_bitField0_ = bitField0_;
-        int to_bitField0_ = 0;
-        if (expressionCase_ == 1) {
-          if (metricBuilder_ == null) {
-            result.expression_ = expression_;
-          } else {
-            result.expression_ = metricBuilder_.build();
-          }
-        }
-        if (expressionCase_ == 2) {
-          if (parameterBuilder_ == null) {
-            result.expression_ = expression_;
-          } else {
-            result.expression_ = parameterBuilder_.build();
-          }
-        }
-        result.bitField0_ = to_bitField0_;
-        result.expressionCase_ = expressionCase_;
-        onBuilt();
-        return result;
-      }
-
-      @java.lang.Override
-      public Builder clone() {
-        return (Builder) super.clone();
-      }
-      @java.lang.Override
-      public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.setField(field, value);
-      }
-      @java.lang.Override
-      public Builder clearField(
-          com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
-      }
-      @java.lang.Override
-      public Builder clearOneof(
-          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
-      }
-      @java.lang.Override
-      public Builder setRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
-      }
-      @java.lang.Override
-      public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
-      }
-      @java.lang.Override
-      public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.Service.SearchExpression) {
-          return mergeFrom((org.mlflow.api.proto.Service.SearchExpression)other);
-        } else {
-          super.mergeFrom(other);
-          return this;
-        }
-      }
-
-      public Builder mergeFrom(org.mlflow.api.proto.Service.SearchExpression other) {
-        if (other == org.mlflow.api.proto.Service.SearchExpression.getDefaultInstance()) return this;
-        switch (other.getExpressionCase()) {
-          case METRIC: {
-            mergeMetric(other.getMetric());
-            break;
-          }
-          case PARAMETER: {
-            mergeParameter(other.getParameter());
-            break;
-          }
-          case EXPRESSION_NOT_SET: {
-            break;
-          }
-        }
-        this.mergeUnknownFields(other.unknownFields);
-        onChanged();
-        return this;
-      }
-
-      @java.lang.Override
-      public final boolean isInitialized() {
-        return true;
-      }
-
-      @java.lang.Override
-      public Builder mergeFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        org.mlflow.api.proto.Service.SearchExpression parsedMessage = null;
-        try {
-          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.Service.SearchExpression) e.getUnfinishedMessage();
-          throw e.unwrapIOException();
-        } finally {
-          if (parsedMessage != null) {
-            mergeFrom(parsedMessage);
-          }
-        }
-        return this;
-      }
-      private int expressionCase_ = 0;
-      private java.lang.Object expression_;
-      public ExpressionCase
-          getExpressionCase() {
-        return ExpressionCase.forNumber(
-            expressionCase_);
-      }
-
-      public Builder clearExpression() {
-        expressionCase_ = 0;
-        expression_ = null;
-        onChanged();
-        return this;
-      }
-
-      private int bitField0_;
-
-      private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Service.MetricSearchExpression, org.mlflow.api.proto.Service.MetricSearchExpression.Builder, org.mlflow.api.proto.Service.MetricSearchExpressionOrBuilder> metricBuilder_;
-      /**
-       * <pre>
-       * A metric search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-       */
-      public boolean hasMetric() {
-        return expressionCase_ == 1;
-      }
-      /**
-       * <pre>
-       * A metric search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-       */
-      public org.mlflow.api.proto.Service.MetricSearchExpression getMetric() {
-        if (metricBuilder_ == null) {
-          if (expressionCase_ == 1) {
-            return (org.mlflow.api.proto.Service.MetricSearchExpression) expression_;
-          }
-          return org.mlflow.api.proto.Service.MetricSearchExpression.getDefaultInstance();
-        } else {
-          if (expressionCase_ == 1) {
-            return metricBuilder_.getMessage();
-          }
-          return org.mlflow.api.proto.Service.MetricSearchExpression.getDefaultInstance();
-        }
-      }
-      /**
-       * <pre>
-       * A metric search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-       */
-      public Builder setMetric(org.mlflow.api.proto.Service.MetricSearchExpression value) {
-        if (metricBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          expression_ = value;
-          onChanged();
-        } else {
-          metricBuilder_.setMessage(value);
-        }
-        expressionCase_ = 1;
-        return this;
-      }
-      /**
-       * <pre>
-       * A metric search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-       */
-      public Builder setMetric(
-          org.mlflow.api.proto.Service.MetricSearchExpression.Builder builderForValue) {
-        if (metricBuilder_ == null) {
-          expression_ = builderForValue.build();
-          onChanged();
-        } else {
-          metricBuilder_.setMessage(builderForValue.build());
-        }
-        expressionCase_ = 1;
-        return this;
-      }
-      /**
-       * <pre>
-       * A metric search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-       */
-      public Builder mergeMetric(org.mlflow.api.proto.Service.MetricSearchExpression value) {
-        if (metricBuilder_ == null) {
-          if (expressionCase_ == 1 &&
-              expression_ != org.mlflow.api.proto.Service.MetricSearchExpression.getDefaultInstance()) {
-            expression_ = org.mlflow.api.proto.Service.MetricSearchExpression.newBuilder((org.mlflow.api.proto.Service.MetricSearchExpression) expression_)
-                .mergeFrom(value).buildPartial();
-          } else {
-            expression_ = value;
-          }
-          onChanged();
-        } else {
-          if (expressionCase_ == 1) {
-            metricBuilder_.mergeFrom(value);
-          }
-          metricBuilder_.setMessage(value);
-        }
-        expressionCase_ = 1;
-        return this;
-      }
-      /**
-       * <pre>
-       * A metric search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-       */
-      public Builder clearMetric() {
-        if (metricBuilder_ == null) {
-          if (expressionCase_ == 1) {
-            expressionCase_ = 0;
-            expression_ = null;
-            onChanged();
-          }
-        } else {
-          if (expressionCase_ == 1) {
-            expressionCase_ = 0;
-            expression_ = null;
-          }
-          metricBuilder_.clear();
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * A metric search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-       */
-      public org.mlflow.api.proto.Service.MetricSearchExpression.Builder getMetricBuilder() {
-        return getMetricFieldBuilder().getBuilder();
-      }
-      /**
-       * <pre>
-       * A metric search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-       */
-      public org.mlflow.api.proto.Service.MetricSearchExpressionOrBuilder getMetricOrBuilder() {
-        if ((expressionCase_ == 1) && (metricBuilder_ != null)) {
-          return metricBuilder_.getMessageOrBuilder();
-        } else {
-          if (expressionCase_ == 1) {
-            return (org.mlflow.api.proto.Service.MetricSearchExpression) expression_;
-          }
-          return org.mlflow.api.proto.Service.MetricSearchExpression.getDefaultInstance();
-        }
-      }
-      /**
-       * <pre>
-       * A metric search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.MetricSearchExpression metric = 1;</code>
-       */
-      private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Service.MetricSearchExpression, org.mlflow.api.proto.Service.MetricSearchExpression.Builder, org.mlflow.api.proto.Service.MetricSearchExpressionOrBuilder> 
-          getMetricFieldBuilder() {
-        if (metricBuilder_ == null) {
-          if (!(expressionCase_ == 1)) {
-            expression_ = org.mlflow.api.proto.Service.MetricSearchExpression.getDefaultInstance();
-          }
-          metricBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-              org.mlflow.api.proto.Service.MetricSearchExpression, org.mlflow.api.proto.Service.MetricSearchExpression.Builder, org.mlflow.api.proto.Service.MetricSearchExpressionOrBuilder>(
-                  (org.mlflow.api.proto.Service.MetricSearchExpression) expression_,
-                  getParentForChildren(),
-                  isClean());
-          expression_ = null;
-        }
-        expressionCase_ = 1;
-        onChanged();;
-        return metricBuilder_;
-      }
-
-      private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Service.ParameterSearchExpression, org.mlflow.api.proto.Service.ParameterSearchExpression.Builder, org.mlflow.api.proto.Service.ParameterSearchExpressionOrBuilder> parameterBuilder_;
-      /**
-       * <pre>
-       * A parameter search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-       */
-      public boolean hasParameter() {
-        return expressionCase_ == 2;
-      }
-      /**
-       * <pre>
-       * A parameter search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.ParameterSearchExpression getParameter() {
-        if (parameterBuilder_ == null) {
-          if (expressionCase_ == 2) {
-            return (org.mlflow.api.proto.Service.ParameterSearchExpression) expression_;
-          }
-          return org.mlflow.api.proto.Service.ParameterSearchExpression.getDefaultInstance();
-        } else {
-          if (expressionCase_ == 2) {
-            return parameterBuilder_.getMessage();
-          }
-          return org.mlflow.api.proto.Service.ParameterSearchExpression.getDefaultInstance();
-        }
-      }
-      /**
-       * <pre>
-       * A parameter search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-       */
-      public Builder setParameter(org.mlflow.api.proto.Service.ParameterSearchExpression value) {
-        if (parameterBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          expression_ = value;
-          onChanged();
-        } else {
-          parameterBuilder_.setMessage(value);
-        }
-        expressionCase_ = 2;
-        return this;
-      }
-      /**
-       * <pre>
-       * A parameter search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-       */
-      public Builder setParameter(
-          org.mlflow.api.proto.Service.ParameterSearchExpression.Builder builderForValue) {
-        if (parameterBuilder_ == null) {
-          expression_ = builderForValue.build();
-          onChanged();
-        } else {
-          parameterBuilder_.setMessage(builderForValue.build());
-        }
-        expressionCase_ = 2;
-        return this;
-      }
-      /**
-       * <pre>
-       * A parameter search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-       */
-      public Builder mergeParameter(org.mlflow.api.proto.Service.ParameterSearchExpression value) {
-        if (parameterBuilder_ == null) {
-          if (expressionCase_ == 2 &&
-              expression_ != org.mlflow.api.proto.Service.ParameterSearchExpression.getDefaultInstance()) {
-            expression_ = org.mlflow.api.proto.Service.ParameterSearchExpression.newBuilder((org.mlflow.api.proto.Service.ParameterSearchExpression) expression_)
-                .mergeFrom(value).buildPartial();
-          } else {
-            expression_ = value;
-          }
-          onChanged();
-        } else {
-          if (expressionCase_ == 2) {
-            parameterBuilder_.mergeFrom(value);
-          }
-          parameterBuilder_.setMessage(value);
-        }
-        expressionCase_ = 2;
-        return this;
-      }
-      /**
-       * <pre>
-       * A parameter search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-       */
-      public Builder clearParameter() {
-        if (parameterBuilder_ == null) {
-          if (expressionCase_ == 2) {
-            expressionCase_ = 0;
-            expression_ = null;
-            onChanged();
-          }
-        } else {
-          if (expressionCase_ == 2) {
-            expressionCase_ = 0;
-            expression_ = null;
-          }
-          parameterBuilder_.clear();
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * A parameter search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.ParameterSearchExpression.Builder getParameterBuilder() {
-        return getParameterFieldBuilder().getBuilder();
-      }
-      /**
-       * <pre>
-       * A parameter search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.ParameterSearchExpressionOrBuilder getParameterOrBuilder() {
-        if ((expressionCase_ == 2) && (parameterBuilder_ != null)) {
-          return parameterBuilder_.getMessageOrBuilder();
-        } else {
-          if (expressionCase_ == 2) {
-            return (org.mlflow.api.proto.Service.ParameterSearchExpression) expression_;
-          }
-          return org.mlflow.api.proto.Service.ParameterSearchExpression.getDefaultInstance();
-        }
-      }
-      /**
-       * <pre>
-       * A parameter search expression.
-       * </pre>
-       *
-       * <code>optional .mlflow.ParameterSearchExpression parameter = 2;</code>
-       */
-      private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Service.ParameterSearchExpression, org.mlflow.api.proto.Service.ParameterSearchExpression.Builder, org.mlflow.api.proto.Service.ParameterSearchExpressionOrBuilder> 
-          getParameterFieldBuilder() {
-        if (parameterBuilder_ == null) {
-          if (!(expressionCase_ == 2)) {
-            expression_ = org.mlflow.api.proto.Service.ParameterSearchExpression.getDefaultInstance();
-          }
-          parameterBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-              org.mlflow.api.proto.Service.ParameterSearchExpression, org.mlflow.api.proto.Service.ParameterSearchExpression.Builder, org.mlflow.api.proto.Service.ParameterSearchExpressionOrBuilder>(
-                  (org.mlflow.api.proto.Service.ParameterSearchExpression) expression_,
-                  getParentForChildren(),
-                  isClean());
-          expression_ = null;
-        }
-        expressionCase_ = 2;
-        onChanged();;
-        return parameterBuilder_;
-      }
-      @java.lang.Override
-      public final Builder setUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.setUnknownFields(unknownFields);
-      }
-
-      @java.lang.Override
-      public final Builder mergeUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.mergeUnknownFields(unknownFields);
-      }
-
-
-      // @@protoc_insertion_point(builder_scope:mlflow.SearchExpression)
-    }
-
-    // @@protoc_insertion_point(class_scope:mlflow.SearchExpression)
-    private static final org.mlflow.api.proto.Service.SearchExpression DEFAULT_INSTANCE;
-    static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.SearchExpression();
-    }
-
-    public static org.mlflow.api.proto.Service.SearchExpression getDefaultInstance() {
-      return DEFAULT_INSTANCE;
-    }
-
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<SearchExpression>
-        PARSER = new com.google.protobuf.AbstractParser<SearchExpression>() {
-      @java.lang.Override
-      public SearchExpression parsePartialFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return new SearchExpression(input, extensionRegistry);
-      }
-    };
-
-    public static com.google.protobuf.Parser<SearchExpression> parser() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.google.protobuf.Parser<SearchExpression> getParserForType() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public org.mlflow.api.proto.Service.SearchExpression getDefaultInstanceForType() {
-      return DEFAULT_INSTANCE;
-    }
-
-  }
-
-  public interface MetricSearchExpressionOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.MetricSearchExpression)
-      com.google.protobuf.MessageOrBuilder {
-
-    /**
-     * <pre>
-     * :ref:`mlflowMetric` key for search.
-     * </pre>
-     *
-     * <code>optional string key = 1;</code>
-     */
-    boolean hasKey();
-    /**
-     * <pre>
-     * :ref:`mlflowMetric` key for search.
-     * </pre>
-     *
-     * <code>optional string key = 1;</code>
-     */
-    java.lang.String getKey();
-    /**
-     * <pre>
-     * :ref:`mlflowMetric` key for search.
-     * </pre>
-     *
-     * <code>optional string key = 1;</code>
-     */
-    com.google.protobuf.ByteString
-        getKeyBytes();
-
-    /**
-     * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version]
-     * Float clause for comparison. Use 'double' instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.FloatClause float = 2;</code>
-     */
-    boolean hasFloat();
-    /**
-     * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version]
-     * Float clause for comparison. Use 'double' instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.FloatClause float = 2;</code>
-     */
-    org.mlflow.api.proto.Service.FloatClause getFloat();
-    /**
-     * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version]
-     * Float clause for comparison. Use 'double' instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.FloatClause float = 2;</code>
-     */
-    org.mlflow.api.proto.Service.FloatClauseOrBuilder getFloatOrBuilder();
-
-    /**
-     * <pre>
-     * Double clause of comparison
-     * </pre>
-     *
-     * <code>optional .mlflow.DoubleClause double = 3;</code>
-     */
-    boolean hasDouble();
-    /**
-     * <pre>
-     * Double clause of comparison
-     * </pre>
-     *
-     * <code>optional .mlflow.DoubleClause double = 3;</code>
-     */
-    org.mlflow.api.proto.Service.DoubleClause getDouble();
-    /**
-     * <pre>
-     * Double clause of comparison
-     * </pre>
-     *
-     * <code>optional .mlflow.DoubleClause double = 3;</code>
-     */
-    org.mlflow.api.proto.Service.DoubleClauseOrBuilder getDoubleOrBuilder();
-
-    public org.mlflow.api.proto.Service.MetricSearchExpression.ClauseCase getClauseCase();
-  }
-  /**
-   * Protobuf type {@code mlflow.MetricSearchExpression}
-   */
-  public  static final class MetricSearchExpression extends
-      com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.MetricSearchExpression)
-      MetricSearchExpressionOrBuilder {
-  private static final long serialVersionUID = 0L;
-    // Use MetricSearchExpression.newBuilder() to construct.
-    private MetricSearchExpression(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-      super(builder);
-    }
-    private MetricSearchExpression() {
-      key_ = "";
-    }
-
-    @java.lang.Override
-    public final com.google.protobuf.UnknownFieldSet
-    getUnknownFields() {
-      return this.unknownFields;
-    }
-    private MetricSearchExpression(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      this();
-      if (extensionRegistry == null) {
-        throw new java.lang.NullPointerException();
-      }
-      int mutable_bitField0_ = 0;
-      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder();
-      try {
-        boolean done = false;
-        while (!done) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              done = true;
-              break;
-            case 10: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
-              key_ = bs;
-              break;
-            }
-            case 18: {
-              org.mlflow.api.proto.Service.FloatClause.Builder subBuilder = null;
-              if (clauseCase_ == 2) {
-                subBuilder = ((org.mlflow.api.proto.Service.FloatClause) clause_).toBuilder();
-              }
-              clause_ =
-                  input.readMessage(org.mlflow.api.proto.Service.FloatClause.PARSER, extensionRegistry);
-              if (subBuilder != null) {
-                subBuilder.mergeFrom((org.mlflow.api.proto.Service.FloatClause) clause_);
-                clause_ = subBuilder.buildPartial();
-              }
-              clauseCase_ = 2;
-              break;
-            }
-            case 26: {
-              org.mlflow.api.proto.Service.DoubleClause.Builder subBuilder = null;
-              if (clauseCase_ == 3) {
-                subBuilder = ((org.mlflow.api.proto.Service.DoubleClause) clause_).toBuilder();
-              }
-              clause_ =
-                  input.readMessage(org.mlflow.api.proto.Service.DoubleClause.PARSER, extensionRegistry);
-              if (subBuilder != null) {
-                subBuilder.mergeFrom((org.mlflow.api.proto.Service.DoubleClause) clause_);
-                clause_ = subBuilder.buildPartial();
-              }
-              clauseCase_ = 3;
-              break;
-            }
-            default: {
-              if (!parseUnknownField(
-                  input, unknownFields, extensionRegistry, tag)) {
-                done = true;
-              }
-              break;
-            }
-          }
-        }
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(this);
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(
-            e).setUnfinishedMessage(this);
-      } finally {
-        this.unknownFields = unknownFields.build();
-        makeExtensionsImmutable();
-      }
-    }
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_MetricSearchExpression_descriptor;
-    }
-
-    @java.lang.Override
-    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-        internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_MetricSearchExpression_fieldAccessorTable
-          .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.Service.MetricSearchExpression.class, org.mlflow.api.proto.Service.MetricSearchExpression.Builder.class);
-    }
-
-    private int bitField0_;
-    private int clauseCase_ = 0;
-    private java.lang.Object clause_;
-    public enum ClauseCase
-        implements com.google.protobuf.Internal.EnumLite {
-      FLOAT(2),
-      DOUBLE(3),
-      CLAUSE_NOT_SET(0);
-      private final int value;
-      private ClauseCase(int value) {
-        this.value = value;
-      }
-      /**
-       * @deprecated Use {@link #forNumber(int)} instead.
-       */
-      @java.lang.Deprecated
-      public static ClauseCase valueOf(int value) {
-        return forNumber(value);
-      }
-
-      public static ClauseCase forNumber(int value) {
-        switch (value) {
-          case 2: return FLOAT;
-          case 3: return DOUBLE;
-          case 0: return CLAUSE_NOT_SET;
-          default: return null;
-        }
-      }
-      public int getNumber() {
-        return this.value;
-      }
-    };
-
-    public ClauseCase
-    getClauseCase() {
-      return ClauseCase.forNumber(
-          clauseCase_);
-    }
-
-    public static final int KEY_FIELD_NUMBER = 1;
-    private volatile java.lang.Object key_;
-    /**
-     * <pre>
-     * :ref:`mlflowMetric` key for search.
-     * </pre>
-     *
-     * <code>optional string key = 1;</code>
-     */
-    public boolean hasKey() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
-    }
-    /**
-     * <pre>
-     * :ref:`mlflowMetric` key for search.
-     * </pre>
-     *
-     * <code>optional string key = 1;</code>
-     */
-    public java.lang.String getKey() {
-      java.lang.Object ref = key_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          key_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * :ref:`mlflowMetric` key for search.
-     * </pre>
-     *
-     * <code>optional string key = 1;</code>
-     */
-    public com.google.protobuf.ByteString
-        getKeyBytes() {
-      java.lang.Object ref = key_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        key_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int FLOAT_FIELD_NUMBER = 2;
-    /**
-     * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version]
-     * Float clause for comparison. Use 'double' instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.FloatClause float = 2;</code>
-     */
-    public boolean hasFloat() {
-      return clauseCase_ == 2;
-    }
-    /**
-     * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version]
-     * Float clause for comparison. Use 'double' instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.FloatClause float = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.FloatClause getFloat() {
-      if (clauseCase_ == 2) {
-         return (org.mlflow.api.proto.Service.FloatClause) clause_;
-      }
-      return org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-    }
-    /**
-     * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version]
-     * Float clause for comparison. Use 'double' instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.FloatClause float = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.FloatClauseOrBuilder getFloatOrBuilder() {
-      if (clauseCase_ == 2) {
-         return (org.mlflow.api.proto.Service.FloatClause) clause_;
-      }
-      return org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-    }
-
-    public static final int DOUBLE_FIELD_NUMBER = 3;
-    /**
-     * <pre>
-     * Double clause of comparison
-     * </pre>
-     *
-     * <code>optional .mlflow.DoubleClause double = 3;</code>
-     */
-    public boolean hasDouble() {
-      return clauseCase_ == 3;
-    }
-    /**
-     * <pre>
-     * Double clause of comparison
-     * </pre>
-     *
-     * <code>optional .mlflow.DoubleClause double = 3;</code>
-     */
-    public org.mlflow.api.proto.Service.DoubleClause getDouble() {
-      if (clauseCase_ == 3) {
-         return (org.mlflow.api.proto.Service.DoubleClause) clause_;
-      }
-      return org.mlflow.api.proto.Service.DoubleClause.getDefaultInstance();
-    }
-    /**
-     * <pre>
-     * Double clause of comparison
-     * </pre>
-     *
-     * <code>optional .mlflow.DoubleClause double = 3;</code>
-     */
-    public org.mlflow.api.proto.Service.DoubleClauseOrBuilder getDoubleOrBuilder() {
-      if (clauseCase_ == 3) {
-         return (org.mlflow.api.proto.Service.DoubleClause) clause_;
-      }
-      return org.mlflow.api.proto.Service.DoubleClause.getDefaultInstance();
-    }
-
-    private byte memoizedIsInitialized = -1;
-    @java.lang.Override
-    public final boolean isInitialized() {
-      byte isInitialized = memoizedIsInitialized;
-      if (isInitialized == 1) return true;
-      if (isInitialized == 0) return false;
-
-      memoizedIsInitialized = 1;
-      return true;
-    }
-
-    @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output)
-                        throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, key_);
-      }
-      if (clauseCase_ == 2) {
-        output.writeMessage(2, (org.mlflow.api.proto.Service.FloatClause) clause_);
-      }
-      if (clauseCase_ == 3) {
-        output.writeMessage(3, (org.mlflow.api.proto.Service.DoubleClause) clause_);
-      }
-      unknownFields.writeTo(output);
-    }
-
-    @java.lang.Override
-    public int getSerializedSize() {
-      int size = memoizedSize;
-      if (size != -1) return size;
-
-      size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, key_);
-      }
-      if (clauseCase_ == 2) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(2, (org.mlflow.api.proto.Service.FloatClause) clause_);
-      }
-      if (clauseCase_ == 3) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(3, (org.mlflow.api.proto.Service.DoubleClause) clause_);
-      }
-      size += unknownFields.getSerializedSize();
-      memoizedSize = size;
-      return size;
-    }
-
-    @java.lang.Override
-    public boolean equals(final java.lang.Object obj) {
-      if (obj == this) {
-       return true;
-      }
-      if (!(obj instanceof org.mlflow.api.proto.Service.MetricSearchExpression)) {
-        return super.equals(obj);
-      }
-      org.mlflow.api.proto.Service.MetricSearchExpression other = (org.mlflow.api.proto.Service.MetricSearchExpression) obj;
-
-      boolean result = true;
-      result = result && (hasKey() == other.hasKey());
-      if (hasKey()) {
-        result = result && getKey()
-            .equals(other.getKey());
-      }
-      result = result && getClauseCase().equals(
-          other.getClauseCase());
-      if (!result) return false;
-      switch (clauseCase_) {
-        case 2:
-          result = result && getFloat()
-              .equals(other.getFloat());
-          break;
-        case 3:
-          result = result && getDouble()
-              .equals(other.getDouble());
-          break;
-        case 0:
-        default:
-      }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
-    }
-
-    @java.lang.Override
-    public int hashCode() {
-      if (memoizedHashCode != 0) {
-        return memoizedHashCode;
-      }
-      int hash = 41;
-      hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasKey()) {
-        hash = (37 * hash) + KEY_FIELD_NUMBER;
-        hash = (53 * hash) + getKey().hashCode();
-      }
-      switch (clauseCase_) {
-        case 2:
-          hash = (37 * hash) + FLOAT_FIELD_NUMBER;
-          hash = (53 * hash) + getFloat().hashCode();
-          break;
-        case 3:
-          hash = (37 * hash) + DOUBLE_FIELD_NUMBER;
-          hash = (53 * hash) + getDouble().hashCode();
-          break;
-        case 0:
-        default:
-      }
-      hash = (29 * hash) + unknownFields.hashCode();
-      memoizedHashCode = hash;
-      return hash;
-    }
-
-    public static org.mlflow.api.proto.Service.MetricSearchExpression parseFrom(
-        java.nio.ByteBuffer data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.MetricSearchExpression parseFrom(
-        java.nio.ByteBuffer data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.MetricSearchExpression parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.MetricSearchExpression parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.MetricSearchExpression parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.MetricSearchExpression parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.MetricSearchExpression parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.MetricSearchExpression parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.MetricSearchExpression parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.MetricSearchExpression parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.MetricSearchExpression parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.MetricSearchExpression parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-
-    @java.lang.Override
-    public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder() {
-      return DEFAULT_INSTANCE.toBuilder();
-    }
-    public static Builder newBuilder(org.mlflow.api.proto.Service.MetricSearchExpression prototype) {
-      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-    }
-    @java.lang.Override
-    public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE
-          ? new Builder() : new Builder().mergeFrom(this);
-    }
-
-    @java.lang.Override
-    protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-      Builder builder = new Builder(parent);
-      return builder;
-    }
-    /**
-     * Protobuf type {@code mlflow.MetricSearchExpression}
-     */
-    public static final class Builder extends
-        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.MetricSearchExpression)
-        org.mlflow.api.proto.Service.MetricSearchExpressionOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_MetricSearchExpression_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_MetricSearchExpression_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.Service.MetricSearchExpression.class, org.mlflow.api.proto.Service.MetricSearchExpression.Builder.class);
-      }
-
-      // Construct using org.mlflow.api.proto.Service.MetricSearchExpression.newBuilder()
-      private Builder() {
-        maybeForceBuilderInitialization();
-      }
-
-      private Builder(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
-        maybeForceBuilderInitialization();
-      }
-      private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessageV3
-                .alwaysUseFieldBuilders) {
-        }
-      }
-      @java.lang.Override
-      public Builder clear() {
-        super.clear();
-        key_ = "";
-        bitField0_ = (bitField0_ & ~0x00000001);
-        clauseCase_ = 0;
-        clause_ = null;
-        return this;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor
-          getDescriptorForType() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_MetricSearchExpression_descriptor;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.MetricSearchExpression getDefaultInstanceForType() {
-        return org.mlflow.api.proto.Service.MetricSearchExpression.getDefaultInstance();
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.MetricSearchExpression build() {
-        org.mlflow.api.proto.Service.MetricSearchExpression result = buildPartial();
-        if (!result.isInitialized()) {
-          throw newUninitializedMessageException(result);
-        }
-        return result;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.MetricSearchExpression buildPartial() {
-        org.mlflow.api.proto.Service.MetricSearchExpression result = new org.mlflow.api.proto.Service.MetricSearchExpression(this);
-        int from_bitField0_ = bitField0_;
-        int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
-          to_bitField0_ |= 0x00000001;
-        }
-        result.key_ = key_;
-        if (clauseCase_ == 2) {
-          if (floatBuilder_ == null) {
-            result.clause_ = clause_;
-          } else {
-            result.clause_ = floatBuilder_.build();
-          }
-        }
-        if (clauseCase_ == 3) {
-          if (doubleBuilder_ == null) {
-            result.clause_ = clause_;
-          } else {
-            result.clause_ = doubleBuilder_.build();
-          }
-        }
-        result.bitField0_ = to_bitField0_;
-        result.clauseCase_ = clauseCase_;
-        onBuilt();
-        return result;
-      }
-
-      @java.lang.Override
-      public Builder clone() {
-        return (Builder) super.clone();
-      }
-      @java.lang.Override
-      public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.setField(field, value);
-      }
-      @java.lang.Override
-      public Builder clearField(
-          com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
-      }
-      @java.lang.Override
-      public Builder clearOneof(
-          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
-      }
-      @java.lang.Override
-      public Builder setRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
-      }
-      @java.lang.Override
-      public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
-      }
-      @java.lang.Override
-      public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.Service.MetricSearchExpression) {
-          return mergeFrom((org.mlflow.api.proto.Service.MetricSearchExpression)other);
-        } else {
-          super.mergeFrom(other);
-          return this;
-        }
-      }
-
-      public Builder mergeFrom(org.mlflow.api.proto.Service.MetricSearchExpression other) {
-        if (other == org.mlflow.api.proto.Service.MetricSearchExpression.getDefaultInstance()) return this;
-        if (other.hasKey()) {
-          bitField0_ |= 0x00000001;
-          key_ = other.key_;
-          onChanged();
-        }
-        switch (other.getClauseCase()) {
-          case FLOAT: {
-            mergeFloat(other.getFloat());
-            break;
-          }
-          case DOUBLE: {
-            mergeDouble(other.getDouble());
-            break;
-          }
-          case CLAUSE_NOT_SET: {
-            break;
-          }
-        }
-        this.mergeUnknownFields(other.unknownFields);
-        onChanged();
-        return this;
-      }
-
-      @java.lang.Override
-      public final boolean isInitialized() {
-        return true;
-      }
-
-      @java.lang.Override
-      public Builder mergeFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        org.mlflow.api.proto.Service.MetricSearchExpression parsedMessage = null;
-        try {
-          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.Service.MetricSearchExpression) e.getUnfinishedMessage();
-          throw e.unwrapIOException();
-        } finally {
-          if (parsedMessage != null) {
-            mergeFrom(parsedMessage);
-          }
-        }
-        return this;
-      }
-      private int clauseCase_ = 0;
-      private java.lang.Object clause_;
-      public ClauseCase
-          getClauseCase() {
-        return ClauseCase.forNumber(
-            clauseCase_);
-      }
-
-      public Builder clearClause() {
-        clauseCase_ = 0;
-        clause_ = null;
-        onChanged();
-        return this;
-      }
-
-      private int bitField0_;
-
-      private java.lang.Object key_ = "";
-      /**
-       * <pre>
-       * :ref:`mlflowMetric` key for search.
-       * </pre>
-       *
-       * <code>optional string key = 1;</code>
-       */
-      public boolean hasKey() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
-      }
-      /**
-       * <pre>
-       * :ref:`mlflowMetric` key for search.
-       * </pre>
-       *
-       * <code>optional string key = 1;</code>
-       */
-      public java.lang.String getKey() {
-        java.lang.Object ref = key_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            key_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * :ref:`mlflowMetric` key for search.
-       * </pre>
-       *
-       * <code>optional string key = 1;</code>
-       */
-      public com.google.protobuf.ByteString
-          getKeyBytes() {
-        java.lang.Object ref = key_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          key_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * :ref:`mlflowMetric` key for search.
-       * </pre>
-       *
-       * <code>optional string key = 1;</code>
-       */
-      public Builder setKey(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        key_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * :ref:`mlflowMetric` key for search.
-       * </pre>
-       *
-       * <code>optional string key = 1;</code>
-       */
-      public Builder clearKey() {
-        bitField0_ = (bitField0_ & ~0x00000001);
-        key_ = getDefaultInstance().getKey();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * :ref:`mlflowMetric` key for search.
-       * </pre>
-       *
-       * <code>optional string key = 1;</code>
-       */
-      public Builder setKeyBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        key_ = value;
-        onChanged();
-        return this;
-      }
-
-      private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Service.FloatClause, org.mlflow.api.proto.Service.FloatClause.Builder, org.mlflow.api.proto.Service.FloatClauseOrBuilder> floatBuilder_;
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public boolean hasFloat() {
-        return clauseCase_ == 2;
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.FloatClause getFloat() {
-        if (floatBuilder_ == null) {
-          if (clauseCase_ == 2) {
-            return (org.mlflow.api.proto.Service.FloatClause) clause_;
-          }
-          return org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-        } else {
-          if (clauseCase_ == 2) {
-            return floatBuilder_.getMessage();
-          }
-          return org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-        }
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public Builder setFloat(org.mlflow.api.proto.Service.FloatClause value) {
-        if (floatBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          clause_ = value;
-          onChanged();
-        } else {
-          floatBuilder_.setMessage(value);
-        }
-        clauseCase_ = 2;
-        return this;
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public Builder setFloat(
-          org.mlflow.api.proto.Service.FloatClause.Builder builderForValue) {
-        if (floatBuilder_ == null) {
-          clause_ = builderForValue.build();
-          onChanged();
-        } else {
-          floatBuilder_.setMessage(builderForValue.build());
-        }
-        clauseCase_ = 2;
-        return this;
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public Builder mergeFloat(org.mlflow.api.proto.Service.FloatClause value) {
-        if (floatBuilder_ == null) {
-          if (clauseCase_ == 2 &&
-              clause_ != org.mlflow.api.proto.Service.FloatClause.getDefaultInstance()) {
-            clause_ = org.mlflow.api.proto.Service.FloatClause.newBuilder((org.mlflow.api.proto.Service.FloatClause) clause_)
-                .mergeFrom(value).buildPartial();
-          } else {
-            clause_ = value;
-          }
-          onChanged();
-        } else {
-          if (clauseCase_ == 2) {
-            floatBuilder_.mergeFrom(value);
-          }
-          floatBuilder_.setMessage(value);
-        }
-        clauseCase_ = 2;
-        return this;
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public Builder clearFloat() {
-        if (floatBuilder_ == null) {
-          if (clauseCase_ == 2) {
-            clauseCase_ = 0;
-            clause_ = null;
-            onChanged();
-          }
-        } else {
-          if (clauseCase_ == 2) {
-            clauseCase_ = 0;
-            clause_ = null;
-          }
-          floatBuilder_.clear();
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.FloatClause.Builder getFloatBuilder() {
-        return getFloatFieldBuilder().getBuilder();
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.FloatClauseOrBuilder getFloatOrBuilder() {
-        if ((clauseCase_ == 2) && (floatBuilder_ != null)) {
-          return floatBuilder_.getMessageOrBuilder();
-        } else {
-          if (clauseCase_ == 2) {
-            return (org.mlflow.api.proto.Service.FloatClause) clause_;
-          }
-          return org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-        }
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Service.FloatClause, org.mlflow.api.proto.Service.FloatClause.Builder, org.mlflow.api.proto.Service.FloatClauseOrBuilder> 
-          getFloatFieldBuilder() {
-        if (floatBuilder_ == null) {
-          if (!(clauseCase_ == 2)) {
-            clause_ = org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-          }
-          floatBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-              org.mlflow.api.proto.Service.FloatClause, org.mlflow.api.proto.Service.FloatClause.Builder, org.mlflow.api.proto.Service.FloatClauseOrBuilder>(
-                  (org.mlflow.api.proto.Service.FloatClause) clause_,
-                  getParentForChildren(),
-                  isClean());
-          clause_ = null;
-        }
-        clauseCase_ = 2;
-        onChanged();;
-        return floatBuilder_;
-      }
-
-      private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Service.DoubleClause, org.mlflow.api.proto.Service.DoubleClause.Builder, org.mlflow.api.proto.Service.DoubleClauseOrBuilder> doubleBuilder_;
-      /**
-       * <pre>
-       * Double clause of comparison
-       * </pre>
-       *
-       * <code>optional .mlflow.DoubleClause double = 3;</code>
-       */
-      public boolean hasDouble() {
-        return clauseCase_ == 3;
-      }
-      /**
-       * <pre>
-       * Double clause of comparison
-       * </pre>
-       *
-       * <code>optional .mlflow.DoubleClause double = 3;</code>
-       */
-      public org.mlflow.api.proto.Service.DoubleClause getDouble() {
-        if (doubleBuilder_ == null) {
-          if (clauseCase_ == 3) {
-            return (org.mlflow.api.proto.Service.DoubleClause) clause_;
-          }
-          return org.mlflow.api.proto.Service.DoubleClause.getDefaultInstance();
-        } else {
-          if (clauseCase_ == 3) {
-            return doubleBuilder_.getMessage();
-          }
-          return org.mlflow.api.proto.Service.DoubleClause.getDefaultInstance();
-        }
-      }
-      /**
-       * <pre>
-       * Double clause of comparison
-       * </pre>
-       *
-       * <code>optional .mlflow.DoubleClause double = 3;</code>
-       */
-      public Builder setDouble(org.mlflow.api.proto.Service.DoubleClause value) {
-        if (doubleBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          clause_ = value;
-          onChanged();
-        } else {
-          doubleBuilder_.setMessage(value);
-        }
-        clauseCase_ = 3;
-        return this;
-      }
-      /**
-       * <pre>
-       * Double clause of comparison
-       * </pre>
-       *
-       * <code>optional .mlflow.DoubleClause double = 3;</code>
-       */
-      public Builder setDouble(
-          org.mlflow.api.proto.Service.DoubleClause.Builder builderForValue) {
-        if (doubleBuilder_ == null) {
-          clause_ = builderForValue.build();
-          onChanged();
-        } else {
-          doubleBuilder_.setMessage(builderForValue.build());
-        }
-        clauseCase_ = 3;
-        return this;
-      }
-      /**
-       * <pre>
-       * Double clause of comparison
-       * </pre>
-       *
-       * <code>optional .mlflow.DoubleClause double = 3;</code>
-       */
-      public Builder mergeDouble(org.mlflow.api.proto.Service.DoubleClause value) {
-        if (doubleBuilder_ == null) {
-          if (clauseCase_ == 3 &&
-              clause_ != org.mlflow.api.proto.Service.DoubleClause.getDefaultInstance()) {
-            clause_ = org.mlflow.api.proto.Service.DoubleClause.newBuilder((org.mlflow.api.proto.Service.DoubleClause) clause_)
-                .mergeFrom(value).buildPartial();
-          } else {
-            clause_ = value;
-          }
-          onChanged();
-        } else {
-          if (clauseCase_ == 3) {
-            doubleBuilder_.mergeFrom(value);
-          }
-          doubleBuilder_.setMessage(value);
-        }
-        clauseCase_ = 3;
-        return this;
-      }
-      /**
-       * <pre>
-       * Double clause of comparison
-       * </pre>
-       *
-       * <code>optional .mlflow.DoubleClause double = 3;</code>
-       */
-      public Builder clearDouble() {
-        if (doubleBuilder_ == null) {
-          if (clauseCase_ == 3) {
-            clauseCase_ = 0;
-            clause_ = null;
-            onChanged();
-          }
-        } else {
-          if (clauseCase_ == 3) {
-            clauseCase_ = 0;
-            clause_ = null;
-          }
-          doubleBuilder_.clear();
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * Double clause of comparison
-       * </pre>
-       *
-       * <code>optional .mlflow.DoubleClause double = 3;</code>
-       */
-      public org.mlflow.api.proto.Service.DoubleClause.Builder getDoubleBuilder() {
-        return getDoubleFieldBuilder().getBuilder();
-      }
-      /**
-       * <pre>
-       * Double clause of comparison
-       * </pre>
-       *
-       * <code>optional .mlflow.DoubleClause double = 3;</code>
-       */
-      public org.mlflow.api.proto.Service.DoubleClauseOrBuilder getDoubleOrBuilder() {
-        if ((clauseCase_ == 3) && (doubleBuilder_ != null)) {
-          return doubleBuilder_.getMessageOrBuilder();
-        } else {
-          if (clauseCase_ == 3) {
-            return (org.mlflow.api.proto.Service.DoubleClause) clause_;
-          }
-          return org.mlflow.api.proto.Service.DoubleClause.getDefaultInstance();
-        }
-      }
-      /**
-       * <pre>
-       * Double clause of comparison
-       * </pre>
-       *
-       * <code>optional .mlflow.DoubleClause double = 3;</code>
-       */
-      private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Service.DoubleClause, org.mlflow.api.proto.Service.DoubleClause.Builder, org.mlflow.api.proto.Service.DoubleClauseOrBuilder> 
-          getDoubleFieldBuilder() {
-        if (doubleBuilder_ == null) {
-          if (!(clauseCase_ == 3)) {
-            clause_ = org.mlflow.api.proto.Service.DoubleClause.getDefaultInstance();
-          }
-          doubleBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-              org.mlflow.api.proto.Service.DoubleClause, org.mlflow.api.proto.Service.DoubleClause.Builder, org.mlflow.api.proto.Service.DoubleClauseOrBuilder>(
-                  (org.mlflow.api.proto.Service.DoubleClause) clause_,
-                  getParentForChildren(),
-                  isClean());
-          clause_ = null;
-        }
-        clauseCase_ = 3;
-        onChanged();;
-        return doubleBuilder_;
-      }
-      @java.lang.Override
-      public final Builder setUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.setUnknownFields(unknownFields);
-      }
-
-      @java.lang.Override
-      public final Builder mergeUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.mergeUnknownFields(unknownFields);
-      }
-
-
-      // @@protoc_insertion_point(builder_scope:mlflow.MetricSearchExpression)
-    }
-
-    // @@protoc_insertion_point(class_scope:mlflow.MetricSearchExpression)
-    private static final org.mlflow.api.proto.Service.MetricSearchExpression DEFAULT_INSTANCE;
-    static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.MetricSearchExpression();
-    }
-
-    public static org.mlflow.api.proto.Service.MetricSearchExpression getDefaultInstance() {
-      return DEFAULT_INSTANCE;
-    }
-
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<MetricSearchExpression>
-        PARSER = new com.google.protobuf.AbstractParser<MetricSearchExpression>() {
-      @java.lang.Override
-      public MetricSearchExpression parsePartialFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return new MetricSearchExpression(input, extensionRegistry);
-      }
-    };
-
-    public static com.google.protobuf.Parser<MetricSearchExpression> parser() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.google.protobuf.Parser<MetricSearchExpression> getParserForType() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public org.mlflow.api.proto.Service.MetricSearchExpression getDefaultInstanceForType() {
-      return DEFAULT_INSTANCE;
-    }
-
-  }
-
-  public interface ParameterSearchExpressionOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.ParameterSearchExpression)
-      com.google.protobuf.MessageOrBuilder {
-
-    /**
-     * <pre>
-     * :ref:`mlflowParam` key for search.
-     * </pre>
-     *
-     * <code>optional string key = 1;</code>
-     */
-    boolean hasKey();
-    /**
-     * <pre>
-     * :ref:`mlflowParam` key for search.
-     * </pre>
-     *
-     * <code>optional string key = 1;</code>
-     */
-    java.lang.String getKey();
-    /**
-     * <pre>
-     * :ref:`mlflowParam` key for search.
-     * </pre>
-     *
-     * <code>optional string key = 1;</code>
-     */
-    com.google.protobuf.ByteString
-        getKeyBytes();
-
-    /**
-     * <pre>
-     * String clause for comparison.
-     * </pre>
-     *
-     * <code>optional .mlflow.StringClause string = 2;</code>
-     */
-    boolean hasString();
-    /**
-     * <pre>
-     * String clause for comparison.
-     * </pre>
-     *
-     * <code>optional .mlflow.StringClause string = 2;</code>
-     */
-    org.mlflow.api.proto.Service.StringClause getString();
-    /**
-     * <pre>
-     * String clause for comparison.
-     * </pre>
-     *
-     * <code>optional .mlflow.StringClause string = 2;</code>
-     */
-    org.mlflow.api.proto.Service.StringClauseOrBuilder getStringOrBuilder();
-
-    public org.mlflow.api.proto.Service.ParameterSearchExpression.ClauseCase getClauseCase();
-  }
-  /**
-   * Protobuf type {@code mlflow.ParameterSearchExpression}
-   */
-  public  static final class ParameterSearchExpression extends
-      com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.ParameterSearchExpression)
-      ParameterSearchExpressionOrBuilder {
-  private static final long serialVersionUID = 0L;
-    // Use ParameterSearchExpression.newBuilder() to construct.
-    private ParameterSearchExpression(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-      super(builder);
-    }
-    private ParameterSearchExpression() {
-      key_ = "";
-    }
-
-    @java.lang.Override
-    public final com.google.protobuf.UnknownFieldSet
-    getUnknownFields() {
-      return this.unknownFields;
-    }
-    private ParameterSearchExpression(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      this();
-      if (extensionRegistry == null) {
-        throw new java.lang.NullPointerException();
-      }
-      int mutable_bitField0_ = 0;
-      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder();
-      try {
-        boolean done = false;
-        while (!done) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              done = true;
-              break;
-            case 10: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
-              key_ = bs;
-              break;
-            }
-            case 18: {
-              org.mlflow.api.proto.Service.StringClause.Builder subBuilder = null;
-              if (clauseCase_ == 2) {
-                subBuilder = ((org.mlflow.api.proto.Service.StringClause) clause_).toBuilder();
-              }
-              clause_ =
-                  input.readMessage(org.mlflow.api.proto.Service.StringClause.PARSER, extensionRegistry);
-              if (subBuilder != null) {
-                subBuilder.mergeFrom((org.mlflow.api.proto.Service.StringClause) clause_);
-                clause_ = subBuilder.buildPartial();
-              }
-              clauseCase_ = 2;
-              break;
-            }
-            default: {
-              if (!parseUnknownField(
-                  input, unknownFields, extensionRegistry, tag)) {
-                done = true;
-              }
-              break;
-            }
-          }
-        }
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(this);
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(
-            e).setUnfinishedMessage(this);
-      } finally {
-        this.unknownFields = unknownFields.build();
-        makeExtensionsImmutable();
-      }
-    }
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_ParameterSearchExpression_descriptor;
-    }
-
-    @java.lang.Override
-    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-        internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_ParameterSearchExpression_fieldAccessorTable
-          .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.Service.ParameterSearchExpression.class, org.mlflow.api.proto.Service.ParameterSearchExpression.Builder.class);
-    }
-
-    private int bitField0_;
-    private int clauseCase_ = 0;
-    private java.lang.Object clause_;
-    public enum ClauseCase
-        implements com.google.protobuf.Internal.EnumLite {
-      STRING(2),
-      CLAUSE_NOT_SET(0);
-      private final int value;
-      private ClauseCase(int value) {
-        this.value = value;
-      }
-      /**
-       * @deprecated Use {@link #forNumber(int)} instead.
-       */
-      @java.lang.Deprecated
-      public static ClauseCase valueOf(int value) {
-        return forNumber(value);
-      }
-
-      public static ClauseCase forNumber(int value) {
-        switch (value) {
-          case 2: return STRING;
-          case 0: return CLAUSE_NOT_SET;
-          default: return null;
-        }
-      }
-      public int getNumber() {
-        return this.value;
-      }
-    };
-
-    public ClauseCase
-    getClauseCase() {
-      return ClauseCase.forNumber(
-          clauseCase_);
-    }
-
-    public static final int KEY_FIELD_NUMBER = 1;
-    private volatile java.lang.Object key_;
-    /**
-     * <pre>
-     * :ref:`mlflowParam` key for search.
-     * </pre>
-     *
-     * <code>optional string key = 1;</code>
-     */
-    public boolean hasKey() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
-    }
-    /**
-     * <pre>
-     * :ref:`mlflowParam` key for search.
-     * </pre>
-     *
-     * <code>optional string key = 1;</code>
-     */
-    public java.lang.String getKey() {
-      java.lang.Object ref = key_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          key_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * :ref:`mlflowParam` key for search.
-     * </pre>
-     *
-     * <code>optional string key = 1;</code>
-     */
-    public com.google.protobuf.ByteString
-        getKeyBytes() {
-      java.lang.Object ref = key_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        key_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int STRING_FIELD_NUMBER = 2;
-    /**
-     * <pre>
-     * String clause for comparison.
-     * </pre>
-     *
-     * <code>optional .mlflow.StringClause string = 2;</code>
-     */
-    public boolean hasString() {
-      return clauseCase_ == 2;
-    }
-    /**
-     * <pre>
-     * String clause for comparison.
-     * </pre>
-     *
-     * <code>optional .mlflow.StringClause string = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.StringClause getString() {
-      if (clauseCase_ == 2) {
-         return (org.mlflow.api.proto.Service.StringClause) clause_;
-      }
-      return org.mlflow.api.proto.Service.StringClause.getDefaultInstance();
-    }
-    /**
-     * <pre>
-     * String clause for comparison.
-     * </pre>
-     *
-     * <code>optional .mlflow.StringClause string = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.StringClauseOrBuilder getStringOrBuilder() {
-      if (clauseCase_ == 2) {
-         return (org.mlflow.api.proto.Service.StringClause) clause_;
-      }
-      return org.mlflow.api.proto.Service.StringClause.getDefaultInstance();
-    }
-
-    private byte memoizedIsInitialized = -1;
-    @java.lang.Override
-    public final boolean isInitialized() {
-      byte isInitialized = memoizedIsInitialized;
-      if (isInitialized == 1) return true;
-      if (isInitialized == 0) return false;
-
-      memoizedIsInitialized = 1;
-      return true;
-    }
-
-    @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output)
-                        throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, key_);
-      }
-      if (clauseCase_ == 2) {
-        output.writeMessage(2, (org.mlflow.api.proto.Service.StringClause) clause_);
-      }
-      unknownFields.writeTo(output);
-    }
-
-    @java.lang.Override
-    public int getSerializedSize() {
-      int size = memoizedSize;
-      if (size != -1) return size;
-
-      size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, key_);
-      }
-      if (clauseCase_ == 2) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(2, (org.mlflow.api.proto.Service.StringClause) clause_);
-      }
-      size += unknownFields.getSerializedSize();
-      memoizedSize = size;
-      return size;
-    }
-
-    @java.lang.Override
-    public boolean equals(final java.lang.Object obj) {
-      if (obj == this) {
-       return true;
-      }
-      if (!(obj instanceof org.mlflow.api.proto.Service.ParameterSearchExpression)) {
-        return super.equals(obj);
-      }
-      org.mlflow.api.proto.Service.ParameterSearchExpression other = (org.mlflow.api.proto.Service.ParameterSearchExpression) obj;
-
-      boolean result = true;
-      result = result && (hasKey() == other.hasKey());
-      if (hasKey()) {
-        result = result && getKey()
-            .equals(other.getKey());
-      }
-      result = result && getClauseCase().equals(
-          other.getClauseCase());
-      if (!result) return false;
-      switch (clauseCase_) {
-        case 2:
-          result = result && getString()
-              .equals(other.getString());
-          break;
-        case 0:
-        default:
-      }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
-    }
-
-    @java.lang.Override
-    public int hashCode() {
-      if (memoizedHashCode != 0) {
-        return memoizedHashCode;
-      }
-      int hash = 41;
-      hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasKey()) {
-        hash = (37 * hash) + KEY_FIELD_NUMBER;
-        hash = (53 * hash) + getKey().hashCode();
-      }
-      switch (clauseCase_) {
-        case 2:
-          hash = (37 * hash) + STRING_FIELD_NUMBER;
-          hash = (53 * hash) + getString().hashCode();
-          break;
-        case 0:
-        default:
-      }
-      hash = (29 * hash) + unknownFields.hashCode();
-      memoizedHashCode = hash;
-      return hash;
-    }
-
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression parseFrom(
-        java.nio.ByteBuffer data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression parseFrom(
-        java.nio.ByteBuffer data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-
-    @java.lang.Override
-    public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder() {
-      return DEFAULT_INSTANCE.toBuilder();
-    }
-    public static Builder newBuilder(org.mlflow.api.proto.Service.ParameterSearchExpression prototype) {
-      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-    }
-    @java.lang.Override
-    public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE
-          ? new Builder() : new Builder().mergeFrom(this);
-    }
-
-    @java.lang.Override
-    protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-      Builder builder = new Builder(parent);
-      return builder;
-    }
-    /**
-     * Protobuf type {@code mlflow.ParameterSearchExpression}
-     */
-    public static final class Builder extends
-        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.ParameterSearchExpression)
-        org.mlflow.api.proto.Service.ParameterSearchExpressionOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_ParameterSearchExpression_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_ParameterSearchExpression_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.Service.ParameterSearchExpression.class, org.mlflow.api.proto.Service.ParameterSearchExpression.Builder.class);
-      }
-
-      // Construct using org.mlflow.api.proto.Service.ParameterSearchExpression.newBuilder()
-      private Builder() {
-        maybeForceBuilderInitialization();
-      }
-
-      private Builder(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
-        maybeForceBuilderInitialization();
-      }
-      private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessageV3
-                .alwaysUseFieldBuilders) {
-        }
-      }
-      @java.lang.Override
-      public Builder clear() {
-        super.clear();
-        key_ = "";
-        bitField0_ = (bitField0_ & ~0x00000001);
-        clauseCase_ = 0;
-        clause_ = null;
-        return this;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor
-          getDescriptorForType() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_ParameterSearchExpression_descriptor;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.ParameterSearchExpression getDefaultInstanceForType() {
-        return org.mlflow.api.proto.Service.ParameterSearchExpression.getDefaultInstance();
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.ParameterSearchExpression build() {
-        org.mlflow.api.proto.Service.ParameterSearchExpression result = buildPartial();
-        if (!result.isInitialized()) {
-          throw newUninitializedMessageException(result);
-        }
-        return result;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.ParameterSearchExpression buildPartial() {
-        org.mlflow.api.proto.Service.ParameterSearchExpression result = new org.mlflow.api.proto.Service.ParameterSearchExpression(this);
-        int from_bitField0_ = bitField0_;
-        int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
-          to_bitField0_ |= 0x00000001;
-        }
-        result.key_ = key_;
-        if (clauseCase_ == 2) {
-          if (stringBuilder_ == null) {
-            result.clause_ = clause_;
-          } else {
-            result.clause_ = stringBuilder_.build();
-          }
-        }
-        result.bitField0_ = to_bitField0_;
-        result.clauseCase_ = clauseCase_;
-        onBuilt();
-        return result;
-      }
-
-      @java.lang.Override
-      public Builder clone() {
-        return (Builder) super.clone();
-      }
-      @java.lang.Override
-      public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.setField(field, value);
-      }
-      @java.lang.Override
-      public Builder clearField(
-          com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
-      }
-      @java.lang.Override
-      public Builder clearOneof(
-          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
-      }
-      @java.lang.Override
-      public Builder setRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
-      }
-      @java.lang.Override
-      public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
-      }
-      @java.lang.Override
-      public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.Service.ParameterSearchExpression) {
-          return mergeFrom((org.mlflow.api.proto.Service.ParameterSearchExpression)other);
-        } else {
-          super.mergeFrom(other);
-          return this;
-        }
-      }
-
-      public Builder mergeFrom(org.mlflow.api.proto.Service.ParameterSearchExpression other) {
-        if (other == org.mlflow.api.proto.Service.ParameterSearchExpression.getDefaultInstance()) return this;
-        if (other.hasKey()) {
-          bitField0_ |= 0x00000001;
-          key_ = other.key_;
-          onChanged();
-        }
-        switch (other.getClauseCase()) {
-          case STRING: {
-            mergeString(other.getString());
-            break;
-          }
-          case CLAUSE_NOT_SET: {
-            break;
-          }
-        }
-        this.mergeUnknownFields(other.unknownFields);
-        onChanged();
-        return this;
-      }
-
-      @java.lang.Override
-      public final boolean isInitialized() {
-        return true;
-      }
-
-      @java.lang.Override
-      public Builder mergeFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        org.mlflow.api.proto.Service.ParameterSearchExpression parsedMessage = null;
-        try {
-          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.Service.ParameterSearchExpression) e.getUnfinishedMessage();
-          throw e.unwrapIOException();
-        } finally {
-          if (parsedMessage != null) {
-            mergeFrom(parsedMessage);
-          }
-        }
-        return this;
-      }
-      private int clauseCase_ = 0;
-      private java.lang.Object clause_;
-      public ClauseCase
-          getClauseCase() {
-        return ClauseCase.forNumber(
-            clauseCase_);
-      }
-
-      public Builder clearClause() {
-        clauseCase_ = 0;
-        clause_ = null;
-        onChanged();
-        return this;
-      }
-
-      private int bitField0_;
-
-      private java.lang.Object key_ = "";
-      /**
-       * <pre>
-       * :ref:`mlflowParam` key for search.
-       * </pre>
-       *
-       * <code>optional string key = 1;</code>
-       */
-      public boolean hasKey() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
-      }
-      /**
-       * <pre>
-       * :ref:`mlflowParam` key for search.
-       * </pre>
-       *
-       * <code>optional string key = 1;</code>
-       */
-      public java.lang.String getKey() {
-        java.lang.Object ref = key_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            key_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * :ref:`mlflowParam` key for search.
-       * </pre>
-       *
-       * <code>optional string key = 1;</code>
-       */
-      public com.google.protobuf.ByteString
-          getKeyBytes() {
-        java.lang.Object ref = key_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          key_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * :ref:`mlflowParam` key for search.
-       * </pre>
-       *
-       * <code>optional string key = 1;</code>
-       */
-      public Builder setKey(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        key_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * :ref:`mlflowParam` key for search.
-       * </pre>
-       *
-       * <code>optional string key = 1;</code>
-       */
-      public Builder clearKey() {
-        bitField0_ = (bitField0_ & ~0x00000001);
-        key_ = getDefaultInstance().getKey();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * :ref:`mlflowParam` key for search.
-       * </pre>
-       *
-       * <code>optional string key = 1;</code>
-       */
-      public Builder setKeyBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        key_ = value;
-        onChanged();
-        return this;
-      }
-
-      private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Service.StringClause, org.mlflow.api.proto.Service.StringClause.Builder, org.mlflow.api.proto.Service.StringClauseOrBuilder> stringBuilder_;
-      /**
-       * <pre>
-       * String clause for comparison.
-       * </pre>
-       *
-       * <code>optional .mlflow.StringClause string = 2;</code>
-       */
-      public boolean hasString() {
-        return clauseCase_ == 2;
-      }
-      /**
-       * <pre>
-       * String clause for comparison.
-       * </pre>
-       *
-       * <code>optional .mlflow.StringClause string = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.StringClause getString() {
-        if (stringBuilder_ == null) {
-          if (clauseCase_ == 2) {
-            return (org.mlflow.api.proto.Service.StringClause) clause_;
-          }
-          return org.mlflow.api.proto.Service.StringClause.getDefaultInstance();
-        } else {
-          if (clauseCase_ == 2) {
-            return stringBuilder_.getMessage();
-          }
-          return org.mlflow.api.proto.Service.StringClause.getDefaultInstance();
-        }
-      }
-      /**
-       * <pre>
-       * String clause for comparison.
-       * </pre>
-       *
-       * <code>optional .mlflow.StringClause string = 2;</code>
-       */
-      public Builder setString(org.mlflow.api.proto.Service.StringClause value) {
-        if (stringBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          clause_ = value;
-          onChanged();
-        } else {
-          stringBuilder_.setMessage(value);
-        }
-        clauseCase_ = 2;
-        return this;
-      }
-      /**
-       * <pre>
-       * String clause for comparison.
-       * </pre>
-       *
-       * <code>optional .mlflow.StringClause string = 2;</code>
-       */
-      public Builder setString(
-          org.mlflow.api.proto.Service.StringClause.Builder builderForValue) {
-        if (stringBuilder_ == null) {
-          clause_ = builderForValue.build();
-          onChanged();
-        } else {
-          stringBuilder_.setMessage(builderForValue.build());
-        }
-        clauseCase_ = 2;
-        return this;
-      }
-      /**
-       * <pre>
-       * String clause for comparison.
-       * </pre>
-       *
-       * <code>optional .mlflow.StringClause string = 2;</code>
-       */
-      public Builder mergeString(org.mlflow.api.proto.Service.StringClause value) {
-        if (stringBuilder_ == null) {
-          if (clauseCase_ == 2 &&
-              clause_ != org.mlflow.api.proto.Service.StringClause.getDefaultInstance()) {
-            clause_ = org.mlflow.api.proto.Service.StringClause.newBuilder((org.mlflow.api.proto.Service.StringClause) clause_)
-                .mergeFrom(value).buildPartial();
-          } else {
-            clause_ = value;
-          }
-          onChanged();
-        } else {
-          if (clauseCase_ == 2) {
-            stringBuilder_.mergeFrom(value);
-          }
-          stringBuilder_.setMessage(value);
-        }
-        clauseCase_ = 2;
-        return this;
-      }
-      /**
-       * <pre>
-       * String clause for comparison.
-       * </pre>
-       *
-       * <code>optional .mlflow.StringClause string = 2;</code>
-       */
-      public Builder clearString() {
-        if (stringBuilder_ == null) {
-          if (clauseCase_ == 2) {
-            clauseCase_ = 0;
-            clause_ = null;
-            onChanged();
-          }
-        } else {
-          if (clauseCase_ == 2) {
-            clauseCase_ = 0;
-            clause_ = null;
-          }
-          stringBuilder_.clear();
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * String clause for comparison.
-       * </pre>
-       *
-       * <code>optional .mlflow.StringClause string = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.StringClause.Builder getStringBuilder() {
-        return getStringFieldBuilder().getBuilder();
-      }
-      /**
-       * <pre>
-       * String clause for comparison.
-       * </pre>
-       *
-       * <code>optional .mlflow.StringClause string = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.StringClauseOrBuilder getStringOrBuilder() {
-        if ((clauseCase_ == 2) && (stringBuilder_ != null)) {
-          return stringBuilder_.getMessageOrBuilder();
-        } else {
-          if (clauseCase_ == 2) {
-            return (org.mlflow.api.proto.Service.StringClause) clause_;
-          }
-          return org.mlflow.api.proto.Service.StringClause.getDefaultInstance();
-        }
-      }
-      /**
-       * <pre>
-       * String clause for comparison.
-       * </pre>
-       *
-       * <code>optional .mlflow.StringClause string = 2;</code>
-       */
-      private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Service.StringClause, org.mlflow.api.proto.Service.StringClause.Builder, org.mlflow.api.proto.Service.StringClauseOrBuilder> 
-          getStringFieldBuilder() {
-        if (stringBuilder_ == null) {
-          if (!(clauseCase_ == 2)) {
-            clause_ = org.mlflow.api.proto.Service.StringClause.getDefaultInstance();
-          }
-          stringBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-              org.mlflow.api.proto.Service.StringClause, org.mlflow.api.proto.Service.StringClause.Builder, org.mlflow.api.proto.Service.StringClauseOrBuilder>(
-                  (org.mlflow.api.proto.Service.StringClause) clause_,
-                  getParentForChildren(),
-                  isClean());
-          clause_ = null;
-        }
-        clauseCase_ = 2;
-        onChanged();;
-        return stringBuilder_;
-      }
-      @java.lang.Override
-      public final Builder setUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.setUnknownFields(unknownFields);
-      }
-
-      @java.lang.Override
-      public final Builder mergeUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.mergeUnknownFields(unknownFields);
-      }
-
-
-      // @@protoc_insertion_point(builder_scope:mlflow.ParameterSearchExpression)
-    }
-
-    // @@protoc_insertion_point(class_scope:mlflow.ParameterSearchExpression)
-    private static final org.mlflow.api.proto.Service.ParameterSearchExpression DEFAULT_INSTANCE;
-    static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.ParameterSearchExpression();
-    }
-
-    public static org.mlflow.api.proto.Service.ParameterSearchExpression getDefaultInstance() {
-      return DEFAULT_INSTANCE;
-    }
-
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<ParameterSearchExpression>
-        PARSER = new com.google.protobuf.AbstractParser<ParameterSearchExpression>() {
-      @java.lang.Override
-      public ParameterSearchExpression parsePartialFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return new ParameterSearchExpression(input, extensionRegistry);
-      }
-    };
-
-    public static com.google.protobuf.Parser<ParameterSearchExpression> parser() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.google.protobuf.Parser<ParameterSearchExpression> getParserForType() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public org.mlflow.api.proto.Service.ParameterSearchExpression getDefaultInstanceForType() {
-      return DEFAULT_INSTANCE;
-    }
-
-  }
-
-  public interface StringClauseOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.StringClause)
-      com.google.protobuf.MessageOrBuilder {
-
-    /**
-     * <pre>
-     * OneOf ("==", "!=", "~")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    boolean hasComparator();
-    /**
-     * <pre>
-     * OneOf ("==", "!=", "~")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    java.lang.String getComparator();
-    /**
-     * <pre>
-     * OneOf ("==", "!=", "~")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    com.google.protobuf.ByteString
-        getComparatorBytes();
-
-    /**
-     * <pre>
-     * String value for comparison.
-     * </pre>
-     *
-     * <code>optional string value = 2;</code>
-     */
-    boolean hasValue();
-    /**
-     * <pre>
-     * String value for comparison.
-     * </pre>
-     *
-     * <code>optional string value = 2;</code>
-     */
-    java.lang.String getValue();
-    /**
-     * <pre>
-     * String value for comparison.
-     * </pre>
-     *
-     * <code>optional string value = 2;</code>
-     */
-    com.google.protobuf.ByteString
-        getValueBytes();
-  }
-  /**
-   * Protobuf type {@code mlflow.StringClause}
-   */
-  public  static final class StringClause extends
-      com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.StringClause)
-      StringClauseOrBuilder {
-  private static final long serialVersionUID = 0L;
-    // Use StringClause.newBuilder() to construct.
-    private StringClause(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-      super(builder);
-    }
-    private StringClause() {
-      comparator_ = "";
-      value_ = "";
-    }
-
-    @java.lang.Override
-    public final com.google.protobuf.UnknownFieldSet
-    getUnknownFields() {
-      return this.unknownFields;
-    }
-    private StringClause(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      this();
-      if (extensionRegistry == null) {
-        throw new java.lang.NullPointerException();
-      }
-      int mutable_bitField0_ = 0;
-      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder();
-      try {
-        boolean done = false;
-        while (!done) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              done = true;
-              break;
-            case 10: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
-              comparator_ = bs;
-              break;
-            }
-            case 18: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
-              value_ = bs;
-              break;
-            }
-            default: {
-              if (!parseUnknownField(
-                  input, unknownFields, extensionRegistry, tag)) {
-                done = true;
-              }
-              break;
-            }
-          }
-        }
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(this);
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(
-            e).setUnfinishedMessage(this);
-      } finally {
-        this.unknownFields = unknownFields.build();
-        makeExtensionsImmutable();
-      }
-    }
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_StringClause_descriptor;
-    }
-
-    @java.lang.Override
-    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-        internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_StringClause_fieldAccessorTable
-          .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.Service.StringClause.class, org.mlflow.api.proto.Service.StringClause.Builder.class);
-    }
-
-    private int bitField0_;
-    public static final int COMPARATOR_FIELD_NUMBER = 1;
-    private volatile java.lang.Object comparator_;
-    /**
-     * <pre>
-     * OneOf ("==", "!=", "~")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    public boolean hasComparator() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
-    }
-    /**
-     * <pre>
-     * OneOf ("==", "!=", "~")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    public java.lang.String getComparator() {
-      java.lang.Object ref = comparator_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          comparator_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * OneOf ("==", "!=", "~")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    public com.google.protobuf.ByteString
-        getComparatorBytes() {
-      java.lang.Object ref = comparator_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        comparator_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int VALUE_FIELD_NUMBER = 2;
-    private volatile java.lang.Object value_;
-    /**
-     * <pre>
-     * String value for comparison.
-     * </pre>
-     *
-     * <code>optional string value = 2;</code>
-     */
-    public boolean hasValue() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
-    }
-    /**
-     * <pre>
-     * String value for comparison.
-     * </pre>
-     *
-     * <code>optional string value = 2;</code>
-     */
-    public java.lang.String getValue() {
-      java.lang.Object ref = value_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          value_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * String value for comparison.
-     * </pre>
-     *
-     * <code>optional string value = 2;</code>
-     */
-    public com.google.protobuf.ByteString
-        getValueBytes() {
-      java.lang.Object ref = value_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        value_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    private byte memoizedIsInitialized = -1;
-    @java.lang.Override
-    public final boolean isInitialized() {
-      byte isInitialized = memoizedIsInitialized;
-      if (isInitialized == 1) return true;
-      if (isInitialized == 0) return false;
-
-      memoizedIsInitialized = 1;
-      return true;
-    }
-
-    @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output)
-                        throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, comparator_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, value_);
-      }
-      unknownFields.writeTo(output);
-    }
-
-    @java.lang.Override
-    public int getSerializedSize() {
-      int size = memoizedSize;
-      if (size != -1) return size;
-
-      size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, comparator_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, value_);
-      }
-      size += unknownFields.getSerializedSize();
-      memoizedSize = size;
-      return size;
-    }
-
-    @java.lang.Override
-    public boolean equals(final java.lang.Object obj) {
-      if (obj == this) {
-       return true;
-      }
-      if (!(obj instanceof org.mlflow.api.proto.Service.StringClause)) {
-        return super.equals(obj);
-      }
-      org.mlflow.api.proto.Service.StringClause other = (org.mlflow.api.proto.Service.StringClause) obj;
-
-      boolean result = true;
-      result = result && (hasComparator() == other.hasComparator());
-      if (hasComparator()) {
-        result = result && getComparator()
-            .equals(other.getComparator());
-      }
-      result = result && (hasValue() == other.hasValue());
-      if (hasValue()) {
-        result = result && getValue()
-            .equals(other.getValue());
-      }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
-    }
-
-    @java.lang.Override
-    public int hashCode() {
-      if (memoizedHashCode != 0) {
-        return memoizedHashCode;
-      }
-      int hash = 41;
-      hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasComparator()) {
-        hash = (37 * hash) + COMPARATOR_FIELD_NUMBER;
-        hash = (53 * hash) + getComparator().hashCode();
-      }
-      if (hasValue()) {
-        hash = (37 * hash) + VALUE_FIELD_NUMBER;
-        hash = (53 * hash) + getValue().hashCode();
-      }
-      hash = (29 * hash) + unknownFields.hashCode();
-      memoizedHashCode = hash;
-      return hash;
-    }
-
-    public static org.mlflow.api.proto.Service.StringClause parseFrom(
-        java.nio.ByteBuffer data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.StringClause parseFrom(
-        java.nio.ByteBuffer data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.StringClause parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.StringClause parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.StringClause parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.StringClause parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.StringClause parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.StringClause parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.StringClause parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.StringClause parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.StringClause parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.StringClause parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-
-    @java.lang.Override
-    public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder() {
-      return DEFAULT_INSTANCE.toBuilder();
-    }
-    public static Builder newBuilder(org.mlflow.api.proto.Service.StringClause prototype) {
-      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-    }
-    @java.lang.Override
-    public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE
-          ? new Builder() : new Builder().mergeFrom(this);
-    }
-
-    @java.lang.Override
-    protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-      Builder builder = new Builder(parent);
-      return builder;
-    }
-    /**
-     * Protobuf type {@code mlflow.StringClause}
-     */
-    public static final class Builder extends
-        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.StringClause)
-        org.mlflow.api.proto.Service.StringClauseOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_StringClause_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_StringClause_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.Service.StringClause.class, org.mlflow.api.proto.Service.StringClause.Builder.class);
-      }
-
-      // Construct using org.mlflow.api.proto.Service.StringClause.newBuilder()
-      private Builder() {
-        maybeForceBuilderInitialization();
-      }
-
-      private Builder(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
-        maybeForceBuilderInitialization();
-      }
-      private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessageV3
-                .alwaysUseFieldBuilders) {
-        }
-      }
-      @java.lang.Override
-      public Builder clear() {
-        super.clear();
-        comparator_ = "";
-        bitField0_ = (bitField0_ & ~0x00000001);
-        value_ = "";
-        bitField0_ = (bitField0_ & ~0x00000002);
-        return this;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor
-          getDescriptorForType() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_StringClause_descriptor;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.StringClause getDefaultInstanceForType() {
-        return org.mlflow.api.proto.Service.StringClause.getDefaultInstance();
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.StringClause build() {
-        org.mlflow.api.proto.Service.StringClause result = buildPartial();
-        if (!result.isInitialized()) {
-          throw newUninitializedMessageException(result);
-        }
-        return result;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.StringClause buildPartial() {
-        org.mlflow.api.proto.Service.StringClause result = new org.mlflow.api.proto.Service.StringClause(this);
-        int from_bitField0_ = bitField0_;
-        int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
-          to_bitField0_ |= 0x00000001;
-        }
-        result.comparator_ = comparator_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
-          to_bitField0_ |= 0x00000002;
-        }
-        result.value_ = value_;
-        result.bitField0_ = to_bitField0_;
-        onBuilt();
-        return result;
-      }
-
-      @java.lang.Override
-      public Builder clone() {
-        return (Builder) super.clone();
-      }
-      @java.lang.Override
-      public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.setField(field, value);
-      }
-      @java.lang.Override
-      public Builder clearField(
-          com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
-      }
-      @java.lang.Override
-      public Builder clearOneof(
-          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
-      }
-      @java.lang.Override
-      public Builder setRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
-      }
-      @java.lang.Override
-      public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
-      }
-      @java.lang.Override
-      public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.Service.StringClause) {
-          return mergeFrom((org.mlflow.api.proto.Service.StringClause)other);
-        } else {
-          super.mergeFrom(other);
-          return this;
-        }
-      }
-
-      public Builder mergeFrom(org.mlflow.api.proto.Service.StringClause other) {
-        if (other == org.mlflow.api.proto.Service.StringClause.getDefaultInstance()) return this;
-        if (other.hasComparator()) {
-          bitField0_ |= 0x00000001;
-          comparator_ = other.comparator_;
-          onChanged();
-        }
-        if (other.hasValue()) {
-          bitField0_ |= 0x00000002;
-          value_ = other.value_;
-          onChanged();
-        }
-        this.mergeUnknownFields(other.unknownFields);
-        onChanged();
-        return this;
-      }
-
-      @java.lang.Override
-      public final boolean isInitialized() {
-        return true;
-      }
-
-      @java.lang.Override
-      public Builder mergeFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        org.mlflow.api.proto.Service.StringClause parsedMessage = null;
-        try {
-          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.Service.StringClause) e.getUnfinishedMessage();
-          throw e.unwrapIOException();
-        } finally {
-          if (parsedMessage != null) {
-            mergeFrom(parsedMessage);
-          }
-        }
-        return this;
-      }
-      private int bitField0_;
-
-      private java.lang.Object comparator_ = "";
-      /**
-       * <pre>
-       * OneOf ("==", "!=", "~")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public boolean hasComparator() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
-      }
-      /**
-       * <pre>
-       * OneOf ("==", "!=", "~")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public java.lang.String getComparator() {
-        java.lang.Object ref = comparator_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            comparator_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * OneOf ("==", "!=", "~")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public com.google.protobuf.ByteString
-          getComparatorBytes() {
-        java.lang.Object ref = comparator_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          comparator_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * OneOf ("==", "!=", "~")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public Builder setComparator(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        comparator_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * OneOf ("==", "!=", "~")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public Builder clearComparator() {
-        bitField0_ = (bitField0_ & ~0x00000001);
-        comparator_ = getDefaultInstance().getComparator();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * OneOf ("==", "!=", "~")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public Builder setComparatorBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        comparator_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object value_ = "";
-      /**
-       * <pre>
-       * String value for comparison.
-       * </pre>
-       *
-       * <code>optional string value = 2;</code>
-       */
-      public boolean hasValue() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
-      }
-      /**
-       * <pre>
-       * String value for comparison.
-       * </pre>
-       *
-       * <code>optional string value = 2;</code>
-       */
-      public java.lang.String getValue() {
-        java.lang.Object ref = value_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            value_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * String value for comparison.
-       * </pre>
-       *
-       * <code>optional string value = 2;</code>
-       */
-      public com.google.protobuf.ByteString
-          getValueBytes() {
-        java.lang.Object ref = value_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          value_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * String value for comparison.
-       * </pre>
-       *
-       * <code>optional string value = 2;</code>
-       */
-      public Builder setValue(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        value_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * String value for comparison.
-       * </pre>
-       *
-       * <code>optional string value = 2;</code>
-       */
-      public Builder clearValue() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        value_ = getDefaultInstance().getValue();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * String value for comparison.
-       * </pre>
-       *
-       * <code>optional string value = 2;</code>
-       */
-      public Builder setValueBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        value_ = value;
-        onChanged();
-        return this;
-      }
-      @java.lang.Override
-      public final Builder setUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.setUnknownFields(unknownFields);
-      }
-
-      @java.lang.Override
-      public final Builder mergeUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.mergeUnknownFields(unknownFields);
-      }
-
-
-      // @@protoc_insertion_point(builder_scope:mlflow.StringClause)
-    }
-
-    // @@protoc_insertion_point(class_scope:mlflow.StringClause)
-    private static final org.mlflow.api.proto.Service.StringClause DEFAULT_INSTANCE;
-    static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.StringClause();
-    }
-
-    public static org.mlflow.api.proto.Service.StringClause getDefaultInstance() {
-      return DEFAULT_INSTANCE;
-    }
-
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<StringClause>
-        PARSER = new com.google.protobuf.AbstractParser<StringClause>() {
-      @java.lang.Override
-      public StringClause parsePartialFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return new StringClause(input, extensionRegistry);
-      }
-    };
-
-    public static com.google.protobuf.Parser<StringClause> parser() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.google.protobuf.Parser<StringClause> getParserForType() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public org.mlflow.api.proto.Service.StringClause getDefaultInstanceForType() {
-      return DEFAULT_INSTANCE;
-    }
-
-  }
-
-  public interface FloatClauseOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.FloatClause)
-      com.google.protobuf.MessageOrBuilder {
-
-    /**
-     * <pre>
-     * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    boolean hasComparator();
-    /**
-     * <pre>
-     * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    java.lang.String getComparator();
-    /**
-     * <pre>
-     * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    com.google.protobuf.ByteString
-        getComparatorBytes();
-
-    /**
-     * <pre>
-     * Float value for comparison.
-     * </pre>
-     *
-     * <code>optional float value = 2;</code>
-     */
-    boolean hasValue();
-    /**
-     * <pre>
-     * Float value for comparison.
-     * </pre>
-     *
-     * <code>optional float value = 2;</code>
-     */
-    float getValue();
-  }
-  /**
-   * Protobuf type {@code mlflow.FloatClause}
-   */
-  public  static final class FloatClause extends
-      com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.FloatClause)
-      FloatClauseOrBuilder {
-  private static final long serialVersionUID = 0L;
-    // Use FloatClause.newBuilder() to construct.
-    private FloatClause(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-      super(builder);
-    }
-    private FloatClause() {
-      comparator_ = "";
-      value_ = 0F;
-    }
-
-    @java.lang.Override
-    public final com.google.protobuf.UnknownFieldSet
-    getUnknownFields() {
-      return this.unknownFields;
-    }
-    private FloatClause(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      this();
-      if (extensionRegistry == null) {
-        throw new java.lang.NullPointerException();
-      }
-      int mutable_bitField0_ = 0;
-      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder();
-      try {
-        boolean done = false;
-        while (!done) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              done = true;
-              break;
-            case 10: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
-              comparator_ = bs;
-              break;
-            }
-            case 21: {
-              bitField0_ |= 0x00000002;
-              value_ = input.readFloat();
-              break;
-            }
-            default: {
-              if (!parseUnknownField(
-                  input, unknownFields, extensionRegistry, tag)) {
-                done = true;
-              }
-              break;
-            }
-          }
-        }
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(this);
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(
-            e).setUnfinishedMessage(this);
-      } finally {
-        this.unknownFields = unknownFields.build();
-        makeExtensionsImmutable();
-      }
-    }
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_FloatClause_descriptor;
-    }
-
-    @java.lang.Override
-    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-        internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_FloatClause_fieldAccessorTable
-          .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.Service.FloatClause.class, org.mlflow.api.proto.Service.FloatClause.Builder.class);
-    }
-
-    private int bitField0_;
-    public static final int COMPARATOR_FIELD_NUMBER = 1;
-    private volatile java.lang.Object comparator_;
-    /**
-     * <pre>
-     * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    public boolean hasComparator() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
-    }
-    /**
-     * <pre>
-     * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    public java.lang.String getComparator() {
-      java.lang.Object ref = comparator_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          comparator_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    public com.google.protobuf.ByteString
-        getComparatorBytes() {
-      java.lang.Object ref = comparator_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        comparator_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int VALUE_FIELD_NUMBER = 2;
-    private float value_;
-    /**
-     * <pre>
-     * Float value for comparison.
-     * </pre>
-     *
-     * <code>optional float value = 2;</code>
-     */
-    public boolean hasValue() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
-    }
-    /**
-     * <pre>
-     * Float value for comparison.
-     * </pre>
-     *
-     * <code>optional float value = 2;</code>
-     */
-    public float getValue() {
-      return value_;
-    }
-
-    private byte memoizedIsInitialized = -1;
-    @java.lang.Override
-    public final boolean isInitialized() {
-      byte isInitialized = memoizedIsInitialized;
-      if (isInitialized == 1) return true;
-      if (isInitialized == 0) return false;
-
-      memoizedIsInitialized = 1;
-      return true;
-    }
-
-    @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output)
-                        throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, comparator_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        output.writeFloat(2, value_);
-      }
-      unknownFields.writeTo(output);
-    }
-
-    @java.lang.Override
-    public int getSerializedSize() {
-      int size = memoizedSize;
-      if (size != -1) return size;
-
-      size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, comparator_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeFloatSize(2, value_);
-      }
-      size += unknownFields.getSerializedSize();
-      memoizedSize = size;
-      return size;
-    }
-
-    @java.lang.Override
-    public boolean equals(final java.lang.Object obj) {
-      if (obj == this) {
-       return true;
-      }
-      if (!(obj instanceof org.mlflow.api.proto.Service.FloatClause)) {
-        return super.equals(obj);
-      }
-      org.mlflow.api.proto.Service.FloatClause other = (org.mlflow.api.proto.Service.FloatClause) obj;
-
-      boolean result = true;
-      result = result && (hasComparator() == other.hasComparator());
-      if (hasComparator()) {
-        result = result && getComparator()
-            .equals(other.getComparator());
-      }
-      result = result && (hasValue() == other.hasValue());
-      if (hasValue()) {
-        result = result && (
-            java.lang.Float.floatToIntBits(getValue())
-            == java.lang.Float.floatToIntBits(
-                other.getValue()));
-      }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
-    }
-
-    @java.lang.Override
-    public int hashCode() {
-      if (memoizedHashCode != 0) {
-        return memoizedHashCode;
-      }
-      int hash = 41;
-      hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasComparator()) {
-        hash = (37 * hash) + COMPARATOR_FIELD_NUMBER;
-        hash = (53 * hash) + getComparator().hashCode();
-      }
-      if (hasValue()) {
-        hash = (37 * hash) + VALUE_FIELD_NUMBER;
-        hash = (53 * hash) + java.lang.Float.floatToIntBits(
-            getValue());
-      }
-      hash = (29 * hash) + unknownFields.hashCode();
-      memoizedHashCode = hash;
-      return hash;
-    }
-
-    public static org.mlflow.api.proto.Service.FloatClause parseFrom(
-        java.nio.ByteBuffer data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.FloatClause parseFrom(
-        java.nio.ByteBuffer data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.FloatClause parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.FloatClause parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.FloatClause parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.FloatClause parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.FloatClause parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.FloatClause parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.FloatClause parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.FloatClause parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.FloatClause parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.FloatClause parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-
-    @java.lang.Override
-    public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder() {
-      return DEFAULT_INSTANCE.toBuilder();
-    }
-    public static Builder newBuilder(org.mlflow.api.proto.Service.FloatClause prototype) {
-      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-    }
-    @java.lang.Override
-    public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE
-          ? new Builder() : new Builder().mergeFrom(this);
-    }
-
-    @java.lang.Override
-    protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-      Builder builder = new Builder(parent);
-      return builder;
-    }
-    /**
-     * Protobuf type {@code mlflow.FloatClause}
-     */
-    public static final class Builder extends
-        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.FloatClause)
-        org.mlflow.api.proto.Service.FloatClauseOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_FloatClause_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_FloatClause_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.Service.FloatClause.class, org.mlflow.api.proto.Service.FloatClause.Builder.class);
-      }
-
-      // Construct using org.mlflow.api.proto.Service.FloatClause.newBuilder()
-      private Builder() {
-        maybeForceBuilderInitialization();
-      }
-
-      private Builder(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
-        maybeForceBuilderInitialization();
-      }
-      private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessageV3
-                .alwaysUseFieldBuilders) {
-        }
-      }
-      @java.lang.Override
-      public Builder clear() {
-        super.clear();
-        comparator_ = "";
-        bitField0_ = (bitField0_ & ~0x00000001);
-        value_ = 0F;
-        bitField0_ = (bitField0_ & ~0x00000002);
-        return this;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor
-          getDescriptorForType() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_FloatClause_descriptor;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.FloatClause getDefaultInstanceForType() {
-        return org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.FloatClause build() {
-        org.mlflow.api.proto.Service.FloatClause result = buildPartial();
-        if (!result.isInitialized()) {
-          throw newUninitializedMessageException(result);
-        }
-        return result;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.FloatClause buildPartial() {
-        org.mlflow.api.proto.Service.FloatClause result = new org.mlflow.api.proto.Service.FloatClause(this);
-        int from_bitField0_ = bitField0_;
-        int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
-          to_bitField0_ |= 0x00000001;
-        }
-        result.comparator_ = comparator_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
-          to_bitField0_ |= 0x00000002;
-        }
-        result.value_ = value_;
-        result.bitField0_ = to_bitField0_;
-        onBuilt();
-        return result;
-      }
-
-      @java.lang.Override
-      public Builder clone() {
-        return (Builder) super.clone();
-      }
-      @java.lang.Override
-      public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.setField(field, value);
-      }
-      @java.lang.Override
-      public Builder clearField(
-          com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
-      }
-      @java.lang.Override
-      public Builder clearOneof(
-          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
-      }
-      @java.lang.Override
-      public Builder setRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
-      }
-      @java.lang.Override
-      public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
-      }
-      @java.lang.Override
-      public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.Service.FloatClause) {
-          return mergeFrom((org.mlflow.api.proto.Service.FloatClause)other);
-        } else {
-          super.mergeFrom(other);
-          return this;
-        }
-      }
-
-      public Builder mergeFrom(org.mlflow.api.proto.Service.FloatClause other) {
-        if (other == org.mlflow.api.proto.Service.FloatClause.getDefaultInstance()) return this;
-        if (other.hasComparator()) {
-          bitField0_ |= 0x00000001;
-          comparator_ = other.comparator_;
-          onChanged();
-        }
-        if (other.hasValue()) {
-          setValue(other.getValue());
-        }
-        this.mergeUnknownFields(other.unknownFields);
-        onChanged();
-        return this;
-      }
-
-      @java.lang.Override
-      public final boolean isInitialized() {
-        return true;
-      }
-
-      @java.lang.Override
-      public Builder mergeFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        org.mlflow.api.proto.Service.FloatClause parsedMessage = null;
-        try {
-          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.Service.FloatClause) e.getUnfinishedMessage();
-          throw e.unwrapIOException();
-        } finally {
-          if (parsedMessage != null) {
-            mergeFrom(parsedMessage);
-          }
-        }
-        return this;
-      }
-      private int bitField0_;
-
-      private java.lang.Object comparator_ = "";
-      /**
-       * <pre>
-       * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public boolean hasComparator() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
-      }
-      /**
-       * <pre>
-       * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public java.lang.String getComparator() {
-        java.lang.Object ref = comparator_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            comparator_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public com.google.protobuf.ByteString
-          getComparatorBytes() {
-        java.lang.Object ref = comparator_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          comparator_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public Builder setComparator(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        comparator_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public Builder clearComparator() {
-        bitField0_ = (bitField0_ & ~0x00000001);
-        comparator_ = getDefaultInstance().getComparator();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public Builder setComparatorBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        comparator_ = value;
-        onChanged();
-        return this;
-      }
-
-      private float value_ ;
-      /**
-       * <pre>
-       * Float value for comparison.
-       * </pre>
-       *
-       * <code>optional float value = 2;</code>
-       */
-      public boolean hasValue() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
-      }
-      /**
-       * <pre>
-       * Float value for comparison.
-       * </pre>
-       *
-       * <code>optional float value = 2;</code>
-       */
-      public float getValue() {
-        return value_;
-      }
-      /**
-       * <pre>
-       * Float value for comparison.
-       * </pre>
-       *
-       * <code>optional float value = 2;</code>
-       */
-      public Builder setValue(float value) {
-        bitField0_ |= 0x00000002;
-        value_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Float value for comparison.
-       * </pre>
-       *
-       * <code>optional float value = 2;</code>
-       */
-      public Builder clearValue() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        value_ = 0F;
-        onChanged();
-        return this;
-      }
-      @java.lang.Override
-      public final Builder setUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.setUnknownFields(unknownFields);
-      }
-
-      @java.lang.Override
-      public final Builder mergeUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.mergeUnknownFields(unknownFields);
-      }
-
-
-      // @@protoc_insertion_point(builder_scope:mlflow.FloatClause)
-    }
-
-    // @@protoc_insertion_point(class_scope:mlflow.FloatClause)
-    private static final org.mlflow.api.proto.Service.FloatClause DEFAULT_INSTANCE;
-    static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.FloatClause();
-    }
-
-    public static org.mlflow.api.proto.Service.FloatClause getDefaultInstance() {
-      return DEFAULT_INSTANCE;
-    }
-
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<FloatClause>
-        PARSER = new com.google.protobuf.AbstractParser<FloatClause>() {
-      @java.lang.Override
-      public FloatClause parsePartialFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return new FloatClause(input, extensionRegistry);
-      }
-    };
-
-    public static com.google.protobuf.Parser<FloatClause> parser() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.google.protobuf.Parser<FloatClause> getParserForType() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public org.mlflow.api.proto.Service.FloatClause getDefaultInstanceForType() {
-      return DEFAULT_INSTANCE;
-    }
-
-  }
-
-  public interface DoubleClauseOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.DoubleClause)
-      com.google.protobuf.MessageOrBuilder {
-
-    /**
-     * <pre>
-     * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    boolean hasComparator();
-    /**
-     * <pre>
-     * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    java.lang.String getComparator();
-    /**
-     * <pre>
-     * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    com.google.protobuf.ByteString
-        getComparatorBytes();
-
-    /**
-     * <pre>
-     * Float value for comparison.
-     * </pre>
-     *
-     * <code>optional double value = 2;</code>
-     */
-    boolean hasValue();
-    /**
-     * <pre>
-     * Float value for comparison.
-     * </pre>
-     *
-     * <code>optional double value = 2;</code>
-     */
-    double getValue();
-  }
-  /**
-   * Protobuf type {@code mlflow.DoubleClause}
-   */
-  public  static final class DoubleClause extends
-      com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.DoubleClause)
-      DoubleClauseOrBuilder {
-  private static final long serialVersionUID = 0L;
-    // Use DoubleClause.newBuilder() to construct.
-    private DoubleClause(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-      super(builder);
-    }
-    private DoubleClause() {
-      comparator_ = "";
-      value_ = 0D;
-    }
-
-    @java.lang.Override
-    public final com.google.protobuf.UnknownFieldSet
-    getUnknownFields() {
-      return this.unknownFields;
-    }
-    private DoubleClause(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      this();
-      if (extensionRegistry == null) {
-        throw new java.lang.NullPointerException();
-      }
-      int mutable_bitField0_ = 0;
-      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder();
-      try {
-        boolean done = false;
-        while (!done) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              done = true;
-              break;
-            case 10: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
-              comparator_ = bs;
-              break;
-            }
-            case 17: {
-              bitField0_ |= 0x00000002;
-              value_ = input.readDouble();
-              break;
-            }
-            default: {
-              if (!parseUnknownField(
-                  input, unknownFields, extensionRegistry, tag)) {
-                done = true;
-              }
-              break;
-            }
-          }
-        }
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(this);
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(
-            e).setUnfinishedMessage(this);
-      } finally {
-        this.unknownFields = unknownFields.build();
-        makeExtensionsImmutable();
-      }
-    }
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_DoubleClause_descriptor;
-    }
-
-    @java.lang.Override
-    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-        internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_DoubleClause_fieldAccessorTable
-          .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.Service.DoubleClause.class, org.mlflow.api.proto.Service.DoubleClause.Builder.class);
-    }
-
-    private int bitField0_;
-    public static final int COMPARATOR_FIELD_NUMBER = 1;
-    private volatile java.lang.Object comparator_;
-    /**
-     * <pre>
-     * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    public boolean hasComparator() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
-    }
-    /**
-     * <pre>
-     * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    public java.lang.String getComparator() {
-      java.lang.Object ref = comparator_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          comparator_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-     * </pre>
-     *
-     * <code>optional string comparator = 1;</code>
-     */
-    public com.google.protobuf.ByteString
-        getComparatorBytes() {
-      java.lang.Object ref = comparator_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        comparator_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int VALUE_FIELD_NUMBER = 2;
-    private double value_;
-    /**
-     * <pre>
-     * Float value for comparison.
-     * </pre>
-     *
-     * <code>optional double value = 2;</code>
-     */
-    public boolean hasValue() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
-    }
-    /**
-     * <pre>
-     * Float value for comparison.
-     * </pre>
-     *
-     * <code>optional double value = 2;</code>
-     */
-    public double getValue() {
-      return value_;
-    }
-
-    private byte memoizedIsInitialized = -1;
-    @java.lang.Override
-    public final boolean isInitialized() {
-      byte isInitialized = memoizedIsInitialized;
-      if (isInitialized == 1) return true;
-      if (isInitialized == 0) return false;
-
-      memoizedIsInitialized = 1;
-      return true;
-    }
-
-    @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output)
-                        throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, comparator_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        output.writeDouble(2, value_);
-      }
-      unknownFields.writeTo(output);
-    }
-
-    @java.lang.Override
-    public int getSerializedSize() {
-      int size = memoizedSize;
-      if (size != -1) return size;
-
-      size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, comparator_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeDoubleSize(2, value_);
-      }
-      size += unknownFields.getSerializedSize();
-      memoizedSize = size;
-      return size;
-    }
-
-    @java.lang.Override
-    public boolean equals(final java.lang.Object obj) {
-      if (obj == this) {
-       return true;
-      }
-      if (!(obj instanceof org.mlflow.api.proto.Service.DoubleClause)) {
-        return super.equals(obj);
-      }
-      org.mlflow.api.proto.Service.DoubleClause other = (org.mlflow.api.proto.Service.DoubleClause) obj;
-
-      boolean result = true;
-      result = result && (hasComparator() == other.hasComparator());
-      if (hasComparator()) {
-        result = result && getComparator()
-            .equals(other.getComparator());
-      }
-      result = result && (hasValue() == other.hasValue());
-      if (hasValue()) {
-        result = result && (
-            java.lang.Double.doubleToLongBits(getValue())
-            == java.lang.Double.doubleToLongBits(
-                other.getValue()));
-      }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
-    }
-
-    @java.lang.Override
-    public int hashCode() {
-      if (memoizedHashCode != 0) {
-        return memoizedHashCode;
-      }
-      int hash = 41;
-      hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasComparator()) {
-        hash = (37 * hash) + COMPARATOR_FIELD_NUMBER;
-        hash = (53 * hash) + getComparator().hashCode();
-      }
-      if (hasValue()) {
-        hash = (37 * hash) + VALUE_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            java.lang.Double.doubleToLongBits(getValue()));
-      }
-      hash = (29 * hash) + unknownFields.hashCode();
-      memoizedHashCode = hash;
-      return hash;
-    }
-
-    public static org.mlflow.api.proto.Service.DoubleClause parseFrom(
-        java.nio.ByteBuffer data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.DoubleClause parseFrom(
-        java.nio.ByteBuffer data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.DoubleClause parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.DoubleClause parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.DoubleClause parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.DoubleClause parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.DoubleClause parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.DoubleClause parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.DoubleClause parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.DoubleClause parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.DoubleClause parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.DoubleClause parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-
-    @java.lang.Override
-    public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder() {
-      return DEFAULT_INSTANCE.toBuilder();
-    }
-    public static Builder newBuilder(org.mlflow.api.proto.Service.DoubleClause prototype) {
-      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-    }
-    @java.lang.Override
-    public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE
-          ? new Builder() : new Builder().mergeFrom(this);
-    }
-
-    @java.lang.Override
-    protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-      Builder builder = new Builder(parent);
-      return builder;
-    }
-    /**
-     * Protobuf type {@code mlflow.DoubleClause}
-     */
-    public static final class Builder extends
-        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.DoubleClause)
-        org.mlflow.api.proto.Service.DoubleClauseOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_DoubleClause_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_DoubleClause_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.Service.DoubleClause.class, org.mlflow.api.proto.Service.DoubleClause.Builder.class);
-      }
-
-      // Construct using org.mlflow.api.proto.Service.DoubleClause.newBuilder()
-      private Builder() {
-        maybeForceBuilderInitialization();
-      }
-
-      private Builder(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
-        maybeForceBuilderInitialization();
-      }
-      private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessageV3
-                .alwaysUseFieldBuilders) {
-        }
-      }
-      @java.lang.Override
-      public Builder clear() {
-        super.clear();
-        comparator_ = "";
-        bitField0_ = (bitField0_ & ~0x00000001);
-        value_ = 0D;
-        bitField0_ = (bitField0_ & ~0x00000002);
-        return this;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor
-          getDescriptorForType() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_DoubleClause_descriptor;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.DoubleClause getDefaultInstanceForType() {
-        return org.mlflow.api.proto.Service.DoubleClause.getDefaultInstance();
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.DoubleClause build() {
-        org.mlflow.api.proto.Service.DoubleClause result = buildPartial();
-        if (!result.isInitialized()) {
-          throw newUninitializedMessageException(result);
-        }
-        return result;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.DoubleClause buildPartial() {
-        org.mlflow.api.proto.Service.DoubleClause result = new org.mlflow.api.proto.Service.DoubleClause(this);
-        int from_bitField0_ = bitField0_;
-        int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
-          to_bitField0_ |= 0x00000001;
-        }
-        result.comparator_ = comparator_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
-          to_bitField0_ |= 0x00000002;
-        }
-        result.value_ = value_;
-        result.bitField0_ = to_bitField0_;
-        onBuilt();
-        return result;
-      }
-
-      @java.lang.Override
-      public Builder clone() {
-        return (Builder) super.clone();
-      }
-      @java.lang.Override
-      public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.setField(field, value);
-      }
-      @java.lang.Override
-      public Builder clearField(
-          com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
-      }
-      @java.lang.Override
-      public Builder clearOneof(
-          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
-      }
-      @java.lang.Override
-      public Builder setRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
-      }
-      @java.lang.Override
-      public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
-      }
-      @java.lang.Override
-      public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.Service.DoubleClause) {
-          return mergeFrom((org.mlflow.api.proto.Service.DoubleClause)other);
-        } else {
-          super.mergeFrom(other);
-          return this;
-        }
-      }
-
-      public Builder mergeFrom(org.mlflow.api.proto.Service.DoubleClause other) {
-        if (other == org.mlflow.api.proto.Service.DoubleClause.getDefaultInstance()) return this;
-        if (other.hasComparator()) {
-          bitField0_ |= 0x00000001;
-          comparator_ = other.comparator_;
-          onChanged();
-        }
-        if (other.hasValue()) {
-          setValue(other.getValue());
-        }
-        this.mergeUnknownFields(other.unknownFields);
-        onChanged();
-        return this;
-      }
-
-      @java.lang.Override
-      public final boolean isInitialized() {
-        return true;
-      }
-
-      @java.lang.Override
-      public Builder mergeFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        org.mlflow.api.proto.Service.DoubleClause parsedMessage = null;
-        try {
-          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.Service.DoubleClause) e.getUnfinishedMessage();
-          throw e.unwrapIOException();
-        } finally {
-          if (parsedMessage != null) {
-            mergeFrom(parsedMessage);
-          }
-        }
-        return this;
-      }
-      private int bitField0_;
-
-      private java.lang.Object comparator_ = "";
-      /**
-       * <pre>
-       * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public boolean hasComparator() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
-      }
-      /**
-       * <pre>
-       * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public java.lang.String getComparator() {
-        java.lang.Object ref = comparator_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            comparator_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public com.google.protobuf.ByteString
-          getComparatorBytes() {
-        java.lang.Object ref = comparator_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          comparator_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public Builder setComparator(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        comparator_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public Builder clearComparator() {
-        bitField0_ = (bitField0_ & ~0x00000001);
-        comparator_ = getDefaultInstance().getComparator();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * OneOf ("&gt;", "&gt;=", "==", "!=", "&lt;=", "&lt;")
-       * </pre>
-       *
-       * <code>optional string comparator = 1;</code>
-       */
-      public Builder setComparatorBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        comparator_ = value;
-        onChanged();
-        return this;
-      }
-
-      private double value_ ;
-      /**
-       * <pre>
-       * Float value for comparison.
-       * </pre>
-       *
-       * <code>optional double value = 2;</code>
-       */
-      public boolean hasValue() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
-      }
-      /**
-       * <pre>
-       * Float value for comparison.
-       * </pre>
-       *
-       * <code>optional double value = 2;</code>
-       */
-      public double getValue() {
-        return value_;
-      }
-      /**
-       * <pre>
-       * Float value for comparison.
-       * </pre>
-       *
-       * <code>optional double value = 2;</code>
-       */
-      public Builder setValue(double value) {
-        bitField0_ |= 0x00000002;
-        value_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Float value for comparison.
-       * </pre>
-       *
-       * <code>optional double value = 2;</code>
-       */
-      public Builder clearValue() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        value_ = 0D;
-        onChanged();
-        return this;
-      }
-      @java.lang.Override
-      public final Builder setUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.setUnknownFields(unknownFields);
-      }
-
-      @java.lang.Override
-      public final Builder mergeUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.mergeUnknownFields(unknownFields);
-      }
-
-
-      // @@protoc_insertion_point(builder_scope:mlflow.DoubleClause)
-    }
-
-    // @@protoc_insertion_point(class_scope:mlflow.DoubleClause)
-    private static final org.mlflow.api.proto.Service.DoubleClause DEFAULT_INSTANCE;
-    static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.DoubleClause();
-    }
-
-    public static org.mlflow.api.proto.Service.DoubleClause getDefaultInstance() {
-      return DEFAULT_INSTANCE;
-    }
-
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<DoubleClause>
-        PARSER = new com.google.protobuf.AbstractParser<DoubleClause>() {
-      @java.lang.Override
-      public DoubleClause parsePartialFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return new DoubleClause(input, extensionRegistry);
-      }
-    };
-
-    public static com.google.protobuf.Parser<DoubleClause> parser() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.google.protobuf.Parser<DoubleClause> getParserForType() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public org.mlflow.api.proto.Service.DoubleClause getDefaultInstanceForType() {
-      return DEFAULT_INSTANCE;
-    }
-
-  }
-
   public interface SearchRunsOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.SearchRuns)
       com.google.protobuf.MessageOrBuilder {
@@ -37125,72 +34726,13 @@ public final class Service {
 
     /**
      * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    java.util.List<org.mlflow.api.proto.Service.SearchExpression> 
-        getAndedExpressionsList();
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    org.mlflow.api.proto.Service.SearchExpression getAndedExpressions(int index);
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    int getAndedExpressionsCount();
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    java.util.List<? extends org.mlflow.api.proto.Service.SearchExpressionOrBuilder> 
-        getAndedExpressionsOrBuilderList();
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    org.mlflow.api.proto.Service.SearchExpressionOrBuilder getAndedExpressionsOrBuilder(
-        int index);
-
-    /**
-     * <pre>
-     * A filter expression over params, metrics, and tags, allowing returning a subset of
-     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-     * between a param/metric/tag and a constant.
+     * A filter expression over params, metrics, and tags, that allows returning a subset of
+     * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between a param, metric, or tag and a constant.
      * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-     * You can also select columns with spaces by using backticks or double quotes:
-     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
-     * error will be returned if both are specified.
-     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-     * will be returned.
+     * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+     * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+     * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -37198,18 +34740,13 @@ public final class Service {
     boolean hasFilter();
     /**
      * <pre>
-     * A filter expression over params, metrics, and tags, allowing returning a subset of
-     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-     * between a param/metric/tag and a constant.
+     * A filter expression over params, metrics, and tags, that allows returning a subset of
+     * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between a param, metric, or tag and a constant.
      * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-     * You can also select columns with spaces by using backticks or double quotes:
-     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
-     * error will be returned if both are specified.
-     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-     * will be returned.
+     * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+     * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+     * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -37217,18 +34754,13 @@ public final class Service {
     java.lang.String getFilter();
     /**
      * <pre>
-     * A filter expression over params, metrics, and tags, allowing returning a subset of
-     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-     * between a param/metric/tag and a constant.
+     * A filter expression over params, metrics, and tags, that allows returning a subset of
+     * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between a param, metric, or tag and a constant.
      * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-     * You can also select columns with spaces by using backticks or double quotes:
-     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
-     * error will be returned if both are specified.
-     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-     * will be returned.
+     * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+     * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+     * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -37271,6 +34803,71 @@ public final class Service {
      * <code>optional int32 max_results = 5 [default = 1000];</code>
      */
     int getMaxResults();
+
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    java.util.List<java.lang.String>
+        getOrderByList();
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    int getOrderByCount();
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    java.lang.String getOrderBy(int index);
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    com.google.protobuf.ByteString
+        getOrderByBytes(int index);
+
+    /**
+     * <code>optional string page_token = 7;</code>
+     */
+    boolean hasPageToken();
+    /**
+     * <code>optional string page_token = 7;</code>
+     */
+    java.lang.String getPageToken();
+    /**
+     * <code>optional string page_token = 7;</code>
+     */
+    com.google.protobuf.ByteString
+        getPageTokenBytes();
   }
   /**
    * Protobuf type {@code mlflow.SearchRuns}
@@ -37286,10 +34883,11 @@ public final class Service {
     }
     private SearchRuns() {
       experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      andedExpressions_ = java.util.Collections.emptyList();
       filter_ = "";
       runViewType_ = 1;
       maxResults_ = 1000;
+      orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      pageToken_ = "";
     }
 
     @java.lang.Override
@@ -37325,15 +34923,6 @@ public final class Service {
               experimentIds_.add(bs);
               break;
             }
-            case 18: {
-              if (!((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
-                andedExpressions_ = new java.util.ArrayList<org.mlflow.api.proto.Service.SearchExpression>();
-                mutable_bitField0_ |= 0x00000002;
-              }
-              andedExpressions_.add(
-                  input.readMessage(org.mlflow.api.proto.Service.SearchExpression.PARSER, extensionRegistry));
-              break;
-            }
             case 24: {
               int rawValue = input.readEnum();
                 @SuppressWarnings("deprecation")
@@ -37357,6 +34946,21 @@ public final class Service {
               maxResults_ = input.readInt32();
               break;
             }
+            case 50: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000010) == 0x00000010)) {
+                orderBy_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000010;
+              }
+              orderBy_.add(bs);
+              break;
+            }
+            case 58: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000008;
+              pageToken_ = bs;
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -37375,8 +34979,8 @@ public final class Service {
         if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
           experimentIds_ = experimentIds_.getUnmodifiableView();
         }
-        if (((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
-          andedExpressions_ = java.util.Collections.unmodifiableList(andedExpressions_);
+        if (((mutable_bitField0_ & 0x00000010) == 0x00000010)) {
+          orderBy_ = orderBy_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -37442,6 +35046,20 @@ public final class Service {
        */
       org.mlflow.api.proto.Service.RunOrBuilder getRunsOrBuilder(
           int index);
+
+      /**
+       * <code>optional string next_page_token = 2;</code>
+       */
+      boolean hasNextPageToken();
+      /**
+       * <code>optional string next_page_token = 2;</code>
+       */
+      java.lang.String getNextPageToken();
+      /**
+       * <code>optional string next_page_token = 2;</code>
+       */
+      com.google.protobuf.ByteString
+          getNextPageTokenBytes();
     }
     /**
      * Protobuf type {@code mlflow.SearchRuns.Response}
@@ -37457,6 +35075,7 @@ public final class Service {
       }
       private Response() {
         runs_ = java.util.Collections.emptyList();
+        nextPageToken_ = "";
       }
 
       @java.lang.Override
@@ -37490,6 +35109,12 @@ public final class Service {
                 }
                 runs_.add(
                     input.readMessage(org.mlflow.api.proto.Service.Run.PARSER, extensionRegistry));
+                break;
+              }
+              case 18: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000001;
+                nextPageToken_ = bs;
                 break;
               }
               default: {
@@ -37527,6 +35152,7 @@ public final class Service {
                 org.mlflow.api.proto.Service.SearchRuns.Response.class, org.mlflow.api.proto.Service.SearchRuns.Response.Builder.class);
       }
 
+      private int bitField0_;
       public static final int RUNS_FIELD_NUMBER = 1;
       private java.util.List<org.mlflow.api.proto.Service.Run> runs_;
       /**
@@ -37582,6 +35208,48 @@ public final class Service {
         return runs_.get(index);
       }
 
+      public static final int NEXT_PAGE_TOKEN_FIELD_NUMBER = 2;
+      private volatile java.lang.Object nextPageToken_;
+      /**
+       * <code>optional string next_page_token = 2;</code>
+       */
+      public boolean hasNextPageToken() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <code>optional string next_page_token = 2;</code>
+       */
+      public java.lang.String getNextPageToken() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            nextPageToken_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <code>optional string next_page_token = 2;</code>
+       */
+      public com.google.protobuf.ByteString
+          getNextPageTokenBytes() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          nextPageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
       private byte memoizedIsInitialized = -1;
       @java.lang.Override
       public final boolean isInitialized() {
@@ -37599,6 +35267,9 @@ public final class Service {
         for (int i = 0; i < runs_.size(); i++) {
           output.writeMessage(1, runs_.get(i));
         }
+        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 2, nextPageToken_);
+        }
         unknownFields.writeTo(output);
       }
 
@@ -37611,6 +35282,9 @@ public final class Service {
         for (int i = 0; i < runs_.size(); i++) {
           size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(1, runs_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, nextPageToken_);
         }
         size += unknownFields.getSerializedSize();
         memoizedSize = size;
@@ -37630,6 +35304,11 @@ public final class Service {
         boolean result = true;
         result = result && getRunsList()
             .equals(other.getRunsList());
+        result = result && (hasNextPageToken() == other.hasNextPageToken());
+        if (hasNextPageToken()) {
+          result = result && getNextPageToken()
+              .equals(other.getNextPageToken());
+        }
         result = result && unknownFields.equals(other.unknownFields);
         return result;
       }
@@ -37644,6 +35323,10 @@ public final class Service {
         if (getRunsCount() > 0) {
           hash = (37 * hash) + RUNS_FIELD_NUMBER;
           hash = (53 * hash) + getRunsList().hashCode();
+        }
+        if (hasNextPageToken()) {
+          hash = (37 * hash) + NEXT_PAGE_TOKEN_FIELD_NUMBER;
+          hash = (53 * hash) + getNextPageToken().hashCode();
         }
         hash = (29 * hash) + unknownFields.hashCode();
         memoizedHashCode = hash;
@@ -37785,6 +35468,8 @@ public final class Service {
           } else {
             runsBuilder_.clear();
           }
+          nextPageToken_ = "";
+          bitField0_ = (bitField0_ & ~0x00000002);
           return this;
         }
 
@@ -37812,6 +35497,7 @@ public final class Service {
         public org.mlflow.api.proto.Service.SearchRuns.Response buildPartial() {
           org.mlflow.api.proto.Service.SearchRuns.Response result = new org.mlflow.api.proto.Service.SearchRuns.Response(this);
           int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
           if (runsBuilder_ == null) {
             if (((bitField0_ & 0x00000001) == 0x00000001)) {
               runs_ = java.util.Collections.unmodifiableList(runs_);
@@ -37821,6 +35507,11 @@ public final class Service {
           } else {
             result.runs_ = runsBuilder_.build();
           }
+          if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+            to_bitField0_ |= 0x00000001;
+          }
+          result.nextPageToken_ = nextPageToken_;
+          result.bitField0_ = to_bitField0_;
           onBuilt();
           return result;
         }
@@ -37894,6 +35585,11 @@ public final class Service {
                 runsBuilder_.addAllMessages(other.runs_);
               }
             }
+          }
+          if (other.hasNextPageToken()) {
+            bitField0_ |= 0x00000002;
+            nextPageToken_ = other.nextPageToken_;
+            onChanged();
           }
           this.mergeUnknownFields(other.unknownFields);
           onChanged();
@@ -38236,6 +35932,82 @@ public final class Service {
           }
           return runsBuilder_;
         }
+
+        private java.lang.Object nextPageToken_ = "";
+        /**
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public boolean hasNextPageToken() {
+          return ((bitField0_ & 0x00000002) == 0x00000002);
+        }
+        /**
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public java.lang.String getNextPageToken() {
+          java.lang.Object ref = nextPageToken_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              nextPageToken_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public com.google.protobuf.ByteString
+            getNextPageTokenBytes() {
+          java.lang.Object ref = nextPageToken_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            nextPageToken_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public Builder setNextPageToken(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public Builder clearNextPageToken() {
+          bitField0_ = (bitField0_ & ~0x00000002);
+          nextPageToken_ = getDefaultInstance().getNextPageToken();
+          onChanged();
+          return this;
+        }
+        /**
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public Builder setNextPageTokenBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
         @java.lang.Override
         public final Builder setUnknownFields(
             final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -38335,87 +36107,17 @@ public final class Service {
       return experimentIds_.getByteString(index);
     }
 
-    public static final int ANDED_EXPRESSIONS_FIELD_NUMBER = 2;
-    private java.util.List<org.mlflow.api.proto.Service.SearchExpression> andedExpressions_;
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    public java.util.List<org.mlflow.api.proto.Service.SearchExpression> getAndedExpressionsList() {
-      return andedExpressions_;
-    }
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    public java.util.List<? extends org.mlflow.api.proto.Service.SearchExpressionOrBuilder> 
-        getAndedExpressionsOrBuilderList() {
-      return andedExpressions_;
-    }
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    public int getAndedExpressionsCount() {
-      return andedExpressions_.size();
-    }
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.SearchExpression getAndedExpressions(int index) {
-      return andedExpressions_.get(index);
-    }
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.SearchExpressionOrBuilder getAndedExpressionsOrBuilder(
-        int index) {
-      return andedExpressions_.get(index);
-    }
-
     public static final int FILTER_FIELD_NUMBER = 4;
     private volatile java.lang.Object filter_;
     /**
      * <pre>
-     * A filter expression over params, metrics, and tags, allowing returning a subset of
-     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-     * between a param/metric/tag and a constant.
+     * A filter expression over params, metrics, and tags, that allows returning a subset of
+     * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between a param, metric, or tag and a constant.
      * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-     * You can also select columns with spaces by using backticks or double quotes:
-     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
-     * error will be returned if both are specified.
-     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-     * will be returned.
+     * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+     * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+     * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -38425,18 +36127,13 @@ public final class Service {
     }
     /**
      * <pre>
-     * A filter expression over params, metrics, and tags, allowing returning a subset of
-     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-     * between a param/metric/tag and a constant.
+     * A filter expression over params, metrics, and tags, that allows returning a subset of
+     * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between a param, metric, or tag and a constant.
      * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-     * You can also select columns with spaces by using backticks or double quotes:
-     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
-     * error will be returned if both are specified.
-     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-     * will be returned.
+     * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+     * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+     * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -38457,18 +36154,13 @@ public final class Service {
     }
     /**
      * <pre>
-     * A filter expression over params, metrics, and tags, allowing returning a subset of
-     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-     * between a param/metric/tag and a constant.
+     * A filter expression over params, metrics, and tags, that allows returning a subset of
+     * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between a param, metric, or tag and a constant.
      * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-     * You can also select columns with spaces by using backticks or double quotes:
-     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
-     * error will be returned if both are specified.
-     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-     * will be returned.
+     * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+     * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+     * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -38537,6 +36229,109 @@ public final class Service {
       return maxResults_;
     }
 
+    public static final int ORDER_BY_FIELD_NUMBER = 6;
+    private com.google.protobuf.LazyStringList orderBy_;
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    public com.google.protobuf.ProtocolStringList
+        getOrderByList() {
+      return orderBy_;
+    }
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    public int getOrderByCount() {
+      return orderBy_.size();
+    }
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    public java.lang.String getOrderBy(int index) {
+      return orderBy_.get(index);
+    }
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    public com.google.protobuf.ByteString
+        getOrderByBytes(int index) {
+      return orderBy_.getByteString(index);
+    }
+
+    public static final int PAGE_TOKEN_FIELD_NUMBER = 7;
+    private volatile java.lang.Object pageToken_;
+    /**
+     * <code>optional string page_token = 7;</code>
+     */
+    public boolean hasPageToken() {
+      return ((bitField0_ & 0x00000008) == 0x00000008);
+    }
+    /**
+     * <code>optional string page_token = 7;</code>
+     */
+    public java.lang.String getPageToken() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          pageToken_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string page_token = 7;</code>
+     */
+    public com.google.protobuf.ByteString
+        getPageTokenBytes() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        pageToken_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -38554,9 +36349,6 @@ public final class Service {
       for (int i = 0; i < experimentIds_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentIds_.getRaw(i));
       }
-      for (int i = 0; i < andedExpressions_.size(); i++) {
-        output.writeMessage(2, andedExpressions_.get(i));
-      }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         output.writeEnum(3, runViewType_);
       }
@@ -38565,6 +36357,12 @@ public final class Service {
       }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
         output.writeInt32(5, maxResults_);
+      }
+      for (int i = 0; i < orderBy_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, orderBy_.getRaw(i));
+      }
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, pageToken_);
       }
       unknownFields.writeTo(output);
     }
@@ -38583,10 +36381,6 @@ public final class Service {
         size += dataSize;
         size += 1 * getExperimentIdsList().size();
       }
-      for (int i = 0; i < andedExpressions_.size(); i++) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(2, andedExpressions_.get(i));
-      }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.CodedOutputStream
           .computeEnumSize(3, runViewType_);
@@ -38597,6 +36391,17 @@ public final class Service {
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt32Size(5, maxResults_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < orderBy_.size(); i++) {
+          dataSize += computeStringSizeNoTag(orderBy_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getOrderByList().size();
+      }
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, pageToken_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -38616,8 +36421,6 @@ public final class Service {
       boolean result = true;
       result = result && getExperimentIdsList()
           .equals(other.getExperimentIdsList());
-      result = result && getAndedExpressionsList()
-          .equals(other.getAndedExpressionsList());
       result = result && (hasFilter() == other.hasFilter());
       if (hasFilter()) {
         result = result && getFilter()
@@ -38631,6 +36434,13 @@ public final class Service {
       if (hasMaxResults()) {
         result = result && (getMaxResults()
             == other.getMaxResults());
+      }
+      result = result && getOrderByList()
+          .equals(other.getOrderByList());
+      result = result && (hasPageToken() == other.hasPageToken());
+      if (hasPageToken()) {
+        result = result && getPageToken()
+            .equals(other.getPageToken());
       }
       result = result && unknownFields.equals(other.unknownFields);
       return result;
@@ -38647,10 +36457,6 @@ public final class Service {
         hash = (37 * hash) + EXPERIMENT_IDS_FIELD_NUMBER;
         hash = (53 * hash) + getExperimentIdsList().hashCode();
       }
-      if (getAndedExpressionsCount() > 0) {
-        hash = (37 * hash) + ANDED_EXPRESSIONS_FIELD_NUMBER;
-        hash = (53 * hash) + getAndedExpressionsList().hashCode();
-      }
       if (hasFilter()) {
         hash = (37 * hash) + FILTER_FIELD_NUMBER;
         hash = (53 * hash) + getFilter().hashCode();
@@ -38662,6 +36468,14 @@ public final class Service {
       if (hasMaxResults()) {
         hash = (37 * hash) + MAX_RESULTS_FIELD_NUMBER;
         hash = (53 * hash) + getMaxResults();
+      }
+      if (getOrderByCount() > 0) {
+        hash = (37 * hash) + ORDER_BY_FIELD_NUMBER;
+        hash = (53 * hash) + getOrderByList().hashCode();
+      }
+      if (hasPageToken()) {
+        hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
+        hash = (53 * hash) + getPageToken().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -38791,7 +36605,6 @@ public final class Service {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
-          getAndedExpressionsFieldBuilder();
         }
       }
       @java.lang.Override
@@ -38799,18 +36612,16 @@ public final class Service {
         super.clear();
         experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000001);
-        if (andedExpressionsBuilder_ == null) {
-          andedExpressions_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000002);
-        } else {
-          andedExpressionsBuilder_.clear();
-        }
         filter_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         runViewType_ = 1;
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         maxResults_ = 1000;
+        bitField0_ = (bitField0_ & ~0x00000008);
+        orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000010);
+        pageToken_ = "";
+        bitField0_ = (bitField0_ & ~0x00000020);
         return this;
       }
 
@@ -38844,27 +36655,27 @@ public final class Service {
           bitField0_ = (bitField0_ & ~0x00000001);
         }
         result.experimentIds_ = experimentIds_;
-        if (andedExpressionsBuilder_ == null) {
-          if (((bitField0_ & 0x00000002) == 0x00000002)) {
-            andedExpressions_ = java.util.Collections.unmodifiableList(andedExpressions_);
-            bitField0_ = (bitField0_ & ~0x00000002);
-          }
-          result.andedExpressions_ = andedExpressions_;
-        } else {
-          result.andedExpressions_ = andedExpressionsBuilder_.build();
-        }
-        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
           to_bitField0_ |= 0x00000001;
         }
         result.filter_ = filter_;
-        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
+        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000002;
         }
         result.runViewType_ = runViewType_;
-        if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
+        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
           to_bitField0_ |= 0x00000004;
         }
         result.maxResults_ = maxResults_;
+        if (((bitField0_ & 0x00000010) == 0x00000010)) {
+          orderBy_ = orderBy_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000010);
+        }
+        result.orderBy_ = orderBy_;
+        if (((from_bitField0_ & 0x00000020) == 0x00000020)) {
+          to_bitField0_ |= 0x00000008;
+        }
+        result.pageToken_ = pageToken_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -38924,34 +36735,8 @@ public final class Service {
           }
           onChanged();
         }
-        if (andedExpressionsBuilder_ == null) {
-          if (!other.andedExpressions_.isEmpty()) {
-            if (andedExpressions_.isEmpty()) {
-              andedExpressions_ = other.andedExpressions_;
-              bitField0_ = (bitField0_ & ~0x00000002);
-            } else {
-              ensureAndedExpressionsIsMutable();
-              andedExpressions_.addAll(other.andedExpressions_);
-            }
-            onChanged();
-          }
-        } else {
-          if (!other.andedExpressions_.isEmpty()) {
-            if (andedExpressionsBuilder_.isEmpty()) {
-              andedExpressionsBuilder_.dispose();
-              andedExpressionsBuilder_ = null;
-              andedExpressions_ = other.andedExpressions_;
-              bitField0_ = (bitField0_ & ~0x00000002);
-              andedExpressionsBuilder_ = 
-                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
-                   getAndedExpressionsFieldBuilder() : null;
-            } else {
-              andedExpressionsBuilder_.addAllMessages(other.andedExpressions_);
-            }
-          }
-        }
         if (other.hasFilter()) {
-          bitField0_ |= 0x00000004;
+          bitField0_ |= 0x00000002;
           filter_ = other.filter_;
           onChanged();
         }
@@ -38960,6 +36745,21 @@ public final class Service {
         }
         if (other.hasMaxResults()) {
           setMaxResults(other.getMaxResults());
+        }
+        if (!other.orderBy_.isEmpty()) {
+          if (orderBy_.isEmpty()) {
+            orderBy_ = other.orderBy_;
+            bitField0_ = (bitField0_ & ~0x00000010);
+          } else {
+            ensureOrderByIsMutable();
+            orderBy_.addAll(other.orderBy_);
+          }
+          onChanged();
+        }
+        if (other.hasPageToken()) {
+          bitField0_ |= 0x00000020;
+          pageToken_ = other.pageToken_;
+          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -39120,390 +36920,32 @@ public final class Service {
         return this;
       }
 
-      private java.util.List<org.mlflow.api.proto.Service.SearchExpression> andedExpressions_ =
-        java.util.Collections.emptyList();
-      private void ensureAndedExpressionsIsMutable() {
-        if (!((bitField0_ & 0x00000002) == 0x00000002)) {
-          andedExpressions_ = new java.util.ArrayList<org.mlflow.api.proto.Service.SearchExpression>(andedExpressions_);
-          bitField0_ |= 0x00000002;
-         }
-      }
-
-      private com.google.protobuf.RepeatedFieldBuilderV3<
-          org.mlflow.api.proto.Service.SearchExpression, org.mlflow.api.proto.Service.SearchExpression.Builder, org.mlflow.api.proto.Service.SearchExpressionOrBuilder> andedExpressionsBuilder_;
-
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public java.util.List<org.mlflow.api.proto.Service.SearchExpression> getAndedExpressionsList() {
-        if (andedExpressionsBuilder_ == null) {
-          return java.util.Collections.unmodifiableList(andedExpressions_);
-        } else {
-          return andedExpressionsBuilder_.getMessageList();
-        }
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public int getAndedExpressionsCount() {
-        if (andedExpressionsBuilder_ == null) {
-          return andedExpressions_.size();
-        } else {
-          return andedExpressionsBuilder_.getCount();
-        }
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.SearchExpression getAndedExpressions(int index) {
-        if (andedExpressionsBuilder_ == null) {
-          return andedExpressions_.get(index);
-        } else {
-          return andedExpressionsBuilder_.getMessage(index);
-        }
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder setAndedExpressions(
-          int index, org.mlflow.api.proto.Service.SearchExpression value) {
-        if (andedExpressionsBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.set(index, value);
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.setMessage(index, value);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder setAndedExpressions(
-          int index, org.mlflow.api.proto.Service.SearchExpression.Builder builderForValue) {
-        if (andedExpressionsBuilder_ == null) {
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.set(index, builderForValue.build());
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.setMessage(index, builderForValue.build());
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder addAndedExpressions(org.mlflow.api.proto.Service.SearchExpression value) {
-        if (andedExpressionsBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.add(value);
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.addMessage(value);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder addAndedExpressions(
-          int index, org.mlflow.api.proto.Service.SearchExpression value) {
-        if (andedExpressionsBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.add(index, value);
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.addMessage(index, value);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder addAndedExpressions(
-          org.mlflow.api.proto.Service.SearchExpression.Builder builderForValue) {
-        if (andedExpressionsBuilder_ == null) {
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.add(builderForValue.build());
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.addMessage(builderForValue.build());
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder addAndedExpressions(
-          int index, org.mlflow.api.proto.Service.SearchExpression.Builder builderForValue) {
-        if (andedExpressionsBuilder_ == null) {
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.add(index, builderForValue.build());
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.addMessage(index, builderForValue.build());
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder addAllAndedExpressions(
-          java.lang.Iterable<? extends org.mlflow.api.proto.Service.SearchExpression> values) {
-        if (andedExpressionsBuilder_ == null) {
-          ensureAndedExpressionsIsMutable();
-          com.google.protobuf.AbstractMessageLite.Builder.addAll(
-              values, andedExpressions_);
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.addAllMessages(values);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder clearAndedExpressions() {
-        if (andedExpressionsBuilder_ == null) {
-          andedExpressions_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000002);
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.clear();
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder removeAndedExpressions(int index) {
-        if (andedExpressionsBuilder_ == null) {
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.remove(index);
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.remove(index);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.SearchExpression.Builder getAndedExpressionsBuilder(
-          int index) {
-        return getAndedExpressionsFieldBuilder().getBuilder(index);
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.SearchExpressionOrBuilder getAndedExpressionsOrBuilder(
-          int index) {
-        if (andedExpressionsBuilder_ == null) {
-          return andedExpressions_.get(index);  } else {
-          return andedExpressionsBuilder_.getMessageOrBuilder(index);
-        }
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public java.util.List<? extends org.mlflow.api.proto.Service.SearchExpressionOrBuilder> 
-           getAndedExpressionsOrBuilderList() {
-        if (andedExpressionsBuilder_ != null) {
-          return andedExpressionsBuilder_.getMessageOrBuilderList();
-        } else {
-          return java.util.Collections.unmodifiableList(andedExpressions_);
-        }
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.SearchExpression.Builder addAndedExpressionsBuilder() {
-        return getAndedExpressionsFieldBuilder().addBuilder(
-            org.mlflow.api.proto.Service.SearchExpression.getDefaultInstance());
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.SearchExpression.Builder addAndedExpressionsBuilder(
-          int index) {
-        return getAndedExpressionsFieldBuilder().addBuilder(
-            index, org.mlflow.api.proto.Service.SearchExpression.getDefaultInstance());
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public java.util.List<org.mlflow.api.proto.Service.SearchExpression.Builder> 
-           getAndedExpressionsBuilderList() {
-        return getAndedExpressionsFieldBuilder().getBuilderList();
-      }
-      private com.google.protobuf.RepeatedFieldBuilderV3<
-          org.mlflow.api.proto.Service.SearchExpression, org.mlflow.api.proto.Service.SearchExpression.Builder, org.mlflow.api.proto.Service.SearchExpressionOrBuilder> 
-          getAndedExpressionsFieldBuilder() {
-        if (andedExpressionsBuilder_ == null) {
-          andedExpressionsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-              org.mlflow.api.proto.Service.SearchExpression, org.mlflow.api.proto.Service.SearchExpression.Builder, org.mlflow.api.proto.Service.SearchExpressionOrBuilder>(
-                  andedExpressions_,
-                  ((bitField0_ & 0x00000002) == 0x00000002),
-                  getParentForChildren(),
-                  isClean());
-          andedExpressions_ = null;
-        }
-        return andedExpressionsBuilder_;
-      }
-
       private java.lang.Object filter_ = "";
       /**
        * <pre>
-       * A filter expression over params, metrics, and tags, allowing returning a subset of
-       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-       * between a param/metric/tag and a constant.
+       * A filter expression over params, metrics, and tags, that allows returning a subset of
+       * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between a param, metric, or tag and a constant.
        * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-       * You can also select columns with spaces by using backticks or double quotes:
-       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
-       * error will be returned if both are specified.
-       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-       * will be returned.
+       * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+       * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+       * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
        * </pre>
        *
        * <code>optional string filter = 4;</code>
        */
       public boolean hasFilter() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       /**
        * <pre>
-       * A filter expression over params, metrics, and tags, allowing returning a subset of
-       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-       * between a param/metric/tag and a constant.
+       * A filter expression over params, metrics, and tags, that allows returning a subset of
+       * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between a param, metric, or tag and a constant.
        * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-       * You can also select columns with spaces by using backticks or double quotes:
-       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
-       * error will be returned if both are specified.
-       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-       * will be returned.
+       * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+       * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+       * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -39524,18 +36966,13 @@ public final class Service {
       }
       /**
        * <pre>
-       * A filter expression over params, metrics, and tags, allowing returning a subset of
-       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-       * between a param/metric/tag and a constant.
+       * A filter expression over params, metrics, and tags, that allows returning a subset of
+       * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between a param, metric, or tag and a constant.
        * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-       * You can also select columns with spaces by using backticks or double quotes:
-       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
-       * error will be returned if both are specified.
-       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-       * will be returned.
+       * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+       * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+       * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -39555,18 +36992,13 @@ public final class Service {
       }
       /**
        * <pre>
-       * A filter expression over params, metrics, and tags, allowing returning a subset of
-       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-       * between a param/metric/tag and a constant.
+       * A filter expression over params, metrics, and tags, that allows returning a subset of
+       * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between a param, metric, or tag and a constant.
        * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-       * You can also select columns with spaces by using backticks or double quotes:
-       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
-       * error will be returned if both are specified.
-       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-       * will be returned.
+       * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+       * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+       * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -39576,49 +37008,39 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000002;
         filter_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * A filter expression over params, metrics, and tags, allowing returning a subset of
-       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-       * between a param/metric/tag and a constant.
+       * A filter expression over params, metrics, and tags, that allows returning a subset of
+       * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between a param, metric, or tag and a constant.
        * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-       * You can also select columns with spaces by using backticks or double quotes:
-       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
-       * error will be returned if both are specified.
-       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-       * will be returned.
+       * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+       * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+       * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
        * </pre>
        *
        * <code>optional string filter = 4;</code>
        */
       public Builder clearFilter() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         filter_ = getDefaultInstance().getFilter();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * A filter expression over params, metrics, and tags, allowing returning a subset of
-       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-       * between a param/metric/tag and a constant.
+       * A filter expression over params, metrics, and tags, that allows returning a subset of
+       * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between a param, metric, or tag and a constant.
        * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-       * You can also select columns with spaces by using backticks or double quotes:
-       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
-       * error will be returned if both are specified.
-       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-       * will be returned.
+       * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+       * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+       * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -39628,7 +37050,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000002;
         filter_ = value;
         onChanged();
         return this;
@@ -39644,7 +37066,7 @@ public final class Service {
        * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
        */
       public boolean hasRunViewType() {
-        return ((bitField0_ & 0x00000008) == 0x00000008);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <pre>
@@ -39671,7 +37093,7 @@ public final class Service {
         if (value == null) {
           throw new NullPointerException();
         }
-        bitField0_ |= 0x00000008;
+        bitField0_ |= 0x00000004;
         runViewType_ = value.getNumber();
         onChanged();
         return this;
@@ -39685,7 +37107,7 @@ public final class Service {
        * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
        */
       public Builder clearRunViewType() {
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         runViewType_ = 1;
         onChanged();
         return this;
@@ -39700,7 +37122,7 @@ public final class Service {
        * <code>optional int32 max_results = 5 [default = 1000];</code>
        */
       public boolean hasMaxResults() {
-        return ((bitField0_ & 0x00000010) == 0x00000010);
+        return ((bitField0_ & 0x00000008) == 0x00000008);
       }
       /**
        * <pre>
@@ -39720,7 +37142,7 @@ public final class Service {
        * <code>optional int32 max_results = 5 [default = 1000];</code>
        */
       public Builder setMaxResults(int value) {
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000008;
         maxResults_ = value;
         onChanged();
         return this;
@@ -39733,8 +37155,249 @@ public final class Service {
        * <code>optional int32 max_results = 5 [default = 1000];</code>
        */
       public Builder clearMaxResults() {
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         maxResults_ = 1000;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureOrderByIsMutable() {
+        if (!((bitField0_ & 0x00000010) == 0x00000010)) {
+          orderBy_ = new com.google.protobuf.LazyStringArrayList(orderBy_);
+          bitField0_ |= 0x00000010;
+         }
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public com.google.protobuf.ProtocolStringList
+          getOrderByList() {
+        return orderBy_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public int getOrderByCount() {
+        return orderBy_.size();
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public java.lang.String getOrderBy(int index) {
+        return orderBy_.get(index);
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public com.google.protobuf.ByteString
+          getOrderByBytes(int index) {
+        return orderBy_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public Builder setOrderBy(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public Builder addOrderBy(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public Builder addAllOrderBy(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureOrderByIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, orderBy_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public Builder clearOrderBy() {
+        orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000010);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public Builder addOrderByBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.add(value);
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object pageToken_ = "";
+      /**
+       * <code>optional string page_token = 7;</code>
+       */
+      public boolean hasPageToken() {
+        return ((bitField0_ & 0x00000020) == 0x00000020);
+      }
+      /**
+       * <code>optional string page_token = 7;</code>
+       */
+      public java.lang.String getPageToken() {
+        java.lang.Object ref = pageToken_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            pageToken_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string page_token = 7;</code>
+       */
+      public com.google.protobuf.ByteString
+          getPageTokenBytes() {
+        java.lang.Object ref = pageToken_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          pageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string page_token = 7;</code>
+       */
+      public Builder setPageToken(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000020;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string page_token = 7;</code>
+       */
+      public Builder clearPageToken() {
+        bitField0_ = (bitField0_ & ~0x00000020);
+        pageToken_ = getDefaultInstance().getPageToken();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string page_token = 7;</code>
+       */
+      public Builder setPageTokenBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000020;
+        pageToken_ = value;
         onChanged();
         return this;
       }
@@ -39797,7 +37460,34 @@ public final class Service {
 
     /**
      * <pre>
-     * ID of the run whose artifacts to list.
+     * ID of the run whose artifacts to list. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 3;</code>
+     */
+    boolean hasRunId();
+    /**
+     * <pre>
+     * ID of the run whose artifacts to list. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 3;</code>
+     */
+    java.lang.String getRunId();
+    /**
+     * <pre>
+     * ID of the run whose artifacts to list. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 3;</code>
+     */
+    com.google.protobuf.ByteString
+        getRunIdBytes();
+
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
      * <code>optional string run_uuid = 1;</code>
@@ -39805,7 +37495,8 @@ public final class Service {
     boolean hasRunUuid();
     /**
      * <pre>
-     * ID of the run whose artifacts to list.
+     * [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
      * <code>optional string run_uuid = 1;</code>
@@ -39813,7 +37504,8 @@ public final class Service {
     java.lang.String getRunUuid();
     /**
      * <pre>
-     * ID of the run whose artifacts to list.
+     * [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
      * <code>optional string run_uuid = 1;</code>
@@ -39860,6 +37552,7 @@ public final class Service {
       super(builder);
     }
     private ListArtifacts() {
+      runId_ = "";
       runUuid_ = "";
       path_ = "";
     }
@@ -39890,14 +37583,20 @@ public final class Service {
               break;
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
+              bitField0_ |= 0x00000002;
               runUuid_ = bs;
               break;
             }
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
+              bitField0_ |= 0x00000004;
               path_ = bs;
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              runId_ = bs;
               break;
             }
             default: {
@@ -41043,21 +38742,77 @@ public final class Service {
     }
 
     private int bitField0_;
+    public static final int RUN_ID_FIELD_NUMBER = 3;
+    private volatile java.lang.Object runId_;
+    /**
+     * <pre>
+     * ID of the run whose artifacts to list. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 3;</code>
+     */
+    public boolean hasRunId() {
+      return ((bitField0_ & 0x00000001) == 0x00000001);
+    }
+    /**
+     * <pre>
+     * ID of the run whose artifacts to list. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 3;</code>
+     */
+    public java.lang.String getRunId() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the run whose artifacts to list. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 3;</code>
+     */
+    public com.google.protobuf.ByteString
+        getRunIdBytes() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     public static final int RUN_UUID_FIELD_NUMBER = 1;
     private volatile java.lang.Object runUuid_;
     /**
      * <pre>
-     * ID of the run whose artifacts to list.
+     * [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
      * <code>optional string run_uuid = 1;</code>
      */
     public boolean hasRunUuid() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+      return ((bitField0_ & 0x00000002) == 0x00000002);
     }
     /**
      * <pre>
-     * ID of the run whose artifacts to list.
+     * [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
      * <code>optional string run_uuid = 1;</code>
@@ -41078,7 +38833,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * ID of the run whose artifacts to list.
+     * [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+     * be removed in a future MLflow version.
      * </pre>
      *
      * <code>optional string run_uuid = 1;</code>
@@ -41107,7 +38863,7 @@ public final class Service {
      * <code>optional string path = 2;</code>
      */
     public boolean hasPath() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     /**
      * <pre>
@@ -41165,11 +38921,14 @@ public final class Service {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, path_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, runId_);
       }
       unknownFields.writeTo(output);
     }
@@ -41180,11 +38939,14 @@ public final class Service {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, path_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, runId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -41202,6 +38964,11 @@ public final class Service {
       org.mlflow.api.proto.Service.ListArtifacts other = (org.mlflow.api.proto.Service.ListArtifacts) obj;
 
       boolean result = true;
+      result = result && (hasRunId() == other.hasRunId());
+      if (hasRunId()) {
+        result = result && getRunId()
+            .equals(other.getRunId());
+      }
       result = result && (hasRunUuid() == other.hasRunUuid());
       if (hasRunUuid()) {
         result = result && getRunUuid()
@@ -41223,6 +38990,10 @@ public final class Service {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasRunId()) {
+        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRunId().hashCode();
+      }
       if (hasRunUuid()) {
         hash = (37 * hash) + RUN_UUID_FIELD_NUMBER;
         hash = (53 * hash) + getRunUuid().hashCode();
@@ -41364,10 +39135,12 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        runUuid_ = "";
+        runId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        path_ = "";
+        runUuid_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
+        path_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
         return this;
       }
 
@@ -41399,9 +39172,13 @@ public final class Service {
         if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
           to_bitField0_ |= 0x00000001;
         }
-        result.runUuid_ = runUuid_;
+        result.runId_ = runId_;
         if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
           to_bitField0_ |= 0x00000002;
+        }
+        result.runUuid_ = runUuid_;
+        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+          to_bitField0_ |= 0x00000004;
         }
         result.path_ = path_;
         result.bitField0_ = to_bitField0_;
@@ -41453,13 +39230,18 @@ public final class Service {
 
       public Builder mergeFrom(org.mlflow.api.proto.Service.ListArtifacts other) {
         if (other == org.mlflow.api.proto.Service.ListArtifacts.getDefaultInstance()) return this;
-        if (other.hasRunUuid()) {
+        if (other.hasRunId()) {
           bitField0_ |= 0x00000001;
+          runId_ = other.runId_;
+          onChanged();
+        }
+        if (other.hasRunUuid()) {
+          bitField0_ |= 0x00000002;
           runUuid_ = other.runUuid_;
           onChanged();
         }
         if (other.hasPath()) {
-          bitField0_ |= 0x00000002;
+          bitField0_ |= 0x00000004;
           path_ = other.path_;
           onChanged();
         }
@@ -41493,20 +39275,122 @@ public final class Service {
       }
       private int bitField0_;
 
+      private java.lang.Object runId_ = "";
+      /**
+       * <pre>
+       * ID of the run whose artifacts to list. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 3;</code>
+       */
+      public boolean hasRunId() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <pre>
+       * ID of the run whose artifacts to list. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 3;</code>
+       */
+      public java.lang.String getRunId() {
+        java.lang.Object ref = runId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run whose artifacts to list. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 3;</code>
+       */
+      public com.google.protobuf.ByteString
+          getRunIdBytes() {
+        java.lang.Object ref = runId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run whose artifacts to list. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 3;</code>
+       */
+      public Builder setRunId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run whose artifacts to list. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 3;</code>
+       */
+      public Builder clearRunId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        runId_ = getDefaultInstance().getRunId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run whose artifacts to list. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 3;</code>
+       */
+      public Builder setRunIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+
       private java.lang.Object runUuid_ = "";
       /**
        * <pre>
-       * ID of the run whose artifacts to list.
+       * [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
        * <code>optional string run_uuid = 1;</code>
        */
       public boolean hasRunUuid() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       /**
        * <pre>
-       * ID of the run whose artifacts to list.
+       * [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
        * <code>optional string run_uuid = 1;</code>
@@ -41527,7 +39411,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run whose artifacts to list.
+       * [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
        * <code>optional string run_uuid = 1;</code>
@@ -41547,7 +39432,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run whose artifacts to list.
+       * [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
        * <code>optional string run_uuid = 1;</code>
@@ -41557,27 +39443,29 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run whose artifacts to list.
+       * [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
        * <code>optional string run_uuid = 1;</code>
        */
       public Builder clearRunUuid() {
-        bitField0_ = (bitField0_ & ~0x00000001);
+        bitField0_ = (bitField0_ & ~0x00000002);
         runUuid_ = getDefaultInstance().getRunUuid();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run whose artifacts to list.
+       * [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+       * be removed in a future MLflow version.
        * </pre>
        *
        * <code>optional string run_uuid = 1;</code>
@@ -41587,7 +39475,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
@@ -41602,7 +39490,7 @@ public final class Service {
        * <code>optional string path = 2;</code>
        */
       public boolean hasPath() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <pre>
@@ -41657,7 +39545,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000002;
+  bitField0_ |= 0x00000004;
         path_ = value;
         onChanged();
         return this;
@@ -41670,7 +39558,7 @@ public final class Service {
        * <code>optional string path = 2;</code>
        */
       public Builder clearPath() {
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000004);
         path_ = getDefaultInstance().getPath();
         onChanged();
         return this;
@@ -41687,7 +39575,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000002;
+  bitField0_ |= 0x00000004;
         path_ = value;
         onChanged();
         return this;
@@ -42624,1298 +40512,61 @@ public final class Service {
 
   }
 
-  public interface GetArtifactOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.GetArtifact)
-      com.google.protobuf.MessageOrBuilder {
-
-    /**
-     * <pre>
-     * ID of the run from which to fetch the artifact.
-     * </pre>
-     *
-     * <code>optional string run_uuid = 1;</code>
-     */
-    boolean hasRunUuid();
-    /**
-     * <pre>
-     * ID of the run from which to fetch the artifact.
-     * </pre>
-     *
-     * <code>optional string run_uuid = 1;</code>
-     */
-    java.lang.String getRunUuid();
-    /**
-     * <pre>
-     * ID of the run from which to fetch the artifact.
-     * </pre>
-     *
-     * <code>optional string run_uuid = 1;</code>
-     */
-    com.google.protobuf.ByteString
-        getRunUuidBytes();
-
-    /**
-     * <pre>
-     * Path of the artifact to fetch (relative to the root artifact directory for the run).
-     * </pre>
-     *
-     * <code>optional string path = 2;</code>
-     */
-    boolean hasPath();
-    /**
-     * <pre>
-     * Path of the artifact to fetch (relative to the root artifact directory for the run).
-     * </pre>
-     *
-     * <code>optional string path = 2;</code>
-     */
-    java.lang.String getPath();
-    /**
-     * <pre>
-     * Path of the artifact to fetch (relative to the root artifact directory for the run).
-     * </pre>
-     *
-     * <code>optional string path = 2;</code>
-     */
-    com.google.protobuf.ByteString
-        getPathBytes();
-  }
-  /**
-   * Protobuf type {@code mlflow.GetArtifact}
-   */
-  public  static final class GetArtifact extends
-      com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.GetArtifact)
-      GetArtifactOrBuilder {
-  private static final long serialVersionUID = 0L;
-    // Use GetArtifact.newBuilder() to construct.
-    private GetArtifact(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-      super(builder);
-    }
-    private GetArtifact() {
-      runUuid_ = "";
-      path_ = "";
-    }
-
-    @java.lang.Override
-    public final com.google.protobuf.UnknownFieldSet
-    getUnknownFields() {
-      return this.unknownFields;
-    }
-    private GetArtifact(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      this();
-      if (extensionRegistry == null) {
-        throw new java.lang.NullPointerException();
-      }
-      int mutable_bitField0_ = 0;
-      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder();
-      try {
-        boolean done = false;
-        while (!done) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              done = true;
-              break;
-            case 10: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
-              runUuid_ = bs;
-              break;
-            }
-            case 18: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
-              path_ = bs;
-              break;
-            }
-            default: {
-              if (!parseUnknownField(
-                  input, unknownFields, extensionRegistry, tag)) {
-                done = true;
-              }
-              break;
-            }
-          }
-        }
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(this);
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(
-            e).setUnfinishedMessage(this);
-      } finally {
-        this.unknownFields = unknownFields.build();
-        makeExtensionsImmutable();
-      }
-    }
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_GetArtifact_descriptor;
-    }
-
-    @java.lang.Override
-    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-        internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_GetArtifact_fieldAccessorTable
-          .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.Service.GetArtifact.class, org.mlflow.api.proto.Service.GetArtifact.Builder.class);
-    }
-
-    public interface ResponseOrBuilder extends
-        // @@protoc_insertion_point(interface_extends:mlflow.GetArtifact.Response)
-        com.google.protobuf.MessageOrBuilder {
-    }
-    /**
-     * <pre>
-     * Empty because the data of the file will be streamed back in the HTTP response.
-     * The response will have an HTTP status code of 404 if the artifact path is not found.
-     * </pre>
-     *
-     * Protobuf type {@code mlflow.GetArtifact.Response}
-     */
-    public  static final class Response extends
-        com.google.protobuf.GeneratedMessageV3 implements
-        // @@protoc_insertion_point(message_implements:mlflow.GetArtifact.Response)
-        ResponseOrBuilder {
-    private static final long serialVersionUID = 0L;
-      // Use Response.newBuilder() to construct.
-      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-        super(builder);
-      }
-      private Response() {
-      }
-
-      @java.lang.Override
-      public final com.google.protobuf.UnknownFieldSet
-      getUnknownFields() {
-        return this.unknownFields;
-      }
-      private Response(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        this();
-        if (extensionRegistry == null) {
-          throw new java.lang.NullPointerException();
-        }
-        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-            com.google.protobuf.UnknownFieldSet.newBuilder();
-        try {
-          boolean done = false;
-          while (!done) {
-            int tag = input.readTag();
-            switch (tag) {
-              case 0:
-                done = true;
-                break;
-              default: {
-                if (!parseUnknownField(
-                    input, unknownFields, extensionRegistry, tag)) {
-                  done = true;
-                }
-                break;
-              }
-            }
-          }
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          throw e.setUnfinishedMessage(this);
-        } catch (java.io.IOException e) {
-          throw new com.google.protobuf.InvalidProtocolBufferException(
-              e).setUnfinishedMessage(this);
-        } finally {
-          this.unknownFields = unknownFields.build();
-          makeExtensionsImmutable();
-        }
-      }
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_GetArtifact_Response_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_GetArtifact_Response_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.Service.GetArtifact.Response.class, org.mlflow.api.proto.Service.GetArtifact.Response.Builder.class);
-      }
-
-      private byte memoizedIsInitialized = -1;
-      @java.lang.Override
-      public final boolean isInitialized() {
-        byte isInitialized = memoizedIsInitialized;
-        if (isInitialized == 1) return true;
-        if (isInitialized == 0) return false;
-
-        memoizedIsInitialized = 1;
-        return true;
-      }
-
-      @java.lang.Override
-      public void writeTo(com.google.protobuf.CodedOutputStream output)
-                          throws java.io.IOException {
-        unknownFields.writeTo(output);
-      }
-
-      @java.lang.Override
-      public int getSerializedSize() {
-        int size = memoizedSize;
-        if (size != -1) return size;
-
-        size = 0;
-        size += unknownFields.getSerializedSize();
-        memoizedSize = size;
-        return size;
-      }
-
-      @java.lang.Override
-      public boolean equals(final java.lang.Object obj) {
-        if (obj == this) {
-         return true;
-        }
-        if (!(obj instanceof org.mlflow.api.proto.Service.GetArtifact.Response)) {
-          return super.equals(obj);
-        }
-        org.mlflow.api.proto.Service.GetArtifact.Response other = (org.mlflow.api.proto.Service.GetArtifact.Response) obj;
-
-        boolean result = true;
-        result = result && unknownFields.equals(other.unknownFields);
-        return result;
-      }
-
-      @java.lang.Override
-      public int hashCode() {
-        if (memoizedHashCode != 0) {
-          return memoizedHashCode;
-        }
-        int hash = 41;
-        hash = (19 * hash) + getDescriptor().hashCode();
-        hash = (29 * hash) + unknownFields.hashCode();
-        memoizedHashCode = hash;
-        return hash;
-      }
-
-      public static org.mlflow.api.proto.Service.GetArtifact.Response parseFrom(
-          java.nio.ByteBuffer data)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return PARSER.parseFrom(data);
-      }
-      public static org.mlflow.api.proto.Service.GetArtifact.Response parseFrom(
-          java.nio.ByteBuffer data,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return PARSER.parseFrom(data, extensionRegistry);
-      }
-      public static org.mlflow.api.proto.Service.GetArtifact.Response parseFrom(
-          com.google.protobuf.ByteString data)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return PARSER.parseFrom(data);
-      }
-      public static org.mlflow.api.proto.Service.GetArtifact.Response parseFrom(
-          com.google.protobuf.ByteString data,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return PARSER.parseFrom(data, extensionRegistry);
-      }
-      public static org.mlflow.api.proto.Service.GetArtifact.Response parseFrom(byte[] data)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return PARSER.parseFrom(data);
-      }
-      public static org.mlflow.api.proto.Service.GetArtifact.Response parseFrom(
-          byte[] data,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return PARSER.parseFrom(data, extensionRegistry);
-      }
-      public static org.mlflow.api.proto.Service.GetArtifact.Response parseFrom(java.io.InputStream input)
-          throws java.io.IOException {
-        return com.google.protobuf.GeneratedMessageV3
-            .parseWithIOException(PARSER, input);
-      }
-      public static org.mlflow.api.proto.Service.GetArtifact.Response parseFrom(
-          java.io.InputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        return com.google.protobuf.GeneratedMessageV3
-            .parseWithIOException(PARSER, input, extensionRegistry);
-      }
-      public static org.mlflow.api.proto.Service.GetArtifact.Response parseDelimitedFrom(java.io.InputStream input)
-          throws java.io.IOException {
-        return com.google.protobuf.GeneratedMessageV3
-            .parseDelimitedWithIOException(PARSER, input);
-      }
-      public static org.mlflow.api.proto.Service.GetArtifact.Response parseDelimitedFrom(
-          java.io.InputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        return com.google.protobuf.GeneratedMessageV3
-            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-      }
-      public static org.mlflow.api.proto.Service.GetArtifact.Response parseFrom(
-          com.google.protobuf.CodedInputStream input)
-          throws java.io.IOException {
-        return com.google.protobuf.GeneratedMessageV3
-            .parseWithIOException(PARSER, input);
-      }
-      public static org.mlflow.api.proto.Service.GetArtifact.Response parseFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        return com.google.protobuf.GeneratedMessageV3
-            .parseWithIOException(PARSER, input, extensionRegistry);
-      }
-
-      @java.lang.Override
-      public Builder newBuilderForType() { return newBuilder(); }
-      public static Builder newBuilder() {
-        return DEFAULT_INSTANCE.toBuilder();
-      }
-      public static Builder newBuilder(org.mlflow.api.proto.Service.GetArtifact.Response prototype) {
-        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-      }
-      @java.lang.Override
-      public Builder toBuilder() {
-        return this == DEFAULT_INSTANCE
-            ? new Builder() : new Builder().mergeFrom(this);
-      }
-
-      @java.lang.Override
-      protected Builder newBuilderForType(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        Builder builder = new Builder(parent);
-        return builder;
-      }
-      /**
-       * <pre>
-       * Empty because the data of the file will be streamed back in the HTTP response.
-       * The response will have an HTTP status code of 404 if the artifact path is not found.
-       * </pre>
-       *
-       * Protobuf type {@code mlflow.GetArtifact.Response}
-       */
-      public static final class Builder extends
-          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-          // @@protoc_insertion_point(builder_implements:mlflow.GetArtifact.Response)
-          org.mlflow.api.proto.Service.GetArtifact.ResponseOrBuilder {
-        public static final com.google.protobuf.Descriptors.Descriptor
-            getDescriptor() {
-          return org.mlflow.api.proto.Service.internal_static_mlflow_GetArtifact_Response_descriptor;
-        }
-
-        @java.lang.Override
-        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-            internalGetFieldAccessorTable() {
-          return org.mlflow.api.proto.Service.internal_static_mlflow_GetArtifact_Response_fieldAccessorTable
-              .ensureFieldAccessorsInitialized(
-                  org.mlflow.api.proto.Service.GetArtifact.Response.class, org.mlflow.api.proto.Service.GetArtifact.Response.Builder.class);
-        }
-
-        // Construct using org.mlflow.api.proto.Service.GetArtifact.Response.newBuilder()
-        private Builder() {
-          maybeForceBuilderInitialization();
-        }
-
-        private Builder(
-            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-          super(parent);
-          maybeForceBuilderInitialization();
-        }
-        private void maybeForceBuilderInitialization() {
-          if (com.google.protobuf.GeneratedMessageV3
-                  .alwaysUseFieldBuilders) {
-          }
-        }
-        @java.lang.Override
-        public Builder clear() {
-          super.clear();
-          return this;
-        }
-
-        @java.lang.Override
-        public com.google.protobuf.Descriptors.Descriptor
-            getDescriptorForType() {
-          return org.mlflow.api.proto.Service.internal_static_mlflow_GetArtifact_Response_descriptor;
-        }
-
-        @java.lang.Override
-        public org.mlflow.api.proto.Service.GetArtifact.Response getDefaultInstanceForType() {
-          return org.mlflow.api.proto.Service.GetArtifact.Response.getDefaultInstance();
-        }
-
-        @java.lang.Override
-        public org.mlflow.api.proto.Service.GetArtifact.Response build() {
-          org.mlflow.api.proto.Service.GetArtifact.Response result = buildPartial();
-          if (!result.isInitialized()) {
-            throw newUninitializedMessageException(result);
-          }
-          return result;
-        }
-
-        @java.lang.Override
-        public org.mlflow.api.proto.Service.GetArtifact.Response buildPartial() {
-          org.mlflow.api.proto.Service.GetArtifact.Response result = new org.mlflow.api.proto.Service.GetArtifact.Response(this);
-          onBuilt();
-          return result;
-        }
-
-        @java.lang.Override
-        public Builder clone() {
-          return (Builder) super.clone();
-        }
-        @java.lang.Override
-        public Builder setField(
-            com.google.protobuf.Descriptors.FieldDescriptor field,
-            java.lang.Object value) {
-          return (Builder) super.setField(field, value);
-        }
-        @java.lang.Override
-        public Builder clearField(
-            com.google.protobuf.Descriptors.FieldDescriptor field) {
-          return (Builder) super.clearField(field);
-        }
-        @java.lang.Override
-        public Builder clearOneof(
-            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-          return (Builder) super.clearOneof(oneof);
-        }
-        @java.lang.Override
-        public Builder setRepeatedField(
-            com.google.protobuf.Descriptors.FieldDescriptor field,
-            int index, java.lang.Object value) {
-          return (Builder) super.setRepeatedField(field, index, value);
-        }
-        @java.lang.Override
-        public Builder addRepeatedField(
-            com.google.protobuf.Descriptors.FieldDescriptor field,
-            java.lang.Object value) {
-          return (Builder) super.addRepeatedField(field, value);
-        }
-        @java.lang.Override
-        public Builder mergeFrom(com.google.protobuf.Message other) {
-          if (other instanceof org.mlflow.api.proto.Service.GetArtifact.Response) {
-            return mergeFrom((org.mlflow.api.proto.Service.GetArtifact.Response)other);
-          } else {
-            super.mergeFrom(other);
-            return this;
-          }
-        }
-
-        public Builder mergeFrom(org.mlflow.api.proto.Service.GetArtifact.Response other) {
-          if (other == org.mlflow.api.proto.Service.GetArtifact.Response.getDefaultInstance()) return this;
-          this.mergeUnknownFields(other.unknownFields);
-          onChanged();
-          return this;
-        }
-
-        @java.lang.Override
-        public final boolean isInitialized() {
-          return true;
-        }
-
-        @java.lang.Override
-        public Builder mergeFrom(
-            com.google.protobuf.CodedInputStream input,
-            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-            throws java.io.IOException {
-          org.mlflow.api.proto.Service.GetArtifact.Response parsedMessage = null;
-          try {
-            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-            parsedMessage = (org.mlflow.api.proto.Service.GetArtifact.Response) e.getUnfinishedMessage();
-            throw e.unwrapIOException();
-          } finally {
-            if (parsedMessage != null) {
-              mergeFrom(parsedMessage);
-            }
-          }
-          return this;
-        }
-        @java.lang.Override
-        public final Builder setUnknownFields(
-            final com.google.protobuf.UnknownFieldSet unknownFields) {
-          return super.setUnknownFields(unknownFields);
-        }
-
-        @java.lang.Override
-        public final Builder mergeUnknownFields(
-            final com.google.protobuf.UnknownFieldSet unknownFields) {
-          return super.mergeUnknownFields(unknownFields);
-        }
-
-
-        // @@protoc_insertion_point(builder_scope:mlflow.GetArtifact.Response)
-      }
-
-      // @@protoc_insertion_point(class_scope:mlflow.GetArtifact.Response)
-      private static final org.mlflow.api.proto.Service.GetArtifact.Response DEFAULT_INSTANCE;
-      static {
-        DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.GetArtifact.Response();
-      }
-
-      public static org.mlflow.api.proto.Service.GetArtifact.Response getDefaultInstance() {
-        return DEFAULT_INSTANCE;
-      }
-
-      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
-          PARSER = new com.google.protobuf.AbstractParser<Response>() {
-        @java.lang.Override
-        public Response parsePartialFrom(
-            com.google.protobuf.CodedInputStream input,
-            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-            throws com.google.protobuf.InvalidProtocolBufferException {
-          return new Response(input, extensionRegistry);
-        }
-      };
-
-      public static com.google.protobuf.Parser<Response> parser() {
-        return PARSER;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Parser<Response> getParserForType() {
-        return PARSER;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.GetArtifact.Response getDefaultInstanceForType() {
-        return DEFAULT_INSTANCE;
-      }
-
-    }
-
-    private int bitField0_;
-    public static final int RUN_UUID_FIELD_NUMBER = 1;
-    private volatile java.lang.Object runUuid_;
-    /**
-     * <pre>
-     * ID of the run from which to fetch the artifact.
-     * </pre>
-     *
-     * <code>optional string run_uuid = 1;</code>
-     */
-    public boolean hasRunUuid() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
-    }
-    /**
-     * <pre>
-     * ID of the run from which to fetch the artifact.
-     * </pre>
-     *
-     * <code>optional string run_uuid = 1;</code>
-     */
-    public java.lang.String getRunUuid() {
-      java.lang.Object ref = runUuid_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          runUuid_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * ID of the run from which to fetch the artifact.
-     * </pre>
-     *
-     * <code>optional string run_uuid = 1;</code>
-     */
-    public com.google.protobuf.ByteString
-        getRunUuidBytes() {
-      java.lang.Object ref = runUuid_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        runUuid_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int PATH_FIELD_NUMBER = 2;
-    private volatile java.lang.Object path_;
-    /**
-     * <pre>
-     * Path of the artifact to fetch (relative to the root artifact directory for the run).
-     * </pre>
-     *
-     * <code>optional string path = 2;</code>
-     */
-    public boolean hasPath() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
-    }
-    /**
-     * <pre>
-     * Path of the artifact to fetch (relative to the root artifact directory for the run).
-     * </pre>
-     *
-     * <code>optional string path = 2;</code>
-     */
-    public java.lang.String getPath() {
-      java.lang.Object ref = path_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          path_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Path of the artifact to fetch (relative to the root artifact directory for the run).
-     * </pre>
-     *
-     * <code>optional string path = 2;</code>
-     */
-    public com.google.protobuf.ByteString
-        getPathBytes() {
-      java.lang.Object ref = path_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        path_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    private byte memoizedIsInitialized = -1;
-    @java.lang.Override
-    public final boolean isInitialized() {
-      byte isInitialized = memoizedIsInitialized;
-      if (isInitialized == 1) return true;
-      if (isInitialized == 0) return false;
-
-      memoizedIsInitialized = 1;
-      return true;
-    }
-
-    @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output)
-                        throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runUuid_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, path_);
-      }
-      unknownFields.writeTo(output);
-    }
-
-    @java.lang.Override
-    public int getSerializedSize() {
-      int size = memoizedSize;
-      if (size != -1) return size;
-
-      size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runUuid_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, path_);
-      }
-      size += unknownFields.getSerializedSize();
-      memoizedSize = size;
-      return size;
-    }
-
-    @java.lang.Override
-    public boolean equals(final java.lang.Object obj) {
-      if (obj == this) {
-       return true;
-      }
-      if (!(obj instanceof org.mlflow.api.proto.Service.GetArtifact)) {
-        return super.equals(obj);
-      }
-      org.mlflow.api.proto.Service.GetArtifact other = (org.mlflow.api.proto.Service.GetArtifact) obj;
-
-      boolean result = true;
-      result = result && (hasRunUuid() == other.hasRunUuid());
-      if (hasRunUuid()) {
-        result = result && getRunUuid()
-            .equals(other.getRunUuid());
-      }
-      result = result && (hasPath() == other.hasPath());
-      if (hasPath()) {
-        result = result && getPath()
-            .equals(other.getPath());
-      }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
-    }
-
-    @java.lang.Override
-    public int hashCode() {
-      if (memoizedHashCode != 0) {
-        return memoizedHashCode;
-      }
-      int hash = 41;
-      hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasRunUuid()) {
-        hash = (37 * hash) + RUN_UUID_FIELD_NUMBER;
-        hash = (53 * hash) + getRunUuid().hashCode();
-      }
-      if (hasPath()) {
-        hash = (37 * hash) + PATH_FIELD_NUMBER;
-        hash = (53 * hash) + getPath().hashCode();
-      }
-      hash = (29 * hash) + unknownFields.hashCode();
-      memoizedHashCode = hash;
-      return hash;
-    }
-
-    public static org.mlflow.api.proto.Service.GetArtifact parseFrom(
-        java.nio.ByteBuffer data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.GetArtifact parseFrom(
-        java.nio.ByteBuffer data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.GetArtifact parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.GetArtifact parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.GetArtifact parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.GetArtifact parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.GetArtifact parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.GetArtifact parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.GetArtifact parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.GetArtifact parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.GetArtifact parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.GetArtifact parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-
-    @java.lang.Override
-    public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder() {
-      return DEFAULT_INSTANCE.toBuilder();
-    }
-    public static Builder newBuilder(org.mlflow.api.proto.Service.GetArtifact prototype) {
-      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-    }
-    @java.lang.Override
-    public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE
-          ? new Builder() : new Builder().mergeFrom(this);
-    }
-
-    @java.lang.Override
-    protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-      Builder builder = new Builder(parent);
-      return builder;
-    }
-    /**
-     * Protobuf type {@code mlflow.GetArtifact}
-     */
-    public static final class Builder extends
-        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.GetArtifact)
-        org.mlflow.api.proto.Service.GetArtifactOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_GetArtifact_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_GetArtifact_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.Service.GetArtifact.class, org.mlflow.api.proto.Service.GetArtifact.Builder.class);
-      }
-
-      // Construct using org.mlflow.api.proto.Service.GetArtifact.newBuilder()
-      private Builder() {
-        maybeForceBuilderInitialization();
-      }
-
-      private Builder(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
-        maybeForceBuilderInitialization();
-      }
-      private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessageV3
-                .alwaysUseFieldBuilders) {
-        }
-      }
-      @java.lang.Override
-      public Builder clear() {
-        super.clear();
-        runUuid_ = "";
-        bitField0_ = (bitField0_ & ~0x00000001);
-        path_ = "";
-        bitField0_ = (bitField0_ & ~0x00000002);
-        return this;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor
-          getDescriptorForType() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_GetArtifact_descriptor;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.GetArtifact getDefaultInstanceForType() {
-        return org.mlflow.api.proto.Service.GetArtifact.getDefaultInstance();
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.GetArtifact build() {
-        org.mlflow.api.proto.Service.GetArtifact result = buildPartial();
-        if (!result.isInitialized()) {
-          throw newUninitializedMessageException(result);
-        }
-        return result;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.GetArtifact buildPartial() {
-        org.mlflow.api.proto.Service.GetArtifact result = new org.mlflow.api.proto.Service.GetArtifact(this);
-        int from_bitField0_ = bitField0_;
-        int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
-          to_bitField0_ |= 0x00000001;
-        }
-        result.runUuid_ = runUuid_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
-          to_bitField0_ |= 0x00000002;
-        }
-        result.path_ = path_;
-        result.bitField0_ = to_bitField0_;
-        onBuilt();
-        return result;
-      }
-
-      @java.lang.Override
-      public Builder clone() {
-        return (Builder) super.clone();
-      }
-      @java.lang.Override
-      public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.setField(field, value);
-      }
-      @java.lang.Override
-      public Builder clearField(
-          com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
-      }
-      @java.lang.Override
-      public Builder clearOneof(
-          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
-      }
-      @java.lang.Override
-      public Builder setRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
-      }
-      @java.lang.Override
-      public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
-      }
-      @java.lang.Override
-      public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.Service.GetArtifact) {
-          return mergeFrom((org.mlflow.api.proto.Service.GetArtifact)other);
-        } else {
-          super.mergeFrom(other);
-          return this;
-        }
-      }
-
-      public Builder mergeFrom(org.mlflow.api.proto.Service.GetArtifact other) {
-        if (other == org.mlflow.api.proto.Service.GetArtifact.getDefaultInstance()) return this;
-        if (other.hasRunUuid()) {
-          bitField0_ |= 0x00000001;
-          runUuid_ = other.runUuid_;
-          onChanged();
-        }
-        if (other.hasPath()) {
-          bitField0_ |= 0x00000002;
-          path_ = other.path_;
-          onChanged();
-        }
-        this.mergeUnknownFields(other.unknownFields);
-        onChanged();
-        return this;
-      }
-
-      @java.lang.Override
-      public final boolean isInitialized() {
-        return true;
-      }
-
-      @java.lang.Override
-      public Builder mergeFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        org.mlflow.api.proto.Service.GetArtifact parsedMessage = null;
-        try {
-          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.Service.GetArtifact) e.getUnfinishedMessage();
-          throw e.unwrapIOException();
-        } finally {
-          if (parsedMessage != null) {
-            mergeFrom(parsedMessage);
-          }
-        }
-        return this;
-      }
-      private int bitField0_;
-
-      private java.lang.Object runUuid_ = "";
-      /**
-       * <pre>
-       * ID of the run from which to fetch the artifact.
-       * </pre>
-       *
-       * <code>optional string run_uuid = 1;</code>
-       */
-      public boolean hasRunUuid() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
-      }
-      /**
-       * <pre>
-       * ID of the run from which to fetch the artifact.
-       * </pre>
-       *
-       * <code>optional string run_uuid = 1;</code>
-       */
-      public java.lang.String getRunUuid() {
-        java.lang.Object ref = runUuid_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            runUuid_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * ID of the run from which to fetch the artifact.
-       * </pre>
-       *
-       * <code>optional string run_uuid = 1;</code>
-       */
-      public com.google.protobuf.ByteString
-          getRunUuidBytes() {
-        java.lang.Object ref = runUuid_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          runUuid_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * ID of the run from which to fetch the artifact.
-       * </pre>
-       *
-       * <code>optional string run_uuid = 1;</code>
-       */
-      public Builder setRunUuid(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        runUuid_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * ID of the run from which to fetch the artifact.
-       * </pre>
-       *
-       * <code>optional string run_uuid = 1;</code>
-       */
-      public Builder clearRunUuid() {
-        bitField0_ = (bitField0_ & ~0x00000001);
-        runUuid_ = getDefaultInstance().getRunUuid();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * ID of the run from which to fetch the artifact.
-       * </pre>
-       *
-       * <code>optional string run_uuid = 1;</code>
-       */
-      public Builder setRunUuidBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        runUuid_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object path_ = "";
-      /**
-       * <pre>
-       * Path of the artifact to fetch (relative to the root artifact directory for the run).
-       * </pre>
-       *
-       * <code>optional string path = 2;</code>
-       */
-      public boolean hasPath() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
-      }
-      /**
-       * <pre>
-       * Path of the artifact to fetch (relative to the root artifact directory for the run).
-       * </pre>
-       *
-       * <code>optional string path = 2;</code>
-       */
-      public java.lang.String getPath() {
-        java.lang.Object ref = path_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            path_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Path of the artifact to fetch (relative to the root artifact directory for the run).
-       * </pre>
-       *
-       * <code>optional string path = 2;</code>
-       */
-      public com.google.protobuf.ByteString
-          getPathBytes() {
-        java.lang.Object ref = path_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          path_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Path of the artifact to fetch (relative to the root artifact directory for the run).
-       * </pre>
-       *
-       * <code>optional string path = 2;</code>
-       */
-      public Builder setPath(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        path_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Path of the artifact to fetch (relative to the root artifact directory for the run).
-       * </pre>
-       *
-       * <code>optional string path = 2;</code>
-       */
-      public Builder clearPath() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        path_ = getDefaultInstance().getPath();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Path of the artifact to fetch (relative to the root artifact directory for the run).
-       * </pre>
-       *
-       * <code>optional string path = 2;</code>
-       */
-      public Builder setPathBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        path_ = value;
-        onChanged();
-        return this;
-      }
-      @java.lang.Override
-      public final Builder setUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.setUnknownFields(unknownFields);
-      }
-
-      @java.lang.Override
-      public final Builder mergeUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.mergeUnknownFields(unknownFields);
-      }
-
-
-      // @@protoc_insertion_point(builder_scope:mlflow.GetArtifact)
-    }
-
-    // @@protoc_insertion_point(class_scope:mlflow.GetArtifact)
-    private static final org.mlflow.api.proto.Service.GetArtifact DEFAULT_INSTANCE;
-    static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.GetArtifact();
-    }
-
-    public static org.mlflow.api.proto.Service.GetArtifact getDefaultInstance() {
-      return DEFAULT_INSTANCE;
-    }
-
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<GetArtifact>
-        PARSER = new com.google.protobuf.AbstractParser<GetArtifact>() {
-      @java.lang.Override
-      public GetArtifact parsePartialFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return new GetArtifact(input, extensionRegistry);
-      }
-    };
-
-    public static com.google.protobuf.Parser<GetArtifact> parser() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.google.protobuf.Parser<GetArtifact> getParserForType() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public org.mlflow.api.proto.Service.GetArtifact getDefaultInstanceForType() {
-      return DEFAULT_INSTANCE;
-    }
-
-  }
-
   public interface GetMetricHistoryOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.GetMetricHistory)
       com.google.protobuf.MessageOrBuilder {
 
     /**
      * <pre>
-     * ID of the run from which to fetch metric values.
+     * ID of the run from which to fetch metric values. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 3;</code>
+     */
+    boolean hasRunId();
+    /**
+     * <pre>
+     * ID of the run from which to fetch metric values. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 3;</code>
+     */
+    java.lang.String getRunId();
+    /**
+     * <pre>
+     * ID of the run from which to fetch metric values. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 3;</code>
+     */
+    com.google.protobuf.ByteString
+        getRunIdBytes();
+
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+     * will be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
      */
     boolean hasRunUuid();
     /**
      * <pre>
-     * ID of the run from which to fetch metric values.
+     * [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+     * will be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     java.lang.String getRunUuid();
     /**
      * <pre>
-     * ID of the run from which to fetch metric values.
+     * [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+     * will be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     com.google.protobuf.ByteString
         getRunUuidBytes();
@@ -43925,7 +40576,7 @@ public final class Service {
      * Name of the metric.
      * </pre>
      *
-     * <code>optional string metric_key = 2 [(.validate_required) = true];</code>
+     * <code>optional string metric_key = 2 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasMetricKey();
     /**
@@ -43933,7 +40584,7 @@ public final class Service {
      * Name of the metric.
      * </pre>
      *
-     * <code>optional string metric_key = 2 [(.validate_required) = true];</code>
+     * <code>optional string metric_key = 2 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getMetricKey();
     /**
@@ -43941,7 +40592,7 @@ public final class Service {
      * Name of the metric.
      * </pre>
      *
-     * <code>optional string metric_key = 2 [(.validate_required) = true];</code>
+     * <code>optional string metric_key = 2 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getMetricKeyBytes();
@@ -43959,6 +40610,7 @@ public final class Service {
       super(builder);
     }
     private GetMetricHistory() {
+      runId_ = "";
       runUuid_ = "";
       metricKey_ = "";
     }
@@ -43989,14 +40641,20 @@ public final class Service {
               break;
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
+              bitField0_ |= 0x00000002;
               runUuid_ = bs;
               break;
             }
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
+              bitField0_ |= 0x00000004;
               metricKey_ = bs;
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              runId_ = bs;
               break;
             }
             default: {
@@ -44926,24 +41584,80 @@ public final class Service {
     }
 
     private int bitField0_;
-    public static final int RUN_UUID_FIELD_NUMBER = 1;
-    private volatile java.lang.Object runUuid_;
+    public static final int RUN_ID_FIELD_NUMBER = 3;
+    private volatile java.lang.Object runId_;
     /**
      * <pre>
-     * ID of the run from which to fetch metric values.
+     * ID of the run from which to fetch metric values. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 3;</code>
      */
-    public boolean hasRunUuid() {
+    public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
      * <pre>
-     * ID of the run from which to fetch metric values.
+     * ID of the run from which to fetch metric values. Must be provided.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_id = 3;</code>
+     */
+    public java.lang.String getRunId() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          runId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the run from which to fetch metric values. Must be provided.
+     * </pre>
+     *
+     * <code>optional string run_id = 3;</code>
+     */
+    public com.google.protobuf.ByteString
+        getRunIdBytes() {
+      java.lang.Object ref = runId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        runId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int RUN_UUID_FIELD_NUMBER = 1;
+    private volatile java.lang.Object runUuid_;
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+     * will be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
+     */
+    public boolean hasRunUuid() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+     * will be removed in a future MLflow version.
+     * </pre>
+     *
+     * <code>optional string run_uuid = 1;</code>
      */
     public java.lang.String getRunUuid() {
       java.lang.Object ref = runUuid_;
@@ -44961,10 +41675,11 @@ public final class Service {
     }
     /**
      * <pre>
-     * ID of the run from which to fetch metric values.
+     * [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+     * will be removed in a future MLflow version.
      * </pre>
      *
-     * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+     * <code>optional string run_uuid = 1;</code>
      */
     public com.google.protobuf.ByteString
         getRunUuidBytes() {
@@ -44987,17 +41702,17 @@ public final class Service {
      * Name of the metric.
      * </pre>
      *
-     * <code>optional string metric_key = 2 [(.validate_required) = true];</code>
+     * <code>optional string metric_key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasMetricKey() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     /**
      * <pre>
      * Name of the metric.
      * </pre>
      *
-     * <code>optional string metric_key = 2 [(.validate_required) = true];</code>
+     * <code>optional string metric_key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getMetricKey() {
       java.lang.Object ref = metricKey_;
@@ -45018,7 +41733,7 @@ public final class Service {
      * Name of the metric.
      * </pre>
      *
-     * <code>optional string metric_key = 2 [(.validate_required) = true];</code>
+     * <code>optional string metric_key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getMetricKeyBytes() {
@@ -45048,11 +41763,14 @@ public final class Service {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, metricKey_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, runId_);
       }
       unknownFields.writeTo(output);
     }
@@ -45063,11 +41781,14 @@ public final class Service {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runUuid_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, metricKey_);
+      }
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, runId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -45085,6 +41806,11 @@ public final class Service {
       org.mlflow.api.proto.Service.GetMetricHistory other = (org.mlflow.api.proto.Service.GetMetricHistory) obj;
 
       boolean result = true;
+      result = result && (hasRunId() == other.hasRunId());
+      if (hasRunId()) {
+        result = result && getRunId()
+            .equals(other.getRunId());
+      }
       result = result && (hasRunUuid() == other.hasRunUuid());
       if (hasRunUuid()) {
         result = result && getRunUuid()
@@ -45106,6 +41832,10 @@ public final class Service {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasRunId()) {
+        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getRunId().hashCode();
+      }
       if (hasRunUuid()) {
         hash = (37 * hash) + RUN_UUID_FIELD_NUMBER;
         hash = (53 * hash) + getRunUuid().hashCode();
@@ -45247,10 +41977,12 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        runUuid_ = "";
+        runId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        metricKey_ = "";
+        runUuid_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
+        metricKey_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
         return this;
       }
 
@@ -45282,9 +42014,13 @@ public final class Service {
         if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
           to_bitField0_ |= 0x00000001;
         }
-        result.runUuid_ = runUuid_;
+        result.runId_ = runId_;
         if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
           to_bitField0_ |= 0x00000002;
+        }
+        result.runUuid_ = runUuid_;
+        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+          to_bitField0_ |= 0x00000004;
         }
         result.metricKey_ = metricKey_;
         result.bitField0_ = to_bitField0_;
@@ -45336,13 +42072,18 @@ public final class Service {
 
       public Builder mergeFrom(org.mlflow.api.proto.Service.GetMetricHistory other) {
         if (other == org.mlflow.api.proto.Service.GetMetricHistory.getDefaultInstance()) return this;
-        if (other.hasRunUuid()) {
+        if (other.hasRunId()) {
           bitField0_ |= 0x00000001;
+          runId_ = other.runId_;
+          onChanged();
+        }
+        if (other.hasRunUuid()) {
+          bitField0_ |= 0x00000002;
           runUuid_ = other.runUuid_;
           onChanged();
         }
         if (other.hasMetricKey()) {
-          bitField0_ |= 0x00000002;
+          bitField0_ |= 0x00000004;
           metricKey_ = other.metricKey_;
           onChanged();
         }
@@ -45376,23 +42117,125 @@ public final class Service {
       }
       private int bitField0_;
 
-      private java.lang.Object runUuid_ = "";
+      private java.lang.Object runId_ = "";
       /**
        * <pre>
-       * ID of the run from which to fetch metric values.
+       * ID of the run from which to fetch metric values. Must be provided.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_id = 3;</code>
        */
-      public boolean hasRunUuid() {
+      public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
        * <pre>
-       * ID of the run from which to fetch metric values.
+       * ID of the run from which to fetch metric values. Must be provided.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_id = 3;</code>
+       */
+      public java.lang.String getRunId() {
+        java.lang.Object ref = runId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            runId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run from which to fetch metric values. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 3;</code>
+       */
+      public com.google.protobuf.ByteString
+          getRunIdBytes() {
+        java.lang.Object ref = runId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          runId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the run from which to fetch metric values. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 3;</code>
+       */
+      public Builder setRunId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run from which to fetch metric values. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 3;</code>
+       */
+      public Builder clearRunId() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        runId_ = getDefaultInstance().getRunId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the run from which to fetch metric values. Must be provided.
+       * </pre>
+       *
+       * <code>optional string run_id = 3;</code>
+       */
+      public Builder setRunIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        runId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object runUuid_ = "";
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+       * will be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
+       */
+      public boolean hasRunUuid() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+       * will be removed in a future MLflow version.
+       * </pre>
+       *
+       * <code>optional string run_uuid = 1;</code>
        */
       public java.lang.String getRunUuid() {
         java.lang.Object ref = runUuid_;
@@ -45410,10 +42253,11 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run from which to fetch metric values.
+       * [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+       * will be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public com.google.protobuf.ByteString
           getRunUuidBytes() {
@@ -45430,47 +42274,50 @@ public final class Service {
       }
       /**
        * <pre>
-       * ID of the run from which to fetch metric values.
+       * [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+       * will be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder setRunUuid(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run from which to fetch metric values.
+       * [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+       * will be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder clearRunUuid() {
-        bitField0_ = (bitField0_ & ~0x00000001);
+        bitField0_ = (bitField0_ & ~0x00000002);
         runUuid_ = getDefaultInstance().getRunUuid();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * ID of the run from which to fetch metric values.
+       * [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+       * will be removed in a future MLflow version.
        * </pre>
        *
-       * <code>optional string run_uuid = 1 [(.validate_required) = true];</code>
+       * <code>optional string run_uuid = 1;</code>
        */
       public Builder setRunUuidBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000001;
+  bitField0_ |= 0x00000002;
         runUuid_ = value;
         onChanged();
         return this;
@@ -45482,17 +42329,17 @@ public final class Service {
        * Name of the metric.
        * </pre>
        *
-       * <code>optional string metric_key = 2 [(.validate_required) = true];</code>
+       * <code>optional string metric_key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasMetricKey() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <pre>
        * Name of the metric.
        * </pre>
        *
-       * <code>optional string metric_key = 2 [(.validate_required) = true];</code>
+       * <code>optional string metric_key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getMetricKey() {
         java.lang.Object ref = metricKey_;
@@ -45513,7 +42360,7 @@ public final class Service {
        * Name of the metric.
        * </pre>
        *
-       * <code>optional string metric_key = 2 [(.validate_required) = true];</code>
+       * <code>optional string metric_key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getMetricKeyBytes() {
@@ -45533,14 +42380,14 @@ public final class Service {
        * Name of the metric.
        * </pre>
        *
-       * <code>optional string metric_key = 2 [(.validate_required) = true];</code>
+       * <code>optional string metric_key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setMetricKey(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000002;
+  bitField0_ |= 0x00000004;
         metricKey_ = value;
         onChanged();
         return this;
@@ -45550,10 +42397,10 @@ public final class Service {
        * Name of the metric.
        * </pre>
        *
-       * <code>optional string metric_key = 2 [(.validate_required) = true];</code>
+       * <code>optional string metric_key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearMetricKey() {
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000004);
         metricKey_ = getDefaultInstance().getMetricKey();
         onChanged();
         return this;
@@ -45563,14 +42410,14 @@ public final class Service {
        * Name of the metric.
        * </pre>
        *
-       * <code>optional string metric_key = 2 [(.validate_required) = true];</code>
+       * <code>optional string metric_key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setMetricKeyBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000002;
+  bitField0_ |= 0x00000004;
         metricKey_ = value;
         onChanged();
         return this;
@@ -48192,6 +45039,1314 @@ public final class Service {
 
   }
 
+  public interface GetExperimentByNameOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.GetExperimentByName)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * Name of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_name = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    boolean hasExperimentName();
+    /**
+     * <pre>
+     * Name of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_name = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    java.lang.String getExperimentName();
+    /**
+     * <pre>
+     * Name of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_name = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    com.google.protobuf.ByteString
+        getExperimentNameBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.GetExperimentByName}
+   */
+  public  static final class GetExperimentByName extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.GetExperimentByName)
+      GetExperimentByNameOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use GetExperimentByName.newBuilder() to construct.
+    private GetExperimentByName(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private GetExperimentByName() {
+      experimentName_ = "";
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private GetExperimentByName(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              experimentName_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_GetExperimentByName_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_GetExperimentByName_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.Service.GetExperimentByName.class, org.mlflow.api.proto.Service.GetExperimentByName.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.GetExperimentByName.Response)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <pre>
+       * Experiment details.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      boolean hasExperiment();
+      /**
+       * <pre>
+       * Experiment details.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      org.mlflow.api.proto.Service.Experiment getExperiment();
+      /**
+       * <pre>
+       * Experiment details.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentOrBuilder();
+    }
+    /**
+     * Protobuf type {@code mlflow.GetExperimentByName.Response}
+     */
+    public  static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.GetExperimentByName.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                org.mlflow.api.proto.Service.Experiment.Builder subBuilder = null;
+                if (((bitField0_ & 0x00000001) == 0x00000001)) {
+                  subBuilder = experiment_.toBuilder();
+                }
+                experiment_ = input.readMessage(org.mlflow.api.proto.Service.Experiment.PARSER, extensionRegistry);
+                if (subBuilder != null) {
+                  subBuilder.mergeFrom(experiment_);
+                  experiment_ = subBuilder.buildPartial();
+                }
+                bitField0_ |= 0x00000001;
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_GetExperimentByName_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_GetExperimentByName_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.GetExperimentByName.Response.class, org.mlflow.api.proto.Service.GetExperimentByName.Response.Builder.class);
+      }
+
+      private int bitField0_;
+      public static final int EXPERIMENT_FIELD_NUMBER = 1;
+      private org.mlflow.api.proto.Service.Experiment experiment_;
+      /**
+       * <pre>
+       * Experiment details.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      public boolean hasExperiment() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <pre>
+       * Experiment details.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      public org.mlflow.api.proto.Service.Experiment getExperiment() {
+        return experiment_ == null ? org.mlflow.api.proto.Service.Experiment.getDefaultInstance() : experiment_;
+      }
+      /**
+       * <pre>
+       * Experiment details.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      public org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentOrBuilder() {
+        return experiment_ == null ? org.mlflow.api.proto.Service.Experiment.getDefaultInstance() : experiment_;
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+          output.writeMessage(1, getExperiment());
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeMessageSize(1, getExperiment());
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.Service.GetExperimentByName.Response)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.Service.GetExperimentByName.Response other = (org.mlflow.api.proto.Service.GetExperimentByName.Response) obj;
+
+        boolean result = true;
+        result = result && (hasExperiment() == other.hasExperiment());
+        if (hasExperiment()) {
+          result = result && getExperiment()
+              .equals(other.getExperiment());
+        }
+        result = result && unknownFields.equals(other.unknownFields);
+        return result;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (hasExperiment()) {
+          hash = (37 * hash) + EXPERIMENT_FIELD_NUMBER;
+          hash = (53 * hash) + getExperiment().hashCode();
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.Service.GetExperimentByName.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.GetExperimentByName.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.GetExperimentByName.Response)
+          org.mlflow.api.proto.Service.GetExperimentByName.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_GetExperimentByName_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_GetExperimentByName_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.Service.GetExperimentByName.Response.class, org.mlflow.api.proto.Service.GetExperimentByName.Response.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.Service.GetExperimentByName.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+            getExperimentFieldBuilder();
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          if (experimentBuilder_ == null) {
+            experiment_ = null;
+          } else {
+            experimentBuilder_.clear();
+          }
+          bitField0_ = (bitField0_ & ~0x00000001);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_GetExperimentByName_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.GetExperimentByName.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.Service.GetExperimentByName.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.GetExperimentByName.Response build() {
+          org.mlflow.api.proto.Service.GetExperimentByName.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.GetExperimentByName.Response buildPartial() {
+          org.mlflow.api.proto.Service.GetExperimentByName.Response result = new org.mlflow.api.proto.Service.GetExperimentByName.Response(this);
+          int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+            to_bitField0_ |= 0x00000001;
+          }
+          if (experimentBuilder_ == null) {
+            result.experiment_ = experiment_;
+          } else {
+            result.experiment_ = experimentBuilder_.build();
+          }
+          result.bitField0_ = to_bitField0_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return (Builder) super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return (Builder) super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return (Builder) super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return (Builder) super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return (Builder) super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return (Builder) super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.Service.GetExperimentByName.Response) {
+            return mergeFrom((org.mlflow.api.proto.Service.GetExperimentByName.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.Service.GetExperimentByName.Response other) {
+          if (other == org.mlflow.api.proto.Service.GetExperimentByName.Response.getDefaultInstance()) return this;
+          if (other.hasExperiment()) {
+            mergeExperiment(other.getExperiment());
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.Service.GetExperimentByName.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.Service.GetExperimentByName.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private org.mlflow.api.proto.Service.Experiment experiment_ = null;
+        private com.google.protobuf.SingleFieldBuilderV3<
+            org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder> experimentBuilder_;
+        /**
+         * <pre>
+         * Experiment details.
+         * </pre>
+         *
+         * <code>optional .mlflow.Experiment experiment = 1;</code>
+         */
+        public boolean hasExperiment() {
+          return ((bitField0_ & 0x00000001) == 0x00000001);
+        }
+        /**
+         * <pre>
+         * Experiment details.
+         * </pre>
+         *
+         * <code>optional .mlflow.Experiment experiment = 1;</code>
+         */
+        public org.mlflow.api.proto.Service.Experiment getExperiment() {
+          if (experimentBuilder_ == null) {
+            return experiment_ == null ? org.mlflow.api.proto.Service.Experiment.getDefaultInstance() : experiment_;
+          } else {
+            return experimentBuilder_.getMessage();
+          }
+        }
+        /**
+         * <pre>
+         * Experiment details.
+         * </pre>
+         *
+         * <code>optional .mlflow.Experiment experiment = 1;</code>
+         */
+        public Builder setExperiment(org.mlflow.api.proto.Service.Experiment value) {
+          if (experimentBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            experiment_ = value;
+            onChanged();
+          } else {
+            experimentBuilder_.setMessage(value);
+          }
+          bitField0_ |= 0x00000001;
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiment details.
+         * </pre>
+         *
+         * <code>optional .mlflow.Experiment experiment = 1;</code>
+         */
+        public Builder setExperiment(
+            org.mlflow.api.proto.Service.Experiment.Builder builderForValue) {
+          if (experimentBuilder_ == null) {
+            experiment_ = builderForValue.build();
+            onChanged();
+          } else {
+            experimentBuilder_.setMessage(builderForValue.build());
+          }
+          bitField0_ |= 0x00000001;
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiment details.
+         * </pre>
+         *
+         * <code>optional .mlflow.Experiment experiment = 1;</code>
+         */
+        public Builder mergeExperiment(org.mlflow.api.proto.Service.Experiment value) {
+          if (experimentBuilder_ == null) {
+            if (((bitField0_ & 0x00000001) == 0x00000001) &&
+                experiment_ != null &&
+                experiment_ != org.mlflow.api.proto.Service.Experiment.getDefaultInstance()) {
+              experiment_ =
+                org.mlflow.api.proto.Service.Experiment.newBuilder(experiment_).mergeFrom(value).buildPartial();
+            } else {
+              experiment_ = value;
+            }
+            onChanged();
+          } else {
+            experimentBuilder_.mergeFrom(value);
+          }
+          bitField0_ |= 0x00000001;
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiment details.
+         * </pre>
+         *
+         * <code>optional .mlflow.Experiment experiment = 1;</code>
+         */
+        public Builder clearExperiment() {
+          if (experimentBuilder_ == null) {
+            experiment_ = null;
+            onChanged();
+          } else {
+            experimentBuilder_.clear();
+          }
+          bitField0_ = (bitField0_ & ~0x00000001);
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiment details.
+         * </pre>
+         *
+         * <code>optional .mlflow.Experiment experiment = 1;</code>
+         */
+        public org.mlflow.api.proto.Service.Experiment.Builder getExperimentBuilder() {
+          bitField0_ |= 0x00000001;
+          onChanged();
+          return getExperimentFieldBuilder().getBuilder();
+        }
+        /**
+         * <pre>
+         * Experiment details.
+         * </pre>
+         *
+         * <code>optional .mlflow.Experiment experiment = 1;</code>
+         */
+        public org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentOrBuilder() {
+          if (experimentBuilder_ != null) {
+            return experimentBuilder_.getMessageOrBuilder();
+          } else {
+            return experiment_ == null ?
+                org.mlflow.api.proto.Service.Experiment.getDefaultInstance() : experiment_;
+          }
+        }
+        /**
+         * <pre>
+         * Experiment details.
+         * </pre>
+         *
+         * <code>optional .mlflow.Experiment experiment = 1;</code>
+         */
+        private com.google.protobuf.SingleFieldBuilderV3<
+            org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder> 
+            getExperimentFieldBuilder() {
+          if (experimentBuilder_ == null) {
+            experimentBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+                org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder>(
+                    getExperiment(),
+                    getParentForChildren(),
+                    isClean());
+            experiment_ = null;
+          }
+          return experimentBuilder_;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.GetExperimentByName.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.GetExperimentByName.Response)
+      private static final org.mlflow.api.proto.Service.GetExperimentByName.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.GetExperimentByName.Response();
+      }
+
+      public static org.mlflow.api.proto.Service.GetExperimentByName.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.GetExperimentByName.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int EXPERIMENT_NAME_FIELD_NUMBER = 1;
+    private volatile java.lang.Object experimentName_;
+    /**
+     * <pre>
+     * Name of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_name = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    public boolean hasExperimentName() {
+      return ((bitField0_ & 0x00000001) == 0x00000001);
+    }
+    /**
+     * <pre>
+     * Name of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_name = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    public java.lang.String getExperimentName() {
+      java.lang.Object ref = experimentName_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          experimentName_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Name of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_name = 1 [(.mlflow.validate_required) = true];</code>
+     */
+    public com.google.protobuf.ByteString
+        getExperimentNameBytes() {
+      java.lang.Object ref = experimentName_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        experimentName_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentName_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, experimentName_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.Service.GetExperimentByName)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.Service.GetExperimentByName other = (org.mlflow.api.proto.Service.GetExperimentByName) obj;
+
+      boolean result = true;
+      result = result && (hasExperimentName() == other.hasExperimentName());
+      if (hasExperimentName()) {
+        result = result && getExperimentName()
+            .equals(other.getExperimentName());
+      }
+      result = result && unknownFields.equals(other.unknownFields);
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasExperimentName()) {
+        hash = (37 * hash) + EXPERIMENT_NAME_FIELD_NUMBER;
+        hash = (53 * hash) + getExperimentName().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.Service.GetExperimentByName parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.GetExperimentByName parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.GetExperimentByName parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.GetExperimentByName parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.GetExperimentByName parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.GetExperimentByName parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.GetExperimentByName parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.GetExperimentByName parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.GetExperimentByName parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.GetExperimentByName parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.GetExperimentByName parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.GetExperimentByName parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.Service.GetExperimentByName prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.GetExperimentByName}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.GetExperimentByName)
+        org.mlflow.api.proto.Service.GetExperimentByNameOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_GetExperimentByName_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_GetExperimentByName_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.GetExperimentByName.class, org.mlflow.api.proto.Service.GetExperimentByName.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.Service.GetExperimentByName.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        experimentName_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_GetExperimentByName_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.GetExperimentByName getDefaultInstanceForType() {
+        return org.mlflow.api.proto.Service.GetExperimentByName.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.GetExperimentByName build() {
+        org.mlflow.api.proto.Service.GetExperimentByName result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.GetExperimentByName buildPartial() {
+        org.mlflow.api.proto.Service.GetExperimentByName result = new org.mlflow.api.proto.Service.GetExperimentByName(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.experimentName_ = experimentName_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.Service.GetExperimentByName) {
+          return mergeFrom((org.mlflow.api.proto.Service.GetExperimentByName)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.Service.GetExperimentByName other) {
+        if (other == org.mlflow.api.proto.Service.GetExperimentByName.getDefaultInstance()) return this;
+        if (other.hasExperimentName()) {
+          bitField0_ |= 0x00000001;
+          experimentName_ = other.experimentName_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.Service.GetExperimentByName parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.Service.GetExperimentByName) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object experimentName_ = "";
+      /**
+       * <pre>
+       * Name of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_name = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public boolean hasExperimentName() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <pre>
+       * Name of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_name = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public java.lang.String getExperimentName() {
+        java.lang.Object ref = experimentName_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            experimentName_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_name = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public com.google.protobuf.ByteString
+          getExperimentNameBytes() {
+        java.lang.Object ref = experimentName_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          experimentName_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_name = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder setExperimentName(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        experimentName_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_name = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder clearExperimentName() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        experimentName_ = getDefaultInstance().getExperimentName();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_name = 1 [(.mlflow.validate_required) = true];</code>
+       */
+      public Builder setExperimentNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        experimentName_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.GetExperimentByName)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.GetExperimentByName)
+    private static final org.mlflow.api.proto.Service.GetExperimentByName DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.GetExperimentByName();
+    }
+
+    public static org.mlflow.api.proto.Service.GetExperimentByName getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<GetExperimentByName>
+        PARSER = new com.google.protobuf.AbstractParser<GetExperimentByName>() {
+      @java.lang.Override
+      public GetExperimentByName parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new GetExperimentByName(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<GetExperimentByName> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<GetExperimentByName> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.GetExperimentByName getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_Metric_descriptor;
   private static final 
@@ -48217,6 +46372,11 @@ public final class Service {
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_RunTag_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_ExperimentTag_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_ExperimentTag_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_RunInfo_descriptor;
   private static final 
@@ -48348,6 +46508,16 @@ public final class Service {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_LogParam_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_SetExperimentTag_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_SetExperimentTag_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_SetExperimentTag_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_SetExperimentTag_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_SetTag_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -48358,6 +46528,16 @@ public final class Service {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_SetTag_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_DeleteTag_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_DeleteTag_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_DeleteTag_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_DeleteTag_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_GetRun_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -48367,36 +46547,6 @@ public final class Service {
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_GetRun_Response_fieldAccessorTable;
-  private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_SearchExpression_descriptor;
-  private static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_SearchExpression_fieldAccessorTable;
-  private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_MetricSearchExpression_descriptor;
-  private static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_MetricSearchExpression_fieldAccessorTable;
-  private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_ParameterSearchExpression_descriptor;
-  private static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_ParameterSearchExpression_fieldAccessorTable;
-  private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_StringClause_descriptor;
-  private static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_StringClause_fieldAccessorTable;
-  private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_FloatClause_descriptor;
-  private static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_FloatClause_fieldAccessorTable;
-  private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_DoubleClause_descriptor;
-  private static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_DoubleClause_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_SearchRuns_descriptor;
   private static final 
@@ -48423,16 +46573,6 @@ public final class Service {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_FileInfo_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_GetArtifact_descriptor;
-  private static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_GetArtifact_fieldAccessorTable;
-  private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_GetArtifact_Response_descriptor;
-  private static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_GetArtifact_Response_fieldAccessorTable;
-  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_GetMetricHistory_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -48452,6 +46592,16 @@ public final class Service {
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_LogBatch_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_GetExperimentByName_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_GetExperimentByName_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_GetExperimentByName_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_GetExperimentByName_Response_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -48470,176 +46620,200 @@ public final class Service {
       "Data\"g\n\007RunData\022\037\n\007metrics\030\001 \003(\0132\016.mlflo" +
       "w.Metric\022\035\n\006params\030\002 \003(\0132\r.mlflow.Param\022" +
       "\034\n\004tags\030\003 \003(\0132\016.mlflow.RunTag\"$\n\006RunTag\022" +
-      "\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\271\002\n\007RunInfo\022" +
-      "\020\n\010run_uuid\030\001 \001(\t\022\025\n\rexperiment_id\030\002 \001(\t" +
-      "\022\014\n\004name\030\003 \001(\t\022\'\n\013source_type\030\004 \001(\0162\022.ml" +
-      "flow.SourceType\022\023\n\013source_name\030\005 \001(\t\022\017\n\007" +
-      "user_id\030\006 \001(\t\022!\n\006status\030\007 \001(\0162\021.mlflow.R" +
-      "unStatus\022\022\n\nstart_time\030\010 \001(\003\022\020\n\010end_time" +
-      "\030\t \001(\003\022\026\n\016source_version\030\n \001(\t\022\030\n\020entry_" +
-      "point_name\030\013 \001(\t\022\024\n\014artifact_uri\030\r \001(\t\022\027" +
-      "\n\017lifecycle_stage\030\016 \001(\t\"\226\001\n\nExperiment\022\025" +
-      "\n\rexperiment_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\031\n\021a" +
-      "rtifact_location\030\003 \001(\t\022\027\n\017lifecycle_stag" +
-      "e\030\004 \001(\t\022\030\n\020last_update_time\030\005 \001(\003\022\025\n\rcre" +
-      "ation_time\030\006 \001(\003\"\221\001\n\020CreateExperiment\022\022\n" +
-      "\004name\030\001 \001(\tB\004\210\265\030\001\022\031\n\021artifact_location\030\002" +
-      " \001(\t\032!\n\010Response\022\025\n\rexperiment_id\030\001 \001(\t:" +
-      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\"\230\001\n\017ListExperiments\022#\n\tview_type\030\001 " +
-      "\001(\0162\020.mlflow.ViewType\0323\n\010Response\022\'\n\013exp" +
-      "eriments\030\001 \003(\0132\022.mlflow.Experiment:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "\254\001\n\rGetExperiment\022\033\n\rexperiment_id\030\001 \001(\t" +
-      "B\004\210\265\030\001\032Q\n\010Response\022&\n\nexperiment\030\001 \001(\0132\022" +
-      ".mlflow.Experiment\022\035\n\004runs\030\002 \003(\0132\017.mlflo" +
-      "w.RunInfo:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]\"h\n\020DeleteExperiment\022\033\n\rex" +
-      "periment_id\030\001 \001(\tB\004\210\265\030\001\032\n\n\010Response:+\342?(" +
-      "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\"i\n\021RestoreExperiment\022\033\n\rexperiment_id\030\001" +
-      " \001(\tB\004\210\265\030\001\032\n\n\010Response:+\342?(\n&com.databri" +
-      "cks.rpc.RPC[$this.Response]\"z\n\020UpdateExp" +
-      "eriment\022\033\n\rexperiment_id\030\001 \001(\tB\004\210\265\030\001\022\020\n\010" +
-      "new_name\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.dat" +
-      "abricks.rpc.RPC[$this.Response]\"\321\002\n\tCrea" +
-      "teRun\022\025\n\rexperiment_id\030\001 \001(\t\022\017\n\007user_id\030" +
-      "\002 \001(\t\022\020\n\010run_name\030\003 \001(\t\022\'\n\013source_type\030\004" +
-      " \001(\0162\022.mlflow.SourceType\022\023\n\013source_name\030" +
-      "\005 \001(\t\022\030\n\020entry_point_name\030\006 \001(\t\022\022\n\nstart" +
-      "_time\030\007 \001(\003\022\026\n\016source_version\030\010 \001(\t\022\034\n\004t" +
-      "ags\030\t \003(\0132\016.mlflow.RunTag\022\025\n\rparent_run_" +
-      "id\030\n \001(\t\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013.mlfl" +
-      "ow.Run:+\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]\"\264\001\n\tUpdateRun\022\026\n\010run_uuid\030\001 " +
-      "\001(\tB\004\210\265\030\001\022!\n\006status\030\002 \001(\0162\021.mlflow.RunSt" +
-      "atus\022\020\n\010end_time\030\003 \001(\003\032-\n\010Response\022!\n\010ru" +
-      "n_info\030\001 \001(\0132\017.mlflow.RunInfo:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"Z\n\tDe" +
-      "leteRun\022\024\n\006run_id\030\001 \001(\tB\004\210\265\030\001\032\n\n\010Respons" +
-      "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"[\n\nRestoreRun\022\024\n\006run_id\030\001 \001(\tB\004\210\265" +
-      "\030\001\032\n\n\010Response:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"\256\001\n\tLogMetric\022\026\n\010run" +
-      "_uuid\030\001 \001(\tB\004\210\265\030\001\022\021\n\003key\030\002 \001(\tB\004\210\265\030\001\022\023\n\005" +
-      "value\030\003 \001(\001B\004\210\265\030\001\022\027\n\ttimestamp\030\004 \001(\003B\004\210\265" +
-      "\030\001\022\017\n\004step\030\005 \001(\003:\0010\032\n\n\010Response:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]\"\203\001\n" +
-      "\010LogParam\022\026\n\010run_uuid\030\001 \001(\tB\004\210\265\030\001\022\021\n\003key" +
-      "\030\002 \001(\tB\004\210\265\030\001\022\023\n\005value\030\003 \001(\tB\004\210\265\030\001\032\n\n\010Res" +
-      "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
-      ".Response]\"\201\001\n\006SetTag\022\026\n\010run_uuid\030\001 \001(\tB" +
-      "\004\210\265\030\001\022\021\n\003key\030\002 \001(\tB\004\210\265\030\001\022\023\n\005value\030\003 \001(\tB" +
-      "\004\210\265\030\001\032\n\n\010Response:+\342?(\n&com.databricks.r" +
-      "pc.RPC[$this.Response]\"s\n\006GetRun\022\026\n\010run_" +
-      "uuid\030\001 \001(\tB\004\210\265\030\001\032$\n\010Response\022\030\n\003run\030\001 \001(" +
-      "\0132\013.mlflow.Run:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"\212\001\n\020SearchExpression" +
-      "\0220\n\006metric\030\001 \001(\0132\036.mlflow.MetricSearchEx" +
-      "pressionH\000\0226\n\tparameter\030\002 \001(\0132!.mlflow.P" +
-      "arameterSearchExpressionH\000B\014\n\nexpression" +
-      "\"}\n\026MetricSearchExpression\022\013\n\003key\030\001 \001(\t\022" +
-      "$\n\005float\030\002 \001(\0132\023.mlflow.FloatClauseH\000\022&\n" +
-      "\006double\030\003 \001(\0132\024.mlflow.DoubleClauseH\000B\010\n" +
-      "\006clause\"Z\n\031ParameterSearchExpression\022\013\n\003" +
-      "key\030\001 \001(\t\022&\n\006string\030\002 \001(\0132\024.mlflow.Strin" +
-      "gClauseH\000B\010\n\006clause\"1\n\014StringClause\022\022\n\nc" +
-      "omparator\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"0\n\013FloatC" +
-      "lause\022\022\n\ncomparator\030\001 \001(\t\022\r\n\005value\030\002 \001(\002" +
-      "\"1\n\014DoubleClause\022\022\n\ncomparator\030\001 \001(\t\022\r\n\005" +
-      "value\030\002 \001(\001\"\216\002\n\nSearchRuns\022\026\n\016experiment" +
-      "_ids\030\001 \003(\t\0223\n\021anded_expressions\030\002 \003(\0132\030." +
-      "mlflow.SearchExpression\022\016\n\006filter\030\004 \001(\t\022" +
-      "4\n\rrun_view_type\030\003 \001(\0162\020.mlflow.ViewType" +
-      ":\013ACTIVE_ONLY\022\031\n\013max_results\030\005 \001(\005:\0041000" +
-      "\032%\n\010Response\022\031\n\004runs\030\001 \003(\0132\013.mlflow.Run:" +
-      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\"\233\001\n\rListArtifacts\022\020\n\010run_uuid\030\001 \001(\t" +
-      "\022\014\n\004path\030\002 \001(\t\032=\n\010Response\022\020\n\010root_uri\030\001" +
-      " \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.FileInfo:+\342" +
-      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
-      "e]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_dir\030\002" +
-      " \001(\010\022\021\n\tfile_size\030\003 \001(\003\"f\n\013GetArtifact\022\020" +
-      "\n\010run_uuid\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\032\n\n\010Respon" +
+      "\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"+\n\rExperimen" +
+      "tTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\313\001\n\007Run" +
+      "Info\022\016\n\006run_id\030\017 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\025" +
+      "\n\rexperiment_id\030\002 \001(\t\022\017\n\007user_id\030\006 \001(\t\022!" +
+      "\n\006status\030\007 \001(\0162\021.mlflow.RunStatus\022\022\n\nsta" +
+      "rt_time\030\010 \001(\003\022\020\n\010end_time\030\t \001(\003\022\024\n\014artif" +
+      "act_uri\030\r \001(\t\022\027\n\017lifecycle_stage\030\016 \001(\t\"\273" +
+      "\001\n\nExperiment\022\025\n\rexperiment_id\030\001 \001(\t\022\014\n\004" +
+      "name\030\002 \001(\t\022\031\n\021artifact_location\030\003 \001(\t\022\027\n" +
+      "\017lifecycle_stage\030\004 \001(\t\022\030\n\020last_update_ti" +
+      "me\030\005 \001(\003\022\025\n\rcreation_time\030\006 \001(\003\022#\n\004tags\030" +
+      "\007 \003(\0132\025.mlflow.ExperimentTag\"\221\001\n\020CreateE" +
+      "xperiment\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\031\n\021artifac" +
+      "t_location\030\002 \001(\t\032!\n\010Response\022\025\n\rexperime" +
+      "nt_id\030\001 \001(\t:+\342?(\n&com.databricks.rpc.RPC" +
+      "[$this.Response]\"\230\001\n\017ListExperiments\022#\n\t" +
+      "view_type\030\001 \001(\0162\020.mlflow.ViewType\0323\n\010Res" +
+      "ponse\022\'\n\013experiments\030\001 \003(\0132\022.mlflow.Expe" +
+      "riment:+\342?(\n&com.databricks.rpc.RPC[$thi" +
+      "s.Response]\"\260\001\n\rGetExperiment\022\033\n\rexperim" +
+      "ent_id\030\001 \001(\tB\004\370\206\031\001\032U\n\010Response\022&\n\nexperi" +
+      "ment\030\001 \001(\0132\022.mlflow.Experiment\022!\n\004runs\030\002" +
+      " \003(\0132\017.mlflow.RunInfoB\002\030\001:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\"h\n\020Delete" +
+      "Experiment\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\032" +
+      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
+      "[$this.Response]\"i\n\021RestoreExperiment\022\033\n" +
+      "\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+" +
+      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
+      "se]\"z\n\020UpdateExperiment\022\033\n\rexperiment_id" +
+      "\030\001 \001(\tB\004\370\206\031\001\022\020\n\010new_name\030\002 \001(\t\032\n\n\010Respon" +
       "se:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\236\001\n\020GetMetricHistory\022\026\n\010run_uuid" +
-      "\030\001 \001(\tB\004\210\265\030\001\022\030\n\nmetric_key\030\002 \001(\tB\004\210\265\030\001\032+" +
-      "\n\010Response\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.Met" +
-      "ric:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"\261\001\n\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n" +
-      "\007metrics\030\002 \003(\0132\016.mlflow.Metric\022\035\n\006params" +
-      "\030\003 \003(\0132\r.mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.ml" +
-      "flow.RunTag\032\n\n\010Response:+\342?(\n&com.databr" +
-      "icks.rpc.RPC[$this.Response]*6\n\010ViewType" +
-      "\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003A" +
-      "LL\020\003*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020" +
-      "\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*" +
-      "M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002" +
-      "\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\271" +
-      "\023\n\rMlflowService\022\234\001\n\020createExperiment\022\030." +
-      "mlflow.CreateExperiment\032!.mlflow.CreateE" +
-      "xperiment.Response\"K\202\265\030G\n0\n\004POST\022\"/previ" +
-      "ew/mlflow/experiments/create\032\004\010\002\020\000\020\001*\021Cr" +
-      "eate Experiment\022\225\001\n\017listExperiments\022\027.ml" +
-      "flow.ListExperiments\032 .mlflow.ListExperi" +
-      "ments.Response\"G\202\265\030C\n-\n\003GET\022 /preview/ml" +
-      "flow/experiments/list\032\004\010\002\020\000\020\001*\020List Expe" +
-      "riments\022\214\001\n\rgetExperiment\022\025.mlflow.GetEx" +
-      "periment\032\036.mlflow.GetExperiment.Response" +
-      "\"D\202\265\030@\n,\n\003GET\022\037/preview/mlflow/experimen" +
-      "ts/get\032\004\010\002\020\000\020\001*\016Get Experiment\022\234\001\n\020delet" +
-      "eExperiment\022\030.mlflow.DeleteExperiment\032!." +
-      "mlflow.DeleteExperiment.Response\"K\202\265\030G\n0" +
-      "\n\004POST\022\"/preview/mlflow/experiments/dele" +
-      "te\032\004\010\002\020\000\020\001*\021Delete Experiment\022\241\001\n\021restor" +
-      "eExperiment\022\031.mlflow.RestoreExperiment\032\"" +
-      ".mlflow.RestoreExperiment.Response\"M\202\265\030I" +
-      "\n1\n\004POST\022#/preview/mlflow/experiments/re" +
-      "store\032\004\010\002\020\000\020\001*\022Restore Experiment\022\234\001\n\020up" +
-      "dateExperiment\022\030.mlflow.UpdateExperiment" +
-      "\032!.mlflow.UpdateExperiment.Response\"K\202\265\030" +
-      "G\n0\n\004POST\022\"/preview/mlflow/experiments/u" +
-      "pdate\032\004\010\002\020\000\020\001*\021Update Experiment\022y\n\tcrea" +
-      "teRun\022\021.mlflow.CreateRun\032\032.mlflow.Create" +
-      "Run.Response\"=\202\265\0309\n)\n\004POST\022\033/preview/mlf" +
-      "low/runs/create\032\004\010\002\020\000\020\001*\nCreate Run\022y\n\tu" +
-      "pdateRun\022\021.mlflow.UpdateRun\032\032.mlflow.Upd" +
-      "ateRun.Response\"=\202\265\0309\n)\n\004POST\022\033/preview/" +
-      "mlflow/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run\022m" +
-      "\n\tdeleteRun\022\021.mlflow.DeleteRun\032\032.mlflow." +
-      "DeleteRun.Response\"1\202\265\030-\n)\n\004POST\022\033/previ" +
-      "ew/mlflow/runs/delete\032\004\010\002\020\000\020\001\022q\n\nrestore" +
-      "Run\022\022.mlflow.RestoreRun\032\033.mlflow.Restore" +
-      "Run.Response\"2\202\265\030.\n*\n\004POST\022\034/preview/mlf" +
-      "low/runs/restore\032\004\010\002\020\000\020\001\022}\n\tlogMetric\022\021." +
-      "mlflow.LogMetric\032\032.mlflow.LogMetric.Resp" +
-      "onse\"A\202\265\030=\n-\n\004POST\022\037/preview/mlflow/runs" +
-      "/log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022|\n\010logPa" +
-      "ram\022\020.mlflow.LogParam\032\031.mlflow.LogParam." +
-      "Response\"C\202\265\030?\n0\n\004POST\022\"/preview/mlflow/" +
-      "runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022n\n" +
+      "sponse]\"\270\001\n\tCreateRun\022\025\n\rexperiment_id\030\001" +
+      " \001(\t\022\017\n\007user_id\030\002 \001(\t\022\022\n\nstart_time\030\007 \001(" +
+      "\003\022\034\n\004tags\030\t \003(\0132\016.mlflow.RunTag\032$\n\010Respo" +
+      "nse\022\030\n\003run\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]\"\276\001\n\tU" +
+      "pdateRun\022\016\n\006run_id\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001" +
+      "(\t\022!\n\006status\030\002 \001(\0162\021.mlflow.RunStatus\022\020\n" +
+      "\010end_time\030\003 \001(\003\032-\n\010Response\022!\n\010run_info\030" +
+      "\001 \001(\0132\017.mlflow.RunInfo:+\342?(\n&com.databri" +
+      "cks.rpc.RPC[$this.Response]\"Z\n\tDeleteRun" +
+      "\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n" +
+      "&com.databricks.rpc.RPC[$this.Response]\"" +
+      "[\n\nRestoreRun\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010R" +
+      "esponse:+\342?(\n&com.databricks.rpc.RPC[$th" +
+      "is.Response]\"\270\001\n\tLogMetric\022\016\n\006run_id\030\006 \001" +
+      "(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022" +
+      "\023\n\005value\030\003 \001(\001B\004\370\206\031\001\022\027\n\ttimestamp\030\004 \001(\003B" +
+      "\004\370\206\031\001\022\017\n\004step\030\005 \001(\003:\0010\032\n\n\010Response:+\342?(\n" +
+      "&com.databricks.rpc.RPC[$this.Response]\"" +
+      "\215\001\n\010LogParam\022\016\n\006run_id\030\004 \001(\t\022\020\n\010run_uuid" +
+      "\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\t" +
+      "B\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\"\220\001\n\020SetExperimen" +
+      "tTag\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key" +
+      "\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Res" +
+      "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\"\213\001\n\006SetTag\022\016\n\006run_id\030\004 \001(\t\022\020\n" +
+      "\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005va" +
+      "lue\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]\"m\n\tDele" +
+      "teTag\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\t" +
+      "B\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\"}\n\006GetRun\022\016\n\006run" +
+      "_id\030\002 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\032$\n\010Response\022" +
+      "\030\n\003run\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\"\230\002\n\nSearc" +
+      "hRuns\022\026\n\016experiment_ids\030\001 \003(\t\022\016\n\006filter\030" +
+      "\004 \001(\t\0224\n\rrun_view_type\030\003 \001(\0162\020.mlflow.Vi" +
+      "ewType:\013ACTIVE_ONLY\022\031\n\013max_results\030\005 \001(\005" +
+      ":\0041000\022\020\n\010order_by\030\006 \003(\t\022\022\n\npage_token\030\007" +
+      " \001(\t\032>\n\010Response\022\031\n\004runs\030\001 \003(\0132\013.mlflow." +
+      "Run\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.d" +
+      "atabricks.rpc.RPC[$this.Response]\"\253\001\n\rLi" +
+      "stArtifacts\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030" +
+      "\001 \001(\t\022\014\n\004path\030\002 \001(\t\032=\n\010Response\022\020\n\010root_" +
+      "uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.FileIn" +
+      "fo:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
+      "sponse]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_" +
+      "dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"\250\001\n\020GetMetr" +
+      "icHistory\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 " +
+      "\001(\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Respons" +
+      "e\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.Metric:+\342?(\n" +
+      "&com.databricks.rpc.RPC[$this.Response]\"" +
+      "\261\001\n\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics\030" +
+      "\002 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003(\0132\r." +
+      "mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow.RunT" +
+      "ag\032\n\n\010Response:+\342?(\n&com.databricks.rpc." +
+      "RPC[$this.Response]\"\225\001\n\023GetExperimentByN" +
+      "ame\022\035\n\017experiment_name\030\001 \001(\tB\004\370\206\031\001\0322\n\010Re" +
+      "sponse\022&\n\nexperiment\030\001 \001(\0132\022.mlflow.Expe" +
+      "riment:+\342?(\n&com.databricks.rpc.RPC[$thi" +
+      "s.Response]*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001" +
+      "\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceTyp" +
+      "e\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n" +
+      "\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007R" +
+      "UNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n" +
+      "\006FAILED\020\004\022\n\n\006KILLED\020\0052\300\035\n\rMlflowService\022" +
+      "\246\001\n\023getExperimentByName\022\033.mlflow.GetExpe" +
+      "rimentByName\032$.mlflow.GetExperimentByNam" +
+      "e.Response\"L\362\206\031H\n,\n\003GET\022\037/mlflow/experim" +
+      "ents/get-by-name\032\004\010\002\020\000\020\001*\026Get Experiment" +
+      " By Name\022\306\001\n\020createExperiment\022\030.mlflow.C" +
+      "reateExperiment\032!.mlflow.CreateExperimen" +
+      "t.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experi" +
+      "ments/create\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlf" +
+      "low/experiments/create\032\004\010\002\020\000\020\001*\021Create E" +
+      "xperiment\022\274\001\n\017listExperiments\022\027.mlflow.L" +
+      "istExperiments\032 .mlflow.ListExperiments." +
+      "Response\"n\362\206\031j\n%\n\003GET\022\030/mlflow/experimen" +
+      "ts/list\032\004\010\002\020\000\n-\n\003GET\022 /preview/mlflow/ex" +
+      "periments/list\032\004\010\002\020\000\020\001*\020List Experiments" +
+      "\022\262\001\n\rgetExperiment\022\025.mlflow.GetExperimen" +
+      "t\032\036.mlflow.GetExperiment.Response\"j\362\206\031f\n" +
+      "$\n\003GET\022\027/mlflow/experiments/get\032\004\010\002\020\000\n,\n" +
+      "\003GET\022\037/preview/mlflow/experiments/get\032\004\010" +
+      "\002\020\000\020\001*\016Get Experiment\022\306\001\n\020deleteExperime" +
+      "nt\022\030.mlflow.DeleteExperiment\032!.mlflow.De" +
+      "leteExperiment.Response\"u\362\206\031q\n(\n\004POST\022\032/" +
+      "mlflow/experiments/delete\032\004\010\002\020\000\n0\n\004POST\022" +
+      "\"/preview/mlflow/experiments/delete\032\004\010\002\020" +
+      "\000\020\001*\021Delete Experiment\022\314\001\n\021restoreExperi" +
+      "ment\022\031.mlflow.RestoreExperiment\032\".mlflow" +
+      ".RestoreExperiment.Response\"x\362\206\031t\n)\n\004POS" +
+      "T\022\033/mlflow/experiments/restore\032\004\010\002\020\000\n1\n\004" +
+      "POST\022#/preview/mlflow/experiments/restor" +
+      "e\032\004\010\002\020\000\020\001*\022Restore Experiment\022\306\001\n\020update" +
+      "Experiment\022\030.mlflow.UpdateExperiment\032!.m" +
+      "lflow.UpdateExperiment.Response\"u\362\206\031q\n(\n" +
+      "\004POST\022\032/mlflow/experiments/update\032\004\010\002\020\000\n" +
+      "0\n\004POST\022\"/preview/mlflow/experiments/upd" +
+      "ate\032\004\010\002\020\000\020\001*\021Update Experiment\022\234\001\n\tcreat" +
+      "eRun\022\021.mlflow.CreateRun\032\032.mlflow.CreateR" +
+      "un.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/" +
+      "create\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/ru" +
+      "ns/create\032\004\010\002\020\000\020\001*\nCreate Run\022\234\001\n\tupdate" +
+      "Run\022\021.mlflow.UpdateRun\032\032.mlflow.UpdateRu" +
+      "n.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/u" +
+      "pdate\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/run" +
+      "s/update\032\004\010\002\020\000\020\001*\nUpdate Run\022\234\001\n\tdeleteR" +
+      "un\022\021.mlflow.DeleteRun\032\032.mlflow.DeleteRun" +
+      ".Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/de" +
+      "lete\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/runs" +
+      "/delete\032\004\010\002\020\000\020\001*\nDelete Run\022\242\001\n\nrestoreR" +
+      "un\022\022.mlflow.RestoreRun\032\033.mlflow.RestoreR" +
+      "un.Response\"c\362\206\031_\n\"\n\004POST\022\024/mlflow/runs/" +
+      "restore\032\004\010\002\020\000\n*\n\004POST\022\034/preview/mlflow/r" +
+      "uns/restore\032\004\010\002\020\000\020\001*\013Restore Run\022\244\001\n\tlog" +
+      "Metric\022\021.mlflow.LogMetric\032\032.mlflow.LogMe" +
+      "tric.Response\"h\362\206\031d\n%\n\004POST\022\027/mlflow/run" +
+      "s/log-metric\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlf" +
+      "low/runs/log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022" +
+      "\246\001\n\010logParam\022\020.mlflow.LogParam\032\031.mlflow." +
+      "LogParam.Response\"m\362\206\031i\n(\n\004POST\022\032/mlflow" +
+      "/runs/log-parameter\032\004\010\002\020\000\n0\n\004POST\022\"/prev" +
+      "iew/mlflow/runs/log-parameter\032\004\010\002\020\000\020\001*\tL" +
+      "og Param\022\341\001\n\020setExperimentTag\022\030.mlflow.S" +
+      "etExperimentTag\032!.mlflow.SetExperimentTa" +
+      "g.Response\"\217\001\362\206\031\212\001\n4\n\004POST\022&/mlflow/expe" +
+      "riments/set-experiment-tag\032\004\010\002\020\000\n<\n\004POST" +
+      "\022./preview/mlflow/experiments/set-experi" +
+      "ment-tag\032\004\010\002\020\000\020\001*\022Set Experiment Tag\022\222\001\n" +
       "\006setTag\022\016.mlflow.SetTag\032\027.mlflow.SetTag." +
-      "Response\";\202\265\0307\n*\n\004POST\022\034/preview/mlflow/" +
-      "runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022i\n\006getRun\022" +
-      "\016.mlflow.GetRun\032\027.mlflow.GetRun.Response" +
-      "\"6\202\265\0302\n%\n\003GET\022\030/preview/mlflow/runs/get\032" +
-      "\004\010\002\020\000\020\001*\007Get Run\022\247\001\n\nsearchRuns\022\022.mlflow" +
-      ".SearchRuns\032\033.mlflow.SearchRuns.Response" +
-      "\"h\202\265\030d\n)\n\004POST\022\033/preview/mlflow/runs/sea" +
-      "rch\032\004\010\002\020\000\n(\n\003GET\022\033/preview/mlflow/runs/s" +
-      "earch\032\004\010\002\020\000\020\001*\013Search Runs\022\213\001\n\rlistArtif" +
-      "acts\022\025.mlflow.ListArtifacts\032\036.mlflow.Lis" +
-      "tArtifacts.Response\"C\202\265\030?\n+\n\003GET\022\036/previ" +
-      "ew/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List A" +
-      "rtifacts\022\235\001\n\020getMetricHistory\022\030.mlflow.G" +
-      "etMetricHistory\032!.mlflow.GetMetricHistor" +
-      "y.Response\"L\202\265\030H\n0\n\003GET\022#/preview/mlflow" +
-      "/metrics/get-history\032\004\010\002\020\000\020\001*\022Get Metric" +
-      " History\022x\n\010logBatch\022\020.mlflow.LogBatch\032\031" +
-      ".mlflow.LogBatch.Response\"?\202\265\030;\n,\n\004POST\022" +
-      "\036/preview/mlflow/runs/log-batch\032\004\010\002\020\000\020\001*" +
-      "\tLog BatchB\036\n\024org.mlflow.api.proto\220\001\001\342?\002" +
-      "\020\001"
+      "Response\"_\362\206\031[\n\"\n\004POST\022\024/mlflow/runs/set" +
+      "-tag\032\004\010\002\020\000\n*\n\004POST\022\034/preview/mlflow/runs" +
+      "/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\244\001\n\tdeleteTag\022" +
+      "\021.mlflow.DeleteTag\032\032.mlflow.DeleteTag.Re" +
+      "sponse\"h\362\206\031d\n%\n\004POST\022\027/mlflow/runs/delet" +
+      "e-tag\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlflow/run" +
+      "s/delete-tag\032\004\010\002\020\000\020\001*\nDelete Tag\022\210\001\n\006get" +
+      "Run\022\016.mlflow.GetRun\032\027.mlflow.GetRun.Resp" +
+      "onse\"U\362\206\031Q\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020" +
+      "\000\n%\n\003GET\022\030/preview/mlflow/runs/get\032\004\010\002\020\000" +
+      "\020\001*\007Get Run\022\314\001\n\nsearchRuns\022\022.mlflow.Sear" +
+      "chRuns\032\033.mlflow.SearchRuns.Response\"\214\001\362\206" +
+      "\031\207\001\n!\n\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000\n)" +
+      "\n\004POST\022\033/preview/mlflow/runs/search\032\004\010\002\020" +
+      "\000\n(\n\003GET\022\033/preview/mlflow/runs/search\032\004\010" +
+      "\002\020\000\020\001*\013Search Runs\022\260\001\n\rlistArtifacts\022\025.m" +
+      "lflow.ListArtifacts\032\036.mlflow.ListArtifac" +
+      "ts.Response\"h\362\206\031d\n#\n\003GET\022\026/mlflow/artifa" +
+      "cts/list\032\004\010\002\020\000\n+\n\003GET\022\036/preview/mlflow/a" +
+      "rtifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022\307\001" +
+      "\n\020getMetricHistory\022\030.mlflow.GetMetricHis" +
+      "tory\032!.mlflow.GetMetricHistory.Response\"" +
+      "v\362\206\031r\n(\n\003GET\022\033/mlflow/metrics/get-histor" +
+      "y\032\004\010\002\020\000\n0\n\003GET\022#/preview/mlflow/metrics/" +
+      "get-history\032\004\010\002\020\000\020\001*\022Get Metric History\022" +
+      "\236\001\n\010logBatch\022\020.mlflow.LogBatch\032\031.mlflow." +
+      "LogBatch.Response\"e\362\206\031a\n$\n\004POST\022\026/mlflow" +
+      "/runs/log-batch\032\004\010\002\020\000\n,\n\004POST\022\036/preview/" +
+      "mlflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batch" +
+      "B\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -48685,20 +46859,26 @@ public final class Service {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RunTag_descriptor,
         new java.lang.String[] { "Key", "Value", });
-    internal_static_mlflow_RunInfo_descriptor =
+    internal_static_mlflow_ExperimentTag_descriptor =
       getDescriptor().getMessageTypes().get(5);
+    internal_static_mlflow_ExperimentTag_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_ExperimentTag_descriptor,
+        new java.lang.String[] { "Key", "Value", });
+    internal_static_mlflow_RunInfo_descriptor =
+      getDescriptor().getMessageTypes().get(6);
     internal_static_mlflow_RunInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RunInfo_descriptor,
-        new java.lang.String[] { "RunUuid", "ExperimentId", "Name", "SourceType", "SourceName", "UserId", "Status", "StartTime", "EndTime", "SourceVersion", "EntryPointName", "ArtifactUri", "LifecycleStage", });
+        new java.lang.String[] { "RunId", "RunUuid", "ExperimentId", "UserId", "Status", "StartTime", "EndTime", "ArtifactUri", "LifecycleStage", });
     internal_static_mlflow_Experiment_descriptor =
-      getDescriptor().getMessageTypes().get(6);
+      getDescriptor().getMessageTypes().get(7);
     internal_static_mlflow_Experiment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_Experiment_descriptor,
-        new java.lang.String[] { "ExperimentId", "Name", "ArtifactLocation", "LifecycleStage", "LastUpdateTime", "CreationTime", });
+        new java.lang.String[] { "ExperimentId", "Name", "ArtifactLocation", "LifecycleStage", "LastUpdateTime", "CreationTime", "Tags", });
     internal_static_mlflow_CreateExperiment_descriptor =
-      getDescriptor().getMessageTypes().get(7);
+      getDescriptor().getMessageTypes().get(8);
     internal_static_mlflow_CreateExperiment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CreateExperiment_descriptor,
@@ -48710,7 +46890,7 @@ public final class Service {
         internal_static_mlflow_CreateExperiment_Response_descriptor,
         new java.lang.String[] { "ExperimentId", });
     internal_static_mlflow_ListExperiments_descriptor =
-      getDescriptor().getMessageTypes().get(8);
+      getDescriptor().getMessageTypes().get(9);
     internal_static_mlflow_ListExperiments_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ListExperiments_descriptor,
@@ -48722,7 +46902,7 @@ public final class Service {
         internal_static_mlflow_ListExperiments_Response_descriptor,
         new java.lang.String[] { "Experiments", });
     internal_static_mlflow_GetExperiment_descriptor =
-      getDescriptor().getMessageTypes().get(9);
+      getDescriptor().getMessageTypes().get(10);
     internal_static_mlflow_GetExperiment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetExperiment_descriptor,
@@ -48734,7 +46914,7 @@ public final class Service {
         internal_static_mlflow_GetExperiment_Response_descriptor,
         new java.lang.String[] { "Experiment", "Runs", });
     internal_static_mlflow_DeleteExperiment_descriptor =
-      getDescriptor().getMessageTypes().get(10);
+      getDescriptor().getMessageTypes().get(11);
     internal_static_mlflow_DeleteExperiment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteExperiment_descriptor,
@@ -48746,7 +46926,7 @@ public final class Service {
         internal_static_mlflow_DeleteExperiment_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_RestoreExperiment_descriptor =
-      getDescriptor().getMessageTypes().get(11);
+      getDescriptor().getMessageTypes().get(12);
     internal_static_mlflow_RestoreExperiment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RestoreExperiment_descriptor,
@@ -48758,7 +46938,7 @@ public final class Service {
         internal_static_mlflow_RestoreExperiment_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_UpdateExperiment_descriptor =
-      getDescriptor().getMessageTypes().get(12);
+      getDescriptor().getMessageTypes().get(13);
     internal_static_mlflow_UpdateExperiment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateExperiment_descriptor,
@@ -48770,11 +46950,11 @@ public final class Service {
         internal_static_mlflow_UpdateExperiment_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_CreateRun_descriptor =
-      getDescriptor().getMessageTypes().get(13);
+      getDescriptor().getMessageTypes().get(14);
     internal_static_mlflow_CreateRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CreateRun_descriptor,
-        new java.lang.String[] { "ExperimentId", "UserId", "RunName", "SourceType", "SourceName", "EntryPointName", "StartTime", "SourceVersion", "Tags", "ParentRunId", });
+        new java.lang.String[] { "ExperimentId", "UserId", "StartTime", "Tags", });
     internal_static_mlflow_CreateRun_Response_descriptor =
       internal_static_mlflow_CreateRun_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_CreateRun_Response_fieldAccessorTable = new
@@ -48782,11 +46962,11 @@ public final class Service {
         internal_static_mlflow_CreateRun_Response_descriptor,
         new java.lang.String[] { "Run", });
     internal_static_mlflow_UpdateRun_descriptor =
-      getDescriptor().getMessageTypes().get(14);
+      getDescriptor().getMessageTypes().get(15);
     internal_static_mlflow_UpdateRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateRun_descriptor,
-        new java.lang.String[] { "RunUuid", "Status", "EndTime", });
+        new java.lang.String[] { "RunId", "RunUuid", "Status", "EndTime", });
     internal_static_mlflow_UpdateRun_Response_descriptor =
       internal_static_mlflow_UpdateRun_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_UpdateRun_Response_fieldAccessorTable = new
@@ -48794,7 +46974,7 @@ public final class Service {
         internal_static_mlflow_UpdateRun_Response_descriptor,
         new java.lang.String[] { "RunInfo", });
     internal_static_mlflow_DeleteRun_descriptor =
-      getDescriptor().getMessageTypes().get(15);
+      getDescriptor().getMessageTypes().get(16);
     internal_static_mlflow_DeleteRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteRun_descriptor,
@@ -48806,7 +46986,7 @@ public final class Service {
         internal_static_mlflow_DeleteRun_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_RestoreRun_descriptor =
-      getDescriptor().getMessageTypes().get(16);
+      getDescriptor().getMessageTypes().get(17);
     internal_static_mlflow_RestoreRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RestoreRun_descriptor,
@@ -48818,11 +46998,11 @@ public final class Service {
         internal_static_mlflow_RestoreRun_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_LogMetric_descriptor =
-      getDescriptor().getMessageTypes().get(17);
+      getDescriptor().getMessageTypes().get(18);
     internal_static_mlflow_LogMetric_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogMetric_descriptor,
-        new java.lang.String[] { "RunUuid", "Key", "Value", "Timestamp", "Step", });
+        new java.lang.String[] { "RunId", "RunUuid", "Key", "Value", "Timestamp", "Step", });
     internal_static_mlflow_LogMetric_Response_descriptor =
       internal_static_mlflow_LogMetric_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_LogMetric_Response_fieldAccessorTable = new
@@ -48830,95 +47010,83 @@ public final class Service {
         internal_static_mlflow_LogMetric_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_LogParam_descriptor =
-      getDescriptor().getMessageTypes().get(18);
+      getDescriptor().getMessageTypes().get(19);
     internal_static_mlflow_LogParam_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogParam_descriptor,
-        new java.lang.String[] { "RunUuid", "Key", "Value", });
+        new java.lang.String[] { "RunId", "RunUuid", "Key", "Value", });
     internal_static_mlflow_LogParam_Response_descriptor =
       internal_static_mlflow_LogParam_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_LogParam_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogParam_Response_descriptor,
         new java.lang.String[] { });
+    internal_static_mlflow_SetExperimentTag_descriptor =
+      getDescriptor().getMessageTypes().get(20);
+    internal_static_mlflow_SetExperimentTag_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_SetExperimentTag_descriptor,
+        new java.lang.String[] { "ExperimentId", "Key", "Value", });
+    internal_static_mlflow_SetExperimentTag_Response_descriptor =
+      internal_static_mlflow_SetExperimentTag_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_SetExperimentTag_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_SetExperimentTag_Response_descriptor,
+        new java.lang.String[] { });
     internal_static_mlflow_SetTag_descriptor =
-      getDescriptor().getMessageTypes().get(19);
+      getDescriptor().getMessageTypes().get(21);
     internal_static_mlflow_SetTag_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SetTag_descriptor,
-        new java.lang.String[] { "RunUuid", "Key", "Value", });
+        new java.lang.String[] { "RunId", "RunUuid", "Key", "Value", });
     internal_static_mlflow_SetTag_Response_descriptor =
       internal_static_mlflow_SetTag_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_SetTag_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SetTag_Response_descriptor,
         new java.lang.String[] { });
+    internal_static_mlflow_DeleteTag_descriptor =
+      getDescriptor().getMessageTypes().get(22);
+    internal_static_mlflow_DeleteTag_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_DeleteTag_descriptor,
+        new java.lang.String[] { "RunId", "Key", });
+    internal_static_mlflow_DeleteTag_Response_descriptor =
+      internal_static_mlflow_DeleteTag_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_DeleteTag_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_DeleteTag_Response_descriptor,
+        new java.lang.String[] { });
     internal_static_mlflow_GetRun_descriptor =
-      getDescriptor().getMessageTypes().get(20);
+      getDescriptor().getMessageTypes().get(23);
     internal_static_mlflow_GetRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetRun_descriptor,
-        new java.lang.String[] { "RunUuid", });
+        new java.lang.String[] { "RunId", "RunUuid", });
     internal_static_mlflow_GetRun_Response_descriptor =
       internal_static_mlflow_GetRun_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_GetRun_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetRun_Response_descriptor,
         new java.lang.String[] { "Run", });
-    internal_static_mlflow_SearchExpression_descriptor =
-      getDescriptor().getMessageTypes().get(21);
-    internal_static_mlflow_SearchExpression_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_SearchExpression_descriptor,
-        new java.lang.String[] { "Metric", "Parameter", "Expression", });
-    internal_static_mlflow_MetricSearchExpression_descriptor =
-      getDescriptor().getMessageTypes().get(22);
-    internal_static_mlflow_MetricSearchExpression_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_MetricSearchExpression_descriptor,
-        new java.lang.String[] { "Key", "Float", "Double", "Clause", });
-    internal_static_mlflow_ParameterSearchExpression_descriptor =
-      getDescriptor().getMessageTypes().get(23);
-    internal_static_mlflow_ParameterSearchExpression_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_ParameterSearchExpression_descriptor,
-        new java.lang.String[] { "Key", "String", "Clause", });
-    internal_static_mlflow_StringClause_descriptor =
-      getDescriptor().getMessageTypes().get(24);
-    internal_static_mlflow_StringClause_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_StringClause_descriptor,
-        new java.lang.String[] { "Comparator", "Value", });
-    internal_static_mlflow_FloatClause_descriptor =
-      getDescriptor().getMessageTypes().get(25);
-    internal_static_mlflow_FloatClause_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_FloatClause_descriptor,
-        new java.lang.String[] { "Comparator", "Value", });
-    internal_static_mlflow_DoubleClause_descriptor =
-      getDescriptor().getMessageTypes().get(26);
-    internal_static_mlflow_DoubleClause_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_DoubleClause_descriptor,
-        new java.lang.String[] { "Comparator", "Value", });
     internal_static_mlflow_SearchRuns_descriptor =
-      getDescriptor().getMessageTypes().get(27);
+      getDescriptor().getMessageTypes().get(24);
     internal_static_mlflow_SearchRuns_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchRuns_descriptor,
-        new java.lang.String[] { "ExperimentIds", "AndedExpressions", "Filter", "RunViewType", "MaxResults", });
+        new java.lang.String[] { "ExperimentIds", "Filter", "RunViewType", "MaxResults", "OrderBy", "PageToken", });
     internal_static_mlflow_SearchRuns_Response_descriptor =
       internal_static_mlflow_SearchRuns_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_SearchRuns_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchRuns_Response_descriptor,
-        new java.lang.String[] { "Runs", });
+        new java.lang.String[] { "Runs", "NextPageToken", });
     internal_static_mlflow_ListArtifacts_descriptor =
-      getDescriptor().getMessageTypes().get(28);
+      getDescriptor().getMessageTypes().get(25);
     internal_static_mlflow_ListArtifacts_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ListArtifacts_descriptor,
-        new java.lang.String[] { "RunUuid", "Path", });
+        new java.lang.String[] { "RunId", "RunUuid", "Path", });
     internal_static_mlflow_ListArtifacts_Response_descriptor =
       internal_static_mlflow_ListArtifacts_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_ListArtifacts_Response_fieldAccessorTable = new
@@ -48926,29 +47094,17 @@ public final class Service {
         internal_static_mlflow_ListArtifacts_Response_descriptor,
         new java.lang.String[] { "RootUri", "Files", });
     internal_static_mlflow_FileInfo_descriptor =
-      getDescriptor().getMessageTypes().get(29);
+      getDescriptor().getMessageTypes().get(26);
     internal_static_mlflow_FileInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_FileInfo_descriptor,
         new java.lang.String[] { "Path", "IsDir", "FileSize", });
-    internal_static_mlflow_GetArtifact_descriptor =
-      getDescriptor().getMessageTypes().get(30);
-    internal_static_mlflow_GetArtifact_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_GetArtifact_descriptor,
-        new java.lang.String[] { "RunUuid", "Path", });
-    internal_static_mlflow_GetArtifact_Response_descriptor =
-      internal_static_mlflow_GetArtifact_descriptor.getNestedTypes().get(0);
-    internal_static_mlflow_GetArtifact_Response_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_GetArtifact_Response_descriptor,
-        new java.lang.String[] { });
     internal_static_mlflow_GetMetricHistory_descriptor =
-      getDescriptor().getMessageTypes().get(31);
+      getDescriptor().getMessageTypes().get(27);
     internal_static_mlflow_GetMetricHistory_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetMetricHistory_descriptor,
-        new java.lang.String[] { "RunUuid", "MetricKey", });
+        new java.lang.String[] { "RunId", "RunUuid", "MetricKey", });
     internal_static_mlflow_GetMetricHistory_Response_descriptor =
       internal_static_mlflow_GetMetricHistory_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_GetMetricHistory_Response_fieldAccessorTable = new
@@ -48956,7 +47112,7 @@ public final class Service {
         internal_static_mlflow_GetMetricHistory_Response_descriptor,
         new java.lang.String[] { "Metrics", });
     internal_static_mlflow_LogBatch_descriptor =
-      getDescriptor().getMessageTypes().get(32);
+      getDescriptor().getMessageTypes().get(28);
     internal_static_mlflow_LogBatch_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogBatch_descriptor,
@@ -48967,12 +47123,24 @@ public final class Service {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogBatch_Response_descriptor,
         new java.lang.String[] { });
+    internal_static_mlflow_GetExperimentByName_descriptor =
+      getDescriptor().getMessageTypes().get(29);
+    internal_static_mlflow_GetExperimentByName_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_GetExperimentByName_descriptor,
+        new java.lang.String[] { "ExperimentName", });
+    internal_static_mlflow_GetExperimentByName_Response_descriptor =
+      internal_static_mlflow_GetExperimentByName_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_GetExperimentByName_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_GetExperimentByName_Response_descriptor,
+        new java.lang.String[] { "Experiment", });
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
+    registry.add(com.databricks.api.proto.databricks.Databricks.validateRequired);
     registry.add(org.mlflow.scalapb_interface.Scalapb.message);
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);
-    registry.add(com.databricks.api.proto.databricks.Databricks.validateRequired);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
     org.mlflow.scalapb_interface.Scalapb.getDescriptor();

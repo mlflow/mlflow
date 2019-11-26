@@ -1,6 +1,5 @@
 package org.mlflow.sagemaker;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -23,7 +22,7 @@ import org.junit.Test;
 import org.mlflow.utils.SerializationUtils;
 
 public class ScoringServerTest {
-  private class TestPredictor extends Predictor {
+  private class TestPredictor implements Predictor {
     private final boolean succeed;
     private final Optional<String> responseContent;
 
@@ -37,7 +36,8 @@ public class ScoringServerTest {
       this.succeed = true;
     }
 
-    protected PredictorDataWrapper predict(PredictorDataWrapper input)
+    @Override
+    public PredictorDataWrapper predict(PredictorDataWrapper input)
         throws PredictorEvaluationException {
       if (succeed) {
         String responseText = this.responseContent.orElse("{ \"Text\" : \"Succeed!\" }");
@@ -126,7 +126,7 @@ public class ScoringServerTest {
 
   @Test
   public void testScoringServerWithValidPredictorRespondsToInvocationWithPredictorOutputContent()
-      throws IOException, JsonProcessingException {
+      throws IOException {
     Map<String, String> predictorDict = new HashMap<>();
     predictorDict.put("Text", "Response");
     String predictorJson = SerializationUtils.toJson(predictorDict);

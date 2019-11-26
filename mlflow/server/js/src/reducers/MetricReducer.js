@@ -1,4 +1,10 @@
-import { fulfilled, GET_METRIC_HISTORY_API, GET_RUN_API, SEARCH_RUNS_API } from '../Actions';
+import {
+  fulfilled,
+  GET_METRIC_HISTORY_API,
+  GET_RUN_API,
+  LOAD_MORE_RUNS_API,
+  SEARCH_RUNS_API,
+} from '../Actions';
 import { RunInfo, Metric } from '../sdk/MlflowMessages';
 
 export const getMetricsByKey = (runUuid, key, state) => {
@@ -35,7 +41,8 @@ export const latestMetricsByRunUuid = (state = {}, action) => {
         [runUuid]: metricArrToObject(metrics),
       };
     }
-    case fulfilled(SEARCH_RUNS_API): {
+    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(LOAD_MORE_RUNS_API): {
       const newState = { ...state };
       if (action.payload.runs) {
         action.payload.runs.forEach((rJson) => {
@@ -73,7 +80,7 @@ export const metricsByRunUuid = (state = {}, action) => {
       const metrics = action.payload.metrics || [];
       return {
         ...state,
-        [runUuid]: metricsByKey(state[runUuid], action, metrics)
+        [runUuid]: metricsByKey(state[runUuid], action, metrics),
       };
     }
     default:
