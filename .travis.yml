@@ -6,6 +6,8 @@ services:
   - docker
 
 matrix:
+  exclude:
+    - language: python
   include:
     - stage: small
     - language: python
