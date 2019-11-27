@@ -236,7 +236,7 @@ def test_run_databricks_cluster_spec_json(
 
 
 def test_run_databricks_throws_exception_when_spec_uses_existing_cluster(
-        tracking_uri_mock): # pylint: disable=unused-argument
+        tracking_uri_mock):  # pylint: disable=unused-argument
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         existing_cluster_spec = {
             "existing_cluster_id": "1000-123456-clust1",
