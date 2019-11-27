@@ -48,7 +48,7 @@ def _get_run_command(entrypoint_command):
 
 
 def run_kubernetes_job(project_name, active_run, image_tag, image_digest, command, env_vars,
-                       kube_context, job_template=None):
+                       kube_context=None, job_template=None):
     job_template = _get_kubernetes_job_definition(project_name,
                                                   image_tag,
                                                   image_digest,
@@ -57,7 +57,10 @@ def run_kubernetes_job(project_name, active_run, image_tag, image_digest, comman
                                                   job_template)
     job_name = job_template['metadata']['name']
     job_namespace = job_template['metadata']['namespace']
-    kubernetes.config.load_kube_config(context=kube_context)
+    if not kube_context:
+        kubernetes.config.load_incluster_config()
+    else:
+        kubernetes.config.load_kube_config(context=kube_context)
     api_instance = kubernetes.client.BatchV1Api()
     api_instance.create_namespaced_job(namespace=job_namespace,
                                        body=job_template, pretty=True)
