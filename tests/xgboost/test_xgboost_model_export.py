@@ -265,6 +265,6 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(xgb_model, model_
 
     pandas.testing.assert_frame_equal(
         deployed_model_preds,
-        pd.DataFrame(reloaded_knn_pyfunc.predict(inference_df)),
+        pd.DataFrame(reloaded_pyfunc.predict(xgb_model.inference_dataframe)),
         check_dtype=False,
         check_less_precise=6)
