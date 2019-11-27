@@ -137,7 +137,8 @@ install:
 
 script:
   - if [[ "$TRAVIS_EVENT_TYPE" == "cron" ]]; then
-       echo "Skipping this step for the nightly job.";
+       echo "Running the nightly job.";
+       pytest --verbose tests/examples --large
     elif [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
        echo "skipping this step on windows.";
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
