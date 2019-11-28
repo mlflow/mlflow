@@ -171,7 +171,17 @@ atexit.register(end_run)
 
 
 def active_run():
-    """Get the currently active ``Run``, or None if no such run exists."""
+    """Get the currently active ``Run``, or None if no such run exists.
+
+    **Note**: You cannot access currently-active run attributes
+    (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
+    to access such attributes, use the :py:class:`mlflow.tracking.MlflowClient` as follows:
+
+    .. code-block:: py
+
+        client = mlflow.tracking.MlflowClient()
+        data = client.get_run(mlflow.active_run().info.run_id).data
+    """
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
 
 
