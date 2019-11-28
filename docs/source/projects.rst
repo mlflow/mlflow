@@ -374,19 +374,33 @@ in the Databricks docs
 `Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview
 of how to use the feature is as follows:
 
+1. Create a JSON file containing the
+`new cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
+for your run. For example:
+
+  .. code-block:: json
+
+    {
+      "spark_version": "5.5.x-scala2.11",
+      "node_type_id": "i3.xlarge",
+      "aws_attributes": {"availability": "ON_DEMAND"},
+      "num_workers": 4
+    }
+
+2. Run your project using the following command:
+
+  .. code-block:: bash
+
+    mlflow run <project_uri> -b databricks --backend-config <json-new-cluster-spec>
+
+  where ``<project_uri>`` is a Git repository URI or a folder.
+
 .. important::
 
-  Databricks execution for MLflow projects with Docker environments is *not* currently supported.
+  - Databricks execution for MLflow projects with Docker environments is *not* currently supported.
 
-Create a JSON file containing the 
-`cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
-for your run. Then, run your project using the command
-
-.. code-block:: bash
-
-  mlflow run <project_uri> -b databricks --backend-config <json-cluster-spec>
-
-where ``<project_uri>`` is a Git repository URI or a folder.
+  - You must use a *new cluster* specification when running an MLflow Project on Databricks. Running
+    Projects against existing clusters is not currently supported.
 
 .. _kubernetes_execution:
 

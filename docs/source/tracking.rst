@@ -115,6 +115,15 @@ with no active run automatically starts a new one.
 
 :py:func:`mlflow.active_run` returns a :py:class:`mlflow.entities.Run` object corresponding to the
 currently active run, if any.
+**Note**: You cannot access currently-active run attributes
+(parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order to access
+such attributes, use the :py:class:`mlflow.tracking.MlflowClient` as follows:
+
+.. code-block:: py
+
+    client = mlflow.tracking.MlflowClient()
+    data = client.get_run(mlflow.active_run().info.run_id).data
+
 
 :py:func:`mlflow.log_param` logs a single key-value param in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.log_params` to log multiple params at once.
