@@ -2,14 +2,29 @@ package org.mlflow.spark.autologging
 
 import java.util.concurrent._
 
-import scala.util.control.NonFatal
+import org.apache.spark.sql.SparkAutologgingUtils
 
+import scala.util.control.NonFatal
+import scala.collection.JavaConverters._
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-
-import org.apache.spark.sql.SparkAutologgingUtils
+import org.apache.spark.sql.execution.SQLExecution
+import org.apache.spark.SparkContext
 import org.apache.spark.scheduler._
-import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd
+import org.apache.spark.sql.execution.ui.{SparkListenerSQLExecutionEnd, SparkListenerSQLExecutionStart}
+import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
+
+
+import scala.collection.{immutable, mutable}
+import scala.util.control.NonFatal
+import scala.collection.JavaConverters._
+
+import org.apache.spark.SparkContext
+
+
+import org.apache.spark.scheduler._
+import org.apache.spark.sql.execution.ui._
+import org.apache.spark.sql.execution.{GenerateExec, SparkPlan, SQLExecution}
 import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
 
 // TODO replace this with OSS logging library
@@ -18,6 +33,12 @@ import  org.apache.spark.sql.delta.{DeltaTable, DeltaFullTable}
 import org.apache.spark.sql.SparkSession
 
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, LeafNode}
+
+import java.time.format.DateTimeFormatter
+import java.time.LocalDateTime
+
+
+// TODO replace this with OSS logging library
 
 import java.time.format.DateTimeFormatter
 import java.time.LocalDateTime
@@ -34,6 +55,9 @@ trait SparkDataSourceEventSubscriber {
   def notify(path: String, version: String, format: String): Any
 
   def ping(): Unit
+
+  def replId: String
+
 }
 
 
@@ -55,7 +79,7 @@ object SparkDataSourceEventPublisher {
       sparkQueryListener = new SparkDataSourceListener()
       // TODO: try-catch this & reset listener to null if it fails?
       spark.sparkContext.addSparkListener(sparkQueryListener)
-      // Schedule regular cleanup of detached subscribers, e.g. those associated with detached notebooks
+      // Schedule regular cleanup of detached subSparkListenerInterfacescribers, e.g. those associated with detached notebooks
       val ex = new ScheduledThreadPoolExecutor(1)
       val task = new Runnable {
         def run(): Unit = {
@@ -113,21 +137,30 @@ object SparkDataSourceEventPublisher {
     brokenUuids.foreach(unregister)
   }
 
-  def notifyAll(path: String, version: Option[String], format: Option[String]): Unit = synchronized {
-    val time = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mm:ss").format(LocalDateTime.now)
-    println(s"Notifying ${subscribers.size} listeners about read to ${path}, ${version}, " +
-      s"time ${time}")
+  def notifyAll(replId: String, sparkTableInfo: SparkTableInfo): Unit = synchronized {
+    sparkTableInfo match {
+      case SparkTableInfo(path, version, format) =>
+        val time = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mm:ss").format(LocalDateTime.now)
+        println(s"Notifying ${subscribers.size} listeners about read to ${path}, ${version}, " +
+          s"time ${time}")
 
-    for ((uuid, listener) <- subscribers) {
-      try {
-        listener.notify(path, version.getOrElse("unknown"), format.getOrElse("unknown"))
-      } catch {
-        case e: Py4JException =>
-          logger.error(s"Unable to forward event to listener with UUID ${uuid}.")
-      }
+        for ((uuid, listener) <- subscribers) {
+          try {
+            println(s"Found Python listener with repl ID ${listener.replId}")
+            if (listener.replId == replId) {
+              listener.notify(path, version.getOrElse("unknown"), format.getOrElse("unknown"))
+            }
+          } catch {
+            case e: Py4JException =>
+              logger.error(s"Unable to forward event to listener with UUID ${uuid}.")
+          }
+        }
+      case _ =>
     }
   }
 }
+
+case class SparkTableInfo(path: String, versionOpt: Option[String], formatOpt: Option[String])
 
 /**
   * SparkListener implementation that attempts to extract Delta table information & notify the PySpark process
@@ -135,6 +168,14 @@ object SparkDataSourceEventPublisher {
   * as well
   */
 class SparkDataSourceListener() extends SparkListener {
+
+  // Order of callbacks is onSQLExecutionStart, onJobStart, onSQLExecutionEnd
+  // So we can figure out where to log table infos in onJobStart (i.e. find assoc REPL),
+  // and log them & remove them in onSQLExecutionEnd
+
+
+  private val executionIdToReplId = new java.util.concurrent.ConcurrentHashMap[Long, String]()
+
   private def getLeafNodes(lp: LogicalPlan): Seq[LogicalPlan] = {
     if (lp == null) {
       return Seq.empty
@@ -151,37 +192,69 @@ class SparkDataSourceListener() extends SparkListener {
       }
     }
   }
-  // Send a notification to all listeners managed by Manager if the leafNode corresponds to a
-  // Delta table read. TODO: extend this method to detect reads of Spark datasources in other formats,
-  // e.g. JSON or CSV.
-  private def notifyIfSparkTableRead(leafNode: LogicalPlan): Unit = {
+
+  // Get SparkTableInfo of info to log from leaf node of a query plan
+  private def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
     leafNode match {
       case DeltaTable(tahoeFileIndex) =>
         val path = tahoeFileIndex.path.toString
         val versionOpt = Option(tahoeFileIndex.tableVersion).map(_.toString)
-        SparkDataSourceEventPublisher.notifyAll(path, versionOpt, Option("delta"))
+        Option(SparkTableInfo(path, versionOpt, Option("delta")))
       case DeltaFullTable(tahoeFileIndex) =>
         val path = tahoeFileIndex.path.toString
         val versionOpt = Option(tahoeFileIndex.tableVersion).map(_.toString)
-        SparkDataSourceEventPublisher.notifyAll(path, versionOpt, Option("delta"))
+        Option(SparkTableInfo(path, versionOpt, Option("delta")))
       case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
         val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
-        SparkDataSourceEventPublisher.notifyAll(path, None, None)
+        Option(SparkTableInfo(path, None, None))
       case other =>
         None
     }
   }
 
+  override def onJobStart(event: SparkListenerJobStart): Unit = {
+    // Find corresponding execution, and
+    // If found, check if we have an associated active SQLExecutionAdvisor, and set its job group.
+    // This is needed, as in onSQLExecutionStart we don't know the SQLExecution's job group.
+    val properties: Map[String, String] = Option(event.properties).map(_.asScala.toMap).getOrElse(Map.empty)
+    val executionIdOpt = properties.get(SQLExecution.EXECUTION_ID_KEY).map(_.toLong)
+    if (executionIdOpt.isEmpty) {
+      return
+    }
+    val executionId = executionIdOpt.get
+    val jobIdOpt = properties.get("spark.jobGroup.id")
+    val replIdOpt = properties.get("spark.databricks.replId")
+    replIdOpt.foreach { replId =>
+      executionIdToReplId.put(executionId, replId)
+    }
+  }
+
+  // Populate a map of execution ID to list of table infos to log under
+  private def onSQLExecutionStart(event: SparkListenerSQLExecutionStart): Unit = {
+  }
+
+  private def onSQLExecutionEnd(event: SparkListenerSQLExecutionEnd): Unit = {
+    val qe = SparkAutologgingUtils.getQueryExecution(event)
+    if (qe != null) {
+      val leafNodes = getLeafNodes(qe.analyzed)
+      val tableInfosToLog = leafNodes.flatMap(getTableInfoToLog)
+      val executionId = event.executionId
+      // Remove the executionId -> replId mapping if it exists. remove() returns null if no key
+      // was found, so wrap it in an option & log the table infos only if we can find a
+      // corresponding repl ID
+      Option(executionIdToReplId.remove(executionId)).foreach { replId =>
+        tableInfosToLog.foreach(tableInfo => SparkDataSourceEventPublisher.notifyAll(replId, tableInfo))
+      }
+    }
+  }
+
+
   override def onOtherEvent(event: SparkListenerEvent): Unit = {
     event match {
+      case e: SparkListenerSQLExecutionStart =>
+        onSQLExecutionStart(e)
       case e: SparkListenerSQLExecutionEnd =>
-        val qe = SparkAutologgingUtils.getQueryExecution(e)
-        if (qe != null) {
-          val children = getLeafNodes(qe.analyzed)
-          children.foreach { child =>
-            notifyIfSparkTableRead(child)
-          }
-        }
+        onSQLExecutionEnd(e)
       case _ =>
     }
   }
