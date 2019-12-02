@@ -415,8 +415,11 @@ and import SparkR as follows:
 
 .. code-block:: R
 
-  install.packages("/databricks/spark/R/pkg", repos = NULL)
-  library(SparkR)
+  if (file.exists("/databricks/spark/R/pkg")) {
+    install.packages("/databricks/spark/R/pkg", repos = NULL)
+  } else {
+    install.packages("SparkR")
+  }
 
 Your project code can then proceed to initialize a SparkR session and use SparkR as normal:
 
