@@ -421,6 +421,8 @@ and import SparkR as follows:
     install.packages("SparkR")
   }
 
+  library(SparkR)
+
 Your project code can then proceed to initialize a SparkR session and use SparkR as normal:
 
 .. code-block:: R
