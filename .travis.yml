@@ -137,7 +137,7 @@ install:
     fi
 
 script:
-    if "$TRAVIS_EVENT_TYPE" == "cron" && "$TRAVIS_BUILD_STAGE_NAME" == "nightly"; then
+    if [ "$TRAVIS_EVENT_TYPE" == "cron" && "$TRAVIS_BUILD_STAGE_NAME" == "nightly" ]; then
        pytest --verbose tests/examples --large;
     elif [[ $TRAVIS_EVENT_TYPE == "cron" ]]; then
        echo "Skipping this step for the nightly build."
