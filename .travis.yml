@@ -123,6 +123,7 @@ matrix:
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
+# TODO: skip installation if we are skipping the stages
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
@@ -136,7 +137,7 @@ install:
     fi
 
 script:
-    if [[ $TRAVIS_EVENT_TYPE == "cron" ]] AND [ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
+    if [[ $TRAVIS_EVENT_TYPE == "cron" AND "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
        pytest --verbose tests/examples --large;
     elif [[ $TRAVIS_EVENT_TYPE == "cron" ]]; then
        echo "Skipping this step for the nightly build."
