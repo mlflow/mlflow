@@ -138,7 +138,7 @@ install:
 
 script:
     if [[ "$TRAVIS_EVENT_TYPE" == "cron" ]]; then
-       echo "Skipping this step for the nightly build."
+       echo "Skipping this step for the nightly build.";
     elif [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
        echo "skipping this step on windows.";
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
