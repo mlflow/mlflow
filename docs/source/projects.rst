@@ -402,6 +402,34 @@ for your run. For example:
   - You must use a *new cluster* specification when running an MLflow Project on Databricks. Running
     Projects against existing clusters is not currently supported.
 
+Databricks Execution Tips
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When running an MLflow Project on Databricks, the following tips may be helpful.
+
+Using SparkR on Databricks
+##########################
+
+In order to use SparkR in an MLflow Project run on Databricks, your project code must first install
+and import SparkR as follows:
+
+.. code-block:: R
+
+  if (file.exists("/databricks/spark/R/pkg")) {
+    install.packages("/databricks/spark/R/pkg", repos = NULL)
+  } else {
+    install.packages("SparkR")
+  }
+
+  library(SparkR)
+
+Your project code can then proceed to initialize a SparkR session and use SparkR as normal:
+
+.. code-block:: R
+
+  sparkR.session()
+  ...
+
 .. _kubernetes_execution:
 
 Run an MLflow Project on Kubernetes (experimental)
