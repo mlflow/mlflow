@@ -12,7 +12,7 @@ from mlflow.utils.process import exec_cmd
 # the cli and the forked gunicorn processes.
 BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
 ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
-PROMETHEUS_EXPORTER_ENV_VAR = "_MLFLOW_EXPOSE_PROMETHEUS_METRICS"
+PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 
 REL_STATIC_DIR = "js/build"
 
@@ -25,6 +25,7 @@ for http_path, handler, methods in handlers.get_endpoints():
 
 if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter
+    os.makedirs(os.getenv(PROMETHEUS_EXPORTER_ENV_VAR), exist_ok=True)
     activate_prometheus_exporter(app)
 
 
@@ -65,7 +66,7 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers):
 
 
 def _run_server(file_store_path, default_artifact_root, host, port, static_prefix=None,
-                workers=None, gunicorn_opts=None, waitress_opts=None, expose_prometheus=False):
+                workers=None, gunicorn_opts=None, waitress_opts=None, expose_prometheus=None):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
     :param static_prefix: If set, the index.html asset will be served from the path static_prefix.
@@ -81,7 +82,7 @@ def _run_server(file_store_path, default_artifact_root, host, port, static_prefi
         env_map[STATIC_PREFIX_ENV_VAR] = static_prefix
 
     if expose_prometheus:
-        env_map[PROMETHEUS_EXPORTER_ENV_VAR] = '1'
+        env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
     # TODO: eventually may want waitress on non-win32
     if sys.platform == 'win32':

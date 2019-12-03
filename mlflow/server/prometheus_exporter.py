@@ -18,6 +18,11 @@ def activate_prometheus_exporter(app):
 
 
 def change_path_for_metric(path):
+    """
+    Replace the '/' in the metric path by '_' so grafana can correctly use it.
+    :param path: path of the metric (example: runs/search)
+    :return: path with '_' instead of '/'
+    """
     if 'mlflow/' in path:
         path = path.split('mlflow/')[-1]
     return path.replace('/', '_')
