@@ -8,10 +8,10 @@ services:
 matrix:
   include:
     - stage: small
-      if: False
+      if: env($TRAVIS_EVENT_TYPE) != cron
     - language: python
       name: "Lint (Python 3.6)"
-      if: False
+      if: env($TRAVIS_EVENT_TYPE) != cron
       python: 3.6
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
@@ -20,6 +20,7 @@ matrix:
         - ./lint.sh
     - language: r
       name: "R"
+      if: env($TRAVIS_EVENT_TYPE) != cron
       cache: packages
       before_install:
         # cache packages dramatically decreases build time, but it must not include mlflow
@@ -46,6 +47,7 @@ matrix:
         - "[ -r /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log ] && cat /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
     - language: java
       name: "Java"
+      if: env($TRAVIS_EVENT_TYPE) != cron
       install:
         - source ./travis/install-common-deps.sh
       script:
@@ -56,15 +58,16 @@ matrix:
         - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
       install:
       name: "Node.js"
+      if: env($TRAVIS_EVENT_TYPE) != cron
       script:
         - cd mlflow/server/js
         - npm i
         - npm run lint
         - npm test -- --coverage
     - stage: large
-      if: False
     - language: python
       python: 2.7
+      if: env($TRAVIS_EVENT_TYPE) != cron
       install:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
@@ -73,6 +76,7 @@ matrix:
     # time running Windows tests if Python 3 small tests fail.
     - os: windows
       name: "Windows"
+      if: env($TRAVIS_EVENT_TYPE) != cron
       language: sh
       before_install:
         - choco install python3 --version=3.7.4
@@ -87,6 +91,7 @@ matrix:
     # time running Python 2.7 tests if Python 3 small tests fail.
     - language: python
       name: "Python 2.7 Small Tests"
+      if: env($TRAVIS_EVENT_TYPE) != cron
       python: 2.7
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
@@ -95,6 +100,7 @@ matrix:
     - language: python
       python: 3.6
       name: "Docs (rsthtml)"
+      if: env($TRAVIS_EVENT_TYPE) != cron
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
         - pip install sphinx==2.2.1 sphinx-click==2.3.0
@@ -102,9 +108,9 @@ matrix:
         - cd docs
         - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
     - stage: nightly
-      if: True
     - language: python
       python: 2.7
+      if: env($TRAVIS_EVENT_TYPE) == cron
       install:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
@@ -113,6 +119,7 @@ matrix:
         # time running Windows tests if Python 3 small tests fail.
     - os: windows
       name: "Windows"
+      if: env($TRAVIS_EVENT_TYPE) == cron
       language: sh
       before_install:
         - choco install python3 --version=3.7.4
