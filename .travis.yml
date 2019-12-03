@@ -8,9 +8,10 @@ services:
 matrix:
   include:
     - stage: small
-      if: env(TRAVIS_EVENT_TYPE) != "cron"
+      if: False
     - language: python
       name: "Lint (Python 3.6)"
+      if: False
       python: 3.6
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
@@ -61,7 +62,7 @@ matrix:
         - npm run lint
         - npm test -- --coverage
     - stage: large
-      if: env(TRAVIS_EVENT_TYPE) != "cron"
+      if: False
     - language: python
       python: 2.7
       install:
@@ -101,7 +102,7 @@ matrix:
         - cd docs
         - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
     - stage: nightly
-      if: env(TRAVIS_EVENT_TYPE) == "cron"
+      if: True
     - language: python
       python: 2.7
       install:
