@@ -60,8 +60,16 @@ trait SparkDataSourceEventSubscriber {
 
 }
 
+/**
+  * Object exposing the actual implementation of SparkDatasourceEventPublisher.
+  * We opt for this pattern (an object extending a trait) so that we can mock methods of the
+  * trait in testing
+  */
+object SparkDataSourceEventPublisher extends SparkDataSourceEventPublisherImpl {
 
-object SparkDataSourceEventPublisher {
+}
+
+trait SparkDataSourceEventPublisherImpl {
   val logger = LoggerFactory.getLogger(getClass)
 
   private[autologging] var sparkQueryListener: SparkDataSourceListener = _
@@ -137,7 +145,7 @@ object SparkDataSourceEventPublisher {
     brokenUuids.foreach(unregister)
   }
 
-  def notifyAll(replId: String, sparkTableInfo: SparkTableInfo): Unit = synchronized {
+  def publishEvent(replId: String, sparkTableInfo: SparkTableInfo): Unit = synchronized {
     sparkTableInfo match {
       case SparkTableInfo(path, version, format) =>
         val time = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mm:ss").format(LocalDateTime.now)
@@ -243,7 +251,7 @@ class SparkDataSourceListener() extends SparkListener {
       // was found, so wrap it in an option & log the table infos only if we can find a
       // corresponding repl ID
       Option(executionIdToReplId.remove(executionId)).foreach { replId =>
-        tableInfosToLog.foreach(tableInfo => SparkDataSourceEventPublisher.notifyAll(replId, tableInfo))
+        tableInfosToLog.foreach(tableInfo => SparkDataSourceEventPublisher.publishEvent(replId, tableInfo))
       }
     }
   }
