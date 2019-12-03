@@ -8,6 +8,7 @@ services:
 matrix:
   include:
     - stage: small
+      if: env(TRAVIS_EVENT_TYPE) != "cron"
     - language: python
       name: "Lint (Python 3.6)"
       python: 3.6
@@ -60,6 +61,7 @@ matrix:
         - npm run lint
         - npm test -- --coverage
     - stage: large
+      if: env(TRAVIS_EVENT_TYPE) != "cron"
     - language: python
       python: 2.7
       install:
@@ -99,6 +101,7 @@ matrix:
         - cd docs
         - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
     - stage: nightly
+      if: env(TRAVIS_EVENT_TYPE) == "cron"
     - language: python
       python: 2.7
       install:
@@ -137,7 +140,9 @@ install:
     fi
 
 script:
-    if [[ "$TRAVIS_EVENT_TYPE" == "cron" ]]; then
+    if [[ "$TRAVIS_EVENT_TYPE" == "cron" && "$TRAVIS_BUILD_STAGE_NAME" == "nightly" ]]; then
+       pytest --verbose tests/examples --large;
+    elif [[ "$TRAVIS_EVENT_TYPE" == "cron" ]]; then
        echo "Skipping this step for the nightly build.";
     elif [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
        echo "skipping this step on windows.";
