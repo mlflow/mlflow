@@ -65,6 +65,7 @@ matrix:
         - npm run lint
         - npm test -- --coverage
     - stage: large
+      if: type != cron
     - language: python
       python: 2.7
       if: type != cron
@@ -107,6 +108,8 @@ matrix:
       script:
         - cd docs
         - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
+    # Nightly builds run the tests/examples end-to-end test suite.
+    # Does not include Windows since Projects/Models are mostly not compatible with Windows as of now.
     - stage: nightly
     - language: python
       python: 2.7
@@ -115,24 +118,10 @@ matrix:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
         pytest --verbose tests/examples --large
-    - os: windows
-      name: "Windows"
-      if: type = cron
-      language: sh
-      before_install:
-        - choco install python3 --version=3.7.4
-      install:
-        - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
-        - pip install -r dev-requirements.txt
-        - pip install -r travis/small-requirements.txt
-        - pip install -e .
-      script:
-        - pytest --verbose tests/examples --large
 
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
-# TODO: skip installation if we are skipping the stages
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
@@ -146,10 +135,8 @@ install:
     fi
 
 script:
-    if [[ "$TRAVIS_EVENT_TYPE" == "cron" && "$TRAVIS_BUILD_STAGE_NAME" == "nightly" ]]; then
+    if [[ "$TRAVIS_EVENT_TYPE" == "cron" ]]; then
        pytest --verbose tests/examples --large;
-    elif [[ "$TRAVIS_EVENT_TYPE" == "cron" ]]; then
-       echo "Skipping this step for the nightly build.";
     elif [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
        echo "skipping this step on windows.";
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
