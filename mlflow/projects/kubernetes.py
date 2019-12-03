@@ -5,6 +5,7 @@ import time
 from threading import RLock
 import kubernetes
 from datetime import datetime
+from shlex import quote, split
 
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.submitted_run import SubmittedRun
@@ -43,7 +44,7 @@ def _get_kubernetes_job_definition(project_name, image_tag, image_digest,
 def _get_run_command(entrypoint_command):
     formatted_command = []
     for cmd in entrypoint_command:
-        formatted_command = cmd.split(" ")
+        formatted_command.extend([quote(s) for s in split(cmd)])
     return formatted_command
 
 
