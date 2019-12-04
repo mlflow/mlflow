@@ -117,7 +117,7 @@ matrix:
       install:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
-        - pytest --verbose tests/examples --large
+        pytest --verbose tests/examples --large
 
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
@@ -145,7 +145,7 @@ script:
         ./travis/test-anaconda-compatibility.sh;
       fi
     fi;
-    if [[ "a" == "b" ]]; then
+    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$TRAVIS_COMMIT_MESSAGE" == *travis-nightly* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
       pytest --verbose tests/examples --large;
     fi
 
