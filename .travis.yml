@@ -135,7 +135,7 @@ install:
     fi
 
 script:
-    if ! [[ "$TRAVIS_EVENT_TYPE" == "cron" ]]; then
+    if ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
       if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
          echo "skipping this step on windows.";
       elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
