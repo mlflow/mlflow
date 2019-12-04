@@ -21,6 +21,7 @@ matrix:
           echo "$CHANGED_FILES";
         - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
             pytest --verbose tests/examples --large;
+          fi
     - stage: small
       if: type != cron
     - language: python
