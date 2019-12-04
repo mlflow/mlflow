@@ -44,7 +44,7 @@ def save_model(lgb_model, path, conda_env=None, mlflow_model=Model()):
     """
     Save a LightGBM model to a path on the local file system.
 
-    :param lgb_model: LightGBM model to be saved.
+    :param lgb_model: LightGBM model (an instance of ``lightgbm.Booster``) to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -98,7 +98,7 @@ def log_model(lgb_model, artifact_path, conda_env=None, registered_model_name=No
     """
     Log a LightGBM model as an MLflow artifact for the current run.
 
-    :param lgb_model: LightGBM model to be saved.
+    :param lgb_model: LightGBM model (an instance of ``lightgbm.Booster``) to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -158,8 +158,7 @@ def load_model(model_uri):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
 
-    :return: An `lightgbm.Booster model object
-        <https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm.Booster>`_.
+    :return: A LightGBM model (an instance of ``lightgbm.Booster``).
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
