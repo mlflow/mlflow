@@ -725,7 +725,8 @@ def _parse_kubernetes_config(backend_config):
         raise ExecutionException("Could not find 'kube-job-template-path': {}".format(
             kube_job_template))
     if 'kube-context' not in backend_config.keys():
-        _logger.info("Could not find kube-context in backend_config. Using in-cluster config.")
+        _logger.debug("Could not find kube-context in backend_config."
+                      "Using current context or in-cluster config.")
     if 'repository-uri' not in backend_config.keys():
         raise ExecutionException("Could not find 'repository-uri' in backend_config.")
     return kube_config
