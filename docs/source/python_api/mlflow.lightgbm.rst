@@ -1,5 +1,5 @@
 mlflow.lightgbm
-==============
+===============
 
 .. automodule:: mlflow.lightgbm
     :members:
