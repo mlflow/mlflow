@@ -44,7 +44,7 @@ def save_model(xgb_model, path, conda_env=None, mlflow_model=Model()):
     """
     Save an XGBoost model to a path on the local file system.
 
-    :param xgb_model: XGBoost model to be saved.
+    :param xgb_model: XGBoost model (an instance of ``xgboost.Booster``) to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -98,7 +98,7 @@ def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=No
     """
     Log an XGBoost model as an MLflow artifact for the current run.
 
-    :param xgb_model: XGBoost model to be saved.
+    :param xgb_model: XGBoost model (an instance of ``xgboost.Booster``) to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -160,8 +160,7 @@ def load_model(model_uri):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
 
-    :return: An `xgboost.Booster model object
-             <https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster>`_.
+    :return: An XGBoost model (an instance of ``xgboost.Booster``)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
