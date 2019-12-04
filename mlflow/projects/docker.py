@@ -49,11 +49,11 @@ def validate_docker_env(project):
         )
 
 
-def build_docker_image(work_dir, repository_uri, base_image, run_id):
+def build_docker_image(work_dir, repository_uri, base_image, run_id, tag=None):
     """
     Build a docker image containing the project in `work_dir`, using the base image.
     """
-    image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
+    image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir, tag=tag)
     dockerfile = (
         "FROM {imagename}\n" "COPY {build_context_path}/ {workdir}\n" "WORKDIR {workdir}\n"
     ).format(
@@ -82,7 +82,7 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id):
     return image
 
 
-def _get_docker_image_uri(repository_uri, work_dir):
+def _get_docker_image_uri(repository_uri, work_dir=None, tag=None):
     """
     Returns an appropriate Docker image URI for a project based on the git hash of the specified
     working directory.
@@ -92,9 +92,12 @@ def _get_docker_image_uri(repository_uri, work_dir):
     :param work_dir: Path to the working directory in which to search for a git commit hash
     """
     repository_uri = repository_uri if repository_uri else "docker-project"
-    # Optionally include first 7 digits of git SHA in tag name, if available.
-    git_commit = _get_git_commit(work_dir)
-    version_string = ":" + git_commit[:7] if git_commit else ""
+    if tag is not None:
+        version_string = ":" + tag
+    else:
+        # Optionally include first 7 digits of git SHA in tag name, if available.
+        git_commit = _get_git_commit(work_dir)
+        version_string = ":" + git_commit[:7] if git_commit else ""
     return repository_uri + version_string
 
 

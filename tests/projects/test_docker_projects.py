@@ -126,6 +126,13 @@ def test_docker_image_uri_no_git(get_git_commit_mock):
     get_git_commit_mock.assert_called_with("my_workdir")
 
 
+@mock.patch("mlflow.projects.docker._get_git_commit")
+def test_docker_image_uri_custom_tag(get_git_commit_mock):
+    image_uri = _get_docker_image_uri("my_project", tag="foo")
+    assert image_uri == "my_project:foo"
+    get_git_commit_mock.assert_not_called()
+
+
 def test_docker_valid_project_backend_local():
     work_dir = "./examples/docker"
     project = _project_spec.load_project(work_dir)
