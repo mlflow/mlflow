@@ -145,6 +145,9 @@ script:
         ./travis/test-anaconda-compatibility.sh;
       fi
     fi
+    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$TRAVIS_COMMIT_MESSAGE" == *travis-nightly* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
+      pytest --verbose tests/examples --large;
+    fi
 
 notifications:
   # Send Slack notifications on build being broken or fixed, and email (Pagerduty) notifications
