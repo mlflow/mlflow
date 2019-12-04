@@ -19,7 +19,7 @@ matrix:
           echo "$TRAVIS_COMMIT_MESSAGE";
           echo "$TRAVIS_COMMIT_RANGE";
           echo "$CHANGED_FILES";
-        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || -z "$CHANGED_FILES" ]]; then
+        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
             pytest --verbose tests/examples --large;
     - stage: small
       if: type != cron
@@ -153,7 +153,7 @@ script:
     echo "$TRAVIS_COMMIT_MESSAGE";
     echo "$TRAVIS_COMMIT_RANGE";
     echo "$CHANGED_FILES";
-    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || -z "$CHANGED_FILES" ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
+    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
       pytest --verbose tests/examples --large;
     fi
 
