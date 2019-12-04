@@ -9,14 +9,18 @@ matrix:
   include:
     # Nightly builds run the tests/examples end-to-end test suite.
     # Does not include Windows since Projects/Models are mostly not compatible with Windows as of now.
-    - stage: nightly
+    - stage: Nightly
     - language: python
       python: 2.7
-      if: type = cron || commit_message =~ ^.*travis-nightly.*$
       install:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
-        - pytest --verbose tests/examples --large
+        - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples");
+          echo "$TRAVIS_COMMIT_MESSAGE";
+          echo "$TRAVIS_COMMIT_RANGE";
+          echo "$CHANGED_FILES";
+        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || -z "$CHANGED_FILES" ]]; then
+            pytest --verbose tests/examples --large;
     - stage: small
       if: type != cron
     - language: python
@@ -145,7 +149,11 @@ script:
         ./travis/test-anaconda-compatibility.sh;
       fi
     fi;
-    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$TRAVIS_COMMIT_MESSAGE" == *travis-nightly* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
+    CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples");
+    echo "$TRAVIS_COMMIT_MESSAGE";
+    echo "$TRAVIS_COMMIT_RANGE";
+    echo "$CHANGED_FILES";
+    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || -z "$CHANGED_FILES" ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
       pytest --verbose tests/examples --large;
     fi
 
