@@ -145,6 +145,8 @@ script:
     elif ! [[ "$TRAVIS_EVENT_TYPE" == "cron" ]]; then
       ./travis/run-large-python-tests.sh;
       ./travis/test-anaconda-compatibility.sh;
+    else
+      echo "Should be done with nightly build."
     fi
 
 notifications:
