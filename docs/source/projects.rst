@@ -423,6 +423,8 @@ You can run your MLflow Project on Kubernetes by following these steps:
      The URI of the docker repository where the Project execution Docker image will be uploaded
      (pushed). Your Kubernetes cluster must have access to this repository in order to run your
      MLflow Project.
+   - ``image-tag``
+     The tag used for the Project execution Docker image (Optional).
    - ``kube-job-template-path``
      The path to a YAML configuration file for your Kubernetes Job - a `Kubernetes Job Spec
      <https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/#writing-a-job-spec>`_.
