@@ -138,15 +138,15 @@ script:
     if [[ "$TRAVIS_EVENT_TYPE" == "cron" ]] || [[ "$TRAVIS_COMMIT_MESSAGE" == *travis-nightly* ]]; then
        pytest --verbose tests/examples --large;
     fi
-    if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
-       echo "skipping this step on windows.";
-    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]] && ! [[ "$TRAVIS_EVENT_TYPE" == "cron" ]]; then
-      ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
-    elif ! [[ "$TRAVIS_EVENT_TYPE" == "cron" ]]; then
-      ./travis/run-large-python-tests.sh;
-      ./travis/test-anaconda-compatibility.sh;
-    else
-      echo "Should be done with nightly build."
+    if ! [[ "$TRAVIS_EVENT_TYPE" == "cron" ]]; then
+      if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
+         echo "skipping this step on windows.";
+      elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+        ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
+      else
+        ./travis/run-large-python-tests.sh;
+        ./travis/test-anaconda-compatibility.sh;
+      fi
     fi
 
 notifications:
