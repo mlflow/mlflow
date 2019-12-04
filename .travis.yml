@@ -113,7 +113,7 @@ matrix:
     - stage: nightly
     - language: python
       python: 2.7
-      if: type = cron && ! commit_message =~ ^.*travis-nightly.*$
+      if: type = cron || commit_message =~ ^.*travis-nightly.*$
       install:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
