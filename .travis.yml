@@ -145,7 +145,7 @@ script:
         ./travis/test-anaconda-compatibility.sh;
       fi
     fi
-    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$TRAVIS_COMMIT_MESSAGE" == *travis-nightly* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
+    if [[ "a" == "b" ]]; then
       pytest --verbose tests/examples --large;
     fi
 
