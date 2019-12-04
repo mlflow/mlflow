@@ -27,8 +27,7 @@ import org.apache.spark.sql.execution.ui._
 import org.apache.spark.sql.execution.{GenerateExec, SparkPlan, SQLExecution}
 import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
 
-// TODO replace this with OSS logging library
-import  org.apache.spark.sql.delta.{DeltaTable, DeltaFullTable}
+import org.apache.spark.sql.delta.{DeltaTable, DeltaFullTable}
 
 import org.apache.spark.sql.SparkSession
 
@@ -36,9 +35,6 @@ import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, LeafNode}
 
 import java.time.format.DateTimeFormatter
 import java.time.LocalDateTime
-
-
-// TODO replace this with OSS logging library
 
 import java.time.format.DateTimeFormatter
 import java.time.LocalDateTime
@@ -73,8 +69,9 @@ trait SparkDataSourceEventPublisherImpl {
   val logger = LoggerFactory.getLogger(getClass)
 
   private[autologging] var sparkQueryListener: SparkDataSourceListener = _
+  val ex = new ScheduledThreadPoolExecutor(1)
   var subscribers: Map[String, SparkDataSourceEventSubscriber] = Map()
-
+  var scheduledTask: ScheduledFuture[_] = null
 
   def spark: SparkSession = {
     SparkSession.builder.getOrCreate()
@@ -89,21 +86,23 @@ trait SparkDataSourceEventPublisherImpl {
       // ID, but if so, we log conditionally on repl ID
       val sc = SparkContext.getOrCreate()
       val replId = Option(sc.getLocalProperty("spark.databricks.replId"))
-      sparkQueryListener = replId match {
+      val listener = replId match {
         case None => new SparkDataSourceListener()
         case Some(replId) => new DatabricksSparkDataSourceListener()
       }
 
-      // TODO: try-catch this & reset listener to null if it fails?
-      spark.sparkContext.addSparkListener(sparkQueryListener)
-      // Schedule regular cleanup of detached subSparkListenerInterfacescribers, e.g. those associated with detached notebooks
-      val ex = new ScheduledThreadPoolExecutor(1)
+      // NB: We take care to set the variable only after adding the Spark listener succeeds,
+      // in case listener registration throws
+      spark.sparkContext.addSparkListener(listener)
+      sparkQueryListener = listener
+      // Schedule regular cleanup of detached subscribers, e.g. those associated with detached notebooks
+      // TODO: can this throw, and what do we do if/when it does?
       val task = new Runnable {
         def run(): Unit = {
           unregisterBrokenSubscribers()
         }
       }
-      ex.scheduleAtFixedRate(task, 1, 1, TimeUnit.SECONDS)
+      scheduledTask = ex.scheduleAtFixedRate(task, 1, 1, TimeUnit.SECONDS)
     }
   }
 
@@ -111,6 +110,10 @@ trait SparkDataSourceEventPublisherImpl {
     if (sparkQueryListener != null) {
       spark.sparkContext.removeSparkListener(sparkQueryListener)
       sparkQueryListener = null
+      while(!scheduledTask.cancel(false)) {
+        Thread.sleep(1000)
+      }
+      subscribers = Map.empty
     }
   }
 
@@ -122,15 +125,6 @@ trait SparkDataSourceEventPublisherImpl {
       val uuid = java.util.UUID.randomUUID().toString
       subscribers = subscribers + (uuid -> subscriber)
       uuid
-    }
-  }
-
-  def unregister(uuid: String): Unit = synchronized {
-    if (sparkQueryListener == null) {
-      throw new RuntimeException("Please call init() before attempting to unregister a subscriber")
-    }
-    this.synchronized {
-      subscribers = subscribers - uuid
     }
   }
 
@@ -146,12 +140,14 @@ trait SparkDataSourceEventPublisherImpl {
           Seq(uuid)
         case NonFatal(e) =>
           logger.error(s"Unknown exception while checking health of listener $uuid, removing it. " +
-            s"Please report this error at https://github.com/mlflow/mlflow/issues, along with" +
-            s"the following stacktrace:\n$e")
+            s"Please report this error at https://github.com/mlflow/mlflow/issues, along with " +
+            s"the following stacktrace:\n${e.getStackTrace.map(_.toString).mkString("\n")}")
           Seq(uuid)
       }
     }
-    brokenUuids.foreach(unregister)
+    brokenUuids.foreach { uuid =>
+      subscribers = subscribers - uuid
+    }
   }
 
   def publishEvent(replIdOpt: Option[String], sparkTableInfo: SparkTableInfo): Unit = synchronized {
