@@ -14,10 +14,11 @@ matrix:
       python: 2.7
       install:
         # CHANGED_FILES detects whether or not files related to the nightly build are changed.
-        - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples");
+        # True is so that the command returns a 0 exit code whether or not CHANGED_FILES is empty.
+        - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
         - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
             INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
-          fi
+          fi;
       script:
         - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
             pytest --verbose tests/examples --large;
@@ -128,8 +129,8 @@ matrix:
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
 install:
-  - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
-  - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples")
+  - echo "Build stage $TRAVIS_BUILD_STAGE_NAME";
+  - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
       echo "skipping this step on windows.";
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
@@ -140,7 +141,7 @@ install:
       echo "skipping the nightly stage because this build is not nightly and there are no changed files associated with nightly tests.";
     else
       INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
-    fi
+    fi;
 
 script:
     if ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
@@ -153,10 +154,10 @@ script:
         ./travis/test-anaconda-compatibility.sh;
       fi
     fi;
-    CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples");
+    CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
     if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
       pytest --verbose tests/examples --large;
-    fi
+    fi;
 
 notifications:
   # Send Slack notifications on build being broken or fixed, and email (Pagerduty) notifications
