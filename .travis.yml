@@ -15,7 +15,7 @@ matrix:
       install:
         - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples");
         - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
-            INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+            INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
           fi
       script:
         - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
