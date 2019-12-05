@@ -7,9 +7,12 @@ XGBoost (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 
-.. _xgboost.Booster: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster
-.. _xgboost.Booster.save_model: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster.save_model
-.. _scikit-learn API: https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
+.. _xgboost.Booster:
+    https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster
+.. _xgboost.Booster.save_model:
+    https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster.save_model
+.. _scikit-learn API:
+    https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
 
 from __future__ import absolute_import

@@ -7,9 +7,13 @@ LightGBM (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 
-.. _lightgbm.Booster: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm.Booster
-.. _lightgbm.Booster.save_model: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm.Booster.save_model
-.. _scikit-learn API: https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api
+.. _lightgbm.Booster:
+    https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm.Booster
+.. _lightgbm.Booster.save_model:
+    https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html
+    #lightgbm.Booster.save_model
+.. _scikit-learn API:
+    https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api
 """
 
 from __future__ import absolute_import
