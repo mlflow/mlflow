@@ -58,7 +58,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     )
     tempDir = Files.createTempDirectory(this.getClass.getName)
     deltaTablePath = Paths.get(tempDir.toString, "delta").toString
-    formatToTablePath = Seq( /* "delta", */ "csv" /* "json", "parquet" */ ).map { format =>
+    formatToTablePath = Seq( "csv", "parquet", "json" /*, delta */).map { format =>
       format -> Paths.get(tempDir.toString, format).toString
     }.toMap
 
@@ -119,12 +119,14 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     SparkDataSourceEventPublisher.register(subscriber)
 
     formatToTablePath.foreach { case (format, tablePath) =>
-      spark.read.format(format).load(tablePath)
+      val df = spark.read.format(format).load(tablePath)
+      df.collect()
     }
 
-    (formatToTablePath -- Seq("delta")).values.foreach { tablePath =>
-      val expectedPath = Paths.get("file:", tablePath).toString
-      verify(subscriber, times(1)).notify(expectedPath, "unknown", "unknown")
+    val expectedFormats = Map("csv" -> "CSV", "parquet" -> "Parquet" -> "")
+    formatToTablePath.foreach { case (format, tablePath) =>
+      val expectedPath = s"${Paths.get("file:", tablePath).toString}"
+      verify(subscriber, times(1)).notify(expectedPath, "unknown", format)
     }
 //    verify(publisher, times(1)).publishEvent(
 //      any(), SparkTableInfo(deltaTablePath, Option("0"), Option("delta")))
