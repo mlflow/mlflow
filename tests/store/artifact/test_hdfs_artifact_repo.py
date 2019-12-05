@@ -246,4 +246,3 @@ def test_archive_artifacts_empty_run(mock_remove_folder):
     expected_har_path = ""
     assert expected_har_path == archive_artifacts(
         mock_hdfs_artifact_repo, run_folder, "artifacts.har")
-
