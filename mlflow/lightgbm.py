@@ -1,9 +1,9 @@
 """
-The ``mlflow.xgboost`` module provides an API for logging and loading XGBoost models.
-This module exports XGBoost models with the following flavors:
+The ``mlflow.lightgbm`` module provides an API for logging and loading LightGBM models.
+This module exports LightGBM models with the following flavors:
 
-XGBoost (native) format
-    This is the main flavor that can be loaded back into XGBoost.
+LightGBM (native) format
+    This is the main flavor that can be loaded back into LightGBM.
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
@@ -21,7 +21,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 
-FLAVOR_NAME = "xgboost"
+FLAVOR_NAME = "lightgbm"
 
 
 def get_default_conda_env():
@@ -29,22 +29,22 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import xgboost as xgb
+    import lightgbm as lgb
 
     return _mlflow_conda_env(
         additional_conda_deps=None,
-        # XGBoost is not yet available via the default conda channels, so we install it via pip
+        # LightGBM is not yet available via the default conda channels, so we install it via pip
         additional_pip_deps=[
-            "xgboost=={}".format(xgb.__version__),
+            "lightgbm=={}".format(lgb.__version__),
         ],
         additional_conda_channels=None)
 
 
-def save_model(xgb_model, path, conda_env=None, mlflow_model=Model()):
+def save_model(lgb_model, path, conda_env=None, mlflow_model=Model()):
     """
-    Save an XGBoost model to a path on the local file system.
+    Save a LightGBM model to a path on the local file system.
 
-    :param xgb_model: XGBoost model (an instance of ``xgboost.Booster``) to be saved.
+    :param lgb_model: LightGBM model (an instance of ``lightgbm.Booster``) to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -60,24 +60,24 @@ def save_model(xgb_model, path, conda_env=None, mlflow_model=Model()):
                             'dependencies': [
                                 'python=3.7.0',
                                 'pip': [
-                                    'xgboost==0.90'
+                                    'lightgbm==2.3.0'
                                 ]
                             ]
                         }
 
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
-    import xgboost as xgb
+    import lightgbm as lgb
 
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
-    model_data_subpath = "model.xgb"
+    model_data_subpath = "model.lgb"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(path)
 
-    # Save an XGBoost model
-    xgb_model.save_model(model_data_path)
+    # Save a LightGBM model
+    lgb_model.save_model(model_data_path)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -88,17 +88,17 @@ def save_model(xgb_model, path, conda_env=None, mlflow_model=Model()):
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.xgboost",
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.lightgbm",
                         data=model_data_subpath, env=conda_env_subpath)
-    mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME, lgb_version=lgb.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=None, **kwargs):
+def log_model(lgb_model, artifact_path, conda_env=None, registered_model_name=None, **kwargs):
     """
-    Log an XGBoost model as an MLflow artifact for the current run.
+    Log a LightGBM model as an MLflow artifact for the current run.
 
-    :param xgb_model: XGBoost model (an instance of ``xgboost.Booster``) to be saved.
+    :param lgb_model: LightGBM model (an instance of ``lightgbm.Booster``) to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -114,7 +114,7 @@ def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=No
                             'dependencies': [
                                 'python=3.7.0',
                                 'pip': [
-                                    'xgboost==0.90'
+                                    'lightgbm==2.3.0'
                                 ]
                             ]
                         }
@@ -122,32 +122,30 @@ def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=No
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param kwargs: kwargs to pass to ``xgboost.save_model`` method.
+    :param kwargs: kwargs to pass to ``lightgbm.save_model`` method.
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.xgboost,
+    Model.log(artifact_path=artifact_path, flavor=mlflow.lightgbm,
               registered_model_name=registered_model_name,
-              xgb_model=xgb_model, conda_env=conda_env, **kwargs)
+              lgb_model=lgb_model, conda_env=conda_env, **kwargs)
 
 
 def _load_model(path):
-    import xgboost as xgb
-    model = xgb.Booster()
-    model.load_model(os.path.abspath(path))
-    return model
+    import lightgbm as lgb
+    return lgb.Booster(model_file=path)
 
 
 def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
 
-    :param path: Local filesystem path to the MLflow Model with the ``xgboost`` flavor.
+    :param path: Local filesystem path to the MLflow Model with the ``lightgbm`` flavor.
     """
-    return _XGBModelWrapper(_load_model(path))
+    return _LGBModelWrapper(_load_model(path))
 
 
 def load_model(model_uri):
     """
-    Load an XGBoost model from a local file or a run.
+    Load a LightGBM model from a local file or a run.
 
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
@@ -160,18 +158,17 @@ def load_model(model_uri):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
 
-    :return: An XGBoost model (an instance of ``xgboost.Booster``)
+    :return: A LightGBM model (an instance of ``lightgbm.Booster``).
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    xgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.xgb"))
-    return _load_model(path=xgb_model_file_path)
+    lgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.lgb"))
+    return _load_model(path=lgb_model_file_path)
 
 
-class _XGBModelWrapper:
-    def __init__(self, xgb_model):
-        self.xgb_model = xgb_model
+class _LGBModelWrapper:
+    def __init__(self, lgb_model):
+        self.lgb_model = lgb_model
 
     def predict(self, dataframe):
-        import xgboost as xgb
-        return self.xgb_model.predict(xgb.DMatrix(dataframe))
+        return self.lgb_model.predict(dataframe)
