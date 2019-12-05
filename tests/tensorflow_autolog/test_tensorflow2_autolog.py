@@ -120,7 +120,7 @@ def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_ru
                 yield data, labels
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
     else:
-        model.fit(data, labels, epochs=10)
+        model.fit(data, labels, epochs=10, steps_per_epoch=1)
 
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
@@ -131,6 +131,18 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     data = tf_keras_random_data_run.data
     assert 'accuracy' in data.metrics
     assert 'loss' in data.metrics
+    # Testing explicitly passed parameters are logged correctly
+    assert 'epochs' in data.params
+    assert data.params['epochs'] == '10'
+    assert 'steps_per_epoch' in data.params
+    assert data.params['steps_per_epoch'] == '1'
+    # Testing default parameters are logged correctly
+    assert 'initial_epoch' in data.params
+    assert data.params['initial_epoch'] == '0'
+    # Testing unwanted parameters are not logged
+    assert 'callbacks' not in data.params
+    assert 'validation_data' not in data.params
+    # Testing optimizer parameters are logged
     assert 'opt_name' in data.params
     assert data.params['opt_name'] == 'Adam'
     assert 'opt_learning_rate' in data.params
@@ -161,68 +173,90 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
     model.predict(random_train_data)
 
 
-@pytest.fixture
-def tf_estimator_random_data_run():
-    mlflow.tensorflow.autolog()
-    with mlflow.start_run() as run:
-        dir = tempfile.mkdtemp()
-        CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
-        SPECIES = ['Setosa', 'Versicolor', 'Virginica']
+def create_tf_estimator_model(dir, export):
+    CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
+    SPECIES = ['Setosa', 'Versicolor', 'Virginica']
 
-        train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
-                            names=CSV_COLUMN_NAMES, header=0)
-        test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
-                           names=CSV_COLUMN_NAMES, header=0)
+    train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
+                        names=CSV_COLUMN_NAMES, header=0)
+    test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
+                       names=CSV_COLUMN_NAMES, header=0)
 
-        train_y = train.pop('Species')
-        test_y = test.pop('Species')
+    train_y = train.pop('Species')
+    test_y = test.pop('Species')
 
-        def input_fn(features, labels, training=True, batch_size=256):
-            """An input function for training or evaluating"""
-            # Convert the inputs to a Dataset.
-            dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))
+    def input_fn(features, labels, training=True, batch_size=256):
+        """An input function for training or evaluating"""
+        # Convert the inputs to a Dataset.
+        dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))
 
-            # Shuffle and repeat if you are in training mode.
-            if training:
-                dataset = dataset.shuffle(1000).repeat()
+        # Shuffle and repeat if you are in training mode.
+        if training:
+            dataset = dataset.shuffle(1000).repeat()
 
-            return dataset.batch(batch_size)
+        return dataset.batch(batch_size)
 
-        my_feature_columns = []
-        for key in train.keys():
-            my_feature_columns.append(tf.feature_column.numeric_column(key=key))
+    my_feature_columns = []
+    for key in train.keys():
+        my_feature_columns.append(tf.feature_column.numeric_column(key=key))
 
-        feature_spec = {}
-        for feature in CSV_COLUMN_NAMES:
-            feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
+    feature_spec = {}
+    for feature in CSV_COLUMN_NAMES:
+        feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
 
-        receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
-
-        classifier = tf.estimator.DNNClassifier(
-            feature_columns=my_feature_columns,
-            # Two hidden layers of 10 nodes each.
-            hidden_units=[30, 10],
-            # The model must choose between 3 classes.
-            n_classes=3,
-            model_dir=dir)
-
-        classifier.train(
-            input_fn=lambda: input_fn(train, train_y, training=True),
-            steps=500)
+    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+    classifier = tf.estimator.DNNClassifier(
+        feature_columns=my_feature_columns,
+        # Two hidden layers of 10 nodes each.
+        hidden_units=[30, 10],
+        # The model must choose between 3 classes.
+        n_classes=3,
+        model_dir=dir)
+    classifier.train(
+        input_fn=lambda: input_fn(train, train_y, training=True),
+        steps=500)
+    if export:
         classifier.export_saved_model(dir, receiver_fn)
-
-    shutil.rmtree(dir)
-    return client.get_run(run.info.run_id)
 
 
 @pytest.mark.large
+@pytest.mark.parametrize('export', [True, False])
+def test_tf_estimator_autolog_ends_auto_created_run(tmpdir, export):
+    dir = tmpdir.mkdir("test")
+    mlflow.tensorflow.autolog()
+    create_tf_estimator_model(str(dir), export)
+    assert mlflow.active_run() is None
+
+
+@pytest.mark.large
+@pytest.mark.parametrize('export', [True, False])
+def test_tf_estimator_autolog_persists_manually_created_run(tmpdir, export):
+    dir = tmpdir.mkdir("test")
+    with mlflow.start_run() as run:
+        create_tf_estimator_model(str(dir), export)
+        assert mlflow.active_run()
+        assert mlflow.active_run().info.run_id == run.info.run_id
+
+
+@pytest.fixture
+def tf_estimator_random_data_run(tmpdir, manual_run, export):
+    dir = tmpdir.mkdir("test")
+    mlflow.tensorflow.autolog()
+    create_tf_estimator_model(str(dir), export)
+    return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize('export', [True, False])
 def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
     assert 'loss' in tf_estimator_random_data_run.data.metrics
+    assert 'steps' in tf_estimator_random_data_run.data.params
     metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, 'loss')
     assert all((x.step-1) % 100 == 0 for x in metrics)
 
 
 @pytest.mark.large
+@pytest.mark.parametrize('export', [True])
 def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
@@ -232,13 +266,14 @@ def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_d
 
 
 @pytest.fixture
-def duplicate_autolog_tf_estimator_run():
+def duplicate_autolog_tf_estimator_run(tmpdir, manual_run, export):
     mlflow.tensorflow.autolog(every_n_iter=23)  # 23 is prime; no false positives in test
-    run = tf_estimator_random_data_run()
+    run = tf_estimator_random_data_run(tmpdir, manual_run, export)
     return run  # should be autologged every 4 steps
 
 
 @pytest.mark.large
+@pytest.mark.parametrize('export', [True, False])
 def test_duplicate_autolog_second_overrides(duplicate_autolog_tf_estimator_run):
     metrics = client.get_metric_history(duplicate_autolog_tf_estimator_run.info.run_id, 'loss')
     assert all((x.step - 1) % 4 == 0 for x in metrics)

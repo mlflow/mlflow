@@ -28,7 +28,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log
+from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
 
 FLAVOR_NAME = "keras"
@@ -85,7 +85,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
     :param keras_model: Keras model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
+                      Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the
                       dependencies contained in :func:`get_default_conda_env()`. If
                       ``None``, the default :func:`get_default_conda_env()` environment is
@@ -189,7 +189,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or
                       the path to a Conda environment yaml file.
-                      If provided, this decribes the environment this model should be
+                      If provided, this describes the environment this model should be
                       run in. At minimum, it should specify the dependencies
                       contained in :func:`get_default_conda_env()`. If ``None``, the default
                       :func:`mlflow.keras.get_default_conda_env()` environment is added to
@@ -347,9 +347,11 @@ def load_model(model_uri, **kwargs):
                       - ``relative/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
 
                       For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
 
     :return: A Keras model instance.
@@ -429,6 +431,10 @@ def autolog():
 
         original = gorilla.get_original_attribute(keras.Model, 'fit')
 
+        unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data', 'verbose']
+
+        log_fn_args_as_params(original, args, kwargs, unlogged_params)
+
         # Checking if the 'callback' argument of fit() is set
         if len(args) >= 6:
             tmp_list = list(args)
@@ -453,6 +459,10 @@ def autolog():
             auto_end_run = False
 
         original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
+
+        unlogged_params = ['self', 'generator', 'callbacks', 'validation_data', 'verbose']
+
+        log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
         # Checking if the 'callback' argument of fit() is set
         if len(args) >= 5:

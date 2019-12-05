@@ -1,9 +1,9 @@
 """
-The ``mlflow.h2o`` module provides an API for logging and loading H2O models. This module exports
-H2O models with the following flavors:
+The ``mlflow.xgboost`` module provides an API for logging and loading XGBoost models.
+This module exports XGBoost models with the following flavors:
 
-H20 (native) format
-    This is the main flavor that can be loaded back into H2O.
+XGBoost (native) format
+    This is the main flavor that can be loaded back into XGBoost.
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
@@ -19,8 +19,9 @@ from mlflow.models import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.exceptions import MlflowException
 
-FLAVOR_NAME = "h2o"
+FLAVOR_NAME = "xgboost"
 
 
 def get_default_conda_env():
@@ -28,21 +29,22 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import h2o
+    import xgboost as xgb
 
     return _mlflow_conda_env(
         additional_conda_deps=None,
+        # XGBoost is not yet available via the default conda channels, so we install it via pip
         additional_pip_deps=[
-            "h2o=={}".format(h2o.__version__),
+            "xgboost=={}".format(xgb.__version__),
         ],
         additional_conda_channels=None)
 
 
-def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=None):
+def save_model(xgb_model, path, conda_env=None, mlflow_model=Model()):
     """
-    Save an H2O model to a path on the local file system.
+    Save an XGBoost model to a path on the local file system.
 
-    :param h2o_model: H2O model to be saved.
+    :param xgb_model: XGBoost model (an instance of ``xgboost.Booster``) to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -58,34 +60,24 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
                             'dependencies': [
                                 'python=3.7.0',
                                 'pip': [
-                                    'h2o==3.20.0.8'
+                                    'xgboost==0.90'
                                 ]
                             ]
                         }
 
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
-    import h2o
+    import xgboost as xgb
 
     path = os.path.abspath(path)
     if os.path.exists(path):
-        raise Exception("Path '{}' already exists".format(path))
-    model_data_subpath = "model.h2o"
+        raise MlflowException("Path '{}' already exists".format(path))
+    model_data_subpath = "model.xgb"
     model_data_path = os.path.join(path, model_data_subpath)
-    os.makedirs(model_data_path)
+    os.makedirs(path)
 
-    # Save h2o-model
-    h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
-    model_file = os.path.basename(h2o_save_location)
-
-    # Save h2o-settings
-    if settings is None:
-        settings = {}
-    settings['full_file'] = h2o_save_location
-    settings['model_file'] = model_file
-    settings['model_dir'] = model_data_path
-    with open(os.path.join(model_data_path, "h2o.yaml"), 'w') as settings_file:
-        yaml.safe_dump(settings, stream=settings_file)
+    # Save an XGBoost model
+    xgb_model.save_model(model_data_path)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -96,20 +88,20 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.h2o",
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.xgboost",
                         data=model_data_subpath, env=conda_env_subpath)
-    mlflow_model.add_flavor(FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=None, **kwargs):
+def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=None, **kwargs):
     """
-    Log an H2O model as an MLflow artifact for the current run.
+    Log an XGBoost model as an MLflow artifact for the current run.
 
-    :param h2o_model: H2O model to be saved.
+    :param xgb_model: XGBoost model (an instance of ``xgboost.Booster``) to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
+                      Conda environment yaml file. If provided, this describes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :func:`get_default_conda_env()`. If ``None``, the default
                       :func:`get_default_conda_env()` environment is added to the model.
@@ -122,7 +114,7 @@ def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=No
                             'dependencies': [
                                 'python=3.7.0',
                                 'pip': [
-                                    'h2o==3.20.0.8'
+                                    'xgboost==0.90'
                                 ]
                             ]
                         }
@@ -130,50 +122,32 @@ def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=No
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param kwargs: kwargs to pass to ``h2o.save_model`` method.
+    :param kwargs: kwargs to pass to ``xgboost.save_model`` method.
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,
+    Model.log(artifact_path=artifact_path, flavor=mlflow.xgboost,
               registered_model_name=registered_model_name,
-              h2o_model=h2o_model, conda_env=conda_env, **kwargs)
+              xgb_model=xgb_model, conda_env=conda_env, **kwargs)
 
 
-def _load_model(path, init=False):
-    import h2o
-
-    path = os.path.abspath(path)
-    with open(os.path.join(path, "h2o.yaml")) as f:
-        params = yaml.safe_load(f.read())
-    if init:
-        h2o.init(**(params["init"] if "init" in params else {}))
-        h2o.no_progress()
-    return h2o.load_model(os.path.join(path, params['model_file']))
-
-
-class _H2OModelWrapper:
-    def __init__(self, h2o_model):
-        self.h2o_model = h2o_model
-
-    def predict(self, dataframe):
-        import h2o
-
-        predicted = self.h2o_model.predict(h2o.H2OFrame(dataframe)).as_data_frame()
-        predicted.index = dataframe.index
-        return predicted
+def _load_model(path):
+    import xgboost as xgb
+    model = xgb.Booster()
+    model.load_model(os.path.abspath(path))
+    return model
 
 
 def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
 
-    :param path: Local filesystem path to the MLflow Model with the ``h2o`` flavor.
+    :param path: Local filesystem path to the MLflow Model with the ``xgboost`` flavor.
     """
-    return _H2OModelWrapper(_load_model(path, init=True))
+    return _XGBModelWrapper(_load_model(path))
 
 
 def load_model(model_uri):
     """
-    Load an H2O model from a local file (if ``run_id`` is ``None``) or a run.
-    This function expects there is an H2O instance initialised with ``h2o.init``.
+    Load an XGBoost model from a local file or a run.
 
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
@@ -181,19 +155,23 @@ def load_model(model_uri):
                       - ``relative/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
 
                       For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
 
-    :return: An `H2OEstimator model object
-             <http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/intro.html#models>`_.
+    :return: An XGBoost model (an instance of ``xgboost.Booster``)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
-    # `data` key; in this case, we assume the model artifact path to be `model.h2o`
-    h2o_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.h2o"))
-    return _load_model(path=h2o_model_file_path)
+    xgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.xgb"))
+    return _load_model(path=xgb_model_file_path)
+
+
+class _XGBModelWrapper:
+    def __init__(self, xgb_model):
+        self.xgb_model = xgb_model
+
+    def predict(self, dataframe):
+        import xgboost as xgb
+        return self.xgb_model.predict(xgb.DMatrix(dataframe))
