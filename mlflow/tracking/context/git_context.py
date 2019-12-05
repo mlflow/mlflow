@@ -9,6 +9,7 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_git_commit(path):
+    """Gets git commit hash name for particular repository if it exists."""
     try:
         import git
     except ImportError as e:
@@ -24,6 +25,27 @@ def _get_git_commit(path):
         repo = git.Repo(path, search_parent_directories=True)
         commit = repo.head.commit.hexsha
         return commit
+    except (git.InvalidGitRepositoryError, git.GitCommandNotFound, ValueError, git.NoSuchPathError):
+        return None
+
+
+def _get_git_user(path=None):
+    """Gets git user name for particular repository or general if it exists."""
+    try:
+        import git
+    except ImportError as e:
+        _logger.warning(
+            "Failed to import Git (the Git executable is probably not on your PATH),"
+            " so Git SHA is not available. Error: %s", e)
+        return None
+    try:
+        if not path:
+            path = os.path.dirname(__file__)
+        elif os.path.isfile(path):
+            path = os.path.dirname(path)
+        repo = git.Repo(path, search_parent_directories=True)
+        user = repo.config_reader().get_value("user", "name")
+        return user
     except (git.InvalidGitRepositoryError, git.GitCommandNotFound, ValueError, git.NoSuchPathError):
         return None
 
