@@ -128,6 +128,7 @@ matrix:
 # run small or large Python tests below.
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
+  - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples")
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
       echo "skipping this step on windows.";
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
