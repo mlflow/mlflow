@@ -8,34 +8,24 @@ import scala.util.control.NonFatal
 import scala.collection.JavaConverters._
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.apache.spark.sql.execution.SQLExecution
+import org.apache.spark.sql.execution.{GenerateExec, QueryExecution, SQLExecution, SparkPlan}
 import org.apache.spark.SparkContext
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui.{SparkListenerSQLExecutionEnd, SparkListenerSQLExecutionStart}
 import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
 
-
 import scala.collection.{immutable, mutable}
 import scala.util.control.NonFatal
 import scala.collection.JavaConverters._
-
 import org.apache.spark.SparkContext
-
-
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui._
-import org.apache.spark.sql.execution.{GenerateExec, SparkPlan, SQLExecution}
 import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
-
-import org.apache.spark.sql.delta.{DeltaTable, DeltaFullTable}
-
+import org.apache.spark.sql.delta.{DeltaFullTable, DeltaTable}
 import org.apache.spark.sql.SparkSession
-
-import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, LeafNode}
-
+import org.apache.spark.sql.catalyst.plans.logical.{LeafNode, LogicalPlan}
 import java.time.format.DateTimeFormatter
 import java.time.LocalDateTime
-
 import java.time.format.DateTimeFormatter
 import java.time.LocalDateTime
 
@@ -200,10 +190,6 @@ class SparkDataSourceListener extends SparkListener {
         val path = tahoeFileIndex.path.toString
         val versionOpt = Option(tahoeFileIndex.tableVersion).map(_.toString)
         Option(SparkTableInfo(path, versionOpt, Option("delta")))
-      case DeltaFullTable(tahoeFileIndex) =>
-        val path = tahoeFileIndex.path.toString
-        val versionOpt = Option(tahoeFileIndex.tableVersion).map(_.toString)
-        Option(SparkTableInfo(path, versionOpt, Option("delta")))
       case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
         val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
         Option(SparkTableInfo(path, None, None))
@@ -238,10 +224,66 @@ class SparkDataSourceListener extends SparkListener {
   * as well
   */
 class DatabricksSparkDataSourceListener() extends SparkDataSourceListener {
+
   // Order of callbacks is onSQLExecutionStart, onJobStart, onSQLExecutionEnd
-  // So we can figure out where to log table infos in onJobStart (i.e. find assoc REPL),
-  // and log them & remove them in onSQLExecutionEnd
-  private val executionIdToReplId = new java.util.concurrent.ConcurrentHashMap[Long, String]()
+  // So we can get the table infos to log in onSQLExecutionStart, figure out where to log them in onJobStart,
+  // and remove them in onSQLExecutionEnd
+
+  // A QueryExecution has many JobIDs via associatedJobs = mutable.Set[Int]()
+  // A SparkListenerJobStart event gives you a mapping from JobIds to repl IDs (so you know the repl associated with each job)
+  // So should be able to capture the first mapping on Job start, then on query execution end look up
+  // the repls associated with each Spark job that was completed, and notify those repls
+  private val executionIdToTableInfos = mutable.Map[Long, Seq[SparkTableInfo]]()
+
+  private def getLeafNodes(lp: LogicalPlan): Seq[LogicalPlan] = {
+    if (lp == null) {
+      return Seq.empty
+    }
+    if (lp.isInstanceOf[LeafNode]) {
+      Seq(lp)
+    } else {
+      lp.children.flatMap { child =>
+        child match {
+          case l: LeafNode =>
+            Seq(l)
+          case other: LogicalPlan => getLeafNodes(other)
+        }
+      }
+    }
+  }
+
+  // Get SparkTableInfo of info to log from leaf node of a query plan
+  private def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
+
+    val deltaTableObj = Class.forName("com.databricks.sql.transaction.tahoe.DeltaTable$")
+
+    leafNode match {
+      case DeltaTable(tahoeFileIndex) =>
+        val path = tahoeFileIndex.path.toString
+        val versionOpt = Option(tahoeFileIndex.tableVersion).map(_.toString)
+        Option(SparkTableInfo(path, versionOpt, Option("delta")))
+      case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
+        val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
+        Option(SparkTableInfo(path, None, None))
+      case other =>
+        None
+    }
+  }
+
+  private def addTableInfos(executionId: Long, tableInfos: Seq[SparkTableInfo]): Unit = synchronized {
+    val tableInfosOpt = executionIdToTableInfos.get(executionId)
+    if (tableInfosOpt.isDefined) {
+      throw new RuntimeException(
+        s"Unexpected error trying to associate " +
+          s"execution ID ${executionId} -> table infos. Found existing table infos.")
+    } else {
+      executionIdToTableInfos(executionId) = tableInfos
+    }
+  }
+
+  private def removeExecutionIdToTableInfos(executionId: Long): Unit = synchronized {
+    executionIdToTableInfos.remove(executionId)
+  }
 
   override def onJobStart(event: SparkListenerJobStart): Unit = {
     // Find corresponding execution, and
@@ -255,23 +297,37 @@ class DatabricksSparkDataSourceListener() extends SparkDataSourceListener {
     val executionId = executionIdOpt.get
     val replIdOpt = properties.get("spark.databricks.replId")
     replIdOpt.foreach { replId =>
-      executionIdToReplId.put(executionId, replId)
+      executionIdToTableInfos.get(executionId).map { tableInfosToLog =>
+        tableInfosToLog.map(tableInfo => SparkDataSourceEventPublisher.publishEvent(Option(replId), tableInfo))
+      }
     }
   }
 
-  override protected def onSQLExecutionEnd(event: SparkListenerSQLExecutionEnd): Unit = {
-    val qe = SparkAutologgingUtils.getQueryExecution(event)
+  // Populate a map of execution ID to list of table infos to log under
+  private def onSQLExecutionStart(event: SparkListenerSQLExecutionStart): Unit = {
+    val qe: QueryExecution = event.getClass.getDeclaredFields.find(_.getName == "qe")
+        .map(_.get(event).asInstanceOf[QueryExecution]).getOrElse {
+      throw new RuntimeException("Unable to get QueryExecution field")
+    }
+
     if (qe != null) {
       val leafNodes = getLeafNodes(qe.analyzed)
       val tableInfosToLog = leafNodes.flatMap(getTableInfoToLog)
-      val executionId = event.executionId
-      // Remove the executionId -> replId mapping if it exists. remove() returns null if no key
-      // was found, so wrap it in an option & log the table infos only if we can find a
-      // corresponding repl ID
-      Option(executionIdToReplId.remove(executionId)).foreach { replId =>
-        tableInfosToLog.foreach(tableInfo => SparkDataSourceEventPublisher.publishEvent(
-          Option(replId), tableInfo))
-      }
+      addTableInfos(event.executionId, tableInfosToLog)
+    }
+  }
+
+  private def onSQLExecutionEnd(event: SparkListenerSQLExecutionEnd): Unit = {
+    removeExecutionIdToTableInfos(event.executionId)
+  }
+
+  override def onOtherEvent(event: SparkListenerEvent): Unit = {
+    event match {
+      case e: SparkListenerSQLExecutionStart =>
+        onSQLExecutionStart(e)
+      case e: SparkListenerSQLExecutionEnd =>
+        onSQLExecutionEnd(e)
+      case _ =>
     }
   }
 }
