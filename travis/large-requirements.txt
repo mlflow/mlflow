@@ -23,6 +23,7 @@ tensorflow==1.14.0
 torch==1.0.1
 torchvision==0.2.2
 xgboost>=0.82
+lightgbm==2.3.0
 # Install typing to fix torch on Python 2.7 (see https://github.com/pytorch/pytorch/issues/16775)
 typing==3.6.6
 pysftp==0.2.9
