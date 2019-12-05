@@ -13,6 +13,7 @@ matrix:
     - language: python
       python: 2.7
       install:
+        # CHANGED_FILES detects whether or not files related to the nightly build are changed.
         - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples");
         - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
             INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
