@@ -30,7 +30,11 @@ def _get_git_commit(path):
 
 
 def _get_git_user(path=None):
-    """Gets git user name for particular repository or general if it exists."""
+    """Gets git user name for particular repository or general if it exists.
+
+    >>> _get_git_user()  # doctest: +ELLIPSIS
+    '...'
+    """
     try:
         import git
     except ImportError as e:
