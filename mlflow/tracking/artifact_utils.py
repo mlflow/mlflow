@@ -7,9 +7,9 @@ from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store import get_tracking_store
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.tracking._tracking_service.utils import _get_store
 
 
 def get_artifact_uri(run_id, artifact_path=None):
@@ -34,7 +34,7 @@ def get_artifact_uri(run_id, artifact_path=None):
             message="A run_id must be specified in order to obtain an artifact uri!",
             error_code=INVALID_PARAMETER_VALUE)
 
-    store = _get_store()
+    store = get_tracking_store()
     run = store.get_run(run_id)
     # Maybe move this method to RunsArtifactRepository so the circular dependency is clearer.
     assert urllib.parse.urlparse(run.info.artifact_uri).scheme != "runs"  # avoid an infinite loop

@@ -8,8 +8,8 @@ import time
 import os
 from six import iteritems
 
+from mlflow.store import get_tracking_store
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking._tracking_service import utils
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
     _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
@@ -28,7 +28,7 @@ class TrackingServiceClient(object):
         :param tracking_uri: Address of local or remote tracking server.
         """
         self.tracking_uri = tracking_uri
-        self.store = utils._get_store(self.tracking_uri)
+        self.store = get_tracking_store(self.tracking_uri)
 
     def get_run(self, run_id):
         """

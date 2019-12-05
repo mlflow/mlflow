@@ -1,13 +1,47 @@
 import os
 
+from mlflow.store.registry import StoreRegistry
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.rest_store import RestStore
-from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import _TRACKING_USERNAME_ENV_VAR, \
     _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR
 from mlflow.utils import rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import get_db_profile_from_uri
+
+
+class ModelRegistryStoreRegistry(StoreRegistry):
+    """Scheme-based registry for model registry store implementations
+
+    This class allows the registration of a function or class to provide an
+    implementation for a given scheme of `store_uri` through the `register`
+    methods. Implementations declared though the entrypoints
+    `mlflow.registry_store` group can be automatically registered through the
+    `register_entrypoints` method.
+
+    When instantiating a store through the `get_store` method, the scheme of
+    the store URI provided (or inferred from environment) will be used to
+    select which implementation to instantiate, which will be called with same
+    arguments passed to the `get_store` method.
+    """
+
+    def __init__(self):
+        super(ModelRegistryStoreRegistry, self).__init__("mlflow.model_registry_store")
+
+    def get_store(self, store_uri=None):
+        """Get a store from the registry based on the scheme of store_uri
+
+        :param store_uri: The store URI. If None, it will be inferred from the environment. This URI
+                          is used to select which tracking store implementation to instantiate and
+                          is passed to the constructor of the implementation.
+
+        :return: An instance of `mlflow.store.model_registry.AbstractStore` that fulfills the
+                 store URI requirements.
+        """
+        from mlflow.tracking._tracking_service import utils
+        store_uri = store_uri if store_uri is not None else utils.get_tracking_uri()
+        builder = self.get_store_builder(store_uri)
+        return builder(store_uri=store_uri)
 
 
 # NOTE: in contrast to tracking, we do not support the following ways to specify
@@ -24,8 +58,6 @@ from mlflow.utils.uri import get_db_profile_from_uri
 #    ``mlflow.store.model_registry.SQLAlchemyStore``).
 # This means the following combinations are not supported:
 #  - Tracking RestStore & Model Registry RestStore that use different credentials.
-
-# NOTE: SqlAlchemyStore code is commented out here - we can add it back once it's available
 
 def _get_sqlalchemy_store(store_uri):
     from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
@@ -61,5 +93,9 @@ for scheme in DATABASE_ENGINES:
 _model_registry_store_registry.register_entrypoints()
 
 
-def _get_store(store_uri=None):
+def register_model_registry_store(uri_scheme, store_generator):
+    _model_registry_store_registry.register(uri_scheme, store_generator)
+
+
+def get_model_registry_store(store_uri=None):
     return _model_registry_store_registry.get_store(store_uri)

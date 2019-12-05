@@ -3,8 +3,8 @@ import sys
 
 import click
 
+from mlflow.store import get_tracking_store
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.proto_json_utils import message_to_json
 
@@ -36,7 +36,7 @@ def log_artifact(local_file, run_id, artifact_path):
     artifact path. Run artifacts can be organized into directories, so you can
     place the artifact in a directory this way.
     """
-    store = _get_store()
+    store = get_tracking_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_repo.log_artifact(local_file, artifact_path)
@@ -58,7 +58,7 @@ def log_artifacts(local_dir, run_id, artifact_path):
     within a run-specific artifact path. Run artifacts can be organized into
     directories, so you can place the artifact in a directory this way.
     """
-    store = _get_store()
+    store = get_tracking_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_repo.log_artifacts(local_dir, artifact_path)
@@ -76,7 +76,7 @@ def list_artifacts(run_id, artifact_path):
     or a sub-directory. The output is a JSON-formatted list.
     """
     artifact_path = artifact_path if artifact_path is not None else ""
-    store = _get_store()
+    store = get_tracking_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
     file_infos = artifact_repo.list_artifacts(artifact_path)
@@ -113,7 +113,7 @@ def download_artifacts(run_id, artifact_path, artifact_uri):
         return
 
     artifact_path = artifact_path if artifact_path is not None else ""
-    store = _get_store()
+    store = get_tracking_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_location = artifact_repo.download_artifacts(artifact_path)

@@ -7,7 +7,8 @@ from tabulate import tabulate
 
 from mlflow.data import is_uri
 from mlflow.entities import ViewType
-from mlflow.tracking import _get_store, fluent
+from mlflow.tracking import fluent
+from mlflow.store import get_tracking_store
 
 EXPERIMENT_ID = click.option("--experiment-id", "-x", type=click.STRING, required=True)
 
@@ -40,7 +41,7 @@ def create(experiment_name, artifact_location):
     creates a folder for each experiment ID and stores metadata in ``meta.yaml``. Runs are stored
     as subfolders.
     """
-    store = _get_store()
+    store = get_tracking_store()
     exp_id = store.create_experiment(experiment_name, artifact_location)
     print("Created experiment '%s' with id %s" % (experiment_name, exp_id))
 
@@ -53,7 +54,7 @@ def list_experiments(view):
     """
     List all experiments in the configured tracking server.
     """
-    store = _get_store()
+    store = get_tracking_store()
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
     experiments = store.list_experiments(view_type)
     table = [[exp.experiment_id, exp.name, exp.artifact_location if is_uri(exp.artifact_location)
@@ -79,7 +80,7 @@ def delete_experiment(experiment_id):
     clearing the ``.trash`` folder. It is recommended to use a ``cron`` job or an alternate
     workflow mechanism to clear ``.trash`` folder.
     """
-    store = _get_store()
+    store = get_tracking_store()
     store.delete_experiment(experiment_id)
     print("Experiment with ID %s has been deleted." % str(experiment_id))
 
@@ -92,7 +93,7 @@ def restore_experiment(experiment_id):
     data. The command throws an error if the experiment is already active, cannot be found, or
     permanently deleted.
     """
-    store = _get_store()
+    store = get_tracking_store()
     store.restore_experiment(experiment_id)
     print("Experiment with id %s has been restored." % str(experiment_id))
 
@@ -105,7 +106,7 @@ def rename_experiment(experiment_id, new_name):
     Renames an active experiment.
     Returns an error if the experiment is inactive.
     """
-    store = _get_store()
+    store = get_tracking_store()
     store.rename_experiment(experiment_id, new_name)
     print("Experiment with id %s has been renamed to '%s'." % (experiment_id, new_name))
 

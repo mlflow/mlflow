@@ -6,7 +6,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
-from mlflow.tracking._model_registry import utils
+from mlflow.store import get_model_registry_store
 
 
 class ModelRegistryClient(object):
@@ -20,7 +20,7 @@ class ModelRegistryClient(object):
         :param registry_uri: Address of local or remote model registry server.
         """
         self.registry_uri = registry_uri
-        self.store = utils._get_store(self.registry_uri)
+        self.store = get_model_registry_store(self.registry_uri)
 
     # Registered Model Methods
 

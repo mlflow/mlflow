@@ -89,12 +89,23 @@ _artifact_repository_registry.register('models', ModelsArtifactRepository)
 _artifact_repository_registry.register_entrypoints()
 
 
-def get_artifact_repository(artifact_uri):
-    """Get an artifact repository from the registry based on the scheme of artifact_uri
+def register_artifact_repository(uri_scheme, artifact_repository):
+    """
+    :param uri_scheme: The URI scheme to associate with the specified artifact repository
+    :param artifact_repository: A subclass of
+                                :py:class:`mlflow.store.artifact.artifact_repo.ArtifactRepository`
+                                that supports artifact URIs with the specified scheme.
+    """
+    _artifact_repository_registry.register(uri_scheme, artifact_repository)
 
-    :param store_uri: The store URI. This URI is used to select which artifact repository
-                      implementation to instantiate and is passed to the
-                      constructor of the implementation.
+
+def get_artifact_repository(artifact_uri):
+    """
+    Get an artifact repository from the registry based on the scheme of the specified artifact_uri
+
+    :param artifact_uri: The artifact repository URI. This URI is used to select which artifact 
+                         repository implementation to instantiate and is passed to the constructor 
+                         of the implementation.
 
     :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
              requirements.

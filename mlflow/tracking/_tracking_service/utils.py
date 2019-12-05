@@ -4,23 +4,11 @@ import os
 import sys
 
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.store.tracking.file_store import FileStore
-from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
-from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
-from mlflow.utils import env, rest_utils
+from mlflow.utils import env
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.uri import get_db_profile_from_uri
+
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
-
-# Extra environment variables which take precedence for setting the basic/bearer
-# auth on http requests.
-_TRACKING_USERNAME_ENV_VAR = "MLFLOW_TRACKING_USERNAME"
-_TRACKING_PASSWORD_ENV_VAR = "MLFLOW_TRACKING_PASSWORD"
-_TRACKING_TOKEN_ENV_VAR = "MLFLOW_TRACKING_TOKEN"
-_TRACKING_INSECURE_TLS_ENV_VAR = "MLFLOW_TRACKING_INSECURE_TLS"
 
 _tracking_uri = None
 
@@ -65,53 +53,6 @@ def get_tracking_uri():
         return env.get_env(_TRACKING_URI_ENV_VAR)
     else:
         return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
-
-
-def _get_file_store(store_uri, **_):
-    return FileStore(store_uri, store_uri)
-
-
-def _get_sqlalchemy_store(store_uri, artifact_uri):
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-    if artifact_uri is None:
-        artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-    return SqlAlchemyStore(store_uri, artifact_uri)
-
-
-def _get_rest_store(store_uri, **_):
-    def get_default_host_creds():
-        return rest_utils.MlflowHostCreds(
-            host=store_uri,
-            username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
-            password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
-            token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
-            ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == 'true',
-        )
-
-    return RestStore(get_default_host_creds)
-
-
-def _get_databricks_rest_store(store_uri, **_):
-    profile = get_db_profile_from_uri(store_uri)
-    return DatabricksRestStore(lambda: get_databricks_host_creds(profile))
-
-
-_tracking_store_registry = TrackingStoreRegistry()
-_tracking_store_registry.register('', _get_file_store)
-_tracking_store_registry.register('file', _get_file_store)
-_tracking_store_registry.register('databricks', _get_databricks_rest_store)
-
-for scheme in ['http', 'https']:
-    _tracking_store_registry.register(scheme, _get_rest_store)
-
-for scheme in DATABASE_ENGINES:
-    _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
-
-_tracking_store_registry.register_entrypoints()
-
-
-def _get_store(store_uri=None, artifact_uri=None):
-    return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
 
 # TODO(sueann): move to a projects utils module
