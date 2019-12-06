@@ -375,6 +375,9 @@ def test_artifacts(mlflow_client):
     dir_artifacts = mlflow_client.download_artifacts(run_id, 'dir')
     assert open('%s/my.file' % dir_artifacts, 'r').read() == 'Hello, World!'
 
+    mlflow_client.update_artifacts_location(run_id, "new_location")
+    assert "new_location" in mlflow_client.get_run(run_id).info.artifact_uri
+
 
 def test_search_pagination(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment('search_pagination')
