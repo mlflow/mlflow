@@ -173,6 +173,11 @@ exclude:
     localhost be enabled, and can be run via ``pytest --requires-ssh``.
   - Tests marked with @pytest.mark.release. These tests can be run via ``pytest --release``.
 
+In addition, the tests in ``tests/examples`` are run as part of a nightly build on Travis and will
+not run on Travis jobs triggered by push requests. If your PR changes anything tested by the tests
+or the tests themselves, Travis will detect this and run the nightly tests automatically with the
+regular build.
+
 If opening a PR that changes or adds new APIs, please update or add Python documentation as
 described in `Writing Docs`_ and commit the docs to your PR branch.
 
