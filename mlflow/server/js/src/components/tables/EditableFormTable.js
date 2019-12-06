@@ -38,7 +38,7 @@ class EditableCell extends React.Component {
               <Form.Item style={{ margin: 0 }}>
                 {getFieldDecorator(dataIndex, {
                   rules: [],
-                  defaultMarkdown: record[dataIndex],
+                  initialValue: record[dataIndex],
                 })(<Input onKeyDown={this.handleKeyPress} />)}
               </Form.Item>
             ) : (
@@ -112,12 +112,12 @@ export class EditableTable extends React.Component {
             </a>
             <Popconfirm
               title="Are you sure you want to delete this tag？"
-              okText="Yes"
-              cancelText="No"
+              okText="Confirm"
+              cancelText="Cancel"
               onConfirm={() => this.delete(record.key)}
             >
               <a disabled={editingKey !== ''}>
-                <Icon type="delete" />
+                <i className="far fa-trash-alt"/>
               </a>
             </Popconfirm>
           </span>

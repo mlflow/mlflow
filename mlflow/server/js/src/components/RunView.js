@@ -104,7 +104,7 @@ class RunView extends Component {
         width: 'auto',
         minWidth: '200px',
         marginRight: '80px',
-      }
+      },
     };
     const runCommand = this.getRunCommand();
     const editIcon = <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
@@ -261,7 +261,7 @@ const getMetricValues = (latestMetrics, getMetricPagePath) => {
         {key}
         <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
       </Link>,
-      m.value
+      <span title={m.value}>{Utils.formatMetric(m.value)}</span>,
     ];
   });
 };

@@ -299,6 +299,18 @@ Models with the ``onnx`` flavor in native ONNX format.
 
 For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
 
+MXNet Gluon (``gluon``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``gluon`` model flavor enables logging of `Gluon models
+<https://mxnet.incubator.apache.org/api/python/docs/api/gluon/index.html>`_ in MLflow format via
+the :py:func:`mlflow.gluon.save_model()` and :py:func:`mlflow.gluon.log_model()` methods. These
+methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.gluon.load_model()`
+method to load MLflow Models with the ``gluon`` flavor in native Gluon format.
+
+For more information, see :py:mod:`mlflow.gluon`.
+
 Model Customization
 -------------------
 
@@ -484,7 +496,7 @@ Not all deployment methods are available for all model flavors.
 Deploy MLflow models
 ^^^^^^^^^^^^^^^^^^^^
 MLflow can deploy models locally as local REST API endpoints or to directly score files. In addition,
-MLflow can package models as self contained Docker images with the REST API endpoint. The image can
+MLflow can package models as self-contained Docker images with the REST API endpoint. The image can
 be used to safely deploy the model to various environments such as Kubernetes.
 
 You deploy MLflow model locally or generate a Docker image using the CLI interface to the
@@ -555,7 +567,7 @@ accepts the following data formats as input:
 
 * :py:func:`build_image <mlflow.azureml.build_image>` registers an MLflow Model with an existing Azure ML workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
 
-  .. _Azure ML SDK: https://docs.microsoft.com/en-us/python/api/overview/azure/ml/intro?view=azure-ml-py
+.. _Azure ML SDK: https://docs.microsoft.com/python/api/overview/azure/ml/intro?view=azure-ml-py
 
 .. rubric:: Example workflow using the Python API
 

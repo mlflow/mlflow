@@ -79,7 +79,7 @@ matrix:
         - pip install -r travis/small-requirements.txt
         - pip install -e .
       script:
-        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects tests
+        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects --ignore=tests/xgboost --ignore=tests/lightgbm tests
     # Run small Python 2.7 tests in the "large" test builder so that we don't spend Travis executor
     # time running Python 2.7 tests if Python 3 small tests fail.
     - language: python
@@ -88,6 +88,15 @@ matrix:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
         - ./travis/run-small-python-tests.sh
+    - language: python
+      python: 3.6
+      name: "Docs (rsthtml)"
+      install:
+        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+        - pip install sphinx==2.2.1 sphinx-click==2.3.0
+      script:
+        - cd docs
+        - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.

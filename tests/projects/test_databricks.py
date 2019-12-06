@@ -11,6 +11,7 @@ import pytest
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.projects.databricks import DatabricksJobRunner
+from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
 from mlflow.tracking import MlflowClient
@@ -232,6 +233,18 @@ def test_run_databricks_cluster_spec_json(
         runs_submit_args, _ = runs_submit_mock.call_args_list[0]
         req_body = runs_submit_args[0]
         assert req_body["new_cluster"] == cluster_spec
+
+
+def test_run_databricks_throws_exception_when_spec_uses_existing_cluster(
+        tracking_uri_mock):  # pylint: disable=unused-argument
+    with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
+        existing_cluster_spec = {
+            "existing_cluster_id": "1000-123456-clust1",
+        }
+        with pytest.raises(MlflowException) as exc:
+            run_databricks_project(cluster_spec=existing_cluster_spec)
+        assert "execution against existing clusters is not currently supported" in str(exc)
+        assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_run_databricks_cancel(
