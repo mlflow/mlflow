@@ -5,7 +5,7 @@ Tutorials & Examples
 
 Below, you can find a number of tutorials for various MLflow use cases.
 
-* `End-to-end MLflow Tutorial <tutorial.rst>`_
+* :doc:`End-to-end MLflow Tutorial <tutorial>`
 * `Using MLflow with Docker Tutorial <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_
 * `Hyperparameter Tuning Example <https://github.com/mlflow/mlflow/tree/master/examples/hyperparam>`_
 * `Multistep Workflow Example <https://github.com/mlflow/mlflow/tree/master/examples/multistep_workflow>`_
