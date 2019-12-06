@@ -234,3 +234,16 @@ def test_archive_artifacts(mock_remove_folder, mock_checkoutput):
         mock_hdfs_artifact_repo, run_folder, "artifacts.har")
     mock_remove_folder.assert_called_once()
     mock_checkoutput.assert_called_once_with(shlex.split(expected_package_cmd))
+
+
+@mock.patch("mlflow.store.artifact.hdfs_artifact_repo.remove_folder")
+def test_archive_artifacts_empty_run(mock_remove_folder):
+    run_folder = "hdfs://root/user/j.doe/experiment/1/xxxyyyyyy"
+    mock_hdfs_artifact_repo = mock.Mock(spec=HdfsArtifactRepository)
+    mock_hdfs_artifact_repo.list_artifacts.return_value = []
+    mock_hdfs_artifact_repo.host = "root"
+    mock_hdfs_artifact_repo.path = "{run_folder}/artifacts".format(run_folder=run_folder)
+    expected_har_path = ""
+    assert expected_har_path == archive_artifacts(
+        mock_hdfs_artifact_repo, run_folder, "artifacts.har")
+    mock_remove_folder.assert_called_once()

@@ -270,8 +270,10 @@ def archive_artifacts(hdfs_artifact_repository, dest_path, archive_name):
     # clean existing archive if exists
     remove_folder(dest_path + '/' + archive_name)
 
-    list_artifacts = " ".join(
-        [file_info.path for file_info in hdfs_artifact_repository.list_artifacts()])
+    files_info = hdfs_artifact_repository.list_artifacts()
+    if not files_info:
+        return ""
+    list_artifacts = " ".join([file_info.path for file_info in files_info])
     cmd = "hadoop archive -archiveName {archive_name} -p {artifact_path} "\
         "{list_artifacts} {dest_path}".format(
             archive_name=archive_name, artifact_path=hdfs_artifact_repository.path,
