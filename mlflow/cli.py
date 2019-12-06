@@ -165,7 +165,9 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
                    "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 @click.option("--port", "-p", default=5000,
               help="The port to listen on (default: 5000).")
-def ui(backend_store_uri, default_artifact_root, port):
+@click.option("--host", "-h", default="127.0.0.1",
+              help="The host URL")
+def ui(backend_store_uri, default_artifact_root, port, host):
     """
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
     server, use the "mlflow server" command instead.
@@ -192,7 +194,7 @@ def ui(backend_store_uri, default_artifact_root, port):
 
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        _run_server(backend_store_uri, default_artifact_root, "127.0.0.1", port, None, 1)
+        _run_server(backend_store_uri, default_artifact_root, host, port, None, 1)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
