@@ -110,7 +110,7 @@ class ArtifactRepository:
             dir_content = self.list_artifacts(dir_path)
             if not dir_content:  # empty dir
                 if not os.path.exists(local_dir):
-                    os.makedirs(local_dir, exist_ok=True)
+                    os.makedirs(local_dir)
             else:
                 for file_info in dir_content:
                     # prevent an infinite loop (sometimes the current path is listed e.g. as ".")
