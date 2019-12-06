@@ -283,12 +283,12 @@ class FileStore(AbstractStore):
     def restore_experiment(self, experiment_id):
         experiment_dir = self._get_experiment_path(experiment_id, ViewType.DELETED_ONLY)
         if experiment_dir is None:
-            raise MlflowException("Could not find deleted experiment with ID %d" % experiment_id,
+            raise MlflowException("Could not find deleted experiment with ID %s" % experiment_id,
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         conflict_experiment = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if conflict_experiment is not None:
             raise MlflowException(
-                "Cannot restore eperiment with ID %d. "
+                "Cannot restore eperiment with ID %s. "
                 "An experiment with same ID already exists." % experiment_id,
                 databricks_pb2.RESOURCE_ALREADY_EXISTS)
         mv(experiment_dir, self.root_directory)
