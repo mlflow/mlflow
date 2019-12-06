@@ -142,8 +142,7 @@ def archive_hdfs_artifacts(run_id):
     _logger.debug("Update database: artifact_uri for run (run_id = %s) to %s",
                   run_id, new_artifact_path)
     store.update_artifacts_location(run_id, new_artifact_path)
-    if new_artifact_path:
-        remove_folder(artifact_uri)
+    remove_folder(artifact_uri)
 
 
 if __name__ == '__main__':
