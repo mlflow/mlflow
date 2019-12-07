@@ -390,6 +390,7 @@ def _fetch_git_repo(uri, version, dst_dir):
     else:
         repo.create_head("master", origin.refs.master)
         repo.heads.master.checkout()
+    repo.submodule_update(init=True, recursive=True)
 
 
 def _get_conda_env_name(conda_env_path, env_id=None):
