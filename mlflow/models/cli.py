@@ -113,7 +113,9 @@ def prepare_env(model_uri, no_conda, install_mlflow):
 @click.option("--name", "-n", default="mlflow-pyfunc-servable",
               help="Name to use for built image")
 @cli_args.INSTALL_MLFLOW
-def build_docker(model_uri, name, install_mlflow):
+@cli_args.BASE_IMAGE
+@cli_args.NO_JAVA
+def build_docker(model_uri, name, install_mlflow, base_image, no_java):
     """
     **EXPERIMENTAL**: Builds a Docker image whose default entrypoint serves the specified MLflow
     model at port 8080 within the container, using the 'python_function' flavor.
@@ -150,7 +152,9 @@ def build_docker(model_uri, name, install_mlflow):
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
     _get_flavor_backend(model_uri, docker_build=True).build_image(model_uri, name,
                                                                   mlflow_home=mlflow_home,
-                                                                  install_mlflow=install_mlflow)
+                                                                  install_mlflow=install_mlflow,
+                                                                  base_image=base_image,
+                                                                  no_java=no_java)
 
 
 def _get_flavor_backend(model_uri, **kwargs):

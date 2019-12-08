@@ -32,6 +32,12 @@ INSTALL_MLFLOW = click.option("--install-mlflow", is_flag=True, default=False,
                                    " activated. The version of installed mlflow will be the same as"
                                    "the one used to invoke this command.")
 
+BASE_IMAGE = click.option("--base-image", "-b", default=None,
+                          help="Name of the base image.")
+
+NO_JAVA = click.option("--no_java", is_flag=True,
+                       help="Do not include Java libraries or start the Java REST server.")
+
 HOST = click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
                     help="The network address to listen on (default: 127.0.0.1). "
                          "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "

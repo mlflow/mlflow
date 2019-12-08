@@ -111,7 +111,8 @@ class PyFuncBackend(FlavorBackend):
             # Can not find conda
             return False
 
-    def build_image(self, model_uri, image_name, install_mlflow=False, mlflow_home=None):
+    def build_image(self, model_uri, image_name, install_mlflow=False, mlflow_home=None,
+                    base_image=None, no_java=False):
 
         def copy_model_into_container(dockerfile_context_dir):
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
@@ -138,6 +139,8 @@ class PyFuncBackend(FlavorBackend):
             mlflow_home=mlflow_home,
             custom_setup_steps_hook=copy_model_into_container,
             entrypoint=pyfunc_entrypoint,
+            base_image=base_image,
+            no_java=no_java,
         )
 
 
