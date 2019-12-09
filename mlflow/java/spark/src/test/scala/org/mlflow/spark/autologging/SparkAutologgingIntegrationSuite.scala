@@ -7,8 +7,6 @@ import org.apache.spark.mlflow.MlflowSparkAutologgingTestUtils
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.mockito.Matchers.any
-
-import scala.collection._
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.mockito.MockitoSugar
@@ -63,7 +61,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     }.toMap
 
     formatToTablePath.foreach { case (format, tablePath) =>
-      df.write.format(format).save(tablePath)
+      df.write.option("header", "true").format(format).save(tablePath)
     }
   }
 
@@ -81,6 +79,10 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
   override def afterEach(): Unit = {
     SparkDataSourceEventPublisher.stop()
     super.afterEach()
+  }
+
+  private def getFileUri(absolutePath: String): String = {
+    s"${Paths.get("file:", absolutePath).toString}"
   }
 
   test("SparkDataSourceEventPublisher can be idempotently initialized & stopped within " +
@@ -113,23 +115,61 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     // assert(SparkDataSourceEventPublisher.ex.getActiveCount == 1)
   }
 
+  private def testPublisher(publisher: SparkDataSourceEventPublisherImpl): Unit = {
+
+  }
+
   test("SparkDataSourceInitializer triggers publishEvent with appropriate arguments " +
     "when reading datasources corresponding to different formats") {
+    val formatToTestDFs = formatToTablePath.map { case (format, tablePath) =>
+      val baseDf = spark.read.format(format).option("inferSchema", "true")
+        .option("header", "true").load(tablePath)
+      format -> Seq(
+        baseDf,
+        baseDf.filter("number > 0"),
+        baseDf.select("number"),
+        baseDf.limit(2),
+        baseDf.filter("number > 0").select("number").limit(2)
+      )
+    }
+
+    formatToTestDFs.foreach { case (format, dfs) =>
+        dfs.foreach { df =>
+          df.printSchema()
+          SparkDataSourceEventPublisher.init()
+          val subscriber = spy(new MockSubscriber())
+          SparkDataSourceEventPublisher.register(subscriber)
+          // Read DF
+          df.collect()
+          // Verify events logged
+          Thread.sleep(1000)
+          val tablePath = formatToTablePath(format)
+          val expectedPath = getFileUri(tablePath)
+          verify(subscriber, times(1)).notify(any(), any(), any())
+          verify(subscriber, times(1)).notify(expectedPath, "unknown", format)
+          SparkDataSourceEventPublisher.stop()
+        }
+    }
+  }
+
+  test("SparkDataSourceInitializer triggers publishEvent with appropriate arguments " +
+    "when reading a JOIN of two tables") {
+    val formats = formatToTablePath.keys
+    val leftFormat = formats.head
+    val rightFormat = formats.last
+    val leftPath = formatToTablePath(leftFormat)
+    val rightPath = formatToTablePath(rightFormat)
+    val leftDf = spark.read.format(leftFormat).load(leftPath)
+    val rightDf = spark.read.format(rightFormat).load(rightPath)
+    SparkDataSourceEventPublisher.init()
     val subscriber = spy(new MockSubscriber())
     SparkDataSourceEventPublisher.register(subscriber)
-
-    formatToTablePath.foreach { case (format, tablePath) =>
-      val df = spark.read.format(format).load(tablePath)
-      df.collect()
-    }
-
-    val expectedFormats = Map("csv" -> "CSV", "parquet" -> "Parquet" -> "")
-    formatToTablePath.foreach { case (format, tablePath) =>
-      val expectedPath = s"${Paths.get("file:", tablePath).toString}"
-      verify(subscriber, times(1)).notify(expectedPath, "unknown", format)
-    }
-//    verify(publisher, times(1)).publishEvent(
-//      any(), SparkTableInfo(deltaTablePath, Option("0"), Option("delta")))
+    leftDf.join(rightDf).collect()
+    // Sleep a second to let the SparkListener trigger read
+    Thread.sleep(1000)
+    verify(subscriber, times(2)).notify(any(), any(), any())
+    verify(subscriber, times(1)).notify(getFileUri(leftPath), "unknown", leftFormat)
+    verify(subscriber, times(1)).notify(getFileUri(rightPath), "unknown", rightFormat)
   }
 
 
@@ -173,11 +213,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     }
   }
 
-  // TODO: is this behavior actually secure? Should we check another way? The danger is that
-  // we provide users a way to add a listener that triggers Python code execution in other REPLs
-  // But the Python code is not arbitrary, so maybe it's ok. Like you can add a Java listener that
-  // always gets run, but this is probably fine - the only risk is that you could in theory log
-  // fake spark table info tags to someone else's run
+
   test("Delegates to repl-ID-aware listener if REPL ID property is set in SparkContext") {
     // Verify instance created by init() in beforeEach is not REPL-ID-aware
     assert(SparkDataSourceEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
@@ -190,18 +226,30 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     sc.setLocalProperty("spark.databricks.replId", "myCoolReplId")
     SparkDataSourceEventPublisher.init()
     assert(SparkDataSourceEventPublisher.sparkQueryListener.isInstanceOf[DatabricksSparkDataSourceListener])
-//    // Verify correctness of REPL-ID-aware instance
-//    val subscriber = spy(new MockSubscriber())
-//    SparkDataSourceEventPublisher.register(subscriber)
-//    formatToTablePath.foreach { case (format, tablePath) =>
-//      spark.read.format(format).load(tablePath)
-//    }
-//    (formatToTablePath -- Seq("delta")).values.foreach { tablePath =>
-//      val expectedPath = Paths.get("file:", tablePath).toString
-//      verify(subscriber, times(1)).notify(expectedPath, "unknown", "unknown")
-//    }
-//    // TODO figure out how to unset this?
-//    sc.setLocalProperty("spark.databricks.replId", "")
+    sc.setLocalProperty("spark.databricks.replId", null)
+    SparkDataSourceEventPublisher.stop()
+    SparkDataSourceEventPublisher.init()
+    assert(SparkDataSourceEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
+  }
+
+  test("repl-ID-aware listener is correct") {
+    // Define custom test
+    val sc = spark.sparkContext
+    sc.setLocalProperty("spark.databricks.replId", "myCoolReplId")
+    val replId: String = UUID.randomUUID().toString
+    val replIdProperty = "spark.databricks.replId"
+    class MockSparkDatasourceEventPublisher extends SparkDataSourceEventPublisherImpl {
+      override def getReplIdAwareListener: SparkDataSourceListener = {
+        val res = spy(new DatabricksSparkDataSourceListener())
+        when(res.getProperties(any())).thenReturn( Map(replIdProperty -> replId))
+        res
+      }
+    }
+    sc.setLocalProperty("spark.databricks.replId", null)
+
+    val publisher = new MockSparkDatasourceEventPublisher()
+
+
   }
 
 }

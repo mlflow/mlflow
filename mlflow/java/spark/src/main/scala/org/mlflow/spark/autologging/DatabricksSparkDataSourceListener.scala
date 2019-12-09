@@ -40,11 +40,12 @@ class DatabricksSparkDataSourceListener() extends SparkDataSourceListener {
     executionIdToTableInfos.remove(executionId)
   }
 
+  private[autologging] def getProperties(event: SparkListenerJobStart): Map[String, String] = {
+    Option(event.properties).map(_.asScala.toMap).getOrElse(Map.empty)
+  }
+
   override def onJobStart(event: SparkListenerJobStart): Unit = {
-    // Find corresponding execution, and
-    // If found, check if we have an associated active SQLExecutionAdvisor, and set its job group.
-    // This is needed, as in onSQLExecutionStart we don't know the SQLExecution's job group.
-    val properties: Map[String, String] = Option(event.properties).map(_.asScala.toMap).getOrElse(Map.empty)
+    val properties = getProperties(event)
     val executionIdOpt = properties.get(SQLExecution.EXECUTION_ID_KEY).map(_.toLong)
     if (executionIdOpt.isEmpty) {
       return
@@ -52,19 +53,21 @@ class DatabricksSparkDataSourceListener() extends SparkDataSourceListener {
     val executionId = executionIdOpt.get
     val replIdOpt = properties.get("spark.databricks.replId")
     replIdOpt.foreach { replId =>
-      executionIdToTableInfos.get(executionId).map { tableInfosToLog =>
-        tableInfosToLog.map(tableInfo => SparkDataSourceEventPublisher.publishEvent(Option(replId), tableInfo))
+      executionIdToTableInfos.get(executionId).foreach { tableInfosToLog =>
+        tableInfosToLog.foreach(
+          tableInfo => SparkDataSourceEventPublisher.publishEvent(Option(replId), tableInfo)
+        )
       }
     }
   }
 
   // Populate a map of execution ID to list of table infos to log under
   private def onSQLExecutionStart(event: SparkListenerSQLExecutionStart): Unit = {
-    val qe: QueryExecution = event.getClass.getDeclaredFields.find(_.getName == "qe")
-        .map(_.get(event).asInstanceOf[QueryExecution]).getOrElse {
+    val qeField = event.getClass.getDeclaredFields.find(_.getName == "qe").getOrElse {
       throw new RuntimeException("Unable to get QueryExecution field")
     }
-
+    qeField.setAccessible(true)
+    val qe = qeField.get(event).asInstanceOf[QueryExecution]
     if (qe != null) {
       val leafNodes = getLeafNodes(qe.analyzed)
       val tableInfosToLog = leafNodes.flatMap(

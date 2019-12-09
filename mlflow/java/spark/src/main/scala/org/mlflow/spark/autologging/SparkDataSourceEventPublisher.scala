@@ -5,6 +5,7 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent._
 
 import org.apache.spark.SparkContext
+import org.apache.spark.scheduler.SparkListener
 import org.apache.spark.sql.SparkSession
 import org.slf4j.LoggerFactory
 import py4j.Py4JException
@@ -32,6 +33,10 @@ trait SparkDataSourceEventPublisherImpl {
     SparkSession.builder.getOrCreate()
   }
 
+  private[autologging] def getReplIdAwareListener: SparkDataSourceListener = {
+    new DatabricksSparkDataSourceListener()
+  }
+
   // Initialize Spark listener that pulls Delta query plan information & bubbles it up to registered
   // Python subscribers
   def init(): Unit = synchronized {
@@ -43,7 +48,7 @@ trait SparkDataSourceEventPublisherImpl {
       val replId = Option(sc.getLocalProperty("spark.databricks.replId"))
       val listener = replId match {
         case None => new SparkDataSourceListener()
-        case Some(replId) => new DatabricksSparkDataSourceListener()
+        case Some(_) => getReplIdAwareListener
       }
 
       // NB: We take care to set the variable only after adding the Spark listener succeeds,

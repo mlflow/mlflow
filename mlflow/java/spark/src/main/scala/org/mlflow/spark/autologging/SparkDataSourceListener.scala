@@ -10,7 +10,7 @@ class SparkDataSourceListener extends SparkListener {
     if (lp == null) {
       return Seq.empty
     }
-    print(s"Traversing getLeafNodes, got ${lp.getClass.getName}, children: ${lp.children.length}")
+    println(s"Traversing getLeafNodes, got ${lp.getClass.getName}, children: ${lp.children.length}")
     if (lp.isInstanceOf[LeafNode]) {
       Seq(lp)
     } else {
@@ -29,8 +29,9 @@ class SparkDataSourceListener extends SparkListener {
     if (qe != null) {
       val leafNodes = getLeafNodes(qe.analyzed)
       val tableInfosToLog = leafNodes.flatMap(DatasourceAttributeExtractor.getTableInfoToLog)
-      tableInfosToLog.foreach(tableInfo => SparkDataSourceEventPublisher.publishEvent(None,
-        tableInfo))
+      tableInfosToLog.foreach { tableInfo =>
+        SparkDataSourceEventPublisher.publishEvent(None, tableInfo)
+      }
     }
   }
 

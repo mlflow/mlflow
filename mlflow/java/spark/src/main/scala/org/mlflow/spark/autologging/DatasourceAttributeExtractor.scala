@@ -17,7 +17,6 @@ trait DatasourceAttributeExtractorBase {
   private def getSparkTableInfoFromTable(table: Table): Option[SparkTableInfo] = {
     table match {
       case fileTable: FileTable =>
-        println(s"@SID got fileTable of class ${fileTable.getClass.getName}")
         val tableName = fileTable.name
         val splitName = tableName.split(" ")
         val lowercaseFormat = fileTable.formatName.toLowerCase()
@@ -37,14 +36,17 @@ trait DatasourceAttributeExtractorBase {
     if (deltaInfoOpt.isDefined) {
       deltaInfoOpt
     } else {
-      println(s"LeafNode isn't a delta reltoin, it has type ${leafNode.getClass.getName}")
+      println(s"LeafNode isn't a delta relation, it has type ${leafNode.getClass.getName}")
       leafNode match {
         case relation: DataSourceV2Relation =>
           getSparkTableInfoFromTable(relation.table)
-//        case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
-//          val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
-//          Option(SparkTableInfo(path, None, None))
+        // TODO: having these seems to break Spark 3.0 OSS build, but probably works in
+        // Databricks?
+        case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
+          val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
+          Option(SparkTableInfo(path, None, None))
         case other =>
+          println(s"Got LeafNode of other class type ${leafNode.getClass.getName}")
           None
       }
     }
@@ -52,17 +54,6 @@ trait DatasourceAttributeExtractorBase {
 }
 
 object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
-//  override def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
-//    leafNode match {
-//      case DeltaTable(tahoeFileIndex) =>
-//        val path = tahoeFileIndex.path.toString
-//        val versionOpt = Option(tahoeFileIndex.tableVersion).map(_.toString)
-//        Option(SparkTableInfo(path, versionOpt, Option("delta")))
-//      case other =>
-//        None
-//    }
-//  }
-
   override def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
     leafNode match {
       case lr: LogicalRelation =>
@@ -81,7 +72,7 @@ object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
 
 
 object DatabricksDatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
-  def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
+  override def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
     leafNode match {
       case lr: LogicalRelation =>
         // First, check whether LogicalRelation is a Delta table

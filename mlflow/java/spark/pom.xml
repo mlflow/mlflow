@@ -27,11 +27,6 @@
       <version>${scala.version}</version>
     </dependency>
     <dependency>
-      <groupId>io.delta</groupId>
-      <artifactId>delta-core_${scala.compat.version}</artifactId>
-      <version>0.4.0</version>
-    </dependency>
-    <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-sql_${scala.compat.version}</artifactId>
       <version>3.0.0-preview</version>
@@ -48,6 +43,12 @@
     </dependency>
 
     <!-- Test -->
+    <dependency>
+      <groupId>io.delta</groupId>
+      <artifactId>delta-core_${scala.compat.version}</artifactId>
+      <version>0.4.0</version>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
