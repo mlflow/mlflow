@@ -26,7 +26,7 @@ object SparkDataSourceEventPublisher extends SparkDataSourceEventPublisherImpl {
  * https://docs.google.com/document/d/11nhwZtj-rps0stxuIioFBM9lkvIh_ua45cAFy_PqdHU/edit for more
  * details.
  */
-trait SparkDataSourceEventPublisherImpl {
+private[autologging] trait SparkDataSourceEventPublisherImpl {
   private val logger = LoggerFactory.getLogger(getClass)
 
   private[autologging] var sparkQueryListener: SparkDataSourceListener = _

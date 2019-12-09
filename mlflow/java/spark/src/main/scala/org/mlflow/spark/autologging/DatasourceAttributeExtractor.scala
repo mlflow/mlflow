@@ -6,12 +6,15 @@ import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRela
 import org.apache.spark.sql.connector.catalog.Table
 
 /** Case class wrapping information on a Spark datasource that was read. */
-case class SparkTableInfo(path: String, versionOpt: Option[String], formatOpt: Option[String])
+private[autologging] case class SparkTableInfo(
+    path: String,
+    versionOpt: Option[String],
+    formatOpt: Option[String])
 
 /**
  * Interface for extracting Spark datasource attributes from a Spark logical plan.
  */
-trait DatasourceAttributeExtractorBase {
+private[autologging] trait DatasourceAttributeExtractorBase {
   /**
    * Return an option containing a SparkTableInfo representing a Delta table read if the passed-in
    * query plan leafNode corresponds to a read of a Delta table. If the leafNode does not correspond
@@ -57,7 +60,7 @@ trait DatasourceAttributeExtractorBase {
   }
 }
 
-object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
+private[autologging] object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
   override def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
     leafNode match {
       case lr: LogicalRelation =>

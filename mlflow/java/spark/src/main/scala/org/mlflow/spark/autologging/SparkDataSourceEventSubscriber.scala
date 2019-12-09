@@ -1,7 +1,5 @@
 package org.mlflow.spark.autologging
 
-import java.util.UUID
-
 /**
   * Trait defining subscriber interface for receiving information about Spark datasource reads.
   * This trait can be implemented in Python in order to obtain datasource read

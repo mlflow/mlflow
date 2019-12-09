@@ -4,7 +4,7 @@ import scala.reflect.runtime.{universe => ru}
 
 import java.lang.reflect.Method
 
-object ReflectionUtils {
+private[autologging] object ReflectionUtils {
 
   private val rm = ru.runtimeMirror(getClass.getClassLoader)
 
