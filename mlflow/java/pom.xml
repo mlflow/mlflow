@@ -73,6 +73,7 @@
   <modules>
     <module>scoring</module>
     <module>client</module>
+    <module>spark</module>
   </modules>
 
   <dependencyManagement>
