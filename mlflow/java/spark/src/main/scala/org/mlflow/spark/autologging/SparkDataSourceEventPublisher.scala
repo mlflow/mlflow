@@ -115,7 +115,7 @@ trait SparkDataSourceEventPublisherImpl {
       case SparkTableInfo(path, version, format) =>
         val time = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mm:ss").format(LocalDateTime.now)
         println(s"Notifying ${subscribers.size} listeners about read to ${path}, ${version}, " +
-          s"time ${time}")
+          s"time ${time}. My class: ${getClass.getName}")
 
         for ((uuid, listener) <- subscribers) {
           try {

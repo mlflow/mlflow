@@ -21,7 +21,13 @@ object ReflectionUtils {
   }
 
   def getField(obj: Any, fieldName: String): Any = {
-    val field = obj.getClass.getDeclaredField(fieldName)
+    val declaredFields = obj.getClass.getDeclaredFields
+    val field = declaredFields.find(_.getName == fieldName).getOrElse {
+      throw new RuntimeException(s"Unable to get field '$fieldName' in object with class " +
+        s"${obj.getClass.getName}. Available fields: " +
+        s"${declaredFields.map(_.getName).mkString(", ")}")
+    }
+    field.setAccessible(true)
     field.get(obj)
   }
 

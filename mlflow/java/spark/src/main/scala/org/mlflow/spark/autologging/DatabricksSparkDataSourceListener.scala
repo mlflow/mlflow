@@ -63,11 +63,7 @@ class DatabricksSparkDataSourceListener() extends SparkDataSourceListener {
 
   // Populate a map of execution ID to list of table infos to log under
   private def onSQLExecutionStart(event: SparkListenerSQLExecutionStart): Unit = {
-    val qeField = event.getClass.getDeclaredFields.find(_.getName == "qe").getOrElse {
-      throw new RuntimeException("Unable to get QueryExecution field")
-    }
-    qeField.setAccessible(true)
-    val qe = qeField.get(event).asInstanceOf[QueryExecution]
+    val qe = ReflectionUtils.getField(event, "qe").asInstanceOf[QueryExecution]
     if (qe != null) {
       val leafNodes = getLeafNodes(qe.analyzed)
       val tableInfosToLog = leafNodes.flatMap(
