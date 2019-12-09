@@ -7,11 +7,6 @@ import java.lang.reflect.Method
 object ReflectionUtils {
 
   private val rm = ru.runtimeMirror(getClass.getClassLoader)
-  def getMethod(obj: Object, name: String): Method = {
-    obj.getClass.getDeclaredMethods.find(_.getName == name).getOrElse(
-      throw new RuntimeException(s"Unable to find method $name for instance of " +
-        s"${obj.getClass.getName}"))
-  }
 
   /** Get Scala object by its fully-qualified name */
   def getScalaObjectByName(name: String): Any = {
@@ -20,6 +15,7 @@ object ReflectionUtils {
     obj.instance
   }
 
+  /** Get the specified field with specified name from the specified object */
   def getField(obj: Any, fieldName: String): Any = {
     val declaredFields = obj.getClass.getDeclaredFields
     val field = declaredFields.find(_.getName == fieldName).getOrElse {

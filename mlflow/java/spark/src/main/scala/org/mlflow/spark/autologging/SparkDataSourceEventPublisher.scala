@@ -20,6 +20,12 @@ object SparkDataSourceEventPublisher extends SparkDataSourceEventPublisherImpl {
 
 }
 
+/**
+ * Trait implementing a publisher interface for publishing events on Spark datasource reads to
+ * a set of listeners. See the design doc:
+ * https://docs.google.com/document/d/11nhwZtj-rps0stxuIioFBM9lkvIh_ua45cAFy_PqdHU/edit for more
+ * details.
+ */
 trait SparkDataSourceEventPublisherImpl {
   private val logger = LoggerFactory.getLogger(getClass)
 

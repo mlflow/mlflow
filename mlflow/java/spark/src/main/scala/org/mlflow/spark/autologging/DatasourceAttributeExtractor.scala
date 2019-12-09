@@ -1,18 +1,23 @@
 package org.mlflow.spark.autologging
 
-import scala.collection.JavaConverters._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.datasources.v2.{DataSourceV2Relation, FileTable}
 import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
 import org.apache.spark.sql.connector.catalog.Table
 
+/** Case class wrapping information on a Spark datasource that was read. */
 case class SparkTableInfo(path: String, versionOpt: Option[String], formatOpt: Option[String])
 
 /**
  * Interface for extracting Spark datasource attributes from a Spark logical plan.
  */
 trait DatasourceAttributeExtractorBase {
-  def maybeGetDeltaTableInfo(plan: LogicalPlan): Option[SparkTableInfo]
+  /**
+   * Return an option containing a SparkTableInfo representing a Delta table read if the passed-in
+   * query plan leafNode corresponds to a read of a Delta table. If the leafNode does not correspond
+   * to a Delta table read, returns None.
+   */
+  def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo]
 
   private def getSparkTableInfoFromTable(table: Table): Option[SparkTableInfo] = {
     table match {
@@ -30,7 +35,10 @@ trait DatasourceAttributeExtractorBase {
     }
   }
 
-  // Get SparkTableInfo of info to log from leaf node of a query plan
+  /**
+   * Get SparkTableInfo representing the datasource that was read from leaf node of a Spark SQL
+   * query plan
+   */
   def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
     val deltaInfoOpt = maybeGetDeltaTableInfo(leafNode)
     if (deltaInfoOpt.isDefined) {
