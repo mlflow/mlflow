@@ -10,13 +10,12 @@ import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructT
 import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
-import org.scalatest.mockito.MockitoSugar
 import org.scalatest.FunSuite
 import org.scalatest.Matchers
 
 import scala.collection.mutable.ArrayBuffer
 
-private[autologging] class MockSubscriber extends SparkDataSourceEventSubscriber {
+private[autologging] class MockSubscriber extends MlflowAutologEventSubscriber {
   private val uuid: String = UUID.randomUUID().toString
   override def replId: String = {
     uuid
@@ -82,11 +81,11 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
 
   override def beforeEach(): Unit = {
     super.beforeEach()
-    SparkDataSourceEventPublisher.init()
+    MlflowAutologEventPublisher.init()
   }
 
   override def afterEach(): Unit = {
-    SparkDataSourceEventPublisher.stop()
+    MlflowAutologEventPublisher.stop()
     super.afterEach()
   }
 
@@ -94,32 +93,32 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     s"${Paths.get("file:", absolutePath).toString}"
   }
 
-  test("SparkDataSourceEventPublisher can be idempotently initialized & stopped within " +
+  test("MlflowAutologEventPublisher can be idempotently initialized & stopped within " +
     "single thread") {
     // We expect a listener to already be created by calling init() in beforeEach
     val listeners0 = MlflowSparkAutologgingTestUtils.getListeners(spark)
     assert(listeners0.length == 1)
     val listener0 = listeners0.head
     // Call init() again, verify listener is unchanged
-    SparkDataSourceEventPublisher.init()
+    MlflowAutologEventPublisher.init()
     val listeners1 = MlflowSparkAutologgingTestUtils.getListeners(spark)
     assert(listeners1.length == 1)
     val listener1 = listeners1.head
     assert(listener0 == listener1)
     // Call stop() multiple times
-    SparkDataSourceEventPublisher.stop()
+    MlflowAutologEventPublisher.stop()
     assert(MlflowSparkAutologgingTestUtils.getListeners(spark).isEmpty)
-    SparkDataSourceEventPublisher.stop()
+    MlflowAutologEventPublisher.stop()
     assert(MlflowSparkAutologgingTestUtils.getListeners(spark).isEmpty)
     // Call init() after stop(), verify that we create a new listener
-    SparkDataSourceEventPublisher.init()
+    MlflowAutologEventPublisher.init()
     val listeners2 = MlflowSparkAutologgingTestUtils.getListeners(spark)
     assert(listeners2.length == 1)
     val listener2 = listeners2.head
     assert(listener2 != listener1)
   }
 
-  test("SparkDataSourceEventPublisher triggers publishEvent with appropriate arguments " +
+  test("MlflowAutologEventPublisher triggers publishEvent with appropriate arguments " +
     "when reading datasources corresponding to different formats") {
       val formatToTestDFs = formatToTablePath.map { case (format, tablePath) =>
         val baseDf = spark.read.format(format).option("inferSchema", "true")
@@ -136,10 +135,10 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
         formatToTestDFs.foreach { case (format, dfs) =>
           dfs.foreach { df =>
             df.printSchema()
-            SparkDataSourceEventPublisher.init()
+            MlflowAutologEventPublisher.init()
             val subscriber = spy(new MockSubscriber())
-            SparkDataSourceEventPublisher.register(subscriber)
-            assert(SparkDataSourceEventPublisher.subscribers.size == 1)
+            MlflowAutologEventPublisher.register(subscriber)
+            assert(MlflowAutologEventPublisher.subscribers.size == 1)
             // Read DF
             df.collect()
             // Verify events logged
@@ -148,12 +147,12 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
             val expectedPath = getFileUri(tablePath)
             verify(subscriber, times(1)).notify(any(), any(), any())
             verify(subscriber, times(1)).notify(expectedPath, "unknown", format)
-            SparkDataSourceEventPublisher.stop()
+            MlflowAutologEventPublisher.stop()
           }
         }
   }
 
-  test("SparkDataSourceEventPublisher triggers publishEvent with appropriate arguments " +
+  test("MlflowAutologEventPublisher triggers publishEvent with appropriate arguments " +
     "when reading a JOIN of two tables") {
     val formats = formatToTablePath.keys
     val leftFormat = formats.head
@@ -162,9 +161,9 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     val rightPath = formatToTablePath(rightFormat)
     val leftDf = spark.read.format(leftFormat).load(leftPath)
     val rightDf = spark.read.format(rightFormat).load(rightPath)
-    SparkDataSourceEventPublisher.init()
+    MlflowAutologEventPublisher.init()
     val subscriber = spy(new MockSubscriber())
-    SparkDataSourceEventPublisher.register(subscriber)
+    MlflowAutologEventPublisher.register(subscriber)
     leftDf.join(rightDf).collect()
     // Sleep a second to let the SparkListener trigger read
     Thread.sleep(1000)
@@ -173,7 +172,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     verify(subscriber, times(1)).notify(getFileUri(rightPath), "unknown", rightFormat)
   }
 
-  test("SparkDataSourceEventPublisher publishes to subscribers in order of registration") {
+  test("MlflowAutologEventPublisher publishes to subscribers in order of registration") {
     val notifyOrder: ArrayBuffer[Int] = new ArrayBuffer[Int]()
     class SaveNotifyOrderSubscriber(idx: Int) extends MockSubscriber {
       override def notify(path: String, version: String, format: String): Unit = {
@@ -183,26 +182,26 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     val (format, path) = formatToTablePath.head
     val df = spark.read.format(format).load(path)
     val subscribers = 0.until(3).map(idx => new SaveNotifyOrderSubscriber(idx))
-    subscribers.foreach(SparkDataSourceEventPublisher.register)
+    subscribers.foreach(MlflowAutologEventPublisher.register)
     df.collect()
     Thread.sleep(1000)
     assert(notifyOrder == Seq(0, 1, 2))
   }
 
 
-  test("SparkDataSourceEventPublisher can publish to working subscribers even when " +
+  test("MlflowAutologEventPublisher can publish to working subscribers even when " +
     "others are broken") {
     // Reinitialize publisher with very large GC interval
-    SparkDataSourceEventPublisher.stop()
-    SparkDataSourceEventPublisher.init(gcDeadSubscribersIntervalSec = 10000)
+    MlflowAutologEventPublisher.stop()
+    MlflowAutologEventPublisher.init(gcDeadSubscribersIntervalSec = 10000)
     // Register broken subscribers & a working subscriber, verify we can publish to the working
     // subscriber despite the broken ones
     val (format, path) = formatToTablePath.head
     val df = spark.read.format(format).load(path)
-    SparkDataSourceEventPublisher.register(new BrokenSubscriber())
+    MlflowAutologEventPublisher.register(new BrokenSubscriber())
     val subscriber = spy(new MockSubscriber())
-    SparkDataSourceEventPublisher.register(subscriber)
-    SparkDataSourceEventPublisher.register(new BrokenSubscriber())
+    MlflowAutologEventPublisher.register(subscriber)
+    MlflowAutologEventPublisher.register(new BrokenSubscriber())
     df.collect()
     Thread.sleep(1000)
     verify(subscriber, times(1)).notify(any(), any(), any())
@@ -211,8 +210,8 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
 
   test("Exceptions while extracting datasource information from Spark query plan " +
     "do not fail the query") {
-    SparkDataSourceEventPublisher.stop()
-    object MockPublisher extends SparkDataSourceEventPublisherImpl {
+    MlflowAutologEventPublisher.stop()
+    object MockPublisher extends MlflowAutologEventPublisherImpl {
       // Return a custom listener that throws while processing SparkListenerSQLExecutionEnd events
       override def getSparkDataSourceListener: SparkDataSourceListener = {
         new SparkDataSourceListener {
@@ -231,16 +230,16 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     df.collect()
   }
 
-  test("SparkDataSourceEventPublisher correctly unregisters broken subscribers") {
-    SparkDataSourceEventPublisher.register(new BrokenSubscriber())
+  test("MlflowAutologEventPublisher correctly unregisters broken subscribers") {
+    MlflowAutologEventPublisher.register(new BrokenSubscriber())
     Thread.sleep(2000)
-    assert(SparkDataSourceEventPublisher.subscribers.isEmpty)
+    assert(MlflowAutologEventPublisher.subscribers.isEmpty)
   }
 
   test("Subscriber registration fails if init() not called") {
-    SparkDataSourceEventPublisher.stop()
+    MlflowAutologEventPublisher.stop()
     intercept[RuntimeException] {
-      SparkDataSourceEventPublisher.register(new MockSubscriber())
+      MlflowAutologEventPublisher.register(new MockSubscriber())
     }
   }
 

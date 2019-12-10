@@ -10,11 +10,11 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 
 /**
-  * Object exposing the actual implementation of SparkDatasourceEventPublisher.
+  * Object exposing the actual implementation of MlflowAutologEventPublisher.
   * We opt for this pattern (an object extending a trait) so that we can mock methods of the
   * trait in testing
   */
-object SparkDataSourceEventPublisher extends SparkDataSourceEventPublisherImpl {
+object MlflowAutologEventPublisher extends MlflowAutologEventPublisherImpl {
 
 }
 
@@ -24,13 +24,13 @@ object SparkDataSourceEventPublisher extends SparkDataSourceEventPublisherImpl {
  * https://docs.google.com/document/d/11nhwZtj-rps0stxuIioFBM9lkvIh_ua45cAFy_PqdHU/edit for more
  * details.
  */
-private[autologging] trait SparkDataSourceEventPublisherImpl {
+private[autologging] trait MlflowAutologEventPublisherImpl {
   private val logger = LoggerFactory.getLogger(getClass)
 
   private[autologging] var sparkQueryListener: SparkDataSourceListener = _
   private val ex = new ScheduledThreadPoolExecutor(1)
-  private[autologging] var subscribers: mutable.LinkedHashMap[String, SparkDataSourceEventSubscriber] =
-    mutable.LinkedHashMap[String, SparkDataSourceEventSubscriber]()
+  private[autologging] var subscribers: mutable.LinkedHashMap[String, MlflowAutologEventSubscriber] =
+    mutable.LinkedHashMap[String, MlflowAutologEventSubscriber]()
   private var scheduledTask: ScheduledFuture[_] = _
 
   def spark: SparkSession = {
@@ -74,7 +74,7 @@ private[autologging] trait SparkDataSourceEventPublisherImpl {
     }
   }
 
-  def register(subscriber: SparkDataSourceEventSubscriber): String = synchronized {
+  def register(subscriber: MlflowAutologEventSubscriber): String = synchronized {
     if (sparkQueryListener == null) {
       throw new RuntimeException("Please call init() before attempting to register a subscriber")
     }

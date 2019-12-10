@@ -5,7 +5,7 @@ package org.mlflow.spark.autologging
   * This trait can be implemented in Python in order to obtain datasource read
   * information, see https://www.py4j.org/advanced_topics.html#implementing-java-interfaces-from-python-callback
   */
-trait SparkDataSourceEventSubscriber {
+trait MlflowAutologEventSubscriber {
   /**
    * Method called on datasource reads.
    * @param path Path of the datasource that was read
