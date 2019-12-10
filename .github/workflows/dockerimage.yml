@@ -1,0 +1,22 @@
+name: Machine Learning models CI
+
+on:
+  push:
+    branches:
+      - master
+
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: 
+      image: continuumio/miniconda
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Configure environment
+      run: |
+        python -m pip install --upgrade pip
+    - name: MLFlow build
+      run: mlflow run -e main examples/docker
