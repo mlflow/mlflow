@@ -256,7 +256,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
             mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
     mlflow_run_cmd = " ".join(mlflow_run_arr)
     shell_command = textwrap.dedent("""
-    export PATH=$DB_HOME/conda/bin:$DB_HOME/python/bin:$PATH &&
+    export PATH=$PATH:$DB_HOME/python/bin &&
     mlflow --version &&
     # Make local directories in the container into which to copy/extract the tarred project
     mkdir -p {tarfile_base} {projects_base} &&
