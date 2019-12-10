@@ -4,6 +4,7 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
 
 import org.apache.spark.mlflow.MlflowSparkAutologgingTestUtils
+import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.mockito.Matchers.any
@@ -206,6 +207,28 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     Thread.sleep(1000)
     verify(subscriber, times(1)).notify(any(), any(), any())
     verify(subscriber, times(1)).notify(getFileUri(path), "unknown", format)
+  }
+
+  test("Exceptions while extracting datasource information from Spark query plan " +
+    "do not fail the query") {
+    SparkDataSourceEventPublisher.stop()
+    object MockPublisher extends SparkDataSourceEventPublisherImpl {
+      // Return a custom listener that throws while processing SparkListenerSQLExecutionEnd events
+      override def getSparkDataSourceListener: SparkDataSourceListener = {
+        new SparkDataSourceListener {
+          override def onSQLExecutionEnd(event: SparkListenerSQLExecutionEnd): Unit = {
+            throw new NoSuchMethodException("Mock failure while extracting datasource info from " +
+              "query plan!")
+          }
+        }
+      }
+    }
+    MockPublisher.init()
+    val (format, path) = formatToTablePath.head
+    val df = spark.read.format(format).load(path)
+    val subscriber = new MockSubscriber()
+    MockPublisher.register(subscriber)
+    df.collect()
   }
 
   test("SparkDataSourceEventPublisher correctly unregisters broken subscribers") {

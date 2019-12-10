@@ -1,7 +1,5 @@
 package org.mlflow.spark.autologging
 
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import java.util.concurrent._
 
 import org.apache.spark.sql.SparkSession
@@ -39,11 +37,16 @@ private[autologging] trait SparkDataSourceEventPublisherImpl {
     SparkSession.builder.getOrCreate()
   }
 
+  // Exposed for testing
+  private[autologging] def getSparkDataSourceListener: SparkDataSourceListener = {
+    new SparkDataSourceListener()
+  }
+
   // Initialize Spark listener that pulls Delta query plan information & bubbles it up to registered
   // Python subscribers
   def init(gcDeadSubscribersIntervalSec: Int = 1): Unit = synchronized {
     if (sparkQueryListener == null) {
-      val listener = new SparkDataSourceListener()
+      val listener = getSparkDataSourceListener
       // NB: We take care to set the variable only after adding the Spark listener succeeds,
       // in case listener registration throws. This is defensive - adding a listener should
       // always succeed.
@@ -95,8 +98,8 @@ private[autologging] trait SparkDataSourceEventPublisherImpl {
         case NonFatal(e) =>
           logger.error(s"Unexpected exception while checking health of subscriber $uuid, " +
             s"removing it. Please report this error at https://github.com/mlflow/mlflow/issues, " +
-            s"along with the following stacktrace:" +
-            s"\n${e.getStackTrace.map(_.toString).mkString("\n")}")
+            s"along with the following stacktrace:\n" +
+            s"${ExceptionUtils.serializeException(e)}")
           Seq(uuid)
       }
     }
@@ -108,8 +111,6 @@ private[autologging] trait SparkDataSourceEventPublisherImpl {
   def publishEvent(replIdOpt: Option[String], sparkTableInfo: SparkTableInfo): Unit = synchronized {
     sparkTableInfo match {
       case SparkTableInfo(path, version, format) =>
-        val time = DateTimeFormatter.ofPattern(
-          "yyyy-MM-dd_HH:mm:ss").format(LocalDateTime.now)
         for ((uuid, listener) <- subscribers) {
           try {
             if (replIdOpt.isEmpty || listener.replId == replIdOpt.get) {

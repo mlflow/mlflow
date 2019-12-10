@@ -11,16 +11,8 @@ private[autologging] case class SparkTableInfo(
     versionOpt: Option[String],
     formatOpt: Option[String])
 
-/**
- * Interface for extracting Spark datasource attributes from a Spark logical plan.
- */
-private[autologging] trait DatasourceAttributeExtractorBase {
-  /**
-   * Return an option containing a SparkTableInfo representing a Delta table read if the passed-in
-   * query plan leafNode corresponds to a read of a Delta table. If the leafNode does not correspond
-   * to a Delta table read, returns None.
-   */
-  def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo]
+/** Helper object for extracting Spark datasource attributes from a Spark logical plan. */
+private[autologging] object DatasourceAttributeExtractor {
 
   private def getSparkTableInfoFromTable(table: Table): Option[SparkTableInfo] = {
     table match {
@@ -58,10 +50,13 @@ private[autologging] trait DatasourceAttributeExtractorBase {
       }
     }
   }
-}
 
-private[autologging] object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
-  override def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
+  /**
+   * Return an option containing a SparkTableInfo representing a Delta table read if the passed-in
+   * query plan leafNode corresponds to a read of a Delta table. If the leafNode does not correspond
+   * to a Delta table read, returns None.
+   */
+  def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
     leafNode match {
       case lr: LogicalRelation =>
         // First, check whether LogicalRelation is a Delta table
