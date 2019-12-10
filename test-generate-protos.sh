@@ -10,4 +10,8 @@ if [ "$GIT_STATUS" ]; then
 	echo "------------------------------------------------------------------"
 	echo "$GIT_STATUS"
 	exit 1
+else
+	echo "Test successful - Protobuf files generated"
 fi
+
+
