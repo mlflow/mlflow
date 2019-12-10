@@ -43,55 +43,29 @@ example of the output model directory layout:
 
 The example contains the following files:
 
- - ``MLproject``:
+ * MLproject
    Contains definition of this project. Contains only one entry point to train the model.
 
- - ``conda.yaml``:
+ * conda.yaml
    Defines project dependencies. NOTE: You might want to change tensorflow package to tensorflow-gpu
    if you have gpu(s) available.
 
- - ``train.py``:
+ * train.py
    Main entry point of the projects. Handles command line arguments and possibly downloads the
    dataset.
 
- - ``image_pyfunc.py``:
+ * image_pyfunc.py
    The implementation of the model train and also of the outputed custom python flavor model. Note
    that the same preprocessing code that is used during model training is packaged with the output
    model and is used during scoring.
 
- - ``score_images_rest.py``:
+ * score_images_rest.py
    Score an image or a directory of images using a model deployed to a REST endpoint.
 
- - ``score_images_spark.py``:
+ * score_images_spark.py
    Score an image or a directory of images using model deployed to Spark.
 
-What You'll Need
-^^^^^^^^^^^^^^^^
 
-To run this example, you'll need to:
-
-   - Install MLflow, Base64, Click, Numpy, scikit-learn, Pandas, TensorFlow, Keras, and PySpark.
-
-    .. note:: This example does not work with TensorFlow >= 2.0.
-
-       .. code-block:: bash
-
-           pip install mlflow
-           pip install pybase64
-           pip install click
-           pip install numpy
-           pip install scikit-learn
-           pip install pandas
-           pip install tensorflow==1.14
-           pip install keras
-           pip install pyspark
-
-   - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
-   - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
-   - ``cd`` into the ``examples/hyperparam`` directory within your clone of MLflow - we'll use this working
-     directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
-     so would cause the tutorial to use MLflow from source, rather than your PyPI installation of
-     MLflow.
 
 Running this Example
 ^^^^^^^^^^^^^^^^^^^^
