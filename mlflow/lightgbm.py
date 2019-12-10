@@ -6,6 +6,14 @@ LightGBM (native) format
     This is the main flavor that can be loaded back into LightGBM.
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
+
+.. _lightgbm.Booster:
+    https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm.Booster
+.. _lightgbm.Booster.save_model:
+    https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html
+    #lightgbm.Booster.save_model
+.. _scikit-learn API:
+    https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api
 """
 
 from __future__ import absolute_import
@@ -44,7 +52,8 @@ def save_model(lgb_model, path, conda_env=None, mlflow_model=Model()):
     """
     Save a LightGBM model to a path on the local file system.
 
-    :param lgb_model: LightGBM model (an instance of ``lightgbm.Booster``) to be saved.
+    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) to be saved.
+                      Note that models that implement the `scikit-learn API`_  are not supported.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -98,7 +107,8 @@ def log_model(lgb_model, artifact_path, conda_env=None, registered_model_name=No
     """
     Log a LightGBM model as an MLflow artifact for the current run.
 
-    :param lgb_model: LightGBM model (an instance of ``lightgbm.Booster``) to be saved.
+    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) to be saved.
+                      Note that models that implement the `scikit-learn API`_  are not supported.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -122,7 +132,7 @@ def log_model(lgb_model, artifact_path, conda_env=None, registered_model_name=No
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param kwargs: kwargs to pass to ``lightgbm.save_model`` method.
+    :param kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.lightgbm,
               registered_model_name=registered_model_name,
@@ -158,7 +168,7 @@ def load_model(model_uri):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
 
-    :return: A LightGBM model (an instance of ``lightgbm.Booster``).
+    :return: A LightGBM model (an instance of `lightgbm.Booster`_).
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)

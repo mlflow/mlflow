@@ -6,6 +6,13 @@ XGBoost (native) format
     This is the main flavor that can be loaded back into XGBoost.
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
+
+.. _xgboost.Booster:
+    https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster
+.. _xgboost.Booster.save_model:
+    https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster.save_model
+.. _scikit-learn API:
+    https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
 
 from __future__ import absolute_import
@@ -44,7 +51,8 @@ def save_model(xgb_model, path, conda_env=None, mlflow_model=Model()):
     """
     Save an XGBoost model to a path on the local file system.
 
-    :param xgb_model: XGBoost model (an instance of ``xgboost.Booster``) to be saved.
+    :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_) to be saved.
+                      Note that models that implement the `scikit-learn API`_  are not supported.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -98,7 +106,8 @@ def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=No
     """
     Log an XGBoost model as an MLflow artifact for the current run.
 
-    :param xgb_model: XGBoost model (an instance of ``xgboost.Booster``) to be saved.
+    :param xgb_model: XGBoost model (an instance of `xgboost.Booster`_) to be saved.
+                      Note that models that implement the `scikit-learn API`_  are not supported.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -122,7 +131,7 @@ def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=No
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param kwargs: kwargs to pass to ``xgboost.save_model`` method.
+    :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.xgboost,
               registered_model_name=registered_model_name,
@@ -160,7 +169,7 @@ def load_model(model_uri):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
 
-    :return: An XGBoost model (an instance of ``xgboost.Booster``)
+    :return: An XGBoost model (an instance of `xgboost.Booster`_)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
