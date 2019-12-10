@@ -7,7 +7,7 @@ Below, you can find a number of tutorials for various MLflow use cases.
 
 * :doc:`End-to-end MLflow Tutorial <tutorial>`
 * `Reproducibly run & share ML code with docker-based MLflow projects <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_
-* `Hyperparameter Tuning Example <https://github.com/mlflow/mlflow/tree/master/examples/hyperparam>`_
+* `Hyperparameter Tuning <https://github.com/mlflow/mlflow/tree/master/examples/hyperparam>`_
 * `Multistep Workflow Example <https://github.com/mlflow/mlflow/tree/master/examples/multistep_workflow>`_
 * `REST API Example <https://github.com/mlflow/mlflow/tree/master/examples/rest_api>`_
 * `Examples Repository <https://github.com/mlflow/mlflow/tree/master/examples>`_
