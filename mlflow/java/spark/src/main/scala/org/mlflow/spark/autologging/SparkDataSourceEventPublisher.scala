@@ -108,7 +108,7 @@ private[autologging] trait SparkDataSourceEventPublisherImpl {
     }
   }
 
-  private[autologigng] def publishEvent(
+  private[autologging] def publishEvent(
       replIdOpt: Option[String],
       sparkTableInfo: SparkTableInfo): Unit = synchronized {
     sparkTableInfo match {
