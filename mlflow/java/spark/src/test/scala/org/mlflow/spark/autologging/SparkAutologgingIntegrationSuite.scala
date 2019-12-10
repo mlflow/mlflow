@@ -233,24 +233,24 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
 //    assert(SparkDataSourceEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
 //  }
 
-  test("repl-ID-aware listener is correct") {
-    // Define custom test
-    SparkDataSourceEventPublisher.stop()
-    val sc = spark.sparkContext
-    val replId: String = UUID.randomUUID().toString
-    val replIdProperty = "spark.databricks.replId"
-    sc.setLocalProperty(replIdProperty, replId)
-    class MockSparkDatasourceEventPublisher extends SparkDataSourceEventPublisherImpl {
-      override def getReplIdAwareListener: SparkDataSourceListener = {
-        val res = spy(new DatabricksSparkDataSourceListener())
-        doReturn( Map(replIdProperty -> replId)).when(res).getProperties(any())
-        res
-      }
-    }
-    val publisher = new MockSparkDatasourceEventPublisher()
-    testPublisher(publisher)
-    sc.setLocalProperty(replIdProperty, null)
-
-  }
+//  test("repl-ID-aware listener is correct") {
+//    // Define custom test
+//    SparkDataSourceEventPublisher.stop()
+//    val sc = spark.sparkContext
+//    val replId: String = UUID.randomUUID().toString
+//    val replIdProperty = "spark.databricks.replId"
+//    sc.setLocalProperty(replIdProperty, replId)
+//    class MockSparkDatasourceEventPublisher extends SparkDataSourceEventPublisherImpl {
+//      override def getReplIdAwareListener: SparkDataSourceListener = {
+//        val res = spy(new DatabricksSparkDataSourceListener())
+//        doReturn( Map(replIdProperty -> replId)).when(res).getProperties(any())
+//        res
+//      }
+//    }
+//    val publisher = new MockSparkDatasourceEventPublisher()
+//    testPublisher(publisher)
+//    sc.setLocalProperty(replIdProperty, null)
+//
+//  }
 
 }

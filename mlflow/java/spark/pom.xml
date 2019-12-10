@@ -19,6 +19,18 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
+  <distributionManagement>
+    <repository>
+      <id>aws-release</id>
+      <name>AWS Release Repository</name>
+      <url>s3://databricks-mvn/mlflow-spark-autologging-prototype</url>
+    </repository>
+    <snapshotRepository>
+      <id>aws-snapshot</id>
+      <name>AWS Snapshot Repository</name>
+      <url>s3://databricks-mvn/mlflow-spark-autologging-prototype-snapshot</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <dependencies>
     <dependency>
@@ -89,6 +101,13 @@
   <build>
     <sourceDirectory>src/main/scala</sourceDirectory>
     <testSourceDirectory>src/test/scala</testSourceDirectory>
+    <extensions>
+      <extension>
+        <groupId>org.springframework.build</groupId>
+        <artifactId>aws-maven</artifactId>
+        <version>5.0.0.RELEASE</version>
+      </extension>
+    </extensions>
     <plugins>
       <plugin>
         <!-- see http://davidb.github.com/scala-maven-plugin -->
