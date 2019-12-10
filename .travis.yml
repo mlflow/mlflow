@@ -7,9 +7,27 @@ services:
 
 matrix:
   include:
+    # Nightly builds run the tests/examples end-to-end test suite.
+    # Does not include Windows since Projects/Models are mostly not compatible with Windows as of now.
+    - stage: Nightly
+    - language: python
+      python: 2.7
+      install:
+        # CHANGED_FILES detects whether or not files related to the nightly build are changed.
+        # True is so that the command returns a 0 exit code whether or not CHANGED_FILES is empty.
+        - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
+        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
+            INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
+          fi;
+      script:
+        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
+            pytest --verbose tests/examples --large;
+          fi
     - stage: small
+      if: type != cron
     - language: python
       name: "Lint (Python 3.6)"
+      if: type != cron
       python: 3.6
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
@@ -18,6 +36,7 @@ matrix:
         - ./lint.sh
     - language: r
       name: "R"
+      if: type != cron
       cache: packages
       before_install:
         # cache packages dramatically decreases build time, but it must not include mlflow
@@ -44,6 +63,7 @@ matrix:
         - "[ -r /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log ] && cat /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
     - language: java
       name: "Java"
+      if: type != cron
       install:
         - source ./travis/install-common-deps.sh
       script:
@@ -54,14 +74,17 @@ matrix:
         - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
       install:
       name: "Node.js"
+      if: type != cron
       script:
         - cd mlflow/server/js
         - npm i
         - npm run lint
         - npm test -- --coverage
     - stage: large
+      if: type != cron
     - language: python
       python: 2.7
+      if: type != cron
       install:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
@@ -70,6 +93,7 @@ matrix:
     # time running Windows tests if Python 3 small tests fail.
     - os: windows
       name: "Windows"
+      if: type != cron
       language: sh
       before_install:
         - choco install python3 --version=3.7.4
@@ -83,6 +107,8 @@ matrix:
     # Run small Python 2.7 tests in the "large" test builder so that we don't spend Travis executor
     # time running Python 2.7 tests if Python 3 small tests fail.
     - language: python
+      name: "Python 2.7 Small Tests"
+      if: type != cron
       python: 2.7
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
@@ -91,6 +117,7 @@ matrix:
     - language: python
       python: 3.6
       name: "Docs (rsthtml)"
+      if: type != cron
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
         - pip install sphinx==2.2.1 sphinx-click==2.3.0
@@ -98,29 +125,39 @@ matrix:
         - cd docs
         - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
 
+
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
 install:
-  - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
+  - echo "Build stage $TRAVIS_BUILD_STAGE_NAME";
+  - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
-       echo "skipping this step on windows.";
+      echo "skipping this step on windows.";
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
       INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh &&
       wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
       sudo unzip /travis-install/protoc.zip -d /usr;
+    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]] && ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
+      echo "skipping the nightly stage because this build is not nightly and there are no changed files associated with nightly tests.";
     else
       INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
-    fi
+    fi;
 
 script:
-  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
-       echo "skipping this step on windows.";
-    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
-    else
-      ./travis/run-large-python-tests.sh;
-      ./travis/test-anaconda-compatibility.sh;
-    fi
+    if ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
+      if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
+         echo "skipping this step on windows.";
+      elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+        ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
+      else
+        ./travis/run-large-python-tests.sh;
+        ./travis/test-anaconda-compatibility.sh;
+      fi
+    fi;
+    CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
+    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
+      pytest --verbose tests/examples --large;
+    fi;
 
 notifications:
   # Send Slack notifications on build being broken or fixed, and email (Pagerduty) notifications

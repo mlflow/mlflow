@@ -43,7 +43,7 @@ private[autologging] trait SparkDataSourceEventPublisherImpl {
   }
 
   // Initialize Spark listener that pulls Delta query plan information & bubbles it up to registered
-  // Python subscribers
+  // Python subscribers, along with a GC loop for removing unrespoins
   def init(gcDeadSubscribersIntervalSec: Int = 1): Unit = synchronized {
     if (sparkQueryListener == null) {
       val listener = getSparkDataSourceListener
@@ -86,7 +86,7 @@ private[autologging] trait SparkDataSourceEventPublisherImpl {
   }
 
   /** Unregister subscribers broken e.g. due to detaching of the associated Python REPL */
-  def unregisterBrokenSubscribers(): Unit = synchronized {
+  private[autologging] def unregisterBrokenSubscribers(): Unit = synchronized {
     val brokenUuids = subscribers.flatMap { case (uuid, listener) =>
       try {
         listener.ping()
@@ -108,7 +108,9 @@ private[autologging] trait SparkDataSourceEventPublisherImpl {
     }
   }
 
-  def publishEvent(replIdOpt: Option[String], sparkTableInfo: SparkTableInfo): Unit = synchronized {
+  private[autologigng] def publishEvent(
+      replIdOpt: Option[String],
+      sparkTableInfo: SparkTableInfo): Unit = synchronized {
     sparkTableInfo match {
       case SparkTableInfo(path, version, format) =>
         for ((uuid, listener) <- subscribers) {

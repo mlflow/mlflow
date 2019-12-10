@@ -60,6 +60,7 @@ private[autologging] object DatasourceAttributeExtractor {
     leafNode match {
       case lr: LogicalRelation =>
         // First, check whether LogicalRelation is a Delta table
+        // We use reflection so that we do not need to depend on the Delta package in our JAR
         val obj = ReflectionUtils.getScalaObjectByName("org.apache.spark.sql.delta.DeltaTable")
         val deltaFileIndexOpt = ReflectionUtils.callMethod(obj, "unapply", Seq(lr)).asInstanceOf[Option[Any]]
         deltaFileIndexOpt.map(fileIndex => {
