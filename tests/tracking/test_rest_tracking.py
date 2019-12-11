@@ -379,7 +379,7 @@ def test_artifacts(mlflow_client, backend_store_uri):
         mlflow_client.update_artifacts_location(run_id, "new_location")
         assert "new_location" == mlflow_client.get_run(run_id).info.artifact_uri
     elif "file_store_root" in backend_store_uri:
-        with pytest.raises(Exception):
+        with pytest.raises(MlflowException):
             mlflow_client.update_artifacts_location(run_id, "new_location")
     else:
         pytest.xfail("backend %s not tested for update_artifacts_location" % backend_store_uri)
