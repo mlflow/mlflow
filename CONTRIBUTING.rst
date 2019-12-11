@@ -178,8 +178,17 @@ not run on Travis jobs triggered by push requests. If your PR changes anything t
 or the tests themselves, Travis will detect this and run the nightly tests automatically with the
 regular build.
 
+If you need to retrigger Travis tests on a PR, you can push an empty commit to your branch. To create
+an empty commit, you can use the ``--allow-empty` option, e.g.
+``git commit --allow-empty -m "Trigger rebuild"``. Note that this will retrigger an entire rebuild -
+it is currently not possible to retrigger individual tests.
+
 If opening a PR that changes or adds new APIs, please update or add Python documentation as
 described in `Writing Docs`_ and commit the docs to your PR branch.
+
+Writing Python Tests
+--------------------
+
 
 
 Building Protobuf Files
