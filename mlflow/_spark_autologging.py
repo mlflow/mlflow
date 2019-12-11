@@ -35,7 +35,6 @@ def _get_jvm_event_publisher():
     """
     jvm = SparkContext._gateway.jvm
     qualified_classname = "{}.{}".format(_get_java_package(), "MlflowAutologEventPublisher")
-    print("@SID accessing %s" % qualified_classname)
     return getattr(jvm, qualified_classname)
 
 def _initialize_listener():

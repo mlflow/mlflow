@@ -15,10 +15,9 @@ def _get_mlflow_spark_jar_path():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     pardir = os.path.pardir
     jar_dir = os.path.join(current_dir, pardir, pardir, "mlflow", "java", "spark", "target")
-    jar_filenames = [fname for fname in os.listdir(jar_dir) if ".jar" in fname]
-    print(current_dir, jar_dir, jar_filenames)
+    jar_filenames = [fname for fname in os.listdir(jar_dir) if ".jar" in fname
+                     and "sources" not in fname and "javadoc" not in fname]
     res = os.path.abspath(os.path.join(jar_dir, jar_filenames[0]))
-    print(res)
     return res
 
 @pytest.fixture(scope="session", autouse=True)
@@ -29,16 +28,12 @@ def spark_session():
         .master("local[*]") \
         .getOrCreate()
     #.config("spark.jars", "/Users/sid.murching/code/mlflow/mlflow/java/client/target/mlflow-client-1.4.1-SNAPSHOT.jar") \
-    print("@SID created session with version %s" % session.sparkContext.version )
     yield session
-    print("Stopping session...")
     session.stop()
-    print("Done stopping")
 
 
 @pytest.fixture(scope="session", autouse=True)
 def format_to_file_path(spark_session):
-    print("hiii")
     rows = [
         Row(8, "bat"),
         Row(64, "mouse"),
@@ -57,7 +52,6 @@ def format_to_file_path(spark_session):
 
     for format, file_path in format_to_file_path.items():
         df.write.option("header", "true").format(format).save(file_path)
-    print("wrote stuff")
     yield format_to_file_path
     shutil.rmtree(tempdir)
 
