@@ -5,7 +5,7 @@ from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
-from mlflow.utils import rest_utils
+from mlflow.utils import rest_utils, experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import get_db_profile_from_uri
 
@@ -97,9 +97,32 @@ for scheme in DATABASE_ENGINES:
 _tracking_store_registry.register_entrypoints()
 
 
-def register_tracking_store(uri_scheme, store_generator):
-    _tracking_store_registry.register(uri_scheme, store_generator)
+@experimental
+def register_tracking_store(uri_scheme, store_builder):
+    """
+    Register a Tracking Store with the Tracking Store Registry by associating a URI
+    scheme with a function that constructs a Tracking Store instance.
+
+    :param uri_scheme: The URI scheme to associate with the specified Tracking Store builder. 
+    :param store_builder: A function that builds a Tracking Store. This function must accept two
+                          parameters: ``store_uri`` and ``artifact_uri`` and return a Tracking Store
+                          instance that is a subclass of
+                          :py:class:`mlflow.store.tracking.abstract_store.AbstractStore`.
+    """
+    _tracking_store_registry.register(uri_scheme, store_builder)
 
 
+@experimental
 def get_tracking_store(store_uri=None, artifact_uri=None):
+    """
+    Get a Tracking Store from the registry based on the scheme of the specified ``store_uri``.
+
+    :param store_uri: The Tracking Store URI. This URI is passed to a corresponding store builder
+                      in order to obtain a Tracking Store instance.
+    :param artifact_uri: Artifact repository URI. This URI is passed to a corresponding store 
+                         builder in order to obtain a Tracking Store instance.
+
+    :return: An instance of `mlflow.store.tracking.abstract_store.AbstractStore` corresponding to
+             the specified ``store_uri``.
+    """
     return _tracking_store_registry.get_store(store_uri, artifact_uri)

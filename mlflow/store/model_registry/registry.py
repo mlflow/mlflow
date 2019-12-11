@@ -5,7 +5,7 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.store.tracking.registry import _TRACKING_USERNAME_ENV_VAR, \
     _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR
-from mlflow.utils import rest_utils
+from mlflow.utils import rest_utils, experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import get_db_profile_from_uri
 
@@ -93,9 +93,30 @@ for scheme in DATABASE_ENGINES:
 _model_registry_store_registry.register_entrypoints()
 
 
-def register_model_registry_store(uri_scheme, store_generator):
-    _model_registry_store_registry.register(uri_scheme, store_generator)
+@experimental
+def register_model_registry_store(uri_scheme, store_builder):
+    """
+    Register a Model Registry Store with the Model Registry Store Registry by associating a URI
+    scheme with a function that constructs a Model Registry Store instance.
+
+    :param uri_scheme: The URI scheme to associate with the specified Model Registry Store builder. 
+    :param store_builder: A function that builds a Model Registry Store. This function must accept 
+                          one parameter: ``store_uri`` and return a Model Registry Store instance
+                          that is a subclass of
+                          :py:class:`mlflow.store.model_registry.abstract_store.AbstractStore`.
+    """
+    _model_registry_store_registry.register(uri_scheme, store_builder)
 
 
+@experimental
 def get_model_registry_store(store_uri=None):
+    """
+    Get a Model Registry Store from the registry based on the scheme of the specified ``store_uri``.
+
+    :param store_uri: The Model Registry Store URI. This URI is passed to a corresponding store
+                      builder in order to obtain a Tracking Store instance.
+
+    :return: An instance of `mlflow.store.model_registry.abstract_store.AbstractStore` corresponding
+             to the specified ``store_uri``.
+    """
     return _model_registry_store_registry.get_store(store_uri)
