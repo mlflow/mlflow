@@ -14,6 +14,7 @@ from mlflow import tracking
 from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.file_store import FileStore
+from mlflow.store import get_tracking_store
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run
@@ -334,12 +335,6 @@ def test_log_metrics_uses_common_timestamp_and_step_per_invocation(tracking_uri_
         assert metric_obj.step == expected_step
 
 
-@pytest.fixture
-def get_store_mock(tmpdir):
-    with mock.patch("mlflow.store.file_store.FileStore.log_batch") as _get_store_mock:
-        yield _get_store_mock
-
-
 def test_set_tags(tracking_uri_mock):
     exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
     approx_expected_tags = set([MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
@@ -494,7 +489,7 @@ def test_with_startrun():
         assert mlflow.active_run() == active_run
         run_id = active_run.info.run_id
     t1 = int(time.time() * 1000)
-    run_info = mlflow.tracking._get_store().get_run(run_id).info
+    run_info = get_tracking_store().get_run(run_id).info
     assert run_info.status == "FINISHED"
     assert t0 <= run_info.end_time and run_info.end_time <= t1
     assert mlflow.active_run() is None

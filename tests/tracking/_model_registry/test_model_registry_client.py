@@ -14,7 +14,7 @@ from mlflow.tracking._model_registry.client import ModelRegistryClient
 
 @pytest.fixture
 def mock_store():
-    with mock.patch("mlflow.tracking._model_registry.utils._get_store") as mock_get_store:
+    with mock.patch("mlflow.store.get_model_registry_store") as mock_get_store:
         yield mock_get_store.return_value
 
 

@@ -7,7 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.model_registry.rest_store import RestStore
-from mlflow.tracking._model_registry.utils import _get_store
+from mlflow.store import get_model_registry_store
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 
 
@@ -16,7 +16,7 @@ def test_get_store_rest_store_from_arg():
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050"  # should be ignored
     }
     with mock.patch.dict(os.environ, env):
-        store = _get_store("http://some/path")
+        store = get_model_registry_store("http://some/path")
         assert isinstance(store, RestStore)
         assert store.get_host_creds().host == "http://some/path"
 
@@ -26,7 +26,7 @@ def test_fallback_to_tracking_store():
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050"
     }
     with mock.patch.dict(os.environ, env):
-        store = _get_store()
+        store = get_model_registry_store()
         assert isinstance(store, RestStore)
         assert store.get_host_creds().host == "https://my-tracking-server:5050"
         assert store.get_host_creds().token is None
@@ -43,7 +43,7 @@ def test_get_store_sqlalchemy_store(db_type):
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, \
             mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore."
                        "_verify_registry_tables_exist"):
-        store = _get_store()
+        store = get_model_registry_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
 
@@ -57,4 +57,4 @@ def test_get_store_bad_uris(bad_uri):
     }
 
     with mock.patch.dict(os.environ, env), pytest.raises(MlflowException):
-        _get_store()
+        get_model_registry_store()

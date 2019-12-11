@@ -4,13 +4,14 @@ import pytest
 from six.moves import reload_module as reload
 
 import mlflow
+from mlflow.store import get_tracking_store
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
-from mlflow.tracking._tracking_service.utils import _get_store, _TRACKING_URI_ENV_VAR, \
+from mlflow.store.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.store.tracking.registry import TrackingStoreRegistry
+from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR, \
     _TRACKING_USERNAME_ENV_VAR, _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, \
     _TRACKING_INSECURE_TLS_ENV_VAR
 
@@ -20,7 +21,7 @@ from mlflow.tracking._tracking_service.utils import _get_store, _TRACKING_URI_EN
 def test_get_store_file_store(tmp_wkdir):
     env = {}
     with mock.patch.dict(os.environ, env):
-        store = _get_store()
+        store = get_tracking_store()
         assert isinstance(store, FileStore)
         assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
 
@@ -28,7 +29,7 @@ def test_get_store_file_store(tmp_wkdir):
 def test_get_store_file_store_from_arg(tmp_wkdir):
     env = {}
     with mock.patch.dict(os.environ, env):
-        store = _get_store("other/path")
+        store = get_tracking_store("other/path")
         assert isinstance(store, FileStore)
         assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
 
@@ -39,7 +40,7 @@ def test_get_store_file_store_from_env(tmp_wkdir, uri):
         _TRACKING_URI_ENV_VAR: uri
     }
     with mock.patch.dict(os.environ, env):
-        store = _get_store()
+        store = get_tracking_store()
         assert isinstance(store, FileStore)
         assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
 
@@ -49,7 +50,7 @@ def test_get_store_basic_rest_store():
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050"
     }
     with mock.patch.dict(os.environ, env):
-        store = _get_store()
+        store = get_tracking_store()
         assert isinstance(store, RestStore)
         assert store.get_host_creds().host == "https://my-tracking-server:5050"
         assert store.get_host_creds().token is None
@@ -62,7 +63,7 @@ def test_get_store_rest_store_with_password():
         _TRACKING_PASSWORD_ENV_VAR: "Ross",
     }
     with mock.patch.dict(os.environ, env):
-        store = _get_store()
+        store = get_tracking_store()
         assert isinstance(store, RestStore)
         assert store.get_host_creds().host == "https://my-tracking-server:5050"
         assert store.get_host_creds().username == "Bob"
@@ -75,7 +76,7 @@ def test_get_store_rest_store_with_token():
         _TRACKING_TOKEN_ENV_VAR: "my-token",
     }
     with mock.patch.dict(os.environ, env):
-        store = _get_store()
+        store = get_tracking_store()
         assert isinstance(store, RestStore)
         assert store.get_host_creds().token == "my-token"
 
@@ -86,7 +87,7 @@ def test_get_store_rest_store_with_insecure():
         _TRACKING_INSECURE_TLS_ENV_VAR: "true",
     }
     with mock.patch.dict(os.environ, env):
-        store = _get_store()
+        store = get_tracking_store()
         assert isinstance(store, RestStore)
         assert store.get_host_creds().ignore_tls_verification
 
@@ -97,7 +98,7 @@ def test_get_store_rest_store_with_no_insecure():
         _TRACKING_INSECURE_TLS_ENV_VAR: "false",
     }
     with mock.patch.dict(os.environ, env):
-        store = _get_store()
+        store = get_tracking_store()
         assert isinstance(store, RestStore)
         assert not store.get_host_creds().ignore_tls_verification
 
@@ -106,7 +107,7 @@ def test_get_store_rest_store_with_no_insecure():
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
     }
     with mock.patch.dict(os.environ, env):
-        store = _get_store()
+        store = get_tracking_store()
         assert isinstance(store, RestStore)
         assert not store.get_host_creds().ignore_tls_verification
 
@@ -122,7 +123,7 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine,\
             mock.patch("mlflow.store.db.utils._verify_schema"), \
             mock.patch("mlflow.store.db.utils._initialize_tables"):
-        store = _get_store()
+        store = get_tracking_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
         assert store.artifact_root_uri == "./mlruns"
@@ -142,7 +143,7 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, \
             mock.patch("mlflow.store.db.utils._verify_schema"), \
             mock.patch("mlflow.store.db.utils._initialize_tables"):
-        store = _get_store(artifact_uri=artifact_uri)
+        store = get_tracking_store(artifact_uri=artifact_uri)
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
         assert store.artifact_root_uri == artifact_uri
@@ -157,7 +158,7 @@ def test_get_store_databricks():
         'DATABRICKS_TOKEN': "abcdef",
     }
     with mock.patch.dict(os.environ, env):
-        store = _get_store()
+        store = get_tracking_store()
         assert isinstance(store, RestStore)
         assert store.get_host_creds().host == "https://my-tracking-server"
         assert store.get_host_creds().token == "abcdef"
@@ -170,7 +171,7 @@ def test_get_store_databricks_profile():
     # It's kind of annoying to setup a profile, and we're not really trying to test
     # that anyway, so just check if we raise a relevant exception.
     with mock.patch.dict(os.environ, env):
-        store = _get_store()
+        store = get_tracking_store()
         assert isinstance(store, RestStore)
         with pytest.raises(Exception) as e_info:
             store.get_host_creds()
@@ -220,7 +221,7 @@ def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
         _TRACKING_URI_ENV_VAR: "file-plugin:test-path",
     }
     with mock.patch.dict(os.environ, env):
-        plugin_file_store = mlflow.tracking._tracking_service.utils._get_store()
+        plugin_file_store = get_tracking_store()
         assert isinstance(plugin_file_store, PluginFileStore)
         assert plugin_file_store.is_plugin
 
