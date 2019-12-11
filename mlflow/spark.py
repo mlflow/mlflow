@@ -25,6 +25,7 @@ import os
 import yaml
 import logging
 import posixpath
+import re
 
 import mlflow
 from mlflow import pyfunc, mleap
@@ -34,6 +35,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import is_local_uri
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
@@ -50,13 +52,21 @@ _logger = logging.getLogger(__name__)
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+             :func:`save_model()` and :func:`log_model()`. This Conda environment
+             contains the current version of PySpark that is installed on the caller's
+             system. ``dev`` versions of PySpark are replaced with stable versions in
+             the resulting Conda environment (e.g., if you are running PySpark version
+             ``2.4.5.dev0``, invoking this method produces a Conda environment with a
+             dependency on PySpark version ``2.4.5``).
     """
     import pyspark
+    # Strip the suffix from `dev` versions of PySpark, which are not
+    # available for installation from Anaconda or PyPI
+    pyspark_version = re.sub(r"(\.?)dev.*", "", pyspark.__version__)
 
     return _mlflow_conda_env(
         additional_conda_deps=[
-            "pyspark={}".format(pyspark.__version__),
+            "pyspark={}".format(pyspark_version),
         ],
         additional_pip_deps=None,
         additional_conda_channels=None)
@@ -72,7 +82,7 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
                         pyspark.ml.Model which implement MLReadable and MLWritable.
     :param artifact_path: Run relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
+                      Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :func:`get_default_conda_env()`. If `None`, the default
                       :func:`get_default_conda_env()` environment is added to the model.
@@ -317,7 +327,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
+                      Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :func:`get_default_conda_env()`. If `None`, the default
                       :func:`get_default_conda_env()` environment is added to the model.
@@ -388,9 +398,11 @@ def load_model(model_uri, dfs_tmpdir=None):
                       - ``relative/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
 
                       For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model is loaded from this
@@ -411,6 +423,10 @@ def load_model(model_uri, dfs_tmpdir=None):
     if RunsArtifactRepository.is_runs_uri(model_uri):
         runs_uri = model_uri
         model_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+        _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
+    elif ModelsArtifactRepository.is_models_uri(model_uri):
+        runs_uri = model_uri
+        model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
     model_uri = posixpath.join(model_uri, flavor_conf["model_data"])

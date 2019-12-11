@@ -257,8 +257,8 @@ export class ExperimentView extends Component {
       {
         persistedState: new ExperimentViewPersistedState({
           ...this.state.persistedState,
-          [stateKey]: unbagged.concat([colName])
-        }).toJSON()
+          [stateKey]: unbagged.concat([colName]),
+        }).toJSON(),
       });
   }
 
@@ -549,7 +549,7 @@ export class ExperimentView extends Component {
         runsSelected: {
           ...this.state.runsSelected,
           [runUuid]: true,
-        }
+        },
       });
     }
   }
@@ -626,7 +626,7 @@ export class ExperimentView extends Component {
       paramKeyFilterInput,
       metricKeyFilterInput,
       searchInput,
-      lifecycleFilterInput
+      lifecycleFilterInput,
     } = this.state;
     this.initiateSearch({paramKeyFilterInput, metricKeyFilterInput, searchInput,
       lifecycleFilterInput});
@@ -821,7 +821,7 @@ const mapDispatchToProps = {
 
 const styles = {
   lifecycleButtonLabel: {
-    width: '32px'
+    width: '32px',
   },
   lifecycleButtonFilterWrapper: {
     marginLeft: '48px',

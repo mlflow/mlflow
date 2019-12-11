@@ -14,6 +14,7 @@ from mlflow import tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
@@ -42,6 +43,14 @@ def before_run_validations(tracking_uri, backend_config):
     if backend_config is None:
         raise ExecutionException("Backend spec must be provided when launching MLflow project "
                                  "runs on Databricks.")
+    elif "existing_cluster_id" in backend_config:
+        raise MlflowException(
+            message=(
+                "MLflow Project runs on Databricks must provide a *new cluster* specification."
+                " Project execution against existing clusters is not currently supported. For more"
+                " information, see https://mlflow.org/docs/latest/projects.html"
+                "#run-an-mlflow-project-on-databricks"),
+            error_code=INVALID_PARAMETER_VALUE)
     if not is_databricks_uri(tracking_uri) and \
             not is_http_uri(tracking_uri):
         raise ExecutionException(
@@ -247,7 +256,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
             mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
     mlflow_run_cmd = " ".join(mlflow_run_arr)
     shell_command = textwrap.dedent("""
-    export PATH=$DB_HOME/conda/bin:$DB_HOME/python/bin:$PATH &&
+    export PATH=$PATH:$DB_HOME/python/bin &&
     mlflow --version &&
     # Make local directories in the container into which to copy/extract the tarred project
     mkdir -p {tarfile_base} {projects_base} &&

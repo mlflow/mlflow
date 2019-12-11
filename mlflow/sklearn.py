@@ -63,7 +63,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
+                      Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :func:`get_default_conda_env()`. If `None`, the default
                       :func:`get_default_conda_env()` environment is added to the model.
@@ -151,7 +151,7 @@ def log_model(sk_model, artifact_path, conda_env=None,
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
+                      Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :func:`get_default_conda_env()`. If `None`, the default
                       :func:`get_default_conda_env()` environment is added to the model.
@@ -250,9 +250,11 @@ def load_model(model_uri):
                       - ``relative/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
 
                       For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
 
     :return: A scikit-learn model.
