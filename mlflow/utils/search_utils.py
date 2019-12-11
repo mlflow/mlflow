@@ -290,7 +290,7 @@ class SearchUtils(object):
         return [run for run in runs if run_matches(run)]
 
     @classmethod
-    def _parse_order_by(cls, order_by):
+    def parse_order_by(cls, order_by):
         try:
             parsed = sqlparse.parse(order_by)
         except Exception:
@@ -349,7 +349,7 @@ class SearchUtils(object):
         # NB: We rely on the stability of Python's sort function, so that we can apply
         # the ordering conditions in reverse order.
         for order_by_clause in reversed(order_by_list):
-            (key_type, key, ascending) = cls._parse_order_by(order_by_clause)
+            (key_type, key, ascending) = cls.parse_order_by(order_by_clause)
             # pylint: disable=cell-var-from-loop
             runs = sorted(runs,
                           key=lambda run: cls._get_value_for_sort(run, key_type, key, ascending),
@@ -357,7 +357,7 @@ class SearchUtils(object):
         return runs
 
     @classmethod
-    def _parse_start_offset_from_page_token(cls, page_token):
+    def parse_start_offset_from_page_token(cls, page_token):
         # Note: the page_token is expected to be a base64-encoded JSON that looks like
         # { "offset": xxx }. However, this format is not stable, so it should not be
         # relied upon outside of this method.
@@ -393,7 +393,7 @@ class SearchUtils(object):
         return offset
 
     @classmethod
-    def _create_page_token(cls, offset):
+    def create_page_token(cls, offset):
         return base64.b64encode(json.dumps({"offset": offset}).encode("utf-8"))
 
     @classmethod
@@ -402,13 +402,13 @@ class SearchUtils(object):
         results limit. Returns a pair containing the set of paginated runs, followed by
         an optional next_page_token if there are further results that need to be returned.
         """
-        start_offset = cls._parse_start_offset_from_page_token(page_token)
+        start_offset = cls.parse_start_offset_from_page_token(page_token)
         final_offset = start_offset + max_results
 
         paginated_runs = runs[start_offset:final_offset]
         next_page_token = None
         if final_offset < len(runs):
-            next_page_token = cls._create_page_token(final_offset)
+            next_page_token = cls.create_page_token(final_offset)
         return (paginated_runs, next_page_token)
 
     # Model Registry specific parser

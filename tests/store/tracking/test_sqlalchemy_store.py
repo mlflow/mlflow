@@ -782,38 +782,91 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         return [r.info.run_id
                 for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)]
 
-    def test_order_by_metric(self):
+    def get_ordered_runs(self, order_clauses, experiment_id):
+        return [
+            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+            for r in self.store.search_runs(experiment_ids=[experiment_id],
+                                            filter_string="",
+                                            run_view_type=ViewType.ALL,
+                                            order_by=order_clauses)]
+
+    def test_order_by_metric_tag_param(self):
         experiment_id = self.store.create_experiment('order_by_metric')
 
-        def create_and_log_run(name):
+        def create_and_log_run(names):
+            name = names[0] + "/" + names[1]
             run_id = self.store.create_run(
                 experiment_id,
                 user_id="MrDuck",
                 start_time=123,
-                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name)]).info.run_id
-            self.store.log_metric(run_id, entities.Metric("x", float(name), 1, 0))
+                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name),
+                      entities.RunTag("metric", names[1])]
+            ).info.run_id
+            self.store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
+            self.store.log_metric(run_id, entities.Metric("y", float(names[1]), 1, 0))
+            self.store.log_param(run_id, entities.Param("metric", names[1]))
             return run_id
 
-        for name in ["nan", "inf", "-inf", "-1000", "0", "1000"]:
-            create_and_log_run(name)
+        for names in zip(["nan", "inf", "-inf", "-1000", "0", "0", "1000"],
+                         ["1", "2", "3", "4", "5", "6", "7"]):
+            create_and_log_run(names)
+
+        # asc/asc
+        self.assertListEqual(["-inf/3", "-1000/4", "0/5", "0/6", "1000/7", "inf/2", "nan/1"],
+                             self.get_ordered_runs(["metrics.x asc", "metrics.y asc"],
+                                                   experiment_id))
+
+        self.assertListEqual(["-inf/3", "-1000/4", "0/5", "0/6", "1000/7", "inf/2", "nan/1"],
+                             self.get_ordered_runs(["metrics.x asc", "tag.metric asc"],
+                                                   experiment_id))
+
+        # asc/desc
+        self.assertListEqual(["-inf/3", "-1000/4", "0/6", "0/5", "1000/7", "inf/2", "nan/1"],
+                             self.get_ordered_runs(["metrics.x asc", "metrics.y desc"],
+                                                   experiment_id))
+
+        self.assertListEqual(["-inf/3", "-1000/4", "0/6", "0/5", "1000/7", "inf/2", "nan/1"],
+                             self.get_ordered_runs(["metrics.x asc", "tag.metric desc"],
+                                                   experiment_id))
+
+        # desc / asc
+        self.assertListEqual(["inf/2", "1000/7", "0/5", "0/6", "-1000/4", "-inf/3", "nan/1"],
+                             self.get_ordered_runs(["metrics.x desc", "metrics.y asc"],
+                                                   experiment_id))
+
+        # desc / desc
+        self.assertListEqual(["inf/2", "1000/7", "0/6", "0/5", "-1000/4", "-inf/3", "nan/1"],
+                             self.get_ordered_runs(["metrics.x desc", "param.metric desc"],
+                                                   experiment_id))
+
+    def test_order_by_attributes(self):
+        experiment_id = self.store.create_experiment('order_by_attributes')
+
+        def create_run(start_time, end):
+            return self.store.create_run(
+                    experiment_id,
+                    user_id="MrDuck",
+                    start_time=start_time,
+                    tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)]).info.run_id
+
+        start_time = 123
+        for end in [234, None, 456, -123, 789, 123]:
+            run_id = create_run(start_time, end)
+            self.store.update_run_info(run_id, run_status=RunStatus.FINISHED, end_time=end)
+            start_time += 1
 
         # asc
-        sorted_runs_asc = [
-            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
-            for r in self.store.search_runs(experiment_ids=[experiment_id],
-                                            filter_string="",
-                                            run_view_type=ViewType.ALL,
-                                            order_by=["metrics.x asc"])]
+        self.assertListEqual(["-123", "123", "234", "456", "789", None],
+                             self.get_ordered_runs(["attribute.end_time asc"], experiment_id))
 
-        assert ["-inf", "-1000", "0", "1000", "inf", "nan"] == sorted_runs_asc
         # desc
-        sorted_runs_desc = [
-            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
-            for r in self.store.search_runs(experiment_ids=[experiment_id],
-                                            filter_string="",
-                                            run_view_type=ViewType.ALL,
-                                            order_by=["metrics.x desc"])]
-        assert ["inf", "1000", "0", "-1000", "-inf", "nan"] == sorted_runs_desc
+        self.assertListEqual(["789", "456", "234", "123", "-123", None],
+                             self.get_ordered_runs(["attribute.end_time desc"], experiment_id))
+
+        # Sort priority correctly handled
+        self.assertListEqual(["234", None, "456", "-123", "789", "123"],
+                             self.get_ordered_runs(["attribute.start_time asc",
+                                                    "attribute.end_time desc"], experiment_id))
 
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')
@@ -1342,20 +1395,24 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def _generate_large_data(self, nb_runs=1000):
         experiment_id = self.store.create_experiment('test_experiment')
-        run_ids = []
-        for _ in range(nb_runs):
-            run_ids.append(self.store.create_run(
-                experiment_id=experiment_id,
-                start_time=time.time(),
-                tags=(),
-                user_id='Anderson').info.run_uuid)
 
         current_run = 0
+
+        run_ids = []
         metrics_list = []
         tags_list = []
         params_list = []
         latest_metrics_list = []
-        for run_id in run_ids:
+
+        for _ in range(nb_runs):
+            run_id = self.store.create_run(
+                experiment_id=experiment_id,
+                start_time=current_run,
+                tags=(),
+                user_id='Anderson').info.run_uuid
+
+            run_ids.append(run_id)
+
             for i in range(100):
                 metric = {
                     'key': 'mkey_%s' % i,
@@ -1409,27 +1466,29 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         run_results = self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
         assert len(run_results) == 100
-        assert set([run.info.run_id for run in run_results]).issubset(set(run_ids))
+        # runs are sorted by desc start_time
+        self.assertListEqual([run.info.run_id for run in run_results],
+                             list(reversed(run_ids[900:])))
 
     def test_search_runs_correctly_filters_large_data(self):
         experiment_id, _ = self._generate_large_data(1000)
 
         run_results = self.store.search_runs([experiment_id],
                                              "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 ",
-                                             ViewType.ALL, max_results=1000)
+                                             ViewType.ALL, max_results=50)
         assert len(run_results) == 20
 
         run_results = self.store.search_runs([experiment_id],
                                              "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 "
                                              "and tags.tkey_0 = 'tval_0' ",
-                                             ViewType.ALL, max_results=1000)
+                                             ViewType.ALL, max_results=10)
         assert len(run_results) == 2  # 20 runs between 9 and 26, 2 of which have a 0 tkey_0 value
 
         run_results = self.store.search_runs([experiment_id],
                                              "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 "
                                              "and tags.tkey_0 = 'tval_0' "
                                              "and params.pkey_0 = 'pval_0'",
-                                             ViewType.ALL, max_results=1000)
+                                             ViewType.ALL, max_results=5)
         assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
 
 
@@ -1529,7 +1588,10 @@ class TestZeroValueInsertion(unittest.TestCase):
 def test_get_attribute_name():
     assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
     assert(models.SqlRun.get_attribute_name("status") == "status")
+    assert(models.SqlRun.get_attribute_name("start_time") == "start_time")
+    assert(models.SqlRun.get_attribute_name("end_time") == "end_time")
 
-    # we want this to break if a searchable attribute has been added
+    # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
-    assert(len(entities.RunInfo.get_searchable_attributes()) == 2)
+    # searchable attibutes are also orderable
+    assert(len(entities.RunInfo.get_orderable_attributes()) == 4)
