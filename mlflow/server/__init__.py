@@ -25,7 +25,9 @@ for http_path, handler, methods in handlers.get_endpoints():
 
 if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter
-    os.makedirs(os.getenv(PROMETHEUS_EXPORTER_ENV_VAR), exist_ok=True)
+    prometheus_metrics_path = os.getenv(PROMETHEUS_EXPORTER_ENV_VAR)
+    if not os.path.exists(prometheus_metrics_path):
+        os.makedirs(prometheus_metrics_path)
     activate_prometheus_exporter(app)
 
 
