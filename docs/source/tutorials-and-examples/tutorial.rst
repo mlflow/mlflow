@@ -1,4 +1,5 @@
 :orphan:
+
 .. _tutorial:
 
 Tutorial
@@ -153,8 +154,10 @@ returns all the models with root mean squared error less than 0.8. For more comp
 you can download this table as a CSV and use your favorite data munging software to analyze it.
 
 
-Packaging the Training Code
----------------------------
+.. _conda-example:
+
+Packaging Training Code in a Conda Environment
+----------------------------------------------
 
 Now that you have your training code, you can package it so that other data scientists can easily reuse the model, or so that you can run the training remotely, for example on Databricks.
 
