@@ -163,16 +163,17 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
               help="Path to local directory to store artifacts, for new experiments. "
                    "Note that this flag does not impact already-created experiments. "
                    "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
-@click.option("--port", "-p", default=5000,
-              help="The port to listen on (default: 5000).")
-@click.option("--host", "-h", default="127.0.0.1",
-              help="The host URL")
+@cli_args.PORT
+@cli_args.HOST
 def ui(backend_store_uri, default_artifact_root, port, host):
     """
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
     server, use the "mlflow server" command instead.
 
-    The UI will be visible at ``http://localhost:5000`` by default.
+    The UI will be visible at http://localhost:5000 by default, and only accept connections
+    from the local machine. To let the UI server accept connections from other machines, you will
+    need to pass ``--host 0.0.0.0`` to listen on all network interfaces (or a specific interface
+    address).
     """
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
