@@ -120,7 +120,8 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
             }
           } catch {
             case e: Py4JException =>
-              logger.error(s"Unable to forward event to listener with UUID $uuid.")
+              logger.error(s"Unable to forward event to listener with UUID $uuid. " +
+                s"Exception:\n${ExceptionUtils.serializeException(e)}")
           }
         }
       case _ =>
