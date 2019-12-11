@@ -1,3 +1,5 @@
+:orphan:
+
 .. _tutorial:
 
 Tutorial
@@ -64,10 +66,10 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     The code is located at ``examples/sklearn_elasticnet_wine/train.py`` and is reproduced below.
     
-    .. literalinclude:: ../../examples/sklearn_elasticnet_wine/train.py
+    .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/train.py
 
     This example uses the familiar pandas, numpy, and sklearn APIs to create a simple machine learning
-    model. The :doc:`MLflow tracking APIs<tracking/>` log information about each
+    model. The :doc:`MLflow tracking APIs<../tracking/>` log information about each
     training run, like the hyperparameters ``alpha`` and ``l1_ratio``, used to train the model and metrics, like
     the root mean square error, used to evaluate the model. The example also serializes the
     model in a format that MLflow knows how to deploy.
@@ -93,10 +95,10 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     The code is located at ``examples/r_wine/train.R`` and is reproduced below.
 
-    .. literalinclude:: ../../examples/r_wine/train.R
+    .. literalinclude:: ../../../examples/r_wine/train.R
 
     This example uses the familiar ``glmnet`` package to create a simple machine learning
-    model. The :doc:`MLflow tracking APIs<tracking/>` log information about each
+    model. The :doc:`MLflow tracking APIs<../tracking/>` log information about each
     training run, like the hyperparameters ``alpha`` and ``lambda``, used to train the model and metrics, like
     the root mean square error, used to evaluate the model. The example also serializes the
     model in a format that MLflow knows how to deploy.
@@ -141,19 +143,21 @@ On this page, you can see a list of experiment runs with metrics you can use to 
 
   .. container:: python
 
-    .. image:: _static/images/tutorial-compare.png
+    .. image:: ../_static/images/tutorial-compare.png
 
   .. container:: R
 
-      .. image:: _static/images/tutorial-compare-R.png
+      .. image:: ../_static/images/tutorial-compare-R.png
 
 You can  use the search feature to quickly filter out many models. For example, the query ``metrics.rmse < 0.8``
 returns all the models with root mean squared error less than 0.8. For more complex manipulations,
 you can download this table as a CSV and use your favorite data munging software to analyze it.
 
 
-Packaging the Training Code
----------------------------
+.. _conda-example:
+
+Packaging Training Code in a Conda Environment
+----------------------------------------------
 
 Now that you have your training code, you can package it so that other data scientists can easily reuse the model, or so that you can run the training remotely, for example on Databricks.
 
@@ -161,7 +165,7 @@ Now that you have your training code, you can package it so that other data scie
 
     .. container:: python
 
-      You do this by using :doc:`projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
+      You do this by using :doc:`../projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
       called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
       .. code-block:: yaml
@@ -260,7 +264,7 @@ Serving the Model
 -----------------
 
 Now that you have packaged your model using the MLproject convention and have identified the best model,
-it is time to deploy the model using :doc:`models`. An MLflow Model is a standard format for
+it is time to deploy the model using :doc:`../models`. An MLflow Model is a standard format for
 packaging machine learning models that can be used in a variety of downstream tools — for example,
 real-time serving through a REST API or batch inference on Apache Spark.
 
@@ -278,7 +282,7 @@ in MLflow saved the model as an artifact within the run.
       To view this artifact, you can use the UI again. When you click a date in the list of experiment
       runs you'll see this page.
 
-      .. image:: _static/images/tutorial-artifact.png
+      .. image:: ../_static/images/tutorial-artifact.png
 
       At the bottom, you can see that the call to ``mlflow.sklearn.log_model`` produced two files in
       ``/Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model``.
@@ -323,7 +327,7 @@ in MLflow saved the model as an artifact within the run.
       To view this artifact, you can use the UI again. When you click a date in the list of experiment
       runs you'll see this page.
 
-      .. image:: _static/images/tutorial-artifact-r.png
+      .. image:: ../_static/images/tutorial-artifact-r.png
 
       At the bottom, you can see that the call to ``mlflow_log_model()`` produced two files in
       ``mlruns/0/c2a7325210ef4242bd4631cec8f92351/artifacts/model/``.
@@ -341,7 +345,7 @@ in MLflow saved the model as an artifact within the run.
       This initializes a REST server and opens a `Swagger <https://swagger.io/>`_ interface to perform predictions against
       the REST API:
 
-      .. image:: _static/images/tutorial-serving-r.png
+      .. image:: ../_static/images/tutorial-serving-r.png
 
       .. note::
 
@@ -387,7 +391,7 @@ in MLflow saved the model as an artifact within the run.
 More Resources
 --------------
 
-Congratulations on finishing the tutorial! For more reading, see :doc:`tracking`, :doc:`projects`, :doc:`models`, and more.
+Congratulations on finishing the tutorial! For more reading, see :doc:`../tracking`, :doc:`../projects`, :doc:`../models`, and more.
 
 
 .. [1] P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. Modeling wine preferences by data mining from physicochemical properties. In Decision Support Systems, Elsevier, 47(4):547-553, 2009.
