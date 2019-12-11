@@ -27,6 +27,7 @@ import logging
 import posixpath
 import re
 
+
 import mlflow
 from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
@@ -39,6 +40,10 @@ from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import is_local_uri
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
+
+# TODO: will this show up properly in API docs? Maybe for now we can just inline everything
+# into this file & break this up into a module with __init__.py later on?
+from mlflow._spark_autologging import autolog  # pylint: disable=unused-import
 
 FLAVOR_NAME = "spark"
 
