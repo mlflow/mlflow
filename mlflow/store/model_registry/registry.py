@@ -99,8 +99,8 @@ def register_model_registry_store(uri_scheme, store_builder):
     Register a Model Registry Store with the Model Registry Store Registry by associating a URI
     scheme with a function that constructs a Model Registry Store instance.
 
-    :param uri_scheme: The URI scheme to associate with the specified Model Registry Store builder. 
-    :param store_builder: A function that builds a Model Registry Store. This function must accept 
+    :param uri_scheme: The URI scheme to associate with the specified Model Registry Store builder.
+    :param store_builder: A function that builds a Model Registry Store. This function must accept
                           one parameter: ``store_uri`` and return a Model Registry Store instance
                           that is a subclass of
                           :py:class:`mlflow.store.model_registry.abstract_store.AbstractStore`.

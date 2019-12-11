@@ -103,7 +103,7 @@ def register_tracking_store(uri_scheme, store_builder):
     Register a Tracking Store with the Tracking Store Registry by associating a URI
     scheme with a function that constructs a Tracking Store instance.
 
-    :param uri_scheme: The URI scheme to associate with the specified Tracking Store builder. 
+    :param uri_scheme: The URI scheme to associate with the specified Tracking Store builder.
     :param store_builder: A function that builds a Tracking Store. This function must accept two
                           parameters: ``store_uri`` and ``artifact_uri`` and return a Tracking Store
                           instance that is a subclass of
@@ -119,7 +119,7 @@ def get_tracking_store(store_uri=None, artifact_uri=None):
 
     :param store_uri: The Tracking Store URI. This URI is passed to a corresponding store builder
                       in order to obtain a Tracking Store instance.
-    :param artifact_uri: Artifact repository URI. This URI is passed to a corresponding store 
+    :param artifact_uri: Artifact repository URI. This URI is passed to a corresponding store
                          builder in order to obtain a Tracking Store instance.
 
     :return: An instance of `mlflow.store.tracking.abstract_store.AbstractStore` corresponding to
