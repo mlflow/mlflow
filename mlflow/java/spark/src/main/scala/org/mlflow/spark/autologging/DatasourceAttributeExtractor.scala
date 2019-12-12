@@ -39,51 +39,14 @@ private[autologging] object DatasourceAttributeExtractor {
    * query plan
    */
   def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
-    val deltaInfoOpt = maybeGetDeltaTableInfo(leafNode)
-    if (deltaInfoOpt.isDefined) {
-      deltaInfoOpt
-    } else {
-      leafNode match {
-        case relation: DataSourceV2Relation =>
-          getSparkTableInfoFromTable(relation.table)
-        case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
-          val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
-          Option(SparkTableInfo(path, None, None))
-        case other =>
-          None
-      }
-    }
-  }
-
-  /**
-   * Return an option containing a SparkTableInfo representing a Delta table read if the passed-in
-   * query plan leafNode corresponds to a read of a Delta table. If the leafNode does not correspond
-   * to a Delta table read, returns None.
-   */
-  def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
     leafNode match {
-      case lr: LogicalRelation =>
-        // First, check whether LogicalRelation is a Delta table
-        // We use reflection so that we do not need to depend on the Delta package in our JAR
-        try {
-          val obj = ReflectionUtils.getScalaObjectByName("org.apache.spark.sql.delta.DeltaTable")
-          val deltaFileIndexOpt = ReflectionUtils.callMethod(obj, "unapply", Seq(lr)).asInstanceOf[Option[Any]]
-          deltaFileIndexOpt.map(fileIndex => {
-            val path = ReflectionUtils.getField(fileIndex, "path").toString
-            val versionOpt = Option(ReflectionUtils.getField(fileIndex, "tableVersion")).map(_.toString)
-            SparkTableInfo(path, versionOpt, Option("delta"))
-          })
-        } catch {
-          case _: ScalaReflectionException =>
-            None
-          case NonFatal(e) =>
-            logger.error(s"Unexpected exception when attempting to extract Delta table info from" +
-              s"Spark SQL query plan. Please report this error, along with the " +
-              s"following stacktrace, on https://github.com/mlflow/mlflow/issues:\n" +
-              s"${ExceptionUtils.serializeException(e)}")
-            None
-        }
-      case other => None
+      case relation: DataSourceV2Relation =>
+        getSparkTableInfoFromTable(relation.table)
+      case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
+        val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
+        Option(SparkTableInfo(path, None, None))
+      case other =>
+        None
     }
   }
 }

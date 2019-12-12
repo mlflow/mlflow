@@ -56,7 +56,7 @@ class SparkDataSourceListener extends SparkListener {
           // Spark versions. As of the time of writing, Spark seems to also catch these exceptions,
           // but we defensively catch here to be safe & give the user a better error message.
           case NonFatal(exc) =>
-            logger.error(s"Unexpected exception when attempting to " +
+            logger.error(s"Unexpected exception when attempting to handle " +
               s"SparkListenerSQLExecutionEnd event. Please report this error, along with the " +
               s"following stacktrace, on https://github.com/mlflow/mlflow/issues:\n" +
               s"${ExceptionUtils.serializeException(exc)}")
