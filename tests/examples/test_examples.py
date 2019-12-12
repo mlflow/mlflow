@@ -29,6 +29,8 @@ def test_mlflow_run_example(tracking_uri_mock, directory, params):
 @pytest.mark.large
 @pytest.mark.parametrize("directory, command", [
     ('quickstart', ['python', 'mlflow_tracking.py']),
+    ('xgboost', ['python', 'train.py']),
+    ('lightgbm', ['python', 'train.py']),
 ])
 def test_command_example(tmpdir, directory, command):
     os.environ['MLFLOW_TRACKING_URI'] = path_to_local_file_uri(str(tmpdir.join("mlruns")))
