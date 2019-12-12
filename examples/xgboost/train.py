@@ -15,7 +15,7 @@ def parse_args():
                         help='subsample ratio of columns when constructing each tree (default: 1.0)')
     parser.add_argument('--subsample', type=float, default=1.0,
                         help='subsample ratio of the training instances (default: 1.0)')
-    parser.add_argument('--conda-env', type=str, default=None,
+    parser.add_argument('--conda-env', type=lambda x: None if x == '' else x, default=None,
                         help='the path to a conda environment yaml file (default: None)')
     return parser.parse_args()
 
