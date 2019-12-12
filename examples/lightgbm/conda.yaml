@@ -6,4 +6,4 @@ dependencies:
   - python=3.6
   - lightgbm
   - pip:
-      - mlflow>=1.5.0
+      - git+https://github.com/mlflow/mlflow
