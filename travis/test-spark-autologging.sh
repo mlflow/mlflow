@@ -16,10 +16,10 @@ popd
 TEMPDIR=$(mktemp -d)
 pushd $TEMPDIR
 wget -qO- http://mirror.cogentco.com/pub/apache/spark/spark-3.0.0-preview/spark-3.0.0-preview-bin-hadoop2.7.tgz | tar xvz -
-pip install -e python
+pip install -e spark-3.0.0-preview-bin-hadoop2.7/python
 popd
 
-SPARK_HOME=$TEMPDIR pytest tests/spark_autologging/test_spark_datasource_autologging.py
+SPARK_HOME=$TEMPDIR/spark-3.0.0-preview-bin-hadoop2.7 pytest tests/spark_autologging/test_spark_datasource_autologging.py
 rm -rf $TEMPDIR
 
 # Reinstall old dependencies
