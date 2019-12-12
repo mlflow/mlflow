@@ -20,8 +20,8 @@ EXAMPLES_DIR = 'examples'
     (os.path.join("sklearn_elasticnet_diabetes", "linux"), []),
     ('h2o', []),
     ('prophet', []),
-    ('xgboost', []),
-    ('lightgbm', []),
+    ('xgboost', ['-P', 'conda-env=examples/xgboost/conda.yaml']),
+    ('lightgbm', ['-P', 'conda-env=examples/lightgbm/conda.yaml']),
 ])
 def test_mlflow_run_example(tracking_uri_mock, directory, params):
     cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params
