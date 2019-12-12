@@ -1,3 +1,4 @@
+import mock
 import os
 import shutil
 import tempfile
@@ -11,6 +12,8 @@ import mlflow
 import mlflow.spark
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
+
 def _get_mlflow_spark_jar_path():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     pardir = os.path.pardir
@@ -20,19 +23,24 @@ def _get_mlflow_spark_jar_path():
     res = os.path.abspath(os.path.join(jar_dir, jar_filenames[0]))
     return res
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def spark_session():
     jar_path = _get_mlflow_spark_jar_path()
     session = SparkSession.builder \
         .config("spark.jars", jar_path)\
         .master("local[*]") \
         .getOrCreate()
-    #.config("spark.jars", "/Users/sid.murching/code/mlflow/mlflow/java/client/target/mlflow-client-1.4.1-SNAPSHOT.jar") \
     yield session
     session.stop()
 
+@pytest.fixture()
+def http_tracking_uri_mock():
+    mlflow.set_tracking_uri("http://some-cool-uri")
+    yield
+    mlflow.set_tracking_uri(None)
 
-@pytest.fixture(scope="session", autouse=True)
+
+@pytest.fixture(scope="module", autouse=True)
 def format_to_file_path(spark_session):
     rows = [
         Row(8, "bat"),
@@ -56,7 +64,15 @@ def format_to_file_path(spark_session):
     shutil.rmtree(tempdir)
 
 
-def test_autologging_of_datasources_with_different_formats(spark_session, format_to_file_path):
+def _get_expected_table_info_row(path, format, version=None):
+    expected_path = "file:%s" % path
+    if version is None:
+        return "path={path},format={format}".format(path=expected_path, format=format)
+    return "path={path},version={version},format={format}".format(
+        path=expected_path, version=version, format=format)
+
+
+def test_autologging_of_datasources_with_different_formats(spark_session, tracking_uri_mock, format_to_file_path):
     mlflow.spark.autolog()
     for format, file_path in format_to_file_path.items():
         base_df = spark_session.read.format(format).option("header", "true").\
@@ -76,13 +92,86 @@ def test_autologging_of_datasources_with_different_formats(spark_session, format
             run = mlflow.get_run(run_id)
             assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
             table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
-            assert file_path in table_info_tag
-            assert format in table_info_tag
+            assert table_info_tag == _get_expected_table_info_row(file_path, format)
 
 
-def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_file_path):
-    pass
+def test_autologging_does_not_throw_on_api_failures(
+        spark_session, format_to_file_path, http_tracking_uri_mock): # pylint: disable=unused-import
+    mlflow.spark.autolog()
+    def failing_req_mock(*args, **kwargs):
+        raise Exception("API request failed!")
+
+    with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
+        mlflow.set_tracking_uri("http://some-cool-url")
+        http_request_mock.side_effect = failing_req_mock
+        format = list(format_to_file_path.keys())[0]
+        file_path = format_to_file_path[format]
+        df = spark_session.read.format(format).option("header", "true"). \
+            option("inferSchema", "true").load(file_path)
+        df.collect()
+        df.filter("number > 0").collect()
+        df.limit(2).collect()
+        df.collect()
+        time.sleep(1)
 
 
-# if __name__ == "__main__":
-#     pytest.main()
+def test_autologging_dedups_multiple_reads_of_same_datasource(
+        spark_session, format_to_file_path, tracking_uri_mock):
+    mlflow.spark.autolog()
+    format = list(format_to_file_path.keys())[0]
+    file_path = format_to_file_path[format]
+    df = spark_session.read.format(format).option("header", "true"). \
+        option("inferSchema", "true").load(file_path)
+    with mlflow.start_run():
+        run_id = mlflow.active_run().info.run_id
+        df.collect()
+        df.filter("number > 0").collect()
+        df.limit(2).collect()
+        df.collect()
+    time.sleep(1)
+    run = mlflow.get_run(run_id)
+    assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
+    table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
+    assert table_info_tag == _get_expected_table_info_row(path=file_path, format=format)
+
+
+def test_autologging_multiple_reads_same_run(spark_session, tracking_uri_mock, format_to_file_path):
+    mlflow.spark.autolog()
+    with mlflow.start_run():
+        for format, file_path in format_to_file_path.items():
+            run_id = mlflow.active_run().info.run_id
+            df = spark_session.read.format(format).option("header", "true"). \
+                option("inferSchema", "true").load(file_path)
+            df.collect()
+            time.sleep(1)
+        run = mlflow.get_run(run_id)
+        assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
+        table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
+        assert table_info_tag == "\n".join([
+            _get_expected_table_info_row(path, format)
+            for format, path in format_to_file_path.items()
+        ])
+
+
+def test_autologging_starts_run_if_none_active(spark_session, format_to_file_path, tracking_uri_mock):
+    try:
+        mlflow.spark.autolog()
+        format = list(format_to_file_path.keys())[0]
+        file_path = format_to_file_path[format]
+        df = spark_session.read.format(format).option("header", "true"). \
+            option("inferSchema", "true").load(file_path)
+        df.collect()
+        time.sleep(1)
+        print("@SID mlflow.active_run(): %s" % mlflow.active_run())
+        run_id = mlflow.active_run().info.run_id
+        run = mlflow.get_run(run_id)
+        assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
+        table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
+        assert table_info_tag == _get_expected_table_info_row(path=file_path, format=format)
+    finally:
+        mlflow.end_run()
+
+
+def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(spark_session, tracking_uri_mock):
+    spark_session.stop()
+    mlflow.spark.autolog()

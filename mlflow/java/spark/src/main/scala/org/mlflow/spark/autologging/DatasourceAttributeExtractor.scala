@@ -2,8 +2,13 @@ package org.mlflow.spark.autologging
 
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.datasources.v2.{DataSourceV2Relation, FileTable}
-import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
+import org.apache.spark.sql.execution.datasources.{FileFormat, HadoopFsRelation, LogicalRelation}
 import org.apache.spark.sql.connector.catalog.Table
+import org.apache.spark.sql.execution.datasources.csv.CSVFileFormat
+import org.apache.spark.sql.execution.datasources.json.JsonFileFormat
+import org.apache.spark.sql.execution.datasources.orc.OrcFileFormat
+import org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat
+import org.apache.spark.sql.execution.datasources.text.TextFileFormat
 import org.slf4j.LoggerFactory
 
 import scala.util.control.NonFatal
@@ -41,10 +46,22 @@ private[autologging] object DatasourceAttributeExtractor {
   def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
     leafNode match {
       case relation: DataSourceV2Relation =>
+        println("@SID got DataSourceV2Relation")
         getSparkTableInfoFromTable(relation.table)
-      case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
-        val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
-        Option(SparkTableInfo(path, None, None))
+      case LogicalRelation(HadoopFsRelation(index, _, _, _, fileFormat, _), _, _, _) =>
+        fileFormat match {
+          case _: CSVFileFormat =>
+            println("@SID got CSVFileFormat")
+            None
+          case _: ParquetFileFormat => None
+          case _: JsonFileFormat => None
+          case _: OrcFileFormat => None
+          case _: TextFileFormat => None
+          case other: FileFormat =>
+            val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
+            println(s"@SID Got fileformat ${other.getClass.getName} for path ${path}")
+            Option(SparkTableInfo(path, None, None))
+        }
       case other =>
         None
     }

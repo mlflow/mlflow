@@ -12,6 +12,7 @@ import time
 import logging
 import numpy as np
 import pandas as pd
+import threading
 
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -34,7 +35,7 @@ SEARCH_MAX_RESULTS_PANDAS = 100000
 NUM_RUNS_PER_PAGE_PANDAS = 10000
 
 _logger = logging.getLogger(__name__)
-
+_lock = threading.Lock()
 
 def set_experiment(experiment_name):
     """
@@ -72,7 +73,6 @@ class ActiveRun(Run):  # pylint: disable=W0223
         end_run(RunStatus.to_string(status))
         return exc_type is None
 
-
 def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
@@ -102,6 +102,11 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
     """
+    with _lock:
+        return _start_run(run_id=run_id, experiment_id=experiment_id, run_name=run_name, nested=nested)
+
+
+def _start_run(run_id, experiment_id, run_name, nested):
     global _active_run_stack
     # back compat for int experiment_id
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
@@ -490,9 +495,10 @@ def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_result
 
 
 def _get_or_start_run():
-    if len(_active_run_stack) > 0:
-        return _active_run_stack[-1]
-    return start_run()
+    with _lock:
+        if len(_active_run_stack) > 0:
+            return _active_run_stack[-1]
+        return start_run()
 
 
 def _get_experiment_id_from_env():

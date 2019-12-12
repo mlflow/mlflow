@@ -5,6 +5,7 @@ import math
 import posixpath
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
+import threading
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
@@ -28,6 +29,7 @@ from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_
 
 
 _logger = logging.getLogger(__name__)
+_lock = threading.Lock()
 
 # For each database table, fetch its columns and define an appropriate attribute for each column
 # on the table's associated object representation (Mapper). This is necessary to ensure that
@@ -75,37 +77,38 @@ class SqlAlchemyStore(AbstractStore):
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
-        super(SqlAlchemyStore, self).__init__()
-        self.db_uri = db_uri
-        self.db_type = extract_db_type_from_uri(db_uri)
-        self.artifact_root_uri = default_artifact_root
-        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine(db_uri)
-        # On a completely fresh MLflow installation against an empty database (verify database
-        # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
-        # DB migrations
-        expected_tables = [
-            SqlExperiment.__tablename__,
-            SqlRun.__tablename__,
-            SqlMetric.__tablename__,
-            SqlParam.__tablename__,
-            SqlTag.__tablename__,
-            SqlExperimentTag.__tablename__,
-            SqlLatestMetric.__tablename__,
-        ]
-        inspected_tables = set(sqlalchemy.inspect(self.engine).get_table_names())
-        if any([table not in inspected_tables for table in expected_tables]):
-            mlflow.store.db.utils._initialize_tables(self.engine)
-        Base.metadata.bind = self.engine
-        SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(SessionMaker)
-        mlflow.store.db.utils._verify_schema(self.engine)
+        with _lock:
+            super(SqlAlchemyStore, self).__init__()
+            self.db_uri = db_uri
+            self.db_type = extract_db_type_from_uri(db_uri)
+            self.artifact_root_uri = default_artifact_root
+            self.engine = mlflow.store.db.utils.create_sqlalchemy_engine(db_uri)
+            # On a completely fresh MLflow installation against an empty database (verify database
+            # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
+            # DB migrations
+            expected_tables = [
+                SqlExperiment.__tablename__,
+                SqlRun.__tablename__,
+                SqlMetric.__tablename__,
+                SqlParam.__tablename__,
+                SqlTag.__tablename__,
+                SqlExperimentTag.__tablename__,
+                SqlLatestMetric.__tablename__,
+            ]
+            inspected_tables = set(sqlalchemy.inspect(self.engine).get_table_names())
+            if any([table not in inspected_tables for table in expected_tables]):
+                mlflow.store.db.utils._initialize_tables(self.engine)
+            Base.metadata.bind = self.engine
+            SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
+            self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(SessionMaker)
+            mlflow.store.db.utils._verify_schema(self.engine)
 
-        if is_local_uri(default_artifact_root):
-            mkdir(local_file_uri_to_path(default_artifact_root))
+            if is_local_uri(default_artifact_root):
+                mkdir(local_file_uri_to_path(default_artifact_root))
 
-        if len(self.list_experiments()) == 0:
-            with self.ManagedSessionMaker() as session:
-                self._create_default_experiment(session)
+            if len(self.list_experiments()) == 0:
+                with self.ManagedSessionMaker() as session:
+                    self._create_default_experiment(session)
 
     def _set_zero_value_insertion_for_autoincrement_column(self, session):
         if self.db_type == MYSQL:

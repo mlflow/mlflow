@@ -3,7 +3,6 @@ import os
 import warnings
 
 import mlflow
-from mlflow.utils import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.tracking.client import MlflowClient
 
@@ -70,32 +69,6 @@ def _autolog():
         _SPARK_TABLE_INFO_LISTENER.register()
 
 
-@experimental
-def autolog():
-    """
-    Enables automatic logging of Spark datasource paths, versions (if applicable), and formats
-    when they are read. This method is not threadsafe and assumes a SparkSession already exists.
-    It should be called on the Spark driver, not on the executors (i.e. do not call this method
-    within a function parallelized by Spark).
-
-    Datasource information is logged under the current active MLflow run, creating an active run
-    if none exists. Note that autologging of Spark ML (MLlib) models is not currently supported
-    via this API.
-
-    Datasource-autologging is best-effort, meaning that if Spark is under heavy load or MLflow
-    logging fails for any reason (e.g. if the MLflow server is unavailable), logging may be
-    dropped.
-
-    For any unexpected issues with autologging, check Spark driver and executor logs in addition
-    to stderr & stdout generated from your MLflow code - datasource information is pulled from
-    Spark, so logs relevant to debugging may show up amongst the Spark logs.
-    """
-    try:
-        _autolog()
-    except Exception as e:
-        warnings.warn("Could not enable Spark datasource autologging, got error:\n%s" % e)
-
-
 class PythonSubscriber(object):
     """
     Subscriber, intended to be instantiated once per Python process, that logs Spark table
@@ -115,42 +88,38 @@ class PythonSubscriber(object):
         return None
 
     def _get_table_info_string(self, path, version, format):
+        print("@SID got path %s, version %s, format %s" % (path, version, format))
         if format == "delta":
             return "path={path},version={version},format={format}".format(
                 path=path, version=version, format=format)
         return "path={path},format={format}".format(path=path, format=format)
 
+    def _merge_tag_lines(self, existing_tag, new_table_info):
+        if existing_tag is None:
+            return new_table_info
+        if new_table_info in existing_tag:
+            return existing_tag
+        return "\n".join([existing_tag, new_table_info])
+
     def notify(self, path, version, format):
         """
-        This method is required by Scala Listener interface
-        we defined above.
+        Method called by Scala SparkListener to propagate datasource read events to the current
+        Python process
         """
+        print("yo notifying my dude")
+        # TODO: what happens if there's a race in this method?
         # If there's an active run, simply set the tag on it
         client = MlflowClient()
-        active_run = mlflow.active_run()
-        active_run_id = active_run.info.run_id if active_run is not None else os.environ.get("MLFLOW_RUN_ID")
+        active_run = mlflow.tracking.fluent._get_or_start_run()
+        active_run_id = active_run.info.run_id
         table_info_string = self._get_table_info_string(path, version, format)
-        if active_run_id is not None:
-            existing_run = client.get_run(active_run_id)
-            existing_tag = existing_run.data.tags.get(_SPARK_TABLE_INFO_TAG_NAME)
-            new_table_info = []
-            if existing_tag is not None:
-                # If we already logged the current table info, exit early
-                if table_info_string in existing_tag:
-                    return
-                new_table_info.append(existing_tag)
-            new_table_info.append(table_info_string)
-            client.set_tag(active_run_id, _SPARK_TABLE_INFO_TAG_NAME, "\n".join(new_table_info))
-        # Otherwise, create a run & log to it, setting the MLFLOW_RUN_ID env variable
-        else:
-            mlflow.start_run()
-            # TODO: make this legit via try_mlflow_log
-            try:
-                mlflow.set_tag(_SPARK_TABLE_INFO_TAG_NAME, table_info_string)
-                active_run_id = mlflow.active_run().info.run_id
-            finally:
-                mlflow.end_run("RUNNING")
-            os.environ["MLFLOW_RUN_ID"] = active_run_id
+        existing_run = client.get_run(active_run_id)
+        existing_tag = existing_run.data.tags.get(_SPARK_TABLE_INFO_TAG_NAME)
+        new_table_info = self._merge_tag_lines(existing_tag, table_info_string)
+        client.set_tag(active_run_id, _SPARK_TABLE_INFO_TAG_NAME, new_table_info)
+        # active_run_id = mlflow.active_run().info.run_id
+        # mlflow.end_run("RUNNING")
+        # os.environ["MLFLOW_RUN_ID"] = active_run_id
 
     def register(self):
         event_publisher = _get_jvm_event_publisher()

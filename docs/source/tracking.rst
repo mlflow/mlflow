@@ -267,6 +267,25 @@ Autologging captures the following information:
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
 
+Automatic Logging from Spark (experimental)
+==================================================================
+Initialize a SparkSession with the mlflow-spark JAR attached (e.g.
+``SparkSession.builder.config("spark.jars.packages", "org.mlflow.mlflow-spark")``) and then
+call :py:func:`mlflow.spark.autolog` to enable automatic logging of Spark datasource
+information at read-time, without the need for explicit
+log statements. Note that autologging of Spark ML (MLlib) models is not yet supported.
+
+Autologging captures the following information:
+
++------------------+---------+------------+----------------------------------------------------+-----------+
+| Framework        | Metrics | Parameters |  Tags                                              | Artifacts |
++------------------+---------+------------+----------------------------------------------------+-----------+
+| Spark            | --      | --         | Single tag containing source path, version, format | --        |
++------------------+---------+------------+----------------------------------------------------+-----------+
+
+**Note**: this feature is experimental - the API and format of the logged data are subject to change.
+
+
 .. _organizing_runs_in_experiments:
 
 Organizing Runs in Experiments
