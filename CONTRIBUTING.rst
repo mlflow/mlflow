@@ -188,7 +188,23 @@ described in `Writing Docs`_ and commit the docs to your PR branch.
 
 Writing Python Tests
 --------------------
+If your PR includes code that isn't currently covered by our tests (e.g. adding a new flavor, adding
+autolog support to a flavor, etc.), you should write tests that cover your new code. MLflow currently
+uses ``pytest==3.2.1`` for testing. Your tests should be added to the relevant file under ``tests``, or
+if there is no appropriate file, in a new file prefixed with ``test_`` so that ``pytest`` includes that
+file for testing.
 
+If you are adding new framework flavor support, you'll need to modify ``pytest`` and Travis configurations
+so tests for your code can run properly. Generally, the files you'll have to edit are:
+1. ``.travis.yml``: exclude your tests in the Windows bash script
+2. ``travis/run-small-python-tests.sh``: add your tests to the list of ignored framework tests
+3. ``travis/run-large-python-tests.sh``:
+  a. Add your tests to the ignore list, where the other frameworks are ignored
+  b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid
+  OOM issues)
+4. ``travis/large-requirements.txt``: add your framework and version to the list of requirements
+
+You can see an example flavor PR `here <https://github.com/mlflow/mlflow/pull/2136/files>`_.
 
 
 Building Protobuf Files
