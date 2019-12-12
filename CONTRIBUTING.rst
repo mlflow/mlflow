@@ -194,14 +194,20 @@ uses ``pytest==3.2.1`` for testing. Your tests should be added to the relevant f
 if there is no appropriate file, in a new file prefixed with ``test_`` so that ``pytest`` includes that
 file for testing.
 
-If you are adding new framework flavor support, you'll need to modify ``pytest`` and Travis configurations
-so tests for your code can run properly. Generally, the files you'll have to edit are:
+If your tests require usage of a tracking URI, you can use the
+`pytest fixture <https://docs.pytest.org/en/3.2.1/fixture.html>`_
+`tracking_uri_mock <https://github.com/mlflow/mlflow/blob/master/tests/projects/utils.py#L74>`_
+to set up a mock tracking URI that will set itself up before your test runs and tear itself down after.
+
+If you are adding new framework flavor support, you'll need to modify ``pytest`` and Travis configurations so tests for your code can run properly. Generally, the files you'll have to edit are:
+
 1. ``.travis.yml``: exclude your tests in the Windows bash script
 2. ``travis/run-small-python-tests.sh``: add your tests to the list of ignored framework tests
 3. ``travis/run-large-python-tests.sh``:
+
   a. Add your tests to the ignore list, where the other frameworks are ignored
-  b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid
-  OOM issues)
+  b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid OOM issues)
+
 4. ``travis/large-requirements.txt``: add your framework and version to the list of requirements
 
 You can see an example flavor PR `here <https://github.com/mlflow/mlflow/pull/2136/files>`_.
