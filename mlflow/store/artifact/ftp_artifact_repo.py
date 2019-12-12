@@ -105,7 +105,7 @@ class FTPArtifactRepository(ArtifactRepository):
                 return []
             artifact_files = ftp.nlst(list_dir)
             infos = []
-            for file_name in artifact_files:
+            for file_name in artifact_files[2:]:
                 file_path = (file_name if path is None
                              else posixpath.join(path, file_name))
                 full_file_path = posixpath.join(list_dir, file_name)
