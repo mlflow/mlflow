@@ -25,7 +25,7 @@ You install MLflow by running:
     Python 3 through the `Homebrew <https://brew.sh/>`_ package manager using
     ``brew install python``. (In this case, installing MLflow is now ``pip3 install mlflow``).
 
-At this point we recommend you follow the :doc:`tutorial` for a walk-through on how you
+At this point we recommend you follow the :doc:`tutorial<tutorials-and-examples/tutorial>` for a walk-through on how you
 can leverage MLflow in your daily workflow.
 
 
