@@ -206,6 +206,8 @@ def log_param(key, value):
     """
     Log a parameter under the current run, creating a run if necessary.
 
+    **Note:** If no run is active, it will instantiate a new run.
+
     :param key: Parameter name (string)
     :param value: Parameter value (string, but will be string-ified if not)
     """
@@ -216,6 +218,8 @@ def log_param(key, value):
 def set_tag(key, value):
     """
     Set a tag under the current run, creating a run if necessary.
+
+    **Note:** If no run is active, it will instantiate a new run.
 
     :param key: Tag name (string)
     :param value: Tag value (string, but will be string-ified if not)
@@ -228,6 +232,8 @@ def delete_tag(key):
     """
     Delete a tag from a run. This is irreversible.
 
+    **Note:** If no run is active, it will instantiate a new run.
+
     :param key: Name of the tag
     """
     run_id = _get_or_start_run().info.run_id
@@ -237,6 +243,8 @@ def delete_tag(key):
 def log_metric(key, value, step=None):
     """
     Log a metric under the current run, creating a run if necessary.
+
+    **Note:** If no run is active, it will instantiate a new run.
 
     :param key: Metric name (string).
     :param value: Metric value (float). Note that some special values such as +/- Infinity may be
@@ -251,6 +259,8 @@ def log_metric(key, value, step=None):
 def log_metrics(metrics, step=None):
     """
     Log multiple metrics for the current run, starting a run if no runs are active.
+
+    **Note:** If no run is active, it will instantiate a new run.
 
     :param metrics: Dictionary of metric_name: String -> value: Float. Note that some special values
                     such as +/- Infinity may be replaced by other values depending on the store.
@@ -270,6 +280,8 @@ def log_params(params):
     """
     Log a batch of params for the current run, starting a run if no runs are active.
 
+    **Note:** If no run is active, it will instantiate a new run.
+
     :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
                    not)
     :returns: None
@@ -282,6 +294,8 @@ def log_params(params):
 def set_tags(tags):
     """
     Log a batch of tags for the current run, starting a run if no runs are active.
+
+    **Note:** If no run is active, it will instantiate a new run.
 
     :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
                  not)
@@ -296,6 +310,8 @@ def log_artifact(local_path, artifact_path=None):
     """
     Log a local file or directory as an artifact of the currently active run.
 
+    **Note:** If no run is active, it will instantiate a new run.
+
     :param local_path: Path to the file to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
     """
@@ -306,6 +322,8 @@ def log_artifact(local_path, artifact_path=None):
 def log_artifacts(local_dir, artifact_path=None):
     """
     Log all the contents of a local directory as artifacts of the run.
+
+    **Note:** If no run is active, it will instantiate a new run.
 
     :param local_dir: Path to the directory of files to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
@@ -370,6 +388,8 @@ def get_artifact_uri(artifact_path=None):
     If `path` is not specified, the artifact root URI of the currently active
     run will be returned; calls to ``log_artifact`` and ``log_artifacts`` write
     artifact(s) to subdirectories of the artifact root URI.
+    
+    **Note:** If no run is active, it will instantiate a new run.
 
     :param artifact_path: The run-relative artifact path for which to obtain an absolute URI.
                           For example, "path/to/artifact". If unspecified, the artifact root URI
