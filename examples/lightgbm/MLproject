@@ -3,7 +3,7 @@ conda_env: conda.yaml
 entry_points:
   main:
     parameters:
-      conda-env: {type: path, default: conda.yaml}
+      conda-env: {type: path, default: ''}
       colsample-bytree: {type: float, default: 1.0}
       subsample: {type: float, default: 1.0}
     command: |
