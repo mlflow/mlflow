@@ -62,9 +62,7 @@ class Model(object):
     @classmethod
     def log(cls, artifact_path, flavor, registered_model_name=None, **kwargs):
         """
-        Log model using supplied flavor module.
-
-        Note: If no run is active, this method will create a new active run.
+        Log model using supplied flavor module. If no run is active, this method will create a new active run.
 
         :param artifact_path: Run relative path identifying the model.
         :param flavor: Flavor module to save the model with. The module must have
