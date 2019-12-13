@@ -1,6 +1,7 @@
 import logging
 import os
 import warnings
+import threading
 
 import mlflow
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
@@ -41,6 +42,16 @@ def _get_jvm_event_publisher():
 
 def _autolog():
     """Implementation of Spark datasource autologging"""
+    # def _print_thread_count():
+    #     import time, threading
+    #     while True:
+    #         time.sleep(1)
+    #         print(threading.active_count())
+    #
+    # import threading
+    # t = threading.Thread(target=_print_thread_count)
+    # t.run()
+
     from pyspark import SparkContext
     from py4j.java_gateway import CallbackServerParameters
 
@@ -67,6 +78,13 @@ def _autolog():
         event_publisher.init(1)
         _SPARK_TABLE_INFO_LISTENER = PythonSubscriber()
         _SPARK_TABLE_INFO_LISTENER.register()
+        # Create a run if none is active
+        if mlflow.active_run() is None:
+            # MLFLOW_RUN_ID = abc
+            mlflow.start_run() # resume "abc"
+            run_id = mlflow.active_run().info.run_id
+            mlflow.end_run("RUNNING")
+            os.environ["MLFLOW_RUN_ID"] = run_id # = "abc"
 
 
 class PythonSubscriber(object):
@@ -88,7 +106,6 @@ class PythonSubscriber(object):
         return None
 
     def _get_table_info_string(self, path, version, format):
-        print("@SID got path %s, version %s, format %s" % (path, version, format))
         if format == "delta":
             return "path={path},version={version},format={format}".format(
                 path=path, version=version, format=format)
@@ -106,7 +123,8 @@ class PythonSubscriber(object):
         Method called by Scala SparkListener to propagate datasource read events to the current
         Python process
         """
-        print("yo notifying my dude")
+        import datetime
+        print("Notified in Python at %s with %s, %s, %s, active run %s, tid %s" % (datetime.datetime.now(), path, version, format, mlflow.active_run(), threading.get_ident()))
         # TODO: what happens if there's a race in this method?
         # If there's an active run, simply set the tag on it
         client = MlflowClient()

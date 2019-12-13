@@ -1,6 +1,9 @@
 package org.mlflow.spark.autologging
 
+import java.util.Date
 import java.util.concurrent._
+import java.text.SimpleDateFormat
+
 
 import org.apache.spark.sql.SparkSession
 import org.slf4j.LoggerFactory
@@ -116,6 +119,8 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
         for ((uuid, listener) <- subscribers) {
           try {
             if (replIdOpt.isEmpty || listener.replId == replIdOpt.get) {
+              val sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(new Date())
+              println(s"Notifying Python subscriber at ${sdf}")
               listener.notify(path, version.getOrElse("unknown"), format.getOrElse("unknown"))
             }
           } catch {

@@ -31,6 +31,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
 
+import datetime
 FLAVOR_NAME = "keras"
 # File name to which custom objects cloudpickle is saved - used during save and load
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
@@ -424,6 +425,8 @@ def autolog():
     @gorilla.patch(keras.Model)
     def fit(self, *args, **kwargs):
         if not mlflow.active_run():
+            assert "MLFLOW_RUN_ID" in os.environ
+            print("Starting new run from keras autolog at %s" % datetime.datetime.now())
             try_mlflow_log(mlflow.start_run)
             auto_end_run = True
         else:

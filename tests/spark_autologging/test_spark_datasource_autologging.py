@@ -13,6 +13,17 @@ import mlflow.spark
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
+from tests.tracking.test_rest_tracking import mlflow_client, tracking_server_uri, server_urls, BACKEND_URIS # pylint: disable=unused-import
+
+
+def pytest_generate_tests(metafunc):
+    """
+    Automatically parametrize each each fixture/test that depends on `backend_store_uri` with the
+    list of backend store URIs.
+    """
+    if 'backend_store_uri' in metafunc.fixturenames:
+        metafunc.parametrize('backend_store_uri', BACKEND_URIS)
+
 
 def _get_mlflow_spark_jar_path():
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -55,7 +66,7 @@ def format_to_file_path(spark_session):
     df = spark_session.createDataFrame(rdd, schema)
     format_to_file_path = {}
     tempdir = tempfile.mkdtemp()
-    for format in ["csv"]:#, "parquet", "json"]:
+    for format in ["csv",  "parquet", "json"]:
         format_to_file_path[format] = os.path.join(tempdir, "test-data-%s" % format)
 
     for format, file_path in format_to_file_path.items():
@@ -162,8 +173,9 @@ def test_autologging_starts_run_if_none_active(spark_session, format_to_file_pat
             option("inferSchema", "true").load(file_path)
         df.collect()
         time.sleep(1)
-        print("@SID mlflow.active_run(): %s" % mlflow.active_run())
-        run_id = mlflow.active_run().info.run_id
+        active_run = mlflow.active_run()
+        assert active_run is not None
+        run_id = active_run.info.run_idclaer
         run = mlflow.get_run(run_id)
         assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
         table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
@@ -172,6 +184,42 @@ def test_autologging_starts_run_if_none_active(spark_session, format_to_file_pat
         mlflow.end_run()
 
 
-def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(spark_session, tracking_uri_mock):
+def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(
+        spark_session, tracking_uri_mock):
     spark_session.stop()
     mlflow.spark.autolog()
+
+
+def test_autologging_slow_api_requests(spark_session, format_to_file_path, mlflow_client):
+    import mlflow.utils.rest_utils
+    orig = mlflow.utils.rest_utils.http_request
+    def _slow_api_req_mock(*args, **kwargs):
+        if kwargs.get("method") == "POST":
+            print("Sleeping, %s, %s" % (args, kwargs))
+            time.sleep(2)
+        return orig(*args, **kwargs)
+
+    mlflow.spark.autolog()
+    with mlflow.start_run():
+        # Mock slow API requests to log spark datasource information
+        with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
+            http_request_mock.side_effect = _slow_api_req_mock
+            run_id = mlflow.active_run().info.run_id
+            for format, file_path in format_to_file_path.items():
+                df = spark_session.read.format(format).option("header", "true"). \
+                    option("inferSchema", "true").load(file_path)
+                df.collect()
+            time.sleep(1)
+        # Exit mock block so that end_run() is not slow
+
+    # Python subscriber threads should pick up the active run at the time they're notified
+    # & make API requests against that run, even if those requests are slow.
+    time.sleep(10)
+    run = mlflow.get_run(run_id)
+    assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
+    table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
+    assert table_info_tag == "\n".join([
+        _get_expected_table_info_row(path, format)
+        for format, path in format_to_file_path.items()
+    ])
+

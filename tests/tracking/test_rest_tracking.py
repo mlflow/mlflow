@@ -44,7 +44,7 @@ def _get_sqlite_uri():
 
 # Backend store URIs to test against
 BACKEND_URIS = [
-    _get_sqlite_uri(),  # SqlAlchemy
+    # _get_sqlite_uri(),  # SqlAlchemy
     path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "file_store_root")),  # FileStore
 ]
 
@@ -89,7 +89,9 @@ def tracking_server_uri(backend_store_uri):
 @pytest.fixture()
 def mlflow_client(tracking_server_uri):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
-    return mock.Mock(wraps=MlflowClient(tracking_server_uri))
+    mlflow.set_tracking_uri(tracking_server_uri)
+    yield mock.Mock(wraps=MlflowClient(tracking_server_uri))
+    mlflow.set_tracking_uri(None)
 
 
 @pytest.fixture()

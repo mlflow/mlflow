@@ -46,13 +46,10 @@ private[autologging] object DatasourceAttributeExtractor {
   def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
     leafNode match {
       case relation: DataSourceV2Relation =>
-        println("@SID got DataSourceV2Relation")
         getSparkTableInfoFromTable(relation.table)
       case LogicalRelation(HadoopFsRelation(index, _, _, _, fileFormat, _), _, _, _) =>
         fileFormat match {
-          case _: CSVFileFormat =>
-            println("@SID got CSVFileFormat")
-            None
+          case _: CSVFileFormat => None
           case _: ParquetFileFormat => None
           case _: JsonFileFormat => None
           case _: OrcFileFormat => None
