@@ -199,6 +199,9 @@ If your tests require usage of a tracking URI, you can use the
 `tracking_uri_mock <https://github.com/mlflow/mlflow/blob/master/tests/projects/utils.py#L74>`_
 to set up a mock tracking URI that will set itself up before your test runs and tear itself down after.
 
+Adding New Model Flavor Support
+-------------------------------
+
 If you are adding new framework flavor support, you'll need to modify ``pytest`` and Travis configurations so tests for your code can run properly. Generally, the files you'll have to edit are:
 
 1. ``.travis.yml``: exclude your tests in the Windows bash script
