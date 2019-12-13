@@ -4,14 +4,11 @@ import mock
 import numpy
 import pytest
 
+from mlflow.exceptions import MlflowException, RestException
+from mlflow.protos.service_pb2 import GetRun
+from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.utils.rest_utils import http_request, http_request_safe, \
     MlflowHostCreds, _DEFAULT_HEADERS, call_endpoint
-from mlflow.pyfunc.scoring_server import NumpyEncoder
-from mlflow.exceptions import MlflowException, RestException
-from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
-    GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
-    UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
-    UpdateExperiment, LogBatch, DeleteTag, SetExperimentTag, GetExperimentByName
 
 
 def _create_mock_response(status_code, text):
