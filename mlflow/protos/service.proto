@@ -490,6 +490,38 @@ service MlflowService {
       rpc_doc_title: "Log Batch",
     };
   }
+
+  rpc vcsRegex (GetVcsRegex) returns (GetVcsRegex.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/private_vcs/regex"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "GET",
+        path: "/mlflow/private_vcs/regex"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Private VCS Regex",
+    };
+  }
+
+  rpc vcsUrl (GetVcsUrl) returns (GetVcsUrl.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/private_vcs/url"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "GET",
+        path: "/mlflow/private_vcs/url"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Private VCS Urls",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -1052,4 +1084,24 @@ message UpdateArtifactsLocation {
 
   message Response {
   }  
+}
+
+
+// Private VCS
+message GetVcsRegex {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  message Response {
+    optional string vcs_regex = 1;
+  }
+}
+
+message GetVcsUrl {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string type = 1;
+
+  message Response {
+    optional string vcs_url = 1;
+  }
 }

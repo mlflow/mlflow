@@ -8,6 +8,7 @@ import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import { message } from 'antd';
 
+
 class Utils {
   /**
    * Merge a runs parameters / metrics.
@@ -157,15 +158,10 @@ class Utils {
     return /[@/]bitbucket.org[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
 
-  static getGerritRegex() {
-    return /[@/]review.crto.in[:/](\d*)\/([\w\W]+)/;
-  }
-
   static getGitRepoUrl(sourceName) {
     const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
     const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
-    const gerritMatch = sourceName.match(Utils.getGerritRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? "https://github.com/" : "https://gitlab.com/";
@@ -180,8 +176,11 @@ class Utils {
       if (bitbucketMatch[3]) {
         url = url + "/src/master/" + bitbucketMatch[3];
       }
-    } else if (gerritMatch) {
-      url = "https://review.crto.in/gitweb?p=" + gerritMatch[2];
+    } else if (!url && Utils.getPrivateVcsConfig()) {
+      const privateVcsMatch = sourceName.match(window.privateVcsRegex);
+      if (privateVcsMatch) {
+        url = window.privateVcsRepo.replace("privateVcsMatch", privateVcsMatch[2]);
+      }
     }
     return url;
   }
@@ -190,7 +189,6 @@ class Utils {
     const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
     const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
-    const gerritMatch = sourceName.match(Utils.getGerritRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? "https://github.com/" : "https://gitlab.com/";
@@ -201,8 +199,12 @@ class Utils {
       const baseUrl = "https://bitbucket.org/";
       url = (baseUrl + bitbucketMatch[1] + "/" + bitbucketMatch[2].replace(/.git/, '') +
         "/src/" + sourceVersion) + "/" + bitbucketMatch[3];
-    } else if (gerritMatch) {
-      url = "https://review.crto.in/gitweb?p=" + gerritMatch[2] + ";a=commit;h=" + sourceVersion;
+    } else if (!url && Utils.getPrivateVcsConfig) {
+      const privateVcsMatch = sourceName.match(window.privateVcsRegex);
+      if (privateVcsMatch) {
+        url = window.privateVcsCommit.replace("privateVcsMatch", privateVcsMatch[2]);
+        url = url.replace("sourceVersion", sourceVersion);
+      }
     }
     return url;
   }
@@ -444,6 +446,56 @@ class Utils {
 
   static isModelRegistryEnabled() {
     return true;
+  }
+
+  /**
+   * Fetch private vcs regex
+   */
+  static getPrivateVcsRegex() {
+    const req = new XMLHttpRequest();
+    let ret = null;
+    req.open("GET", "/api/2.0/mlflow/private_vcs/regex", false);
+    req.send();
+    if (req.status === 200 && req.responseText) {
+      const jsonData = JSON.parse(req.responseText);
+      ret = jsonData['vcs_regex'];
+    }
+    if (ret) {
+      return new RegExp(ret);
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch repo or commit urls for private vcs
+   */
+  static getPrivateVcsUrl(url_type) {
+    const req = new XMLHttpRequest();
+    let ret = null;
+    req.open("GET", "/api/2.0/mlflow/private_vcs/url?type=" + url_type, false);
+    req.send();
+    if (req.status === 200 && req.responseText) {
+      const jsonData = JSON.parse(req.responseText);
+      ret = jsonData['vcs_url'];
+    }
+    return ret;
+  }
+
+  /**
+   * Fetch private VCS config singletons
+   */
+  static getPrivateVcsConfig() {
+    if (!window.privateVcsRegex) {
+      window.privateVcsRegex = Utils.getPrivateVcsRegex();
+    }
+    if (!window.privateVcsRepo) {
+      window.privateVcsRepo = Utils.getPrivateVcsUrl('repo');
+    }
+    if (!window.privateVcsCommit) {
+      window.privateVcsCommit = Utils.getPrivateVcsUrl('commit');
+    }
+    return window.privateVcsRegex && window.privateVcsRepo && window.privateVcsCommit;
   }
 }
 
