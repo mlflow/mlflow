@@ -51,37 +51,33 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home, no_java=False)
     if mlflow_home:
         mlflow_dir = _copy_project(
             src_path=mlflow_home, dst_path=dockerfile_context_dir)
-        java_commands = ("RUN cd /opt/mlflow/mlflow/java/scoring && "
-                         "mvn --batch-mode package -DskipTests && "
-                         "mkdir -p /opt/java/jars && "
-                         "mv /opt/mlflow/mlflow/java/scoring/target/"
-                         "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n")
-        if no_java:
-            java_commands = ""
+        java_setup = "" if no_java else ("RUN cd /opt/mlflow/mlflow/java/scoring && "
+                                         "mvn --batch-mode package -DskipTests && "
+                                         "mkdir -p /opt/java/jars && "
+                                         "mv /opt/mlflow/mlflow/java/scoring/target/"
+                                         "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n")
         return (
             "COPY {mlflow_dir} /opt/mlflow\n"
             "RUN pip install /opt/mlflow\n"
-            "{java_commands}"
-        ).format(mlflow_dir=mlflow_dir, java_commands=java_commands)
+            "{java_setup}"
+        ).format(mlflow_dir=mlflow_dir, java_setup=java_setup)
     else:
-        java_commands = ("RUN mvn "
-                         " --batch-mode dependency:copy"
-                         " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
-                         " -DoutputDirectory=/opt/java\n"
-                         "RUN mvn "
-                         " --batch-mode dependency:copy"
-                         " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
-                         " -DoutputDirectory=/opt/java/jars\n"
-                         "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
-                         "RUN cd /opt/java && mvn "
-                         "--batch-mode dependency:copy-dependencies"
-                         " -DoutputDirectory=/opt/java/jars\n")
-        if no_java:
-            java_commands = ""
+        java_setup = "" if no_java else ("RUN mvn "
+                                         " --batch-mode dependency:copy"
+                                         " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
+                                         " -DoutputDirectory=/opt/java\n"
+                                         "RUN mvn "
+                                         " --batch-mode dependency:copy"
+                                         " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
+                                         " -DoutputDirectory=/opt/java/jars\n"
+                                         "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
+                                         "RUN cd /opt/java && mvn "
+                                         "--batch-mode dependency:copy-dependencies"
+                                         " -DoutputDirectory=/opt/java/jars\n")
         return (
             "RUN pip install mlflow=={version}\n"
-            "{java_commands}"
-        ).format(version=mlflow.version.VERSION, java_commands=java_commands)
+            "{java_setup}"
+        ).format(version=mlflow.version.VERSION, java_setup=java_setup)
 
 
 def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_hook=None,
