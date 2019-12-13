@@ -9,13 +9,7 @@ from mlflow.protos.service_pb2 import GetRun
 from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.utils.rest_utils import http_request, http_request_safe, \
     MlflowHostCreds, _DEFAULT_HEADERS, call_endpoint
-
-
-def _create_mock_response(status_code, text):
-    response = mock.MagicMock()
-    response.status_code = status_code
-    response.text = text
-    return response
+from tests import helper_functions
 
 
 @mock.patch('requests.request')
@@ -33,9 +27,9 @@ def test_well_formed_json_error_response(request):
 
 @mock.patch('requests.request')
 @pytest.mark.parametrize("response", [
-    _create_mock_response(400, "Error message but not a JSON string"),  # response text is not json
-    _create_mock_response(400, ""),  # response text is empty
-    _create_mock_response(400, None)  # response text is None
+    helper_functions.create_mock_response(400, "Error message but not a JSON string"),
+    helper_functions.create_mock_response(400, ""),
+    helper_functions.create_mock_response(400, None)
 ])
 def test_malformed_json_error_response(request, response):
     host_only = MlflowHostCreds("http://my-host")
