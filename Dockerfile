@@ -5,7 +5,7 @@ WORKDIR /app
 ADD . /app
 
 RUN apt-get update && \
-# install prequired modules to support install of mlflow and its components
+# install prequired modules to support install of mlflow and related components
     apt-get install -y default-libmysqlclient-dev build-essential curl \
 # cmake and protobuf-compiler required for onnx install
     cmake protobuf-compiler &&  \
