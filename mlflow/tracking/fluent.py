@@ -388,7 +388,7 @@ def get_artifact_uri(artifact_path=None):
     If `path` is not specified, the artifact root URI of the currently active
     run will be returned; calls to ``log_artifact`` and ``log_artifacts`` write
     artifact(s) to subdirectories of the artifact root URI.
-    
+
     **Note:** If no run is active, it will instantiate a new run.
 
     :param artifact_path: The run-relative artifact path for which to obtain an absolute URI.
