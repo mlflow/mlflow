@@ -64,7 +64,7 @@ class Model(object):
         """
         Log model using supplied flavor module.
 
-        Note: If no run is active, it will instantiate a run to obtain a run_id.
+        Note: If no run is active, this method will create a new active run.
 
         :param artifact_path: Run relative path identifying the model.
         :param flavor: Flavor module to save the model with. The module must have
