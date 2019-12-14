@@ -794,7 +794,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         experiment_id = self.store.create_experiment('order_by_metric')
 
         def create_and_log_run(names):
-            name = names[0] + "/" + names[1]
+            name = str(names[0]) + "/" + names[1]
             run_id = self.store.create_run(
                 experiment_id,
                 user_id="MrDuck",
@@ -802,40 +802,49 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name),
                       entities.RunTag("metric", names[1])]
             ).info.run_id
-            self.store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
-            self.store.log_metric(run_id, entities.Metric("y", float(names[1]), 1, 0))
+            if names[0] is not None:
+                self.store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
+                self.store.log_metric(run_id, entities.Metric("y", float(names[1]), 1, 0))
             self.store.log_param(run_id, entities.Param("metric", names[1]))
             return run_id
 
-        for names in zip(["nan", "inf", "-inf", "-1000", "0", "0", "1000"],
-                         ["1", "2", "3", "4", "5", "6", "7"]):
+        # the expected order in ascending sort is :
+        # inf > number > -inf > None > nan
+        for names in zip(["nan", None, "inf", "-inf", "-1000", "0", "0", "1000"],
+                         ["1", "2", "3", "4", "5", "6", "7", "8"]):
             create_and_log_run(names)
 
         # asc/asc
-        self.assertListEqual(["-inf/3", "-1000/4", "0/5", "0/6", "1000/7", "inf/2", "nan/1"],
+        self.assertListEqual(["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3",
+                              "None/2", "nan/1"],
                              self.get_ordered_runs(["metrics.x asc", "metrics.y asc"],
                                                    experiment_id))
 
-        self.assertListEqual(["-inf/3", "-1000/4", "0/5", "0/6", "1000/7", "inf/2", "nan/1"],
+        self.assertListEqual(["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3",
+                              "None/2", "nan/1"],
                              self.get_ordered_runs(["metrics.x asc", "tag.metric asc"],
                                                    experiment_id))
 
         # asc/desc
-        self.assertListEqual(["-inf/3", "-1000/4", "0/6", "0/5", "1000/7", "inf/2", "nan/1"],
+        self.assertListEqual(["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3",
+                              "None/2", "nan/1"],
                              self.get_ordered_runs(["metrics.x asc", "metrics.y desc"],
                                                    experiment_id))
 
-        self.assertListEqual(["-inf/3", "-1000/4", "0/6", "0/5", "1000/7", "inf/2", "nan/1"],
+        self.assertListEqual(["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3",
+                              "None/2", "nan/1"],
                              self.get_ordered_runs(["metrics.x asc", "tag.metric desc"],
                                                    experiment_id))
 
         # desc / asc
-        self.assertListEqual(["inf/2", "1000/7", "0/5", "0/6", "-1000/4", "-inf/3", "nan/1"],
+        self.assertListEqual(["inf/3", "1000/8", "0/6", "0/7", "-1000/5", "-inf/4",
+                              "nan/1", "None/2"],
                              self.get_ordered_runs(["metrics.x desc", "metrics.y asc"],
                                                    experiment_id))
 
         # desc / desc
-        self.assertListEqual(["inf/2", "1000/7", "0/6", "0/5", "-1000/4", "-inf/3", "nan/1"],
+        self.assertListEqual(["inf/3", "1000/8", "0/7", "0/6", "-1000/5", "-inf/4",
+                              "nan/1", "None/2"],
                              self.get_ordered_runs(["metrics.x desc", "param.metric desc"],
                                                    experiment_id))
 
@@ -1490,6 +1499,28 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                              "and params.pkey_0 = 'pval_0'",
                                              ViewType.ALL, max_results=5)
         assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
+
+    def test_search_runs_keep_all_runs_when_sorting(self):
+        experiment_id = self.store.create_experiment('test_experiment1')
+
+        r1 = self.store.create_run(
+            experiment_id=experiment_id,
+            start_time=0,
+            tags=(),
+            user_id='Me').info.run_uuid
+        r2 = self.store.create_run(
+            experiment_id=experiment_id,
+            start_time=0,
+            tags=(),
+            user_id='Me').info.run_uuid
+        self.store.set_tag(r1, RunTag(key="t1", value="1"))
+        self.store.set_tag(r1, RunTag(key="t2", value="1"))
+        self.store.set_tag(r2, RunTag(key="t2", value="1"))
+
+        run_results = self.store.search_runs([experiment_id],
+                                             None,
+                                             ViewType.ALL, max_results=1000, order_by=["tag.t1"])
+        assert len(run_results) == 2
 
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
