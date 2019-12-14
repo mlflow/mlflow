@@ -3,7 +3,7 @@ import mock
 from mlflow.entities import SourceType
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_DATABRICKS_JOB_ID, MLFLOW_DATABRICKS_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
-from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext 
+from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
 
 
 def test_databricks_job_run_context_in_context():

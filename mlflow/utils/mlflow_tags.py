@@ -21,7 +21,7 @@ MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
 MLFLOW_DATABRICKS_WEBAPP_URL = "mlflow.databricks.webappURL"
 MLFLOW_DATABRICKS_RUN_URL = "mlflow.databricks.runURL"
-# The SHELL_JOB_ID and SHELL_JOB_RUN_ID tags are used for tracking the 
+# The SHELL_JOB_ID and SHELL_JOB_RUN_ID tags are used for tracking the
 # Databricks Job ID and Databricks Job Run ID associated with an MLflow Project run
 MLFLOW_DATABRICKS_SHELL_JOB_ID = "mlflow.databricks.shellJobID"
 MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID = "mlflow.databricks.shellJobRunID"
