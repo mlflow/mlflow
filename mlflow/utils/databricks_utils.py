@@ -27,10 +27,21 @@ class _NoDbutilsError(Exception):
     pass
 
 
-def _get_extra_context(context_key):
+def _get_java_dbutils():
     dbutils = _get_dbutils()
-    java_dbutils = dbutils.notebook.entry_point.getDbutils()
-    return java_dbutils.notebook().getContext().extraContext().get(context_key).get()
+    return dbutils.notebook.entry_point.getDbutils()
+
+
+def _get_extra_context(context_key):
+    return _get_java_dbutils().notebook().getContext().extraContext().get(context_key).get()
+
+
+def _get_context_tag(context_tag_key):
+    return _get_java_dbutils().notebook().getContext().tags().get(context_tag_key).get()
+
+
+def _has_context_tag(context_tag_key):
+    return _get_java_dbutils().notebook().getContext().tags().get(context_tag_key).isDefined()
 
 
 def _get_property_from_spark_context(key):
@@ -49,6 +60,13 @@ def is_in_databricks_notebook():
     try:
         return _get_extra_context("aclPathOfAclRoot").startswith('/workspace')
     except Exception:  # pylint: disable=broad-except
+        return False
+
+
+def is_in_databricks_job():
+    try:
+        return _has_context_tag("jobId") and _has_context_tag("idInJob")
+    except Exception:
         return False
 
 
@@ -78,6 +96,16 @@ def get_notebook_path():
     if path is not None:
         return path
     return _get_extra_context("notebook_path")
+
+
+def get_job_id():
+    """Should only be called if is_in_databricks_job is true"""
+    return _get_context_tag("jobId")
+
+
+def get_job_run_id():
+    """Should only be called if is_in_databricks_job is true"""
+    return _get_context_tag("idInJob")
 
 
 def get_webapp_url():
