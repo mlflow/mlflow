@@ -78,6 +78,8 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
     MLlib persistence format and produces an MLflow Model with the Spark flavor.
 
+    Note: If no run is active, it will instantiate a run to obtain a run_id.
+
     :param spark_model: Spark model to be saved - MLFlow can only save descendants of
                         pyspark.ml.Model which implement MLReadable and MLWritable.
     :param artifact_path: Run relative artifact path.
