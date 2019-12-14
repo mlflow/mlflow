@@ -171,13 +171,17 @@ def test_api_usage1(spark_session, tracking_uri_mock, format, file_path):
     keras_model.fit(pandas_df2)
 
 
-def test_api_usage2():
+def test_api_usage2(spark_session, tracking_uri_mock, format, file_path):
     mlflow.spark.autolog()
     mlflow.keras.autolog()
     # Test constructing DF, starting run afterwards
-    df = ...
-    pandas_df = df.toPandas()
+    df = spark_session.read.format(format).option("header", "true"). \
+        option("inferSchema", "true").load(file_path).select("number1", "number2")
+    x = df.toPandas().values
+    y = np.array([4, 5, 6])
     with mlflow.start_run():
-        keras_model.fit(pandas_df)
+        keras_model = Sequential()
+        keras_model.add(Dense(1))
+        keras_model.compile(loss='mean_squared_error', optimizer='SGD')
+        keras_model.fit(x=x, y=y, epochs=1)
     mlflow.end_run()
-
