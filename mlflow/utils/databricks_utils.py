@@ -107,6 +107,7 @@ def get_job_run_id():
     """Should only be called if is_in_databricks_job is true"""
     return _get_context_tag("idInJob")
 
+
 def get_job_type():
     """Should only be called if is_in_databricks_job is true"""
     return _get_context_tag("jobTaskType")
