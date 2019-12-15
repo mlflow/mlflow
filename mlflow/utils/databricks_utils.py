@@ -66,7 +66,7 @@ def is_in_databricks_notebook():
 def is_in_databricks_job():
     try:
         return _get_context_tag("jobId") is not None and _get_context_tag("idInJob") is not None
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         return False
 
 
