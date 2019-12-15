@@ -37,11 +37,11 @@ def _get_extra_context(context_key):
 
 
 def _get_context_tag(context_tag_key):
-    return _get_java_dbutils().notebook().getContext().tags().get(context_tag_key).get()
-
-
-def _has_context_tag(context_tag_key):
-    return _get_java_dbutils().notebook().getContext().tags().get(context_tag_key).isDefined()
+    tag_opt = _get_java_dbutils().notebook().getContext().tags().get(context_tag_key)
+    if tag_opt.isDefined():
+        return tag_opt.get()
+    else:
+        return None
 
 
 def _get_property_from_spark_context(key):
@@ -65,7 +65,7 @@ def is_in_databricks_notebook():
 
 def is_in_databricks_job():
     try:
-        return _has_context_tag("jobId") and _has_context_tag("idInJob")
+        return _get_context_tag("jobId") is not None and _get_context_tag("idInJob") is not None
     except Exception:
         return False
 
