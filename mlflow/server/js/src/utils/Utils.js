@@ -35,6 +35,7 @@ class Utils {
   static sourceTypeTag = 'mlflow.source.type';
   static gitCommitTag = 'mlflow.source.git.commit';
   static entryPointTag = 'mlflow.project.entryPoint';
+  static backendTag = 'mlflow.project.backend';
   static userTag = 'mlflow.user';
 
   static formatMetric(value) {
@@ -327,6 +328,14 @@ class Utils {
     const entryPointTag = runTags[Utils.entryPointTag];
     if (entryPointTag) {
       return entryPointTag.value;
+    }
+    return "";
+  }
+
+  static getBackend(runTags) {
+    const backendTag = runTags[Utils.backendTag];
+    if (backendTag) {
+      return backendTag.value;
     }
     return "";
   }
