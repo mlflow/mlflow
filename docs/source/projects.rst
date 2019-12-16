@@ -474,7 +474,9 @@ You can run your MLflow Project on Kubernetes by following these steps:
    - ``kube-context``
      The `Kubernetes context
      <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#context>`_
-     where MLflow will run the job.
+     where MLflow will run the job. If not provided, MLflow will use the current context.
+     If no context is available, MLFlow will assume it is running in a Kubernetes cluster
+     and it will use the Kubernetes service account running the current pod ('in-cluster' configuration).
    - ``repository-uri``
      The URI of the docker repository where the Project execution Docker image will be uploaded
      (pushed). Your Kubernetes cluster must have access to this repository in order to run your

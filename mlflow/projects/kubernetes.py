@@ -3,8 +3,10 @@ import logging
 import docker
 import time
 from threading import RLock
-import kubernetes
 from datetime import datetime
+
+import kubernetes
+from kubernetes.config.config_exception import ConfigException
 
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.submitted_run import SubmittedRun
@@ -47,8 +49,19 @@ def _get_run_command(entrypoint_command):
     return formatted_command
 
 
+def _load_kube_context(context=None):
+    try:
+        # trying to load either the context passed as arg or, if None,
+        # the one provided as env var `KUBECONFIG` or in `~/.kube/config`
+        kubernetes.config.load_kube_config(context=context)
+    except (IOError, ConfigException) as e:
+        _logger.debug('Error loading kube context "%s": %s', context, e)
+        _logger.info('No valid kube config found, using in-cluster configuration')
+        kubernetes.config.load_incluster_config()
+
+
 def run_kubernetes_job(project_name, active_run, image_tag, image_digest, command, env_vars,
-                       kube_context, job_template=None):
+                       kube_context=None, job_template=None):
     job_template = _get_kubernetes_job_definition(project_name,
                                                   image_tag,
                                                   image_digest,
@@ -57,7 +70,7 @@ def run_kubernetes_job(project_name, active_run, image_tag, image_digest, comman
                                                   job_template)
     job_name = job_template['metadata']['name']
     job_namespace = job_template['metadata']['namespace']
-    kubernetes.config.load_kube_config(context=kube_context)
+    _load_kube_context(context=kube_context)
     api_instance = kubernetes.client.BatchV1Api()
     api_instance.create_namespaced_job(namespace=job_namespace,
                                        body=job_template, pretty=True)
