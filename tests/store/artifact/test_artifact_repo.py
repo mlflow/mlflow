@@ -4,6 +4,7 @@ import pytest
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.file_utils import TempDir
 
 
 class ArtifactRepositoryImpl(ArtifactRepository):
@@ -61,4 +62,5 @@ def test_download_artifacts_handles_empty_dir(base_uri, download_arg, list_retur
     with mock.patch.object(ArtifactRepositoryImpl, "list_artifacts") as list_artifacts_mock:
         list_artifacts_mock.side_effect = list_artifacts
         repo = ArtifactRepositoryImpl(base_uri)
-        repo.download_artifacts(download_arg)
+        with TempDir() as tmp:
+            repo.download_artifacts(download_arg, dst_path=tmp.path())
