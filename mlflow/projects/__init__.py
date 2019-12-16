@@ -726,7 +726,7 @@ def _parse_kubernetes_config(backend_config):
             kube_job_template))
     if 'kube-context' not in backend_config.keys():
         _logger.debug("Could not find kube-context in backend_config."
-                      "Using current context or in-cluster config.")
+                      " Using current context or in-cluster config.")
     if 'repository-uri' not in backend_config.keys():
         raise ExecutionException("Could not find 'repository-uri' in backend_config.")
     return kube_config
