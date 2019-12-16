@@ -14,7 +14,7 @@ from mlflow.projects import _project_spec
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 
 
-TEST_DIR = "tests"
+TEST_DIR = ".."
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
 TEST_DOCKER_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_docker_project")
 TEST_PROJECT_NAME = "example_project"
