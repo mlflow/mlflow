@@ -14,8 +14,6 @@ import importlib
 import os
 import yaml
 import gorilla
-import tempfile
-import shutil
 
 import pandas as pd
 
@@ -385,33 +383,32 @@ def autolog():
         Records available logs after each epoch.
         Records model structural information as params when training begins
         """
+
         def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-            try_mlflow_log(mlflow.log_param, 'num_layers', len(self.model.layers))
-            try_mlflow_log(mlflow.log_param, 'optimizer_name', type(self.model.optimizer).__name__)
+            try_mlflow_log(
+                mlflow.log_param, 'num_layers', len(
+                    self.model.layers))
+            try_mlflow_log(
+                mlflow.log_param, 'optimizer_name', type(
+                    self.model.optimizer).__name__)
             if hasattr(self.model.optimizer, 'lr'):
                 lr = self.model.optimizer.lr if \
-                    type(self.model.optimizer.lr) is float \
+                    isinstance(self.model.optimizer.lr, float) \
                     else keras.backend.eval(self.model.optimizer.lr)
                 try_mlflow_log(mlflow.log_param, 'learning_rate', lr)
             if hasattr(self.model.optimizer, 'epsilon'):
                 epsilon = self.model.optimizer.epsilon if \
-                    type(self.model.optimizer.epsilon) is float \
+                    isinstance(self.model.optimizer.epsilon, float) \
                     else keras.backend.eval(self.model.optimizer.epsilon)
                 try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
 
             sum_list = []
             self.model.summary(print_fn=sum_list.append)
             summary = '\n'.join(sum_list)
-            try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
-
-            tempdir = tempfile.mkdtemp()
-            try:
-                summary_file = os.path.join(tempdir, "model_summary.txt")
-                with open(summary_file, 'w') as f:
-                    f.write(summary)
-                try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
-            finally:
-                shutil.rmtree(tempdir)
+            summary_file = "model_summary.txt"
+            with open(summary_file, 'w') as f:
+                f.write(summary)
+            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
 
         def on_epoch_end(self, epoch, logs=None):
             if not logs:
