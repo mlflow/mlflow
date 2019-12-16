@@ -12,6 +12,9 @@ from mlflow.exceptions import ExecutionException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.entities import RunStatus
 
+from shlex import split
+from six.moves import shlex_quote as quote
+
 _logger = logging.getLogger(__name__)
 
 
@@ -45,7 +48,7 @@ def _get_kubernetes_job_definition(project_name, image_tag, image_digest,
 def _get_run_command(entrypoint_command):
     formatted_command = []
     for cmd in entrypoint_command:
-        formatted_command = cmd.split(" ")
+        formatted_command.extend([quote(s) for s in split(cmd)])
     return formatted_command
 
 
