@@ -11,10 +11,7 @@ from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.entities import RunStatus
 
 from shlex import split
-try:
-    from shlex import quote
-except ImportError:
-    from pipes import quote
+from six.moves import shlex_quote as quote
 
 _logger = logging.getLogger(__name__)
 
