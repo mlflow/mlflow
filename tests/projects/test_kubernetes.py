@@ -14,9 +14,11 @@ def test_run_command_creation():  # pylint: disable=unused-argument
     """
     Tests command creation.
     """
-    command = ['python train.py --alpha 0.5 --l1-ratio 0.1']
+    command = ['python train.py --alpha 0.5 --l1-ratio 0.1', '--comment \'foo bar\'',
+               '--comment-bis "bar foo"']
     command = kb._get_run_command(command)
-    assert ['python', 'train.py', '--alpha', '0.5', '--l1-ratio', '0.1'] == command
+    assert ['python', 'train.py', '--alpha', '0.5', '--l1-ratio', '0.1', '--comment',
+            "'foo bar'", '--comment-bis', "'bar foo'"] == command
 
 
 def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
