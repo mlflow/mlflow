@@ -355,6 +355,12 @@ mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
   message(glue::glue("Root URI: {uri}", uri = response$root_uri))
 
   files_list <- if (!is.null(response$files)) response$files else list()
+  files_list <- purrr::map(files_list, function(file_info) {
+    if (is.null(file_info$file_size)) {
+      file_info$file_size <- NA
+    }
+    file_info
+  })
   files_list %>%
     purrr::transpose() %>%
     purrr::map(unlist) %>%
