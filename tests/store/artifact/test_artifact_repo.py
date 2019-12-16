@@ -19,8 +19,6 @@ class ArtifactRepositoryImpl(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         print("download_file called with '%s'" % remote_file_path)
-        if not remote_file_path.endswith("modelfile"):
-            raise Exception("haha")
         assert remote_file_path.endswith("modelfile")
 
 

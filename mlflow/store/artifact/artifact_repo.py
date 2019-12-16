@@ -107,15 +107,14 @@ class ArtifactRepository:
 
         def download_artifact_dir(dir_path):
             local_dir = os.path.join(dst_path, dir_path)
-            dir_content = self.list_artifacts(dir_path)
+            dir_content = [  # prevent infinite loop, sometimes the dir is recursively included
+                file_info for file_info in self.list_artifacts(dir_path) if
+                file_info.path != "." and file_info.path != dir_path]
             if not dir_content:  # empty dir
                 if not os.path.exists(local_dir):
                     os.makedirs(local_dir)
             else:
                 for file_info in dir_content:
-                    # prevent an infinite loop (sometimes the current path is listed e.g. as ".")
-                    if file_info.path == "." or file_info.path == dir_path:
-                        continue
                     if file_info.is_dir:
                         download_artifact_dir(dir_path=file_info.path)
                     else:
