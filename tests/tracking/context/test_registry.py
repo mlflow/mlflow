@@ -64,7 +64,7 @@ def _currently_registered_run_context_provider_classes():
 
 def test_registry_instance_defaults():
     expected_classes = {
-        DefaultRunContext, GitRunContext, DatabricksNotebookRunContext, DatabricksJobRunContext
+        DefaultRunContext, GitRunContext, DatabricksNotebookRunContext, DatabricksJobRunContext,
     }
     assert expected_classes.issubset(_currently_registered_run_context_provider_classes())
 

@@ -9,8 +9,8 @@ from mlflow.tracking.context.databricks_job_context import DatabricksJobRunConte
 
 
 def test_databricks_job_run_context_in_context():
-    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_job") as in_notebook_mock:
-        assert DatabricksJobRunContext().in_context() == in_notebook_mock.return_value
+    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_job") as in_job_mock:
+        assert DatabricksJobRunContext().in_context() == in_job_mock.return_value
 
 
 def test_databricks_job_run_context_tags():
