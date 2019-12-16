@@ -1,7 +1,10 @@
 import mock
 import yaml
 import pytest
+
 import kubernetes
+from kubernetes.config.config_exception import ConfigException
+
 from mlflow.projects import kubernetes as kb
 from mlflow.exceptions import ExecutionException
 from mlflow.entities import RunStatus
@@ -93,6 +96,92 @@ def test_run_kubernetes_job():
             assert kube_api_mock.call_count == 1
             args = kube_config_mock.call_args_list
             assert args[0][1]['context'] == kube_context
+
+
+def test_run_kubernetes_job_current_kubecontext():
+    active_run = mock.Mock()
+    project_name = "mlflow-docker-example"
+    image_tag = "image_tag"
+    image_digest = "5e74a5a"
+    command = ['python train.py --alpha 0.5 --l1-ratio 0.1']
+    env_vars = {'RUN_ID': '1'}
+    kube_context = None
+
+    job_template = yaml.safe_load("apiVersion: batch/v1\n"
+                                  "kind: Job\n"
+                                  "metadata:\n"
+                                  "  name: pi-with-ttl\n"
+                                  "  namespace: mlflow\n"
+                                  "spec:\n"
+                                  "  ttlSecondsAfterFinished: 100\n"
+                                  "  template:\n"
+                                  "    spec:\n"
+                                  "      containers:\n"
+                                  "      - name: pi\n"
+                                  "        image: perl\n"
+                                  "        command: ['perl',  '-Mbignum=bpi', '-wle']\n"
+                                  "      restartPolicy: Never\n")
+    with mock.patch("kubernetes.config.load_kube_config") as kube_config_mock:
+        with mock.patch("kubernetes.config.load_incluster_config") as incluster_kube_config_mock:
+            with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
+                submitted_run_obj = kb.run_kubernetes_job(project_name=project_name,
+                                                          active_run=active_run,
+                                                          image_tag=image_tag,
+                                                          image_digest=image_digest,
+                                                          command=command,
+                                                          env_vars=env_vars,
+                                                          job_template=job_template,
+                                                          kube_context=kube_context)
+
+                assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
+                assert submitted_run_obj._job_name.startswith(project_name)
+                assert submitted_run_obj._job_namespace == "mlflow"
+                assert kube_api_mock.call_count == 1
+                assert kube_config_mock.call_count == 1
+                assert incluster_kube_config_mock.call_count == 0
+
+
+def test_run_kubernetes_job_in_cluster():
+    active_run = mock.Mock()
+    project_name = "mlflow-docker-example"
+    image_tag = "image_tag"
+    image_digest = "5e74a5a"
+    command = ['python train.py --alpha 0.5 --l1-ratio 0.1']
+    env_vars = {'RUN_ID': '1'}
+    kube_context = None
+    job_template = yaml.safe_load("apiVersion: batch/v1\n"
+                                  "kind: Job\n"
+                                  "metadata:\n"
+                                  "  name: pi-with-ttl\n"
+                                  "  namespace: mlflow\n"
+                                  "spec:\n"
+                                  "  ttlSecondsAfterFinished: 100\n"
+                                  "  template:\n"
+                                  "    spec:\n"
+                                  "      containers:\n"
+                                  "      - name: pi\n"
+                                  "        image: perl\n"
+                                  "        command: ['perl',  '-Mbignum=bpi', '-wle']\n"
+                                  "      restartPolicy: Never\n")
+    with mock.patch("kubernetes.config.load_kube_config") as kube_config_mock:
+        kube_config_mock.side_effect = ConfigException()
+        with mock.patch("kubernetes.config.load_incluster_config") as incluster_kube_config_mock:
+            with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
+                submitted_run_obj = kb.run_kubernetes_job(project_name=project_name,
+                                                          active_run=active_run,
+                                                          image_tag=image_tag,
+                                                          image_digest=image_digest,
+                                                          command=command,
+                                                          env_vars=env_vars,
+                                                          job_template=job_template,
+                                                          kube_context=kube_context)
+
+                assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
+                assert submitted_run_obj._job_name.startswith(project_name)
+                assert submitted_run_obj._job_namespace == "mlflow"
+                assert kube_api_mock.call_count == 1
+                assert kube_config_mock.call_count == 1
+                assert incluster_kube_config_mock.call_count == 1
 
 
 def test_push_image_to_registry():
