@@ -46,6 +46,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL,
     MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME,
     MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, MLFLOW_PROJECT_BACKEND,
+    MLFLOW_PROJECT_BACKEND_CONFIG,
 )
 from mlflow.utils.uri import get_db_profile_from_uri, is_databricks_uri
 
@@ -130,6 +131,8 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     if backend == "databricks":
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         "databricks")
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND_CONFIG,
+                                        backend_config)
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
             remote_run=active_run,
@@ -181,6 +184,8 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         "kubernetes")
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND_CONFIG,
+                                        backend_config)
         _validate_docker_env(project)
         _validate_docker_installation()
         kube_config = _parse_kubernetes_config(backend_config)

@@ -55,6 +55,7 @@ class RunView extends Component {
     const sourceVersion = Utils.getSourceVersion(tags);
     const entryPointName = Utils.getEntryPointName(tags);
     const backend = Utils.getBackend(tags);
+    const backendConfig = Utils.getBackendConfig(tags);
     if (Utils.getSourceType(tags) === "PROJECT") {
       runCommand = 'mlflow run ' + shellEscape(sourceName);
       if (sourceVersion && sourceVersion !== "latest") {
@@ -65,6 +66,9 @@ class RunView extends Component {
       }
       if (backend) {
         runCommand += ' -b ' + shellEscape(backend);
+      }
+      if (backendConfig) {
+        runCommand += ' -c ' + shellEscape(backendConfig);
       }
       Object.values(params).sort().forEach(p => {
         runCommand += ' -P ' + shellEscape(p.key + '=' + p.value);
