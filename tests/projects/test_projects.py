@@ -18,7 +18,7 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils import env
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
     MLFLOW_SOURCE_TYPE, MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
-    LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT
+    LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PROJECT_BACKEND
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
     validate_exit_status, assert_dirs_equal
@@ -257,6 +257,7 @@ def test_run_local_git_repo(patch_user,  # pylint: disable=unused-argument
     assert "file:" in tags[MLFLOW_SOURCE_NAME]
     assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
     assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
+    assert tags[MLFLOW_PROJECT_BACKEND] == "local"
 
     if version == "master":
         assert tags[MLFLOW_GIT_BRANCH] == "master"
