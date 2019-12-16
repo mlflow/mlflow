@@ -863,6 +863,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             run_id = create_run(start_time, end)
             self.store.update_run_info(run_id, run_status=RunStatus.FINISHED, end_time=end)
             start_time += 1
+            start_time += 1
 
         # asc
         self.assertListEqual(["-123", "123", "234", "456", "789", None],
@@ -1522,6 +1523,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                              ViewType.ALL, max_results=1000, order_by=["tag.t1"])
         assert len(run_results) == 2
 
+    def test_get_attribute_name(self):
+        assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
+        assert(models.SqlRun.get_attribute_name("status") == "status")
+        assert(models.SqlRun.get_attribute_name("start_time") == "start_time")
+        assert(models.SqlRun.get_attribute_name("end_time") == "end_time")
+
+        # we want this to break if a searchable or orderable attribute has been added
+        # and not referred to in this test
+        # searchable attibutes are also orderable
+        assert(len(entities.RunInfo.get_orderable_attributes()) == 4)
+
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     """
@@ -1585,6 +1597,13 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
             self.store.log_metric(run.info.run_id, entities.Metric("key", i, i * 2, i * 3))
             self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i, "pval-%s" % i))
             self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i, "tval-%s" % i))
+
+    def test_set_status_scheduled(self):
+        """
+        Constraints are not tested by sqlite. Use mysql to test it
+        """
+        run = self._run_factory()
+        self.store.update_run_info(run.info.run_id, 'KILLED', 10)
 
 
 @mock.patch('sqlalchemy.orm.session.Session', spec=True)

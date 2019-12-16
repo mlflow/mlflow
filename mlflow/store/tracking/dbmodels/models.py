@@ -22,7 +22,8 @@ RunStatusTypes = [
     RunStatus.to_string(RunStatus.SCHEDULED),
     RunStatus.to_string(RunStatus.FAILED),
     RunStatus.to_string(RunStatus.FINISHED),
-    RunStatus.to_string(RunStatus.RUNNING)
+    RunStatus.to_string(RunStatus.RUNNING),
+    RunStatus.to_string(RunStatus.KILLED)
 ]
 
 

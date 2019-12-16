@@ -32,10 +32,10 @@ class RunPage extends Component {
 
   setTagRequestId = getUUID();
 
+
   componentWillMount() {
     const { experimentId, runUuid } = this.props;
     this.props.getRunApi(runUuid, this.getRunRequestId);
-    this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestId);
     this.props.getExperimentApi(experimentId, this.getExperimentRequestId);
     this.props.searchModelVersionsApi({ run_id: runUuid }, this.searchModelVersionsRequestId);
   }
@@ -47,17 +47,24 @@ class RunPage extends Component {
       .then(() => getRunApi(runUuid, this.getRunRequestId));
   };
 
+  componentDidMount() {
+    const { runUuid } = this.props;
+    this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestId);
+  }
+
   render() {
     return (
       <div className='App-content'>
         <RequestStateWrapper
           requestIds={[
             this.getRunRequestId,
-            this.listArtifactRequestId,
             this.getExperimentRequestId,
           ]}
+          asyncRequestIds={[
+            this.listArtifactRequestId,
+          ]}
         >
-          {(isLoading, shouldRenderError, requests) => {
+          {(isLoading, shouldRenderError, requests, asyncRequests) => {
             if (shouldRenderError) {
               const getRunRequest = Utils.getRequestWithId(requests, this.getRunRequestId);
               if (getRunRequest.error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
@@ -65,12 +72,19 @@ class RunPage extends Component {
               }
               return null;
             }
+            const getArtifactsRequest = Utils.getRequestWithId(
+              asyncRequests, this.listArtifactRequestId
+            );
+            const artifactsLoading = getArtifactsRequest === undefined ?
+              true :
+              getArtifactsRequest.active === true;
             return <RunView
               runUuid={this.props.runUuid}
               getMetricPagePath={(key) =>
                 Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
               }
               experimentId={this.props.experimentId}
+              artifactsAreLoading={artifactsLoading}
               modelVersions={this.props.modelVersions}
               handleSetRunTag={this.handleSetRunTag}
             />;
