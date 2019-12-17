@@ -455,11 +455,11 @@ def autolog():
             kwargs['callbacks'] = [__MLflowKerasCallback()]
 
         history = original(self, *args, **kwargs)
-        
+
         if early_stop_callback and early_stop_callback.restore_best_weights:
             stopped_epoch_metrics = {key:history.history[key][early_stop_callback.stopped_epoch]
                                      for key in history.history.keys()}
-            last_epoch = len(history.hitoary.keys()[0])
+            last_epoch = len(history.history.keys()[0])
             try_mlflow_log(mlflow.log_metrics, stopped_epoch_metrics, step=last_epoch+1)
 
         if auto_end_run:
@@ -479,21 +479,31 @@ def autolog():
         unlogged_params = ['self', 'generator', 'callbacks', 'validation_data', 'verbose']
 
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
+        early_stop_callback = None
 
         # Checking if the 'callback' argument of fit() is set
         if len(args) >= 5:
             tmp_list = list(args)
+            early_stop_callback = early_stop_check(tmp_list[4])
             tmp_list[4] += [__MLflowKerasCallback()]
             args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
+            early_stop_callback = early_stop_check(kwargs['callbacks'])
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
 
-        result = original(self, *args, **kwargs)
+        history = original(self, *args, **kwargs)
+
+        if early_stop_callback and early_stop_callback.restore_best_weights:
+            stopped_epoch_metrics = {key:history.history[key][early_stop_callback.stopped_epoch]
+                                     for key in history.history.keys()}
+            last_epoch = len(history.history.keys()[0])
+            try_mlflow_log(mlflow.log_metrics, stopped_epoch_metrics, step=last_epoch+1)
+
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
-        return result
+        return history
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     gorilla.apply(gorilla.Patch(keras.Model, 'fit', fit, settings=settings))
