@@ -63,7 +63,7 @@ def test_download_artifacts(local_artifact_repo, dst_path):
             f.write(artifact_text)
         local_artifact_repo.log_artifacts(local_dir.path())
         result = local_artifact_repo.download_artifacts(artifact_path=artifact_rel_path,
-                                                          dst_path=dst_path)
+                                                        dst_path=dst_path)
         assert open(result).read() == artifact_text
         result = local_artifact_repo.download_artifacts(artifact_path="", dst_path=dst_path)
         empty_dir_dst_path = os.path.join(result, empty_dir_path)
