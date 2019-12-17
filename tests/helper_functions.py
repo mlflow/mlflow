@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import os
 import random
-from unittest import mock
+import mock
 
 import requests
 import string
