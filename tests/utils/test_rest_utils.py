@@ -12,32 +12,32 @@ from mlflow.utils.rest_utils import http_request, http_request_safe, \
 from tests import helper_functions
 
 
-@mock.patch('requests.request')
-def test_well_formed_json_error_response(request):
-    host_only = MlflowHostCreds("http://my-host")
-    response = mock.MagicMock()
-    response.status_code = 400
-    response.text = "{}"  # well-formed JSON error response
-    request.return_value = response
-
-    response_proto = GetRun.Response()
-    with pytest.raises(RestException):
-        call_endpoint(host_only, '/my/endpoint', 'GET', "", response_proto)
-
-
-@mock.patch('requests.request')
-@pytest.mark.parametrize("response", [
-    helper_functions.create_mock_response(400, "Error message but not a JSON string"),
-    helper_functions.create_mock_response(400, ""),
-    helper_functions.create_mock_response(400, None)
-])
-def test_malformed_json_error_response(request, response):
-    host_only = MlflowHostCreds("http://my-host")
-    request.return_value = response
-
-    response_proto = GetRun.Response()
-    with pytest.raises(MlflowException):
-        call_endpoint(host_only, '/my/endpoint', 'GET', "", response_proto)
+# @mock.patch('requests.request')
+# def test_well_formed_json_error_response(request):
+#     host_only = MlflowHostCreds("http://my-host")
+#     response = mock.MagicMock()
+#     response.status_code = 400
+#     response.text = "{}"  # well-formed JSON error response
+#     request.return_value = response
+#
+#     response_proto = GetRun.Response()
+#     with pytest.raises(RestException):
+#         call_endpoint(host_only, '/my/endpoint', 'GET', "", response_proto)
+#
+#
+# @mock.patch('requests.request')
+# @pytest.mark.parametrize("response", [
+#     helper_functions.create_mock_response(400, "Error message but not a JSON string"),
+#     helper_functions.create_mock_response(400, ""),
+#     helper_functions.create_mock_response(400, None)
+# ])
+# def test_malformed_json_error_response(request, response):
+#     host_only = MlflowHostCreds("http://my-host")
+#     request.return_value = response
+#
+#     response_proto = GetRun.Response()
+#     with pytest.raises(MlflowException):
+#         call_endpoint(host_only, '/my/endpoint', 'GET', "", response_proto)
 
 
 @mock.patch('requests.request')
