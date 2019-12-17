@@ -61,6 +61,7 @@ setup(
         'sqlparse',
         'sqlalchemy',
         'gorilla',
+        'prometheus-flask-exporter',
     ],
     extras_require={
         'extras':[

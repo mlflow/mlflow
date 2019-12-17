@@ -605,6 +605,10 @@ class SqlAlchemyStore(AbstractStore):
             query = session.query(SqlRun)
             for j in _get_sqlalchemy_filter_clauses(parsed_filters, session):
                 query = query.join(j)
+
+            # using an outer join is necessary here because we want to be able to sort
+            # on a column (tag, metric or param) without removing the lines that
+            # do not have a value for this column (which is what inner join would do)
             for j in sorting_joins:
                 query = query.outerjoin(j)
 
