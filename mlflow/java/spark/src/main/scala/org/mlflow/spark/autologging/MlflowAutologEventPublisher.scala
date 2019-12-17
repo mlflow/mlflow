@@ -28,13 +28,16 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
   private val logger = LoggerFactory.getLogger(getClass)
 
   private[autologging] var sparkQueryListener: SparkDataSourceListener = _
-  private val ex = new ScheduledThreadPoolExecutor(1)
+  private val executor = new ScheduledThreadPoolExecutor(1)
   private[autologging] var subscribers: mutable.LinkedHashMap[String, MlflowAutologEventSubscriber] =
     mutable.LinkedHashMap[String, MlflowAutologEventSubscriber]()
   private var scheduledTask: ScheduledFuture[_] = _
 
   def spark: SparkSession = {
-    SparkSession.builder.getOrCreate()
+    SparkSession.getActiveSession.getOrElse(throw new RuntimeException("Unable to get active " +
+      "SparkSession. Please ensure you've started a SparkSession via " +
+      "SparkSession.builder.getOrCreate() before attempting to initialize Spark datasource " +
+      "autologging."))
   }
 
   // Exposed for testing
@@ -59,7 +62,8 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
           unregisterBrokenSubscribers()
         }
       }
-      scheduledTask = ex.scheduleAtFixedRate(task, 1, gcDeadSubscribersIntervalSec, TimeUnit.SECONDS)
+      scheduledTask = executor.scheduleAtFixedRate(
+        task, 1, gcDeadSubscribersIntervalSec, TimeUnit.SECONDS)
     }
   }
 
@@ -69,42 +73,41 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
       sparkQueryListener = null
       while(!scheduledTask.cancel(false)) {
         Thread.sleep(1000)
+        logger.info("Unable to cancel task for GC of unresponsive subscribers, retrying...")
       }
       subscribers = mutable.LinkedHashMap()
     }
   }
 
-  def register(subscriber: MlflowAutologEventSubscriber): String = synchronized {
+  def register(subscriber: MlflowAutologEventSubscriber): Unit = synchronized {
     if (sparkQueryListener == null) {
       throw new RuntimeException("Please call init() before attempting to register a subscriber")
     }
-    this.synchronized {
-      val uuid = java.util.UUID.randomUUID().toString
-      subscribers.put(uuid, subscriber)
-      uuid
-    }
+    subscribers.put(subscriber.replId, subscriber)
   }
 
   /** Unregister subscribers broken e.g. due to detaching of the associated Python REPL */
   private[autologging] def unregisterBrokenSubscribers(): Unit = synchronized {
-    val brokenUuids = subscribers.flatMap { case (uuid, listener) =>
+
+    val brokenReplIds = subscribers.flatMap { case (replId, listener) =>
       try {
         listener.ping()
         Seq.empty
       } catch {
         case e: Py4JException =>
-          logger.info(s"Subscriber with UUID $uuid not responding to health checks, removing it")
-          Seq(uuid)
+          logger.info(s"Subscriber with repl ID $replId not responding to health checks, " +
+            s"removing it")
+          Seq(replId)
         case NonFatal(e) =>
-          logger.error(s"Unexpected exception while checking health of subscriber $uuid, " +
-            s"removing it. Please report this error at https://github.com/mlflow/mlflow/issues, " +
-            s"along with the following stacktrace:\n" +
+          logger.error(s"Unexpected exception while checking health of subscriber with repl ID " +
+            s"$replId, removing it. Please report this error at " +
+            s"https://github.com/mlflow/mlflow/issues, along with the following stacktrace:\n" +
             s"${ExceptionUtils.serializeException(e)}")
-          Seq(uuid)
+          Seq(replId)
       }
     }
-    brokenUuids.foreach { uuid =>
-      subscribers.remove(uuid)
+    brokenReplIds.foreach { replId =>
+      subscribers.remove(replId)
     }
   }
 
@@ -113,14 +116,12 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
       sparkTableInfo: SparkTableInfo): Unit = synchronized {
     sparkTableInfo match {
       case SparkTableInfo(path, version, format) =>
-        for ((uuid, listener) <- subscribers) {
+        for ((replId, listener) <- subscribers) {
           try {
-            if (replIdOpt.isEmpty || listener.replId == replIdOpt.get) {
-              listener.notify(path, version.getOrElse("unknown"), format.getOrElse("unknown"))
-            }
+            listener.notify(path, version.getOrElse("unknown"), format.getOrElse("unknown"))
           } catch {
-            case e: Py4JException =>
-              logger.error(s"Unable to forward event to listener with UUID $uuid. " +
+            case NonFatal(e) =>
+              logger.error(s"Unable to forward event to listener with repl ID $replId. " +
                 s"Exception:\n${ExceptionUtils.serializeException(e)}")
           }
         }

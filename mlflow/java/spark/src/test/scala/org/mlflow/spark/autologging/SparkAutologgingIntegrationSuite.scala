@@ -1,5 +1,6 @@
 package org.mlflow.spark.autologging
 
+import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
 
@@ -36,15 +37,19 @@ private[autologging] class BrokenSubscriber extends MockSubscriber {
 class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAll
   with BeforeAndAfterEach {
 
-  val spark: SparkSession = SparkSession
-    .builder()
-    .appName("MLflow Spark Autologging Tests")
-    .config("spark.master", "local")
-    .getOrCreate()
+  var spark: SparkSession = getOrCreateSparkSession()
 
   var tempDir: Path  = _
   var formatToTablePath: Map[String, String] = _
   var deltaTablePath: String = _
+
+  private def getOrCreateSparkSession(): SparkSession = {
+    SparkSession
+      .builder()
+      .appName("MLflow Spark Autologging Tests")
+      .config("spark.master", "local")
+      .getOrCreate()
+  }
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -75,8 +80,15 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
 
   override def afterAll(): Unit = {
     super.afterAll()
-    // TODO find replacement for this that handles deleting non-empty dirs
-    // Files.delete(tempDir)
+    def deleteRecursively(file: File): Unit = {
+      if (file.isDirectory) {
+        file.listFiles.foreach(deleteRecursively)
+      }
+      if (file.exists && !file.delete) {
+        throw new RuntimeException(s"Unable to delete ${file.getAbsolutePath}")
+      }
+    }
+    deleteRecursively(tempDir.toFile)
   }
 
   override def beforeEach(): Unit = {
@@ -240,6 +252,18 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     MlflowAutologEventPublisher.stop()
     intercept[RuntimeException] {
       MlflowAutologEventPublisher.register(new MockSubscriber())
+    }
+  }
+
+  test("Initializing MlflowAutologEventPublisher fails if SparkSession doesn't exixt") {
+    MlflowAutologEventPublisher.stop()
+    spark.stop()
+    try {
+      intercept[RuntimeException] {
+        MlflowAutologEventPublisher.init()
+      }
+    } finally {
+      spark = getOrCreateSparkSession()
     }
   }
 
