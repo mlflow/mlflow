@@ -5,12 +5,9 @@ import numpy
 import pytest
 
 from mlflow.exceptions import MlflowException, RestException
-from mlflow.protos.service_pb2 import GetRun
 from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.utils.rest_utils import http_request, http_request_safe, \
-    MlflowHostCreds, _DEFAULT_HEADERS, call_endpoint
-from tests import helper_functions
-
+    MlflowHostCreds, _DEFAULT_HEADERS
 
 # @mock.patch('requests.request')
 # def test_well_formed_json_error_response(request):
