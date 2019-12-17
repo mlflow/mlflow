@@ -5,8 +5,17 @@ apidocs
 mlflow.Rcheck
 outputs
 examples
+
 travis
+# required for Docker build
+!travis/small-requirements.txt
+!travis/large-requirements.txt
+!travis/lint-requirements.txt
+
 tests
+# required for Docker build
+!tests/resources/mlflow-test-plugin/
+
 node_modules
 coverage
 build
