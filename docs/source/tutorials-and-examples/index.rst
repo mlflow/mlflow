@@ -26,6 +26,10 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
   - `PyTorch <https://github.com/mlflow/mlflow/tree/master/examples/pytorch>`_
 
+  - `XGBoost <https://github.com/mlflow/mlflow/tree/master/examples/xgboost>`_
+
+  - `LightGBM <https://github.com/mlflow/mlflow/tree/master/examples/lightgbm>`_
+
   - `Glmnet (R) <https://github.com/mlflow/mlflow/tree/master/examples/r_wine>`_
 
   - scikit-learn
