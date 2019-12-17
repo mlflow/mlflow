@@ -99,7 +99,6 @@ class ArtifactRepository:
             dirpath, _ = posixpath.split(fullpath)
             local_dir_path = os.path.join(dst_path, dirpath)
             local_file_path = os.path.join(dst_path, fullpath)
-            # Artifact_path is a directory, so make a directory for it and download everything
             if not os.path.exists(local_dir_path):
                 os.makedirs(local_dir_path)
             self._download_file(remote_file_path=fullpath, local_path=local_file_path)
