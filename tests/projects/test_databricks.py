@@ -160,13 +160,16 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disa
     helper_functions.create_mock_response(400, None)
 ])
 def test_dbfs_path_exists_error_response_handling(response_mock):
-    with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
+    with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds") \
+         as get_databricks_host_creds_mock, \
+         mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
         # given a well formed DatabricksJobRunner
         # note: databricks_profile is None needed because clients using profile are mocked
         job_runner = DatabricksJobRunner(databricks_profile=None)
 
         # when the http request to validate the dbfs path returns a 400 response with an
         # error message that is either well-formed JSON or not
+        get_databricks_host_creds_mock.return_value = None
         http_request_mock.return_value = response_mock
 
         # then _dbfs_path_exists should return a MlflowException
