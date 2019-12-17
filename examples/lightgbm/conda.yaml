@@ -1,0 +1,9 @@
+name: lightgbm-example
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.6
+  - lightgbm
+  - pip:
+      - git+https://github.com/mlflow/mlflow
