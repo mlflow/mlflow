@@ -684,15 +684,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(renamed_experiment.name, new_name)
 
     def test_update_run_info(self):
-        run = self._run_factory()
-
-        new_status = entities.RunStatus.FINISHED
-        endtime = int(time.time())
-
-        actual = self.store.update_run_info(run.info.run_id, new_status, endtime)
-
-        self.assertEqual(actual.status, RunStatus.to_string(new_status))
-        self.assertEqual(actual.end_time, endtime)
+        experiment_id = self._experiment_factory('test_update_run_info')
+        for new_status_string in models.RunStatusTypes:
+            run = self._run_factory(config=self._get_run_configs(experiment_id=experiment_id))
+            endtime = int(time.time())
+            actual = self.store.update_run_info(
+                run.info.run_id, RunStatus.from_string(new_status_string), endtime)
+            self.assertEqual(actual.status, new_status_string)
+            self.assertEqual(actual.end_time, endtime)
 
     def test_restore_experiment(self):
         experiment_id = self._experiment_factory('helloexp')
@@ -1554,13 +1553,6 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
             self.store.log_metric(run.info.run_id, entities.Metric("key", i, i * 2, i * 3))
             self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i, "pval-%s" % i))
             self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i, "tval-%s" % i))
-
-    def test_set_status_scheduled(self):
-        """
-        Constraints are not tested by sqlite. Use mysql to test it
-        """
-        run = self._run_factory()
-        self.store.update_run_info(run.info.run_id, 'KILLED', 10)
 
 
 @mock.patch('sqlalchemy.orm.session.Session', spec=True)
