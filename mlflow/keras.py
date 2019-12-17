@@ -171,16 +171,17 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
         f.write(keras_module.__name__)
 
     # save keras model to path/data/model.h5
-    # Because some filesystems such as FUSE do support random writes, the keras_model cannot be directly
-    # saved to the remote path. To work around this problem, we save the model to a local temp file first
-    # and then copy the data over
-    with tempfile.NamedTemporaryFile(suffix='.h5') as f:
-        keras_model.save(f.name)
-        f.flush()  # force flush the data
-
-        model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
-        model_path = os.path.join(path, model_subpath)
-        shutil.copyfile(src=f.name, dst=model_path)
+    model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
+    model_path = os.path.join(path, model_subpath)
+    if path.startswith('/dbfs/'):
+        # The Databricks Filesystem uses a FUSE implementation that does not support
+        # random writes. It causes an error.
+        with tempfile.NamedTemporaryFile(suffix='.h5') as f:
+            keras_model.save(f.name)
+            f.flush()  # force flush the data
+            shutil.copyfile(src=f.name, dst=model_path)
+    else:
+        keras_model.save(model_path)
 
     # update flavor info to mlflow_model
     mlflow_model.add_flavor(FLAVOR_NAME,
