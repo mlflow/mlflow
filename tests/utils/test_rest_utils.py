@@ -7,34 +7,37 @@ import pytest
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.utils.rest_utils import http_request, http_request_safe, \
-    MlflowHostCreds, _DEFAULT_HEADERS
+    MlflowHostCreds, _DEFAULT_HEADERS, call_endpoint
+from mlflow.protos.service_pb2 import GetRun
+from tests import helper_functions
 
-# @mock.patch('requests.request')
-# def test_well_formed_json_error_response(request):
-#     host_only = MlflowHostCreds("http://my-host")
-#     response = mock.MagicMock()
-#     response.status_code = 400
-#     response.text = "{}"  # well-formed JSON error response
-#     request.return_value = response
-#
-#     response_proto = GetRun.Response()
-#     with pytest.raises(RestException):
-#         call_endpoint(host_only, '/my/endpoint', 'GET', "", response_proto)
-#
-#
-# @mock.patch('requests.request')
-# @pytest.mark.parametrize("response", [
-#     helper_functions.create_mock_response(400, "Error message but not a JSON string"),
-#     helper_functions.create_mock_response(400, ""),
-#     helper_functions.create_mock_response(400, None)
-# ])
-# def test_malformed_json_error_response(request, response):
-#     host_only = MlflowHostCreds("http://my-host")
-#     request.return_value = response
-#
-#     response_proto = GetRun.Response()
-#     with pytest.raises(MlflowException):
-#         call_endpoint(host_only, '/my/endpoint', 'GET', "", response_proto)
+
+def test_well_formed_json_error_response():
+    with mock.patch('requests.request') as request_mock:
+        host_only = MlflowHostCreds("http://my-host")
+        response_mock = mock.MagicMock()
+        response_mock.status_code = 400
+        response_mock.text = "{}"  # well-formed JSON error response
+        request_mock.return_value = response_mock
+
+        response_proto = GetRun.Response()
+        with pytest.raises(RestException):
+            call_endpoint(host_only, '/my/endpoint', 'GET', "", response_proto)
+
+
+@pytest.mark.parametrize("response_mock", [
+    helper_functions.create_mock_response(400, "Error message but not a JSON string"),
+    helper_functions.create_mock_response(400, ""),
+    helper_functions.create_mock_response(400, None)
+])
+def test_malformed_json_error_response(response_mock):
+    with mock.patch('requests.request') as request_mock:
+        host_only = MlflowHostCreds("http://my-host")
+        request_mock.return_value = response_mock
+
+        response_proto = GetRun.Response()
+        with pytest.raises(MlflowException):
+            call_endpoint(host_only, '/my/endpoint', 'GET', "", response_proto)
 
 
 @mock.patch('requests.request')

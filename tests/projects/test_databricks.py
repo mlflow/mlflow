@@ -21,7 +21,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, \
     MLFLOW_DATABRICKS_WEBAPP_URL
 from mlflow.utils.rest_utils import _DEFAULT_HEADERS
-# from tests import helper_functions
+from tests import helper_functions
 
 from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
@@ -154,24 +154,24 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disa
         assert upload_to_dbfs_mock.call_count == 0
 
 
-# @mock.patch("mlflow.utils.rest_utils.http_request")
-# @pytest.mark.parametrize("response", [
-#     helper_functions.create_mock_response(400, "Error message but not a JSON string"),
-#     helper_functions.create_mock_response(400, ""),
-#     helper_functions.create_mock_response(400, None)
-# ])
-# def test_dbfs_path_exists_error_response_handling(http_request_mock, response):
-#     # given a well formed DatabricksJobRunner
-#     # note: databricks_profile is None needed because clients using profile are mocked
-#     job_runner = DatabricksJobRunner(databricks_profile=None)
-#
-#     # when the http request to validate the dbfs path returns a 400 response with an
-#     # error message that is either well-formed JSON or not
-#     http_request_mock.return_value = response
-#
-#     # then _dbfs_path_exists should return a MlflowException
-#     with pytest.raises(MlflowException):
-#         job_runner._dbfs_path_exists('some/path')
+@pytest.mark.parametrize("response_mock", [
+    helper_functions.create_mock_response(400, "Error message but not a JSON string"),
+    helper_functions.create_mock_response(400, ""),
+    helper_functions.create_mock_response(400, None)
+])
+def test_dbfs_path_exists_error_response_handling(response_mock):
+    with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
+        # given a well formed DatabricksJobRunner
+        # note: databricks_profile is None needed because clients using profile are mocked
+        job_runner = DatabricksJobRunner(databricks_profile=None)
+
+        # when the http request to validate the dbfs path returns a 400 response with an
+        # error message that is either well-formed JSON or not
+        http_request_mock.return_value = response_mock
+
+        # then _dbfs_path_exists should return a MlflowException
+        with pytest.raises(MlflowException):
+            job_runner._dbfs_path_exists('some/path')
 
 
 def test_run_databricks_validations(
