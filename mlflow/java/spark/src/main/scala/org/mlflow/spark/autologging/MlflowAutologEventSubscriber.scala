@@ -15,12 +15,15 @@ trait MlflowAutologEventSubscriber {
   def notify(path: String, version: String, format: String): Any
 
   /**
-   * No-op ping method. Used to verify that a subscriber is still responsive - for example,
+   * Used to verify that a subscriber is still responsive - for example,
    * in the case of a Python subscriber, invoking the ping() method from Java via a Py4J callback
    * allows us to verify that the associated Python process is still alive.
    */
   def ping(): Unit
 
-  /** Return the ID of the notebook associated with this subscriber, if any */
+  /**
+   * Return the ID of the notebook associated with this subscriber, if any. The returned ID is
+   * expected to be unique across all subscribers (e.g. a UUID).
+   */
   def replId: String
 }
