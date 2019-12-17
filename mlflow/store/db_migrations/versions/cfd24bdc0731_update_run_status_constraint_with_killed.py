@@ -6,15 +6,15 @@ Create Date: 2019-10-11 15:55:10.853449
 
 """
 from alembic import op, context
-from mlflow.store.tracking.dbmodels.models import SqlRun
 from mlflow.entities import RunStatus
+from sqlalchemy import CheckConstraint, Enum
+from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
 revision = 'cfd24bdc0731'
 down_revision = '2b4d017a5e9b'
 branch_labels = None
 depends_on = None
-
 
 new_run_status = [
     RunStatus.to_string(RunStatus.SCHEDULED),
@@ -32,21 +32,35 @@ previous_run_status = [
 ]
 
 
-def _is_backend_sqlite():
-    return context.get_bind().engine.url.get_backend_name() == 'sqlite'
+def _has_check_constraints():
+    inspector = Inspector(context.get_bind().engine)
+    constraints = [constraint['name']
+                   for constraint in inspector.get_check_constraints("runs")]
+    return "status" in constraints
+
+
+def get_check_constraints():
+    """
+    Get all check constraint except status
+    """
+    inspector = Inspector(context.get_bind().engine)
+    constraints = [CheckConstraint(constraint['sqltext'], name=constraint['name'])
+                   for constraint in inspector.get_check_constraints("runs")
+                   if constraint['name'] != 'status']
+    return constraints
 
 
 def upgrade():
-    with op.batch_alter_table("runs") as batch_op:
-        if not _is_backend_sqlite():
-            batch_op.drop_constraint(constraint_name='status', type_='check')
-            batch_op.create_check_constraint(constraint_name='status',
-                                             condition=SqlRun.status.in_(new_run_status))
+    if _has_check_constraints():
+        with op.batch_alter_table("runs", table_args=get_check_constraints()) as batch_op:
+            batch_op.alter_column("status",
+                                  type_=Enum(*new_run_status, create_constraint=True,
+                                             constraint_name="status"))
 
 
 def downgrade():
-    with op.batch_alter_table("runs") as batch_op:
-        if not _is_backend_sqlite():
-            batch_op.drop_constraint(constraint_name='status', type_='check')
-            batch_op.create_check_constraint(constraint_name='status',
-                                             condition=SqlRun.status.in_(previous_run_status))
+    if _has_check_constraints():
+        with op.batch_alter_table("runs", table_args=get_check_constraints()) as batch_op:
+            batch_op.alter_column("status",
+                                  type_=Enum(*previous_run_status, create_constraint=True,
+                                             constraint_name="status"))
