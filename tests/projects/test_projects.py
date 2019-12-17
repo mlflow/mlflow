@@ -18,7 +18,8 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils import env
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
     MLFLOW_SOURCE_TYPE, MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
-    LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT
+    LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PROJECT_BACKEND, \
+    MLFLOW_PROJECT_ENV
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
     validate_exit_status, assert_dirs_equal
@@ -208,6 +209,21 @@ def test_use_conda(tracking_uri_mock):  # pylint: disable=unused-argument
             os.environ["CONDA_EXE"] = conda_exe_path
 
 
+def test_expected_tags_logged_when_using_conda(
+        tracking_uri_mock):  # pylint: disable=unused-argument
+    with mock.patch.object(mlflow.tracking.MlflowClient, "set_tag") as tag_mock:
+        try:
+            mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
+        finally:
+            tag_mock.assert_has_calls(
+                [
+                    mock.call(mock.ANY, MLFLOW_PROJECT_BACKEND, "local"),
+                    mock.call(mock.ANY, MLFLOW_PROJECT_ENV, "conda"),
+                ],
+                any_order=True,
+            )
+
+
 def test_is_valid_branch_name(local_git_repo):
     assert mlflow.projects._is_valid_branch_name(local_git_repo, "master")
     assert not mlflow.projects._is_valid_branch_name(local_git_repo, "dev")
@@ -257,6 +273,7 @@ def test_run_local_git_repo(patch_user,  # pylint: disable=unused-argument
     assert "file:" in tags[MLFLOW_SOURCE_NAME]
     assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
     assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
+    assert tags[MLFLOW_PROJECT_BACKEND] == "local"
 
     if version == "master":
         assert tags[MLFLOW_GIT_BRANCH] == "master"
