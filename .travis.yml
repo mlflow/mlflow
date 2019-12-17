@@ -15,13 +15,16 @@ matrix:
       install:
         # CHANGED_FILES detects whether or not files related to the nightly build are changed.
         # True is so that the command returns a 0 exit code whether or not CHANGED_FILES is empty.
-        - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
+        - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples\|Dockerfile") || true;
         - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
             INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
           fi;
       script:
-        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
+        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"examples"* ]]; then
             pytest --verbose tests/examples --large;
+          fi
+        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"Dockerfile"* ]]; then
+            docker build -t mlflow_test_build . && docker images | grep mlflow_test_build;
           fi
     - stage: small
       if: type != cron
@@ -154,9 +157,12 @@ script:
         ./travis/test-anaconda-compatibility.sh;
       fi
     fi;
-    CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
-    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
+    CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples\|Dockerfile") || true;
+    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"examples"* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
       pytest --verbose tests/examples --large;
+    fi;
+    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"Dockerfile"* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
+      docker build -t mlflow_test_build . && docker images | grep mlflow_test_build;
     fi;
 
 notifications:
