@@ -1,20 +1,9 @@
 import mock
-import pytest
 
 from mlflow.entities import SourceType
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_DATABRICKS_NOTEBOOK_PATH, MLFLOW_DATABRICKS_WEBAPP_URL
 from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
-
-MOCK_SCRIPT_NAME = "/path/to/script.py"
-
-
-@pytest.fixture
-def patch_script_name():
-    patch_sys_argv = mock.patch("sys.argv", [MOCK_SCRIPT_NAME])
-    patch_os_path_isfile = mock.patch("os.path.isfile", return_value=False)
-    with patch_sys_argv, patch_os_path_isfile:
-        yield
 
 
 def test_databricks_notebook_run_context_in_context():
