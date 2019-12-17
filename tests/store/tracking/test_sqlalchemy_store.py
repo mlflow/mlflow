@@ -940,6 +940,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         filter_string = "params.p_b = 'ABC'"
         six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
 
+        filter_string = "params.generic_2 LIKE '%other%'"
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+
+        filter_string = "params.generic_2 ILIKE '%Other%'"
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+
     def test_search_tags(self):
         experiment_id = self._experiment_factory('search_tags')
         r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
@@ -981,6 +987,20 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                                       filter_string="tags.p_a = 'abc'"))
         six.assertCountEqual(self, [r2], self._search(experiment_id,
                                                       filter_string="tags.p_b = 'ABC'"))
+        six.assertCountEqual(self, [r2],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 LIKE '%other%'"))
+        six.assertCountEqual(self, [r2],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 ILIKE '%Other%'"))
+        six.assertCountEqual(self, [r2],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 ILIKE '%Other%' "
+                                                        "and tags.generic_tag = 'p_val'"))
+        six.assertCountEqual(self, [r2],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 ILIKE '%Other%' and "
+                                                        "tags.generic_tag ILIKE 'p_val'"))
 
     def test_search_metrics(self):
         experiment_id = self._experiment_factory('search_metric')
@@ -1105,6 +1125,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         filter_string = "attribute.artifact_uri != 'random_artifact_path'"
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1)
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1.upper())
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
 
         for (k, v) in {"experiment_id": e1,
                        "lifecycle_stage": "ACTIVE",

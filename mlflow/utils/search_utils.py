@@ -1,9 +1,10 @@
 import base64
 import json
 import operator
+import re
 
 import sqlparse
-from sqlparse.sql import Identifier, Token, Comparison, Statement
+from sqlparse.sql import Identifier, Token, Comparison, Statement, TokenList
 from sqlparse.tokens import Token as TokenType
 
 from mlflow.entities import RunInfo
@@ -15,9 +16,9 @@ import math
 
 class SearchUtils(object):
     VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
-    VALID_PARAM_COMPARATORS = set(['!=', '='])
-    VALID_TAG_COMPARATORS = set(['!=', '='])
-    VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '='])
+    VALID_PARAM_COMPARATORS = set(['!=', '=', 'LIKE', 'like', 'ILIKE', 'ilike'])
+    VALID_TAG_COMPARATORS = set(['!=', '=', 'LIKE', 'like', 'ILIKE', 'ilike'])
+    VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '=', 'LIKE', 'like', 'ILIKE', 'ilike'])
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
     _METRIC_IDENTIFIER = "metric"
@@ -44,7 +45,17 @@ class SearchUtils(object):
         '!=': operator.ne,
         '<=': operator.le,
         '<': operator.lt,
+        'like': re.match,
+        'ilike': re.match
     }
+
+    @classmethod
+    def get_sql_filter_ops(cls, column, operator):
+        sql_filter_ops = {
+            'like': column.like,
+            'ilike': column.ilike
+        }
+        return sql_filter_ops[operator]
 
     @classmethod
     def _trim_ends(cls, string_value):
@@ -187,7 +198,21 @@ class SearchUtils(object):
     def _process_statement(cls, statement):
         # check validity
         invalids = list(filter(cls._invalid_statement_token, statement.tokens))
-        if len(invalids) > 0:
+        if len(invalids) % 3 == 0 and len(invalids) != 0:
+            groupby_invalids = [invalids[i:i+3] for i in range(0, len(invalids), 3)]
+            invalid_clauses = ""
+            for invalid in groupby_invalids:
+                if invalid[1].value.lower() in ['like', 'ilike']:
+                    like_comparison = Comparison(TokenList(invalid))
+                    statement.tokens = [x for x in statement.tokens if type(x) == Comparison]
+                    statement.tokens.append(like_comparison)
+                else:
+                    invalid_clauses += ", ".join("'%s'" % token for token in invalid)
+
+            if invalid_clauses:
+                raise MlflowException("Invalid clause(s) in filter string: %s" % invalid_clauses,
+                                      error_code=INVALID_PARAMETER_VALUE)
+        elif len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException("Invalid clause(s) in filter string: %s" % invalid_clauses,
                                   error_code=INVALID_PARAMETER_VALUE)
@@ -256,7 +281,7 @@ class SearchUtils(object):
         key_type = sed.get('type')
         key = sed.get('key')
         value = sed.get('value')
-        comparator = sed.get('comparator')
+        comparator = sed.get('comparator').lower()
 
         if cls.is_metric(key_type, comparator):
             lhs = run.data.metrics.get(key, None)
@@ -272,7 +297,20 @@ class SearchUtils(object):
                                   error_code=INVALID_PARAMETER_VALUE)
         if lhs is None:
             return False
-        if comparator in cls.filter_ops.keys():
+
+        if comparator in ['like', 'ilike']:
+            # Change value from sql syntax to regex syntax
+            if comparator == 'ilike':
+                value = value.lower()
+                lhs = lhs.lower()
+            if not value.startswith('%'):
+                value = '^' + value
+            if not value.endswith('%'):
+                value = value + '$'
+            value = value.replace('_', '.').replace('%', '.*')
+            return cls.filter_ops.get(comparator)(value, lhs)
+
+        elif comparator in cls.filter_ops.keys():
             return cls.filter_ops.get(comparator)(lhs, value)
         else:
             return False
