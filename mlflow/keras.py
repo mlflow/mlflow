@@ -177,11 +177,11 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
         # The Databricks Filesystem uses a FUSE implementation that does not support
         # random writes. It causes an error.
         with tempfile.NamedTemporaryFile(suffix='.h5') as f:
-            keras_model.save(f.name)
+            keras_model.save(f.name, **kwargs)
             f.flush()  # force flush the data
             shutil.copyfile(src=f.name, dst=model_path)
     else:
-        keras_model.save(model_path)
+        keras_model.save(model_path, **kwargs)
 
     # update flavor info to mlflow_model
     mlflow_model.add_flavor(FLAVOR_NAME,
