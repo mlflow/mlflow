@@ -1,0 +1,9 @@
+name: xgboost-example
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.6
+  - xgboost
+  - pip:
+      - git+https://github.com/mlflow/mlflow
