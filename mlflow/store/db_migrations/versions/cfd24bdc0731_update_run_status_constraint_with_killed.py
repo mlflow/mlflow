@@ -53,14 +53,22 @@ def get_check_constraints():
 def upgrade():
     if _has_check_constraints():
         with op.batch_alter_table("runs", table_args=get_check_constraints()) as batch_op:
+            # Update the "status" constraint via the SqlAlchemy `Enum` type. Specify
+            # `native_enum=False` to create a check constraint rather than a
+            # database-backend-dependent enum (see https://docs.sqlalchemy.org/en/13/core/
+            # type_basics.html#sqlalchemy.types.Enum.params.native_enum)
             batch_op.alter_column("status",
                                   type_=Enum(*new_run_status, create_constraint=True,
-                                             constraint_name="status"))
+                                             constraint_name="status", native_enum=False))
 
 
 def downgrade():
     if _has_check_constraints():
         with op.batch_alter_table("runs", table_args=get_check_constraints()) as batch_op:
+            # Update the "status" constraint via the SqlAlchemy `Enum` construct. Specify
+            # `native_enum=False` to create a check constraint rather than a
+            # database-backend-dependent enum (see https://docs.sqlalchemy.org/en/13/core/
+            # type_basics.html#sqlalchemy.types.Enum.params.native_enum)
             batch_op.alter_column("status",
                                   type_=Enum(*previous_run_status, create_constraint=True,
-                                             constraint_name="status"))
+                                             constraint_name="status", native_enum=False))
