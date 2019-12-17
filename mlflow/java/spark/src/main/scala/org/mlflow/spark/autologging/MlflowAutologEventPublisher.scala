@@ -87,9 +87,15 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
   }
 
   /** Unregister subscribers broken e.g. due to detaching of the associated Python REPL */
-  private[autologging] def unregisterBrokenSubscribers(): Unit = synchronized {
+  private[autologging] def unregisterBrokenSubscribers(): Unit = {
+    // Take a copy of `subscribers` under a lock. We don't need to lock elsewhere in this
+    // method as replIds are unique across all subscribers (so there's no chance we accidentally
+    // reuse a replId & wrongly remove a working subscriber).
+    val subscribersCopy = this.synchronized {
+      subscribers.toSeq
+    }
 
-    val brokenReplIds = subscribers.flatMap { case (replId, listener) =>
+    val brokenReplIds = subscribersCopy.flatMap { case (replId, listener) =>
       try {
         listener.ping()
         Seq.empty

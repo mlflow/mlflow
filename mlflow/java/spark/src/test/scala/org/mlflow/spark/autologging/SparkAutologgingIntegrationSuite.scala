@@ -53,7 +53,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    // Generate dummy data & write it in various formats (Delta, CSV, JSON)
+    // Generate dummy data & write it in various formats (CSV, JSON, parquet)
     val rows = Seq(
       Row(8, "bat"),
       Row(64, "mouse"),
