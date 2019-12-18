@@ -183,14 +183,15 @@ def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
          "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*"
         ),
         (
-         "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
-         "subpath/dir",
-         "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*"
-        ),
-        (
          "dbscheme-dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
          "subpath/dir",
          "dbscheme-dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*"
+        ),
+        (
+         "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds,param=value#*frag@*",
+         "subpath/dir",
+         "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?"
+         "creds=mycreds,param=value#*frag@*"
         ),
     ]
     for input_uri, input_path, expected_output_uri in cases:
