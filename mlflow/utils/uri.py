@@ -1,3 +1,4 @@
+import posixpath
 from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
@@ -64,3 +65,67 @@ def get_uri_scheme(uri_or_path):
         return extract_db_type_from_uri(uri_or_path)
     else:
         return scheme
+
+
+def append_to_uri_path(uri, *paths):
+    """
+    Appends the specified POSIX `paths` to the path component of the specified `uri`.
+
+    :param uri: The input URI, represented as a string.
+    :param paths: The POSIX paths to append to the specified `uri`'s path component.
+    :return: A new URI with a path component consisting of the specified `paths` appended to
+             the path component of the specified `uri`.
+
+    >>> uri1 = "s3://root/base/path?param=value"
+    >>> uri1 = append_to_uri_path(uri, "some/subpath", "/anotherpath")
+    >>> assert uri1 == "s3://root/base/path/some/subpath/anotherpath?param=value"
+    >>> uri2 = "a/posix/path"
+    >>> uri2 = append_to_uri_path(uri, "/some", "subpath")
+    >>> assert uri2 == "a/posixpath/some/subpath"
+    """
+    path = ""
+    for subpath in paths:
+        path = _join_posixpaths_and_append_absolute_suffixes(path, subpath)
+
+    parsed_uri = urllib.parse.urlparse(uri)
+    if len(parsed_uri.scheme) == 0:
+        # If the input URI does not define a scheme, we assume that it is a POSIX path
+        # and join it with the specified input paths
+        return _join_posixpaths_and_append_absolute_suffixes(uri, path)
+
+    prefix = ""
+    if not parsed_uri.path.startswith("/"):
+        # For certain URI schemes (e.g., "file:"), urllib's unparse routine does
+        # not preserve the relative URI path component properly. In certain cases,
+        # urlunparse converts relative paths to absolute paths. We introduce this logic
+        # to circumvent urlunparse's erroneous conversion
+        prefix = parsed_uri.scheme + ":"
+        parsed_uri = parsed_uri._replace(scheme="")
+
+    new_uri_path = _join_posixpaths_and_append_absolute_suffixes(parsed_uri.path, path)
+    new_parsed_uri = parsed_uri._replace(path=new_uri_path)
+    return prefix + urllib.parse.urlunparse(new_parsed_uri)
+
+
+def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
+    """
+    Joins the POSIX path `prefix_path` with the POSIX path `suffix_path`. Unlike posixpath.join(),
+    if `suffix_path` is an absolute path, it is appended to prefix_path.
+
+    >>> result1 = _join_posixpaths_and_append_absolute_suffixes("relpath1", "relpath2")
+    >>> assert result1 == "relpath1/relpath2"
+    >>> result2 = _join_posixpaths_and_append_absolute_suffixes("relpath", "/absolutepath")
+    >>> assert result2 == "relpath/absolutepath"
+    >>> result3 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath", "relpath")
+    >>> assert result3 == "/absolutepath/relpath"
+    >>> result4 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath1", "/absolutepath2")
+    >>> assert result4 == "/absolutepath1/absolutepath2"
+    """
+    if len(prefix_path) == 0:
+        return suffix_path
+
+    # If the specified prefix path is non-empty, we must relativize the suffix path by removing
+    # the leading slash, if present. Otherwise, posixpath.join() would omit the prefix from the
+    # joined path
+    suffix_path = suffix_path.lstrip(posixpath.sep)
+    return posixpath.join(prefix_path, suffix_path)

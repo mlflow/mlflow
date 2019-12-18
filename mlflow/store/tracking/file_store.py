@@ -1,6 +1,5 @@
 import logging
 import os
-import posixpath
 import sys
 
 import uuid
@@ -24,6 +23,7 @@ from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, 
                                      list_all, local_file_uri_to_path, path_to_local_file_uri)
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.uri import append_to_uri_path
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -167,10 +167,10 @@ class FileStore(AbstractStore):
 
     def _get_artifact_dir(self, experiment_id, run_uuid):
         _validate_run_id(run_uuid)
-        artifacts_dir = posixpath.join(self.get_experiment(experiment_id).artifact_location,
-                                       run_uuid,
-                                       FileStore.ARTIFACTS_FOLDER_NAME)
-        return artifacts_dir
+        return append_to_uri_path(
+            self.get_experiment(experiment_id).artifact_location,
+            run_uuid,
+            FileStore.ARTIFACTS_FOLDER_NAME)
 
     def _get_active_experiments(self, full_path=False):
         exp_list = list_subdirs(self.root_directory, full_path)
@@ -200,7 +200,8 @@ class FileStore(AbstractStore):
         return experiments
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
-        artifact_uri = artifact_uri or posixpath.join(self.artifact_root_uri, str(experiment_id))
+        artifact_uri = artifact_uri or append_to_uri_path(
+            self.artifact_root_uri, str(experiment_id))
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)

@@ -18,7 +18,7 @@ from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage, Run
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri
+from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
@@ -199,6 +199,46 @@ class TestFileStore(unittest.TestCase):
         exp2 = fs.get_experiment_by_name(name)
         self.assertEqual(exp2.experiment_id, created_id)
 
+    def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
+        cases = [
+            ("path/to/local/folder", "path/to/local/folder/{e}"),
+            ("/path/to/local/folder", "/path/to/local/folder/{e}"),
+            ("#path/to/local/folder?", "#path/to/local/folder?/{e}"),
+            ("file:path/to/local/folder", "file:path/to/local/folder/{e}"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+            ("file:path/to/local/folder?param=value", "file:path/to/local/folder/{e}?param=value"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+            (
+                "file:///path/to/local/folder?param=value#fragment",
+                "file:///path/to/local/folder/{e}?param=value#fragment",
+            ),
+            ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}"),
+            (
+                "s3://bucket/path/to/root?creds=mycreds",
+                "s3://bucket/path/to/root/{e}?creds=mycreds",
+            ),
+            (
+                "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
+                "dbscheme+driver://root@host/dbname/{e}?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/{e}?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/mydb/{e}?creds=mycreds#myfragment",
+            ),
+        ]
+
+        for artifact_root_uri, expected_artifact_uri_format in cases:
+            with TempDir() as tmp:
+                fs = FileStore(tmp.path(), artifact_root_uri)
+                exp_id = fs.create_experiment("exp")
+                exp = fs.get_experiment(exp_id)
+                self.assertEqual(exp.artifact_location,
+                                 expected_artifact_uri_format.format(e=exp_id))
+
     def test_create_duplicate_experiments(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
@@ -267,6 +307,51 @@ class TestFileStore(unittest.TestCase):
         assert fs.get_run(run_id).info.lifecycle_stage == 'deleted'
         fs.restore_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == 'active'
+
+    def test_create_run_appends_to_artifact_uri_path_correctly(self):
+        cases = [
+            ("path/to/local/folder", "path/to/local/folder/{e}/{r}/artifacts"),
+            ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
+            ("#path/to/local/folder?", "#path/to/local/folder?/{e}/{r}/artifacts"),
+            ("file:path/to/local/folder", "file:path/to/local/folder/{e}/{r}/artifacts"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
+            (
+                "file:path/to/local/folder?param=value",
+                "file:path/to/local/folder/{e}/{r}/artifacts?param=value"
+            ),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
+            (
+                "file:///path/to/local/folder?param=value#fragment",
+                "file:///path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
+            ),
+            ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}/{r}/artifacts"),
+            (
+                "s3://bucket/path/to/root?creds=mycreds",
+                "s3://bucket/path/to/root/{e}/{r}/artifacts?creds=mycreds",
+            ),
+            (
+                "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
+                "dbscheme+driver://root@host/dbname/{e}/{r}/artifacts?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/{e}/{r}/artifacts"
+                "?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/mydb/{e}/{r}/artifacts"
+                "?creds=mycreds#myfragment",
+            ),
+        ]
+
+        for artifact_root_uri, expected_artifact_uri_format in cases:
+            with TempDir() as tmp:
+                fs = FileStore(tmp.path(), artifact_root_uri)
+                exp_id = fs.create_experiment("exp")
+                run = fs.create_run(experiment_id=exp_id, user_id='user', start_time=0, tags=[])
+                self.assertEqual(run.info.artifact_uri,
+                                 expected_artifact_uri_format.format(e=exp_id, r=run.info.run_id))
 
     def test_create_run_in_deleted_experiment(self):
         fs = FileStore(self.test_root)
