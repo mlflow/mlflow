@@ -84,7 +84,7 @@ def _can_parse_as_json(string):
     try:
         json.loads(string)
         return True
-    except ValueError:
+    except Exception:  # pylint: disable=broad-except
         return False
 
 
@@ -99,11 +99,12 @@ def http_request_safe(host_creds, endpoint, **kwargs):
 def verify_rest_response(response, endpoint):
     """Verify the return code and raise exception if the request was not successful."""
     if response.status_code != 200:
-        base_msg = "API request to endpoint %s failed with error code " \
-                   "%s != 200" % (endpoint, response.status_code)
         if _can_parse_as_json(response.text):
             raise RestException(json.loads(response.text))
-        raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
+        else:
+            base_msg = "API request to endpoint %s failed with error code " \
+                       "%s != 200" % (endpoint, response.status_code)
+            raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
     return response
 
 

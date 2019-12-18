@@ -2,6 +2,8 @@ from __future__ import print_function
 
 import os
 import random
+import mock
+
 import requests
 import string
 import time
@@ -255,3 +257,17 @@ class safe_edit_yaml(object):
 
     def __exit__(self, *args):
         write_yaml(self._root, self._file_name, self._original, overwrite=True)
+
+
+def create_mock_response(status_code, text):
+    """
+    Create a mock resposne object with the status_code and text
+
+    :param: status_code int HTTP status code
+    :param: text message from the response
+    :reutrn: mock HTTP Response
+    """
+    response = mock.MagicMock()
+    response.status_code = status_code
+    response.text = text
+    return response

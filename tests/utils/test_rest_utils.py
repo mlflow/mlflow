@@ -4,10 +4,40 @@ import mock
 import numpy
 import pytest
 
-from mlflow.utils.rest_utils import http_request, http_request_safe,\
-    MlflowHostCreds, _DEFAULT_HEADERS
-from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.exceptions import MlflowException, RestException
+from mlflow.pyfunc.scoring_server import NumpyEncoder
+from mlflow.utils.rest_utils import http_request, http_request_safe, \
+    MlflowHostCreds, _DEFAULT_HEADERS, call_endpoint
+from mlflow.protos.service_pb2 import GetRun
+from tests import helper_functions
+
+
+def test_well_formed_json_error_response():
+    with mock.patch('requests.request') as request_mock:
+        host_only = MlflowHostCreds("http://my-host")
+        response_mock = mock.MagicMock()
+        response_mock.status_code = 400
+        response_mock.text = "{}"  # well-formed JSON error response
+        request_mock.return_value = response_mock
+
+        response_proto = GetRun.Response()
+        with pytest.raises(RestException):
+            call_endpoint(host_only, '/my/endpoint', 'GET', "", response_proto)
+
+
+@pytest.mark.parametrize("response_mock", [
+    helper_functions.create_mock_response(400, "Error message but not a JSON string"),
+    helper_functions.create_mock_response(400, ""),
+    helper_functions.create_mock_response(400, None)
+])
+def test_malformed_json_error_response(response_mock):
+    with mock.patch('requests.request') as request_mock:
+        host_only = MlflowHostCreds("http://my-host")
+        request_mock.return_value = response_mock
+
+        response_proto = GetRun.Response()
+        with pytest.raises(MlflowException):
+            call_endpoint(host_only, '/my/endpoint', 'GET', "", response_proto)
 
 
 @mock.patch('requests.request')
@@ -132,7 +162,7 @@ def test_http_request_wrapper(request):
     request.return_value = response
     with pytest.raises(MlflowException, match="Response body"):
         http_request_safe(host_only, '/my/endpoint')
-    response.text =\
+    response.text = \
         '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
     request.return_value = response
     with pytest.raises(RestException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"):
