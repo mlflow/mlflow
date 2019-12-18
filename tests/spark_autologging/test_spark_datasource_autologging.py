@@ -202,12 +202,13 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path, mlflo
                 df = spark_session.read.format(format).option("header", "true"). \
                     option("inferSchema", "true").load(file_path)
                 df.collect()
-            time.sleep(1)
+        # Sleep a bit prior to ending the run
+        time.sleep(1)
         # Exit mock block so that end_run() is not slow
 
     # Python subscriber threads should pick up the active run at the time they're notified
     # & make API requests against that run, even if those requests are slow.
-    time.sleep(10)
+    time.sleep(5)
     run = mlflow.get_run(run_id)
     assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
     table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]

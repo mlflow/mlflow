@@ -26,6 +26,14 @@ matrix:
     - stage: small
       if: type != cron
     - language: python
+      name: "Temp stage from Sid to test Spark autologging"
+      python: 2.7
+      if: type != cron
+      install:
+        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-large-python-tests.sh
+    - language: python
       name: "Lint (Python 3.6)"
       if: type != cron
       python: 3.6
@@ -82,13 +90,6 @@ matrix:
         - npm test -- --coverage
     - stage: large
       if: type != cron
-    - language: python
-      python: 2.7
-      if: type != cron
-      install:
-        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-      script:
-        - ./travis/run-large-python-tests.sh
     # Run Windows tests in the "large" test builder so that we don't spend Travis executor
     # time running Windows tests if Python 3 small tests fail.
     - os: windows
@@ -148,7 +149,6 @@ script:
       if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
          echo "skipping this step on windows.";
       elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-        ./travis/test-spark-autologging.sh;
         ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
       else
         ./travis/run-large-python-tests.sh;
