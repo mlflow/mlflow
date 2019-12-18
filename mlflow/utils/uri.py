@@ -124,7 +124,7 @@ def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     if len(prefix_path) == 0:
         return suffix_path
 
-    # If the specified prefix path is non-empty, we must relativize the suffix path by removing 
+    # If the specified prefix path is non-empty, we must relativize the suffix path by removing
     # the leading slash, if present. Otherwise, posixpath.join() would omit the prefix from the
     # joined path
     suffix_path = suffix_path.lstrip(posixpath.sep)

@@ -273,7 +273,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     self.assertEqual(exp.artifact_location,
                                      expected_artifact_uri_format.format(e=exp_id))
 
-
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [
             ("path/to/local/folder", "path/to/local/folder/{e}/{r}/artifacts"),

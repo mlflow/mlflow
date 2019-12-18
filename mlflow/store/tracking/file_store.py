@@ -168,8 +168,8 @@ class FileStore(AbstractStore):
     def _get_artifact_dir(self, experiment_id, run_uuid):
         _validate_run_id(run_uuid)
         return append_to_uri_path(
-            self.get_experiment(experiment_id).artifact_location, 
-            run_uuid, 
+            self.get_experiment(experiment_id).artifact_location,
+            run_uuid,
             FileStore.ARTIFACTS_FOLDER_NAME)
 
     def _get_active_experiments(self, full_path=False):
