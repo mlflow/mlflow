@@ -113,7 +113,6 @@ matrix:
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
-        - ./travis/test-spark-autologging.sh
         - ./travis/run-small-python-tests.sh
     - language: python
       python: 3.6
@@ -149,6 +148,7 @@ script:
       if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
          echo "skipping this step on windows.";
       elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+        ./travis/test-spark-autologging.sh;
         ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
       else
         ./travis/run-large-python-tests.sh;

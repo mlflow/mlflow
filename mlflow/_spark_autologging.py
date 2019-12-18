@@ -191,6 +191,7 @@ class SparkAutologgingContext(RunContextProvider):
             for info in _table_infos:
                 if info not in seen:
                     unique_infos.append(info)
+                    seen.add(info)
             try:
                 if len(_table_infos) > 0:
                     tags = {
