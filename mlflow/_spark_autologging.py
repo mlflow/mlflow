@@ -7,12 +7,32 @@ import uuid
 import mlflow
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.context import spark_autologging_context
+from mlflow.tracking.context.abstract_context import RunContextProvider
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
 _REPL_ID_JAVA_PACKAGE = "org.mlflow.spark.autologging.databricks"
 _SPARK_TABLE_INFO_LISTENER = None
+_SPARK_TABLE_INFO_TAG_NAME = "sparkTableInfo"
 _logger = logging.getLogger(__name__)
+_lock = threading.Lock()
+_table_infos = []
+
+def _get_table_info_string(path, version, format):
+    if format == "delta":
+        return "path={path},version={version},format={format}".format(
+            path=path, version=version, format=format)
+    return "path={path},format={format}".format(path=path, format=format)
+
+def _merge_tag_lines(existing_tag, new_table_info):
+    if existing_tag is None:
+        return new_table_info
+    if new_table_info in existing_tag:
+        return existing_tag
+    return "\n".join([existing_tag, new_table_info])
+
+def add_table_info_to_context_provider(path, version, format):
+    with _lock:
+        _table_infos.append((path, version, format))
 
 def _get_java_package():
     from pyspark import SparkContext
@@ -80,8 +100,7 @@ def _autolog():
         _SPARK_TABLE_INFO_LISTENER.register()
         # Register context provider for Spark autologging
         from mlflow.tracking.context.registry import _run_context_provider_registry
-        _run_context_provider_registry.register(spark_autologging_context.SparkAutologgingContext)
-
+        _run_context_provider_registry.register(SparkAutologgingContext)
 
 
 class PythonSubscriber(object):
@@ -102,30 +121,14 @@ class PythonSubscriber(object):
     def ping(self):
         return None
 
-    def _get_table_info_string(self, path, version, format):
-        if format == "delta":
-            return "path={path},version={version},format={format}".format(
-                path=path, version=version, format=format)
-        return "path={path},format={format}".format(path=path, format=format)
-
-    def _merge_tag_lines(self, existing_tag, new_table_info):
-        if existing_tag is None:
-            return new_table_info
-        if new_table_info in existing_tag:
-            return existing_tag
-        return "\n".join([existing_tag, new_table_info])
-
     def _set_run_tag_async(self, run_id, path, version, format):
         # TODO make async
         client = MlflowClient()
-        table_info_string = self._get_table_info_string(path, version, format)
+        table_info_string = _get_table_info_string(path, version, format)
         existing_run = client.get_run(run_id)
-        existing_tag = existing_run.data.tags.get(spark_autologging_context._SPARK_TABLE_INFO_TAG_NAME)
-        new_table_info = self._merge_tag_lines(existing_tag, table_info_string)
-        client.set_tag(run_id, spark_autologging_context._SPARK_TABLE_INFO_TAG_NAME, new_table_info)
-
-    def _add_tag_to_context_provider(self, path, version, format):
-        spark_autologging_context.add_table_info(path, version, format)
+        existing_tag = existing_run.data.tags.get(_SPARK_TABLE_INFO_TAG_NAME)
+        new_table_info = _merge_tag_lines(existing_tag, table_info_string)
+        client.set_tag(run_id, _SPARK_TABLE_INFO_TAG_NAME, new_table_info)
 
     def notify(self, path, version, format):
         try:
@@ -150,7 +153,7 @@ class PythonSubscriber(object):
         if active_run:
             self._set_run_tag_async(active_run.info.run_id, path, version, format)
         else:
-            spark_autologging_context.add_table_info(path, version, format)
+            add_table_info_to_context_provider(path, version, format)
 
 
     def register(self):
@@ -170,3 +173,32 @@ class PythonSubscriber(object):
 
     class Java:
         implements = ["{}.MlflowAutologEventSubscriber".format(_JAVA_PACKAGE)]
+
+
+class SparkAutologgingContext(RunContextProvider):
+    """
+    Context provider used when there's no active run. Accumulates datasource read information,
+    then logs that information to the next-created run & clears the accumulated information.
+    """
+    def in_context(self):
+        return True
+
+    def tags(self):
+        with _lock:
+            global _table_infos
+            seen = set()
+            unique_infos = []
+            for info in _table_infos:
+                if info not in seen:
+                    unique_infos.append(info)
+            try:
+                if len(_table_infos) > 0:
+                    tags = {
+                        _SPARK_TABLE_INFO_TAG_NAME: "\n".join([_get_table_info_string(*info)
+                                                               for info in unique_infos])
+                    }
+                    return tags
+                else:
+                    return {}
+            finally:
+                _table_infos = []

@@ -113,6 +113,7 @@ matrix:
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
+        - ./travis/test-spark-autologging.sh
         - ./travis/run-small-python-tests.sh
     - language: python
       python: 3.6

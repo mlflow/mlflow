@@ -151,8 +151,7 @@ def test_autologging_multiple_reads_same_run(spark_session, tracking_uri_mock, f
     with mlflow.start_run():
         for format, file_path in format_to_file_path.items():
             run_id = mlflow.active_run().info.run_id
-            df = spark_session.read.format(format).option("header", "true"). \
-                option("inferSchema", "true").load(file_path)
+            df = spark_session.read.format(format).load(file_path)
             df.collect()
             time.sleep(1)
         run = mlflow.get_run(run_id)
@@ -164,7 +163,7 @@ def test_autologging_multiple_reads_same_run(spark_session, tracking_uri_mock, f
         ])
 
 
-def test_autologging_starts_run_if_none_active(spark_session, format_to_file_path, tracking_uri_mock):
+def test_autologging_does_not_start_run(spark_session, format_to_file_path, tracking_uri_mock):
     try:
         mlflow.spark.autolog()
         format = list(format_to_file_path.keys())[0]
@@ -174,12 +173,8 @@ def test_autologging_starts_run_if_none_active(spark_session, format_to_file_pat
         df.collect()
         time.sleep(1)
         active_run = mlflow.active_run()
-        assert active_run is not None
-        run_id = active_run.info.run_idclaer
-        run = mlflow.get_run(run_id)
-        assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
-        table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
-        assert table_info_tag == _get_expected_table_info_row(path=file_path, format=format)
+        assert active_run is None
+        assert len(mlflow.search_runs()) == 0
     finally:
         mlflow.end_run()
 
@@ -201,7 +196,7 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path, mlflo
 
     mlflow.spark.autolog()
     with mlflow.start_run():
-        # Mock slow API requests to log spark datasource information
+        # Mock slow API requests to log Spark datasource information
         with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
             http_request_mock.side_effect = _slow_api_req_mock
             run_id = mlflow.active_run().info.run_id
@@ -222,4 +217,3 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path, mlflo
         _get_expected_table_info_row(path, format)
         for format, path in format_to_file_path.items()
     ])
-

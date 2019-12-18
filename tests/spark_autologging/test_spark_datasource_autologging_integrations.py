@@ -16,7 +16,7 @@ import mlflow.spark
 import mlflow.keras
 import mlflow.tensorflow
 
-from mlflow.tracking.context.spark_autologging_context import _SPARK_TABLE_INFO_TAG_NAME
+from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 def _get_mlflow_spark_jar_path():
