@@ -33,11 +33,24 @@ def manual_run(request):
 
 def create_model():
     model = keras.Sequential()
+    add_layers(model)
+    model.compile(optimizer=keras.optimizers.Adam(lr=0.001, epsilon=1e-07),
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+    return model
 
+
+def add_layers(model):
     model.add(layers.Dense(64, activation='relu', input_shape=(32,)))
     model.add(layers.Dense(64, activation='relu'))
     model.add(layers.Dense(10, activation='softmax'))
+    return model
 
+
+def create_large_model():
+    model = keras.Sequential()
+    while len(model.layers) > 60:
+        add_layers(model)
     model.compile(optimizer=keras.optimizers.Adam(lr=0.001, epsilon=1e-07),
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
@@ -90,14 +103,14 @@ def test_keras_autolog_persists_manually_created_run(random_train_data,
 
 
 @pytest.fixture
-def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels, manual_run):
+def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels, manual_run, model_func=create_model):
 
     mlflow.keras.autolog()
 
     data = random_train_data
     labels = random_one_hot_labels
 
-    model = create_model()
+    model = model_func()
 
     if fit_variant == 'fit_generator':
         def generator():
@@ -109,6 +122,9 @@ def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels,
 
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
+@pytest.fixture
+def keras_random_data_large_model_run(random_train_data, fit_variant, random_one_hot_labels, manual_run)::
+    return keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels, manual_run, model_func=create_large_model)::
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
@@ -135,6 +151,12 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
     artifacts = map(lambda x: x.path, artifacts)
     assert 'model_summary.txt' in artifacts
 
+@pytest.mark.large
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+def test_keras_autolog_logs_expected_data(keras_random_data_large_model_run):
+    data = keras_random_data_large_model_run.data
+    assert 'model_summary' in data.tags
+    assert "See the artifacts" in data.tags['model_summary']
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit'])
