@@ -1,16 +1,14 @@
 import logging
-import os
 import warnings
 import threading
 
 import mlflow
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.tracking.client import MlflowClient
-
+from mlflow.tracking.context import spark_autologging_context
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
 _REPL_ID_JAVA_PACKAGE = "org.mlflow.spark.autologging.databricks"
-_SPARK_TABLE_INFO_TAG_NAME = "sparkTableInfo"
 _SPARK_TABLE_INFO_LISTENER = None
 _logger = logging.getLogger(__name__)
 
@@ -78,13 +76,10 @@ def _autolog():
         event_publisher.init(1)
         _SPARK_TABLE_INFO_LISTENER = PythonSubscriber()
         _SPARK_TABLE_INFO_LISTENER.register()
-        # Create a run if none is active
-        if mlflow.active_run() is None:
-            # MLFLOW_RUN_ID = abc
-            mlflow.start_run() # resume "abc"
-            run_id = mlflow.active_run().info.run_id
-            mlflow.end_run("RUNNING")
-            os.environ["MLFLOW_RUN_ID"] = run_id # = "abc"
+        # Register context provider for Spark autologging
+        from mlflow.tracking.context.registry import _run_context_provider_registry
+        _run_context_provider_registry.register(spark_autologging_context.SparkAutologgingContext)
+
 
 
 class PythonSubscriber(object):
@@ -118,26 +113,43 @@ class PythonSubscriber(object):
             return existing_tag
         return "\n".join([existing_tag, new_table_info])
 
+    def _set_run_tag_async(self, run_id, path, version, format):
+        # TODO make async
+        client = MlflowClient()
+        table_info_string = self._get_table_info_string(path, version, format)
+        existing_run = client.get_run(run_id)
+        existing_tag = existing_run.data.tags.get(spark_autologging_context._SPARK_TABLE_INFO_TAG_NAME)
+        new_table_info = self._merge_tag_lines(existing_tag, table_info_string)
+        client.set_tag(run_id, spark_autologging_context._SPARK_TABLE_INFO_TAG_NAME, new_table_info)
+
+    def _add_tag_to_context_provider(self, path, version, format):
+        spark_autologging_context.add_table_info(path, version, format)
+
     def notify(self, path, version, format):
+        try:
+            self._notify(path, version, format)
+        except Exception as e:
+            _logger.error("Unexpected exception %s while attempting to log Spark datasource "
+                          "info. Exception:\n%s" % e)
+
+
+    def _notify(self, path, version, format):
         """
         Method called by Scala SparkListener to propagate datasource read events to the current
         Python process
         """
         import datetime
         print("Notified in Python at %s with %s, %s, %s, active run %s, tid %s" % (datetime.datetime.now(), path, version, format, mlflow.active_run(), threading.get_ident()))
-        # TODO: what happens if there's a race in this method?
         # If there's an active run, simply set the tag on it
-        client = MlflowClient()
-        active_run = mlflow.tracking.fluent._get_or_start_run()
-        active_run_id = active_run.info.run_id
-        table_info_string = self._get_table_info_string(path, version, format)
-        existing_run = client.get_run(active_run_id)
-        existing_tag = existing_run.data.tags.get(_SPARK_TABLE_INFO_TAG_NAME)
-        new_table_info = self._merge_tag_lines(existing_tag, table_info_string)
-        client.set_tag(active_run_id, _SPARK_TABLE_INFO_TAG_NAME, new_table_info)
-        # active_run_id = mlflow.active_run().info.run_id
-        # mlflow.end_run("RUNNING")
-        # os.environ["MLFLOW_RUN_ID"] = active_run_id
+        # Note that there's a TOCTOU race condition here - active_run() here can actually throw
+        # if the main thread happens to end the run & pop from the active run stack after we check
+        # the stack size but before we peek
+        active_run = mlflow.active_run()
+        if active_run:
+            self._set_run_tag_async(active_run.info.run_id, path, version, format)
+        else:
+            spark_autologging_context.add_table_info(path, version, format)
+
 
     def register(self):
         event_publisher = _get_jvm_event_publisher()

@@ -425,8 +425,6 @@ def autolog():
     @gorilla.patch(keras.Model)
     def fit(self, *args, **kwargs):
         if not mlflow.active_run():
-            assert "MLFLOW_RUN_ID" in os.environ
-            print("Starting new run from keras autolog at %s" % datetime.datetime.now())
             try_mlflow_log(mlflow.start_run)
             auto_end_run = True
         else:

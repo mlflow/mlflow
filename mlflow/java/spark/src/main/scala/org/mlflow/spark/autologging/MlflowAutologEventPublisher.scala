@@ -9,7 +9,7 @@ import org.apache.spark.sql.SparkSession
 import org.slf4j.LoggerFactory
 import py4j.Py4JException
 
-import scala.collection.mutable
+import scala.collection.immutable
 import scala.util.control.NonFatal
 
 /**
@@ -94,11 +94,8 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
     // Take a copy of `subscribers` under a lock. We don't need to lock elsewhere in this
     // method as replIds are unique across all subscribers (so there's no chance we accidentally
     // reuse a replId & wrongly remove a working subscriber).
-    val subscribersCopy = this.synchronized {
-      subscribers.toSeq
-    }
 
-    val brokenReplIds = subscribersCopy.flatMap { case (replId, listener) =>
+    val brokenReplIds = subscribers.flatMap { case (replId, listener) =>
       try {
         listener.ping()
         Seq.empty
