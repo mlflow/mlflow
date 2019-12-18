@@ -8,7 +8,7 @@ import org.apache.spark.mlflow.MlflowSparkAutologgingTestUtils
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
-import org.mockito.Matchers.{any, eq => meq}
+import org.mockito.Matchers.any
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.FunSuite
@@ -137,10 +137,6 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
 
   test("MlflowAutologEventPublisher triggers publishEvent with appropriate arguments " +
     "when reading datasources corresponding to different formats") {
-      MlflowAutologEventPublisher.init()
-      val subscriber = spy(new MockSubscriber())
-      MlflowAutologEventPublisher.register(subscriber)
-      assert(MlflowAutologEventPublisher.subscribers.size == 1)
       val formatToTestDFs = formatToTablePath.map { case (format, tablePath) =>
         val baseDf = spark.read.format(format).option("inferSchema", "true")
           .option("header", "true").load(tablePath)
@@ -153,19 +149,24 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
         )
       }
 
-      formatToTestDFs.foreach { case (format, dfs) =>
-        dfs.foreach { df =>
-          // Read DF
-          df.collect()
-          // Verify events logged
-          Thread.sleep(1000)
-          val tablePath = formatToTablePath(format)
-          val expectedPath = getFileUri(tablePath)
-          verify(subscriber, times(0)).notify(meq(expectedPath), any(), meq("unknown"))
-          verify(subscriber, atLeastOnce()).notify(expectedPath, "unknown", format)
+        formatToTestDFs.foreach { case (format, dfs) =>
+          dfs.foreach { df =>
+            df.printSchema()
+            MlflowAutologEventPublisher.init()
+            val subscriber = spy(new MockSubscriber())
+            MlflowAutologEventPublisher.register(subscriber)
+            assert(MlflowAutologEventPublisher.subscribers.size == 1)
+            // Read DF
+            df.collect()
+            // Verify events logged
+            Thread.sleep(1000)
+            val tablePath = formatToTablePath(format)
+            val expectedPath = getFileUri(tablePath)
+            verify(subscriber, times(1)).notify(any(), any(), any())
+            verify(subscriber, times(1)).notify(expectedPath, "unknown", format)
+            MlflowAutologEventPublisher.stop()
+          }
         }
-      }
-      MlflowAutologEventPublisher.stop()
   }
 
   test("MlflowAutologEventPublisher triggers publishEvent with appropriate arguments " +
