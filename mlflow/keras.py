@@ -460,7 +460,7 @@ def autolog():
             stopped_epoch_metrics = {key: history.history[key][early_stop_callback.stopped_epoch]
                                      for key in history.history.keys()}
             # Checking that a metric history exists
-            metric_key = next(iter(history.history))
+            metric_key = next(iter(history.history), None)
             if metric_key is not None:
                 last_epoch = len(history.history[metric_key])
                 try_mlflow_log(mlflow.log_metrics, stopped_epoch_metrics, step=last_epoch+1)
@@ -502,7 +502,7 @@ def autolog():
             stopped_epoch_metrics = {key: history.history[key][early_stop_callback.stopped_epoch]
                                      for key in history.history.keys()}
             # Checking that a metric history exists
-            metric_key = next(iter(history.history))
+            metric_key = next(iter(history.history), None)
             if metric_key is not None:
                 last_epoch = len(history.history[metric_key])
                 try_mlflow_log(mlflow.log_metrics, stopped_epoch_metrics, step=last_epoch+1)
