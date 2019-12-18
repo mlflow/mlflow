@@ -41,7 +41,7 @@ def test_log_artifacts(local_artifact_repo, local_artifact_root):
 
     artifacts_list = local_artifact_repo.list_artifacts()
     assert len(artifacts_list) == 1
-    assert artifacts_list[0].path == artifact_rel_path
+    assert (artifacts_list[0].path == artifact_rel_path)
 
     artifact_dst_path = os.path.join(local_artifact_root, artifact_rel_path)
     assert os.path.exists(artifact_dst_path)
@@ -49,16 +49,26 @@ def test_log_artifacts(local_artifact_repo, local_artifact_root):
     assert open(artifact_dst_path).read() == artifact_text
 
 
-def test_download_artifacts(local_artifact_repo):
+@pytest.mark.parametrize("dst_path", [None, "dest"])
+def test_download_artifacts(local_artifact_repo, dst_path):
     artifact_rel_path = "test.txt"
     artifact_text = "hello world!"
+    empty_dir_path = "empty_dir"
     with TempDir(chdr=True) as local_dir:
+        if dst_path:
+            os.mkdir(dst_path)
         artifact_src_path = local_dir.path(artifact_rel_path)
+        os.mkdir(local_dir.path(empty_dir_path))
         with open(artifact_src_path, "w") as f:
             f.write(artifact_text)
-        local_artifact_repo.log_artifact(artifact_src_path)
-        dst_path = local_artifact_repo.download_artifacts(artifact_path=artifact_rel_path)
-        assert open(dst_path).read() == artifact_text
+        local_artifact_repo.log_artifacts(local_dir.path())
+        result = local_artifact_repo.download_artifacts(artifact_path=artifact_rel_path,
+                                                        dst_path=dst_path)
+        assert open(result).read() == artifact_text
+        result = local_artifact_repo.download_artifacts(artifact_path="", dst_path=dst_path)
+        empty_dir_dst_path = os.path.join(result, empty_dir_path)
+        assert os.path.isdir(empty_dir_dst_path)
+        assert len(os.listdir(empty_dir_dst_path)) == 0
 
 
 def test_download_artifacts_does_not_copy(local_artifact_repo):

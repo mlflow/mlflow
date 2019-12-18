@@ -61,7 +61,7 @@ class S3ArtifactRepository(ArtifactRepository):
         if path:
             dest_path = posixpath.join(dest_path, path)
         infos = []
-        prefix = dest_path + "/"
+        prefix = dest_path + "/" if dest_path else ""
         s3_client = self._get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
         results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter='/')

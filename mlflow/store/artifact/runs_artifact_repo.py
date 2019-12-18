@@ -84,6 +84,9 @@ class RunsArtifactRepository(ArtifactRepository):
         """
         self.repo.log_artifacts(local_dir, artifact_path)
 
+    def _is_directory(self, artifact_path):
+        return self.repo._is_directory(artifact_path)
+
     def list_artifacts(self, path):
         """
         Return all the artifacts for this run_id directly under path. If path is a file, returns

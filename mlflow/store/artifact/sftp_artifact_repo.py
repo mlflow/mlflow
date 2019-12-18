@@ -71,6 +71,11 @@ class SFTPArtifactRepository(ArtifactRepository):
         self.sftp.makedirs(artifact_dir)
         self.sftp.put_r(local_dir, artifact_dir)
 
+    def _is_directory(self, artifact_path):
+        artifact_dir = self.path
+        path = posixpath.join(artifact_dir, artifact_path) if artifact_path else artifact_dir
+        return self.sftp.isdir(path)
+
     def list_artifacts(self, path=None):
         artifact_dir = self.path
         list_dir = posixpath.join(artifact_dir, path) if path else artifact_dir

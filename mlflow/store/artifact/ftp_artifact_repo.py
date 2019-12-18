@@ -97,6 +97,12 @@ class FTPArtifactRepository(ArtifactRepository):
                 if os.path.isfile(os.path.join(root, f)):
                     self.log_artifact(os.path.join(root, f), upload_path)
 
+    def _is_directory(self, artifact_path):
+        artifact_dir = self.path
+        list_dir = posixpath.join(artifact_dir, artifact_path) if artifact_path else artifact_dir
+        with self.get_ftp_client() as ftp:
+            return self._is_dir(ftp, list_dir)
+
     def list_artifacts(self, path=None):
         with self.get_ftp_client() as ftp:
             artifact_dir = self.path
