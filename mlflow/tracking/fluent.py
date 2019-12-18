@@ -72,6 +72,7 @@ class ActiveRun(Run):  # pylint: disable=W0223
         end_run(RunStatus.to_string(status))
         return exc_type is None
 
+
 def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
