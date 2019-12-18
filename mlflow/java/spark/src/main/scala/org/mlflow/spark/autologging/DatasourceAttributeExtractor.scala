@@ -47,18 +47,6 @@ private[autologging] object DatasourceAttributeExtractor {
     leafNode match {
       case relation: DataSourceV2Relation =>
         getSparkTableInfoFromTable(relation.table)
-      case LogicalRelation(HadoopFsRelation(index, _, _, _, fileFormat, _), _, _, _) =>
-        fileFormat match {
-          case _: CSVFileFormat => None
-          case _: ParquetFileFormat => None
-          case _: JsonFileFormat => None
-          case _: OrcFileFormat => None
-          case _: TextFileFormat => None
-          case other: FileFormat =>
-            val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
-            println(s"@SID Got fileformat ${other.getClass.getName} for path ${path}")
-            Option(SparkTableInfo(path, None, None))
-        }
       case other =>
         None
     }

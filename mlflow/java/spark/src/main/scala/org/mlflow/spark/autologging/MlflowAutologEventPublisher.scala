@@ -1,15 +1,13 @@
 package org.mlflow.spark.autologging
 
-import java.util.Date
-import java.util.concurrent._
-import java.text.SimpleDateFormat
+import java.util.concurrent.{ConcurrentHashMap, ScheduledFuture, ScheduledThreadPoolExecutor, TimeUnit}
 
+import scala.collection.JavaConverters._
 
 import org.apache.spark.sql.SparkSession
 import org.slf4j.LoggerFactory
 import py4j.Py4JException
 
-import scala.collection.immutable
 import scala.util.control.NonFatal
 
 /**
@@ -32,8 +30,8 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
 
   private[autologging] var sparkQueryListener: SparkDataSourceListener = _
   private val executor = new ScheduledThreadPoolExecutor(1)
-  private[autologging] var subscribers: mutable.LinkedHashMap[String, MlflowAutologEventSubscriber] =
-    mutable.LinkedHashMap[String, MlflowAutologEventSubscriber]()
+  private[autologging] val subscribers =
+    new ConcurrentHashMap[String, MlflowAutologEventSubscriber]()
   private var scheduledTask: ScheduledFuture[_] = _
 
   def spark: SparkSession = {
@@ -45,7 +43,7 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
 
   // Exposed for testing
   private[autologging] def getSparkDataSourceListener: SparkDataSourceListener = {
-    new SparkDataSourceListener()
+    new SparkDataSourceListener(this)
   }
 
   // Initialize Spark listener that pulls Delta query plan information & bubbles it up to registered
@@ -66,7 +64,7 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
         }
       }
       scheduledTask = executor.scheduleAtFixedRate(
-        task, 1, gcDeadSubscribersIntervalSec, TimeUnit.SECONDS)
+        task, gcDeadSubscribersIntervalSec, gcDeadSubscribersIntervalSec, TimeUnit.SECONDS)
     }
   }
 
@@ -78,7 +76,7 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
         Thread.sleep(1000)
         logger.info("Unable to cancel task for GC of unresponsive subscribers, retrying...")
       }
-      subscribers = mutable.LinkedHashMap()
+      subscribers.clear()
     }
   }
 
@@ -89,13 +87,15 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
     subscribers.put(subscriber.replId, subscriber)
   }
 
+  // Exposed for testing - in particular, so that we can iterate over subscribers in a specific
+  // order within tests
+  private[autologging] def getSubscribers: Seq[(String, MlflowAutologEventSubscriber)] = {
+    subscribers.asScala.toSeq
+  }
+
   /** Unregister subscribers broken e.g. due to detaching of the associated Python REPL */
   private[autologging] def unregisterBrokenSubscribers(): Unit = {
-    // Take a copy of `subscribers` under a lock. We don't need to lock elsewhere in this
-    // method as replIds are unique across all subscribers (so there's no chance we accidentally
-    // reuse a replId & wrongly remove a working subscriber).
-
-    val brokenReplIds = subscribers.flatMap { case (replId, listener) =>
+    val brokenReplIds = getSubscribers.flatMap { case (replId, listener) =>
       try {
         listener.ping()
         Seq.empty
@@ -122,7 +122,7 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
       sparkTableInfo: SparkTableInfo): Unit = synchronized {
     sparkTableInfo match {
       case SparkTableInfo(path, version, format) =>
-        for ((replId, listener) <- subscribers) {
+        for ((replId, listener) <- getSubscribers) {
           try {
             listener.notify(path, version.getOrElse("unknown"), format.getOrElse("unknown"))
           } catch {
