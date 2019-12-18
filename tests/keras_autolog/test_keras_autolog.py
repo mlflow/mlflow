@@ -159,8 +159,7 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_keras_autolog_logs_expected_data(keras_random_data_large_model_run):
+def test_keras_autolog_logs_expected_large_summary(keras_random_data_large_model_run):
     data = keras_random_data_large_model_run.data
     assert 'model_summary' in data.tags
     assert "See the artifacts" in data.tags['model_summary']
