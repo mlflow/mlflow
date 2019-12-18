@@ -69,11 +69,11 @@ def get_uri_scheme(uri_or_path):
 
 def append_to_uri_path(uri, *paths):
     """
-    Appends the specified POSIX path `paths` to the path component of the specified `uri`.
+    Appends the specified POSIX `paths` to the path component of the specified `uri`.
 
     :param uri: The input URI, represented as a string.
-    :param path: The POSIX paths to append to the specified `uri`'s path component.
-    :return: A new URI with a path component consisting of the specified `path` appended to
+    :param paths: The POSIX paths to append to the specified `uri`'s path component.
+    :return: A new URI with a path component consisting of the specified `paths` appended to
              the path component of the specified `uri`.
 
     >>> uri1 = "s3://root/base/path?param=value"
@@ -90,7 +90,7 @@ def append_to_uri_path(uri, *paths):
     parsed_uri = urllib.parse.urlparse(uri)
     if len(parsed_uri.scheme) == 0:
         # If the input URI does not define a scheme, we assume that it is a POSIX path
-        # and join it with the specified input path
+        # and join it with the specified input paths
         return _join_posixpaths_and_append_absolute_suffixes(uri, path)
 
     prefix = ""
