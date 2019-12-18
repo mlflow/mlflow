@@ -2,13 +2,13 @@ import pytest
 import numpy as np
 np.random.seed(1337)
 
-import keras
-import keras.layers as layers
+import keras  # pylint: disable=E402
+import keras.layers as layers  # pylint: disable=E402
 
-import mlflow
-import mlflow.keras
+import mlflow  # pylint: disable=E402
+import mlflow.keras  # pylint: disable=E402
 
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611, E402
 
 
 @pytest.fixture
@@ -176,8 +176,9 @@ def all_zeros_one_hot_labels():
 
 
 @pytest.fixture
-def keras_random_data_run_with_early_stop(all_zeros_train_data, fit_variant, all_zeros_one_hot_labels,
-                                          manual_run, restore_best_weights):
+def keras_random_data_run_with_early_stop(all_zeros_train_data, fit_variant,
+                                          all_zeros_one_hot_labels, manual_run,
+                                          restore_best_weights):
     mlflow.keras.autolog()
 
     data = all_zeros_train_data
