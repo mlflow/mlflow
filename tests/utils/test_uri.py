@@ -94,9 +94,9 @@ def test_append_to_uri_path_joins_uri_paths_and_posixpaths_correctly():
 def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
     """
     Certain characters are treated specially when parsing and interpreting URIs. However, in the
-    case where a URI input for `append_to_uri_path` is simply a posixpath, these characters should
+    case where a URI input for `append_to_uri_path` is simply a POSIX path, these characters should
     not receive special treatment. This test case verifies that `append_to_uri_path` properly joins
-    posixpaths containing these characters.
+    POSIX paths containing these characters.
     """
     for special_char in [
         ".", "-", "+", ":", "?", "@", "&", "$", "%", "/", "[", "]", "(", ")", "*", "'", ",",
