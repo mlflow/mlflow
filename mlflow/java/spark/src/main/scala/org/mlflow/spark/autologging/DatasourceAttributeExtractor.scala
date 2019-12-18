@@ -42,9 +42,6 @@ private[autologging] object DatasourceAttributeExtractor {
     leafNode match {
       case relation: DataSourceV2Relation =>
         getSparkTableInfoFromTable(relation.table)
-      case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
-        val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
-        Option(SparkTableInfo(path, None, None))
       case other =>
         None
     }

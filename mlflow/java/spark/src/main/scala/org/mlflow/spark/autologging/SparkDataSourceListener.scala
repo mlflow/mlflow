@@ -12,7 +12,8 @@ import scala.util.control.NonFatal
  * Implementation of the SparkListener interface used to detect Spark datasource reads.
  * and notify subscribers.
  */
-class SparkDataSourceListener extends SparkListener {
+class SparkDataSourceListener(
+    publisher: MlflowAutologEventPublisherImpl = MlflowAutologEventPublisher) extends SparkListener {
   private val logger = LoggerFactory.getLogger(getClass)
 
   protected def getLeafNodes(lp: LogicalPlan): Seq[LogicalPlan] = {
@@ -38,7 +39,7 @@ class SparkDataSourceListener extends SparkListener {
       val leafNodes = getLeafNodes(qe.analyzed)
       val tableInfosToLog = leafNodes.flatMap(DatasourceAttributeExtractor.getTableInfoToLog)
       tableInfosToLog.foreach { tableInfo =>
-        MlflowAutologEventPublisher.publishEvent(None, tableInfo)
+        publisher.publishEvent(None, tableInfo)
       }
     }
   }

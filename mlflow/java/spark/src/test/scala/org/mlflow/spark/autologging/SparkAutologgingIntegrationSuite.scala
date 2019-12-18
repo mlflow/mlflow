@@ -32,6 +32,11 @@ private[autologging] class BrokenSubscriber extends MockSubscriber {
   override def ping(): Unit = {
     throw new RuntimeException("Oh no, failing ping!")
   }
+
+  override def notify(path: String, version: String, format: String): Unit = {
+    throw new RuntimeException("Unable to notify subscriber!")
+  }
+
 }
 
 class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAll
@@ -184,40 +189,31 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     verify(subscriber, times(1)).notify(getFileUri(rightPath), "unknown", rightFormat)
   }
 
-  test("MlflowAutologEventPublisher publishes to subscribers in order of registration") {
-    val notifyOrder: ArrayBuffer[Int] = new ArrayBuffer[Int]()
-    class SaveNotifyOrderSubscriber(idx: Int) extends MockSubscriber {
-      override def notify(path: String, version: String, format: String): Unit = {
-        notifyOrder.append(idx)
-      }
-    }
-    val (format, path) = formatToTablePath.head
-    val df = spark.read.format(format).load(path)
-    val subscribers = 0.until(3).map(idx => new SaveNotifyOrderSubscriber(idx))
-    subscribers.foreach(MlflowAutologEventPublisher.register)
-    df.collect()
-    Thread.sleep(1000)
-    assert(notifyOrder == Seq(0, 1, 2))
-  }
-
-
   test("MlflowAutologEventPublisher can publish to working subscribers even when " +
     "others are broken") {
-    // Reinitialize publisher with very large GC interval
     MlflowAutologEventPublisher.stop()
-    MlflowAutologEventPublisher.init(gcDeadSubscribersIntervalSec = 10000)
-    // Register broken subscribers & a working subscriber, verify we can publish to the working
-    // subscriber despite the broken ones
+    val subscriber = spy(new MockSubscriber())
+    // Publish to a broken subscriber, then a working one, and finally another broken one
+    val subscriberSeq = Seq(new BrokenSubscriber(), subscriber, new BrokenSubscriber())
+    object MockPublisher extends MlflowAutologEventPublisherImpl {
+      // Override subscriber iteration logic to yield subscribers in the desired order
+      override def getSubscribers: Seq[(String, MlflowAutologEventSubscriber)] = {
+        subscriberSeq.map(subscriber => (subscriber.replId, subscriber))
+      }
+    }
+    // Disable GC of dead subscribers so that they get published-to
+    MockPublisher.init(gcDeadSubscribersIntervalSec = 10000)
+    val listeners1 = MlflowSparkAutologgingTestUtils.getListeners(spark)
+    assert(listeners1.length == 1)
     val (format, path) = formatToTablePath.head
     val df = spark.read.format(format).load(path)
-    MlflowAutologEventPublisher.register(new BrokenSubscriber())
-    val subscriber = spy(new MockSubscriber())
-    MlflowAutologEventPublisher.register(subscriber)
-    MlflowAutologEventPublisher.register(new BrokenSubscriber())
+    // Register subscribers & collect the DF to trigger a datasource read event
+    subscriberSeq.foreach(MockPublisher.register)
     df.collect()
     Thread.sleep(1000)
     verify(subscriber, times(1)).notify(any(), any(), any())
-    verify(subscriber, times(1)).notify(getFileUri(path), "unknown", format)
+    verify(subscriber, times(1)).notify(
+      getFileUri(path), "unknown", format)
   }
 
   test("Exceptions while extracting datasource information from Spark query plan " +
