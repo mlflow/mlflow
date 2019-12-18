@@ -46,7 +46,7 @@ def test_download_from_uri():
         ("/path", ("/", "path")),
         ("/path/", ("/path", "")),
         ("path/to/dir", ("path/to", "dir")),
-        # ("file:", ("file:", "")),
+        ("file:", ("file:", "")),
         ("file:path", ("file:", "path")),
         ("file:path/", ("file:path", "")),
         ("file:path/to/dir", ("file:path/to", "dir")),
