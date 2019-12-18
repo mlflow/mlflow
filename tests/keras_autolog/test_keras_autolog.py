@@ -1,14 +1,13 @@
 import pytest
 import numpy as np
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611
 np.random.seed(1337)
 
-import keras  # pylint: disable=E402
-import keras.layers as layers  # pylint: disable=E402
+import keras  # noqa
+import keras.layers as layers  # noqa
 
-import mlflow  # pylint: disable=E402
-import mlflow.keras  # pylint: disable=E402
-
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611, E402
+import mlflow  # noqa
+import mlflow.keras  # noqa
 
 
 @pytest.fixture
