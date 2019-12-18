@@ -1,3 +1,4 @@
+import posixpath
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -49,8 +50,14 @@ def test_uri_types():
     assert not is_http_uri("mlruns")
 
 
+def validate_append_to_uri_path_test_cases(cases):
+    for input_uri, input_path, expected_output_uri in cases:
+        assert append_to_uri_path(input_uri, input_path) == expected_output_uri
+        assert append_to_uri_path(input_uri, *posixpath.split(input_path)) == expected_output_uri
+
+
 def test_append_to_uri_path_joins_uri_paths_and_posixpaths_correctly():
-    cases = [
+    validate_append_to_uri_path_test_cases([
         ("", "path", "path"),
         ("", "/path", "/path"),
         ("path", "", "path/"),
@@ -81,10 +88,7 @@ def test_append_to_uri_path_joins_uri_paths_and_posixpaths_correctly():
         ("s3://host/", "subpath", "s3://host/subpath"),
         ("s3://host/", "/subpath", "s3://host/subpath"),
         ("s3://host", "subpath/subdir", "s3://host/subpath/subdir"),
-    ]
-    for input_uri, input_path, expected_output_uri in cases:
-        output_uri = append_to_uri_path(input_uri, input_path)
-        assert output_uri == expected_output_uri
+    ])
 
 
 def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
@@ -100,7 +104,7 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
         def char_case(*case_args):
             return tuple([item.format(c=special_char) for item in case_args])
 
-        char_cases = [
+        validate_append_to_uri_path_test_cases([
             char_case("", "{c}subpath", "{c}subpath"),
             char_case("", "/{c}subpath", "/{c}subpath"),
             char_case("dirwith{c}{c}chars", "", "dirwith{c}{c}chars/"),
@@ -109,24 +113,17 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
             char_case("/{c}{c}charsdir", "", "/{c}{c}charsdir/"),
             char_case("/{c}{c}charsdir", "subpath", "/{c}{c}charsdir/subpath"),
             char_case("/{c}{c}charsdir", "subpath", "/{c}{c}charsdir/subpath"),
-        ]
+        ])
 
-        for input_uri, input_path, expected_output_uri in char_cases:
-            output_uri = append_to_uri_path(input_uri, input_path)
-            assert output_uri == expected_output_uri
-
-    cases = [
+    validate_append_to_uri_path_test_cases([
         ("#?charsdir:", ":?subpath#", "#?charsdir:/:?subpath#"),
         ("/#--+charsdir.//:", "/../:?subpath#", "/#--+charsdir.//:/../:?subpath#"),
         ("$@''(,", ")]*%", "$@''(,/)]*%"),
-    ]
-    for input_uri, input_path, expected_output_uri in cases:
-        output_uri = append_to_uri_path(input_uri, input_path)
-        assert output_uri == expected_output_uri
+    ])
 
 
 def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
-    cases = [
+    validate_append_to_uri_path_test_cases([
         ("dbscheme+dbdriver:", "", "dbscheme+dbdriver:"),
         ("dbscheme+dbdriver:", "subpath", "dbscheme+dbdriver:subpath"),
         ("dbscheme+dbdriver:path", "subpath", "dbscheme+dbdriver:path/subpath"),
@@ -193,7 +190,4 @@ def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
          "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?"
          "creds=mycreds,param=value#*frag@*"
         ),
-    ]
-    for input_uri, input_path, expected_output_uri in cases:
-        output_uri = append_to_uri_path(input_uri, input_path)
-        assert output_uri == expected_output_uri
+    ])
