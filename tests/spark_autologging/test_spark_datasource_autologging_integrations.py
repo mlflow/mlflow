@@ -95,27 +95,41 @@ def _assert_spark_data_logged(run, path, format, version=None):
     table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
     assert table_info_tag == _get_expected_table_info_row(path, format, version)
 
-
-def _fit_keras_model(pandas_df, epochs):
+def _fit_keras(pandas_df, epochs):
     x = pandas_df.values
-    y = np.array([4, 5, 6])
+    y = np.array([4] * len(x))
     keras_model = Sequential()
     keras_model.add(Dense(1))
     keras_model.compile(loss='mean_squared_error', optimizer='SGD')
     keras_model.fit(x, y, epochs=epochs)
     time.sleep(1)
-    all_runs = mlflow.search_runs()
-    assert len(all_runs) == 1
-    run_id = list(all_runs['run_id'])[0]
-    run = mlflow.get_run(run_id)
-    assert 'epochs' in run.data.params
-    assert run.data.params['epochs'] == str(epochs)
-    return run
+
+def _fit_keras_model_with_active_run(pandas_df, epochs):
+    run_id = mlflow.active_run().info.run_id
+    _fit_keras(pandas_df, epochs)
+    run_id = run_id
+    return mlflow.get_run(run_id)
+
+def _fit_keras_model_no_active_run(pandas_df, epochs):
+    orig_runs = mlflow.search_runs()
+    orig_run_ids = set(orig_runs['run_id'])
+    _fit_keras(pandas_df, epochs)
+    new_runs = mlflow.search_runs()
+    new_run_ids = set(new_runs['run_id'])
+    assert len(new_run_ids) == len(orig_run_ids) + 1
+    run_id = (new_run_ids - orig_run_ids).pop()
+    return mlflow.get_run(run_id)
+
+def _fit_keras_model(pandas_df, epochs):
+    active_run = mlflow.active_run()
+    if active_run:
+        return _fit_keras_model_with_active_run(pandas_df, epochs)
+    else:
+        return _fit_keras_model_no_active_run(pandas_df, epochs)
 
 
 def test_spark_autologging_with_keras_autologging(
         spark_session, format, file_path, tracking_uri_mock):  # pylint: disable=unused-argument
-
     mlflow.spark.autolog()
     mlflow.keras.autolog()
     df = spark_session.read.format(format).option("header", "true"). \
@@ -144,7 +158,7 @@ def test_spark_keras_autologging_context_provider(spark_session, tracking_uri_mo
         run2 = _fit_keras_model(pandas_df2, epochs=1)
     assert run2.info.run_id != run.info.run_id
     _assert_spark_data_logged(run2, file_path, format)
-    time.sleep(1000)
+    time.sleep(1)
     assert mlflow.active_run() is None
 
 
@@ -157,7 +171,6 @@ def test_spark_and_keras_autologging_no_active_run_mgmt(
     pandas_df = df.toPandas()
     run = _fit_keras_model(pandas_df, epochs=1)
     _assert_spark_data_logged(run, file_path, format)
-    time.sleep(1000)
     assert mlflow.active_run() is None
 
 
@@ -171,5 +184,4 @@ def test_spark_and_keras_autologging_all_runs_managed(spark_session, tracking_ur
             pandas_df = df.toPandas()
             run = _fit_keras_model(pandas_df, epochs=1)
         _assert_spark_data_logged(run, file_path, format)
-    time.sleep(1000)
     assert mlflow.active_run() is None

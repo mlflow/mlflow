@@ -1,6 +1,8 @@
 import logging
 import warnings
+import sys
 import threading
+import uuid
 
 import mlflow
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
@@ -158,7 +160,13 @@ class PythonSubscriber(object):
 
     def replId(self):
         from pyspark import SparkContext
-        return SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
+        repl_id = SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
+        if repl_id:
+            return repl_id
+
+        main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
+        return "PythonSubscriber-{filename}-{id}".format(filename=main_file, id=uuid.uuid4().hex)
+
 
     class Java:
         implements = ["{}.MlflowAutologEventSubscriber".format(_JAVA_PACKAGE)]

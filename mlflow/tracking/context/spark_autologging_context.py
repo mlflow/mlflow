@@ -41,10 +41,14 @@ class SparkAutologgingContext(RunContextProvider):
     def tags(self):
         with _lock:
             global _table_infos
-            tags = {
-                _SPARK_TABLE_INFO_TAG_NAME: "\n".join([_get_table_info_string(*info)
-                                                       for info in _table_infos])
-            }
-            _table_infos = []
-            return tags
-
+            try:
+                if len(_table_infos) > 0:
+                    tags = {
+                        _SPARK_TABLE_INFO_TAG_NAME: "\n".join([_get_table_info_string(*info)
+                                                               for info in _table_infos])
+                    }
+                    return tags
+                else:
+                    return {}
+            finally:
+                _table_infos = []
