@@ -84,7 +84,7 @@ def _can_parse_as_json(string):
     try:
         json.loads(string)
         return True
-    except (ValueError, TypeError):
+    except Exception:  # pylint: disable=broad-except
         return False
 
 
