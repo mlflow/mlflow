@@ -423,7 +423,7 @@ def autolog():
 
     def early_stop_check(callbacks):
         for callback in callbacks:
-            if isinstance(callback, keras.callbacks.callbacks.Callback):
+            if isinstance(callback, keras.callbacks.callbacks.EarlyStopping):
                 return callback
         return None
 
