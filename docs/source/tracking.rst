@@ -251,6 +251,18 @@ If a run exists when ``autolog()`` captures data, MLflow will log to that run an
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
 
+EarlyStopping Integration with Keras Automatic Logging
+======================================================
+MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()``/``fit_generator()`` call, and if the
+``restore_best_weights`` parameter is set to be ``True``, then MLflow will log the metrics associated with the
+restored model as a final, extra step. This allows for easy comparison between the actual metrics of the restored
+model and the metrics of other models.
+
+If ``restore_best_weights`` is set to be ``False``, then MLflow will not do any additional logging.
+
+**Note**: this feature is experimental - the API and format of the logged data are subject to change.
+
+
 Automatic Logging from Gluon (experimental)
 ==================================================================
 Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
