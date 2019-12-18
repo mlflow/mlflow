@@ -459,8 +459,11 @@ def autolog():
         if early_stop_callback and early_stop_callback.restore_best_weights:
             stopped_epoch_metrics = {key: history.history[key][early_stop_callback.stopped_epoch]
                                      for key in history.history.keys()}
-            last_epoch = len(history.history['loss'])
-            try_mlflow_log(mlflow.log_metrics, stopped_epoch_metrics, step=last_epoch+1)
+            # Checking that a metric history exists
+            metric_key = next(iter(history.history))
+            if metric_key is not None:
+                last_epoch = len(history.history[metric_key])
+                try_mlflow_log(mlflow.log_metrics, stopped_epoch_metrics, step=last_epoch+1)
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
@@ -498,8 +501,11 @@ def autolog():
         if early_stop_callback and early_stop_callback.restore_best_weights:
             stopped_epoch_metrics = {key: history.history[key][early_stop_callback.stopped_epoch]
                                      for key in history.history.keys()}
-            last_epoch = len(history.history['loss'])
-            try_mlflow_log(mlflow.log_metrics, stopped_epoch_metrics, step=last_epoch+1)
+            # Checking that a metric history exists
+            metric_key = next(iter(history.history))
+            if metric_key is not None:
+                last_epoch = len(history.history[metric_key])
+                try_mlflow_log(mlflow.log_metrics, stopped_epoch_metrics, step=last_epoch+1)
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
