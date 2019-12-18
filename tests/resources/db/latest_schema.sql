@@ -59,7 +59,7 @@ CREATE TABLE runs (
 	source_name VARCHAR(500), 
 	entry_point_name VARCHAR(50), 
 	user_id VARCHAR(256), 
-	status VARCHAR(20), 
+	status VARCHAR(9),
 	start_time BIGINT, 
 	end_time BIGINT, 
 	source_version VARCHAR(50), 
@@ -69,8 +69,8 @@ CREATE TABLE runs (
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid), 
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id), 
 	CONSTRAINT source_type CHECK (source_type IN ('NOTEBOOK', 'JOB', 'LOCAL', 'UNKNOWN', 'PROJECT')), 
-	CONSTRAINT status CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING')), 
-	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted'))
+	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted')),
+	CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING', 'KILLED'))
 )
 
 
