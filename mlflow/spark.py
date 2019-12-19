@@ -527,10 +527,5 @@ def autolog():
     >>> loaded_df.collect()
     >>> shutil.rmtree(tempdir) # clean up tempdir
     """
-
-    try:
-        from mlflow import _spark_autologging
-        _spark_autologging.autolog()
-    except Exception as e:  # pylint: disable=broad-except
-        warnings.warn(
-            "Could not enable Spark datasource autologging, got error:\n%s" % _format_exception(e))
+    from mlflow import _spark_autologging
+    _spark_autologging.autolog()

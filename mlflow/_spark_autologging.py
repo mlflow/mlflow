@@ -5,10 +5,13 @@ import sys
 import threading
 import uuid
 
+from py4j.java_gateway import CallbackServerParameters
+
 from pyspark import SparkContext
 from pyspark.sql import SparkSession
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
@@ -106,42 +109,25 @@ def _get_active_spark_session():
         return SparkSession._instantiatedSession
 
 
-def _should_attach_subscriber():
-    """
-    Returns True if we should attempt to attach a Python subscriber for the current REPL to the
-    active SparkSession
-    """
-    active_session = _get_active_spark_session()
-    if active_session is None:
-        return True
-    # Here we know a SparkContext exists
-    global _spark_table_info_listener
-    sc = SparkContext.getOrCreate()
-    repl_id = sc.getLocalProperty("mlflow.replId")
-    print("Checking whether %s is None or %s != %s" % (_spark_table_info_listener, _spark_table_info_listener and _spark_table_info_listener.replId(), repl_id))
-    return _spark_table_info_listener is None or _spark_table_info_listener.replId() != repl_id
-
-
 def autolog():
     """Implementation of Spark datasource autologging"""
-    from py4j.java_gateway import CallbackServerParameters
-    if _should_attach_subscriber():
+    global _spark_table_info_listener
+    if _get_current_listener() is None:
         active_session = _get_active_spark_session()
+        print("@SID got active session %s" % active_session)
         if active_session is None:
-            warnings.warn(
+            raise MlflowException(
                 "No active SparkContext found, refusing to enable Spark datasource "
                 "autologging. Please create a SparkSession e.g. via "
                 "SparkSession.builder.getOrCreate() (see API docs at "
                 "https://spark.apache.org/docs/latest/api/python/"
                 "pyspark.sql.html#pyspark.sql.SparkSession) "
                 "before attempting to enable autologging")
-            return
         # We know SparkContext exists here already, so get it
         sc = SparkContext.getOrCreate()
         if _get_spark_major_version(sc) < 3:
-            warnings.warn(
+            raise MlflowException(
                 "Spark autologging unsupported for Spark versions < 3")
-            return
         gw = active_session.sparkContext._gateway
         params = gw.callback_server_parameters
         callback_server_params = CallbackServerParameters(
@@ -152,16 +138,33 @@ def autolog():
         gw.start_callback_server(callback_server_params)
 
         event_publisher = _get_jvm_event_publisher()
-        event_publisher.init(1)
-        global _spark_table_info_listener
-        _spark_table_info_listener = PythonSubscriber()
-        print("@SID registered a subscriber with gateway %s, port %s" % (gw, params.port))
-        _spark_table_info_listener.register()
-        sc.setLocalProperty("mlflow.replId", _spark_table_info_listener.replId())
+        try:
+            event_publisher.init(1)
+            _spark_table_info_listener = PythonSubscriber()
+            _spark_table_info_listener.register()
+        except Exception as e:
+            # TODO format exception
+            raise MlflowException("Exception while attempting to initialize JVM-side state for "
+                                  "Spark datasource autologging. Please ensure you have the "
+                                  "mlflow-spark JAR attached to your Spark session as described "
+                                  "in http://mlflow.org/docs/latest/tracking.html#"
+                                  "automatic-logging-from-spark-experimental. Exception:\n%s"
+                                  % e)
+
+
 
         # Register context provider for Spark autologging
         from mlflow.tracking.context.registry import _run_context_provider_registry
         _run_context_provider_registry.register(SparkAutologgingContext)
+
+
+def _get_repl_id():
+    from pyspark import SparkContext
+    repl_id = SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
+    if repl_id:
+        return repl_id
+    main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
+    return "PythonSubscriber[{filename}][{id}]".format(filename=main_file, id=uuid.uuid4().hex)
 
 
 class PythonSubscriber(object):
@@ -173,11 +176,11 @@ class PythonSubscriber(object):
     to propagate Spark datasource read events to Python.
     """
     def __init__(self):
-        self.uuid = None
+        self._repl_id = _get_repl_id()
 
     def toString(self):
         # For debugging
-        return "PythonSubscriber<uuid=%s>" % self.uuid
+        return "PythonSubscriber<replId=%s>" % self.replId()
 
     def ping(self):
         return None
@@ -198,7 +201,6 @@ class PythonSubscriber(object):
         # Note that there's a TOCTOU race condition here - active_run() here can actually throw
         # if the main thread happens to end the run & pop from the active run stack after we check
         # the stack size but before we peek
-        print("@SID got notification %s, %s, %s" % (path, version, data_format))
         active_run = mlflow.active_run()
         if active_run:
             _set_run_tag_async(active_run.info.run_id, path, version, data_format)
@@ -207,17 +209,10 @@ class PythonSubscriber(object):
 
     def register(self):
         event_publisher = _get_jvm_event_publisher()
-        self.uuid = event_publisher.register(self)
-        return self.uuid
+        event_publisher.register(self)
 
     def replId(self):
-        from pyspark import SparkContext
-        repl_id = SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
-        if repl_id:
-            return repl_id
-
-        main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
-        return "PythonSubscriber-{filename}-{id}".format(filename=main_file, id=uuid.uuid4().hex)
+        return self._repl_id
 
     class Java:
         implements = ["{}.MlflowAutologEventSubscriber".format(_JAVA_PACKAGE)]

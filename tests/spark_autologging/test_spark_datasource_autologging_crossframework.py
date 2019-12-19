@@ -8,8 +8,6 @@ from keras.models import Sequential
 
 import numpy as np
 import pytest
-from pyspark.sql import SparkSession, Row
-from pyspark.sql.types import StructType, IntegerType, StringType, StructField
 
 import mlflow
 import mlflow.spark
@@ -17,28 +15,9 @@ import mlflow.keras
 import mlflow.tensorflow
 
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-from tests.spark_autologging.utils import _assert_spark_data_logged
-
-
-def _get_mlflow_spark_jar_path():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    pardir = os.path.pardir
-    jar_dir = os.path.join(current_dir, pardir, pardir, "mlflow", "java", "spark", "target")
-    jar_filenames = [fname for fname in os.listdir(jar_dir) if ".jar" in fname
-                     and "sources" not in fname and "javadoc" not in fname]
-    res = os.path.abspath(os.path.join(jar_dir, jar_filenames[0]))
-    return res
-
-
-@pytest.fixture(scope="module")
-def spark_session():
-    jar_path = _get_mlflow_spark_jar_path()
-    session = SparkSession.builder \
-        .config("spark.jars", jar_path)\
-        .master("local[*]") \
-        .getOrCreate()
-    yield session
-    session.stop()
+from tests.spark_autologging.utils import _assert_spark_data_logged, spark_session, \
+    format_to_file_path
+# pylint: disable=unused-import
 
 
 @pytest.fixture()
@@ -46,31 +25,6 @@ def http_tracking_uri_mock():
     mlflow.set_tracking_uri("http://some-cool-uri")
     yield
     mlflow.set_tracking_uri(None)
-
-
-@pytest.fixture(scope="module")
-def format_to_file_path(spark_session):
-    rows = [
-        Row(8, 32, "bat"),
-        Row(64, 40, "mouse"),
-        Row(-27, 55, "horse")
-    ]
-    schema = StructType([
-        StructField("number2", IntegerType()),
-        StructField("number1", IntegerType()),
-        StructField("word", StringType())
-    ])
-    rdd = spark_session.sparkContext.parallelize(rows)
-    df = spark_session.createDataFrame(rdd, schema)
-    format_to_file_path = {}
-    tempdir = tempfile.mkdtemp()
-    for data_format in ["csv", "parquet", "json"]:
-        format_to_file_path[data_format] = os.path.join(tempdir, "test-data-%s" % data_format)
-
-    for data_format, file_path in format_to_file_path.items():
-        df.write.option("header", "true").format(data_format).save(file_path)
-    yield format_to_file_path
-    shutil.rmtree(tempdir)
 
 
 @pytest.fixture(scope="module")
@@ -169,8 +123,12 @@ def test_spark_and_keras_autologging_no_active_run_mgmt(
     mlflow.keras.autolog()
     df = spark_session.read.format(data_format).option("header", "true"). \
         option("inferSchema", "true").load(file_path).select("number1", "number2")
-    pandas_df = df.toPandas()
-    run = _fit_keras_model(pandas_df, epochs=1)
+    mllib_model = LogisticRegression()
+    mllib_model.fit(df)
+
+
+    # pandas_df = df.toPandas()
+    # run = _fit_keras_model(pandas_df, epochs=1)
     _assert_spark_data_logged(run, file_path, data_format)
     assert mlflow.active_run() is None
 
