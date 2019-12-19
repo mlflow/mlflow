@@ -26,6 +26,7 @@ import yaml
 import logging
 import posixpath
 import re
+import traceback
 import warnings
 
 import mlflow
@@ -50,6 +51,10 @@ DFS_TMP = "/tmp/mlflow"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 
 _logger = logging.getLogger(__name__)
+
+
+def _format_exception(ex):
+    return "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
 
 
 def get_default_conda_env():
@@ -522,8 +527,10 @@ def autolog():
     >>> loaded_df.collect()
     >>> shutil.rmtree(tempdir) # clean up tempdir
     """
+
     try:
         from mlflow import _spark_autologging
         _spark_autologging.autolog()
-    except Exception as e:
-        warnings.warn("Could not enable Spark datasource autologging, got error:\n%s" % e)
+    except Exception as e:  # pylint: disable=broad-except
+        warnings.warn(
+            "Could not enable Spark datasource autologging, got error:\n%s" % _format_exception(e))

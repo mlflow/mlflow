@@ -3,8 +3,8 @@ import shutil
 import tempfile
 import time
 
+from keras.layers import Dense
 from keras.models import Sequential
-from keras.layers import Layer, Dense
 
 import numpy as np
 import pytest
@@ -16,7 +16,6 @@ import mlflow.spark
 import mlflow.keras
 import mlflow.tensorflow
 
-from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from tests.spark_autologging.utils import _assert_spark_data_logged
 
@@ -31,7 +30,7 @@ def _get_mlflow_spark_jar_path():
     return res
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def spark_session():
     jar_path = _get_mlflow_spark_jar_path()
     session = SparkSession.builder \
@@ -65,19 +64,19 @@ def format_to_file_path(spark_session):
     df = spark_session.createDataFrame(rdd, schema)
     format_to_file_path = {}
     tempdir = tempfile.mkdtemp()
-    for format in ["csv", "parquet", "json"]:
-        format_to_file_path[format] = os.path.join(tempdir, "test-data-%s" % format)
+    for data_format in ["csv", "parquet", "json"]:
+        format_to_file_path[data_format] = os.path.join(tempdir, "test-data-%s" % data_format)
 
-    for format, file_path in format_to_file_path.items():
-        df.write.option("header", "true").format(format).save(file_path)
+    for data_format, file_path in format_to_file_path.items():
+        df.write.option("header", "true").format(data_format).save(file_path)
     yield format_to_file_path
     shutil.rmtree(tempdir)
 
 
 @pytest.fixture(scope="module")
-def format(format_to_file_path):
-    format, _ = sorted(list(format_to_file_path.items()))[0]
-    return format
+def data_format(format_to_file_path):
+    res, _ = sorted(list(format_to_file_path.items()))[0]
+    return res
 
 
 @pytest.fixture(scope="module")
@@ -122,23 +121,28 @@ def _fit_keras_model(pandas_df, epochs):
         return _fit_keras_model_no_active_run(pandas_df, epochs)
 
 
+@pytest.mark.large
 def test_spark_autologging_with_keras_autologging(
-        spark_session, format, file_path, tracking_uri_mock):  # pylint: disable=unused-argument
+        spark_session, data_format, file_path, tracking_uri_mock):
+    # pylint: disable=unused-argument
+    assert mlflow.active_run() is None
     mlflow.spark.autolog()
     mlflow.keras.autolog()
-    df = spark_session.read.format(format).option("header", "true"). \
+    df = spark_session.read.format(data_format).option("header", "true"). \
         option("inferSchema", "true").load(file_path).select("number1", "number2")
     pandas_df = df.toPandas()
     run = _fit_keras_model(pandas_df, epochs=1)
-    _assert_spark_data_logged(run, file_path, format)
+    _assert_spark_data_logged(run, file_path, data_format)
 
 
+@pytest.mark.large
 def test_spark_keras_autologging_context_provider(
-        spark_session, tracking_uri_mock, format, file_path):  # pylint: disable=unused-argument
+        spark_session, tracking_uri_mock, data_format, file_path):
+    # pylint: disable=unused-argument
     mlflow.spark.autolog()
     mlflow.keras.autolog()
 
-    df = spark_session.read.format(format).option("header", "true"). \
+    df = spark_session.read.format(data_format).option("header", "true"). \
         option("inferSchema", "true").load(file_path).select("number1", "number2")
     pandas_df = df.toPandas()
 
@@ -146,38 +150,42 @@ def test_spark_keras_autologging_context_provider(
     # the toPandas() call above & then logged here)
     with mlflow.start_run():
         run = _fit_keras_model(pandas_df, epochs=1)
-    _assert_spark_data_logged(run, file_path, format)
+    _assert_spark_data_logged(run, file_path, data_format)
 
     with mlflow.start_run():
         pandas_df2 = df.filter("number1 > 0").toPandas()
         run2 = _fit_keras_model(pandas_df2, epochs=1)
     assert run2.info.run_id != run.info.run_id
-    _assert_spark_data_logged(run2, file_path, format)
+    _assert_spark_data_logged(run2, file_path, data_format)
     time.sleep(1)
     assert mlflow.active_run() is None
 
 
+@pytest.mark.large
 def test_spark_and_keras_autologging_no_active_run_mgmt(
-        spark_session, tracking_uri_mock, format, file_path):  # pylint: disable=unused-argument
+        spark_session, tracking_uri_mock, data_format, file_path):
+    # pylint: disable=unused-argument
     mlflow.spark.autolog()
     mlflow.keras.autolog()
-    df = spark_session.read.format(format).option("header", "true"). \
+    df = spark_session.read.format(data_format).option("header", "true"). \
         option("inferSchema", "true").load(file_path).select("number1", "number2")
     pandas_df = df.toPandas()
     run = _fit_keras_model(pandas_df, epochs=1)
-    _assert_spark_data_logged(run, file_path, format)
+    _assert_spark_data_logged(run, file_path, data_format)
     assert mlflow.active_run() is None
 
 
+@pytest.mark.large
 def test_spark_and_keras_autologging_all_runs_managed(
-        spark_session, tracking_uri_mock, format, file_path):  # pylint: disable=unused-argument
+        spark_session, tracking_uri_mock, data_format, file_path):
+    # pylint: disable=unused-argument
     mlflow.spark.autolog()
     mlflow.keras.autolog()
     for _ in range(2):
         with mlflow.start_run():
-            df = spark_session.read.format(format).option("header", "true"). \
+            df = spark_session.read.format(data_format).option("header", "true"). \
                 option("inferSchema", "true").load(file_path).select("number1", "number2")
             pandas_df = df.toPandas()
             run = _fit_keras_model(pandas_df, epochs=1)
-        _assert_spark_data_logged(run, file_path, format)
+        _assert_spark_data_logged(run, file_path, data_format)
     assert mlflow.active_run() is None

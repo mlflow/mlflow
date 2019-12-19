@@ -20,7 +20,8 @@ tar -xvf /tmp/spark.tgz
 pip install -e spark-3.0.0-preview-bin-hadoop2.7/python
 popd
 
-SPARK_HOME=$TEMPDIR/spark-3.0.0-preview-bin-hadoop2.7 pytest tests/spark_autologging/test_spark_datasource_autologging.py
+export SPARK_HOME=$TEMPDIR/spark-3.0.0-preview-bin-hadoop2.7
+pytest tests/spark_autologging --large
 rm -rf $TEMPDIR
 
 # Reinstall old dependencies
