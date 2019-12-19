@@ -64,7 +64,6 @@ def test_enabling_autologging_throws_for_wrong_spark_version(
         assert "Spark autologging unsupported for Spark versions < 3" in exc.value.message
 
 
-
 @pytest.mark.large
 def test_enabling_autologging_throws_when_spark_hasnt_been_started(
         spark_session, tracking_uri_mock, mock_get_current_listener):

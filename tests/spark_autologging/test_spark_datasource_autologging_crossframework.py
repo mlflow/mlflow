@@ -123,12 +123,8 @@ def test_spark_and_keras_autologging_no_active_run_mgmt(
     mlflow.keras.autolog()
     df = spark_session.read.format(data_format).option("header", "true"). \
         option("inferSchema", "true").load(file_path).select("number1", "number2")
-    mllib_model = LogisticRegression()
-    mllib_model.fit(df)
-
-
-    # pandas_df = df.toPandas()
-    # run = _fit_keras_model(pandas_df, epochs=1)
+    pandas_df = df.toPandas()
+    run = _fit_keras_model(pandas_df, epochs=1)
     _assert_spark_data_logged(run, file_path, data_format)
     assert mlflow.active_run() is None
 
