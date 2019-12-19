@@ -5,7 +5,7 @@ The ``mlflow.mleap`` module provides an API for saving Spark MLLib models using 
 NOTE:
 
     You cannot load the MLeap model flavor in Python; you must download it using the
-    Java API method ``downloadArtifacts(String runId￼)`` and load the model
+    Java API method ``downloadArtifacts(String runId)`` and load the model
     using the method ``MLeapLoader.loadPipeline(String modelRootPath)``.
 """
 
@@ -33,7 +33,7 @@ def log_model(spark_model, sample_input, artifact_path, registered_model_name=No
     NOTE:
 
         You cannot load the MLeap model flavor in Python; you must download it using the
-        Java API method ``downloadArtifacts(String runId￼)`` and load the model
+        Java API method ``downloadArtifacts(String runId)`` and load the model
         using the method ``MLeapLoader.loadPipeline(String modelRootPath)``.
 
     :param spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
@@ -91,7 +91,7 @@ def save_model(spark_model, sample_input, path, mlflow_model=Model()):
     NOTE:
 
         You cannot load the MLeap model flavor in Python; you must download it using the
-        Java API method ``downloadArtifacts(String runId￼)`` and load the model
+        Java API method ``downloadArtifacts(String runId)`` and load the model
         using the method ``MLeapLoader.loadPipeline(String modelRootPath)``.
 
     :param spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
