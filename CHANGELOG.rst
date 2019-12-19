@@ -1,5 +1,34 @@
 Changelog
 =========
+1.4.1.dev0 (2019-12-19)
+-----------------------
+MLflow 1.4.1.dev0 includes several major features and improvements:
+
+Features:
+
+- Add support for XGBoost flavor (#2124, @harupy)
+- Adding TensorFlow.Keras and Keras parameter logging (#2119, @juntai-zheng)
+- Added fit_generator hooks for TensorFlow.Keras autolog (#2095, @juntai-zheng)
+- Add ability to mount volumes and specify environment variables when using mlflow with docker (#1994, @nlml)
+- [UI] Display "Loading..." when the artifact image viewer is loading an image (#1958, @harupy)
+
+Bug fixes and documentation updates:
+
+- Fix mlflow.keras.save_model with DBFS (#2216, @andychow-db)
+- Strip "dev" suffix from PySpark versions (#2137, @dbczumar)
+- Fix note editor on the experiment page (#2054, @harupy)
+- Fix models serve, models predict CLI commands against models:/ URIs (#2067, @smurching)
+- Don't unconditionally format values as metrics in generic HtmlTableView component (#2068, @smurching)
+- Bug-fix for remote execution from windows using posixpath (#1996, @aestene)
+- Add XGBoost and LightGBM examples (#2186, @harupy)
+- Add note about active run instantiation side effect in fluent APIs (#2197, @andychow-db)
+- Doc enhancements for XGBoost and LightGBM flavors (#2170, @harupy)
+- Add doc for XGBoost flavor (#2167, @harupy)
+- Update active_run() docs for accessing current run data (#2138, @juntai-zheng)
+- Doc models:/ scheme for URI for load_model methods. (#2128, @stbof)
+
+Small bug fixes and doc updates (#2121, #1959, @harupy; #2161, #2100, @juntai-zheng; #2180, #2109, #2062, @smurching; #2146, @joelcthomas; #2077, #2058, #2027, @sueann; #2188, @andychow-db; #2074, @nlml; #2221, #2207, #2157, #2114, #2063, @dbczumar)
+
 1.4.0 (2019-10-30)
 -----------------------
 MLflow 1.4.0 includes several major features:
