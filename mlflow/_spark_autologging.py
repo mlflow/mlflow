@@ -1,3 +1,4 @@
+import concurrent.futures
 import logging
 import warnings
 import sys
@@ -17,11 +18,17 @@ _logger = logging.getLogger(__name__)
 _lock = threading.Lock()
 _table_infos = []
 
+# Queue & singleton consumer thread for logging datasource info asynchronously
+_metric_queue = []
+_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+
 def _get_table_info_string(path, version, format):
     if format == "delta":
         return "path={path},version={version},format={format}".format(
             path=path, version=version, format=format)
     return "path={path},format={format}".format(path=path, format=format)
+
 
 def _merge_tag_lines(existing_tag, new_table_info):
     if existing_tag is None:
@@ -30,9 +37,11 @@ def _merge_tag_lines(existing_tag, new_table_info):
         return existing_tag
     return "\n".join([existing_tag, new_table_info])
 
+
 def add_table_info_to_context_provider(path, version, format):
     with _lock:
         _table_infos.append((path, version, format))
+
 
 def _get_java_package():
     from pyspark import SparkContext
@@ -48,6 +57,7 @@ def _get_java_package():
         return _REPL_ID_JAVA_PACKAGE
     return _JAVA_PACKAGE
 
+
 def _get_jvm_event_publisher():
     """
     Get JVM-side object implementing the following methods:
@@ -60,18 +70,22 @@ def _get_jvm_event_publisher():
     qualified_classname = "{}.{}".format(_get_java_package(), "MlflowAutologEventPublisher")
     return getattr(jvm, qualified_classname)
 
-def _autolog():
-    """Implementation of Spark datasource autologging"""
-    # def _print_thread_count():
-    #     import time, threading
-    #     while True:
-    #         time.sleep(1)
-    #         print(threading.active_count())
-    #
-    # import threading
-    # t = threading.Thread(target=_print_thread_count)
-    # t.run()
 
+def _set_run_tag_async(run_id, path, version, format):
+    _thread_pool.submit(_set_run_tag, run_id=run_id, path=path, version=version, format=format)
+
+
+def _set_run_tag(run_id, path, version, format):
+    client = MlflowClient()
+    table_info_string = _get_table_info_string(path, version, format)
+    existing_run = client.get_run(run_id)
+    existing_tag = existing_run.data.tags.get(_SPARK_TABLE_INFO_TAG_NAME)
+    new_table_info = _merge_tag_lines(existing_tag, table_info_string)
+    client.set_tag(run_id, _SPARK_TABLE_INFO_TAG_NAME, new_table_info)
+
+
+def autolog():
+    """Implementation of Spark datasource autologging"""
     from pyspark import SparkContext
     from py4j.java_gateway import CallbackServerParameters
 
@@ -83,7 +97,8 @@ def _autolog():
                 "No active SparkContext found, refusing to enable Spark datasource "
                 "autologging. Please create a SparkSession e.g. via "
                 "SparkSession.builder.getOrCreate() (see API docs at "
-                "https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession) "
+                "https://spark.apache.org/docs/latest/api/python/"
+                "pyspark.sql.html#pyspark.sql.SparkSession) "
                 "before attempting to enable autologging")
             return
         params = gw.callback_server_parameters
@@ -121,15 +136,6 @@ class PythonSubscriber(object):
     def ping(self):
         return None
 
-    def _set_run_tag_async(self, run_id, path, version, format):
-        # TODO make async
-        client = MlflowClient()
-        table_info_string = _get_table_info_string(path, version, format)
-        existing_run = client.get_run(run_id)
-        existing_tag = existing_run.data.tags.get(_SPARK_TABLE_INFO_TAG_NAME)
-        new_table_info = _merge_tag_lines(existing_tag, table_info_string)
-        client.set_tag(run_id, _SPARK_TABLE_INFO_TAG_NAME, new_table_info)
-
     def notify(self, path, version, format):
         try:
             self._notify(path, version, format)
@@ -137,24 +143,21 @@ class PythonSubscriber(object):
             _logger.error("Unexpected exception %s while attempting to log Spark datasource "
                           "info. Exception:\n%s" % e)
 
-
     def _notify(self, path, version, format):
         """
         Method called by Scala SparkListener to propagate datasource read events to the current
         Python process
         """
         import datetime
-        print("Notified in Python at %s with %s, %s, %s, active run %s, tid %s" % (datetime.datetime.now(), path, version, format, mlflow.active_run(), threading.get_ident()))
         # If there's an active run, simply set the tag on it
         # Note that there's a TOCTOU race condition here - active_run() here can actually throw
         # if the main thread happens to end the run & pop from the active run stack after we check
         # the stack size but before we peek
         active_run = mlflow.active_run()
         if active_run:
-            self._set_run_tag_async(active_run.info.run_id, path, version, format)
+            _set_run_tag_async(active_run.info.run_id, path, version, format)
         else:
             add_table_info_to_context_provider(path, version, format)
-
 
     def register(self):
         event_publisher = _get_jvm_event_publisher()
@@ -169,7 +172,6 @@ class PythonSubscriber(object):
 
         main_file = sys.argv[0] if len(sys.argv) > 0 else "<console>"
         return "PythonSubscriber-{filename}-{id}".format(filename=main_file, id=uuid.uuid4().hex)
-
 
     class Java:
         implements = ["{}.MlflowAutologEventSubscriber".format(_JAVA_PACKAGE)]

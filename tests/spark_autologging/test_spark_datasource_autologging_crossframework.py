@@ -20,6 +20,7 @@ from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from tests.spark_autologging.utils import _assert_spark_data_logged
 
+
 def _get_mlflow_spark_jar_path():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     pardir = os.path.pardir
@@ -29,6 +30,7 @@ def _get_mlflow_spark_jar_path():
     res = os.path.abspath(os.path.join(jar_dir, jar_filenames[0]))
     return res
 
+
 @pytest.fixture(scope="module", autouse=True)
 def spark_session():
     jar_path = _get_mlflow_spark_jar_path()
@@ -36,9 +38,9 @@ def spark_session():
         .config("spark.jars", jar_path)\
         .master("local[*]") \
         .getOrCreate()
-    #.config("spark.jars", "/Users/sid.murching/code/mlflow/mlflow/java/client/target/mlflow-client-1.4.1-SNAPSHOT.jar") \
     yield session
     session.stop()
+
 
 @pytest.fixture()
 def http_tracking_uri_mock():
@@ -71,6 +73,7 @@ def format_to_file_path(spark_session):
     yield format_to_file_path
     shutil.rmtree(tempdir)
 
+
 @pytest.fixture(scope="module")
 def format(format_to_file_path):
     format, _ = sorted(list(format_to_file_path.items()))[0]
@@ -82,6 +85,7 @@ def file_path(format_to_file_path):
     _, file_path = sorted(list(format_to_file_path.items()))[0]
     return file_path
 
+
 def _fit_keras(pandas_df, epochs):
     x = pandas_df.values
     y = np.array([4] * len(x))
@@ -91,11 +95,13 @@ def _fit_keras(pandas_df, epochs):
     keras_model.fit(x, y, epochs=epochs)
     time.sleep(1)
 
+
 def _fit_keras_model_with_active_run(pandas_df, epochs):
     run_id = mlflow.active_run().info.run_id
     _fit_keras(pandas_df, epochs)
     run_id = run_id
     return mlflow.get_run(run_id)
+
 
 def _fit_keras_model_no_active_run(pandas_df, epochs):
     orig_runs = mlflow.search_runs()
@@ -106,6 +112,7 @@ def _fit_keras_model_no_active_run(pandas_df, epochs):
     assert len(new_run_ids) == len(orig_run_ids) + 1
     run_id = (new_run_ids - orig_run_ids).pop()
     return mlflow.get_run(run_id)
+
 
 def _fit_keras_model(pandas_df, epochs):
     active_run = mlflow.active_run()
@@ -126,7 +133,8 @@ def test_spark_autologging_with_keras_autologging(
     _assert_spark_data_logged(run, file_path, format)
 
 
-def test_spark_keras_autologging_context_provider(spark_session, tracking_uri_mock, format, file_path):
+def test_spark_keras_autologging_context_provider(
+        spark_session, tracking_uri_mock, format, file_path):  # pylint: disable=unused-argument
     mlflow.spark.autolog()
     mlflow.keras.autolog()
 
@@ -150,7 +158,7 @@ def test_spark_keras_autologging_context_provider(spark_session, tracking_uri_mo
 
 
 def test_spark_and_keras_autologging_no_active_run_mgmt(
-        spark_session, tracking_uri_mock, format, file_path):
+        spark_session, tracking_uri_mock, format, file_path):  # pylint: disable=unused-argument
     mlflow.spark.autolog()
     mlflow.keras.autolog()
     df = spark_session.read.format(format).option("header", "true"). \
@@ -161,7 +169,8 @@ def test_spark_and_keras_autologging_no_active_run_mgmt(
     assert mlflow.active_run() is None
 
 
-def test_spark_and_keras_autologging_all_runs_managed(spark_session, tracking_uri_mock, format, file_path):
+def test_spark_and_keras_autologging_all_runs_managed(
+        spark_session, tracking_uri_mock, format, file_path):  # pylint: disable=unused-argument
     mlflow.spark.autolog()
     mlflow.keras.autolog()
     for _ in range(2):

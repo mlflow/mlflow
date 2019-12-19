@@ -15,7 +15,8 @@ popd
 # shown below
 TEMPDIR=$(mktemp -d)
 pushd $TEMPDIR
-wget -qO- http://mirror.cogentco.com/pub/apache/spark/spark-3.0.0-preview/spark-3.0.0-preview-bin-hadoop2.7.tgz | tar xvz -
+wget http://mirror.cogentco.com/pub/apache/spark/spark-3.0.0-preview/spark-3.0.0-preview-bin-hadoop2.7.tgz -O /tmp/spark.tgz
+tar -xvf /tmp/spark.tgz
 pip install -e spark-3.0.0-preview-bin-hadoop2.7/python
 popd
 

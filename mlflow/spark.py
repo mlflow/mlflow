@@ -481,13 +481,15 @@ def autolog():
     """
     Enables automatic logging of Spark datasource paths, versions (if applicable), and formats
     when they are read. This method is not threadsafe and assumes a
-    `SparkSession <https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession>`_
+    `SparkSession
+    <https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession>`_
     already exists with the
-    `mlflow-spark JAR <http://mlflow.org/tracking.html#automatic-logging-from-spark-experimental>`_
-    attached.
-
-    It should be called on the Spark driver, not on the executors (i.e. do not call
-    this method within a function parallelized by Spark).
+    `mlflow-spark JAR
+    <http://mlflow.org/docs/latest/tracking.html#automatic-logging-from-spark-experimental>`_
+    attached. It should be called on the Spark driver, not on the executors (i.e. do not call
+    this method within a function parallelized by Spark). This API requires Spark 3.0 or above,
+    but can be run on Spark 2.x environments with backports for compatibility with the
+    mlflow-spark JAR (e.g. Databricks Runtime 6.0 and above).
 
     Datasource information is logged under the current active MLflow run, creating an active run
     if none exists. Note that autologging of Spark ML (MLlib) models is not currently supported
@@ -502,7 +504,8 @@ def autolog():
     >>> import mlflow.spark
     >>> from pyspark.sql import SparkSession
     >>> # Create and persist some dummy data
-    >>> spark = SparkSession.builder.config("spark.jars.packages", "org.mlflow.mlflow-spark").getOrCreate()
+    >>> spark = SparkSession.builder\
+    >>>   .config("spark.jars.packages", "org.mlflow.mlflow-spark").getOrCreate()
     >>> df = spark.createDataFrame([
     ...   (4, "spark i j k"),
     ...   (5, "l m n"),
@@ -520,7 +523,7 @@ def autolog():
     >>> shutil.rmtree(tempdir) # clean up tempdir
     """
     try:
-        from mlflow._spark_autologging import _autolog
-        _autolog()
+        from mlflow import _spark_autologging
+        _spark_autologging.autolog()
     except Exception as e:
         warnings.warn("Could not enable Spark datasource autologging, got error:\n%s" % e)

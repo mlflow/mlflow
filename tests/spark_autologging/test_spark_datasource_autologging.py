@@ -13,8 +13,10 @@ import mlflow.spark
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-from tests.tracking.test_rest_tracking import mlflow_client, tracking_server_uri, server_urls, BACKEND_URIS # pylint: disable=unused-import
+from tests.tracking.test_rest_tracking import \
+    mlflow_client, tracking_server_uri, server_urls, BACKEND_URIS  # pylint: disable=unused-import
 from tests.spark_autologging.utils import _assert_spark_data_logged
+
 
 def pytest_generate_tests(metafunc):
     """
@@ -34,6 +36,7 @@ def _get_mlflow_spark_jar_path():
     res = os.path.abspath(os.path.join(jar_dir, jar_filenames[0]))
     return res
 
+
 @pytest.fixture(scope="module", autouse=True)
 def spark_session():
     jar_path = _get_mlflow_spark_jar_path()
@@ -43,6 +46,7 @@ def spark_session():
         .getOrCreate()
     yield session
     session.stop()
+
 
 @pytest.fixture()
 def http_tracking_uri_mock():
@@ -83,7 +87,9 @@ def _get_expected_table_info_row(path, format, version=None):
         path=expected_path, version=version, format=format)
 
 
-def test_autologging_of_datasources_with_different_formats(spark_session, tracking_uri_mock, format_to_file_path):
+def test_autologging_of_datasources_with_different_formats(
+        spark_session, tracking_uri_mock, format_to_file_path):
+    # pylint: disable=unused-argument
     mlflow.spark.autolog()
     for format, file_path in format_to_file_path.items():
         base_df = spark_session.read.format(format).option("header", "true").\
@@ -105,8 +111,10 @@ def test_autologging_of_datasources_with_different_formats(spark_session, tracki
 
 
 def test_autologging_does_not_throw_on_api_failures(
-        spark_session, format_to_file_path, mlflow_client): # pylint: disable=unused-import
+        spark_session, format_to_file_path, mlflow_client):
+    # pylint: disable=unused-argument
     mlflow.spark.autolog()
+
     def failing_req_mock(*args, **kwargs):
         raise Exception("API request failed!")
     with mlflow.start_run():
@@ -125,6 +133,7 @@ def test_autologging_does_not_throw_on_api_failures(
 
 def test_autologging_dedups_multiple_reads_of_same_datasource(
         spark_session, format_to_file_path, tracking_uri_mock):
+    # pylint: disable=unused-argument
     mlflow.spark.autolog()
     format = list(format_to_file_path.keys())[0]
     file_path = format_to_file_path[format]
@@ -151,6 +160,7 @@ def test_autologging_dedups_multiple_reads_of_same_datasource(
 
 
 def test_autologging_multiple_reads_same_run(spark_session, tracking_uri_mock, format_to_file_path):
+    # pylint: disable=unused-argument
     mlflow.spark.autolog()
     with mlflow.start_run():
         for format, file_path in format_to_file_path.items():
@@ -168,6 +178,7 @@ def test_autologging_multiple_reads_same_run(spark_session, tracking_uri_mock, f
 
 
 def test_autologging_does_not_start_run(spark_session, format_to_file_path, tracking_uri_mock):
+    # pylint: disable=unused-argument
     try:
         mlflow.spark.autolog()
         format = list(format_to_file_path.keys())[0]
@@ -184,12 +195,14 @@ def test_autologging_does_not_start_run(spark_session, format_to_file_path, trac
 
 
 def test_autologging_slow_api_requests(spark_session, format_to_file_path, mlflow_client):
+    # pylint: disable=unused-argument
     import mlflow.utils.rest_utils
     orig = mlflow.utils.rest_utils.http_request
+
     def _slow_api_req_mock(*args, **kwargs):
         if kwargs.get("method") == "POST":
             print("Sleeping, %s, %s" % (args, kwargs))
-            time.sleep(2)
+            time.sleep(1)
         return orig(*args, **kwargs)
 
     mlflow.spark.autolog()
@@ -202,9 +215,10 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path, mlflo
                 df = spark_session.read.format(format).option("header", "true"). \
                     option("inferSchema", "true").load(file_path)
                 df.collect()
-        # Sleep a bit prior to ending the run
+        # Sleep a bit prior to ending the run to guarantee that the Python process can pick up on
+        # datasource read events (simulate the common case of doing work, e.g. model training,
+        # on the DataFrame after reading from it)
         time.sleep(1)
-        # Exit mock block so that end_run() is not slow
 
     # Python subscriber threads should pick up the active run at the time they're notified
     # & make API requests against that run, even if those requests are slow.
@@ -216,7 +230,6 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path, mlflo
         _get_expected_table_info_row(path, format)
         for format, path in format_to_file_path.items()
     ])
-
 
 
 def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(
