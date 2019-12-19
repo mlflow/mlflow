@@ -44,12 +44,6 @@
 
     <!-- Test -->
     <dependency>
-      <groupId>io.delta</groupId>
-      <artifactId>delta-core_${scala.compat.version}</artifactId>
-      <version>0.4.0</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.12</version>
@@ -69,18 +63,6 @@
       <groupId>org.scalatest</groupId>
       <artifactId>scalatest_${scala.compat.version}</artifactId>
       <version>3.0.5</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.specs2</groupId>
-      <artifactId>specs2-core_${scala.compat.version}</artifactId>
-      <version>${spec2.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.specs2</groupId>
-      <artifactId>specs2-junit_${scala.compat.version}</artifactId>
-      <version>${spec2.version}</version>
       <scope>test</scope>
     </dependency>
 
