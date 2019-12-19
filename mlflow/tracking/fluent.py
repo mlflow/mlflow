@@ -299,6 +299,16 @@ def set_tags(tags):
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=[], tags=tags_arr)
 
 
+def update_artifacts_location(artifacts_path):
+    """
+    Update the location of artifacts for currently activerun
+
+    :param artifacts_path: String new artifact location
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().update_artifacts_location(run_id, artifacts_path)
+
+
 def log_artifact(local_path, artifact_path=None):
     """
     Log a local file or directory as an artifact of the currently active run. If no run is

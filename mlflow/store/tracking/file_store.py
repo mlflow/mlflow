@@ -681,3 +681,6 @@ class FileStore(AbstractStore):
                 self.set_tag(run_id, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
+
+    def update_artifacts_location(self, run_id, new_artifacts_location):
+        raise ValueError("Artifacts cannot be moved with FileStore backend")

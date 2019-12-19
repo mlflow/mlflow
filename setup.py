@@ -1,6 +1,7 @@
 import imp
 import os
 import sys
+import time
 from setuptools import setup, find_packages
 
 version = imp.load_source(
@@ -22,9 +23,19 @@ js_files = package_files('mlflow/server/js/build')
 models_container_server_files = package_files("mlflow/models/container")
 alembic_files = ["../mlflow/store/db_migrations/alembic.ini", "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini"]
 
+
+def _check_add_criteo_environment(package_name):
+    # Check both cases because soon criteois.lan will change to crto.in
+    if "JENKINS_URL" in os.environ and ("criteois.lan" in os.environ["JENKINS_URL"]
+                                        or "crto.in" in os.environ["JENKINS_URL"]):
+        return package_name + "+criteo." + str(int(time.time()))
+
+    return package_name
+
+
 setup(
     name='mlflow',
-    version=version,
+    version=_check_add_criteo_environment(version),
     packages=find_packages(exclude=['tests', 'tests.*']),
     package_data={"mlflow": js_files + models_container_server_files + alembic_files},
     install_requires=[
