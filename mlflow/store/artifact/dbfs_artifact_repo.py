@@ -52,6 +52,13 @@ class DbfsRestArtifactRepository(ArtifactRepository):
             finally:
                 response.close()
 
+    def _is_directory(self, artifact_path):
+        if artifact_path:
+            dbfs_path = self._get_dbfs_path(artifact_path)
+        else:
+            dbfs_path = self._get_dbfs_path('')
+        return self._dbfs_is_dir(dbfs_path)
+
     def _dbfs_is_dir(self, dbfs_path):
         response = self._databricks_api_request(
             endpoint=GET_STATUS_ENDPOINT, method='GET', json={'path': dbfs_path})
