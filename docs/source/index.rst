@@ -21,7 +21,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     :maxdepth: 1
 
     quickstart
-    tutorial
+    tutorials-and-examples/index
     concepts
     tracking
     projects
