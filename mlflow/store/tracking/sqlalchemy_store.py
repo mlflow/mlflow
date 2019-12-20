@@ -2,7 +2,6 @@ import logging
 import uuid
 
 import math
-import posixpath
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
 
@@ -23,6 +22,7 @@ from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
     _validate_run_id, _validate_metric, _validate_experiment_tag, _validate_tag
 
@@ -182,7 +182,7 @@ class SqlAlchemyStore(AbstractStore):
         return instance, created
 
     def _get_artifact_location(self, experiment_id):
-        return posixpath.join(self.artifact_root_uri, str(experiment_id))
+        return append_to_uri_path(self.artifact_root_uri, str(experiment_id))
 
     def create_experiment(self, name, artifact_location=None):
         if name is None or name == '':
@@ -318,8 +318,8 @@ class SqlAlchemyStore(AbstractStore):
             self._check_experiment_is_active(experiment)
 
             run_id = uuid.uuid4().hex
-            artifact_location = posixpath.join(experiment.artifact_location, run_id,
-                                               SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
+            artifact_location = append_to_uri_path(experiment.artifact_location, run_id,
+                                                   SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
             run = SqlRun(name="", artifact_uri=artifact_location, run_uuid=run_id,
                          experiment_id=experiment_id,
                          source_type=SourceType.to_string(SourceType.UNKNOWN),

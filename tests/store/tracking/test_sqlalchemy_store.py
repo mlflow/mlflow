@@ -227,6 +227,105 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(actual.experiment_id, experiment_id)
         self.assertEqual(actual.name, 'test exp')
 
+    def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
+        cases = [
+            ("path/to/local/folder", "path/to/local/folder/{e}"),
+            ("/path/to/local/folder", "/path/to/local/folder/{e}"),
+            ("#path/to/local/folder?", "#path/to/local/folder?/{e}"),
+            ("file:path/to/local/folder", "file:path/to/local/folder/{e}"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+            ("file:path/to/local/folder?param=value", "file:path/to/local/folder/{e}?param=value"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+            (
+                "file:///path/to/local/folder?param=value#fragment",
+                "file:///path/to/local/folder/{e}?param=value#fragment",
+            ),
+            ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}"),
+            (
+                "s3://bucket/path/to/root?creds=mycreds",
+                "s3://bucket/path/to/root/{e}?creds=mycreds",
+            ),
+            (
+                "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
+                "dbscheme+driver://root@host/dbname/{e}?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/{e}?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/mydb/{e}?creds=mycreds#myfragment",
+            ),
+        ]
+
+        # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
+        # filesystem directories for file URI and POSIX path test cases
+        with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
+            for i in range(len(cases)):
+                artifact_root_uri, expected_artifact_uri_format = cases[i]
+                with TempDir() as tmp:
+                    dbfile_path = tmp.path("db")
+                    store = SqlAlchemyStore(
+                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri)
+                    exp_id = store.create_experiment(name="exp")
+                    exp = store.get_experiment(exp_id)
+                    self.assertEqual(exp.artifact_location,
+                                     expected_artifact_uri_format.format(e=exp_id))
+
+    def test_create_run_appends_to_artifact_uri_path_correctly(self):
+        cases = [
+            ("path/to/local/folder", "path/to/local/folder/{e}/{r}/artifacts"),
+            ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
+            ("#path/to/local/folder?", "#path/to/local/folder?/{e}/{r}/artifacts"),
+            ("file:path/to/local/folder", "file:path/to/local/folder/{e}/{r}/artifacts"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
+            (
+                "file:path/to/local/folder?param=value",
+                "file:path/to/local/folder/{e}/{r}/artifacts?param=value"
+            ),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
+            (
+                "file:///path/to/local/folder?param=value#fragment",
+                "file:///path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
+            ),
+            ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}/{r}/artifacts"),
+            (
+                "s3://bucket/path/to/root?creds=mycreds",
+                "s3://bucket/path/to/root/{e}/{r}/artifacts?creds=mycreds",
+            ),
+            (
+                "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
+                "dbscheme+driver://root@host/dbname/{e}/{r}/artifacts?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/{e}/{r}/artifacts"
+                "?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/mydb/{e}/{r}/artifacts"
+                "?creds=mycreds#myfragment",
+            ),
+        ]
+
+        # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
+        # filesystem directories for file URI and POSIX path test cases
+        with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
+            for i in range(len(cases)):
+                artifact_root_uri, expected_artifact_uri_format = cases[i]
+                with TempDir() as tmp:
+                    dbfile_path = tmp.path("db")
+                    store = SqlAlchemyStore(
+                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri)
+                    exp_id = store.create_experiment(name="exp")
+                    run = store.create_run(
+                        experiment_id=exp_id, user_id='user', start_time=0, tags=[])
+                    self.assertEqual(
+                        run.info.artifact_uri,
+                        expected_artifact_uri_format.format(e=exp_id, r=run.info.run_id))
+
     def test_run_tag_model(self):
         # Create a run whose UUID we can reference when creating tag models.
         # `run_id` is a foreign key in the tags table; therefore, in order
@@ -684,15 +783,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(renamed_experiment.name, new_name)
 
     def test_update_run_info(self):
-        run = self._run_factory()
-
-        new_status = entities.RunStatus.FINISHED
-        endtime = int(time.time())
-
-        actual = self.store.update_run_info(run.info.run_id, new_status, endtime)
-
-        self.assertEqual(actual.status, RunStatus.to_string(new_status))
-        self.assertEqual(actual.end_time, endtime)
+        experiment_id = self._experiment_factory('test_update_run_info')
+        for new_status_string in models.RunStatusTypes:
+            run = self._run_factory(config=self._get_run_configs(experiment_id=experiment_id))
+            endtime = int(time.time())
+            actual = self.store.update_run_info(
+                run.info.run_id, RunStatus.from_string(new_status_string), endtime)
+            self.assertEqual(actual.status, new_status_string)
+            self.assertEqual(actual.end_time, endtime)
 
     def test_restore_experiment(self):
         experiment_id = self._experiment_factory('helloexp')

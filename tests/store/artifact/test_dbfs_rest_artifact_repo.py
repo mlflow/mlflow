@@ -208,15 +208,13 @@ class TestDbfsArtifactRepository(object):
                 Mock(text='{}')   # this call is for listing `/dir/a.txt`.
             ]
             dbfs_artifact_repo.download_artifacts('/')
-            assert list_mock.call_count == 3
-            assert download_mock.call_count == 2
+            assert list_mock.call_count == 2
+            assert download_mock.call_count == 1
             chronological_download_calls = list(download_mock.call_args_list)
             # Calls are in reverse chronological order by default
             chronological_download_calls.reverse()
-            _, kwargs_call_1 = chronological_download_calls[0]
-            _, kwargs_call_2 = chronological_download_calls[1]
-            assert kwargs_call_1['endpoint'] == '/dbfs/test/dir'
-            assert kwargs_call_2['endpoint'] == '/dbfs/test/a.txt'
+            _, kwargs_call = chronological_download_calls[0]
+            assert kwargs_call['endpoint'] == '/dbfs/test/a.txt'
 
 
 def test_get_host_creds_from_default_store_file_store():
