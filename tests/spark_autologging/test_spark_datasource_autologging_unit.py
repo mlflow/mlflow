@@ -8,16 +8,7 @@ from mlflow.exceptions import MlflowException
 import mlflow.spark
 from mlflow._spark_autologging import _get_current_listener, PythonSubscriber
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-from tests.spark_autologging.utils import _get_mlflow_spark_jar_path
-
-
-def _get_or_create_spark_session(jars=None):
-    jar_path = jars if jars is not None else _get_mlflow_spark_jar_path()
-    print("@SId using jar path %s" % jar_path)
-    return SparkSession.builder \
-        .config("spark.jars", jar_path) \
-        .master("local[*]") \
-        .getOrCreate()
+from tests.spark_autologging.utils import _get_or_create_spark_session
 
 
 @pytest.fixture()
@@ -43,6 +34,7 @@ def test_autolog_call_idempotent(spark_session, tracking_uri_mock):
     assert _get_current_listener() == listener
 
 
+@pytest.mark.large
 def test_subscriber_methods():
     # Test that PythonSubscriber satisfies the contract expected by the underlying Scala trait
     # it implements (MlflowAutologEventSubscriber)
@@ -72,15 +64,3 @@ def test_enabling_autologging_throws_when_spark_hasnt_been_started(
     with pytest.raises(MlflowException) as exc:
         mlflow.spark.autolog()
     assert "No active SparkContext found" in exc.value.message
-
-
-@pytest.mark.large
-def test_enabling_autologging_throws_for_missing_jar(tracking_uri_mock, mock_get_current_listener):
-    # pylint: disable=unused-argument
-    spark_session = _get_or_create_spark_session(jars="")
-    try:
-        with pytest.raises(MlflowException) as exc:
-            mlflow.spark.autolog()
-        assert "Please ensure you have the mlflow-spark JAR attached" in exc.value.message
-    finally:
-        spark_session.stop()

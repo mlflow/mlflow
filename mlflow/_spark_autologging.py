@@ -18,7 +18,7 @@ from mlflow.tracking.context.abstract_context import RunContextProvider
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
 _REPL_ID_JAVA_PACKAGE = "org.mlflow.spark.autologging.databricks"
-_SPARK_TABLE_INFO_TAG_NAME = "sparkTableInfo"
+_SPARK_TABLE_INFO_TAG_NAME = "sparkDatasourceInfo"
 
 _logger = logging.getLogger(__name__)
 _lock = threading.Lock()
@@ -30,6 +30,7 @@ _metric_queue = []
 _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 
+# Exposed for testing
 def _get_current_listener():
     global _spark_table_info_listener
     return _spark_table_info_listener
