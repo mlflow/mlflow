@@ -152,7 +152,6 @@ def autolog():
                                   "automatic-logging-from-spark-experimental. Exception:\n%s"
                                   % e)
 
-
         # Register context provider for Spark autologging
         from mlflow.tracking.context.registry import _run_context_provider_registry
         _run_context_provider_registry.register(SparkAutologgingContext)

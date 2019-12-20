@@ -21,8 +21,7 @@ pip install -e spark-3.0.0-preview-bin-hadoop2.7/python
 popd
 
 export SPARK_HOME=$TEMPDIR/spark-3.0.0-preview-bin-hadoop2.7
-pytest tests/spark_autologging --large --ignore=tests/spark_autologging/test_spark_datasource_autologging_missing_jar.py
-pytest tests/spark_autologging/test_spark_datasource_autologging_missing_jar.py --large
+find tests/spark_autologging -name 'test*.py' | xargs -L 1 pytest --large
 
 rm -rf $TEMPDIR
 
