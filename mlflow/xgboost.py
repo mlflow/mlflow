@@ -18,7 +18,9 @@ XGBoost (native) format
 from __future__ import absolute_import
 
 import os
+import csv
 import yaml
+import tempfile
 import inspect
 import gorilla
 
@@ -215,6 +217,16 @@ def autolog():
         else:
             auto_end_run = False
 
+        def get_feature_importance(model, importance_type):
+            score = model.get_score(importance_type=importance_type)
+            return [(fn, score[fn] if fn in score else 0) for fn in model.feature_names]
+
+        def save_as_csv(data, save_path):
+            with open(save_path, 'w') as f:
+                csv_out = csv.writer(f)
+                for row in data:
+                    csv_out.writerow(row)
+
         original = gorilla.get_original_attribute(xgboost, 'train')
         unlogged_params = ['dtrain', 'evals', 'obj', 'feval', 'evals_result',
                            'xgb_model', 'callbacks', 'learning_rates']
@@ -247,6 +259,15 @@ def autolog():
         if has_early_stopping:
             attrs = ['best_score', 'best_iteration', 'best_ntree_limit']
             try_mlflow_log(mlflow.log_metrics, {attr: getattr(model, attr) for attr in attrs})
+
+        # logging feature importance of each feature as a csv file.
+        fi_types = ['weight', 'total_gain']
+        for fi_type in fi_types:
+            fi = get_feature_importance(model, importance_type=fi_type)
+            filename = 'feature_importance_{}.csv'.format(fi_type)
+            filepath = os.path.join(tempfile.mkdtemp(), filename)
+            save_as_csv(fi, filepath)
+            try_mlflow_log(mlflow.log_artifact, filepath)
 
         try_mlflow_log(log_model, model, artifact_path='model')
 
