@@ -8,11 +8,12 @@ import mlflow.spark
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-from tests.tracking.test_rest_tracking import tracking_server_uri, mlflow_client, BACKEND_URIS
-# pylint: disable=unused-import
-from tests.spark_autologging.utils import _assert_spark_data_logged, spark_session,\
-    format_to_file_path
-# pylint: disable=unused-import
+from tests.tracking.test_rest_tracking import BACKEND_URIS
+from tests.tracking.test_rest_tracking import tracking_server_uri  # pylint: disable=unused-import
+from tests.tracking.test_rest_tracking import mlflow_client  # pylint: disable=unused-import
+from tests.spark_autologging.utils import _assert_spark_data_logged
+from tests.spark_autologging.utils import spark_session  # pylint: disable=unused-import
+from tests.spark_autologging.utils import format_to_file_path  # pylint: disable=unused-import
 
 
 def pytest_generate_tests(metafunc):

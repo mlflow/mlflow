@@ -1,7 +1,6 @@
 import mock
 
 import pytest
-from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow.exceptions import MlflowException

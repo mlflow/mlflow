@@ -1,6 +1,5 @@
 import concurrent.futures
 import logging
-import warnings
 import sys
 import threading
 import uuid
@@ -65,7 +64,6 @@ def _get_spark_major_version(sc):
 
 
 def _get_java_package():
-    from pyspark import SparkContext
     sc = SparkContext.getOrCreate()
     spark_major_version = _get_spark_major_version(sc)
     # TODO: will JAR be available in ML runtime for MLflow projects? If so, should we broaden this
@@ -83,7 +81,6 @@ def _get_jvm_event_publisher():
       to watch for datasource reads)
     - register(subscriber) for registering subscribers to receive datasource events
     """
-    from pyspark import SparkContext
     jvm = SparkContext._gateway.jvm
     qualified_classname = "{}.{}".format(_get_java_package(), "MlflowAutologEventPublisher")
     return getattr(jvm, qualified_classname)
@@ -106,7 +103,7 @@ def _set_run_tag(run_id, path, version, data_format):
 def _get_active_spark_session():
     try:
         return SparkSession.builder.getActiveSession()
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         return SparkSession._instantiatedSession
 
 
@@ -158,7 +155,6 @@ def autolog():
 
 
 def _get_repl_id():
-    from pyspark import SparkContext
     repl_id = SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
     if repl_id:
         return repl_id

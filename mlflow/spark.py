@@ -27,7 +27,6 @@ import logging
 import posixpath
 import re
 import traceback
-import warnings
 
 import mlflow
 from mlflow import pyfunc, mleap
