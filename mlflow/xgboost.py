@@ -245,9 +245,8 @@ def autolog():
         # 'best_score', 'best_iteration', and 'best_ntree_limit'
         # even if early stopping didn't occur.
         if has_early_stopping:
-            try_mlflow_log(mlflow.log_metric, 'best_score', model.best_score)
-            try_mlflow_log(mlflow.log_metric, 'best_iteration', model.best_iteration)
-            try_mlflow_log(mlflow.log_metric, 'best_ntree_limit', model.best_iteration)
+            attrs = ['best_score', 'best_iteration', 'best_ntree_limit']
+            try_mlflow_log(mlflow.log_metrics, {attr: getattr(model, attr) for attr in attrs})
 
         try_mlflow_log(log_model, model, artifact_path='model')
 
