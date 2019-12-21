@@ -19,6 +19,8 @@ from __future__ import absolute_import
 
 import os
 import yaml
+import inspect
+import gorilla
 
 import mlflow
 from mlflow import pyfunc
@@ -27,6 +29,8 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
+from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
 FLAVOR_NAME = "xgboost"
 
@@ -184,3 +188,72 @@ class _XGBModelWrapper:
     def predict(self, dataframe):
         import xgboost as xgb
         return self.xgb_model.predict(xgb.DMatrix(dataframe))
+
+
+@experimental
+def autolog():
+    """
+    Enables automatic logging from XGBoost to MLflow.
+    Logs paramters and metrics specified in the train function.
+    Trained model is logged as an artifact to a 'model' directory.
+    """
+    import xgboost
+
+    @gorilla.patch(xgboost)
+    def train(*args, **kwargs):
+
+        def mlflow_callback(env):
+            """
+            Callback for auto-logging metrics on each iteration.
+            """
+            try_mlflow_log(mlflow.log_metrics, dict(env.evaluation_result_list),
+                           step=env.iteration)
+
+        if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
+            auto_end_run = True
+        else:
+            auto_end_run = False
+
+        original = gorilla.get_original_attribute(xgboost, 'train')
+        unlogged_params = ['dtrain', 'evals', 'obj', 'feval', 'evals_result',
+                           'xgb_model', 'callbacks', 'learning_rates']
+        log_fn_args_as_params(original, args, kwargs, unlogged_params)
+
+        all_arg_names = inspect.getargspec(original)[0]
+        num_pos_args = len(args)
+
+        # checking if the 'callbacks' argument of train() is set.
+        callbacks_index = all_arg_names.index('callbacks')
+        if num_pos_args >= callbacks_index + 1:
+            tmp_list = list(args)
+            tmp_list[callbacks_index] += [mlflow_callback]
+            args = tuple(tmp_list)
+        elif 'callbacks' in kwargs and kwargs['callbacks'] is not None:
+            kwargs['callbacks'] += [mlflow_callback]
+        else:
+            kwargs['callbacks'] = [mlflow_callback]
+
+        model = original(*args, **kwargs)
+
+        # checking if the 'early_stopping_rounds' argument of train() is set.
+        early_stopping_index = all_arg_names.index('early_stopping_rounds')
+        has_early_stopping = num_pos_args >= early_stopping_index + 1 or \
+                             'early_stopping_rounds' in kwargs
+
+        # if 'early_stopping_rounds' is set, the output model has
+        # 'best_score', 'best_iteration', and 'best_ntree_limit'
+        # even if early stopping didn't occur.
+        if has_early_stopping:
+            try_mlflow_log(mlflow.log_metric, 'best_score', model.best_score)
+            try_mlflow_log(mlflow.log_metric, 'best_iteration', model.best_iteration)
+            try_mlflow_log(mlflow.log_metric, 'best_ntree_limit', model.best_iteration)
+
+        try_mlflow_log(log_model, model, artifact_path='model')
+
+        if auto_end_run:
+            try_mlflow_log(mlflow.end_run)
+        return model
+
+    settings = gorilla.Settings(allow_hit=True, store_hit=True)
+    gorilla.apply(gorilla.Patch(xgboost, 'train', train, settings=settings))
