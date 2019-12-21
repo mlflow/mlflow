@@ -221,9 +221,10 @@ def autolog():
             score = model.get_score(importance_type=importance_type)
             return [(fn, score[fn] if fn in score else 0) for fn in model.feature_names]
 
-        def save_as_csv(data, save_path):
+        def save_as_csv(data, header, save_path):
             with open(save_path, 'w') as f:
                 csv_out = csv.writer(f)
+                csv_out.writerow(header)
                 for row in data:
                     csv_out.writerow(row)
 
@@ -266,7 +267,7 @@ def autolog():
             fi = get_feature_importance(model, importance_type=fi_type)
             filename = 'feature_importance_{}.csv'.format(fi_type)
             filepath = os.path.join(tempfile.mkdtemp(), filename)
-            save_as_csv(fi, filepath)
+            save_as_csv(fi, ['feature', 'importance'], filepath)
             try_mlflow_log(mlflow.log_artifact, filepath)
 
         try_mlflow_log(log_model, model, artifact_path='model')
