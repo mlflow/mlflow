@@ -12,7 +12,7 @@ import { getLatestMetrics } from '../reducers/MetricReducer';
 import './CompareRunContour.css';
 import CompareRunUtil from './CompareRunUtil';
 
-class CompareRunContour extends Component {
+export class CompareRunContour extends Component {
   static propTypes = {
     runInfos: PropTypes.arrayOf(RunInfo).isRequired,
     metricLists: PropTypes.arrayOf(Array).isRequired,
@@ -35,36 +35,36 @@ class CompareRunContour extends Component {
     if (this.paramKeys.length + this.metricKeys.length < 3) {
       this.state = {disabled: true};
     } else {
-      this.state = {
-        disabled: false,
-        reverseColor: false,
-        xaxis: this.paramKeys.length > 0 ?
-        {
-          key: this.paramKeys[0],
-          isMetric: false,
-        } : {
-          key: this.metricKeys[1],
-          isMetric: true,
-        },
-
-        yaxis: this.paramKeys.length > 0 ?
-        {
-          key: this.paramKeys[1],
-          isMetric: false,
-        } : {
-          key: this.metricKeys[1],
-          isMetric: true,
-        },
-
-        zaxis: this.metricKeys.length > 0 ?
-        {
-          key: this.metricKeys[0],
-          isMetric: true,
-        } : {
-          key: this.paramKeys[1],
-          isMetric: false,
-        },
-      };
+      const common = {disabled: false, reverseColor: false};
+      if (this.metricKeys.length === 0) {
+        this.state = {
+          ...common,
+          xaxis: {key: this.paramKeys[0], isMetric: false},
+          yaxis: {key: this.paramKeys[1], isMetric: false},
+          zaxis: {key: this.paramKeys[2], isMetric: false},
+        };
+      } else if (this.paramKeys.length === 0) {
+        this.state = {
+          ...common,
+          xaxis: {key: this.metricKeys[0], isMetric: true},
+          yaxis: {key: this.metricKeys[1], isMetric: true},
+          zaxis: {key: this.metricKeys[2], isMetric: true},
+        };
+      } else if (this.paramKeys.length === 1) {
+        this.state = {
+          ...common,
+          xaxis: {key: this.paramKeys[0], isMetric: false},
+          yaxis: {key: this.metricKeys[0], isMetric: true},
+          zaxis: {key: this.metricKeys[1], isMetric: true},
+        };
+      } else {
+        this.state = {
+          ...common,
+          xaxis: {key: this.paramKeys[0], isMetric: false},
+          yaxis: {key: this.paramKeys[1], isMetric: false},
+          zaxis: {key: this.metricKeys[0], isMetric: true},
+        };
+      }
     }
   }
 
