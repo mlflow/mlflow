@@ -29,8 +29,8 @@ class CompareRunContour extends Component {
 
     this.entities = new AllHtmlEntities();
 
-    this.metricKeys = CompareRunUtil.getKeys(this.props.metricLists, false);
-    this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, false);
+    this.metricKeys = CompareRunUtil.getKeys(this.props.metricLists, true);
+    this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, true);
 
     if (this.paramKeys.length + this.metricKeys.length < 3) {
       this.state = {disabled: true};
