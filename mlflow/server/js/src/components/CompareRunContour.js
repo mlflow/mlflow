@@ -115,7 +115,13 @@ class CompareRunContour extends Component {
 
   render() {
     if (this.state.disabled) {
-      return <div/>;
+      return (
+        <div>
+          Contour plots can only be rendered when comparing a group of runs with three or more
+          unique metrics or params. Log more metrics or params to your runs to visualize them using
+          the contour plot.
+        </div>
+      );
     }
 
     const keyLength = CompareRunContour.MAX_PLOT_KEY_LENGTH;
