@@ -61,7 +61,9 @@ setup(
         'sqlparse',
         'sqlalchemy',
         'gorilla',
+        'skein',
         'prometheus-flask-exporter',
+        'conda-pack',
     ],
     extras_require={
         'extras':[
