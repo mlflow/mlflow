@@ -311,6 +311,40 @@ method to load MLflow Models with the ``gluon`` flavor in native Gluon format.
 
 For more information, see :py:mod:`mlflow.gluon`.
 
+XGBoost (``xgboost``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``xgboost`` model flavor enables logging of `XGBoost models
+<https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster>`_
+in MLflow format via the :py:func:`mlflow.xgboost.save_model()` and :py:func:`mlflow.xgboost.log_model()` methods.
+These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.xgboost.load_model()`
+method to load MLflow Models with the ``xgboost`` model flavor in native XGBoost format.
+
+Note that the ``xgboost`` model flavor only supports an instance of `xgboost.Booster
+<https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster>`_,
+not models that implement the `scikit-learn API
+<https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn>`__.
+
+For more information, see :py:mod:`mlflow.xgboost`.
+
+LightGBM (``lightgbm``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``lightgbm`` model flavor enables logging of `LightGBM models
+<https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm-booster>`_
+in MLflow format via the :py:func:`mlflow.lightgbm.save_model()` and :py:func:`mlflow.lightgbm.log_model()` methods.
+These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.lightgbm.load_model()`
+method to load MLflow Models with the ``lightgbm`` model flavor in native LightGBM format.
+
+Note that the ``lightgbm`` model flavor only supports an instance of `lightgbm.Booster
+<https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm-booster>`__,
+not models that implement the `scikit-learn API
+<https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api>`_.
+
+For more information, see :py:mod:`mlflow.lightgbm`.
+
 Model Customization
 -------------------
 

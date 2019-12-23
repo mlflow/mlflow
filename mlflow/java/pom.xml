@@ -73,7 +73,7 @@
   <modules>
     <module>scoring</module>
     <module>client</module>
-    <module>mlflow-spark</module>
+    <module>spark</module>
   </modules>
 
   <dependencyManagement>

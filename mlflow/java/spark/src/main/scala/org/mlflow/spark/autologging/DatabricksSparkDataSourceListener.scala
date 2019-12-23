@@ -9,36 +9,14 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 /**
-  * SparkListener implementation that attempts to extract Delta table information & notify the PySpark process
-  * TODO: maybe pull query-plan-parsing logic out so that we can later add autologging for users of the Java client
-  * as well
-  */
-class DatabricksSparkDataSourceListener() extends SparkDataSourceListener {
+ * Implementation of the SparkListener interface used to detect Spark datasource reads.
+ * and notify subscribers.
+ */
+class DatabricksSparkDataSourceListener(
+    publisher: MlflowAutologEventPublisherImpl = MlflowAutologEventPublisher)
+  extends SparkDataSourceListener(publisher) {
+  private val executionIdToReplId = mutable.Map[Long, String]()
 
-  // Order of callbacks is onSQLExecutionStart, onJobStart, onSQLExecutionEnd
-  // So we can get the table infos to log in onSQLExecutionStart, figure out where to log them in onJobStart,
-  // and remove them in onSQLExecutionEnd
-
-  // A QueryExecution has many JobIDs via associatedJobs = mutable.Set[Int]()
-  // A SparkListenerJobStart event gives you a mapping from JobIds to repl IDs (so you know the repl associated with each job)
-  // So should be able to capture the first mapping on Job start, then on query execution end look up
-  // the repls associated with each Spark job that was completed, and notify those repls
-  private val executionIdToTableInfos = mutable.Map[Long, Seq[SparkTableInfo]]()
-
-  private def addTableInfos(executionId: Long, tableInfos: Seq[SparkTableInfo]): Unit = synchronized {
-    val tableInfosOpt = executionIdToTableInfos.get(executionId)
-    if (tableInfosOpt.isDefined) {
-      throw new RuntimeException(
-        s"Unexpected error trying to associate " +
-          s"execution ID ${executionId} -> table infos. Found existing table infos.")
-    } else {
-      executionIdToTableInfos(executionId) = tableInfos
-    }
-  }
-
-  private def removeExecutionIdToTableInfos(executionId: Long): Unit = synchronized {
-    executionIdToTableInfos.remove(executionId)
-  }
 
   private[autologging] def getProperties(event: SparkListenerJobStart): Map[String, String] = {
     Option(event.properties).map(_.asScala.toMap).getOrElse(Map.empty)
@@ -53,36 +31,11 @@ class DatabricksSparkDataSourceListener() extends SparkDataSourceListener {
     val executionId = executionIdOpt.get
     val replIdOpt = properties.get("spark.databricks.replId")
     replIdOpt.foreach { replId =>
-      executionIdToTableInfos.get(executionId).foreach { tableInfosToLog =>
-        tableInfosToLog.foreach(
-          tableInfo => SparkDataSourceEventPublisher.publishEvent(Option(replId), tableInfo)
-        )
-      }
+      executionIdToReplId.put(executionId, replId)
     }
   }
 
-  // Populate a map of execution ID to list of table infos to log under
-  private def onSQLExecutionStart(event: SparkListenerSQLExecutionStart): Unit = {
-    val qe = ReflectionUtils.getField(event, "qe").asInstanceOf[QueryExecution]
-    if (qe != null) {
-      val leafNodes = getLeafNodes(qe.analyzed)
-      val tableInfosToLog = leafNodes.flatMap(
-        DatabricksDatasourceAttributeExtractor.getTableInfoToLog)
-      addTableInfos(event.executionId, tableInfosToLog)
-    }
-  }
-
-  override protected def onSQLExecutionEnd(event: SparkListenerSQLExecutionEnd): Unit = {
-    removeExecutionIdToTableInfos(event.executionId)
-  }
-
-  override def onOtherEvent(event: SparkListenerEvent): Unit = {
-    event match {
-      case e: SparkListenerSQLExecutionStart =>
-        onSQLExecutionStart(e)
-      case e: SparkListenerSQLExecutionEnd =>
-        onSQLExecutionEnd(e)
-      case _ =>
-    }
+  override protected def getReplIdOpt(event: SparkListenerSQLExecutionEnd): Option[String] = {
+    executionIdToReplId.remove(event.executionId)
   }
 }

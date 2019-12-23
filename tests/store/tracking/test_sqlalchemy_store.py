@@ -227,6 +227,105 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(actual.experiment_id, experiment_id)
         self.assertEqual(actual.name, 'test exp')
 
+    def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
+        cases = [
+            ("path/to/local/folder", "path/to/local/folder/{e}"),
+            ("/path/to/local/folder", "/path/to/local/folder/{e}"),
+            ("#path/to/local/folder?", "#path/to/local/folder?/{e}"),
+            ("file:path/to/local/folder", "file:path/to/local/folder/{e}"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+            ("file:path/to/local/folder?param=value", "file:path/to/local/folder/{e}?param=value"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+            (
+                "file:///path/to/local/folder?param=value#fragment",
+                "file:///path/to/local/folder/{e}?param=value#fragment",
+            ),
+            ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}"),
+            (
+                "s3://bucket/path/to/root?creds=mycreds",
+                "s3://bucket/path/to/root/{e}?creds=mycreds",
+            ),
+            (
+                "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
+                "dbscheme+driver://root@host/dbname/{e}?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/{e}?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/mydb/{e}?creds=mycreds#myfragment",
+            ),
+        ]
+
+        # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
+        # filesystem directories for file URI and POSIX path test cases
+        with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
+            for i in range(len(cases)):
+                artifact_root_uri, expected_artifact_uri_format = cases[i]
+                with TempDir() as tmp:
+                    dbfile_path = tmp.path("db")
+                    store = SqlAlchemyStore(
+                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri)
+                    exp_id = store.create_experiment(name="exp")
+                    exp = store.get_experiment(exp_id)
+                    self.assertEqual(exp.artifact_location,
+                                     expected_artifact_uri_format.format(e=exp_id))
+
+    def test_create_run_appends_to_artifact_uri_path_correctly(self):
+        cases = [
+            ("path/to/local/folder", "path/to/local/folder/{e}/{r}/artifacts"),
+            ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
+            ("#path/to/local/folder?", "#path/to/local/folder?/{e}/{r}/artifacts"),
+            ("file:path/to/local/folder", "file:path/to/local/folder/{e}/{r}/artifacts"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
+            (
+                "file:path/to/local/folder?param=value",
+                "file:path/to/local/folder/{e}/{r}/artifacts?param=value"
+            ),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
+            (
+                "file:///path/to/local/folder?param=value#fragment",
+                "file:///path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
+            ),
+            ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}/{r}/artifacts"),
+            (
+                "s3://bucket/path/to/root?creds=mycreds",
+                "s3://bucket/path/to/root/{e}/{r}/artifacts?creds=mycreds",
+            ),
+            (
+                "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
+                "dbscheme+driver://root@host/dbname/{e}/{r}/artifacts?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/{e}/{r}/artifacts"
+                "?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/mydb/{e}/{r}/artifacts"
+                "?creds=mycreds#myfragment",
+            ),
+        ]
+
+        # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
+        # filesystem directories for file URI and POSIX path test cases
+        with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
+            for i in range(len(cases)):
+                artifact_root_uri, expected_artifact_uri_format = cases[i]
+                with TempDir() as tmp:
+                    dbfile_path = tmp.path("db")
+                    store = SqlAlchemyStore(
+                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri)
+                    exp_id = store.create_experiment(name="exp")
+                    run = store.create_run(
+                        experiment_id=exp_id, user_id='user', start_time=0, tags=[])
+                    self.assertEqual(
+                        run.info.artifact_uri,
+                        expected_artifact_uri_format.format(e=exp_id, r=run.info.run_id))
+
     def test_run_tag_model(self):
         # Create a run whose UUID we can reference when creating tag models.
         # `run_id` is a foreign key in the tags table; therefore, in order
@@ -684,15 +783,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(renamed_experiment.name, new_name)
 
     def test_update_run_info(self):
-        run = self._run_factory()
-
-        new_status = entities.RunStatus.FINISHED
-        endtime = int(time.time())
-
-        actual = self.store.update_run_info(run.info.run_id, new_status, endtime)
-
-        self.assertEqual(actual.status, RunStatus.to_string(new_status))
-        self.assertEqual(actual.end_time, endtime)
+        experiment_id = self._experiment_factory('test_update_run_info')
+        for new_status_string in models.RunStatusTypes:
+            run = self._run_factory(config=self._get_run_configs(experiment_id=experiment_id))
+            endtime = int(time.time())
+            actual = self.store.update_run_info(
+                run.info.run_id, RunStatus.from_string(new_status_string), endtime)
+            self.assertEqual(actual.status, new_status_string)
+            self.assertEqual(actual.end_time, endtime)
 
     def test_restore_experiment(self):
         experiment_id = self._experiment_factory('helloexp')
@@ -794,7 +892,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         experiment_id = self.store.create_experiment('order_by_metric')
 
         def create_and_log_run(names):
-            name = names[0] + "/" + names[1]
+            name = str(names[0]) + "/" + names[1]
             run_id = self.store.create_run(
                 experiment_id,
                 user_id="MrDuck",
@@ -802,40 +900,49 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name),
                       entities.RunTag("metric", names[1])]
             ).info.run_id
-            self.store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
-            self.store.log_metric(run_id, entities.Metric("y", float(names[1]), 1, 0))
+            if names[0] is not None:
+                self.store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
+                self.store.log_metric(run_id, entities.Metric("y", float(names[1]), 1, 0))
             self.store.log_param(run_id, entities.Param("metric", names[1]))
             return run_id
 
-        for names in zip(["nan", "inf", "-inf", "-1000", "0", "0", "1000"],
-                         ["1", "2", "3", "4", "5", "6", "7"]):
+        # the expected order in ascending sort is :
+        # inf > number > -inf > None > nan
+        for names in zip(["nan", None, "inf", "-inf", "-1000", "0", "0", "1000"],
+                         ["1", "2", "3", "4", "5", "6", "7", "8"]):
             create_and_log_run(names)
 
         # asc/asc
-        self.assertListEqual(["-inf/3", "-1000/4", "0/5", "0/6", "1000/7", "inf/2", "nan/1"],
+        self.assertListEqual(["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3",
+                              "None/2", "nan/1"],
                              self.get_ordered_runs(["metrics.x asc", "metrics.y asc"],
                                                    experiment_id))
 
-        self.assertListEqual(["-inf/3", "-1000/4", "0/5", "0/6", "1000/7", "inf/2", "nan/1"],
+        self.assertListEqual(["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3",
+                              "None/2", "nan/1"],
                              self.get_ordered_runs(["metrics.x asc", "tag.metric asc"],
                                                    experiment_id))
 
         # asc/desc
-        self.assertListEqual(["-inf/3", "-1000/4", "0/6", "0/5", "1000/7", "inf/2", "nan/1"],
+        self.assertListEqual(["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3",
+                              "None/2", "nan/1"],
                              self.get_ordered_runs(["metrics.x asc", "metrics.y desc"],
                                                    experiment_id))
 
-        self.assertListEqual(["-inf/3", "-1000/4", "0/6", "0/5", "1000/7", "inf/2", "nan/1"],
+        self.assertListEqual(["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3",
+                              "None/2", "nan/1"],
                              self.get_ordered_runs(["metrics.x asc", "tag.metric desc"],
                                                    experiment_id))
 
         # desc / asc
-        self.assertListEqual(["inf/2", "1000/7", "0/5", "0/6", "-1000/4", "-inf/3", "nan/1"],
+        self.assertListEqual(["inf/3", "1000/8", "0/6", "0/7", "-1000/5", "-inf/4",
+                              "nan/1", "None/2"],
                              self.get_ordered_runs(["metrics.x desc", "metrics.y asc"],
                                                    experiment_id))
 
         # desc / desc
-        self.assertListEqual(["inf/2", "1000/7", "0/6", "0/5", "-1000/4", "-inf/3", "nan/1"],
+        self.assertListEqual(["inf/3", "1000/8", "0/7", "0/6", "-1000/5", "-inf/4",
+                              "nan/1", "None/2"],
                              self.get_ordered_runs(["metrics.x desc", "param.metric desc"],
                                                    experiment_id))
 
@@ -1490,6 +1597,28 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                              "and params.pkey_0 = 'pval_0'",
                                              ViewType.ALL, max_results=5)
         assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
+
+    def test_search_runs_keep_all_runs_when_sorting(self):
+        experiment_id = self.store.create_experiment('test_experiment1')
+
+        r1 = self.store.create_run(
+            experiment_id=experiment_id,
+            start_time=0,
+            tags=(),
+            user_id='Me').info.run_uuid
+        r2 = self.store.create_run(
+            experiment_id=experiment_id,
+            start_time=0,
+            tags=(),
+            user_id='Me').info.run_uuid
+        self.store.set_tag(r1, RunTag(key="t1", value="1"))
+        self.store.set_tag(r1, RunTag(key="t2", value="1"))
+        self.store.set_tag(r2, RunTag(key="t2", value="1"))
+
+        run_results = self.store.search_runs([experiment_id],
+                                             None,
+                                             ViewType.ALL, max_results=1000, order_by=["tag.t1"])
+        assert len(run_results) == 2
 
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
