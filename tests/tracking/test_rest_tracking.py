@@ -44,7 +44,7 @@ def _get_sqlite_uri():
 
 # Backend store URIs to test against
 BACKEND_URIS = [
-    # _get_sqlite_uri(),  # SqlAlchemy
+    _get_sqlite_uri(),  # SqlAlchemy
     path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "file_store_root")),  # FileStore
 ]
 
