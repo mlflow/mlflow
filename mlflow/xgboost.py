@@ -211,12 +211,6 @@ def autolog():
             try_mlflow_log(mlflow.log_metrics, dict(env.evaluation_result_list),
                            step=env.iteration)
 
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            auto_end_run = True
-        else:
-            auto_end_run = False
-
         def get_feature_importance(model, importance_type):
             score = model.get_score(importance_type=importance_type)
             return [(fn, score[fn] if fn in score else 0) for fn in model.feature_names]
@@ -227,6 +221,12 @@ def autolog():
                 csv_out.writerow(header)
                 for row in data:
                     csv_out.writerow(row)
+
+        if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
+            auto_end_run = True
+        else:
+            auto_end_run = False
 
         original = gorilla.get_original_attribute(xgboost, 'train')
         unlogged_params = ['dtrain', 'evals', 'obj', 'feval', 'evals_result',
@@ -252,7 +252,7 @@ def autolog():
         # checking if the 'early_stopping_rounds' argument of train() is set.
         early_stopping_index = all_arg_names.index('early_stopping_rounds')
         has_early_stopping = num_pos_args >= early_stopping_index + 1 or \
-                             'early_stopping_rounds' in kwargs
+        'early_stopping_rounds' in kwargs
 
         # if 'early_stopping_rounds' is set, the output model has
         # 'best_score', 'best_iteration', and 'best_ntree_limit'
