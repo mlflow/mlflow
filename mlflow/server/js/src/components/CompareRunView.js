@@ -5,6 +5,7 @@ import { connect } from 'react-redux';
 import './CompareRunView.css';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import CompareRunScatter from './CompareRunScatter';
+import CompareRunContour from './CompareRunContour';
 import Routes from '../Routes';
 import { Link } from 'react-router-dom';
 import { getLatestMetrics } from '../reducers/MetricReducer';
@@ -123,7 +124,13 @@ class CompareRunView extends Component {
               runDisplayNames={this.props.runDisplayNames}
             />
           </TabPane>
-          <TabPane tab="Parallel Coordinates Plot" key="2">
+          <TabPane tab="Contour Plot" key="2">
+            <CompareRunContour
+              runUuids={this.props.runUuids}
+              runDisplayNames={this.props.runDisplayNames}
+            />
+          </TabPane>
+          <TabPane tab="Parallel Coordinates Plot" key="3">
             <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids}/>
           </TabPane>
         </Tabs>
