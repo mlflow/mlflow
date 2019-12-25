@@ -1,5 +1,7 @@
 package org.mlflow.spark.autologging
 
+import java.io.{PrintWriter, StringWriter}
+
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.catalyst.plans.logical.{LeafNode, LogicalPlan}
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd

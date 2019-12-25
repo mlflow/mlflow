@@ -2,8 +2,9 @@ package org.mlflow.spark.autologging
 
 import java.util.concurrent.{ConcurrentHashMap, ScheduledFuture, ScheduledThreadPoolExecutor, TimeUnit}
 
-import scala.collection.JavaConverters._
+import org.apache.spark.SparkContext
 
+import scala.collection.JavaConverters._
 import org.apache.spark.sql.SparkSession
 import org.slf4j.LoggerFactory
 import py4j.Py4JException
@@ -43,7 +44,14 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
 
   // Exposed for testing
   private[autologging] def getSparkDataSourceListener: SparkDataSourceListener = {
-    new SparkDataSourceListener(this)
+    // Get SparkContext & determine if REPL id is set - if not, then we log irrespective of repl
+    // ID, but if so, we log conditionally on repl ID
+    val sc = spark.sparkContext
+    val replId = Option(sc.getLocalProperty("spark.databricks.replId"))
+    replId match {
+      case None => new SparkDataSourceListener(this)
+      case Some(_) => new DatabricksSparkDataSourceListener(this)
+    }
   }
 
   // Initialize Spark listener that pulls Delta query plan information & bubbles it up to registered

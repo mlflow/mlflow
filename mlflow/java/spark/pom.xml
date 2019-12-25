@@ -9,6 +9,7 @@
     <encoding>UTF-8</encoding>
     <scala.version>2.12.6</scala.version>
     <scala.compat.version>2.12</scala.compat.version>
+    <spark.version>3.0.0-preview</spark.version>
     <spec2.version>4.2.0</spec2.version>
   </properties>
 
@@ -29,26 +30,20 @@
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-sql_${scala.compat.version}</artifactId>
-      <version>3.0.0-preview</version>
+      <version>${spark.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-core_${scala.compat.version}</artifactId>
-      <version>3.0.0-preview</version>
+      <version>${spark.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-catalyst_${scala.compat.version}</artifactId>
-      <version>3.0.0-preview</version>
+      <version>${spark.version}</version>
     </dependency>
 
     <!-- Test -->
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.12</version>
-      <scope>test</scope>
-    </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>

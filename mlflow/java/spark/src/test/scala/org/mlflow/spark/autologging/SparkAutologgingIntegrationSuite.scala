@@ -265,21 +265,20 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
 
   test("Delegates to repl-ID-aware listener if REPL ID property is set in SparkContext") {
     // Verify instance created by init() in beforeEach is not REPL-ID-aware
-    SparkDataSourceEventPublisher.init()
-    assert(SparkDataSourceEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
-    assert(!SparkDataSourceEventPublisher.sparkQueryListener.isInstanceOf[DatabricksSparkDataSourceListener])
+    assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
+    assert(!MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[DatabricksSparkDataSourceListener])
     // Call stop, update SparkContext to contain repl ID property, call init(), verify instance is
     // REPL-ID-aware
-    SparkDataSourceEventPublisher.stop()
+    MlflowAutologEventPublisher.stop()
     assert(MlflowSparkAutologgingTestUtils.getListeners(spark).isEmpty)
     val sc = spark.sparkContext
     sc.setLocalProperty("spark.databricks.replId", "myCoolReplId")
-    SparkDataSourceEventPublisher.init()
-    assert(SparkDataSourceEventPublisher.sparkQueryListener.isInstanceOf[DatabricksSparkDataSourceListener])
+    MlflowAutologEventPublisher.init()
+    assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[DatabricksSparkDataSourceListener])
     sc.setLocalProperty("spark.databricks.replId", null)
-    SparkDataSourceEventPublisher.stop()
-    SparkDataSourceEventPublisher.init()
-    assert(SparkDataSourceEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
+    MlflowAutologEventPublisher.stop()
+    MlflowAutologEventPublisher.init()
+    assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
   }
 
 }
