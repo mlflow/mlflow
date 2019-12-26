@@ -20,6 +20,22 @@ object ReflectionUtils {
     obj.instance
   }
 
+  def isInstanceOf[T: ru.TypeTag](obj: T, className: String): Boolean = {
+    val classOpt = try {
+        Option(rm.staticClass(className))
+    } catch {
+      case _: scala.ScalaReflectionException =>
+        None
+    }
+    // If class is loadable, check whether object has same type, otherwise return false
+    classOpt.exists { c =>
+      val desiredType = c.toType
+      val objectTypeTag = ru.typeTag[T]
+      desiredType =:= objectTypeTag.tpe
+    }
+  }
+
+
   def getField(obj: Any, fieldName: String): Any = {
     val declaredFields = obj.getClass.getDeclaredFields
     val field = declaredFields.find(_.getName == fieldName).getOrElse {

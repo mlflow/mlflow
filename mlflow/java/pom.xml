@@ -68,6 +68,7 @@
     <slf4j.version>1.7.25</slf4j.version>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
+    <jackson.version>2.10.0</jackson.version>
   </properties>
 
   <modules>
@@ -93,17 +94,17 @@
       <dependency>
         <groupId>com.fasterxml.jackson.dataformat</groupId>
         <artifactId>jackson-dataformat-yaml</artifactId>
-        <version>2.10.0</version>
+        <version>${jackson.version}</version>
       </dependency>
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-databind</artifactId>
-        <version>2.10.0</version>
+        <version>${jackson.version}</version>
       </dependency>
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-annotations</artifactId>
-        <version>2.10.0</version>
+        <version>${jackson.version}</version>
       </dependency>
       <dependency>
         <groupId>ml.combust.mleap</groupId>

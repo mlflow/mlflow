@@ -2,9 +2,8 @@ package org.mlflow.spark.autologging
 
 import scala.collection.JavaConverters._
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.execution.datasources.v2.{DataSourceV2Relation, FileTable}
+import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation
 import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
-import org.apache.spark.sql.connector.catalog.Table
 import org.slf4j.LoggerFactory
 
 import scala.util.control.NonFatal
@@ -19,19 +18,26 @@ private[autologging] case class SparkTableInfo(
 private[autologging] trait DatasourceAttributeExtractorBase {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  private def getSparkTableInfoFromTable(table: Table): Option[SparkTableInfo] = {
-    table match {
-      case fileTable: FileTable =>
-        val tableName = fileTable.name
-        val splitName = tableName.split(" ")
-        val lowercaseFormat = fileTable.formatName.toLowerCase()
-        if (splitName.headOption.exists(head => head.toLowerCase == lowercaseFormat)) {
-          Option(SparkTableInfo(splitName.tail.mkString(" "), None, Option(lowercaseFormat)))
-        } else {
-          Option(SparkTableInfo(fileTable.name, None, Option(fileTable.formatName)))
-        }
-      case other: Table =>
-        Option(SparkTableInfo(other.name, None, None))
+  private def getSparkTableInfoFromFileTable(table: Any): Option[SparkTableInfo] = {
+    val tableName = ReflectionUtils.getField(table, "name").asInstanceOf[String]
+    val splitName = tableName.split(" ")
+    val lowercaseFormat = ReflectionUtils.getField(table, "formatName").asInstanceOf[String]
+    if (splitName.headOption.exists(head => head.toLowerCase == lowercaseFormat)) {
+      Option(SparkTableInfo(splitName.tail.mkString(" "), None, Option(lowercaseFormat)))
+    } else {
+      Option(SparkTableInfo(tableName, None, Option(lowercaseFormat)))
+    }
+  }
+
+  private def getSparkTableInfoFromTable(table: Any): Option[SparkTableInfo] = {
+    if (ReflectionUtils.isInstanceOf(table, "FileTable")) {
+      getSparkTableInfoFromFileTable(table)
+    } else if (ReflectionUtils.isInstanceOf(table, "Table")) {
+      val tableName = ReflectionUtils.getField(table, "name").asInstanceOf[String]
+      val formatName = ReflectionUtils.getField(table, "formatName").asInstanceOf[String]
+      Option(SparkTableInfo(tableName, None, Option(formatName)))
+    } else {
+      None
     }
   }
 
@@ -48,7 +54,12 @@ private[autologging] trait DatasourceAttributeExtractorBase {
     } else {
       leafNode match {
         case relation: DataSourceV2Relation =>
-          getSparkTableInfoFromTable(relation.table)
+          try {
+            getSparkTableInfoFromTable(ReflectionUtils.getField(relation, "table"))
+          } catch {
+            case _: scala.ScalaReflectionException =>
+             None
+          }
 //        case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
 //          val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
 //          Option(SparkTableInfo(path, None, None))
@@ -80,9 +91,20 @@ object DatabricksDatasourceAttributeExtractor extends DatasourceAttributeExtract
     }
   }
 
-  override def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
-    val rawTableInfo = super.getTableInfoToLog(leafNode)
-    // TODO apply redaction to path
-    rawTableInfo.map(identity)
+  private def tryRedactString(value: String): String = {
+    try {
+      val redactor = ReflectionUtils.getScalaObjectByName("com.databricks.spark.util.DatabricksSparkLogRedactor")
+      ReflectionUtils.callMethod(redactor, "redact", Seq(value)).asInstanceOf[String]
+    } catch {
+      case NonFatal(e) =>
+        value
+    }
   }
+
+  override def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
+    super.getTableInfoToLog(leafNode).map { case SparkTableInfo(path, versionOpt, formatOpt) =>
+      SparkTableInfo(tryRedactString(path), versionOpt, formatOpt)
+    }
+  }
+
 }
