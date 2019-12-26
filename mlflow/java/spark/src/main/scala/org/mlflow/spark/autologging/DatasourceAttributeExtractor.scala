@@ -1,6 +1,8 @@
 package org.mlflow.spark.autologging
 
+import scala.reflect.runtime.{universe => ru}
 import scala.collection.JavaConverters._
+
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation
 import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
@@ -21,7 +23,7 @@ private[autologging] trait DatasourceAttributeExtractorBase {
   private def getSparkTableInfoFromFileTable(table: Any): Option[SparkTableInfo] = {
     val tableName = ReflectionUtils.getField(table, "name").asInstanceOf[String]
     val splitName = tableName.split(" ")
-    val lowercaseFormat = ReflectionUtils.getField(table, "formatName").asInstanceOf[String]
+    val lowercaseFormat = ReflectionUtils.callMethod(table, "formatName", Seq.empty).asInstanceOf[String].toLowerCase
     if (splitName.headOption.exists(head => head.toLowerCase == lowercaseFormat)) {
       Option(SparkTableInfo(splitName.tail.mkString(" "), None, Option(lowercaseFormat)))
     } else {
@@ -29,14 +31,15 @@ private[autologging] trait DatasourceAttributeExtractorBase {
     }
   }
 
-  private def getSparkTableInfoFromTable(table: Any): Option[SparkTableInfo] = {
-    if (ReflectionUtils.isInstanceOf(table, "FileTable")) {
+  private def getSparkTableInfoFromTable[T: ru.TypeTag](table: T): Option[SparkTableInfo] = {
+    if (ReflectionUtils.isInstanceOf(table, "org.apache.spark.sql.execution.datasources.v2.FileTable")) {
       getSparkTableInfoFromFileTable(table)
-    } else if (ReflectionUtils.isInstanceOf(table, "Table")) {
+    } else if (ReflectionUtils.isInstanceOf(table, "org.apache.spark.sql.connector.catalog.Table")) {
       val tableName = ReflectionUtils.getField(table, "name").asInstanceOf[String]
-      val formatName = ReflectionUtils.getField(table, "formatName").asInstanceOf[String]
-      Option(SparkTableInfo(tableName, None, Option(formatName)))
+      val formatName = ReflectionUtils.callMethod(table, "formatName", Seq.empty).asInstanceOf[String]
+      Option(SparkTableInfo(tableName, None, Option(formatName.toLowerCase)))
     } else {
+      logger.error("Unexpected failure while attempting to get Spark table info from table")
       None
     }
   }
@@ -55,9 +58,15 @@ private[autologging] trait DatasourceAttributeExtractorBase {
       leafNode match {
         case relation: DataSourceV2Relation =>
           try {
-            getSparkTableInfoFromTable(ReflectionUtils.getField(relation, "table"))
+            val table = ReflectionUtils.getField(relation, "table")
+            println(s"Got table of type ${table.getClass.getCanonicalName}")
+            val res = getSparkTableInfoFromTable(table)
+            println(s"(2) Got res $res")
+            res
           } catch {
-            case _: scala.ScalaReflectionException =>
+            case e: scala.ScalaReflectionException =>
+             logger.error(s"Unexpected failure attempting to access 'table' field of " +
+               s"DataSourceV2Relation. Exception:\n${ExceptionUtils.serializeException(e)}")
              None
           }
 //        case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
