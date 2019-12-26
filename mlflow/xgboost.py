@@ -18,7 +18,7 @@ XGBoost (native) format
 from __future__ import absolute_import
 
 import os
-import csv
+import json
 import yaml
 import tempfile
 import inspect
@@ -211,17 +211,6 @@ def autolog():
             try_mlflow_log(mlflow.log_metrics, dict(env.evaluation_result_list),
                            step=env.iteration)
 
-        def get_feature_importance(model, importance_type):
-            score = model.get_score(importance_type=importance_type)
-            return [(fn, score[fn] if fn in score else 0) for fn in model.feature_names]
-
-        def save_as_csv(data, header, save_path):
-            with open(save_path, 'w') as f:
-                csv_out = csv.writer(f)
-                csv_out.writerow(header)
-                for row in data:
-                    csv_out.writerow(row)
-
         if not mlflow.active_run():
             try_mlflow_log(mlflow.start_run)
             auto_end_run = True
@@ -262,12 +251,13 @@ def autolog():
             try_mlflow_log(mlflow.log_metrics, {attr: getattr(model, attr) for attr in attrs})
 
         # logging feature importance of each feature as a csv file.
-        fi_types = ['weight', 'total_gain']
-        for fi_type in fi_types:
-            fi = get_feature_importance(model, importance_type=fi_type)
-            filename = 'feature_importance_{}.csv'.format(fi_type)
+        imp_types = ['weight', 'total_gain']
+        for imp_type in imp_types:
+            imp = model.get_score(importance_type=imp_type)
+            filename = 'feature_importance_{}.json'.format(imp_type)
             filepath = os.path.join(tempfile.mkdtemp(), filename)
-            save_as_csv(fi, ['feature', 'importance'], filepath)
+            with open(filepath, 'w') as f:
+                json.dump(imp, f)
             try_mlflow_log(mlflow.log_artifact, filepath)
 
         try_mlflow_log(log_model, model, artifact_path='model')
