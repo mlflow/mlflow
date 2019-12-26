@@ -11,6 +11,8 @@ XGBoost (native) format
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster
 .. _xgboost.Booster.save_model:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster.save_model
+.. _xgboost.train:
+    https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
 .. _scikit-learn API:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
@@ -193,11 +195,18 @@ class _XGBModelWrapper:
 
 
 @experimental
-def autolog():
+def autolog(importance_types=['weight']):
     """
-    Enables automatic logging from XGBoost to MLflow.
-    Logs paramters and metrics specified in the train function.
-    Trained model is logged as an artifact to a 'model' directory.
+    Enables autologging from XGBoost to MLflow. Logs the following.
+
+    - parameters specified in `xgboost.train`_.
+    - metrics on each iteration (if ``evals`` specified).
+    - ``best_iteration``, ``best_ntree_limit``, and ``best_score`` (if ``early_stopping_rounds`` specified).
+    - feature importance.
+    - trained model.
+
+    :param importance_types: importance types to log.
+
     """
     import xgboost
 
@@ -250,9 +259,8 @@ def autolog():
             attrs = ['best_score', 'best_iteration', 'best_ntree_limit']
             try_mlflow_log(mlflow.log_metrics, {attr: getattr(model, attr) for attr in attrs})
 
-        # logging feature importance of each feature as a csv file.
-        imp_types = ['weight', 'total_gain']
-        for imp_type in imp_types:
+        # logging feature importance as artifacts.
+        for imp_type in importance_types:
             imp = model.get_score(importance_type=imp_type)
             filename = 'feature_importance_{}.json'.format(imp_type)
             filepath = os.path.join(tempfile.mkdtemp(), filename)
