@@ -201,7 +201,8 @@ def autolog(importance_types=['weight']):
 
     - parameters specified in `xgboost.train`_.
     - metrics on each iteration (if ``evals`` specified).
-    - ``best_iteration``, ``best_ntree_limit``, and ``best_score`` (if ``early_stopping_rounds`` specified).
+    - ``best_iteration``, ``best_ntree_limit``, and ``best_score``
+      (if ``early_stopping_rounds`` specified).
     - feature importance.
     - trained model.
 
