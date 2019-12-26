@@ -231,7 +231,7 @@ def autolog(importance_types=['weight']):
                            'xgb_model', 'callbacks', 'learning_rates']
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-        all_arg_names = inspect.getargspec(original)[0]
+        all_arg_names = inspect.getargspec(original)[0]  # pylint: disable=W1505
         num_pos_args = len(args)
 
         # checking if the 'callbacks' argument of train() is set.
