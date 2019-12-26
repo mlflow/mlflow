@@ -13,7 +13,6 @@ S3_PREFIX = "s3://"
 GS_PREFIX = "gs://"
 VIEWFS_PREFIX = "viewfs://"
 HDFS_PREFIX = "hdfs://"
-
 DBFS_REGEX = re.compile("^%s" % re.escape(DBFS_PREFIX))
 S3_REGEX = re.compile("^%s" % re.escape(S3_PREFIX))
 GS_REGEX = re.compile("^%s" % re.escape(GS_PREFIX))
@@ -46,29 +45,15 @@ def _fetch_dbfs(uri, local_path):
 def _fetch_s3(uri, local_path):
     import boto3
     print("=== Downloading S3 object %s to local path %s ===" % (uri, os.path.abspath(local_path)))
-    (bucket, s3_path) = parse_simple_uri(uri, "s3")
+    (bucket, s3_path) = parse_simple_uri(uri, ["s3"])
     boto3.client('s3').download_file(bucket, s3_path, local_path)
 
 
 def _fetch_gs(uri, local_path):
     from google.cloud import storage
-    print(
-        "=== Downloading GCS file %s to local path %s ===" %
-        (uri, os.path.abspath(local_path))
-    )
-    (bucket, gs_path) = parse_simple_uri(uri, "gs")
+    print("=== Downloading GCS file %s to local path %s ===" % (uri, os.path.abspath(local_path)))
+    (bucket, gs_path) = parse_simple_uri(uri, ["gs"])
     storage.Client().bucket(bucket).blob(gs_path).download_to_filename(local_path)
-
-
-def _fetch_viewfs(uri, local_path):
-    print(
-        "=== Downloading VIEWFS file %s to local path %s ===" %
-        (uri, os.path.abspath(local_path))
-    )
-    (bucket, hdfs_path) = parse_simple_uri(uri, "viewfs")
-
-    hdfs = HdfsArtifactRepository(bucket)
-    hdfs.download_artifacts(hdfs_path, local_path)
 
 
 def _fetch_hdfs(uri, local_path):
@@ -76,10 +61,19 @@ def _fetch_hdfs(uri, local_path):
         "=== Downloading HDFS file %s to local path %s ===" %
         (uri, os.path.abspath(local_path))
     )
-    (bucket, hdfs_path) = parse_simple_uri(uri, "hdfs")
+    parse_simple_uri(uri, ["hdfs", "viewfs"])
+    hdfs = HdfsArtifactRepository("/".join(uri.split('/')[:-1]))
+    hdfs.download_artifacts(uri.split('/')[-1], local_path, create_tmp_dir=False)
 
-    hdfs = HdfsArtifactRepository(bucket)
-    hdfs.download_artifacts(hdfs_path, local_path)
+
+def parse_simple_uri(uri, scheme):
+    parsed = urllib.parse.urlparse(uri)
+    if parsed.scheme not in scheme:
+        raise Exception("Not an %s URI: %s" % (str(scheme).upper(), uri))
+    path = parsed.path
+    if path.startswith('/'):
+        path = path[1:]
+    return parsed.netloc, path
 
 
 def is_uri(string):
@@ -94,12 +88,9 @@ def download_uri(uri, output_path):
         _fetch_s3(uri, output_path)
     elif GS_REGEX.match(uri):
         _fetch_gs(uri, output_path)
-    elif VIEWFS_REGEX.match(uri):
-        _fetch_viewfs(uri, output_path)
-    elif HDFS_REGEX.match(uri):
+    elif VIEWFS_REGEX.match(uri) or HDFS_REGEX.match(uri):
         _fetch_hdfs(uri, output_path)
     else:
-        raise DownloadException(
-            "`uri` must be a DBFS (%s), S3 (%s), GCS (%s), VIEWFS (%s) URI, got "
-            "%s" % (DBFS_PREFIX, S3_PREFIX, GS_PREFIX, VIEWFS_PREFIX, uri)
-        )
+        raise DownloadException("`uri` must be a DBFS (%s), S3 (%s), HDFS (%s), VIEWFS (%s), "
+                                "or GCS (%s) URI, got %s" % (DBFS_PREFIX, S3_PREFIX, HDFS_PREFIX,
+                                                             VIEWFS_PREFIX, GS_PREFIX, uri))

@@ -111,7 +111,7 @@ class HdfsArtifactRepository(ArtifactRepository):
             else:
                 yield hdfs_path, False, hdfs.info(hdfs_path).get("size")
 
-    def download_artifacts(self, artifact_path, dst_path=None):
+    def download_artifacts(self, artifact_path, dst_path=None, create_tmp_dir=True):
         """
             Download an artifact file or directory to a local directory/file if applicable, and
             return a local path for it.
@@ -131,7 +131,10 @@ class HdfsArtifactRepository(ArtifactRepository):
         """
 
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
-        local_dir = _tmp_dir(dst_path)
+        if create_tmp_dir:
+            local_dir = _tmp_dir(dst_path)
+        else:
+            local_dir = dst_path
 
         with hdfs_system(host=self.host, port=self.port) as hdfs:
 
