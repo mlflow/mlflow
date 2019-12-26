@@ -6,7 +6,8 @@ import re
 from six.moves import urllib
 
 from mlflow.utils import process
-from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository
+from mlflow.store.artifact.hdfs_artifact_repo import hdfs_system, _resolve_connection_params,\
+    _download_hdfs_file
 
 DBFS_PREFIX = "dbfs:/"
 S3_PREFIX = "s3://"
@@ -57,13 +58,12 @@ def _fetch_gs(uri, local_path):
 
 
 def _fetch_hdfs(uri, local_path):
-    print(
-        "=== Downloading HDFS file %s to local path %s ===" %
-        (uri, os.path.abspath(local_path))
-    )
+    print("=== Downloading HDFS file %s to local path %s ===" % (uri, os.path.abspath(local_path)))
     parse_simple_uri(uri, ["hdfs", "viewfs"])
-    hdfs = HdfsArtifactRepository("/".join(uri.split('/')[:-1]))
-    hdfs.download_artifacts(uri.split('/')[-1], local_path, create_tmp_dir=False)
+    host, port, path = _resolve_connection_params(uri)
+    with hdfs_system(host=host, port=port) as hdfs:
+        local_path = os.path.join(local_path, os.path.normpath(uri.split('/')[-1]))
+        _download_hdfs_file(hdfs, path, local_path)
 
 
 def parse_simple_uri(uri, scheme):
