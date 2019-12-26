@@ -2,7 +2,7 @@ import os
 
 import posixpath
 
-from mlflow.data import parse_simple_uri
+from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -11,7 +11,7 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 def parse_s3_uri(uri):
     """Parse an S3 URI, returning (bucket, path)"""
-    return parse_simple_uri(uri, "s3")
+    return data.parse_simple_uri(uri, ["s3"])
 
 
 class S3ArtifactRepository(ArtifactRepository):
@@ -23,7 +23,7 @@ class S3ArtifactRepository(ArtifactRepository):
         return boto3.client('s3', endpoint_url=s3_endpoint_url)
 
     def log_artifact(self, local_file, artifact_path=None):
-        (bucket, dest_path) = parse_s3_uri(self.artifact_uri)
+        (bucket, dest_path) = data.parse_simple_uri(self.artifact_uri, ["s3"])
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(
@@ -32,7 +32,7 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_client.upload_file(local_file, bucket, dest_path)
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        (bucket, dest_path) = parse_s3_uri(self.artifact_uri)
+        (bucket, dest_path) = data.parse_simple_uri(self.artifact_uri, ["s3"])
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         s3_client = self._get_s3_client()
@@ -50,7 +50,7 @@ class S3ArtifactRepository(ArtifactRepository):
                         posixpath.join(upload_path, f))
 
     def list_artifacts(self, path=None):
-        (bucket, artifact_path) = parse_s3_uri(self.artifact_uri)
+        (bucket, artifact_path) = data.parse_simple_uri(self.artifact_uri, ["s3"])
         dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)
@@ -90,7 +90,7 @@ class S3ArtifactRepository(ArtifactRepository):
                     artifact_path=artifact_path, object_path=listed_object_path))
 
     def _download_file(self, remote_file_path, local_path):
-        (bucket, s3_root_path) = parse_s3_uri(self.artifact_uri)
+        (bucket, s3_root_path) = data.parse_simple_uri(self.artifact_uri, ["s3"])
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
         s3_client.download_file(bucket, s3_full_path, local_path)
