@@ -526,7 +526,8 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
     results_df = pyfunc_wrapper.predict(saved_tf_iris_model.inference_df)
-    assert results_df.equals(saved_tf_iris_model.expected_results_df)
+    pandas.testing.assert_frame_equal(
+        results_df, saved_tf_iris_model.expected_results_df, check_less_precise=1)
 
 
 @pytest.mark.large
