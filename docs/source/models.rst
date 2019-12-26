@@ -150,8 +150,8 @@ and the :mod:`mlflow.pyfunc` documentation.
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The ``crate`` model flavor defines a generic model format for representing aribtrary R prediction
-function as Mlflow model. The prediction function is expected to take a dataframe as input and
+The ``crate`` model flavor defines a generic model format for representing an arbitrary R prediction
+function as an MLflow model. The prediction function is expected to take a dataframe as input and
 produce a dataframe, a vector or a list with the predictions as output.
 
 This flavor requires R to be installed in order to be used.
@@ -294,10 +294,56 @@ methods also add the ``python_function`` flavor to the MLflow Models that they p
 models to be interpreted as generic Python functions for inference via
 :py:func:`mlflow.pyfunc.load_model()`. The ``python_function`` representation of an MLflow
 ONNX model uses the `ONNX Runtime execution engine <https://github.com/microsoft/onnxruntime>`_ for
-evaluation Finally, you can use the :py:func:`mlflow.onnx.load_model()` method to load MLflow
+evaluation. Finally, you can use the :py:func:`mlflow.onnx.load_model()` method to load MLflow
 Models with the ``onnx`` flavor in native ONNX format.
 
 For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
+
+MXNet Gluon (``gluon``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``gluon`` model flavor enables logging of `Gluon models
+<https://mxnet.incubator.apache.org/api/python/docs/api/gluon/index.html>`_ in MLflow format via
+the :py:func:`mlflow.gluon.save_model()` and :py:func:`mlflow.gluon.log_model()` methods. These
+methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.gluon.load_model()`
+method to load MLflow Models with the ``gluon`` flavor in native Gluon format.
+
+For more information, see :py:mod:`mlflow.gluon`.
+
+XGBoost (``xgboost``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``xgboost`` model flavor enables logging of `XGBoost models
+<https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster>`_
+in MLflow format via the :py:func:`mlflow.xgboost.save_model()` and :py:func:`mlflow.xgboost.log_model()` methods.
+These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.xgboost.load_model()`
+method to load MLflow Models with the ``xgboost`` model flavor in native XGBoost format.
+
+Note that the ``xgboost`` model flavor only supports an instance of `xgboost.Booster
+<https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster>`_,
+not models that implement the `scikit-learn API
+<https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn>`__.
+
+For more information, see :py:mod:`mlflow.xgboost`.
+
+LightGBM (``lightgbm``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``lightgbm`` model flavor enables logging of `LightGBM models
+<https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm-booster>`_
+in MLflow format via the :py:func:`mlflow.lightgbm.save_model()` and :py:func:`mlflow.lightgbm.log_model()` methods.
+These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.lightgbm.load_model()`
+method to load MLflow Models with the ``lightgbm`` model flavor in native LightGBM format.
+
+Note that the ``lightgbm`` model flavor only supports an instance of `lightgbm.Booster
+<https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm-booster>`__,
+not models that implement the `scikit-learn API
+<https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api>`_.
+
+For more information, see :py:mod:`mlflow.lightgbm`.
 
 Model Customization
 -------------------
@@ -319,7 +365,7 @@ Custom Python Models
 ^^^^^^^^^^^^^^^^^^^^
 The :py:mod:`mlflow.pyfunc` module provides :py:func:`save_model() <mlflow.pyfunc.save_model>` and
 :py:func:`log_model() <mlflow.pyfunc.log_model>` utilities for creating MLflow Models with the
-``python_function`` flavor that contain  user-specified code and *artifact* (file) dependencies.
+``python_function`` flavor that contain user-specified code and *artifact* (file) dependencies.
 These artifact dependencies may include serialized models produced by any Python ML library.
 
 Because these custom models contain the ``python_function`` flavor, they can be deployed
@@ -484,7 +530,7 @@ Not all deployment methods are available for all model flavors.
 Deploy MLflow models
 ^^^^^^^^^^^^^^^^^^^^
 MLflow can deploy models locally as local REST API endpoints or to directly score files. In addition,
-MLflow can package models as self contained Docker images with the REST API endpoint. The image can
+MLflow can package models as self-contained Docker images with the REST API endpoint. The image can
 be used to safely deploy the model to various environments such as Kubernetes.
 
 You deploy MLflow model locally or generate a Docker image using the CLI interface to the
@@ -555,7 +601,7 @@ accepts the following data formats as input:
 
 * :py:func:`build_image <mlflow.azureml.build_image>` registers an MLflow Model with an existing Azure ML workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
 
-  .. _Azure ML SDK: https://docs.microsoft.com/en-us/python/api/overview/azure/ml/intro?view=azure-ml-py
+.. _Azure ML SDK: https://docs.microsoft.com/python/api/overview/azure/ml/intro?view=azure-ml-py
 
 .. rubric:: Example workflow using the Python API
 
@@ -744,7 +790,7 @@ Spark cluster and used to score the model.
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
 
-The resulting UDF is based Spark's Pandas UDF and is currently limited to producing either a single
+The resulting UDF is based on Spark's Pandas UDF and is currently limited to producing either a single
 value or an array of values of the same type per observation. By default, we return the first
 numeric column as a double. You can control what result is returned by supplying ``result_type``
 argument. The following values are supported:

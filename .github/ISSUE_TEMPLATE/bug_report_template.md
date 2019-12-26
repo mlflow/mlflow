@@ -12,9 +12,9 @@ Please fill in this template and do not delete it unless you are sure your issue
 ### System information
 - **Have I written custom code (as opposed to using a stock example script provided in MLflow)**:
 - **OS Platform and Distribution (e.g., Linux Ubuntu 16.04)**:
-- **MLflow installed from (source or binary)**: 
+- **MLflow installed from (source or binary)**:
 - **MLflow version (run ``mlflow --version``)**:
-- **Python version**: 
+- **Python version**:
 - **npm version, if running the dev UI**:
 - **Exact command to reproduce**:
 

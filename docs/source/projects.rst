@@ -221,7 +221,20 @@ Docker container environment
   specified, Docker searches for this image on the system that runs the MLflow project. If the 
   image is not found, Docker attempts to pull it from `DockerHub <https://hub.docker.com/>`_.
 
-  .. rubric:: Example 2: Image in a remote registry
+  .. rubric:: Example 2: Mounting volumes and specifying environment variables
+
+  You can also specify local volumes to mount in the docker image (as you normally would with Docker's `-v` option), and additional environment variables (as per Docker's `-e` option). Environment variables can either be copied from the host system's environment variables, or specified as new variables for the Docker environment. The `environment` field should be a list. Elements in this list can either be lists of two strings (for defining a new variable) or single strings (for copying variables from the host system). For example:
+  
+  .. code-block:: yaml
+
+    docker_env:
+      image: mlflow-docker-example-environment
+      volumes: ["/local/path:/container/mount/path"]
+      environment: [["NEW_ENV_VAR", "new_var_value"], "VAR_TO_COPY_FROM_HOST_ENVIRONMENT"]
+
+  In this example our docker container will have one additional local volume mounted, and two additional environment variables: one newly-defined, and one copied from the host system.
+
+  .. rubric:: Example 3: Image in a remote registry
 
   .. code-block:: yaml
     
@@ -361,19 +374,61 @@ in the Databricks docs
 `Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview
 of how to use the feature is as follows:
 
+1. Create a JSON file containing the
+`new cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
+for your run. For example:
+
+  .. code-block:: json
+
+    {
+      "spark_version": "5.5.x-scala2.11",
+      "node_type_id": "i3.xlarge",
+      "aws_attributes": {"availability": "ON_DEMAND"},
+      "num_workers": 4
+    }
+
+2. Run your project using the following command:
+
+  .. code-block:: bash
+
+    mlflow run <project_uri> -b databricks --backend-config <json-new-cluster-spec>
+
+  where ``<project_uri>`` is a Git repository URI or a folder.
+
 .. important::
 
-  Databricks execution for MLflow projects with Docker environments is *not* currently supported.
+  - Databricks execution for MLflow projects with Docker environments is *not* currently supported.
 
-Create a JSON file containing the 
-`cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
-for your run. Then, run your project using the command
+  - You must use a *new cluster* specification when running an MLflow Project on Databricks. Running
+    Projects against existing clusters is not currently supported.
 
-.. code-block:: bash
+Databricks Execution Tips
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  mlflow run <project_uri> -b databricks --backend-config <json-cluster-spec>
+When running an MLflow Project on Databricks, the following tips may be helpful.
 
-where ``<project_uri>`` is a Git repository URI or a folder.
+Using SparkR on Databricks
+##########################
+
+In order to use SparkR in an MLflow Project run on Databricks, your project code must first install
+and import SparkR as follows:
+
+.. code-block:: R
+
+  if (file.exists("/databricks/spark/R/pkg")) {
+    install.packages("/databricks/spark/R/pkg", repos = NULL)
+  } else {
+    install.packages("SparkR")
+  }
+
+  library(SparkR)
+
+Your project code can then proceed to initialize a SparkR session and use SparkR as normal:
+
+.. code-block:: R
+
+  sparkR.session()
+  ...
 
 .. _kubernetes_execution:
 
@@ -419,7 +474,9 @@ You can run your MLflow Project on Kubernetes by following these steps:
    - ``kube-context``
      The `Kubernetes context
      <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#context>`_
-     where MLflow will run the job.
+     where MLflow will run the job. If not provided, MLflow will use the current context.
+     If no context is available, MLFlow will assume it is running in a Kubernetes cluster
+     and it will use the Kubernetes service account running the current pod ('in-cluster' configuration).
    - ``repository-uri``
      The URI of the docker repository where the Project execution Docker image will be uploaded
      (pushed). Your Kubernetes cluster must have access to this repository in order to run your

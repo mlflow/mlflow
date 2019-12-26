@@ -1,5 +1,7 @@
 import base64
 import json
+import operator
+
 import sqlparse
 from sqlparse.sql import Identifier, Token, Comparison, Statement
 from sqlparse.tokens import Token as TokenType
@@ -34,6 +36,15 @@ class SearchUtils(object):
                              + list(_ALTERNATE_ATTRIBUTE_IDENTIFIERS))
     STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
     NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
+
+    filter_ops = {
+        '>': operator.gt,
+        '>=': operator.ge,
+        '=': operator.eq,
+        '!=': operator.ne,
+        '<=': operator.le,
+        '<': operator.lt,
+    }
 
     @classmethod
     def _trim_ends(cls, string_value):
@@ -183,7 +194,7 @@ class SearchUtils(object):
         return [cls._get_comparison(si) for si in statement.tokens if isinstance(si, Comparison)]
 
     @classmethod
-    def _parse_search_filter(cls, filter_string):
+    def parse_search_filter(cls, filter_string):
         if not filter_string:
             return []
         try:
@@ -201,53 +212,68 @@ class SearchUtils(object):
         return SearchUtils._process_statement(parsed[0])
 
     @classmethod
-    def _does_run_match_clause(cls, run, sed):
-        key_type = sed.get('type')
-        key = sed.get('key')
-        value = sed.get('value')
-        comparator = sed.get('comparator')
+    def is_metric(cls, key_type, comparator):
         if key_type == cls._METRIC_IDENTIFIER:
             if comparator not in cls.VALID_METRIC_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
                                       "not one of '%s" % (comparator,
                                                           cls.VALID_METRIC_COMPARATORS),
                                       error_code=INVALID_PARAMETER_VALUE)
-            lhs = run.data.metrics.get(key, None)
-            value = float(value)
-        elif key_type == cls._PARAM_IDENTIFIER:
+            return True
+        return False
+
+    @classmethod
+    def is_param(cls, key_type, comparator):
+        if key_type == cls._PARAM_IDENTIFIER:
             if comparator not in cls.VALID_PARAM_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
                                       "not one of '%s'" % (comparator, cls.VALID_PARAM_COMPARATORS),
                                       error_code=INVALID_PARAMETER_VALUE)
-            lhs = run.data.params.get(key, None)
-        elif key_type == cls._TAG_IDENTIFIER:
+            return True
+        return False
+
+    @classmethod
+    def is_tag(cls, key_type, comparator):
+        if key_type == cls._TAG_IDENTIFIER:
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
                                       "not one of '%s" % (comparator, cls.VALID_TAG_COMPARATORS))
-            lhs = run.data.tags.get(key, None)
-        elif key_type == cls._ATTRIBUTE_IDENTIFIER:
+            return True
+        return False
+
+    @classmethod
+    def is_attribute(cls, key_type, comparator):
+        if key_type == cls._ATTRIBUTE_IDENTIFIER:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                 raise MlflowException("Invalid comparator '{}' not one of "
                                       "'{}".format(comparator,
                                                    cls.VALID_STRING_ATTRIBUTE_COMPARATORS))
+            return True
+        return False
+
+    @classmethod
+    def _does_run_match_clause(cls, run, sed):
+        key_type = sed.get('type')
+        key = sed.get('key')
+        value = sed.get('value')
+        comparator = sed.get('comparator')
+
+        if cls.is_metric(key_type, comparator):
+            lhs = run.data.metrics.get(key, None)
+            value = float(value)
+        elif cls.is_param(key_type, comparator):
+            lhs = run.data.params.get(key, None)
+        elif cls.is_tag(key_type, comparator):
+            lhs = run.data.tags.get(key, None)
+        elif cls.is_attribute(key_type, comparator):
             lhs = getattr(run.info, key)
         else:
             raise MlflowException("Invalid search expression type '%s'" % key_type,
                                   error_code=INVALID_PARAMETER_VALUE)
         if lhs is None:
             return False
-        elif comparator == '>':
-            return lhs > value
-        elif comparator == '>=':
-            return lhs >= value
-        elif comparator == '=':
-            return lhs == value
-        elif comparator == '!=':
-            return lhs != value
-        elif comparator == '<=':
-            return lhs <= value
-        elif comparator == '<':
-            return lhs < value
+        if comparator in cls.filter_ops.keys():
+            return cls.filter_ops.get(comparator)(lhs, value)
         else:
             return False
 
@@ -256,7 +282,7 @@ class SearchUtils(object):
         """Filters a set of runs based on a search filter string."""
         if not filter_string:
             return runs
-        parsed = cls._parse_search_filter(filter_string)
+        parsed = cls.parse_search_filter(filter_string)
 
         def run_matches(run):
             return all([cls._does_run_match_clause(run, s) for s in parsed])
@@ -264,7 +290,7 @@ class SearchUtils(object):
         return [run for run in runs if run_matches(run)]
 
     @classmethod
-    def _parse_order_by(cls, order_by):
+    def parse_order_by(cls, order_by):
         try:
             parsed = sqlparse.parse(order_by)
         except Exception:
@@ -323,7 +349,7 @@ class SearchUtils(object):
         # NB: We rely on the stability of Python's sort function, so that we can apply
         # the ordering conditions in reverse order.
         for order_by_clause in reversed(order_by_list):
-            (key_type, key, ascending) = cls._parse_order_by(order_by_clause)
+            (key_type, key, ascending) = cls.parse_order_by(order_by_clause)
             # pylint: disable=cell-var-from-loop
             runs = sorted(runs,
                           key=lambda run: cls._get_value_for_sort(run, key_type, key, ascending),
@@ -331,7 +357,7 @@ class SearchUtils(object):
         return runs
 
     @classmethod
-    def _parse_start_offset_from_page_token(cls, page_token):
+    def parse_start_offset_from_page_token(cls, page_token):
         # Note: the page_token is expected to be a base64-encoded JSON that looks like
         # { "offset": xxx }. However, this format is not stable, so it should not be
         # relied upon outside of this method.
@@ -367,7 +393,7 @@ class SearchUtils(object):
         return offset
 
     @classmethod
-    def _create_page_token(cls, offset):
+    def create_page_token(cls, offset):
         return base64.b64encode(json.dumps({"offset": offset}).encode("utf-8"))
 
     @classmethod
@@ -376,11 +402,64 @@ class SearchUtils(object):
         results limit. Returns a pair containing the set of paginated runs, followed by
         an optional next_page_token if there are further results that need to be returned.
         """
-        start_offset = cls._parse_start_offset_from_page_token(page_token)
+        start_offset = cls.parse_start_offset_from_page_token(page_token)
         final_offset = start_offset + max_results
 
         paginated_runs = runs[start_offset:final_offset]
         next_page_token = None
         if final_offset < len(runs):
-            next_page_token = cls._create_page_token(final_offset)
+            next_page_token = cls.create_page_token(final_offset)
         return (paginated_runs, next_page_token)
+
+    # Model Registry specific parser
+    # TODO: Tech debt. Refactor search code into common utils, tracking server, and model
+    #       registry specific code.
+
+    VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY = set(["name", "run_id", "source_path"])
+
+    @classmethod
+    def _get_comparison_for_model_registry(cls, comparison):
+        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        cls._validate_comparison(stripped_comparison)
+        key = stripped_comparison[0].value
+        if key not in cls.VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY:
+            raise MlflowException("Invalid attribute key '{}' specified. Valid keys "
+                                  " are '{}'".format(key, cls.VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY))
+        value_token = stripped_comparison[2]
+        if value_token.ttype not in cls.STRING_VALUE_TYPES:
+            raise MlflowException("Expected a quoted string value for attributes. "
+                                  "Got value {value}".format(value=value_token.value),
+                                  error_code=INVALID_PARAMETER_VALUE)
+        comp = {
+            "key": key,
+            "comparator": stripped_comparison[1].value,
+            "value": cls._strip_quotes(value_token.value, expect_quoted_value=True)
+        }
+        return comp
+
+    @classmethod
+    def parse_filter_for_model_registry(cls, filter_string):
+        if not filter_string or filter_string == "":
+            return []
+        expected = "Expected search filter with single comparison operator. e.g. name='myModelName'"
+        try:
+            parsed = sqlparse.parse(filter_string)
+        except Exception:
+            raise MlflowException("Error while parsing filter '%s'. %s" % (filter_string, expected),
+                                  error_code=INVALID_PARAMETER_VALUE)
+        if len(parsed) == 0 or not isinstance(parsed[0], Statement):
+            raise MlflowException("Invalid filter '%s'. Could not be parsed. %s" %
+                                  (filter_string, expected), error_code=INVALID_PARAMETER_VALUE)
+        elif len(parsed) > 1:
+            raise MlflowException("Search filter '%s' contains multiple expressions. "
+                                  "%s " % (filter_string, expected),
+                                  error_code=INVALID_PARAMETER_VALUE)
+        statement = parsed[0]
+        invalids = list(filter(cls._invalid_statement_token, statement.tokens))
+        if len(invalids) > 0:
+            invalid_clauses = ", ".join("'%s'" % token for token in invalids)
+            raise MlflowException("Invalid clause(s) in filter string: %s. "
+                                  "%s" % (invalid_clauses, expected),
+                                  error_code=INVALID_PARAMETER_VALUE)
+        return [cls._get_comparison_for_model_registry(si)
+                for si in statement.tokens if isinstance(si, Comparison)]

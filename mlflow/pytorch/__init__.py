@@ -64,7 +64,7 @@ def get_default_conda_env():
 
 
 def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
-              pickle_module=None, **kwargs):
+              pickle_module=None, registered_model_name=None, **kwargs):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
@@ -78,7 +78,7 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
                           - One or more of the files specified by the ``code_paths`` parameter.
 
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
+    :param conda_env: Path to a Conda environment file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :func:`get_default_conda_env()`. If ``None``, the default
                       :func:`get_default_conda_env()` environment is added to the model. The
@@ -101,6 +101,10 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
                           ``pytorch_model``. This is passed as the ``pickle_module`` parameter
                           to ``torch.save()``. By default, this module is also used to
                           deserialize ("unpickle") the PyTorch model at load time.
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch
@@ -147,7 +151,8 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch, pytorch_model=pytorch_model,
-              conda_env=conda_env, code_paths=code_paths, pickle_module=pickle_module, **kwargs)
+              conda_env=conda_env, code_paths=code_paths, pickle_module=pickle_module,
+              registered_model_name=registered_model_name, **kwargs)
 
 
 def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_paths=None,
@@ -166,7 +171,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
 
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
+                      Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :func:`get_default_conda_env()`. If ``None``, the default
                       :func:`get_default_conda_env()` environment is added to the model. The
@@ -306,9 +311,11 @@ def load_model(model_uri, **kwargs):
                       - ``relative/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
 
                       For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
 
     :param kwargs: kwargs to pass to ``torch.load`` method.

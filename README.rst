@@ -3,7 +3,7 @@ MLflow: A Machine Learning Lifecycle Platform
 =============================================
 
 MLflow is a platform to streamline machine learning development, including tracking experiments, packaging code
-into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs in that can
+into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs that can be
 used with any existing machine learning application or library (TensorFlow, PyTorch, XGBoost, etc), wherever you
 currently run ML code (e.g. in notebooks, standalone applications or the cloud). MLflow's current components are:
 
@@ -41,7 +41,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 
 Installing
 ----------
-Install MLflow from PyPi via ``pip install mlflow``
+Install MLflow from PyPI via ``pip install mlflow``
 
 MLflow requires ``conda`` to be on the ``PATH`` for the projects feature.
 

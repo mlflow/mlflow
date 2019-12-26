@@ -23,7 +23,7 @@ class Utils {
         const cur = ret[key] || {};
         ret[key] = {
           ...cur,
-          [curRunUuid]: keyValueObj[key]
+          [curRunUuid]: keyValueObj[key],
         };
       });
     });
@@ -35,10 +35,15 @@ class Utils {
   static sourceTypeTag = 'mlflow.source.type';
   static gitCommitTag = 'mlflow.source.git.commit';
   static entryPointTag = 'mlflow.project.entryPoint';
+  static backendTag = 'mlflow.project.backend';
   static userTag = 'mlflow.user';
 
   static formatMetric(value) {
-    if (Math.abs(value) < 10) {
+    if (value === 0) {
+      return '0';
+    } else if (Math.abs(value) < 1e-3) {
+      return value.toExponential(3).toString();
+    } else if (Math.abs(value) < 10) {
       return (Math.round(value * 1000) / 1000).toString();
     } else if (Math.abs(value) < 100) {
       return (Math.round(value * 100) / 100).toString();
@@ -84,6 +89,33 @@ class Utils {
     const d = new Date(0);
     d.setUTCMilliseconds(timestamp);
     return dateFormat(d, format);
+  }
+
+  static timeSince(date) {
+    const seconds = Math.max(0, Math.floor((new Date() - date) / 1000));
+
+    let interval = Math.floor(seconds / 31536000);
+
+    if (interval >= 1) {
+      return interval + ' year' + (interval === 1 ? '' : 's');
+    }
+    interval = Math.floor(seconds / 2592000);
+    if (interval >= 1) {
+      return interval + ' month' + (interval === 1 ? '' : 's');
+    }
+    interval = Math.floor(seconds / 86400);
+    if (interval >= 1) {
+      return interval + ' day' + (interval === 1 ? '' : 's');
+    }
+    interval = Math.floor(seconds / 3600);
+    if (interval >= 1) {
+      return interval + ' hour' + (interval === 1 ? '' : 's');
+    }
+    interval = Math.floor(seconds / 60);
+    if (interval >= 1) {
+      return interval + ' minute' + (interval === 1 ? '' : 's');
+    }
+    return Math.floor(seconds) + ' seconds';
   }
 
   /**
@@ -157,11 +189,11 @@ class Utils {
       const baseUrl = gitHubMatch ? "https://github.com/" : "https://gitlab.com/";
       const match = gitHubMatch || gitLabMatch;
       url = (baseUrl + match[1] + "/" + match[2].replace(/.git/, '') +
-            "/tree/" + sourceVersion) + "/" + match[3];
+        "/tree/" + sourceVersion) + "/" + match[3];
     } else if (bitbucketMatch) {
       const baseUrl = "https://bitbucket.org/";
       url = (baseUrl + bitbucketMatch[1] + "/" + bitbucketMatch[2].replace(/.git/, '') +
-            "/src/" + sourceVersion) + "/" + bitbucketMatch[3];
+        "/src/" + sourceVersion) + "/" + bitbucketMatch[3];
     }
     return url;
   }
@@ -225,13 +257,13 @@ class Utils {
       marginRight: '2px',
     };
     if (sourceType === "NOTEBOOK") {
-      return <img title="Notebook" style={imageStyle} src={notebookSvg} />;
+      return <img alt="" title="Notebook" style={imageStyle} src={notebookSvg} />;
     } else if (sourceType === "LOCAL") {
-      return <img title="Local Source" style={imageStyle} src={laptopSvg} />;
+      return <img alt="" title="Local Source" style={imageStyle} src={laptopSvg} />;
     } else if (sourceType === "PROJECT") {
-      return <img title="Project" style={imageStyle} src={projectSvg} />;
+      return <img alt="" title="Project" style={imageStyle} src={projectSvg} />;
     }
-    return <img style={imageStyle} src={emptySvg} />;
+    return <img alt="" style={imageStyle} src={emptySvg} />;
   }
 
   /**
@@ -296,6 +328,14 @@ class Utils {
     const entryPointTag = runTags[Utils.entryPointTag];
     if (entryPointTag) {
       return entryPointTag.value;
+    }
+    return "";
+  }
+
+  static getBackend(runTags) {
+    const backendTag = runTags[Utils.backendTag];
+    if (backendTag) {
+      return backendTag.value;
     }
     return "";
   }
@@ -395,7 +435,14 @@ class Utils {
 
   static logErrorAndNotifyUser(e) {
     console.error(e);
-    message.error(e.getUserVisibleError());
+    // not all error is wrapped by ErrorWrapper
+    if (e.getMessageField) {
+      message.error(e.getMessageField());
+    }
+  }
+
+  static isModelRegistryEnabled() {
+    return true;
   }
 }
 

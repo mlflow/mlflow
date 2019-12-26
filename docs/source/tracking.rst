@@ -69,9 +69,13 @@ call :py:func:`mlflow.set_tracking_uri`.
 There are different kinds of remote tracking URIs:
 
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
-- Database encoded as ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. Mlflow supports the dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. For more details, see `SQLAlchemy database uri <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
+- Database encoded as ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. MLflow supports the dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. For more details, see `SQLAlchemy database uri <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
 - HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLFlow tracking server <tracking_server>`.
 - Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
+  `See docs <http://docs.databricks.com/applications/mlflow/logging-from-outside-databricks.html>`_ on
+  logging to Databricks-hosted MLflow, or :ref:`the quickstart <quickstart_logging_to_remote_server>` to
+  easily get started with hosted MLflow on Databricks Community Edition.
+
 
 Logging Data to Runs
 ====================
@@ -111,6 +115,15 @@ with no active run automatically starts a new one.
 
 :py:func:`mlflow.active_run` returns a :py:class:`mlflow.entities.Run` object corresponding to the
 currently active run, if any.
+**Note**: You cannot access currently-active run attributes
+(parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order to access
+such attributes, use the :py:class:`mlflow.tracking.MlflowClient` as follows:
+
+.. code-block:: py
+
+    client = mlflow.tracking.MlflowClient()
+    data = client.get_run(mlflow.active_run().info.run_id).data
+
 
 :py:func:`mlflow.log_param` logs a single key-value param in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.log_params` to log multiple params at once.
@@ -213,19 +226,43 @@ log statements. See example usages with `Keras <https://github.com/mlflow/mlflow
 
 Autologging captures the following information:
 
++------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework        | Metrics                                                | Parameters                                                   | Tags          | Artifacts                                                                                                                                        |
++------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+| Keras            | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | Model summary | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end                      |
++------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.keras``     | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | Model summary | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs on training end    |
++------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.estimator`` | TensorBoard metrics                                    | steps, max_steps                                             | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call to ``tf.estimator.export_saved_model``                     |
++------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                           | --            | --                                                                                                                                               |
++------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+
+Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`. 
+
+If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information to.
+Once training ends via calls to ``tf.estimator.train()``, ``tf.keras.fit()``, ``tf.keras.fit_generator()``, ``keras.fit()`` or ``keras.fit_generator()``,
+or once ``tf.estimator`` models are exported via ``tf.estimator.export_saved_model()``, MLflow will automatically end that run.
+
+If a run exists when ``autolog()`` captures data, MLflow will log to that run and not automatically end that run after training.
+
+**Note** Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
+
+**Note**: this feature is experimental - the API and format of the logged data are subject to change.
+
+
+Automatic Logging from Gluon (experimental)
+==================================================================
+Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
+log statements. See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
+
+Autologging captures the following information:
+
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
 | Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                                     |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Keras            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model); on training end                                   |
+| Gluon            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Gluon model); on training end                                   |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.keras``     | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs; on training end                 |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.estimator`` | TensorBoard metrics                                    | --                                                       | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model); on call to ``tf.estimator.export_saved_model`` |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                                            |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-
-Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`. 
 
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
@@ -319,39 +356,6 @@ You can access all of the functions in the Tracking UI programmatically. This ma
 * Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLFlow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 * Run automated parameter search algorithms, where you query the metrics from various runs to submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
 
-.. _artifact-locations:
-
-Referencing Artifacts
----------------------
-
-When you specify the location of an artifact in MLflow APIs, the syntax depends on whether you
-are invoking the Tracking, Models, or Projects API. For the Tracking API, you specify the artifact location using a (run ID, relative path) tuple. For the Models and Projects APIs, you specify the artifact location in the follow ways:
-
-- ``/Users/me/path/to/local/model``
-- ``relative/path/to/local/model``
-- ``<scheme>/<scheme-dependent-path>``. For example:
-
-  - ``s3://my_bucket/path/to/model``
-  - ``hdfs://<host>:<port>/<path>``
-  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-
-For example:
-
-.. rubric:: Tracking API
-
-.. code-block:: py
-
-  mlflow.log_artifacts("<mlflow_run_id>", "/path/to/artifact")
-  
-.. rubric:: Models API
-
-.. code-block:: py
-
-  mlflow.pytorch.load_model("runs:/<mlflow_run_id>/run-relative/path/to/model")
-
-
-
-
 
 .. _tracking_server:
 
@@ -426,6 +430,19 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
   (for example, ``mlflow experiments create --artifact-location s3://<my-bucket>``), the artifact root
   is a path inside the file store. Typically this is not an appropriate location, as the client and
   server probably refer to different physical locations (that is, the same path on different disks).
+
+SQLAlchemy Options
+~~~~~~~~~~~~~~~~~~
+
+You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalchemy.org/en/latest/core/pooling.html>`_ using environment variables.
+
++-----------------------------------------+-----------------------------+
+| MLFlow Environment Variable             | SQLAlchemy QueuePool Option |
++-----------------------------------------+-----------------------------+
+| ``MLFLOW_SQLALCHEMYSTORE_POOL_SIZE``    | ``pool_size``               |
++-----------------------------------------+-----------------------------+
+| ``MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW`` | ``max_overflow``            |
++-----------------------------------------+-----------------------------+
 
 Artifact Stores
 ~~~~~~~~~~~~~~~~
@@ -536,6 +553,8 @@ You can then pass authentication headers to MLflow using these :ref:`environment
 Additionally, you should ensure that the ``--backend-store-uri`` (which defaults to the
 ``./mlruns`` directory) points to a persistent (non-ephemeral) disk or database connection.
 
+.. _logging_to_a_tracking_server:
+
 Logging to a Tracking Server
 ----------------------------
 
@@ -545,12 +564,31 @@ along with its scheme and port (for example, ``http://10.0.0.1:5000``) or call :
 The :py:func:`mlflow.start_run`, :py:func:`mlflow.log_param`, and :py:func:`mlflow.log_metric` calls 
 then make API requests to your remote tracking server.
 
-.. code-block:: py
+  .. code-section::
 
-    import mlflow
-    with mlflow.start_run():
-        mlflow.log_param("a", 1)
-        mlflow.log_metric("b", 2)
+    .. code-block:: python
+
+        import mlflow
+        remote_server_uri = "..." # set to your server URI
+        mlflow.set_tracking_uri(remote_server_uri)
+        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
+        # valid path in the workspace
+        mlflow.set_experiment("/my-experiment")
+        with mlflow.start_run():
+            mlflow.log_param("a", 1)
+            mlflow.log_metric("b", 2)
+
+    .. code-block:: R
+
+        library(mlflow)
+        install_mlflow()
+        remote_server_uri = "..." # set to your server URI
+        mlflow_set_tracking_uri(remote_server_uri)
+        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
+        # valid path in the workspace
+        mlflow_set_experiment("/my-experiment")
+        mlflow_log_param("a", "1")
+
 
 .. _tracking_auth:
 

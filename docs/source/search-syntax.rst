@@ -89,7 +89,6 @@ You can search using two run attributes contained in :py:class:`mlflow.entities.
   
   - The experiment ID is implicitly selected by the search API. 
   - A run's ``lifecycle_stage`` attribute is not allowed because it is already encoded as a part of the API's ``run_view_type`` field. To search for runs using ``run_id``, it is more efficient to use ``get_run`` APIs. 
-  - The ``start_time`` and ``end_time`` attributes are not supported.
   
 .. rubric:: Example
 
@@ -104,8 +103,6 @@ MLflow Tags
 ~~~~~~~~~~~
 
 You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search for the name of an MLflow run, specify ``tags."mlflow.runName"`` or ``tags.`mlflow.runName```. 
-
-.. note:: Databricks does not support searching for a user with the tag ``tags."mlflow.user"``.
 
 .. rubric:: Examples
 
@@ -145,10 +142,11 @@ multiple experiments, use one of the client APIs.
 Python
 ^^^^^^
 
-Use the :py:func:`mlflow.tracking.client.MlflowClient.search_runs` or :py:func:`mlflow.search_runs` API to search programmatically.
-You can specify the list of columns to order by (for example, "metrics.rmse") in the ``order_by`` column.
-The column can contain an optional ``DESC`` or ``ASC`` value; the default is ``ASC``.
-The default ordering is to sort by ``start_time DESC``, then ``run_id``.
+Use the :py:func:`mlflow.tracking.MlflowClient.search_runs` or :py:func:`mlflow.search_runs` API to 
+search programmatically. You can specify the list of columns to order by 
+(for example, "metrics.rmse") in the ``order_by`` column. The column can contain an 
+optional ``DESC`` or ``ASC`` value; the default is ``ASC``. The default ordering is to sort by 
+``start_time DESC``, then ``run_id``.
 
 For example, to get all `active` runs from experiments IDs 3, 4, and 17 that used a CNN model
 with 10 layers and had a prediction accuracy of 94.5% or higher, use:
@@ -156,6 +154,7 @@ with 10 layers and had a prediction accuracy of 94.5% or higher, use:
 .. code-block:: py
 
   from mlflow.tracking.client import MlflowClient
+  from mlflow.entities import ViewType
 
   query = "params.model = 'CNN' and params.layers = '10' and metrics.'prediction accuracy' >= 0.945"
   runs = MlflowClient().search_runs(["3", "4", "17"], query, ViewType.ACTIVE_ONLY)
@@ -165,6 +164,7 @@ To search all known experiments for any MLflow runs created using the Inception 
 .. code-block:: py
 
   from mlflow.tracking.client import MlflowClient
+  from mlflow.entities import ViewType
 
   all_experiments = [exp.experiment_id for exp in MlflowClient().list_experiments()]
   runs = MlflowClient().search_runs(all_experiments, "params.model = 'Inception'", ViewType.ALL)

@@ -1,0 +1,19 @@
+{
+  "name": "logreg_56075162c6aa",
+  "shape": {
+    "inputs": [{
+      "port": "features",
+      "name": "features"
+    }],
+    "outputs": [{
+      "port": "raw_prediction",
+      "name": "rawPrediction"
+    }, {
+      "port": "probability",
+      "name": "probability"
+    }, {
+      "port": "prediction",
+      "name": "prediction"
+    }]
+  }
+}

@@ -1,0 +1,15 @@
+.scatter-plotly {
+  width: 100%;
+  height: 100%;
+  min-height: 35vw;
+}
+
+.inline-control {
+  margin-top: 25px;
+  display: flex;
+  align-items: center;
+}
+
+.inline-control .control-label {
+  margin-right: 10px;
+}

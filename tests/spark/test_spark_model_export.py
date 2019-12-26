@@ -1,17 +1,14 @@
 import os
 
 import json
+import mock
 import numpy as np
 import pandas as pd
-import pandas.testing
 import pyspark
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
 from pyspark.ml.wrapper import JavaModel
-from pyspark.version import __version__ as pyspark_version
-from pyspark.sql import SQLContext
-from pyspark.sql.types import DateType
 import pytest
 from sklearn import datasets
 import shutil
@@ -21,11 +18,11 @@ import yaml
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
-from mlflow import active_run, pyfunc, mleap
+from mlflow import pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.store.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -35,6 +32,7 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
 @pytest.fixture
@@ -346,6 +344,38 @@ def test_sparkml_model_log_invalid_args(spark_model_transformer, model_path):
 
 
 @pytest.mark.large
+def test_log_model_calls_register_model(tracking_uri_mock, tmpdir, spark_model_iris):
+    artifact_path = "model"
+    dfs_tmp_dir = os.path.join(str(tmpdir), "test")
+    try:
+        register_model_patch = mock.patch("mlflow.register_model")
+        with mlflow.start_run(), register_model_patch:
+            sparkm.log_model(artifact_path=artifact_path, spark_model=spark_model_iris.model,
+                             dfs_tmpdir=dfs_tmp_dir, registered_model_name="AdsModel1")
+            model_uri = "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path)
+            mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+    finally:
+        x = dfs_tmp_dir or sparkm.DFS_TMP
+        shutil.rmtree(x)
+
+
+@pytest.mark.large
+def test_log_model_no_registered_model_name(tracking_uri_mock, tmpdir, spark_model_iris):
+    artifact_path = "model"
+    dfs_tmp_dir = os.path.join(str(tmpdir), "test")
+    try:
+        register_model_patch = mock.patch("mlflow.register_model")
+        with mlflow.start_run(), register_model_patch:
+            sparkm.log_model(artifact_path=artifact_path, spark_model=spark_model_iris.model,
+                             dfs_tmpdir=dfs_tmp_dir)
+            mlflow.register_model.assert_not_called()
+    finally:
+        x = dfs_tmp_dir or sparkm.DFS_TMP
+        shutil.rmtree(x)
+
+
+@pytest.mark.large
 def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
     sparkm.save_model(spark_model=spark_model_iris.model, path=model_path)
 
@@ -457,40 +487,57 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 
 
 @pytest.mark.large
+def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_iris, model_path):
+    mock_version_standard = mock.PropertyMock(return_value="2.4.0")
+    with mock.patch("pyspark.__version__", new_callable=mock_version_standard):
+        default_conda_env_standard = sparkm.get_default_conda_env()
+
+    for dev_version in ["2.4.0.dev0", "2.4.0.dev", "2.4.0.dev1", "2.4.0dev.a", "2.4.0.devb"]:
+        mock_version_dev = mock.PropertyMock(return_value=dev_version)
+        with mock.patch("pyspark.__version__", new_callable=mock_version_dev):
+            default_conda_env_dev = sparkm.get_default_conda_env()
+            assert(default_conda_env_dev == default_conda_env_standard)
+
+            with mlflow.start_run():
+                sparkm.log_model(
+                    spark_model=spark_model_iris.model, artifact_path="model", conda_env=None)
+                model_uri = "runs:/{run_id}/{artifact_path}".format(
+                    run_id=mlflow.active_run().info.run_id,
+                    artifact_path="model")
+
+            model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+            pyfunc_conf = _get_flavor_configuration(
+                model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+            conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+            with open(conda_env_path, "r") as f:
+                persisted_conda_env_dev = yaml.safe_load(f)
+            assert(persisted_conda_env_dev == default_conda_env_standard)
+
+    for unaffected_version in ["2.0", "2.3.4", "2"]:
+        mock_version = mock.PropertyMock(return_value=unaffected_version)
+        with mock.patch("pyspark.__version__", new_callable=mock_version):
+            assert unaffected_version in yaml.safe_dump(sparkm.get_default_conda_env())
+
+
+@pytest.mark.large
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
-    with mlflow.start_run():
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
         sparkm.log_model(spark_model=spark_model_iris.model,
                          sample_input=spark_model_iris.spark_df,
-                         artifact_path=artifact_path)
+                         artifact_path=artifact_path,
+                         registered_model_name="Model1")
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id,
             artifact_path=artifact_path)
+        mlflow.register_model.assert_called_once_with(model_uri, "Model1")
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     config_path = os.path.join(model_path, "MLmodel")
     mlflow_model = Model.load(config_path)
     assert sparkm.FLAVOR_NAME in mlflow_model.flavors
     assert mleap.FLAVOR_NAME in mlflow_model.flavors
-
-
-@pytest.mark.large
-def test_mleap_output_json_format(spark_model_iris, model_path):
-    mlflow_model = Model()
-    mleap.save_model(spark_model=spark_model_iris.model,
-                     path=model_path,
-                     sample_input=spark_model_iris.spark_df,
-                     mlflow_model=mlflow_model)
-    mleap_conf = mlflow_model.flavors[mleap.FLAVOR_NAME]
-    schema_path_sub = mleap_conf["input_schema"]
-    schema_path_full = os.path.join(model_path, schema_path_sub)
-    with open(schema_path_full, "r") as f:
-        json_schema = json.load(f)
-
-    assert "fields" in json_schema.keys()
-    assert len(json_schema["fields"]) > 0
-    assert type(json_schema["fields"][0]) == dict
-    assert "name" in json_schema["fields"][0]
 
 
 @pytest.mark.large
@@ -586,16 +633,3 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_serializati
         mleap.save_model(spark_model=unsupported_model,
                          path=model_path,
                          sample_input=spark_model_iris.spark_df)
-
-
-@pytest.mark.large
-def test_save_with_sample_input_containing_unsupported_data_type_raises_serialization_exception(
-        spark_context, model_path):
-    sql_context = SQLContext(spark_context)
-    unsupported_df = sql_context.createDataFrame([(1, "2016-09-30"), (2, "2017-02-27")])
-    unsupported_df = unsupported_df.withColumn("_2", unsupported_df._2.cast(DateType()))
-    pipeline = Pipeline(stages=[])
-    model = pipeline.fit(unsupported_df)
-    # The Spark `DateType` is not supported by MLeap, so we expect serialization to fail.
-    with pytest.raises(mleap.MLeapSerializationException):
-        sparkm.save_model(spark_model=model, path=model_path, sample_input=unsupported_df)

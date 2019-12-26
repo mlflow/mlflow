@@ -16,12 +16,39 @@ CREATE TABLE experiments (
 )
 
 
+CREATE TABLE registered_models (
+	name VARCHAR(256) NOT NULL,
+	creation_time BIGINT,
+	last_updated_time BIGINT,
+	description VARCHAR(5000),
+	CONSTRAINT registered_model_pk PRIMARY KEY (name),
+	UNIQUE (name)
+)
+
+
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL, 
 	value VARCHAR(5000), 
 	experiment_id INTEGER NOT NULL, 
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id), 
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE model_versions (
+	name VARCHAR(256) NOT NULL,
+	version INTEGER NOT NULL,
+	creation_time BIGINT,
+	last_updated_time BIGINT,
+	description VARCHAR(5000),
+	user_id VARCHAR(256),
+	current_stage VARCHAR(20),
+	source VARCHAR(500),
+	run_id VARCHAR(32) NOT NULL,
+	status VARCHAR(20),
+	status_message VARCHAR(500),
+	CONSTRAINT model_version_pk PRIMARY KEY (name, version),
+	FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
 )
 
 
@@ -32,7 +59,7 @@ CREATE TABLE runs (
 	source_name VARCHAR(500), 
 	entry_point_name VARCHAR(50), 
 	user_id VARCHAR(256), 
-	status VARCHAR(20), 
+	status VARCHAR(9),
 	start_time BIGINT, 
 	end_time BIGINT, 
 	source_version VARCHAR(50), 
@@ -42,8 +69,21 @@ CREATE TABLE runs (
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid), 
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id), 
 	CONSTRAINT source_type CHECK (source_type IN ('NOTEBOOK', 'JOB', 'LOCAL', 'UNKNOWN', 'PROJECT')), 
-	CONSTRAINT status CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING')), 
-	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted'))
+	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted')),
+	CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING', 'KILLED'))
+)
+
+
+CREATE TABLE latest_metrics (
+	key VARCHAR(250) NOT NULL, 
+	value FLOAT NOT NULL, 
+	timestamp BIGINT, 
+	step BIGINT NOT NULL, 
+	is_nan BOOLEAN NOT NULL, 
+	run_uuid VARCHAR(32) NOT NULL, 
+	CONSTRAINT latest_metric_pk PRIMARY KEY (key, run_uuid), 
+	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid), 
+	CHECK (is_nan IN (0, 1))
 )
 
 

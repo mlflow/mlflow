@@ -9,25 +9,22 @@ import click
 from click import UsageError
 
 import mlflow.azureml.cli
-import mlflow.projects as projects
-import mlflow.data
+import mlflow.db
 import mlflow.experiments
 import mlflow.models.cli
-
-import mlflow.sagemaker.cli
+import mlflow.projects as projects
 import mlflow.runs
+import mlflow.sagemaker.cli
+import mlflow.store.artifact.cli
 import mlflow.store.db.utils
-import mlflow.db
-
-from mlflow.tracking.utils import _is_local_uri
+from mlflow import tracking
+from mlflow.server import _run_server
+from mlflow.server.handlers import initialize_backend_stores
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils import cli_args
-from mlflow.server import _run_server
-from mlflow.server.handlers import _get_store
-from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-from mlflow import tracking
-import mlflow.store.cli
+from mlflow.utils.uri import is_local_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -166,14 +163,17 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
               help="Path to local directory to store artifacts, for new experiments. "
                    "Note that this flag does not impact already-created experiments. "
                    "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
-@click.option("--port", "-p", default=5000,
-              help="The port to listen on (default: 5000).")
-def ui(backend_store_uri, default_artifact_root, port):
+@cli_args.PORT
+@cli_args.HOST
+def ui(backend_store_uri, default_artifact_root, port, host):
     """
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
     server, use the "mlflow server" command instead.
 
-    The UI will be visible at http://localhost:5000 by default.
+    The UI will be visible at http://localhost:5000 by default, and only accept connections
+    from the local machine. To let the UI server accept connections from other machines, you will
+    need to pass ``--host 0.0.0.0`` to listen on all network interfaces (or a specific interface
+    address).
     """
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
@@ -181,13 +181,13 @@ def ui(backend_store_uri, default_artifact_root, port):
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     if not default_artifact_root:
-        if _is_local_uri(backend_store_uri):
+        if is_local_uri(backend_store_uri):
             default_artifact_root = backend_store_uri
         else:
             default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     try:
-        _get_store(backend_store_uri, default_artifact_root)
+        initialize_backend_stores(backend_store_uri, default_artifact_root)
     except Exception as e:  # pylint: disable=broad-except
         _logger.error("Error initializing backend store")
         _logger.exception(e)
@@ -195,7 +195,7 @@ def ui(backend_store_uri, default_artifact_root, port):
 
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        _run_server(backend_store_uri, default_artifact_root, "127.0.0.1", port, None, 1)
+        _run_server(backend_store_uri, default_artifact_root, host, port, None, 1)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
@@ -237,8 +237,12 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="Additional command line options forwarded to gunicorn processes.")
 @click.option("--waitress-opts", default=None,
               help="Additional command line options for waitress-serve.")
+@click.option("--expose-prometheus", default=None,
+              help="Path to the directory where metrics will be stored. If the directory"
+                   "doesn't exist, it will be created."
+                   "Activate prometheus exporter to expose metrics on /metrics endpoint.")
 def server(backend_store_uri, default_artifact_root, host, port,
-           workers, static_prefix, gunicorn_opts, waitress_opts):
+           workers, static_prefix, gunicorn_opts, waitress_opts, expose_prometheus):
     """
     Run the MLflow tracking server.
 
@@ -255,7 +259,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     if not default_artifact_root:
-        if _is_local_uri(backend_store_uri):
+        if is_local_uri(backend_store_uri):
             default_artifact_root = backend_store_uri
         else:
             eprint("Option 'default-artifact-root' is required, when backend store is not "
@@ -263,7 +267,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
             sys.exit(1)
 
     try:
-        _get_store(backend_store_uri, default_artifact_root)
+        initialize_backend_stores(backend_store_uri, default_artifact_root)
     except Exception as e:  # pylint: disable=broad-except
         _logger.error("Error initializing backend store")
         _logger.exception(e)
@@ -271,7 +275,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
 
     try:
         _run_server(backend_store_uri, default_artifact_root, host, port,
-                    static_prefix, workers, gunicorn_opts, waitress_opts)
+                    static_prefix, workers, gunicorn_opts, waitress_opts, expose_prometheus)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
@@ -280,7 +284,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
 cli.add_command(mlflow.models.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
-cli.add_command(mlflow.store.cli.commands)
+cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)

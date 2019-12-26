@@ -54,8 +54,9 @@ export class MetricsPlotView extends React.Component {
         }),
         y: history.map((entry) => entry.value),
         type: 'scatter',
-        mode: isSingleHistory ? 'markers' : showPoint ? 'lines+markers' : 'lines',
+        mode: isSingleHistory ? 'markers' : 'lines+markers',
         line: { shape: 'spline', smoothing: lineSmoothness },
+        marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
       };
     });
     const props = { data };
@@ -119,6 +120,7 @@ export class MetricsPlotView extends React.Component {
           layout={{ ...plotProps.layout, ...{ autosize: true } }}
           config={{
             displaylogo: false,
+            scrollZoom: true,
             modeBarButtonsToRemove: ['sendDataToCloud'],
           }}
         />
