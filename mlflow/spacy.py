@@ -1,6 +1,6 @@
 """
-The ``mlflow.spacy`` module provides an API for logging and loading SpaCy models. This module exports
-spacy models with the following flavors:
+The ``mlflow.spacy`` module provides an API for logging and loading SpaCy models.
+This module exports spacy models with the following flavors:
 
 Spacy (native) format
     This is the main flavor that can be loaded back into Spacy.
@@ -40,7 +40,7 @@ def get_default_conda_env():
         additional_conda_channels=None)
 
 
-def save_model(spacy_model, path, conda_env=None, mlflow_model=Model(), settings=None):
+def save_model(spacy_model, path, conda_env=None, mlflow_model=Model()):
     """
     Save a spacy model to a path on the local file system.
 
@@ -143,7 +143,8 @@ class _SpacyModelWrapper:
 
     def predict(self, dataframe):
         """
-        Only works for predicting an actual categorization, not suitable for other pipeline components (e.g: parser)
+        Only works for predicting using text categorizer.
+        Not suitable for other pipeline components (e.g: parser)
         :param dataframe: dataframe containing texts to be categorized
         :return: dataframe with predictions
         """

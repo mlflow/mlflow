@@ -66,7 +66,7 @@ def test_model_save_load(spacy_model_with_data, model_path):
     # Comparing the meta dictionaries for the original and loaded models
     assert spacy_model.meta == loaded_model.meta
 
-    # Loading pyfunc model using saved model and asserting its predictions are the same to the created one
+    # Load pyfunc model using saved model and asserting its predictions are equal to the created one
     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
     assert all(_predict(spacy_model, spacy_model_with_data.inference_data) ==
                pyfunc_loaded.predict(spacy_model_with_data.inference_data))
@@ -101,7 +101,8 @@ def test_model_log(spacy_model_with_data):
 @pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         spacy_model_with_data, model_path, spacy_custom_env):
-    mlflow.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path, conda_env=spacy_custom_env)
+    mlflow.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path,
+                            conda_env=spacy_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -119,7 +120,8 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 def test_model_save_accepts_conda_env_as_dict(spacy_model_with_data, model_path):
     conda_env = dict(mlflow.spacy.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
-    mlflow.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path, conda_env=conda_env)
+    mlflow.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path,
+                            conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -136,8 +138,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.spacy.log_model(spacy_model=spacy_model_with_data.model,
-                             artifact_path=artifact_path,
-                             conda_env=spacy_custom_env)
+                               artifact_path=artifact_path,
+                               conda_env=spacy_custom_env)
         model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
 
@@ -156,7 +158,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 @pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         spacy_model_with_data, model_path):
-    mlflow.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path, conda_env=None)
+    mlflow.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path,
+                            conda_env=None)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -183,7 +186,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     assert conda_env == mlflow.spacy.get_default_conda_env()
 
 
-
 def _train_model(nlp, train_data, n_iter=5):
     optimizer = nlp.begin_training()
     batch_sizes = compounding(4.0, 32.0, 1.001)
@@ -197,11 +199,12 @@ def _train_model(nlp, train_data, n_iter=5):
 
 
 def _get_train_test_dataset(cats_to_fetch, limit=100):
-    newsgroups = fetch_20newsgroups(remove=('headers', 'footers', 'quotes'), shuffle=True, categories=cats_to_fetch)
+    newsgroups = fetch_20newsgroups(remove=('headers', 'footers', 'quotes'), shuffle=True,
+                                    categories=cats_to_fetch)
     X = newsgroups.data[:limit]
     y = newsgroups.target[:limit]
 
-    # For just two categories, 0 is the comp-graphic and 1 is rec.sport baseball. We can threat it as a binary class.
+    # Category 0 comp-graphic, 1 rec.sport baseball. We can threat it as a binary class.
     cats = [{"comp.graphics": not bool(el), "rec.sport.baseball": bool(el)} for el in y]
 
     split = int(len(X) * 0.8)
