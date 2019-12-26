@@ -189,7 +189,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 def _train_model(nlp, train_data, n_iter=5):
     optimizer = nlp.begin_training()
     batch_sizes = compounding(4.0, 32.0, 1.001)
-    for i in range(n_iter):
+    for _ in range(n_iter):
         losses = {}
         random.shuffle(train_data)
         batches = minibatch(train_data, size=batch_sizes)
