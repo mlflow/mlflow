@@ -251,8 +251,8 @@ def autolog():
 
         # checking if the 'early_stopping_rounds' argument of train() is set.
         early_stopping_index = all_arg_names.index('early_stopping_rounds')
-        has_early_stopping = num_pos_args >= early_stopping_index + 1 or \
-        'early_stopping_rounds' in kwargs
+        has_early_stopping = (num_pos_args >= early_stopping_index + 1 or
+                              'early_stopping_rounds' in kwargs)
 
         # if 'early_stopping_rounds' is set, the output model has
         # 'best_score', 'best_iteration', and 'best_ntree_limit'
