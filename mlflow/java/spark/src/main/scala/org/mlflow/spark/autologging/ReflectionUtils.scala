@@ -2,11 +2,10 @@ package org.mlflow.spark.autologging
 
 
 import scala.reflect.runtime.{universe => ru}
-import java.lang.reflect.Method
 
 import org.slf4j.LoggerFactory
 
-object ReflectionUtils {
+private[autologging] object ReflectionUtils {
   private val logger = LoggerFactory.getLogger(getClass)
   private val rm = ru.runtimeMirror(getClass.getClassLoader)
 

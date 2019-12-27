@@ -2,12 +2,12 @@ package org.mlflow.spark.autologging
 
 import java.util.concurrent.{ConcurrentHashMap, ScheduledFuture, ScheduledThreadPoolExecutor, TimeUnit}
 
-import org.apache.spark.SparkContext
+import py4j.Py4JException
+import org.apache.spark.scheduler.SparkListener
 
 import scala.collection.JavaConverters._
 import org.apache.spark.sql.SparkSession
 import org.slf4j.LoggerFactory
-import py4j.Py4JException
 
 import scala.util.control.NonFatal
 
@@ -29,7 +29,7 @@ object MlflowAutologEventPublisher extends MlflowAutologEventPublisherImpl {
 private[autologging] trait MlflowAutologEventPublisherImpl {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  private[autologging] var sparkQueryListener: SparkDataSourceListener = _
+  private[autologging] var sparkQueryListener: SparkListener = _
   private val executor = new ScheduledThreadPoolExecutor(1)
   private[autologging] val subscribers =
     new ConcurrentHashMap[String, MlflowAutologEventSubscriber]()
@@ -43,20 +43,25 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
   }
 
   // Exposed for testing
-  private[autologging] def getSparkDataSourceListener: SparkDataSourceListener = {
+  private[autologging] def getSparkDataSourceListener: SparkListener = {
     // Get SparkContext & determine if REPL id is set - if not, then we log irrespective of repl
     // ID, but if so, we log conditionally on repl ID
     val sc = spark.sparkContext
     val replId = Option(sc.getLocalProperty("spark.databricks.replId"))
     replId match {
       case None => new SparkDataSourceListener(this)
-      case Some(_) => new DatabricksSparkDataSourceListener(this)
+      case Some(_) =>
+        val isSpark2 = SparkSession.getActiveSession.exists { sess =>
+          sess.sparkContext.version.startsWith("2")
+        }
+        new DatabricksSparkDataSourceListener(this, isSpark2)
     }
   }
 
   // Initialize Spark listener that pulls Delta query plan information & bubbles it up to registered
   // Python subscribers, along with a GC loop for removing unrespoins
   def init(gcDeadSubscribersIntervalSec: Int = 1): Unit = synchronized {
+    logger.info("@SID IN INIT()")
     if (sparkQueryListener == null) {
       val listener = getSparkDataSourceListener
       // NB: We take care to set the variable only after adding the Spark listener succeeds,
@@ -64,6 +69,7 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
       // always succeed.
       spark.sparkContext.addSparkListener(listener)
       sparkQueryListener = listener
+      logger.info("GOT LISTENER FROM SID")
       // Schedule regular cleanup of detached subscribers, e.g. those associated with detached
       // notebooks
       val task = new Runnable {
@@ -125,10 +131,30 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
     }
   }
 
+  // TODO: maybe pull this back into the Databricks-specific DatasourceAttributeExtractor,
+  // have a hook for getting table infos that Spark2 subclass can override & then apply redaction
+  // afterwards, rather than attempting to do it here (even in OSS, where it'll always fail)
+  private def tryRedactString(value: String): String = {
+    try {
+      val redactor = ReflectionUtils.getScalaObjectByName("com.databricks.spark.util.DatabricksSparkLogRedactor")
+      ReflectionUtils.callMethod(redactor, "redact", Seq(value)).asInstanceOf[String]
+    } catch {
+      case NonFatal(e) =>
+        value
+    }
+  }
+
+  private def applyRedaction(tableInfo: SparkTableInfo): SparkTableInfo = {
+    tableInfo match {
+      case SparkTableInfo(path, versionOpt, formatOpt) =>
+        SparkTableInfo(tryRedactString(path), versionOpt, formatOpt)
+    }
+  }
+
   private[autologging] def publishEvent(
       replIdOpt: Option[String],
       sparkTableInfo: SparkTableInfo): Unit = synchronized {
-    sparkTableInfo match {
+    applyRedaction(sparkTableInfo) match {
       case SparkTableInfo(path, version, format) =>
         for ((replId, listener) <- getSubscribers) {
           if (replIdOpt.isEmpty || replId == replIdOpt.get) {

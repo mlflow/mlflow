@@ -1,8 +1,9 @@
 package org.mlflow.spark.autologging
 
+import org.apache.spark.sql.SparkSession
+
 import scala.reflect.runtime.{universe => ru}
 import scala.collection.JavaConverters._
-
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation
 import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
@@ -55,6 +56,7 @@ private[autologging] trait DatasourceAttributeExtractorBase {
     if (deltaInfoOpt.isDefined) {
       deltaInfoOpt
     } else {
+      logger.info(s"SID GOT LEAF NODE CLASS ${leafNode.getClass.getName}")
       leafNode match {
         case relation: DataSourceV2Relation =>
           try {
@@ -69,9 +71,6 @@ private[autologging] trait DatasourceAttributeExtractorBase {
                s"DataSourceV2Relation. Exception:\n${ExceptionUtils.serializeException(e)}")
              None
           }
-//        case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
-//          val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
-//          Option(SparkTableInfo(path, None, None))
         case other =>
           None
       }
@@ -79,12 +78,14 @@ private[autologging] trait DatasourceAttributeExtractorBase {
   }
 }
 
-object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
+private[autologging] object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
   override def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = None
 }
 
 
-object DatabricksDatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
+
+private[autologging] trait DatabricksDatasourceAttributeExtractorBase
+  extends DatasourceAttributeExtractorBase {
   override def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
     leafNode match {
       case lr: LogicalRelation =>
@@ -99,21 +100,29 @@ object DatabricksDatasourceAttributeExtractor extends DatasourceAttributeExtract
       case other => None
     }
   }
+}
 
-  private def tryRedactString(value: String): String = {
-    try {
-      val redactor = ReflectionUtils.getScalaObjectByName("com.databricks.spark.util.DatabricksSparkLogRedactor")
-      ReflectionUtils.callMethod(redactor, "redact", Seq(value)).asInstanceOf[String]
-    } catch {
-      case NonFatal(e) =>
-        value
-    }
-  }
+private[autologging] object DatabricksDatasourceAttributeExtractor
+  extends DatabricksDatasourceAttributeExtractorBase {
+}
+
+
+private[autologging] object DatabricksDatasourceAttributeExtractorSpark2
+  extends DatabricksDatasourceAttributeExtractorBase {
 
   override def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
-    super.getTableInfoToLog(leafNode).map { case SparkTableInfo(path, versionOpt, formatOpt) =>
-      SparkTableInfo(tryRedactString(path), versionOpt, formatOpt)
+    val res = super.getTableInfoToLog(leafNode)
+    if (res.isDefined) {
+      res
+    } else {
+      leafNode match {
+        case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
+          val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
+          Option(SparkTableInfo(path, None, None))
+        case _ => None
+      }
     }
   }
 
 }
+
