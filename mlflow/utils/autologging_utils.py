@@ -46,13 +46,14 @@ def get_unspecified_default_args(user_args, user_kwargs, all_param_names, all_de
             if name not in user_specified_arg_names}
 
 
-def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
+def log_fn_args_as_params(fn, args, kwargs, unlogged=[], unpacked=[]):  # pylint: disable=W0102
     """
     Log parameters explicitly passed to a function.
     :param fn: function whose parameters are to be logged
     :param args: arguments explicitly passed into fn
     :param kwargs: kwargs explicitly passed into fn
     :param unlogged: parameters not to be logged
+    :param unpacked: dict parameters to be unpacked
     :return: None
     """
     # all_default_values has length n, corresponding to values of the
@@ -73,10 +74,21 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     args_dict = dict((param_name, param_val) for param_name, param_val
                      in zip(all_param_names[:len(args)], args)
                      if param_name not in unlogged)
+
+    # Unpack dict parameters if unpack is not empty.
+    for param_name in unpacked:
+        popped = args_dict.pop(param_name)
+        args_dict = {**args_dict, **popped}
+
     if len(args_dict.keys()) > 0:
         try_mlflow_log(mlflow.log_params, args_dict)
 
     # Logging the kwargs passed by the user
     for param_name in kwargs:
-        if param_name not in unlogged:
+        if param_name in unlogged:
+            continue
+
+        if param_name in unpacked:
+            try_mlflow_log(mlflow.log_params, kwargs[param_name])
+        else:
             try_mlflow_log(mlflow.log_param, param_name, kwargs[param_name])
