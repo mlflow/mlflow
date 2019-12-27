@@ -249,15 +249,15 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
 
         model = original(*args, **kwargs)
 
-        # checking if the 'early_stopping_rounds' argument of train() is set.
+        # checking if the 'early_stopping_rounds' argument of train() is present.
         early_stopping_index = all_arg_names.index('early_stopping_rounds')
-        has_early_stopping = (num_pos_args >= early_stopping_index + 1 or
-                              'early_stopping_rounds' in kwargs)
+        early_stopping = (num_pos_args >= early_stopping_index + 1 or
+                          'early_stopping_rounds' in kwargs)
 
-        # if 'early_stopping_rounds' is set, the output model has
+        # if 'early_stopping_rounds' is present, the output model has
         # 'best_score', 'best_iteration', and 'best_ntree_limit'
         # even if early stopping didn't occur.
-        if has_early_stopping:
+        if early_stopping:
             attrs = ['best_score', 'best_iteration', 'best_ntree_limit']
             try_mlflow_log(mlflow.log_metrics, {attr: getattr(model, attr) for attr in attrs})
 
