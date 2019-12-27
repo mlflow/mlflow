@@ -44,7 +44,7 @@ def lgb_model():
     y = iris.target
 
     dtrain = lgb.Dataset(X, y)
-    model = lgb.train({}, dtrain)  # pass an empty dict to use default booster paramters
+    model = lgb.train({'objective': 'multiclass', 'num_class': 3}, dtrain)
     return ModelWithData(model=model, inference_dataframe=X)
 
 
@@ -57,8 +57,8 @@ def model_path(tmpdir):
 def lgb_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
-            conda_env,
-            additional_pip_deps=["lightgbm", "pytest"])
+        conda_env,
+        additional_pip_deps=["lightgbm", "pytest"])
     return conda_env
 
 
@@ -71,12 +71,12 @@ def test_model_save_load(lgb_model, model_path):
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
-            model.predict(lgb_model.inference_dataframe),
-            reloaded_model.predict(lgb_model.inference_dataframe))
+        model.predict(lgb_model.inference_dataframe),
+        reloaded_model.predict(lgb_model.inference_dataframe))
 
     np.testing.assert_array_almost_equal(
-            reloaded_model.predict(lgb_model.inference_dataframe),
-            reloaded_pyfunc.predict(lgb_model.inference_dataframe))
+        reloaded_model.predict(lgb_model.inference_dataframe),
+        reloaded_pyfunc.predict(lgb_model.inference_dataframe))
 
 
 @pytest.mark.large
@@ -91,8 +91,8 @@ def test_model_load_from_remote_uri_succeeds(lgb_model, model_path, mock_s3_buck
     model_uri = artifact_root + "/" + artifact_path
     reloaded_model = mlflow.lightgbm.load_model(model_uri=model_uri)
     np.testing.assert_array_almost_equal(
-            lgb_model.model.predict(lgb_model.inference_dataframe),
-            reloaded_model.predict(lgb_model.inference_dataframe))
+        lgb_model.model.predict(lgb_model.inference_dataframe),
+        reloaded_model.predict(lgb_model.inference_dataframe))
 
 
 @pytest.mark.large
@@ -111,17 +111,17 @@ def test_model_log(lgb_model, model_path):
                 _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
 
                 mlflow.lightgbm.log_model(
-                        lgb_model=model,
-                        artifact_path=artifact_path,
-                        conda_env=conda_env)
+                    lgb_model=model,
+                    artifact_path=artifact_path,
+                    conda_env=conda_env)
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id,
                     artifact_path=artifact_path)
 
                 reloaded_model = mlflow.lightgbm.load_model(model_uri=model_uri)
                 np.testing.assert_array_almost_equal(
-                        model.predict(lgb_model.inference_dataframe),
-                        reloaded_model.predict(lgb_model.inference_dataframe))
+                    model.predict(lgb_model.inference_dataframe),
+                    reloaded_model.predict(lgb_model.inference_dataframe))
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
                 model_config = Model.load(os.path.join(model_path, "MLmodel"))
@@ -163,7 +163,7 @@ def test_log_model_no_registered_model_name(tracking_uri_mock, lgb_model):
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         lgb_model, model_path, lgb_custom_env):
     mlflow.lightgbm.save_model(
-            lgb_model=lgb_model.model, path=model_path, conda_env=lgb_custom_env)
+        lgb_model=lgb_model.model, path=model_path, conda_env=lgb_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -182,7 +182,7 @@ def test_model_save_accepts_conda_env_as_dict(lgb_model, model_path):
     conda_env = dict(mlflow.lightgbm.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
     mlflow.lightgbm.save_model(
-            lgb_model=lgb_model.model, path=model_path, conda_env=conda_env)
+        lgb_model=lgb_model.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -257,10 +257,10 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(lgb_model, model_
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_uri=model_path,
-            data=lgb_model.inference_dataframe,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            flavor=mlflow.pyfunc.FLAVOR_NAME)
+        model_uri=model_path,
+        data=lgb_model.inference_dataframe,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        flavor=mlflow.pyfunc.FLAVOR_NAME)
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 
     pandas.testing.assert_frame_equal(
