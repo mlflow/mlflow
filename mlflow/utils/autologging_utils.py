@@ -75,7 +75,7 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[], unpacked=[]):  # pylint
                      in zip(all_param_names[:len(args)], args)
                      if param_name not in unlogged)
 
-    # Unpack dict parameters if unpack is not empty.
+    # Unpack dict parameters
     for param_name in unpacked:
         popped = args_dict.pop(param_name)
         args_dict = {**args_dict, **popped}
