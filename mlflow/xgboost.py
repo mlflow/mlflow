@@ -20,6 +20,7 @@ XGBoost (native) format
 from __future__ import absolute_import
 
 import os
+import shutil
 import json
 import yaml
 import tempfile
@@ -271,11 +272,15 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
         # logging feature importance as artifacts.
         for imp_type in importance_types:
             imp = model.get_score(importance_type=imp_type)
-            filename = 'feature_importance_{}.json'.format(imp_type)
-            filepath = os.path.join(tempfile.mkdtemp(), filename)
-            with open(filepath, 'w') as f:
-                json.dump(imp, f)
-            try_mlflow_log(mlflow.log_artifact, filepath)
+
+            tmpdir = tempfile.mkdtemp()
+            try:
+                filepath = os.path.join(tmpdir, 'feature_importance_{}.json'.format(imp_type))
+                with open(filepath, 'w') as f:
+                    json.dump(imp, f)
+                try_mlflow_log(mlflow.log_artifact, filepath)
+            finally:
+                shutil.rmtree(tmpdir)
 
         try_mlflow_log(log_model, model, artifact_path='model')
 
