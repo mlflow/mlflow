@@ -50,18 +50,13 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
     val replId = Option(sc.getLocalProperty("spark.databricks.replId"))
     replId match {
       case None => new SparkDataSourceListener(this)
-      case Some(_) =>
-        val isSpark2 = SparkSession.getActiveSession.exists { sess =>
-          sess.sparkContext.version.startsWith("2")
-        }
-        new DatabricksSparkDataSourceListener(this, isSpark2)
+      case Some(_) => new ReplAwareSparkDataSourceListener(this)
     }
   }
 
   // Initialize Spark listener that pulls Delta query plan information & bubbles it up to registered
   // Python subscribers, along with a GC loop for removing unrespoins
   def init(gcDeadSubscribersIntervalSec: Int = 1): Unit = synchronized {
-    logger.info("@SID IN INIT()")
     if (sparkQueryListener == null) {
       val listener = getSparkDataSourceListener
       // NB: We take care to set the variable only after adding the Spark listener succeeds,
@@ -69,7 +64,6 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
       // always succeed.
       spark.sparkContext.addSparkListener(listener)
       sparkQueryListener = listener
-      logger.info("GOT LISTENER FROM SID")
       // Schedule regular cleanup of detached subscribers, e.g. those associated with detached
       // notebooks
       val task = new Runnable {
@@ -119,10 +113,9 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
             s"removing it")
           Seq(replId)
         case NonFatal(e) =>
-          logger.error(s"Unexpected exception while checking health of subscriber with repl ID " +
-            s"$replId, removing it. Please report this error at " +
-            s"https://github.com/mlflow/mlflow/issues, along with the following stacktrace:\n" +
-            s"${ExceptionUtils.serializeException(e)}")
+          val msg = ExceptionUtils.getUnexpectedExceptionMessage(e, "while checking health " +
+            s"of subscriber with repl ID $replId, removing it")
+          logger.error(msg)
           Seq(replId)
       }
     }
@@ -131,30 +124,10 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
     }
   }
 
-  // TODO: maybe pull this back into the Databricks-specific DatasourceAttributeExtractor,
-  // have a hook for getting table infos that Spark2 subclass can override & then apply redaction
-  // afterwards, rather than attempting to do it here (even in OSS, where it'll always fail)
-  private def tryRedactString(value: String): String = {
-    try {
-      val redactor = ReflectionUtils.getScalaObjectByName("com.databricks.spark.util.DatabricksSparkLogRedactor")
-      ReflectionUtils.callMethod(redactor, "redact", Seq(value)).asInstanceOf[String]
-    } catch {
-      case NonFatal(e) =>
-        value
-    }
-  }
-
-  private def applyRedaction(tableInfo: SparkTableInfo): SparkTableInfo = {
-    tableInfo match {
-      case SparkTableInfo(path, versionOpt, formatOpt) =>
-        SparkTableInfo(tryRedactString(path), versionOpt, formatOpt)
-    }
-  }
-
   private[autologging] def publishEvent(
       replIdOpt: Option[String],
       sparkTableInfo: SparkTableInfo): Unit = synchronized {
-    applyRedaction(sparkTableInfo) match {
+    sparkTableInfo match {
       case SparkTableInfo(path, version, format) =>
         for ((replId, listener) <- getSubscribers) {
           if (replIdOpt.isEmpty || replId == replIdOpt.get) {

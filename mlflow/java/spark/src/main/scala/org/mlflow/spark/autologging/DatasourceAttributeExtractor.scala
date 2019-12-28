@@ -1,12 +1,13 @@
 package org.mlflow.spark.autologging
 
-import org.apache.spark.sql.SparkSession
-
-import scala.reflect.runtime.{universe => ru}
-import scala.collection.JavaConverters._
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation
-import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
+import org.apache.spark.scheduler.SparkListenerEvent
+import org.apache.spark.sql.SparkAutologgingUtils
+import org.apache.spark.sql.catalyst.plans.logical.{LeafNode, LogicalPlan}
+import org.apache.spark.sql.execution.datasources.v2.{DataSourceV2Relation, FileTable}
+import org.apache.spark.sql.execution.datasources.LogicalRelation
+import org.apache.spark.sql.connector.catalog.Table
+import org.apache.spark.sql.execution.QueryExecution
+import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd
 import org.slf4j.LoggerFactory
 
 import scala.util.control.NonFatal
@@ -21,27 +22,19 @@ private[autologging] case class SparkTableInfo(
 private[autologging] trait DatasourceAttributeExtractorBase {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  private def getSparkTableInfoFromFileTable(table: Any): Option[SparkTableInfo] = {
-    val tableName = ReflectionUtils.getField(table, "name").asInstanceOf[String]
-    val splitName = tableName.split(" ")
-    val lowercaseFormat = ReflectionUtils.callMethod(table, "formatName", Seq.empty).asInstanceOf[String].toLowerCase
-    if (splitName.headOption.exists(head => head.toLowerCase == lowercaseFormat)) {
-      Option(SparkTableInfo(splitName.tail.mkString(" "), None, Option(lowercaseFormat)))
-    } else {
-      Option(SparkTableInfo(tableName, None, Option(lowercaseFormat)))
-    }
-  }
-
-  private def getSparkTableInfoFromTable[T: ru.TypeTag](table: T): Option[SparkTableInfo] = {
-    if (ReflectionUtils.isInstanceOf(table, "org.apache.spark.sql.execution.datasources.v2.FileTable")) {
-      getSparkTableInfoFromFileTable(table)
-    } else if (ReflectionUtils.isInstanceOf(table, "org.apache.spark.sql.connector.catalog.Table")) {
-      val tableName = ReflectionUtils.getField(table, "name").asInstanceOf[String]
-      val formatName = ReflectionUtils.callMethod(table, "formatName", Seq.empty).asInstanceOf[String]
-      Option(SparkTableInfo(tableName, None, Option(formatName.toLowerCase)))
-    } else {
-      logger.error("Unexpected failure while attempting to get Spark table info from table")
-      None
+  private def getSparkTableInfoFromTable(table: Table): Option[SparkTableInfo] = {
+    table match {
+      case fileTable: FileTable =>
+        val tableName = fileTable.name
+        val splitName = tableName.split(" ")
+        val lowercaseFormat = fileTable.formatName.toLowerCase()
+        if (splitName.headOption.exists(head => head.toLowerCase == lowercaseFormat)) {
+          Option(SparkTableInfo(splitName.tail.mkString(" "), None, Option(lowercaseFormat)))
+        } else {
+          Option(SparkTableInfo(fileTable.name, None, Option(fileTable.formatName)))
+        }
+      case other: Table =>
+        Option(SparkTableInfo(other.name, None, None))
     }
   }
 
@@ -51,42 +44,60 @@ private[autologging] trait DatasourceAttributeExtractorBase {
    * Get SparkTableInfo representing the datasource that was read from leaf node of a Spark SQL
    * query plan
    */
-  def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
+  protected def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
     val deltaInfoOpt = maybeGetDeltaTableInfo(leafNode)
     if (deltaInfoOpt.isDefined) {
       deltaInfoOpt
     } else {
-      logger.info(s"SID GOT LEAF NODE CLASS ${leafNode.getClass.getName}")
       leafNode match {
         case relation: DataSourceV2Relation =>
-          try {
-            val table = ReflectionUtils.getField(relation, "table")
-            println(s"Got table of type ${table.getClass.getCanonicalName}")
-            val res = getSparkTableInfoFromTable(table)
-            println(s"(2) Got res $res")
-            res
-          } catch {
-            case e: scala.ScalaReflectionException =>
-             logger.error(s"Unexpected failure attempting to access 'table' field of " +
-               s"DataSourceV2Relation. Exception:\n${ExceptionUtils.serializeException(e)}")
-             None
-          }
+          getSparkTableInfoFromTable(relation.table)
         case other =>
           None
       }
     }
   }
+
+  private def getLeafNodes(lp: LogicalPlan): Seq[LogicalPlan] = {
+    if (lp == null) {
+      return Seq.empty
+    }
+    if (lp.isInstanceOf[LeafNode]) {
+      Seq(lp)
+    } else {
+      lp.children.flatMap { child =>
+        child match {
+          case l: LeafNode =>
+            Seq(l)
+          case other: LogicalPlan => getLeafNodes(other)
+        }
+      }
+    }
+  }
+
+  /**
+   * Get SparkTableInfo representing the datasource(s) that were read from a SparkListenerEvent
+   * assumed to have a QueryExecution field named "qe".
+   */
+  def getTableInfos(event: SparkListenerSQLExecutionEnd): Seq[SparkTableInfo] = {
+    val qe = SparkAutologgingUtils.getQueryExecution(event)
+    if (qe != null) {
+      val leafNodes = getLeafNodes(qe.analyzed)
+      leafNodes.flatMap(getTableInfoToLog)
+    } else {
+      Seq.empty
+    }
+  }
 }
 
-private[autologging] object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
+object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
+  // TODO: attempt to detect Delta table info when Delta Lake becomes compatible with Spark 3.0
   override def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = None
 }
 
-
-
-private[autologging] trait DatabricksDatasourceAttributeExtractorBase
-  extends DatasourceAttributeExtractorBase {
-  override def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
+/** Datasource attribute extractor for REPL-ID aware environments (e.g. Databricks) */
+object ReplAwareDatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
+  override protected def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
     leafNode match {
       case lr: LogicalRelation =>
         // First, check whether LogicalRelation is a Delta table
@@ -100,29 +111,26 @@ private[autologging] trait DatabricksDatasourceAttributeExtractorBase
       case other => None
     }
   }
-}
 
-private[autologging] object DatabricksDatasourceAttributeExtractor
-  extends DatabricksDatasourceAttributeExtractorBase {
-}
-
-
-private[autologging] object DatabricksDatasourceAttributeExtractorSpark2
-  extends DatabricksDatasourceAttributeExtractorBase {
-
-  override def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
-    val res = super.getTableInfoToLog(leafNode)
-    if (res.isDefined) {
-      res
-    } else {
-      leafNode match {
-        case LogicalRelation(HadoopFsRelation(index, _, _, _, _, _), _, _, _) =>
-          val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
-          Option(SparkTableInfo(path, None, None))
-        case _ => None
-      }
+  private def tryRedactString(value: String): String = {
+    try {
+      val redactor = ReflectionUtils.getScalaObjectByName(
+        "com.databricks.spark.util.DatabricksSparkLogRedactor")
+      ReflectionUtils.callMethod(redactor, "redact", Seq(value)).asInstanceOf[String]
+    } catch {
+      case NonFatal(e) =>
+        value
     }
   }
 
-}
+  private def applyRedaction(tableInfo: SparkTableInfo): SparkTableInfo = {
+    tableInfo match {
+      case SparkTableInfo(path, versionOpt, formatOpt) =>
+        SparkTableInfo(tryRedactString(path), versionOpt, formatOpt)
+    }
+  }
 
+  override def getTableInfos(event: SparkListenerSQLExecutionEnd): Seq[SparkTableInfo] = {
+    super.getTableInfos(event).map(applyRedaction)
+  }
+}

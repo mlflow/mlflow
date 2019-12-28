@@ -15,12 +15,18 @@ class SparkDataSourceListener(
     publisher: MlflowAutologEventPublisherImpl = MlflowAutologEventPublisher) extends SparkListener {
   private val logger = LoggerFactory.getLogger(getClass)
 
+  protected def getDatasourceAttributeExtractor: DatasourceAttributeExtractorBase = {
+    DatasourceAttributeExtractor
+  }
+
+  protected def getReplIdOpt(event: SparkListenerSQLExecutionEnd): Option[String] = None
 
   // Exposed for testing
   private[autologging] def onSQLExecutionEnd(event: SparkListenerSQLExecutionEnd): Unit = {
-    val tableInfos = SparkDataSourceListener.getTableInfos(event, DatasourceAttributeExtractor)
+    val extractor = getDatasourceAttributeExtractor
+    val tableInfos = extractor.getTableInfos(event)
     tableInfos.foreach { tableInfo =>
-      publisher.publishEvent(None, tableInfo)
+      publisher.publishEvent(getReplIdOpt(event), tableInfo)
     }
   }
 
@@ -38,41 +44,6 @@ class SparkDataSourceListener(
           onSQLExecutionEnd(e)
         })
       case _ =>
-    }
-  }
-}
-
-private[autologging] object SparkDataSourceListener {
-  private def getLeafNodes(lp: LogicalPlan): Seq[LogicalPlan] = {
-    if (lp == null) {
-      return Seq.empty
-    }
-    if (lp.isInstanceOf[LeafNode]) {
-      Seq(lp)
-    } else {
-      lp.children.flatMap { child =>
-        child match {
-          case l: LeafNode =>
-            Seq(l)
-          case other: LogicalPlan => getLeafNodes(other)
-        }
-      }
-    }
-  }
-
-  // TODO: probably this method should live in DatasourceAttributeExtractorBase
-  // The SparkListeners can then just construct the right DatasourceAttributeExtractorBase subclass
-  // & call this method on that subclass
-  def getTableInfos(
-      event: SparkListenerEvent,
-      extractor: DatasourceAttributeExtractorBase): Seq[SparkTableInfo] = {
-    val qe = ReflectionUtils.getField(event, "qe").asInstanceOf[QueryExecution]
-    println(s"@SID got qe ${qe} from event ${event.getClass.getName}")
-    if (qe != null) {
-      val leafNodes = getLeafNodes(qe.analyzed)
-      leafNodes.flatMap(extractor.getTableInfoToLog)
-    } else {
-      Seq.empty
     }
   }
 }

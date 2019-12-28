@@ -16,12 +16,6 @@ private[autologging] object ReflectionUtils {
     obj.instance
   }
 
-  def isInstanceOf(obj: Any, className: String): Boolean = {
-    val clazz = getClass.getClassLoader.loadClass(className)
-    clazz.isInstance(obj)
-  }
-
-
   def getField(obj: Any, fieldName: String): Any = {
     val declaredFields = obj.getClass.getDeclaredFields
     val field = declaredFields.find(_.getName == fieldName).getOrElse {

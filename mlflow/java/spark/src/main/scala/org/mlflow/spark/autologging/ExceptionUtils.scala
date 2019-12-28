@@ -14,7 +14,7 @@ private[autologging] object ExceptionUtils {
     sw.toString
   }
 
-  private def getUnexpectedExceptionMessage(exc: Throwable, msg: String): String = {
+  def getUnexpectedExceptionMessage(exc: Throwable, msg: String): String = {
     s"Unexpected exception $msg. Please report this error, along with the " +
       s"following stacktrace, on https://github.com/mlflow/mlflow/issues:\n" +
       s"${ExceptionUtils.serializeException(exc)}"

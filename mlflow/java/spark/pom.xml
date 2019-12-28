@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <artifactId>mlflow-spark</artifactId>
-  <version>1.4.1-SNAPSHOT-${scala.compat.version}</version>
+  <version>1.4.1-SNAPSHOT</version>
   <name>${project.artifactId}</name>
   <properties>
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -9,7 +9,6 @@
     <encoding>UTF-8</encoding>
     <scala.version>2.12.6</scala.version>
     <scala.compat.version>2.12</scala.compat.version>
-    <spark.version>3.0.0-preview</spark.version>
     <spec2.version>4.2.0</spec2.version>
   </properties>
 
@@ -30,20 +29,26 @@
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-sql_${scala.compat.version}</artifactId>
-      <version>${spark.version}</version>
+      <version>3.0.0-preview</version>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-core_${scala.compat.version}</artifactId>
-      <version>${spark.version}</version>
+      <version>3.0.0-preview</version>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-catalyst_${scala.compat.version}</artifactId>
-      <version>${spark.version}</version>
+      <version>3.0.0-preview</version>
     </dependency>
 
     <!-- Test -->
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.12</version>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
