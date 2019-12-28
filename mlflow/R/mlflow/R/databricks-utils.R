@@ -102,8 +102,6 @@ mlflow_get_run_context.mlflow_databricks_client <- function(client, experiment_i
   if (exists(".databricks_internals")) {
     notebook_info <- do.call(".get_notebook_info", list(), envir = get(".databricks_internals",
                                                                        envir = .GlobalEnv))
-    job_info <- do.call(".get_job_info", list(), envir = get(".databricks_internals",
-                                                             envir = .GlobalEnv))
     if (!is.na(notebook_info$id) && !is.na(notebook_info$path)) {
       tags <- list()
       tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_ID]] <- notebook_info$id
@@ -112,13 +110,15 @@ mlflow_get_run_context.mlflow_databricks_client <- function(client, experiment_i
       tags[[MLFLOW_TAGS$MLFLOW_SOURCE_NAME]] <- notebook_info$path
       tags[[MLFLOW_TAGS$MLFLOW_SOURCE_VERSION]] <- get_source_version()
       tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$NOTEBOOK
-      list(
+      return(list(
         client = client,
         tags = tags,
         experiment_id = experiment_id %||% notebook_info$id,
         ...
-      )
-    } else if (!is.na(job_info$job_id)) {
+      ))
+    job_info <- do.call(".get_job_info", list(), envir = get(".databricks_internals",
+                                                             envir = .GlobalEnv))
+    if (!is.na(job_info$job_id)) {
       tags <- list()
       tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_JOB_ID]] <- job_info$job_id
       tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_JOB_RUN_ID]] <- job_info$run_id
@@ -129,15 +129,14 @@ mlflow_get_run_context.mlflow_databricks_client <- function(client, experiment_i
       )
       tags[[MLFLOW_TAGS$MLFLOW_SOURCE_VERSION]] <- get_source_version()
       tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$JOB
-      list(
+      return(list(
         client = client,
         tags = tags,
         experiment_id = experiment_id %||% 0,
         ...
-      )
-    } else {
-      NextMethod()
+      ))
     }
+    NextMethod()
   } else {
     NextMethod()
   }
