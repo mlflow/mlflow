@@ -202,8 +202,7 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
 
     - parameters specified in `xgboost.train`_.
     - metrics on each iteration (if ``evals`` specified).
-    - ``best_iteration``, ``best_ntree_limit``, and ``best_score``
-      (if ``early_stopping_rounds`` specified).
+    - metrics at the best iteration (if ``early_stopping_rounds`` specified).
     - feature importance.
     - trained model.
 
@@ -215,14 +214,13 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
     @gorilla.patch(xgboost)
     def train(*args, **kwargs):
 
-        # TODO (harupy): Add asynchronous logging to prevent the API request overhead
-        # from slowing down training.
-        def mlflow_callback(env):
+        def record_eval_results(eval_results):
             """
-            Callback for auto-logging metrics on each iteration.
+            Create a callback function that records evaluation results.
             """
-            try_mlflow_log(mlflow.log_metrics, dict(env.evaluation_result_list),
-                           step=env.iteration)
+            def callback(env):
+                eval_results.append(dict(env.evaluation_result_list))
+            return callback
 
         if not mlflow.active_run():
             try_mlflow_log(mlflow.start_run)
@@ -232,7 +230,7 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
 
         original = gorilla.get_original_attribute(xgboost, 'train')
 
-        # Logging `params` separately via mlflow.log_params to extract key/value pairs
+        # logging booster params separately via mlflow.log_params to extract key/value pairs
         # and make it easier to compare them across runs.
         params = args[0] if len(args) > 0 else kwargs['params']
         try_mlflow_log(mlflow.log_params, params)
@@ -244,35 +242,39 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
         all_arg_names = inspect.getargspec(original)[0]  # pylint: disable=W1505
         num_pos_args = len(args)
 
-        # checking if the 'callbacks' argument of train() is set.
+        # adding a callback that records evaluation results.
+        eval_results = []
         callbacks_index = all_arg_names.index('callbacks')
+        callback = record_eval_results(eval_results)
         if num_pos_args >= callbacks_index + 1:
             tmp_list = list(args)
-            tmp_list[callbacks_index] += [mlflow_callback]
+            tmp_list[callbacks_index] += [callback]
             args = tuple(tmp_list)
         elif 'callbacks' in kwargs and kwargs['callbacks'] is not None:
-            kwargs['callbacks'] += [mlflow_callback]
+            kwargs['callbacks'] += [callback]
         else:
-            kwargs['callbacks'] = [mlflow_callback]
+            kwargs['callbacks'] = [callback]
 
+        # training model
         model = original(*args, **kwargs)
 
-        # checking if the 'early_stopping_rounds' argument of train() is present.
+        # logging metrics on each iteration.
+        for idx, metrics in enumerate(eval_results):
+            try_mlflow_log(mlflow.log_metrics, metrics, step=idx + 1)
+
+        # If early_stopping_rounds is present, logging metrics at the best iteration
+        # as extra metrics with the max step + 1.
         early_stopping_index = all_arg_names.index('early_stopping_rounds')
         early_stopping = (num_pos_args >= early_stopping_index + 1 or
                           'early_stopping_rounds' in kwargs)
-
-        # if 'early_stopping_rounds' is present, the output model has
-        # 'best_score', 'best_iteration', and 'best_ntree_limit'
-        # even if early stopping didn't occur.
         if early_stopping:
-            attrs = ['best_score', 'best_iteration', 'best_ntree_limit']
-            try_mlflow_log(mlflow.log_metrics, {attr: getattr(model, attr) for attr in attrs})
+            num_steps = len(eval_results)
+            best_iter = model.best_iteration
+            try_mlflow_log(mlflow.log_metrics, eval_results[best_iter - 1], step=num_steps + 1)
 
         # logging feature importance as artifacts.
         for imp_type in importance_types:
             imp = model.get_score(importance_type=imp_type)
-
             tmpdir = tempfile.mkdtemp()
             try:
                 filepath = os.path.join(tmpdir, 'feature_importance_{}.json'.format(imp_type))
