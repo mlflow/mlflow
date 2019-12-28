@@ -260,7 +260,7 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
 
         # logging metrics on each iteration.
         for idx, metrics in enumerate(eval_results):
-            try_mlflow_log(mlflow.log_metrics, metrics, step=idx + 1)
+            try_mlflow_log(mlflow.log_metrics, metrics, step=idx)
 
         # If early_stopping_rounds is present, logging metrics at the best iteration
         # as extra metrics with the max step + 1.
@@ -268,9 +268,9 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
         early_stopping = (num_pos_args >= early_stopping_index + 1 or
                           'early_stopping_rounds' in kwargs)
         if early_stopping:
-            num_steps = len(eval_results)
-            best_iter = model.best_iteration
-            try_mlflow_log(mlflow.log_metrics, eval_results[best_iter - 1], step=num_steps + 1)
+            extra_step = len(eval_results)
+            try_mlflow_log(mlflow.log_metrics, eval_results[model.best_iteration],
+                           step=extra_step)
 
         # logging feature importance as artifacts.
         for imp_type in importance_types:
