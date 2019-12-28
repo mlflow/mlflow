@@ -214,6 +214,8 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
     @gorilla.patch(xgboost)
     def train(*args, **kwargs):
 
+        # TODO (harupy): Add asynchronous logging to prevent the API request overhead
+        # from slowing down training.
         def mlflow_callback(env):
             """
             Callback for auto-logging metrics on each iteration.
