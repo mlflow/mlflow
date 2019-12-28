@@ -115,12 +115,6 @@ def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
     assert len(metric_history) == 20
     assert metric_history == evals_result['train']['mlogloss']
 
-    # these metrics should not be logged because early_stopping_rounds wasn't specified.
-    attrs = ['best_iteration', 'best_ntree_limit', 'best_score']
-
-    for attr in attrs:
-        assert attr not in data.metrics
-
 
 @pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
@@ -134,14 +128,8 @@ def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
     metric_key = 'train-mlogloss'
     metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
     assert metric_key in data.metrics
-    assert len(metric_history) == 20
-    assert metric_history == evals_result['train']['mlogloss']
-
-    attrs = ['best_iteration', 'best_ntree_limit', 'best_score']
-
-    for attr in attrs:
-        assert attr in data.metrics
-        assert data.metrics[attr] == getattr(model, attr)
+    assert len(metric_history) == 20 + 1
+    assert metric_history == evals_result['train']['mlogloss'] + [model.best_score]
 
 
 @pytest.mark.large
