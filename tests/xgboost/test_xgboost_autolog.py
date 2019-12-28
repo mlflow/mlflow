@@ -57,12 +57,12 @@ def test_xgb_autolog_logs_default_params(bst_params, dtrain):
     params = run.data.params
 
     expected_params = {
-        **bst_params,
         'num_boost_round': 10,
         'maximize': False,
         'early_stopping_rounds': None,
         'verbose_eval': True,
     }
+    expected_params.update(bst_params)
 
     for key, val in expected_params.items():
         assert key in params
