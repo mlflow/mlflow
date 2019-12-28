@@ -228,7 +228,13 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
             auto_end_run = False
 
         original = gorilla.get_original_attribute(xgboost, 'train')
-        unlogged_params = ['dtrain', 'evals', 'obj', 'feval', 'evals_result',
+
+        # Logging `params` separately via mlflow.log_params to extract key/value pairs
+        # and make it easier to compare them across runs.
+        params = args[0] if len(args) > 0 else kwargs['params']
+        try_mlflow_log(mlflow.log_params, params)
+
+        unlogged_params = ['params', 'dtrain', 'evals', 'obj', 'feval', 'evals_result',
                            'xgb_model', 'callbacks', 'learning_rates']
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
