@@ -230,8 +230,7 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
         original = gorilla.get_original_attribute(xgboost, 'train')
         unlogged_params = ['dtrain', 'evals', 'obj', 'feval', 'evals_result',
                            'xgb_model', 'callbacks', 'learning_rates']
-        unpacked_params = ['params']
-        log_fn_args_as_params(original, args, kwargs, unlogged_params, unpacked_params)
+        log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
         all_arg_names = inspect.getargspec(original)[0]  # pylint: disable=W1505
         num_pos_args = len(args)
