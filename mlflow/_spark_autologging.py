@@ -16,7 +16,6 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
-_REPL_ID_JAVA_PACKAGE = "org.mlflow.spark.autologging.databricks"
 _SPARK_TABLE_INFO_TAG_NAME = "sparkDatasourceInfo"
 
 _logger = logging.getLogger(__name__)
@@ -63,17 +62,6 @@ def _get_spark_major_version(sc):
     return spark_major_version
 
 
-def _get_java_package():
-    sc = SparkContext.getOrCreate()
-    spark_major_version = _get_spark_major_version(sc)
-    # TODO: will JAR be available in ML runtime for MLflow projects? If so, should we broaden this
-    # check to not just look for notebooks?
-    if spark_major_version is not None and spark_major_version == 2 and \
-            is_in_databricks_notebook():
-        return _REPL_ID_JAVA_PACKAGE
-    return _JAVA_PACKAGE
-
-
 def _get_jvm_event_publisher():
     """
     Get JVM-side object implementing the following methods:
@@ -82,7 +70,7 @@ def _get_jvm_event_publisher():
     - register(subscriber) for registering subscribers to receive datasource events
     """
     jvm = SparkContext._gateway.jvm
-    qualified_classname = "{}.{}".format(_get_java_package(), "MlflowAutologEventPublisher")
+    qualified_classname = "{}.{}".format(_JAVA_PACKAGE, "MlflowAutologEventPublisher")
     return getattr(jvm, qualified_classname)
 
 
