@@ -24,6 +24,7 @@ def http_tracking_uri_mock():
     yield
     mlflow.set_tracking_uri(None)
 
+
 def _fit_keras(pandas_df, epochs):
     x = pandas_df.values
     y = np.array([4] * len(x))
@@ -73,6 +74,7 @@ def test_spark_autologging_with_keras_autologging(
     run = _fit_keras_model(pandas_df, epochs=1)
     _assert_spark_data_logged(run, file_path, data_format)
     assert mlflow.active_run() is None
+
 
 @pytest.mark.large
 def test_spark_keras_autologging_context_provider(

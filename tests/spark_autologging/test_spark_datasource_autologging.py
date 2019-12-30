@@ -18,7 +18,6 @@ from tests.spark_autologging.utils import data_format  # pylint: disable=unused-
 from tests.spark_autologging.utils import file_path  # pylint: disable=unused-import
 
 
-
 def pytest_generate_tests(metafunc):
     """
     Automatically parametrize each each fixture/test that depends on `backend_store_uri` with the
