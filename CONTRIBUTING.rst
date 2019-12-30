@@ -190,7 +190,7 @@ https://github.com/protocolbuffers/protobuf/releases/tag/v3.6.0, e.g.
 https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/protoc-3.6.0-osx-x86_64.zip if 
 you're on 64-bit Mac OSX.
 
-Then, run the following to install ``protoc``
+Then, run the following to install ``protoc``:
 
 .. code-block:: bash
 
