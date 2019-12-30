@@ -11,7 +11,6 @@ from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
 
