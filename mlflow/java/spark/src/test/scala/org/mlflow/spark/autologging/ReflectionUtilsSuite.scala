@@ -7,7 +7,8 @@ object TestObject {
 }
 
 abstract class TestAbstractClass {
-  def addNumbers(x: Int, y: Int): Int = x + y
+  protected def addNumbers(x: Int, y: Int): Int = x + y
+  protected val myProtectedVal: Int = 5
 }
 
 class RealClass extends TestAbstractClass {
@@ -17,10 +18,12 @@ class RealClass extends TestAbstractClass {
 
 class ReflectionUtilsSuite extends FunSuite {
 
-  test("Can get private field of an object via reflection") {
+  test("Can get private & protected fields of an object via reflection") {
     val obj = new RealClass()
-    val field = ReflectionUtils.getField(obj, "myField").asInstanceOf[String]
-    assert(field == "myCoolVal")
+    val field0 = ReflectionUtils.getField(obj, "myField").asInstanceOf[String]
+    assert(field0 == "myCoolVal")
+    val field1 = ReflectionUtils.getField(obj, "myProtectedVal").asInstanceOf[Int]
+    assert(field1 == 5)
   }
 
   test("Can call methods via reflection") {
@@ -28,6 +31,9 @@ class ReflectionUtilsSuite extends FunSuite {
     val args0: Seq[Object] = Seq[Integer](3)
     val res0 = ReflectionUtils.callMethod(obj, "subclassMethod", args0).asInstanceOf[Int]
     assert(res0 == 9)
+    val args1: Seq[Object] = Seq[Integer](5, 6)
+    val res1 = ReflectionUtils.callMethod(obj, "addNumbers", args1).asInstanceOf[Int]
+    assert(res1 == 11)
   }
 
   test("Can get Scala object and call methods via reflection") {

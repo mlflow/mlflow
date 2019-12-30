@@ -1,13 +1,15 @@
 package org.mlflow.spark.autologging
 
-import org.apache.spark.scheduler.SparkListenerEvent
 import org.apache.spark.sql.SparkAutologgingUtils
 import org.apache.spark.sql.catalyst.plans.logical.{LeafNode, LogicalPlan}
 import org.apache.spark.sql.execution.datasources.v2.{DataSourceV2Relation, FileTable}
-import org.apache.spark.sql.execution.datasources.LogicalRelation
+import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation, TextBasedFileFormat}
 import org.apache.spark.sql.connector.catalog.Table
-import org.apache.spark.sql.execution.QueryExecution
+import org.apache.spark.sql.execution.datasources.csv.CSVFileFormat
+import org.apache.spark.sql.execution.datasources.json.JsonFileFormat
+import org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd
+import org.apache.spark.sql.sources.DataSourceRegister
 import org.slf4j.LoggerFactory
 
 import scala.util.control.NonFatal
@@ -93,7 +95,7 @@ private[autologging] trait DatasourceAttributeExtractorBase {
 object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
   // TODO: attempt to detect Delta table info when Delta Lake becomes compatible with Spark 3.0
   override def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = None
-}
+}d
 
 /** Datasource attribute extractor for REPL-ID aware environments (e.g. Databricks) */
 object ReplAwareDatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
@@ -105,10 +107,28 @@ object ReplAwareDatasourceAttributeExtractor extends DatasourceAttributeExtracto
         val deltaFileIndexOpt = ReflectionUtils.callMethod(obj, "unapply", Seq(lr)).asInstanceOf[Option[Any]]
         deltaFileIndexOpt.map(fileIndex => {
           val path = ReflectionUtils.getField(fileIndex, "path").toString
-          val versionOpt = Option(ReflectionUtils.getField(fileIndex, "tableVersion")).map(_.toString)
+          val versionOpt = Option(ReflectionUtils.callMethod(fileIndex, "tableVersion", Seq.empty)).map(_.toString)
           SparkTableInfo(path, versionOpt, Option("delta"))
         })
       case other => None
+    }
+  }
+
+  override def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
+    val res = super.getTableInfoToLog(leafNode)
+    if (res.isDefined) {
+      res
+    } else {
+      leafNode match {
+        case LogicalRelation(HadoopFsRelation(index, _, _, _, fileFormat, _), _, _, _) =>
+          val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
+          val formatOpt = fileFormat match {
+            case format: DataSourceRegister => Option(format.shortName)
+            case _ => None
+          }
+          Option(SparkTableInfo(path, None, formatOpt))
+        case _ => None
+      }
     }
   }
 

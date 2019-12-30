@@ -1,9 +1,11 @@
 package org.mlflow.spark.autologging
 
+import java.lang.reflect.{Field, Method}
 
 import scala.reflect.runtime.{universe => ru}
-
 import org.slf4j.LoggerFactory
+
+import scala.collection.mutable
 
 private[autologging] object ReflectionUtils {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -17,7 +19,12 @@ private[autologging] object ReflectionUtils {
   }
 
   def getField(obj: Any, fieldName: String): Any = {
-    val declaredFields = obj.getClass.getDeclaredFields
+    var declaredFields: mutable.Buffer[Field] = obj.getClass.getDeclaredFields.toBuffer
+    var superClass = obj.getClass.getSuperclass
+    while (superClass != null) {
+      declaredFields = declaredFields ++ superClass.getDeclaredFields
+      superClass = superClass.getSuperclass
+    }
     val field = declaredFields.find(_.getName == fieldName).getOrElse {
       throw new RuntimeException(s"Unable to get field '$fieldName' in object with class " +
         s"${obj.getClass.getName}. Available fields: " +
@@ -32,7 +39,12 @@ private[autologging] object ReflectionUtils {
     * unique
     */
   def callMethod(obj: Any, name: Any, args: Seq[Object]): Any = {
-    val declaredMethods = obj.getClass.getDeclaredMethods
+    var declaredMethods: mutable.Buffer[Method] = obj.getClass.getDeclaredMethods.toBuffer
+    var superClass = obj.getClass.getSuperclass
+    while (superClass != null) {
+      declaredMethods = declaredMethods ++ superClass.getDeclaredMethods
+      superClass = superClass.getSuperclass
+    }
     val method = declaredMethods.find(_.getName == name).getOrElse(
       throw new RuntimeException(s"Unable to find method with name $name of object with class " +
         s"${obj.getClass.getName}. Available methods: " +
