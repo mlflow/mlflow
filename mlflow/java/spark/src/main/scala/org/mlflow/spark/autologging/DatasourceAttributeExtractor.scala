@@ -95,7 +95,7 @@ private[autologging] trait DatasourceAttributeExtractorBase {
 object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
   // TODO: attempt to detect Delta table info when Delta Lake becomes compatible with Spark 3.0
   override def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = None
-}d
+}
 
 /** Datasource attribute extractor for REPL-ID aware environments (e.g. Databricks) */
 object ReplAwareDatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
