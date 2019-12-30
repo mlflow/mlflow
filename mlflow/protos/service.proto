@@ -208,8 +208,25 @@ service MlflowService {
     };
   }
 
-  // Restore a deleted run.
-  rpc restoreRun(RestoreRun) returns (RestoreRun.Response) {
+  // Delete a run from the db.
+  rpc hardDeleteRun(HardDeleteRun) returns (HardDeleteRun.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/harddelete"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
+        path: "/preview/mlflow/runs/harddelete"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Hard Delete Run",
+    };
+    }
+
+// Restore a deleted run.
+rpc restoreRun(RestoreRun) returns (RestoreRun.Response) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
@@ -768,6 +785,15 @@ message UpdateRun {
 }
 
 message DeleteRun {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run to delete.
+  optional string run_id = 1 [(validate_required) = true];
+
+  message Response {}
+}
+
+message HardDeleteRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the run to delete.

@@ -4,7 +4,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
-    UpdateExperiment, LogBatch, DeleteTag, SetExperimentTag, GetExperimentByName
+    UpdateExperiment, LogBatch, DeleteTag, SetExperimentTag, GetExperimentByName, HardDeleteRun
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
@@ -208,6 +208,10 @@ class RestStore(AbstractStore):
     def delete_run(self, run_id):
         req_body = message_to_json(DeleteRun(run_id=run_id))
         self._call_endpoint(DeleteRun, req_body)
+
+    def hard_delete_run(self, run_id):
+        req_body = message_to_json(HardDeleteRun(run_id=run_id))
+        self._call_endpoint(HardDeleteRun, req_body)
 
     def restore_run(self, run_id):
         req_body = message_to_json(RestoreRun(run_id=run_id))

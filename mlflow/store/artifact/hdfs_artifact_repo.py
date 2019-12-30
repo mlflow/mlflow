@@ -147,6 +147,10 @@ class HdfsArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         raise MlflowException('This is not implemented. Should never be called.')
 
+    def delete_artifacts(self, artifact_path):
+        with hdfs_system(host=self.host, port=self.port) as hdfs:
+            hdfs.delete(artifact_path, recursive=True)
+
 
 @contextmanager
 def hdfs_system(host, port):

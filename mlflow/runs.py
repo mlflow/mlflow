@@ -11,6 +11,7 @@ from mlflow.tracking import _get_store
 from tabulate import tabulate
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.time_utils import conv_longdate_to_str
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
 RUN_ID = click.option("--run-id", type=click.STRING, required=True)
 
@@ -56,6 +57,16 @@ def delete_run(run_id):
     store = _get_store()
     store.delete_run(run_id)
     print("Run with ID %s has been deleted." % str(run_id))
+
+
+@commands.command("hard-delete")
+@RUN_ID
+def hard_delete_run(run_id):
+    store = _get_store()
+    run = store.get_run(run_id)
+    artifact_repo = get_artifact_repository(run.info.artifact_uri)
+    artifact_repo.delete_artifacts(run.info.artifact_uri)
+    store.hard_delete_run(run_id)
 
 
 @commands.command("restore")

@@ -150,6 +150,13 @@ class ArtifactRepository:
         """
         pass
 
+    def delete_artifacts(self, artifact_path):
+        """
+        Delete the artifacts at the specified location.
+        :param artifact_path: Path to delete
+        """
+        pass
+
 
 def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):
