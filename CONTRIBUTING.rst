@@ -184,11 +184,11 @@ described in `Writing Docs`_ and commit the docs to your PR branch.
 
 Building Protobuf Files
 -----------------------
-To build protobuf files, simply run ``generate-protos.sh``. The required ``protoc`` version is ``3.6.0``
-- you can find the URL of a system-appropriate installation of ``protoc`` at 
+To build protobuf files, simply run ``generate-protos.sh``. The required ``protoc`` version is ``3.6.0``.
+You can find the URL of a system-appropriate installation of ``protoc`` at 
 https://github.com/protocolbuffers/protobuf/releases/tag/v3.6.0, e.g. 
 https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/protoc-3.6.0-osx-x86_64.zip if 
-you're on Mac.
+you're on 64-bit Mac OSX.
 
 Then, run the following to install ``protoc``
 
