@@ -14,6 +14,9 @@ from tests.tracking.test_rest_tracking import mlflow_client  # pylint: disable=u
 from tests.spark_autologging.utils import _assert_spark_data_logged
 from tests.spark_autologging.utils import spark_session  # pylint: disable=unused-import
 from tests.spark_autologging.utils import format_to_file_path  # pylint: disable=unused-import
+from tests.spark_autologging.utils import data_format  # pylint: disable=unused-import
+from tests.spark_autologging.utils import file_path  # pylint: disable=unused-import
+
 
 
 def pytest_generate_tests(metafunc):
@@ -48,8 +51,13 @@ def test_autologging_of_datasources_with_different_formats(
     for data_format, file_path in format_to_file_path.items():
         base_df = spark_session.read.format(data_format).option("header", "true").\
             option("inferSchema", "true").load(file_path)
+        base_df.createOrReplaceTempView("temptable")
+        table_df0 = spark_session.table("temptable")
+        table_df1 = spark_session.sql("SELECT number1, number2 from temptable LIMIT 5")
         dfs = [
             base_df,
+            table_df0,
+            table_df1,
             base_df.filter("number1 > 0"),
             base_df.select("number1"),
             base_df.limit(2),

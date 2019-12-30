@@ -15,6 +15,7 @@ from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-imp
 from tests.spark_autologging.utils import _assert_spark_data_logged
 from tests.spark_autologging.utils import spark_session  # pylint: disable=unused-import
 from tests.spark_autologging.utils import format_to_file_path  # pylint: disable=unused-import
+from tests.spark_autologging.utils import file_path, data_format  # pylint: disable=unused-import
 
 
 @pytest.fixture()
@@ -22,19 +23,6 @@ def http_tracking_uri_mock():
     mlflow.set_tracking_uri("http://some-cool-uri")
     yield
     mlflow.set_tracking_uri(None)
-
-
-@pytest.fixture(scope="module")
-def data_format(format_to_file_path):
-    res, _ = sorted(list(format_to_file_path.items()))[0]
-    return res
-
-
-@pytest.fixture(scope="module")
-def file_path(format_to_file_path):
-    _, file_path = sorted(list(format_to_file_path.items()))[0]
-    return file_path
-
 
 def _fit_keras(pandas_df, epochs):
     x = pandas_df.values

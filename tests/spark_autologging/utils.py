@@ -54,6 +54,18 @@ def spark_session():
 
 
 @pytest.fixture(scope="module")
+def data_format(format_to_file_path):
+    res, _ = sorted(list(format_to_file_path.items()))[0]
+    return res
+
+
+@pytest.fixture(scope="module")
+def file_path(format_to_file_path):
+    _, file_path = sorted(list(format_to_file_path.items()))[0]
+    return file_path
+
+
+@pytest.fixture(scope="module")
 def format_to_file_path(spark_session):
     rows = [
         Row(8, 32, "bat"),
