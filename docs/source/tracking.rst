@@ -255,9 +255,9 @@ or once ``tf.estimator`` models are exported via ``tf.estimator.export_saved_mod
 
 If a run exists when ``autolog()`` captures data, MLflow will log to that run and not automatically end that run after training.
 
-**Note** Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
-
-**Note**: this feature is experimental - the API and format of the logged data are subject to change.
+.. note::
+  - Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
+  - his feature is experimental - the API and format of the logged data are subject to change.
 
 
 Gluon (experimental)
@@ -273,7 +273,8 @@ Autologging captures the following information:
 | Gluon            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Gluon model); on training end                                   |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
 
-**Note**: this feature is experimental - the API and format of the logged data are subject to change.
+.. note::
+  This feature is experimental - the API and format of the logged data are subject to change.
 
 XGBoost (experimental)
 ----------------------
