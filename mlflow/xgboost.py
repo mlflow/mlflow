@@ -198,13 +198,15 @@ class _XGBModelWrapper:
 @experimental
 def autolog(importance_types=['weight']):  # pylint: disable=W0102
     """
-    Enables autologging from XGBoost to MLflow. Logs the following.
+    Enables automatic logging from XGBoost to MLflow. Logs the following.
 
     - parameters specified in `xgboost.train`_.
     - metrics on each iteration (if ``evals`` specified).
     - metrics at the best iteration (if ``early_stopping_rounds`` specified).
     - feature importance.
     - trained model.
+
+    Note that the `scikit-learn API`_ is not supported.
 
     :param importance_types: importance types to log.
 
