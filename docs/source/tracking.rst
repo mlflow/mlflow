@@ -218,11 +218,20 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
   X-axis relative time - graphs the time relative to the first metric logged, for each run
 
 
-Automatic Logging from TensorFlow and Keras (experimental)
-==================================================================
+Automatic Logging
+=================
+
+Automatic logging allows you to log metrics and parameters without the need for explicit log statements.
+
+.. contents:: In this section:
+  :local:
+  :depth: 1
+
+TensorFlow and Keras (experimental)
+-----------------------------------
 Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
 log statements. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
-`TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_. 
+`TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 
 Autologging captures the following information:
 
@@ -238,7 +247,7 @@ Autologging captures the following information:
 | TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                           | --            | --                                                                                                                                               |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 
-Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`. 
+Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`.
 
 If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information to.
 Once training ends via calls to ``tf.estimator.train()``, ``tf.keras.fit()``, ``tf.keras.fit_generator()``, ``keras.fit()`` or ``keras.fit_generator()``,
@@ -251,8 +260,8 @@ If a run exists when ``autolog()`` captures data, MLflow will log to that run an
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
 
-Automatic Logging from Gluon (experimental)
-==================================================================
+Gluon (experimental)
+--------------------
 Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
 log statements. See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
 
@@ -266,6 +275,27 @@ Autologging captures the following information:
 
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
+XGBoost (experimental)
+----------------------
+Call :py:func:`mlflow.xgboost.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit log statements.
+
+Autologging captures the following information:
+
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                  | Tags          | Artifacts                                                           |
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------+
+| XGBoost   | user-specified metrics | `xgboost.train`_ parameters | --            | `MLflow Model`_ (XGBoost model) on training end; feature importance |
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------+
+
+If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
+
+.. note::
+  - This feature is experimental - the API and format of the logged data are subject to change.
+  - The `scikit-learn API`_ is not supported.
+
+.. _xgboost.train: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
+.. _MLflow Model: https://mlflow.org/docs/latest/models.html
+.. _scikit-learn API:  https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 
 .. _organizing_runs_in_experiments:
 
