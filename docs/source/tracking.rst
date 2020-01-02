@@ -334,6 +334,8 @@ The Tracking UI lets you visualize, search and compare runs, as well as download
 metadata for analysis in other tools. If you log runs to a local ``mlruns`` directory,
 run ``mlflow ui`` in the directory above it, and it loads the corresponding runs.
 Alternatively, the :ref:`MLflow tracking server <tracking_server>` serves the same UI and enables remote storage of run artifacts.
+In that case, you can view the UI using URL ``http://<ip address of your MLflow tracking server>:5000`` in your browser from any
+machine, including any remote machine that can connect to your tracking server.
 
 The UI contains the following key features:
 
