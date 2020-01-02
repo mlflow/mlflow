@@ -62,11 +62,12 @@ def delete_run(run_id):
 @commands.command("hard-delete")
 @RUN_ID
 def hard_delete_run(run_id):
+    """
+    Permanently delete a run. Return an error if the run does not exist.
+    """
     store = _get_store()
-    run = store.get_run(run_id)
-    artifact_repo = get_artifact_repository(run.info.artifact_uri)
-    artifact_repo.delete_artifacts(run.info.artifact_uri)
     store.hard_delete_run(run_id)
+    print("Run with ID %s has been permanently deleted." % str(run_id))
 
 
 @commands.command("restore")
