@@ -532,9 +532,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.store.ManagedSessionMaker() as session:
             actual_run = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
             self.assertEqual(None, actual_run)
-            actual_metric = session.query(models.SqlMetric).filter_by(run_uuid=run.info.run_id).first()
+            actual_metric = session.query(models.SqlMetric)\
+                .filter_by(run_uuid=run.info.run_id).first()
             self.assertEqual(None, actual_metric)
-            actual_param = session.query(models.SqlParam).filter_by(run_uuid=run.info.run_id).first()
+            actual_param = session.query(models.SqlParam)\
+                .filter_by(run_uuid=run.info.run_id).first()
             self.assertEqual(None, actual_param)
             actual_tag = session.query(models.SqlTag).filter_by(run_uuid=run.info.run_id).first()
             self.assertEqual(None, actual_tag)
