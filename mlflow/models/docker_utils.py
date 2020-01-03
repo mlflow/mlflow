@@ -13,7 +13,7 @@ DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
 
 _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve mlflow models.
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 RUN apt-get -y update && apt-get install -y --no-install-recommends \
          wget \
