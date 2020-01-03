@@ -168,3 +168,18 @@ def test_hidden_files_are_logged_correctly(local_artifact_repo):
             f.write("42")
         local_artifact_repo.log_artifact(hidden_file)
         assert open(local_artifact_repo.download_artifacts(".mystery")).read() == "42"
+
+
+def test_delete_artifacts(local_artifact_repo):
+    with TempDir() as local_dir:
+        os.mkdir(local_dir.path("subdir"))
+        os.mkdir(local_dir.path("subdir", "nested"))
+        with open(local_dir.path("subdir", "a.txt"), "w") as f:
+            f.write("A")
+        with open(local_dir.path("subdir", "b.txt"), "w") as f:
+            f.write("B")
+        with open(local_dir.path("subdir", "nested", "c.txt"), "w") as f:
+            f.write("C")
+        assert os.path.exists(os.path.join(local_dir.path(), "subdir"))
+        local_artifact_repo.delete_artifacts(os.path.join(local_dir.path(), "subdir"))
+        assert not os.path.exists(os.path.join(local_dir.path(), "subdir"))
