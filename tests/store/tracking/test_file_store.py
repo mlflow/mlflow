@@ -68,6 +68,8 @@ class TestFileStore(unittest.TestCase):
                             }
                 write_yaml(run_folder, FileStore.META_DATA_FILE_NAME, run_info)
                 self.run_data[run_id] = run_info
+                # tags
+                os.makedirs(os.path.join(run_folder, FileStore.TAGS_FOLDER_NAME))
                 # params
                 params_folder = os.path.join(run_folder, FileStore.PARAMS_FOLDER_NAME)
                 os.makedirs(params_folder)
@@ -307,6 +309,20 @@ class TestFileStore(unittest.TestCase):
         assert fs.get_run(run_id).info.lifecycle_stage == 'deleted'
         fs.restore_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == 'active'
+
+    def test_hard_delete_run(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        run_id = self.exp_data[exp_id]['runs'][0]
+        fs.hard_delete_run(run_id)
+        with self.assertRaises(MlflowException):
+            fs.get_run(run_id)
+        with self.assertRaises(MlflowException):
+            fs.get_all_tags(run_id)
+        with self.assertRaises(MlflowException):
+            fs.get_all_metrics(run_id)
+        with self.assertRaises(MlflowException):
+            fs.get_all_params(run_id)
 
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [
