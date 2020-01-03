@@ -292,7 +292,7 @@ def test_prepare_env_fails(sk_model):
         assert p.wait() != 0
 
 
-@pytest.mark.release
+@pytest.mark.large
 def test_build_docker(iris_data, sk_model):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
@@ -305,7 +305,7 @@ def test_build_docker(iris_data, sk_model):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
-@pytest.mark.release
+@pytest.mark.large
 def test_build_docker_with_env_override(iris_data, sk_model):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
