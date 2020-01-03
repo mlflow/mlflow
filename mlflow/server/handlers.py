@@ -283,8 +283,6 @@ def _delete_run():
 @catch_mlflow_exception
 def _hard_delete_run():
     request_message = _get_request_message(HardDeleteRun())
-    run = _get_tracking_store().get_run(request_message.run_id)
-    _get_artifact_repo(run).delete_artifacts(run.info.artifact_uri)
     _get_tracking_store().hard_delete_run(request_message.run_id)
     response_message = HardDeleteRun.Response()
     response = Response(mimetype='application/json')
