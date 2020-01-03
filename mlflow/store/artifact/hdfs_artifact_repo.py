@@ -154,8 +154,12 @@ class HdfsArtifactRepository(ArtifactRepository):
             return local_dir
 
     def _download_file(self, remote_file_path, local_path):
-        raise MlflowException(
-            'This is not implemented. Should never be called.')
+        _, _, path = _resolve_connection_params(remote_file_path)
+        if path.endswith('/'):
+            path = path[:-1]
+        with hdfs_system(host=self.host, port=self.port) as hdfs:
+            local_path = os.path.join(local_path, os.path.normpath(path.split('/')[-1]))
+            _download_hdfs_file(hdfs, path, local_path)
 
 
 @contextmanager
