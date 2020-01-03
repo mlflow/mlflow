@@ -177,7 +177,7 @@ def all_zeros_one_hot_labels():
 @pytest.fixture
 def keras_random_data_run_with_callback(all_zeros_train_data, fit_variant,
                                         all_zeros_one_hot_labels, manual_run,
-                                        callback, restore_best_weights):
+                                        callback, restore_weights):
     mlflow.keras.autolog()
 
     data = all_zeros_train_data
@@ -186,7 +186,7 @@ def keras_random_data_run_with_callback(all_zeros_train_data, fit_variant,
     model = create_model()
     if callback == 'early':
         callback = keras.callbacks.callbacks.EarlyStopping(monitor='loss', patience=5,
-                                                           restore_best_weights=restore_best_weights)
+                                                           restore_best_weights=restore_weights)
     else:
         if fit_variant == 'fit_generator':
             count_mode = 'steps'
@@ -208,7 +208,7 @@ def keras_random_data_run_with_callback(all_zeros_train_data, fit_variant,
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant,restore_best_weights', [('fit', True),
+@pytest.mark.parametrize('fit_variant,restore_weights', [('fit', True),
                                                               ('fit_generator', True)])
 @pytest.mark.parametrize('callback', ['early'])
 def test_keras_autolog_early_stop_logs_extra_step(keras_random_data_run_with_callback):
@@ -226,7 +226,7 @@ def test_keras_autolog_early_stop_logs_extra_step(keras_random_data_run_with_cal
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant,restore_best_weights', [('fit', False),
+@pytest.mark.parametrize('fit_variant,restore_weights', [('fit', False),
                                                               ('fit_generator', False)])
 @pytest.mark.parametrize('callback', ['early'])
 def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_with_callback):
@@ -241,7 +241,7 @@ def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant,restore_best_weights', [('fit', False),
+@pytest.mark.parametrize('fit_variant,restore_weights', [('fit', False),
                                                               ('fit_generator', False)])
 @pytest.mark.parametrize('callback', ['not-early'])
 def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_run_with_callback):
@@ -253,4 +253,3 @@ def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_ru
     # Check the test epoch numbers are correct
     assert num_of_epochs == 10
     assert len(metric_history) == num_of_epochs
-
