@@ -309,6 +309,15 @@ public class MlflowClient {
   }
 
   /**
+   * Delete a set of runs given IDs.
+   *
+   * @param runIds The list of run IDs to be deleted.
+   */
+  public void deleteRunBatch(Iterable<String> runIds) {
+    sendPost("runs/delete-batch", mapper.makeDeleteRunBatch(runIds));
+  }
+
+  /**
    * Restore a deleted run with the given ID.
    */
   public void restoreRun(String runId) {
