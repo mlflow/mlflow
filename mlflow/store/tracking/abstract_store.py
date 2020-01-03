@@ -149,6 +149,15 @@ class AbstractStore:
         pass
 
     @abstractmethod
+    def delete_run_batch(self, run_ids):
+        """
+        Delete a set of runs
+
+        :param run_ids A list of run_ids to be deleted
+        """
+        pass
+
+    @abstractmethod
     def restore_run(self, run_id):
         """
         Restore a run.

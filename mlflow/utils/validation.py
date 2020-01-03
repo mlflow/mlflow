@@ -25,6 +25,7 @@ _BAD_CHARACTERS_MESSAGE = (
 MAX_PARAMS_TAGS_PER_BATCH = 100
 MAX_METRICS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
+MAX_RUN_IDS_PER_BATCH = 10  # TODO(andy.chow): Investigate valid batch size limit
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
 MAX_PARAM_VAL_LENGTH = 250
 MAX_TAG_VAL_LENGTH = 5000
@@ -144,6 +145,16 @@ def _validate_run_id(run_id):
         raise MlflowException("Invalid run ID: '%s'" % run_id, error_code=INVALID_PARAMETER_VALUE)
 
 
+def _validate_batch_run_ids(run_ids):
+    """
+    Check run `run_id` is a valid run ID and raises an exception if it isn't. Secondly, checks
+    the max number of `run_ids` against the limit
+    """
+    for run_id in run_ids:
+        _validate_run_id(run_id)
+    _validate_batch_limit('run_id', MAX_RUN_IDS_PER_BATCH, len(run_ids))
+
+
 def _validate_experiment_id(exp_id):
     """Check that `experiment_id`is a valid string or None, raise an exception if it isn't."""
     if exp_id is not None and _EXPERIMENT_ID_REGEX.match(exp_id) is None:
@@ -153,7 +164,7 @@ def _validate_experiment_id(exp_id):
 
 def _validate_batch_limit(entity_name, limit, length):
     if length > limit:
-        error_msg = ("A batch logging request can contain at most {limit} {name}. "
+        error_msg = ("A batch request can contain at most {limit} {name}. "
                      "Got {count} {name}. Please split up {name} across multiple requests and try "
                      "again.").format(name=entity_name, count=length, limit=limit)
         raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)

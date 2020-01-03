@@ -208,8 +208,25 @@ service MlflowService {
     };
   }
 
-  // Restore a deleted run.
-  rpc restoreRun(RestoreRun) returns (RestoreRun.Response) {
+
+  rpc deleteRunBatch(DeleteRunBatch) returns (DeleteRunBatch.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/delete-batch"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
+        path: "/preview/mlflow/runs/delete-batch"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Run Batch",
+      };
+    }
+
+// Restore a deleted run.
+rpc restoreRun(RestoreRun) returns (RestoreRun.Response) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
@@ -772,6 +789,15 @@ message DeleteRun {
 
   // ID of the run to delete.
   optional string run_id = 1 [(validate_required) = true];
+
+  message Response {}
+}
+
+message DeleteRunBatch {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // IDs of the runs to delete
+  repeated string run_ids = 1;
 
   message Response {}
 }

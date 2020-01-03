@@ -316,6 +316,10 @@ class FileStore(AbstractStore):
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
         self._overwrite_run_info(new_info)
 
+    def delete_run_batch(self, run_ids):
+        for run_id in run_ids:
+            self.delete_run(run_id)
+
     def restore_run(self, run_id):
         run_info = self._get_run_info(run_id)
         if run_info is None:

@@ -24,8 +24,8 @@ from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
-    _validate_run_id, _validate_metric, _validate_experiment_tag, _validate_tag
-
+    _validate_run_id, _validate_metric, _validate_experiment_tag, _validate_tag, \
+    _validate_batch_run_ids
 
 _logger = logging.getLogger(__name__)
 
@@ -359,6 +359,20 @@ class SqlAlchemyStore(AbstractStore):
 
         return runs[0]
 
+    def _get_runs(self, session, run_uuids, eager=False):
+        """
+        :param eager: If ``True``, eagerly loads the run's summary metrics (``latest_metrics``),
+                      params, and tags when fetching the run. If ``False``, these attributes
+                      are not eagerly loaded and will be loaded when their corresponding
+                      object properties are accessed from the resulting ``SqlRun`` object.
+        """
+        query_options = self._get_eager_run_query_options() if eager else []
+        runs = session \
+            .query(SqlRun) \
+            .options(*query_options) \
+            .filter(SqlRun.run_uuid.in_(run_uuids)).all()
+        return runs
+
     @staticmethod
     def _get_eager_run_query_options():
         """
@@ -428,6 +442,15 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             run.lifecycle_stage = LifecycleStage.DELETED
             self._save_to_db(objs=run, session=session)
+
+    def delete_run_batch(self, run_ids):
+        _validate_batch_run_ids(run_ids=run_ids)
+        with self.ManagedSessionMaker() as session:
+            runs = self._get_runs(run_uuids=run_ids, session=session)
+            for run in runs:
+                self._check_run_is_active(run)
+                run.lifecycle_stage = LifecycleStage.DELETED
+            self._save_to_db(objs=runs, session=session)
 
     def log_metric(self, run_id, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)

@@ -37,6 +37,9 @@ class AbstractStoreTestImpl(AbstractStore):
     def delete_run(self, run_id):
         raise NotImplementedError()
 
+    def delete_run_batch(self, run_ids):
+        raise NotImplementedError()
+
     def restore_run(self, run_id):
         raise NotImplementedError()
 
