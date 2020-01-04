@@ -102,7 +102,7 @@ def mkdir(root, name=None):  # noqa
     try:
         os.makedirs(target)
     except OSError as e:
-        if e.errno != errno.EEXIST:
+        if e.errno != errno.EEXIST or not os.path.isdir(target):
             raise e
     return target
 
