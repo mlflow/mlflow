@@ -209,7 +209,7 @@ def keras_random_data_run_with_callback(all_zeros_train_data, fit_variant,
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant,restore_weights', [('fit', True),
-                                                              ('fit_generator', True)])
+                                                         ('fit_generator', True)])
 @pytest.mark.parametrize('callback', ['early'])
 def test_keras_autolog_early_stop_logs_extra_step(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
@@ -227,7 +227,7 @@ def test_keras_autolog_early_stop_logs_extra_step(keras_random_data_run_with_cal
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant,restore_weights', [('fit', False),
-                                                              ('fit_generator', False)])
+                                                         ('fit_generator', False)])
 @pytest.mark.parametrize('callback', ['early'])
 def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
@@ -242,7 +242,7 @@ def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant,restore_weights', [('fit', False),
-                                                              ('fit_generator', False)])
+                                                         ('fit_generator', False)])
 @pytest.mark.parametrize('callback', ['not-early'])
 def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback

@@ -459,13 +459,13 @@ def autolog():
         if early_stop_callback:
             try_mlflow_log(mlflow.log_metric, 'stopped_epoch', early_stop_callback.stopped_epoch)
             if early_stop_callback.restore_best_weights:
-                stopped_epoch_metrics = {key: history.history[key][early_stop_callback.stopped_epoch]
-                                         for key in history.history.keys()}
+                stopped_metrics = {key: history.history[key][early_stop_callback.stopped_epoch]
+                                   for key in history.history.keys()}
                 # Checking that a metric history exists
                 metric_key = next(iter(history.history), None)
                 if metric_key is not None:
                     last_epoch = len(history.history[metric_key])
-                    try_mlflow_log(mlflow.log_metrics, stopped_epoch_metrics, step=last_epoch)
+                    try_mlflow_log(mlflow.log_metrics, stopped_metrics, step=last_epoch)
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
@@ -503,13 +503,13 @@ def autolog():
         if early_stop_callback:
             try_mlflow_log(mlflow.log_metric, 'stopped_epoch', early_stop_callback.stopped_epoch)
             if early_stop_callback.restore_best_weights:
-                stopped_epoch_metrics = {key: history.history[key][early_stop_callback.stopped_epoch]
-                                         for key in history.history.keys()}
+                stopped_metrics = {key: history.history[key][early_stop_callback.stopped_epoch]
+                                   for key in history.history.keys()}
                 # Checking that a metric history exists
                 metric_key = next(iter(history.history), None)
                 if metric_key is not None:
                     last_epoch = len(history.history[metric_key])
-                    try_mlflow_log(mlflow.log_metrics, stopped_epoch_metrics, step=last_epoch)
+                    try_mlflow_log(mlflow.log_metrics, stopped_metrics, step=last_epoch)
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
