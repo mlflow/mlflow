@@ -37,6 +37,8 @@ _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
 _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
 # File name to which keras model is saved
 _MODEL_SAVE_PATH = "model.h5"
+# Conda env subpath when saving/loading model
+_CONDA_ENV_SUBPATH = "conda.yaml"
 
 
 def get_default_conda_env(include_cloudpickle=False, keras_module=None):
@@ -150,33 +152,58 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
     elif type(keras_module) == str:
         keras_module = importlib.import_module(keras_module)
 
+    # check if path exists
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
+
+    # construct new data folder in existing path
     data_subpath = "data"
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)
+
+    # save custom objects if there are custom objects
     if custom_objects is not None:
         _save_custom_objects(data_path, custom_objects)
+
+    # save keras module spec to path/data/keras_module.txt
     with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
         f.write(keras_module.__name__)
+
+    # save keras model to path/data/model.h5
     model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
-    keras_model.save(os.path.join(path, model_subpath), **kwargs)
+    model_path = os.path.join(path, model_subpath)
+    if path.startswith('/dbfs/'):
+        # The Databricks Filesystem uses a FUSE implementation that does not support
+        # random writes. It causes an error.
+        with tempfile.NamedTemporaryFile(suffix='.h5') as f:
+            keras_model.save(f.name, **kwargs)
+            f.flush()  # force flush the data
+            shutil.copyfile(src=f.name, dst=model_path)
+    else:
+        keras_model.save(model_path, **kwargs)
+
+    # update flavor info to mlflow_model
     mlflow_model.add_flavor(FLAVOR_NAME,
                             keras_module=keras_module.__name__,
                             keras_version=keras_module.__version__,
                             data=data_subpath)
-    conda_env_subpath = "conda.yaml"
+
+    # save conda.yaml info to path/conda.yml
     if conda_env is None:
         conda_env = get_default_conda_env(include_cloudpickle=custom_objects is not None,
                                           keras_module=keras_module)
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
+    with open(os.path.join(path, _CONDA_ENV_SUBPATH), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.keras",
-                        data=data_subpath, env=conda_env_subpath)
+                        data=data_subpath, env=_CONDA_ENV_SUBPATH)
+
+    # save mlflow_model to path/MLmodel
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
