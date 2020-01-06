@@ -95,4 +95,4 @@ class LocalArtifactRepository(ArtifactRepository):
         shutil.copyfile(remote_file_path, local_path)
 
     def delete_artifacts(self, artifact_path):
-        shutil.rmtree(artifact_path)
+        shutil.rmtree(local_file_uri_to_path(artifact_path))
