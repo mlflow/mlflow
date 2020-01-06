@@ -220,8 +220,7 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
     assert 'earlystopping_patience' in params
     assert params['earlystopping_patience'] == str(callback.patience)
     assert 'best_epoch' in metrics
-    assert int(metrics['stopped_epoch']) - max(1, int(params['earlystopping_patience'])) == \
-           int(metrics['best_epoch'])
+    assert int(metrics['stopped_epoch']) - max(1, callback.patience) == int(metrics['best_epoch'])
     assert 'loss' in history.history
     num_of_epochs = len(history.history['loss'])
     client = mlflow.tracking.MlflowClient()

@@ -485,15 +485,16 @@ def autolog():
 
         # Checking if an EarlyStopping callback was used
         if early_stop_callback:
+            stopped_epoch = early_stop_callback.stopped_epoch
             patience = early_stop_callback.patience
-            try_mlflow_log(mlflow.log_metric, 'stopped_epoch', early_stop_callback.stopped_epoch)
+            try_mlflow_log(mlflow.log_metric, 'stopped_epoch', stopped_epoch)
             try_mlflow_log(mlflow.log_param, 'earlystopping_patience', patience)
             # Weights are restored only if early stopping occurs
-            if early_stop_callback.stopped_epoch != 0 and early_stop_callback.restore_best_weights:
-                best_epoch = early_stop_callback.stopped_epoch - max(1, patience)
+            if stopped_epoch != 0 and early_stop_callback.restore_best_weights:
+                best_epoch = stopped_epoch - max(1, patience)
                 try_mlflow_log(mlflow.log_metric, 'best_epoch', best_epoch)
                 best_metrics = {key: history.history[key][best_epoch]
-                                   for key in history.history.keys()}
+                                for key in history.history.keys()}
                 # Checking that a metric history exists
                 metric_key = next(iter(history.history), None)
                 if metric_key is not None:
