@@ -489,7 +489,7 @@ def autolog():
             try_mlflow_log(mlflow.log_metric, 'stopped_epoch', early_stop_callback.stopped_epoch)
             try_mlflow_log(mlflow.log_param, 'earlystopping_patience', patience)
             # Weights are restored only if early stopping occurs
-            if early_stop_callback.stopped_epoch != 0 and early_stop_callback.restore_best_weight:
+            if early_stop_callback.stopped_epoch != 0 and early_stop_callback.restore_best_weights:
                 best_epoch = early_stop_callback.stopped_epoch - max(1, patience)
                 try_mlflow_log(mlflow.log_metric, 'best_epoch', best_epoch)
                 best_metrics = {key: history.history[key][best_epoch]
