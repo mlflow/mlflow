@@ -301,3 +301,24 @@ usages of the modified APIs in guides and examples.
 If adding a new public Python module, create a corresponding doc file for the module under
 ``docs/source/python_api`` - `see here <https://github.com/mlflow/mlflow/blob/v0.9.1/docs/source/python_api/mlflow.tracking.rst#mlflowtracking>`_
 for an example.
+
+
+MLflow Plugin System
+--------------------
+
+As a framework-agnostic tool for machine learning, MLflow aims to be pluggable & allow for integrations
+with different ML frameworks & backends. Currently, MLflow supports two forms of plugins:
+
+Tracking Store Plugins
+~~~~~~~~~~~~~~~~~~~~~~
+
+The MLflow Python API exposes a pluggable tracking store interface for providing custom client
+behavior when users call tracking API methods like ``start_run``, ``log_metric``, ``log_param``,
+etc. Tracking plugins can be used to log to a custom REST API, pull authentication from custom
+sources on a user's machine, and more.
+
+Writing a Tracking Plugin
+~~~~~~~~~~~~~~~~~~~~~~
+See
+
+
