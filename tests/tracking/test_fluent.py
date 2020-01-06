@@ -617,6 +617,9 @@ def test_delete_tag():
 
 def test_hard_delete_run():
     active_run = start_run()
-    MlflowClient().hard_delete_run(active_run.info.run_id)
+    run_id = active_run.info.run_id
+    mlflow.end_run()
+    MlflowClient().hard_delete_run(run_id)
     with pytest.raises(MlflowException):
-        mlflow.get_run(active_run.info.run_id)
+        mlflow.get_run(run_id)
+    mlflow.end_run()
