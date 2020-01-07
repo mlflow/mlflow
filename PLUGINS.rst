@@ -43,6 +43,10 @@ In particular, note that the example package contains a ``setup.py`` that declar
 
 The elements of this ``entry_points`` dictionary specify our various plugins:
 
+.. list-table:: Plugin Definitions
+   :widths: 20 80
+   :header-rows: 1
+
    * - Entry-point group
      - Entry-point name and value
    * - mlflow.tracking_store
