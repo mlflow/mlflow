@@ -9,8 +9,8 @@ Python client, allowing you to define custom behaviors for logging metrics, para
 set special context tags at run creation, and override model registry methods for registering
 models etc.
 
-Example Plugin
-~~~~~~~~~~~~~~
+Defining a Plugin
+~~~~~~~~~~~~~~~~~
 MLflow plugins are defined as standalone Python packages which can then be distributed for
 installation via PyPI or conda. See https://github.com/mlflow/mlflow/tree/branch-1.5/tests/resources/mlflow-test-plugin for an
 example package that implements all currently-supported plugin types.
@@ -43,7 +43,7 @@ In particular, note that the example package contains a ``setup.py`` that declar
 
 The elements of this ``entry_points`` dictionary specify our various plugins:
 
-.. list-table:: Plugin Definitions
+.. list-table::
    :widths: 20 80
    :header-rows: 1
 
@@ -60,7 +60,7 @@ The elements of this ``entry_points`` dictionary specify our various plugins:
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
    * - mlflow.artifact_repository
      - The entry point value (e.g. "mlflow_test_plugin:PluginLocalArtifactRepository") specifies a custom subclass of
-        `mlflow.store.artifact.artifact_repo.ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/artifact_repo.py#L12>`_
+       `mlflow.store.artifact.artifact_repo.ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/artifact_repo.py#L12>`_
        (e.g., the `PluginLocalArtifactRepository class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L18>`_
        within the ``mlflow_test_plugin`` module)
 
@@ -72,12 +72,15 @@ The elements of this ``entry_points`` dictionary specify our various plugins:
      - The entry point name is unused. The entry point value (e.g. "mlflow_test_plugin:PluginRunContextProvider") specifies a custom subclass of
        `mlflow.tracking.context.abstract_context.RunContextProvider <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/abstract_context.py#L4>`_
        (e.g., the `PluginRunContextProvider class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L23>`_
-       within the ``mlflow_test_plugin`` module) to register. When a run is created via the fluent ``mlflow.start_run`` method, MLflow
+       within the ``mlflow_test_plugin`` module) to register.
+
+       When a run is created via the fluent ``mlflow.start_run`` method, MLflow
        iterates through all registered RunContextProviders. For each context provider where ``in_context`` returns True, MLflow calls
        the ``tags`` method on the context provider to compute context tags for the run. All the context tags are then merged together
        and set on the newly-created run.
    * - mlflow.model_registry_store
-     - The entry point value (e.g. "mlflow_test_plugin:PluginRegistrySqlAlchemyStore") specifies a custom subclass of
+     - **Note**: The model registry is in beta (as of MLflow 1.5), so APIs are not guaranteed to be stable & model-registry plugins may break in the
+       future. The entry point value (e.g. "mlflow_test_plugin:PluginRegistrySqlAlchemyStore") specifies a custom subclass of
        `mlflow.tracking.model_registry.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/model_registry/abstract_store.py#L6>`_
        (e.g., the `PluginRegistrySqlAlchemyStore class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L33>`_
        within the ``mlflow_test_plugin`` module)
@@ -86,3 +89,22 @@ The elements of this ``entry_points`` dictionary specify our various plugins:
        In the example above, who install the plugin & set a tracking URI of the form "file-plugin://<path>" will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
 
+
+Testing Your Plugin
+~~~~~~~~~~~~~~~~~~~
+
+We recommend testing your plugin to ensure that it follows the contract expected by MLflow. For
+example, a tracking AbstractStore plugin should contain tests verifying correctness of its
+``log_metric``, ``log_param``, ... etc implementations.
+
+
+Distributing Your Plugin
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Assuming you've structured your plugin similarly to the example plugin, you can `distribute it
+via PyPI <https://packaging.python.org/guides/distributing-packages-using-setuptools/>`_. We
+recommend against including your plugin in MLflow proper to keep the package size small, but
+please feel free to reach out via GitHub issues if you feel your plugin addresses a
+sufficiently-common use case to warrant inclusion.
+
+Congrats, you've now written & distributed your own MLflow plugin!
