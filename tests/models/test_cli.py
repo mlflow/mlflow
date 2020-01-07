@@ -278,7 +278,8 @@ def test_prepare_env_fails(sk_model):
 
     with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, "model", conda_env={"dependencies": ["mlflow-does-not-exist-dep==abc"]})
+            mlflow.sklearn.log_model(sk_model, "model",
+                                     conda_env={"dependencies": ["mlflow-does-not-exist-dep==abc"]})
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
 
         # Test with no conda
