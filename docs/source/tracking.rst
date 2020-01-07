@@ -281,9 +281,13 @@ Autologging captures the following information:
 | Framework        | Metrics | Parameters |  Tags                                              | Artifacts |
 +------------------+---------+------------+----------------------------------------------------+-----------+
 | Spark            | --      | --         | Single tag containing source path, version, format | --        |
+|                  |         |            | The tag contains one line per datasource           | --        |
 +------------------+---------+------------+----------------------------------------------------+-----------+
 
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
+Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely)
+to see race conditions when launching short-lived MLflow runs that result in datasource information
+not being logged.
 
 
 .. _organizing_runs_in_experiments:

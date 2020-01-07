@@ -79,12 +79,12 @@ def format_to_file_path(spark_session):
     ])
     rdd = spark_session.sparkContext.parallelize(rows)
     df = spark_session.createDataFrame(rdd, schema)
-    format_to_file_path = {}
+    res = {}
     tempdir = tempfile.mkdtemp()
     for data_format in ["csv", "parquet", "json"]:
-        format_to_file_path[data_format] = os.path.join(tempdir, "test-data-%s" % data_format)
+        res[data_format] = os.path.join(tempdir, "test-data-%s" % data_format)
 
-    for data_format, file_path in format_to_file_path.items():
+    for data_format, file_path in res.items():
         df.write.option("header", "true").format(data_format).save(file_path)
-    yield format_to_file_path
+    yield res
     shutil.rmtree(tempdir)

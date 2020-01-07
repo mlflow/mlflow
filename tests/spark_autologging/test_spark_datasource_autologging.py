@@ -108,7 +108,7 @@ def test_autologging_dedups_multiple_reads_of_same_datasource(
         df.filter("number1 > 0").collect()
         df.limit(2).collect()
         df.collect()
-    time.sleep(1)
+        time.sleep(1)
     run = mlflow.get_run(run_id)
     _assert_spark_data_logged(run=run, path=file_path, data_format=data_format)
     # Test context provider flow

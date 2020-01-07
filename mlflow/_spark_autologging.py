@@ -99,7 +99,6 @@ def autolog():
     global _spark_table_info_listener
     if _get_current_listener() is None:
         active_session = _get_active_spark_session()
-        print("@SID got active session %s" % active_session)
         if active_session is None:
             raise MlflowException(
                 "No active SparkContext found, refusing to enable Spark datasource "
@@ -128,7 +127,6 @@ def autolog():
             _spark_table_info_listener = PythonSubscriber()
             _spark_table_info_listener.register()
         except Exception as e:
-            # TODO format exception
             raise MlflowException("Exception while attempting to initialize JVM-side state for "
                                   "Spark datasource autologging. Please ensure you have the "
                                   "mlflow-spark JAR attached to your Spark session as described "
@@ -142,6 +140,13 @@ def autolog():
 
 
 def _get_repl_id():
+    """
+    Get a unique REPL ID for a PythonSubscriber instance. This is used to distinguish between
+    REPLs in multitenant, REPL-aware environments where multiple Python processes may share the
+    same Spark JVM (e.g. in Databricks). In such environments, we pull the REPL ID from Spark
+    local properties, and expect that the PythonSubscriber for the current Python process only
+    receives events for datasource reads triggered by the current process.
+    """
     repl_id = SparkContext.getOrCreate().getLocalProperty("spark.databricks.replId")
     if repl_id:
         return repl_id
@@ -156,6 +161,10 @@ class PythonSubscriber(object):
     class implements a Java interface (org.mlflow.spark.autologging.MlflowAutologEventSubscriber,
     defined in the mlflow-spark package) that's called-into by autologging logic in the JVM in order
     to propagate Spark datasource read events to Python.
+
+    This class leverages the Py4j callback mechanism to receive callbacks from the JVM, see
+    https://www.py4j.org/advanced_topics.html#implementing-java-interfaces-from-python-callback for
+    more information.
     """
     def __init__(self):
         self._repl_id = _get_repl_id()
@@ -217,14 +226,12 @@ class SparkAutologgingContext(RunContextProvider):
                 if info not in seen:
                     unique_infos.append(info)
                     seen.add(info)
-            try:
-                if len(_table_infos) > 0:
-                    tags = {
-                        _SPARK_TABLE_INFO_TAG_NAME: "\n".join([_get_table_info_string(*info)
-                                                               for info in unique_infos])
-                    }
-                    return tags
-                else:
-                    return {}
-            finally:
-                _table_infos = []
+            if len(_table_infos) > 0:
+                tags = {
+                    _SPARK_TABLE_INFO_TAG_NAME: "\n".join([_get_table_info_string(*info)
+                                                           for info in unique_infos])
+                }
+            else:
+                tags = {}
+            _table_infos = []
+            return tags
