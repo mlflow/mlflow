@@ -221,16 +221,16 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
 Automatic Logging
 =================
 
-Automatic logging allows you to log metrics and parameters without the need for explicit log statements.
+Automatic logging allows you to log metrics, parameters, and models without the need for explicit
+log statements, and is currently supported for:
 
-.. contents:: In this section:
+.. contents::
   :local:
   :depth: 1
 
 TensorFlow and Keras (experimental)
 -----------------------------------
-Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
-log statements. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
+Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
 `TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 
 Autologging captures the following information:
@@ -257,13 +257,13 @@ If a run exists when ``autolog()`` captures data, MLflow will log to that run an
 
 .. note::
   - Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
-  - his feature is experimental - the API and format of the logged data are subject to change.
+  - This feature is experimental - the API and format of the logged data are subject to change.
 
 
 Gluon (experimental)
 --------------------
-Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
-log statements. See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
+Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
+See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
 
 Autologging captures the following information:
 
@@ -278,7 +278,7 @@ Autologging captures the following information:
 
 XGBoost (experimental)
 ----------------------
-Call :py:func:`mlflow.xgboost.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit log statements.
+Call :py:func:`mlflow.xgboost.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
 
