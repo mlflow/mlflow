@@ -45,20 +45,6 @@ The elements of this ``entry_points`` dictionary specify our various plugins:
 
 Table with columns:
 
-+------------------+-----------------------------------------------------------+-------------------------
-| Entry-point group                | Entry-point name     | Entry-point value                           | Tags          | Artifacts                                                                                                                                        |
-|                                  | (e.g. "file-plugin"  | (e.g. "mlflow_test_plugin:PluginFileStore"  |
-+------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| mlflow.tracking_store"           | Specifies the tracking URI scheme associated with the
-+------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.keras``     | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | Model summary | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs on training end    |
-+------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.estimator`` | TensorBoard metrics                                    | steps, max_steps                                             | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call to ``tf.estimator.export_saved_model``                     |
-+------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                           | --            | --                                                                                                                                               |
-+------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-
-
 Entry-point group  Entry-point name Entry-point value
 
 mlflow.tracking_store  Tracking URI scheme associated with the plugin. For example e.g. "mlflow_test_plugin:PluginFileStore". Custom subclass
@@ -90,3 +76,22 @@ mlflow.tracking_store  Tracking URI scheme associated with the plugin. For examp
    :file: plugins.csv
    :widths: 30, 70
    :header-rows: 1
+
+
+.. list-table:: Frozen Delights!
+   :widths: 15 10 30
+   :header-rows: 1
+
+   * - Treat
+     - Quantity
+     - Description
+   * - Albatross
+     - 2.99
+     - On a stick!
+   * - Crunchy Frog
+     - 1.49
+     - If we took the bones out, it wouldn't be
+       crunchy, now would it?
+   * - Gannet Ripple
+     - 1.99
+     - On a stick!
