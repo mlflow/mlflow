@@ -45,7 +45,7 @@ The elements of this ``entry_points`` dictionary specify our various plugins. No
 can choose to implement one or more plugin types in your package, and need not implement them all.
 
 .. list-table::
-   :widths: 20 80
+   :widths: 20 80 20
    :header-rows: 1
 
    * - Entry-point group
