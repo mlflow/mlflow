@@ -43,8 +43,9 @@ In particular, note that the example package contains a ``setup.py`` that declar
 
 The elements of this ``entry_points`` dictionary specify our various plugins. Note that you
 can choose to implement one or more plugin types in your package, and need not implement them all.
-The plugin defined by each entry point & its reference implementation in MLflow are described below.
-You can work from the reference implementations when writing your own plugin:
+The type of plugin defined by each entry point & its corresponding reference implementation in
+MLflow are described below. You can work from the reference implementations when writing your own
+plugin:
 
 .. list-table::
    :widths: 20 20 20 20
