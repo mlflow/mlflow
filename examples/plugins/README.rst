@@ -63,9 +63,9 @@ You can work from the reference implementations when writing your own plugin:
        within the ``mlflow_test_plugin`` module).
 
        The entry point name (e.g. ``file-plugin``) is the tracking URI scheme with which to associate the custom AbstractStore implementation.
-       In the example above, who install the plugin & set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
+       In the example above, users who install the plugin & set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
-     - `FileStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/file_store.py>`_.
+     - `FileStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/file_store.py>`_
 
    * - Plugins for defining artifact read/write APIs like ``mlflow.log_artifact``, ``MlflowClient.download_artifacts`` for a specified
        artifact URI scheme (e.g. the scheme used by your in-house blob storage system).
@@ -83,12 +83,7 @@ You can work from the reference implementations when writing your own plugin:
 
 
    * - Plugins for specifying custom context tags at run creation time, e.g. tags indicating the git repo
-       the run is associate with.
-
-       When a run is created via the fluent ``mlflow.start_run`` method, MLflow
-       iterates through all registered RunContextProviders. For each context provider where ``in_context`` returns True, MLflow calls
-       the ``tags`` method on the context provider to compute context tags for the run. All the context tags are then merged together
-       and set on the newly-created run.
+       the run is associated with.
      - mlflow.run_context_provider
      - The entry point name is unused. The entry point value (e.g. ``mlflow_test_plugin:PluginRunContextProvider``) specifies a custom subclass of
        `mlflow.tracking.context.abstract_context.RunContextProvider <https://github.com/mlflow/mlflow/blob/master/mlflow/tracking/context/abstract_context.py#L4>`_
@@ -117,15 +112,13 @@ Testing Your Plugin
 
 We recommend testing your plugin to ensure that it follows the contract expected by MLflow. For
 example, a tracking AbstractStore plugin should contain tests verifying correctness of its
-``log_metric``, ``log_param``, ... etc implementations. You can also use the tests for MLflow's
-reference implementations as an example to work from:
+``log_metric``, ``log_param``, ... etc implementations. See also the tests for MLflow's
+reference implementations as an example:
 
 * `Example tracking AbstractStore tests <https://github.com/mlflow/mlflow/blob/master/tests/store/tracking/test_file_store.py>`_
 * `Example ArtifactRepository tests <https://github.com/mlflow/mlflow/blob/master/tests/store/artifact/test_local_artifact_repo.py>`_
 * `Example RunContextProvider tests <https://github.com/mlflow/mlflow/blob/master/tests/tracking/context/test_git_context.py>`_
-* asdf
-
-
+* `Example model-registry AbstractStore tests <https://github.com/mlflow/mlflow/blob/master/tests/store/model_registry/test_sqlalchemy_store.py>`_
 
 
 Distributing Your Plugin
