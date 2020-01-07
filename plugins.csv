@@ -1,0 +1,13 @@
+Entry point group,Entry point name & value
+mlflow.tracking_store,"The entry point value (e.g. ""mlflow_test_plugin:PluginFileStore"") specifies a custom subclass of `mlflow.tracking.store.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/abstract_store.py#L8>`_
+  (specifically, the `PluginFileStore class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L9>`_
+  within the ``mlflow_test_plugin`` module)
+
+The entry point name (e.g. ""file-plugin"") is the tracking URI scheme with which to associate the custom AbstractStore implementation. Users who install the plugin & set a tracking URI of the form ""file-plugin://<path>"" will
+use the custom AbstractStore implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor."
+mlflow.tracking_store,"The entry point value (e.g. ""mlflow_test_plugin:PluginFileStore"") specifies a custom subclass of `mlflow.tracking.store.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/abstract_store.py#L8>`_
+  (specifically, the `PluginFileStore class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L9>`_
+  within the ``mlflow_test_plugin`` module)
+
+The entry point name (e.g. ""file-plugin"") is the tracking URI scheme with which to associate the custom AbstractStore implementation. Users who install the plugin & set a tracking URI of the form ""file-plugin://<path>"" will
+use the custom AbstractStore implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor."

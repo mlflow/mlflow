@@ -320,9 +320,16 @@ The MLflow Python API currently supports several types of plugins:
 * [Tracking] Run context providers: specify context tags to be set on runs created via the
   ``mlflow.start_run`` fluent API.
 
-MLflow plugins are defined as standalone Python packages, which can then be distributed for
-installation via PyPI or conda. See https://github.com/mlflow/mlflow/tree/branch-1.5/tests/resources/mlflow-test-plugin for an
+MLflow plugins are defined as standalone Python packages which can then be distributed for
+installation via PyPI or conda. See `Writing Plugins <https://github.com/mlflow/mlflow/blob/master/PLUGINS.rst>`_
+for more information & best practices for writing your own plugin.
+
+See https://github.com/mlflow/mlflow/tree/branch-1.5/tests/resources/mlflow-test-plugin for an
 example package that implements each of the abovementioned types of plugin.
+
+MLflow Plugin System
+--------------------
+
 
 In particular, note that ``setup.py`` declares a number of `entry points <https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_
 by passing an ``entry_points`` argument to setuptools' ``setup`` function:
@@ -353,8 +360,13 @@ by passing an ``entry_points`` argument to setuptools' ``setup`` function:
 The elements of this ``entry_points`` dictionary specify our various plugins:
 
 * ``"mlflow.tracking_store": "file-plugin=mlflow_test_plugin:PluginFileStore"`` - this line
-  declares an entry-point group named "mlflow.tracking_store" and defines a single entry point
-  within the group, with name "file-plugin" and value "mlflow_test_plugin:PluginFileStore".
+  specifies a custom subclass of `mlflow.tracking.store.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/abstract_store.py#L8>`_
+  (specifically, the `PluginFileStore class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L9>`_
+  within the ``mlflow_test_plugin`` module) and associates it with tracking URIs with the scheme
+  ``file-plugin``
+*
+
+  plugin for tracking URIs with scheme 'file-plugin'.
   MLflow extracts entry points under the ``mlflow.tracking_store`` group, and constructs
   the specified subclass of `mlflow.tracking.store.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/abstract_store.py#L8>`_
 
