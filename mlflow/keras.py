@@ -449,10 +449,32 @@ def autolog():
             try_mlflow_log(log_model, self.model, artifact_path='model')
 
     def early_stop_check(callbacks):
+        if LooseVersion(keras.__version__) < LooseVersion('2.3.0'):
+            es_callback = keras.callbacks.EarlyStopping
+        else:
+            es_callback = keras.callbacks.callbacks.EarlyStopping
         for callback in callbacks:
-            if isinstance(callback, keras.callbacks.callbacks.EarlyStopping):
+            if isinstance(callback, es_callback):
                 return callback
         return None
+
+    def log_early_stop(callback, history):
+        if callback:
+            stopped_epoch = callback.stopped_epoch
+            patience = callback.patience
+            try_mlflow_log(mlflow.log_metric, 'stopped_epoch', stopped_epoch)
+            try_mlflow_log(mlflow.log_param, 'earlystopping_patience', patience)
+            # Weights are restored only if early stopping occurs
+            if stopped_epoch != 0 and callback.restore_best_weights:
+                best_epoch = stopped_epoch - max(1, patience)
+                try_mlflow_log(mlflow.log_metric, 'best_epoch', best_epoch)
+                best_metrics = {key: history.history[key][best_epoch]
+                                for key in history.history.keys()}
+                # Checking that a metric history exists
+                metric_key = next(iter(history.history), None)
+                if metric_key is not None:
+                    last_epoch = len(history.history[metric_key])
+                    try_mlflow_log(mlflow.log_metrics, best_metrics, step=last_epoch)
 
     @gorilla.patch(keras.Model)
     def fit(self, *args, **kwargs):
@@ -483,23 +505,7 @@ def autolog():
 
         history = original(self, *args, **kwargs)
 
-        # Checking if an EarlyStopping callback was used
-        if early_stop_callback:
-            stopped_epoch = early_stop_callback.stopped_epoch
-            patience = early_stop_callback.patience
-            try_mlflow_log(mlflow.log_metric, 'stopped_epoch', stopped_epoch)
-            try_mlflow_log(mlflow.log_param, 'earlystopping_patience', patience)
-            # Weights are restored only if early stopping occurs
-            if stopped_epoch != 0 and early_stop_callback.restore_best_weights:
-                best_epoch = stopped_epoch - max(1, patience)
-                try_mlflow_log(mlflow.log_metric, 'best_epoch', best_epoch)
-                best_metrics = {key: history.history[key][best_epoch]
-                                for key in history.history.keys()}
-                # Checking that a metric history exists
-                metric_key = next(iter(history.history), None)
-                if metric_key is not None:
-                    last_epoch = len(history.history[metric_key])
-                    try_mlflow_log(mlflow.log_metrics, best_metrics, step=last_epoch)
+        log_early_stop(early_stop_callback, history)
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
@@ -534,21 +540,7 @@ def autolog():
 
         history = original(self, *args, **kwargs)
 
-        # Checking if an EarlyStopping callback was used
-        if early_stop_callback:
-            patience = early_stop_callback.patience
-            try_mlflow_log(mlflow.log_metric, 'stopped_epoch', early_stop_callback.stopped_epoch)
-            try_mlflow_log(mlflow.log_param, 'earlystopping_patience', patience)
-            if early_stop_callback.stopped_epoch != 0 and early_stop_callback.restore_best_weights:
-                best_epoch = early_stop_callback.stopped_epoch - max(1, patience)
-                try_mlflow_log(mlflow.log_metric, 'best_epoch', best_epoch)
-                best_metrics = {key: history.history[key][best_epoch]
-                                for key in history.history.keys()}
-                # Checking that a metric history exists
-                metric_key = next(iter(history.history), None)
-                if metric_key is not None:
-                    last_epoch = len(history.history[metric_key])
-                    try_mlflow_log(mlflow.log_metrics, best_metrics, step=last_epoch)
+        log_early_stop(early_stop_callback, history)
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
