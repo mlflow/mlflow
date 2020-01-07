@@ -41,7 +41,8 @@ In particular, note that the example package contains a ``setup.py`` that declar
         },
     )
 
-The elements of this ``entry_points`` dictionary specify our various plugins:
+The elements of this ``entry_points`` dictionary specify our various plugins. Note that you
+can choose to implement one or more plugin types in your package, and need not implement them all.
 
 .. list-table::
    :widths: 20 80
@@ -49,6 +50,7 @@ The elements of this ``entry_points`` dictionary specify our various plugins:
 
    * - Entry-point group
      - Entry-point name and value
+     - Role
    * - mlflow.tracking_store
      - The entry point value (e.g. ``mlflow_test_plugin:PluginFileStore``) specifies a custom subclass of
        `mlflow.tracking.store.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/abstract_store.py#L8>`_
@@ -58,6 +60,8 @@ The elements of this ``entry_points`` dictionary specify our various plugins:
        The entry point name (e.g. ``file-plugin``) is the tracking URI scheme with which to associate the custom AbstractStore implementation.
        In the example above, who install the plugin & set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
+     - These plugins allow for overriding definitions of tracking APIs like ``mlflow.log_metric``, ``mlflow.start_run`` for a specific
+       tracking URI scheme.
    * - mlflow.artifact_repository
      - The entry point value (e.g. ``mlflow_test_plugin:PluginLocalArtifactRepository``) specifies a custom subclass of
        `mlflow.store.artifact.artifact_repo.ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/artifact_repo.py#L12>`_
@@ -68,13 +72,14 @@ The elements of this ``entry_points`` dictionary specify our various plugins:
        In the example above, who install the plugin & log to a run whose artifact URI is of the form "file-plugin://<path>" will use the
        custom ArtifactRepository implementation defined in ``PluginLocalArtifactRepository``.
        The full artifact URI is passed to the ``PluginLocalArtifactRepository`` constructor.
+     - These plugins allow for defining artifact read/write APIs like ``mlflow.log_artifact``, ``MlflowClient.download_artifacts`` for a specified
+       artifact URI scheme (e.g. the scheme used by your in-house blob storage system).
    * - mlflow.run_context_provider
      - The entry point name is unused. The entry point value (e.g. ``mlflow_test_plugin:PluginRunContextProvider``) specifies a custom subclass of
        `mlflow.tracking.context.abstract_context.RunContextProvider <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/abstract_context.py#L4>`_
        (e.g., the `PluginRunContextProvider class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L23>`_
        within the ``mlflow_test_plugin`` module) to register.
-
-       When a run is created via the fluent ``mlflow.start_run`` method, MLflow
+     - When a run is created via the fluent ``mlflow.start_run`` method, MLflow
        iterates through all registered RunContextProviders. For each context provider where ``in_context`` returns True, MLflow calls
        the ``tags`` method on the context provider to compute context tags for the run. All the context tags are then merged together
        and set on the newly-created run.
@@ -90,6 +95,7 @@ The elements of this ``entry_points`` dictionary specify our various plugins:
        The entry point name (e.g. ``file-plugin``) is the tracking URI scheme with which to associate the custom AbstractStore implementation.
        In the example above, who install the plugin & set a tracking URI of the form "file-plugin://<path>" will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
+     - These plugins allow for overriding definitions of model registry APIs like ``mlflow.register_model``.
 
 
 Testing Your Plugin
