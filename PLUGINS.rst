@@ -43,57 +43,42 @@ In particular, note that the example package contains a ``setup.py`` that declar
 
 The elements of this ``entry_points`` dictionary specify our various plugins:
 
-Table with columns:
+   * - Entry-point group
+     - Entry-point name and value
+   * - mlflow.tracking_store
+     - The entry point value (e.g. "mlflow_test_plugin:PluginFileStore") specifies a custom subclass of
+       `mlflow.tracking.store.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/abstract_store.py#L8>`_
+       (e.g., the `PluginFileStore class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L9>`_
+       within the ``mlflow_test_plugin`` module)
 
-Entry-point group  Entry-point name Entry-point value
+       The entry point name (e.g. "file-plugin") is the tracking URI scheme with which to associate the custom AbstractStore implementation.
+       In the example above, who install the plugin & set a tracking URI of the form "file-plugin://<path>" will use the custom AbstractStore
+       implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
+   * - mlflow.artifact_repository
+     - The entry point value (e.g. "mlflow_test_plugin:PluginLocalArtifactRepository") specifies a custom subclass of
+        `mlflow.store.artifact.artifact_repo.ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/artifact_repo.py#L12>`_
+       (e.g., the `PluginLocalArtifactRepository class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L18>`_
+       within the ``mlflow_test_plugin`` module)
 
-mlflow.tracking_store  Tracking URI scheme associated with the plugin. For example e.g. "mlflow_test_plugin:PluginFileStore". Custom subclass
+       The entry point name (e.g. "file-plugin") is the artifact URI scheme with which to associate the custom ArtifactRepository implementation.
+       In the example above, who install the plugin & log to a run whose artifact URI is of the form "file-plugin://<path>" will use the
+       custom ArtifactRepository implementation defined in ``PluginLocalArtifactRepository``.
+       The full artifact URI is passed to the ``PluginLocalArtifactRepository`` constructor.
+   * - mlflow.run_context_provider
+     - The entry point name is unused. The entry point value (e.g. "mlflow_test_plugin:PluginRunContextProvider") specifies a custom subclass of
+       `mlflow.tracking.context.abstract_context.RunContextProvider <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/abstract_context.py#L4>`_
+       (e.g., the `PluginRunContextProvider class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L23>`_
+       within the ``mlflow_test_plugin`` module) to register. When a run is created via the fluent ``mlflow.start_run`` method, MLflow
+       iterates through all registered RunContextProviders. For each context provider where ``in_context`` returns True, MLflow calls
+       the ``tags`` method on the context provider to compute context tags for the run. All the context tags are then merged together
+       and set on the newly-created run.
+   * - mlflow.model_registry_store
+     - The entry point value (e.g. "mlflow_test_plugin:PluginRegistrySqlAlchemyStore") specifies a custom subclass of
+       `mlflow.tracking.model_registry.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/model_registry/abstract_store.py#L6>`_
+       (e.g., the `PluginRegistrySqlAlchemyStore class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L33>`_
+       within the ``mlflow_test_plugin`` module)
 
-* ``"mlflow.tracking_store": "file-plugin=mlflow_test_plugin:PluginFileStore"`` - this line
-  specifies a custom subclass of `mlflow.tracking.store.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/abstract_store.py#L8>`_
-  (specifically, the `PluginFileStore class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L9>`_
-  within the ``mlflow_test_plugin`` module) and associates it with tracking URIs with the scheme
-  ``file-plugin``. Users who install the plugin & set a tracking URI of the form "file-plugin://<path>" will
-  use the custom AbstractStore implementation defined in ``PluginFileStore``. The full tracking URI
-  is passed to the ``PluginFileStore`` constructor.
+       The entry point name (e.g. "file-plugin") is the tracking URI scheme with which to associate the custom AbstractStore implementation.
+       In the example above, who install the plugin & set a tracking URI of the form "file-plugin://<path>" will use the custom AbstractStore
+       implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
 
-* ``"mlflow.artifact_repository": "mlflow_test_plugin:PluginLocalArtifactRepository"`` - this line
-  specifies a custom subclass of `mlflow.tracking.store.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/abstract_store.py#L8>`_
-  (specifically, the `PluginFileStore class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L9>`_
-  within the ``mlflow_test_plugin`` module) and associates it with tracking URIs with the scheme
-  ``file-plugin``. Users who install the plugin & set a tracking URI of the form "file-plugin://<path>" will
-  use the custom AbstractStore implementation defined in ``PluginFileStore``. The full tracking URI
-  is passed to the ``PluginFileStore`` constructor.
-
-
-* ``"mlflow.tracking_store": "file-plugin=mlflow_test_plugin:PluginFileStore"`` - this line
-  specifies a custom subclass of `mlflow.tracking.store.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/abstract_store.py#L8>`_
-  (specifically, the `PluginFileStore class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L9>`_
-  within the ``mlflow_test_plugin`` module) and associates it with tracking URIs with the scheme
-  ``file-plugin``
-
-.. csv-table:: Table Title
-   :file: plugins.csv
-   :widths: 30, 70
-   :header-rows: 1
-
-
-.. list-table:: Frozen Delights!
-   :widths: 15 10 30
-   :header-rows: 1
-
-   * - Treat
-     - Quantity
-     - Description
-   * - Albatross
-     - 2.99
-     - On a stick!
-   * - Crunchy Frog
-     - 1.49
-     - If we took the bones out, it wouldn't be
-       crunchy, now would it?
-
-       Here's some text, but after a newline.
-   * - Gannet Ripple
-     - 1.99
-     - On a stick!
