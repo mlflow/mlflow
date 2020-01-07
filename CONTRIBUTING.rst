@@ -306,8 +306,8 @@ for an example.
 MLflow Plugin System
 --------------------
 
-As a framework-agnostic tool for machine learning, MLflow aims to be pluggable & allow for integrations
-with different ML frameworks & backends.
+As a framework-agnostic tool for machine learning, MLflow provides developer APIs for
+writing plugins that integrate with different ML frameworks & backends.
 
 The MLflow Python API currently supports several types of plugins:
 
@@ -323,72 +323,3 @@ The MLflow Python API currently supports several types of plugins:
 MLflow plugins are defined as standalone Python packages which can then be distributed for
 installation via PyPI or conda. See `Writing Plugins <https://github.com/mlflow/mlflow/blob/master/PLUGINS.rst>`_
 for more information & best practices for writing your own plugin.
-
-See https://github.com/mlflow/mlflow/tree/branch-1.5/tests/resources/mlflow-test-plugin for an
-example package that implements each of the abovementioned types of plugin.
-
-MLflow Plugin System
---------------------
-
-
-In particular, note that ``setup.py`` declares a number of `entry points <https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_
-by passing an ``entry_points`` argument to setuptools' ``setup`` function:
-
-.. code-block:: python
-
-    setup(
-        name="mflow-test-plugin",
-        # Require MLflow as a dependency of the plugin, so that plugin users can simply install
-        # the plugin & then immediately use it with MLflow
-        install_requires=["mlflow"],
-        ...
-        entry_points={
-            # Define a tracking AbstractStore plugin for tracking URIs with scheme 'file-plugin'
-            "mlflow.tracking_store": "file-plugin=mlflow_test_plugin:PluginFileStore",
-            # Define a ArtifactRepository plugin for artifact URIs with scheme 'file-plugin'
-            "mlflow.artifact_repository":
-                "file-plugin=mlflow_test_plugin:PluginLocalArtifactRepository",
-            # Define a RunContextProvider plugin. The entry point name for run context providers
-            # is not used, and so is set to the string "unused" here
-            "mlflow.run_context_provider": "unused=mlflow_test_plugin:PluginRunContextProvider",
-            #
-            "mlflow.model_registry_store":
-                "file-plugin=mlflow_test_plugin:PluginRegistrySqlAlchemyStore",
-        },
-    )
-
-The elements of this ``entry_points`` dictionary specify our various plugins:
-
-* ``"mlflow.tracking_store": "file-plugin=mlflow_test_plugin:PluginFileStore"`` - this line
-  specifies a custom subclass of `mlflow.tracking.store.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/abstract_store.py#L8>`_
-  (specifically, the `PluginFileStore class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L9>`_
-  within the ``mlflow_test_plugin`` module) and associates it with tracking URIs with the scheme
-  ``file-plugin``
-*
-
-  plugin for tracking URIs with scheme 'file-plugin'.
-  MLflow extracts entry points under the ``mlflow.tracking_store`` group, and constructs
-  the specified subclass of `mlflow.tracking.store.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/abstract_store.py#L8>`_
-
-
-this line
-  declares the ``PluginFileStore`` class, defined under the ``mlflow_test_plugin`` module, as
-  a tracking plugin associated with tra
-
-passing a
-These definitions
-
-ArtifactRepository Plugins
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The MLflow Python API exposes a pluggable tracking store interface for providing custom client
-behavior when users call tracking API methods like ``start_run``, ``log_metric``, ``log_artifact``,
-etc. Tracking plugins can be used to log to a custom REST API, pull authentication from custom
-sources on a user's machine, and more.
-
-Writing a Tracking Plugin
-~~~~~~~~~~~~~~~~~~~~~~~~~
-See https://github.com/mlflow/mlflow/tree/branch-1.5/tests/resources/mlflow-test-plugin for an
-example of a tracking plugin. The tracking plugins
-
-
