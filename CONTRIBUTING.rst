@@ -303,11 +303,15 @@ If adding a new public Python module, create a corresponding doc file for the mo
 for an example.
 
 
-MLflow Plugin System
---------------------
+Writing an MLflow Plugin
+------------------------
 
-As a framework-agnostic tool for machine learning, MLflow provides developer APIs for
+As a framework-agnostic tool for machine learning, the MLflow Python API provides developer APIs for
 writing plugins that integrate with different ML frameworks & backends.
+
+MLflow Python API plugins provide a powerful mechanism for customizing the behavior of the MLflow
+Python client, allowing you to define custom behaviors for logging metrics, params, and artifacts,
+set special context tags at run creation, and override model registry methods.
 
 The MLflow Python API currently supports several types of plugins:
 
@@ -321,5 +325,5 @@ The MLflow Python API currently supports several types of plugins:
   ``mlflow.start_run`` fluent API.
 
 MLflow plugins are defined as standalone Python packages which can then be distributed for
-installation via PyPI or conda. See `Writing Plugins <https://github.com/mlflow/mlflow/blob/master/examples/plugins/README.rst>`_
+installation via PyPI or conda. See `Writing Plugins <https://github.com/mlflow/mlflow/blob/master/examples/plugins/writing-plugins.rst>`_
 for a detailed guide to writing your own plugin.
