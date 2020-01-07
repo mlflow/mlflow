@@ -321,5 +321,5 @@ The MLflow Python API currently supports several types of plugins:
   ``mlflow.start_run`` fluent API.
 
 MLflow plugins are defined as standalone Python packages which can then be distributed for
-installation via PyPI or conda. See `Writing Plugins <https://github.com/mlflow/mlflow/blob/master/PLUGINS.rst>`_
-for more information & best practices for writing your own plugin.
+installation via PyPI or conda. See `Writing Plugins <https://github.com/mlflow/mlflow/blob/master/examples/plugins/README.rst>`_
+for a detailed guide to writing your own plugin.
