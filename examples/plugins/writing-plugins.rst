@@ -125,9 +125,6 @@ Distributing Your Plugin
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Assuming you've structured your plugin similarly to the example plugin, you can `distribute it
-via PyPI <https://packaging.python.org/guides/distributing-packages-using-setuptools/>`_. We
-recommend against including your plugin in MLflow proper to keep the package size small, but
-please feel free to reach out via GitHub issues if you feel your plugin addresses a
-sufficiently-common use case to warrant inclusion.
+via PyPI <https://packaging.python.org/guides/distributing-packages-using-setuptools/>`_.
 
 Congrats, you've now written & distributed your own MLflow plugin!
