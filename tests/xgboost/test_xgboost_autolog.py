@@ -124,7 +124,7 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain)
     run = get_latest_run()
     data = run.data
 
-    for eval_name in ['train', 'valid']:
+    for eval_name in [e[1] for e in evals]:
         metric_key = '{}-merror'.format(eval_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
         assert metric_key in data.metrics
