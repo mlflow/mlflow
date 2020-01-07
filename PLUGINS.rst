@@ -92,6 +92,8 @@ mlflow.tracking_store  Tracking URI scheme associated with the plugin. For examp
      - 1.49
      - If we took the bones out, it wouldn't be
        crunchy, now would it?
+
+       Here's some text, but after a newline.
    * - Gannet Ripple
      - 1.99
      - On a stick!
