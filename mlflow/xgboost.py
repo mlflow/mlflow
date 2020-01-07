@@ -271,6 +271,8 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
                           'early_stopping_rounds' in kwargs)
         if early_stopping:
             extra_step = len(eval_results)
+            try_mlflow_log(mlflow.log_metric, 'stopped_iteration', len(eval_results) - 1)
+            try_mlflow_log(mlflow.log_metric, 'best_iteration', model.best_iteration)
             try_mlflow_log(mlflow.log_metrics, eval_results[model.best_iteration],
                            step=extra_step)
 

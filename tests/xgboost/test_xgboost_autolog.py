@@ -184,6 +184,11 @@ def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
     run = get_latest_run()
     data = run.data
 
+    assert 'best_iteration' in data.metrics
+    assert int(data.metrics['best_iteration']) == model.best_iteration
+    assert 'stopped_iteration' in data.metrics
+    assert int(data.metrics['stopped_iteration']) == len(evals_result['train']['merror']) - 1
+
     for eval_name in [e[1] for e in evals]:
         for metric_name in params['eval_metric']:
             metric_key = '{}-{}'.format(eval_name, metric_name)
