@@ -151,9 +151,6 @@ def create_tf_estimator_model(dir, export):
 
     train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
                         names=CSV_COLUMN_NAMES, header=0)
-    test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
-                       names=CSV_COLUMN_NAMES, header=0)
-
     train_y = train.pop('Species')
 
     def input_fn(features, labels, training=True, batch_size=256):
