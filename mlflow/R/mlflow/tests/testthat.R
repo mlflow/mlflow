@@ -8,4 +8,4 @@ if (identical(Sys.getenv("NOT_CRAN"), "true")) {
   mlflow_home <- Sys.getenv("MLFLOW_HOME", "../../../../.")
   conda_install(c(mlflow_home), envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
   test_check("mlflow")
-} 
+}
