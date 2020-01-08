@@ -351,29 +351,3 @@ usages of the modified APIs in guides and examples.
 If adding a new public Python module, create a corresponding doc file for the module under
 ``docs/source/python_api`` - `see here <https://github.com/mlflow/mlflow/blob/v0.9.1/docs/source/python_api/mlflow.tracking.rst#mlflowtracking>`_
 for an example.
-
-
-Writing an MLflow Plugin
-------------------------
-
-As a framework-agnostic tool for machine learning, the MLflow Python API provides developer APIs for
-writing plugins that integrate with different ML frameworks and backends.
-
-MLflow Python API plugins provide a powerful mechanism for customizing the behavior of the MLflow
-Python client, allowing you to define custom behaviors for logging metrics, params, and artifacts,
-set special context tags at run creation, and override model registry methods.
-
-The MLflow Python API currently supports several types of plugins:
-
-* ArtifactRepository plugins: specify custom client behavior when users call
-  ``mlflow.log_artifact``, ``mlflow.log_artifacts``
-* Tracking AbstractStore plugins: specify custom client behavior when users call
-  tracking API methods like ``mlflow.start_run``, ``mlflow.log_metric``, ``mlflow.log_param``.
-* Run context providers: specify context tags to be set on runs created via the
-  ``mlflow.start_run`` fluent API.
-* Model registry AbstractStore plugins: specify custom client behavior when users call
-  model registry APIs like ``mlflow.register_model``
-
-You define an MLflow plugin as a standalone Python package which can then be distributed for
-installation via PyPI or conda. See `Writing Plugins <https://github.com/mlflow/mlflow/blob/master/examples/plugins/writing-plugins.rst>`_
-for a detailed guide to writing your own plugin.
