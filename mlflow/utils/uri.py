@@ -77,10 +77,10 @@ def append_to_uri_path(uri, *paths):
              the path component of the specified `uri`.
 
     >>> uri1 = "s3://root/base/path?param=value"
-    >>> uri1 = append_to_uri_path(uri, "some/subpath", "/anotherpath")
+    >>> uri1 = append_to_uri_path(uri1, "some/subpath", "/anotherpath")
     >>> assert uri1 == "s3://root/base/path/some/subpath/anotherpath?param=value"
     >>> uri2 = "a/posix/path"
-    >>> uri2 = append_to_uri_path(uri, "/some", "subpath")
+    >>> uri2 = append_to_uri_path(uri2, "/some", "subpath")
     >>> assert uri2 == "a/posixpath/some/subpath"
     """
     path = ""
