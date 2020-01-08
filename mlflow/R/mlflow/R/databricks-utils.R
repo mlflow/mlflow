@@ -124,6 +124,7 @@ build_context_tags_from_databricks_job_info <- function(job_info) {
   )
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_VERSION]] <- get_source_version()
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$JOB
+  tags
 }
 
 mlflow_get_run_context.mlflow_databricks_client <- function(client, experiment_id, ...) {
