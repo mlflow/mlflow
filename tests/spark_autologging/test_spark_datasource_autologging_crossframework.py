@@ -32,7 +32,7 @@ def _fit_keras(pandas_df, epochs):
     keras_model.add(Dense(1))
     keras_model.compile(loss='mean_squared_error', optimizer='SGD')
     keras_model.fit(x, y, epochs=epochs)
-    time.sleep(1)
+    time.sleep(2)
 
 
 def _fit_keras_model_with_active_run(pandas_df, epochs):
