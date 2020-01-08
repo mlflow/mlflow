@@ -583,10 +583,12 @@ def test_get_artifact_uri_appends_to_uri_path_component_correctly(
     client.create_experiment("get-artifact-uri-test", artifact_location=artifact_location)
     mlflow.set_experiment("get-artifact-uri-test")
     with mlflow.start_run():
+        run_id = mlflow.active_run().info.run_id
         for artifact_path in ["path/to/artifact", "/artifact/path", "arty.txt"]:
             artifact_uri = mlflow.get_artifact_uri(artifact_path)
+            assert artifact_uri == tracking.artifact_utils.get_artifact_uri(run_id, artifact_path)
             assert artifact_uri == expected_uri_format.format(
-                run_id=mlflow.active_run().info.run_id, path=artifact_path.lstrip("/"))
+                run_id=run_id, path=artifact_path.lstrip("/"))
 
 
 def test_search_runs(tracking_uri_mock, reset_active_experiment):
