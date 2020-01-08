@@ -1,14 +1,14 @@
 import logging
 import click
 import os
-import posixpath
 
 from mlflow.models import Model
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils import cli_args
+from mlflow.utils.file_utils import TempDir
+from mlflow.utils.uri import append_to_uri_path
 
 _logger = logging.getLogger(__name__)
 
@@ -159,8 +159,8 @@ def _get_flavor_backend(model_uri, **kwargs):
             underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
         else:
             underlying_model_uri = model_uri
-        local_path = _download_artifact_from_uri(posixpath.join(underlying_model_uri, "MLmodel"),
-                                                 output_path=tmp.path())
+        local_path = _download_artifact_from_uri(
+            append_to_uri_path(underlying_model_uri, "MLmodel"), output_path=tmp.path())
         model = Model.load(local_path)
     flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
     if flavor_backend is None:

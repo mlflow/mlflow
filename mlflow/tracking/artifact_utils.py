@@ -10,6 +10,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_store
+from mlflow.utils.uri import append_to_uri_path
 
 
 def get_artifact_uri(run_id, artifact_path=None):
@@ -41,7 +42,7 @@ def get_artifact_uri(run_id, artifact_path=None):
     if artifact_path is None:
         return run.info.artifact_uri
     else:
-        return posixpath.join(run.info.artifact_uri, artifact_path)
+        return append_to_uri_path(run.info.artifact_uri, artifact_path)
 
 
 # TODO: This method does not require a Run and its internals should be moved to

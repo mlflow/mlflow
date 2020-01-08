@@ -1,10 +1,10 @@
 import os
-import posixpath
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.uri import append_to_uri_path
 
 
 def _get_flavor_configuration(model_path, flavor_name):
@@ -47,7 +47,7 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
     """
     try:
         ml_model_file = _download_artifact_from_uri(
-            artifact_uri=posixpath.join(model_uri, "MLmodel"))
+            artifact_uri=append_to_uri_path(model_uri, "MLmodel"))
     except Exception as ex:
         raise MlflowException(
             "Failed to download an \"MLmodel\" model file from \"{model_uri}\": {ex}".format(
