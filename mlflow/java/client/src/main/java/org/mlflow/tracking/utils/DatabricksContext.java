@@ -93,14 +93,23 @@ public class DatabricksContext {
     return configProvider.get("jobId") != null;
   }
 
+  /**
+   * Should only be called if isInDatabricksJob() is true.
+   */
   public String getJobId() {
     return configProvider.get("jobId");
   }
 
+  /**
+   * Should only be called if isInDatabricksJob() is true.
+   */
   public String getJobRunId() {
     return configProvider.get("idInJob");
   }
 
+  /**
+   * Should only be called if isInDatabricksJob() is true.
+   */
   public String getJobType() {
     return configProvider.get("getJobType");
   }
