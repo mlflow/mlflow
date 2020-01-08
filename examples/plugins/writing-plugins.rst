@@ -5,17 +5,16 @@ Introduction
 ~~~~~~~~~~~~
 
 MLflow Python API plugins provide a powerful mechanism for customizing the behavior of the MLflow
-Python client, allowing you to define custom behaviors for logging metrics, params, and artifacts,
-set special context tags at run creation, and override model registry methods for registering
-models etc.
+Python client, allowing you to integrate third-party tracking and artifact storage solutions,
+set special context tags at run creation, and override model registry methods.
 
 Defining a Plugin
 ~~~~~~~~~~~~~~~~~
-MLflow plugins are defined as standalone Python packages which can then be distributed for
+You define an MLflow plugin as a standalone Python package which can then be distributed for
 installation via PyPI or conda. See https://github.com/mlflow/mlflow/tree/master/tests/resources/mlflow-test-plugin for an
 example package that implements all currently-supported plugin types.
 
-In particular, note that the example package contains a ``setup.py`` that declares a number of
+In particular, the example package contains a ``setup.py`` that declares a number of
 `entry points <https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_:
 
 .. code-block:: python
@@ -23,7 +22,7 @@ In particular, note that the example package contains a ``setup.py`` that declar
     setup(
         name="mflow-test-plugin",
         # Require MLflow as a dependency of the plugin, so that plugin users can simply install
-        # the plugin & then immediately use it with MLflow
+        # the plugin and then immediately use it with MLflow
         install_requires=["mlflow"],
         ...
         entry_points={
@@ -41,9 +40,9 @@ In particular, note that the example package contains a ``setup.py`` that declar
         },
     )
 
-The elements of this ``entry_points`` dictionary specify our various plugins. Note that you
+Each element of this ``entry_points`` dictionary specifies a single plugin. You
 can choose to implement one or more plugin types in your package, and need not implement them all.
-The type of plugin defined by each entry point & its corresponding reference implementation in
+The type of plugin defined by each entry point and its corresponding reference implementation in
 MLflow are described below. You can work from the reference implementations when writing your own
 plugin:
 
@@ -64,7 +63,7 @@ plugin:
        within the ``mlflow_test_plugin`` module).
 
        The entry point name (e.g. ``file-plugin``) is the tracking URI scheme with which to associate the custom AbstractStore implementation.
-       In the example above, users who install the plugin & set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
+       In the example above, users who install the plugin and set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
      - `FileStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/file_store.py>`_
 
@@ -77,7 +76,7 @@ plugin:
        within the ``mlflow_test_plugin`` module).
 
        The entry point name (e.g. ``file-plugin``) is the artifact URI scheme with which to associate the custom ArtifactRepository implementation.
-       In the example above, who install the plugin & log to a run whose artifact URI is of the form "file-plugin://<path>" will use the
+       In the example above, users who install the plugin and log to a run whose artifact URI is of the form "file-plugin://<path>" will use the
        custom ArtifactRepository implementation defined in ``PluginLocalArtifactRepository``.
        The full artifact URI is passed to the ``PluginLocalArtifactRepository`` constructor.
      - `LocalArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/local_artifact_repo.py>`_
@@ -95,7 +94,7 @@ plugin:
 
    * - Plugins for overriding definitions of model registry APIs like mlflow.register_model.
      - mlflow.model_registry_store
-     - **Note**: The model registry is in beta (as of MLflow 1.5), so APIs are not guaranteed to be stable & model-registry plugins may break in the
+     - .. note:: The model registry is in beta (as of MLflow 1.5), so APIs are not guaranteed to be stable and model-registry plugins may break in the
        future.
 
        The entry point value (e.g. ``mlflow_test_plugin:PluginRegistrySqlAlchemyStore``) specifies a custom subclass of
@@ -104,7 +103,7 @@ plugin:
        within the ``mlflow_test_plugin`` module)
 
        The entry point name (e.g. ``file-plugin``) is the tracking URI scheme with which to associate the custom AbstractStore implementation.
-       In the example above, who install the plugin & set a tracking URI of the form "file-plugin://<path>" will use the custom AbstractStore
+       In the example above, users who install the plugin and set a tracking URI of the form "file-plugin://<path>" will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
      - `SqlAlchemyStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/model_registry/sqlalchemy_store.py#L34>`_
 
@@ -128,4 +127,4 @@ Distributing Your Plugin
 Assuming you've structured your plugin similarly to the example plugin, you can `distribute it
 via PyPI <https://packaging.python.org/guides/distributing-packages-using-setuptools/>`_.
 
-Congrats, you've now written & distributed your own MLflow plugin!
+Congrats, you've now written and distributed your own MLflow plugin!

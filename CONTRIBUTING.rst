@@ -357,7 +357,7 @@ Writing an MLflow Plugin
 ------------------------
 
 As a framework-agnostic tool for machine learning, the MLflow Python API provides developer APIs for
-writing plugins that integrate with different ML frameworks & backends.
+writing plugins that integrate with different ML frameworks and backends.
 
 MLflow Python API plugins provide a powerful mechanism for customizing the behavior of the MLflow
 Python client, allowing you to define custom behaviors for logging metrics, params, and artifacts,
@@ -365,15 +365,15 @@ set special context tags at run creation, and override model registry methods.
 
 The MLflow Python API currently supports several types of plugins:
 
-* [Tracking] ArtifactRepository plugins: specify custom client behavior when users call
+* ArtifactRepository plugins: specify custom client behavior when users call
   ``mlflow.log_artifact``, ``mlflow.log_artifacts``
-* [Tracking] Tracking AbstractStore plugins: specify custom client behavior when users call
+* Tracking AbstractStore plugins: specify custom client behavior when users call
   tracking API methods like ``mlflow.start_run``, ``mlflow.log_metric``, ``mlflow.log_param``.
-* [Registry] Model registry AbstractStore plugins: specify custom client behavior when users call
-  model registry APIs like ``mlflow.register_model``
-* [Tracking] Run context providers: specify context tags to be set on runs created via the
+* Run context providers: specify context tags to be set on runs created via the
   ``mlflow.start_run`` fluent API.
+* Model registry AbstractStore plugins: specify custom client behavior when users call
+  model registry APIs like ``mlflow.register_model``
 
-MLflow plugins are defined as standalone Python packages which can then be distributed for
+You define an MLflow plugin as a standalone Python package which can then be distributed for
 installation via PyPI or conda. See `Writing Plugins <https://github.com/mlflow/mlflow/blob/master/examples/plugins/writing-plugins.rst>`_
 for a detailed guide to writing your own plugin.

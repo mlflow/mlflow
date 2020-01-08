@@ -1,10 +1,10 @@
-Using MLflow Plugins
---------------------
+How to Use MLflow Plugins
+-------------------------
 
-MLflow plugins are simply Python packages that can be installed via PyPI or conda. In this example,
-we'll install a tracking plugin from source and use it within an example script.
+MLflow plugins are Python packages that can be installed via PyPI or conda.
+This example installs a tracking plugin from source and uses it within an example script.
 
-Install the Plugin
+Install the plugin
 ~~~~~~~~~~~~~~~~~~
 
 To get started, clone MLflow and install `this example plugin <https://github.com/mlflow/mlflow/tree/master/tests/resources/mlflow-test-plugin>`_:
@@ -16,9 +16,11 @@ To get started, clone MLflow and install `this example plugin <https://github.co
   pip install -e tests/resources/mlflow-test-plugin
 
 
-Our plugin defines a custom tracking store for tracking URIs with the ``file-plugin`` scheme that
-simply delegates to MLflow's built-in file-based run storage. To use
-our plugin, we can run any code that uses MLflow, setting the tracking URI to one with a
+Run code using the plugin
+~~~~~~~~~~~~~~~~~~~~~~~~~
+This plugin defines a custom tracking store for tracking URIs with the ``file-plugin`` scheme that
+delegates to MLflow's built-in file-based run storage. To use
+the plugin, you can run any code that uses MLflow, setting the tracking URI to one with a
 ``file-plugin://`` scheme:
 
 .. code-block:: bash
@@ -33,5 +35,5 @@ Launch the MLflow UI:
   mlflow server --backend-store-uri ./mlflow/mlruns
 
 
-And view results at http://localhost:5000/
+View results at http://localhost:5000
 
