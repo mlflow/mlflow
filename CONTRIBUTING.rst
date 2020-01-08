@@ -3,6 +3,14 @@ Contributing to MLflow
 We welcome community contributions to MLflow. This page describes how to develop/test your changes
 to MLflow locally.
 
+For larger contributions, we encourage you to open a feature request via
+`Github issues <https://github.com/mlflow/mlflow/issues/new/choose>`_ prior before writing
+code and opening a pull request. MLflow also has a
+`plugin system <http://mlflow.org/docs/latest/plugins.html>`_ exposing developer APIs
+for integrating third-party frameworks and artifact storage solutions. Consider whether your
+proposed change can be implemented as a plugin prior to opening a pull request. If in doubt,
+feel free to open an issue to discuss.
+
 The majority of the MLflow codebase is in Python. This includes the CLI, Tracking Server,
 Artifact Repositories (e.g., S3 or Azure Blob Storage backends), and of course the Python fluent,
 tracking, and model APIs.

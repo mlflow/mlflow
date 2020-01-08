@@ -26,7 +26,9 @@ Provide a clear high-level description of the feature request in the following s
 * Have user impact & value that justifies the maintenance burden of supporting the feature moving forwards. The [JQuery contributor guide](https://contribute.jquery.org/open-source/#contributing-something-new) has an excellent discussion on this.
 
 ### Motivation
-What is the use case in mind?  Why is it valuable to support, and why is it currently difficult or impossible to achieve? Could the desired functionality alternatively be implemented as a third-party package using MLflow public APIs?
+What is the use case in mind?  Why is it valuable to support, and why is it currently difficult or impossible to achieve?
+Could the desired functionality alternatively be implemented as a third-party plugin using MLflow public APIs? Could
+the functionality be implemented as an [MLflow plugin](http://mlflow.org/docs/latest/plugins.html)?
 
 ### Proposed Changes
 For user-facing changes, what APIs are you proposing to add or modify? For internal changes, what code paths will need to be modified?
