@@ -255,10 +255,14 @@ EarlyStopping Integration with Keras Automatic Logging
 ======================================================
 MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()``/``fit_generator()`` call, and if the
 ``restore_best_weights`` parameter is set to be ``True``, then MLflow will log the metrics associated with the
-restored model as a final, extra step. This allows for easy comparison between the actual metrics of the restored
-model and the metrics of other models.
+restored model as a final, extra step. The epoch of the restored model will also be logged as the metric ``best_epoch``.
+This allows for easy comparison between the actual metrics of the restored model and the metrics of other models.
 
-If ``restore_best_weights`` is set to be ``False``, then MLflow will not do any additional logging.
+If ``restore_best_weights`` is set to be ``False``, then MLflow will not log an additional step.
+
+Regardless of ``restore_best_weights``, MLflow will also log ``stopped_epoch``, which indicates the epoch training stopped at
+due to early stopping, and ``earlystopping_patience``, which is the patience of the callback. If training does not end
+due to early stopping, then ``stopped_epoch`` will be logged at ``0``.
 
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
