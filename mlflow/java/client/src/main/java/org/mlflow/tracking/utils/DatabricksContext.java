@@ -53,6 +53,7 @@ public class DatabricksContext {
     return tags;
   }
 
+
   public boolean isInDatabricksNotebook() {
     return configProvider.get("notebookId") != null;
   }
@@ -77,7 +78,7 @@ public class DatabricksContext {
   }
 
   /**
-   * Should only be called if isInDatabricksNotebook() is true.
+   * Should only be called if isInDatabricksNotebook() is true or if isInDatabricksJob() is true.
    */
   private String getWebappUrl() {
     if (!isInDatabricksNotebook()) {
@@ -86,6 +87,22 @@ public class DatabricksContext {
       );
     };
     return configProvider.get("host");
+  }
+
+  public boolean isInDatabricksJob() {
+    return configProvider.get("jobId") != null;
+  }
+
+  public String getJobId() {
+    return configProvider.get("jobId");
+  }
+
+  public String getJobRunId() {
+    return configProvider.get("idInJob");
+  }
+
+  public String getJobType() {
+    return configProvider.get("getJobType");
   }
 
   public static Map<String, String> getConfigProviderIfAvailable(String className) {
