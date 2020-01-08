@@ -1,12 +1,74 @@
-Writing Your Own MLflow Plugin(s)
----------------------------------
+.. _plugins:
 
-Introduction
-~~~~~~~~~~~~
+==============
+MLflow Plugins
+==============
 
-MLflow Python API plugins provide a powerful mechanism for customizing the behavior of the MLflow
+As a framework-agnostic tool for machine learning, the MLflow Python API provides developer APIs for
+writing plugins that integrate with different ML frameworks and backends.
+
+Plugins provide a powerful mechanism for customizing the behavior of the MLflow
 Python client, allowing you to integrate third-party tracking and artifact storage solutions,
 set special context tags at run creation, and override model registry methods.
+
+The MLflow Python API currently supports several types of plugins:
+
+* Tracking AbstractStore plugins: specify custom client behavior when users call
+  tracking API methods like :py:func:`mlflow.start_run`, :py:func:`mlflow.log_metric`, :py:func:`mlflow.log_param`.
+* ArtifactRepository plugins: specify custom client behavior when users call
+  :py:func:`mlflow.log_artifact`, :py:func:`mlflow.log_artifacts`
+* Run context providers: specify context tags to be set on runs created via the
+  :py:func:`mlflow.start_run` fluent API.
+* Model registry AbstractStore plugins: specify custom client behavior when users call
+  model registry APIs like :py:func:`mlflow.register_model`
+
+.. contents:: Table of Contents
+  :local:
+  :depth: 2
+
+
+Using an MLflow Plugin
+----------------------
+
+MLflow plugins are Python packages that can be installed via PyPI or conda.
+This example installs a tracking plugin from source and uses it within an example script.
+
+Install the plugin
+~~~~~~~~~~~~~~~~~~
+
+To get started, clone MLflow and install `this example plugin <https://github.com/mlflow/mlflow/tree/master/tests/resources/mlflow-test-plugin>`_:
+
+.. code-block:: bash
+
+  git clone https://github.com/mlflow/mlflow
+  cd mlflow
+  pip install -e tests/resources/mlflow-test-plugin
+
+
+Run code using the plugin
+~~~~~~~~~~~~~~~~~~~~~~~~~
+This plugin defines a custom tracking store for tracking URIs with the ``file-plugin`` scheme that
+delegates to MLflow's built-in file-based run storage. To use
+the plugin, you can run any code that uses MLflow, setting the tracking URI to one with a
+``file-plugin://`` scheme:
+
+.. code-block:: bash
+
+  MLFLOW_TRACKING_URI=file-plugin:$(PWD)/mlruns python examples/quickstart/mlflow_tracking.py
+
+Launch the MLflow UI:
+
+.. code-block:: bash
+
+  cd ..
+  mlflow server --backend-store-uri ./mlflow/mlruns
+
+
+View results at http://localhost:5000
+
+
+Writing Your Own MLflow Plugin(s)
+---------------------------------
 
 Defining a Plugin
 ~~~~~~~~~~~~~~~~~
@@ -47,7 +109,7 @@ MLflow are described below. You can work from the reference implementations when
 plugin:
 
 .. list-table::
-   :widths: 20 20 20 20
+   :widths: 10 10 80 10
    :header-rows: 1
 
    * - Description
@@ -63,7 +125,8 @@ plugin:
        within the ``mlflow_test_plugin`` module).
 
        The entry point name (e.g. ``file-plugin``) is the tracking URI scheme with which to associate the custom AbstractStore implementation.
-       In the example above, users who install the plugin and set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
+
+       Users who install the example plugin and set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
      - `FileStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/file_store.py>`_
 
@@ -76,7 +139,8 @@ plugin:
        within the ``mlflow_test_plugin`` module).
 
        The entry point name (e.g. ``file-plugin``) is the artifact URI scheme with which to associate the custom ArtifactRepository implementation.
-       In the example above, users who install the plugin and log to a run whose artifact URI is of the form "file-plugin://<path>" will use the
+
+       Users who install the example plugin and log to a run whose artifact URI is of the form ``file-plugin://<path>`` will use the
        custom ArtifactRepository implementation defined in ``PluginLocalArtifactRepository``.
        The full artifact URI is passed to the ``PluginLocalArtifactRepository`` constructor.
      - `LocalArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/local_artifact_repo.py>`_
@@ -92,10 +156,9 @@ plugin:
      - `GitRunContext <https://github.com/mlflow/mlflow/blob/master/mlflow/tracking/context/git_context.py#L36>`_,
        `DefaultRunContext <https://github.com/mlflow/mlflow/blob/master/mlflow/tracking/context/default_context.py#L41>`_
 
-   * - Plugins for overriding definitions of model registry APIs like mlflow.register_model.
+   * - Plugins for overriding definitions of model registry APIs like ``mlflow.register_model``.
      - mlflow.model_registry_store
-     - .. note:: The model registry is in beta (as of MLflow 1.5), so APIs are not guaranteed to be stable and model-registry plugins may break in the
-       future.
+     - .. note:: The model registry is in beta (as of MLflow 1.5), so APIs are not guaranteed to be stable and model-registry plugins may break in the future.
 
        The entry point value (e.g. ``mlflow_test_plugin:PluginRegistrySqlAlchemyStore``) specifies a custom subclass of
        `mlflow.tracking.model_registry.AbstractStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/model_registry/abstract_store.py#L6>`_
@@ -103,7 +166,8 @@ plugin:
        within the ``mlflow_test_plugin`` module)
 
        The entry point name (e.g. ``file-plugin``) is the tracking URI scheme with which to associate the custom AbstractStore implementation.
-       In the example above, users who install the plugin and set a tracking URI of the form "file-plugin://<path>" will use the custom AbstractStore
+
+       Users who install the example plugin and set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
      - `SqlAlchemyStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/model_registry/sqlalchemy_store.py#L34>`_
 
