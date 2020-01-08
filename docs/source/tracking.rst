@@ -250,7 +250,7 @@ Autologging captures the following information:
 Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`.
 
 If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information to.
-Once training ends via calls to ``tf.estimator.train()``, ``tf.keras.fit()``, ``tf.keras.fit_generator()``, ``keras.fit()`` or ``keras.fit_generator()``,
+Once training ends via calls to ``tf.estimator.train()``, ``tf.keras.fit()``, ``keras.fit()`` or ``keras.fit_generator()``,
 or once ``tf.estimator`` models are exported via ``tf.estimator.export_saved_model()``, MLflow will automatically end that run.
 
 If a run exists when ``autolog()`` captures data, MLflow will log to that run and not automatically end that run after training.
