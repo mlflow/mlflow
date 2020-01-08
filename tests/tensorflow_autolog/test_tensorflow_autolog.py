@@ -61,9 +61,7 @@ def create_tf_keras_model():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels,
-                                                fit_variant):
+def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels):
     mlflow.tensorflow.autolog()
 
     data = random_train_data
@@ -77,9 +75,7 @@ def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_ho
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels,
-                                                        fit_variant):
+def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels):
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
         data = random_train_data
@@ -94,27 +90,19 @@ def test_tf_keras_autolog_persists_manually_created_run(random_train_data, rando
 
 
 @pytest.fixture
-def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_run, fit_variant):
+def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_run):
     mlflow.tensorflow.autolog(every_n_iter=5)
 
     data = random_train_data
     labels = random_one_hot_labels
 
     model = create_tf_keras_model()
-
-    if fit_variant == 'fit_generator':
-        def generator():
-            while True:
-                yield data, labels
-        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-    else:
-        model.fit(data, labels, epochs=10, steps_per_epoch=1)
+    model.fit(data, labels, epochs=10, steps_per_epoch=1)
 
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     data = tf_keras_random_data_run.data
     assert 'epoch_acc' in data.metrics
@@ -143,7 +131,6 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
     artifacts = client.list_artifacts(tf_keras_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
@@ -191,15 +178,10 @@ def test_tf_core_autolog_logs_scalars(tf_core_random_tensors):
 
 def create_tf_estimator_model(dir, export):
     CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
-    SPECIES = ['Setosa', 'Versicolor', 'Virginica']
 
     train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
                         names=CSV_COLUMN_NAMES, header=0)
-    test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
-                       names=CSV_COLUMN_NAMES, header=0)
-
     train_y = train.pop('Species')
-    test_y = test.pop('Species')
 
     def input_fn(features, labels, training=True, batch_size=256):
         """An input function for training or evaluating"""

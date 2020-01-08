@@ -758,32 +758,6 @@ def autolog(every_n_iter=100):
             _flush_queue()
             _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
             shutil.rmtree(log_dir)
-
-            return result
-
-    @gorilla.patch(tensorflow.keras.Model)
-    def fit_generator(self, *args, **kwargs):
-        with _manage_active_run():
-            original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit_generator')
-
-            unlogged_params = ['self', 'generator', 'callbacks', 'validation_data', 'verbose']
-
-            log_fn_args_as_params(original, args, kwargs, unlogged_params)
-
-            # Checking if the 'callback' argument of fit() is set
-            if len(args) >= 5:
-                tmp_list = list(args)
-                tmp_list[4], log_dir = _setup_callbacks(tmp_list[4])
-                args = tuple(tmp_list)
-            elif 'callbacks' in kwargs:
-                kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
-            else:
-                kwargs['callbacks'], log_dir = _setup_callbacks([])
-            result = original(self, *args, **kwargs)
-            _flush_queue()
-            _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
-            shutil.rmtree(log_dir)
-
             return result
 
     @gorilla.patch(EventFileWriter)
@@ -805,7 +779,6 @@ def autolog(every_n_iter=100):
         gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'train', train, settings=settings),
         gorilla.Patch(tensorflow.keras.Model, 'fit', fit, settings=settings),
-        gorilla.Patch(tensorflow.keras.Model, 'fit_generator', fit_generator, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_saved_model',
                       export_saved_model, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_savedmodel',
