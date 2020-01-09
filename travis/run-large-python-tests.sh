@@ -37,7 +37,9 @@ pytest --verbose tests/azureml --large
 pytest --verbose tests/models --large
 pytest --verbose tests/xgboost --large
 pytest --verbose tests/lightgbm --large
-pip install 'tensorflow>=2.0.0'
+# TODO(smurching) Unpin TensorFlow dependency version once test failures with TF 2.1.0 have been
+# fixed
+pip install 'tensorflow==2.0.0'
 pytest --verbose tests/tensorflow/test_tensorflow2_model_export.py --large
 pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
 pytest --verbose tests/keras --large
