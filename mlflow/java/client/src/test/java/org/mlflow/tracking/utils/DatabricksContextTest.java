@@ -101,7 +101,7 @@ public class DatabricksContextTest {
         MlflowTagConstants.DATABRICKS_JOB_RUN_ID, "5",
         MlflowTagConstants.DATABRICKS_JOB_TYPE, "notebook",
         MlflowTagConstants.SOURCE_TYPE, "JOB",
-        MlflowTagConstants.SOURCE_NAME, "job/70/run/5");
+        MlflowTagConstants.SOURCE_NAME, "jobs/70/run/5");
       baseMap.put("jobId", "70");
       baseMap.put("jobRunId", "5");
       baseMap.put("jobType", "notebook");
