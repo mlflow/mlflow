@@ -89,7 +89,7 @@ public class DatabricksContext {
   private Map<String, String> getTagsForDatabricksJob() {
     Map<String, String> tagsForJob = new HashMap<>();
     String jobId = configProvider.get("jobId");
-    String jobRunId = configProvider.get("idInJob");
+    String jobRunId = configProvider.get("jobRunId");
     String jobType = configProvider.get("jobType");
     String webappUrl = configProvider.get("host");
     if (jobId != null && jobRunId != null) {

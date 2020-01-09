@@ -103,7 +103,7 @@ public class DatabricksContextTest {
         MlflowTagConstants.SOURCE_TYPE, "JOB",
         MlflowTagConstants.SOURCE_NAME, "job/70/run/5");
       baseMap.put("jobId", "70");
-      baseMap.put("idInJob", "5");
+      baseMap.put("jobRunId", "5");
       baseMap.put("jobType", "notebook");
       DatabricksContext context = DatabricksContext.createIfAvailable(MyDynamicProvider.class.getName());
       Assert.assertEquals(context.getTags(), expectedTags);
@@ -117,7 +117,7 @@ public class DatabricksContextTest {
         MlflowTagConstants.SOURCE_TYPE, "JOB",
         MlflowTagConstants.SOURCE_NAME, "jobs/70/run/5");
       baseMap.put("jobId", "70");
-      baseMap.put("idInJob", "5");
+      baseMap.put("jobRunId", "5");
       DatabricksContext context = DatabricksContext.createIfAvailable(MyDynamicProvider.class.getName());
       Assert.assertEquals(context.getTags(), expectedTags);
     }
