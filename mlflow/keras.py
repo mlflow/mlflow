@@ -462,7 +462,7 @@ def autolog():
         def on_train_end(self, logs=None):
             try_mlflow_log(log_model, self.model, artifact_path='model')
 
-    def early_stop_check(callbacks):
+    def _early_stop_check(callbacks):
         if LooseVersion(keras.__version__) < LooseVersion('2.3.0'):
             es_callback = keras.callbacks.EarlyStopping
         else:
@@ -472,14 +472,25 @@ def autolog():
                 return callback
         return None
 
-    def log_early_stop(callback, history):
-        if callback:
+    def _get_callback_attrs(callback):
+        try:
             stopped_epoch = callback.stopped_epoch
             patience = callback.patience
+            restore_best_weights = callback.restore_best_weights
+            return stopped_epoch, patience, restore_best_weights
+        except Exception:
+            return None
+
+    def _log_early_stop(callback, history):
+        if callback:
+            callback_attrs = _get_callback_attrs(callback)
+            if callback_attrs is None:
+                return
+            stopped_epoch, patience, restore_best_weights = callback_attrs
             try_mlflow_log(mlflow.log_metric, 'stopped_epoch', stopped_epoch)
             try_mlflow_log(mlflow.log_param, 'earlystopping_patience', patience)
             # Weights are restored only if early stopping occurs
-            if stopped_epoch != 0 and callback.restore_best_weights:
+            if stopped_epoch != 0 and restore_best_weights:
                 best_epoch = stopped_epoch - max(1, patience)
                 try_mlflow_log(mlflow.log_metric, 'best_epoch', best_epoch)
                 best_metrics = {key: history.history[key][best_epoch]
@@ -508,18 +519,18 @@ def autolog():
         # Checking if the 'callback' argument of fit() is set
         if len(args) >= 6:
             tmp_list = list(args)
-            early_stop_callback = early_stop_check(tmp_list[5])
+            early_stop_callback = _early_stop_check(tmp_list[5])
             tmp_list[5] += [__MLflowKerasCallback()]
             args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
-            early_stop_callback = early_stop_check(kwargs['callbacks'])
+            early_stop_callback = _early_stop_check(kwargs['callbacks'])
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
 
         history = original(self, *args, **kwargs)
 
-        log_early_stop(early_stop_callback, history)
+        _log_early_stop(early_stop_callback, history)
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
@@ -543,18 +554,18 @@ def autolog():
         # Checking if the 'callback' argument of fit() is set
         if len(args) >= 5:
             tmp_list = list(args)
-            early_stop_callback = early_stop_check(tmp_list[4])
+            early_stop_callback = _early_stop_check(tmp_list[4])
             tmp_list[4] += [__MLflowKerasCallback()]
             args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
-            early_stop_callback = early_stop_check(kwargs['callbacks'])
+            early_stop_callback = _early_stop_check(kwargs['callbacks'])
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
 
         history = original(self, *args, **kwargs)
 
-        log_early_stop(early_stop_callback, history)
+        _log_early_stop(early_stop_callback, history)
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
