@@ -79,7 +79,7 @@ public class DatabricksContext {
     return configProvider.get("notebookId");
   }
 
-  public boolean isInDatabricksJob() {
+  private boolean isInDatabricksJob() {
     return configProvider.get("jobId") != null;
   }
 
@@ -87,28 +87,25 @@ public class DatabricksContext {
    * Should only be called if isInDatabricksJob() is true.
    */
   private Map<String, String> getTagsForDatabricksJob() {
-    return null;
-  }
-
-  /**
-   * Should only be called if isInDatabricksJob() is true.
-   */
-  public String getJobId() {
-    return configProvider.get("jobId");
-  }
-
-  /**
-   * Should only be called if isInDatabricksJob() is true.
-   */
-  public String getJobRunId() {
-    return configProvider.get("idInJob");
-  }
-
-  /**
-   * Should only be called if isInDatabricksJob() is true.
-   */
-  public String getJobType() {
-    return configProvider.get("getJobType");
+    Map<String, String> tagsForJob = new HashMap<>();
+    String jobId = configProvider.get("jobId");
+    String jobRunId = configProvider.get("idInJob");
+    String jobType = configProvider.get("jobType");
+    String webappUrl = configProvider.get("host");
+    if (jobId != null && jobRunId != null) {
+      tagsForJob.put(MlflowTagConstants.DATABRICKS_JOB_ID, jobId);
+      tagsForJob.put(MlflowTagConstants.DATABRICKS_JOB_RUN_ID, jobRunId);
+      tagsForJob.put(MlflowTagConstants.SOURCE_TYPE, "JOB");
+      tagsForJob.put(MlflowTagConstants.SOURCE_NAME,
+                          String.format("job/%s/run/%s", jobId, jobRunId));
+    }
+    if (jobType != null) {
+      tagsForJob.put(MlflowTagConstants.DATABRICKS_JOB_TYPE, jobType);
+    }
+    if (webappUrl != null) {
+      tagsForJob.put(MlflowTagConstants.DATABRICKS_WEBAPP_URL, webappUrl);
+    }
+    return tagsForJob;
   }
 
   public static Map<String, String> getConfigProviderIfAvailable(String className) {
