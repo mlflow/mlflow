@@ -259,24 +259,6 @@ If a run exists when ``autolog()`` captures data, MLflow will log to that run an
   - Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
   - This feature is experimental - the API and format of the logged data are subject to change.
 
-
-EarlyStopping Integration with Keras Automatic Logging
-======================================================
-MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()``/``fit_generator()`` call, and if the
-``restore_best_weights`` parameter is set to be ``True``, then MLflow will log the metrics associated with the
-restored model as a final, extra step. The epoch of the restored model will also be logged as the metric ``best_epoch``.
-This allows for easy comparison between the actual metrics of the restored model and the metrics of other models.
-
-If ``restore_best_weights`` is set to be ``False``, then MLflow will not log an additional step.
-
-Regardless of ``restore_best_weights``, MLflow will also log ``stopped_epoch``, which indicates the epoch at which training stopped
-due to early stopping, and ``earlystopping_patience``, which is the patience of the callback. If training does not end
-due to early stopping, then ``stopped_epoch`` will be logged as ``0``.
-
-.. note::
-  - This feature is experimental - the API and format of the logged data are subject to change.
-
-
 Gluon (experimental)
 --------------------
 Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
