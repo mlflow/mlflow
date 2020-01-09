@@ -281,7 +281,6 @@ Gluon (experimental)
 --------------------
 Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
 See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
->>>>>>> 13ff5d40ff18395fee840ce3002f169e2b5c8458
 
 Autologging captures the following information:
 
