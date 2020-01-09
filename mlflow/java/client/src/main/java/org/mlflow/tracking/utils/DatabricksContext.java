@@ -33,26 +33,13 @@ public class DatabricksContext {
 
   public Map<String, String> getTags() {
     Map<String, String> tags = new HashMap<>();
-    if (!isInDatabricksNotebook()) {
-      return tags;
-    }
-    String notebookId = getNotebookId();
-    if (notebookId != null) {
-      tags.put(MlflowTagConstants.DATABRICKS_NOTEBOOK_ID, notebookId);
-    }
-    String notebookPath = getNotebookPath();
-    if (notebookPath != null) {
-      tags.put(MlflowTagConstants.SOURCE_NAME, notebookPath);
-      tags.put(MlflowTagConstants.DATABRICKS_NOTEBOOK_PATH, notebookPath);
-      tags.put(MlflowTagConstants.SOURCE_TYPE, "NOTEBOOK");
-    }
-    String webappUrl = getWebappUrl();
-    if (webappUrl != null) {
-      tags.put(MlflowTagConstants.DATABRICKS_WEBAPP_URL, webappUrl);
+    if (isInDatabricksNotebook()) {
+      tags.putAll(getTagsForDatabricksNotebook());
+    } else if (isInDatabricksJob()) {
+      tags.putAll(getTagsForDatabricksJob());
     }
     return tags;
   }
-
 
   public boolean isInDatabricksNotebook() {
     return configProvider.get("notebookId") != null;
@@ -61,36 +48,46 @@ public class DatabricksContext {
   /**
    * Should only be called if isInDatabricksNotebook() is true.
    */
-  public String getNotebookId() {
-    return configProvider.get("notebookId");
+  private Map<String, String> getTagsForDatabricksNotebook() {
+    Map<String, String> tagsForNotebook = new HashMap<>();
+    String notebookId = getNotebookId();
+    if (notebookId != null) {
+      tagsForNotebook.put(MlflowTagConstants.DATABRICKS_NOTEBOOK_ID, notebookId);
+    }
+    String notebookPath = configProvider.get("notebookPath");
+    if (notebookPath != null) {
+      tagsForNotebook.put(MlflowTagConstants.SOURCE_NAME, notebookPath);
+      tagsForNotebook.put(MlflowTagConstants.DATABRICKS_NOTEBOOK_PATH, notebookPath);
+      tagsForNotebook.put(MlflowTagConstants.SOURCE_TYPE, "NOTEBOOK");
+    }
+    String webappUrl = configProvider.get("host");
+    if (webappUrl != null) {
+      tagsForNotebook.put(MlflowTagConstants.DATABRICKS_WEBAPP_URL, webappUrl);
+    }
+    return tagsForNotebook;
   }
 
   /**
    * Should only be called if isInDatabricksNotebook() is true.
    */
-  private String getNotebookPath() {
+  public String getNotebookId() {
     if (!isInDatabricksNotebook()) {
       throw new IllegalArgumentException(
         "getNotebookPath() should not be called when isInDatabricksNotebook() is false"
       );
-    };
-    return configProvider.get("notebookPath");
-  }
-
-  /**
-   * Should only be called if isInDatabricksNotebook() is true or if isInDatabricksJob() is true.
-   */
-  private String getWebappUrl() {
-    if (!isInDatabricksNotebook()) {
-      throw new IllegalArgumentException(
-        "getWebappUrl() should not be called when isInDatabricksNotebook() is false"
-      );
-    };
-    return configProvider.get("host");
+    }
+    return configProvider.get("notebookId");
   }
 
   public boolean isInDatabricksJob() {
     return configProvider.get("jobId") != null;
+  }
+
+  /**
+   * Should only be called if isInDatabricksJob() is true.
+   */
+  private Map<String, String> getTagsForDatabricksJob() {
+    return null;
   }
 
   /**
