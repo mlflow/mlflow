@@ -406,17 +406,23 @@ def autolog():
 
     EarlyStopping Integration with Keras Automatic Logging
 
-    MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()``/``fit_generator()`` call, and if the
-    ``restore_best_weights`` parameter is set to be ``True``, then MLflow will log the metrics associated with the
-    restored model as a final, extra step. The epoch of the restored model will also be logged as the metric
-    ``best_epoch``.
-    This allows for easy comparison between the actual metrics of the restored model and the metrics of other models.
+    MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()``/``fit_generator()``
+    call, and if the ``restore_best_weights`` parameter is set to be ``True``, then MLflow will
+    log the metrics associated with the restored model as a final, extra step. The epoch of the
+    restored model will also be logged as the metric ``restored_epoch``.
+    This allows for easy comparison between the actual metrics of the restored model and
+    the metrics of other models.
 
-    If ``restore_best_weights`` is set to be ``False``, then MLflow will not log an additional step.
+    If ``restore_best_weights`` is set to be ``False``,
+    then MLflow will not log an additional step.
 
-    Regardless of ``restore_best_weights``, MLflow will also log ``stopped_epoch``, which indicates the epoch at which
-    training stopped due to early stopping, and ``earlystopping_patience``, which is the patience of the callback.
+    Regardless of ``restore_best_weights``, MLflow will also log ``stopped_epoch``,
+    which indicates the epoch at which training stopped due to early stopping.
+
     If training does not end due to early stopping, then ``stopped_epoch`` will be logged as ``0``.
+
+    MLflow will also log the parameters of the EarlyStopping callback,
+    excluding ``mode`` and ``verbose``.
     """
     import keras
 
@@ -472,34 +478,37 @@ def autolog():
                 return callback
         return None
 
-    def _get_callback_attrs(callback):
+    def _get_early_stop_callback_attrs(callback):
         try:
             stopped_epoch = callback.stopped_epoch
-            patience = callback.patience
-            restore_best_weights = callback.restore_best_weights
-            return stopped_epoch, patience, restore_best_weights
-        except Exception:
+            params_to_be_logged = {'monitor': callback.monitor,
+                                   'min_delta': callback.min_delta,
+                                   'patience': callback.patience,
+                                   'baseline': callback.baseline,
+                                   'restore_best_weights': callback.restore_best_weights}
+            return stopped_epoch, params_to_be_logged
+        except Exception:  # pylint: disable=W0703
             return None
 
     def _log_early_stop(callback, history):
         if callback:
-            callback_attrs = _get_callback_attrs(callback)
+            callback_attrs = _get_early_stop_callback_attrs(callback)
             if callback_attrs is None:
                 return
-            stopped_epoch, patience, restore_best_weights = callback_attrs
+            stopped_epoch, kwargs = callback_attrs
+            log_fn_args_as_params(type(callback), [], kwargs, ['verbose', 'mode'])
             try_mlflow_log(mlflow.log_metric, 'stopped_epoch', stopped_epoch)
-            try_mlflow_log(mlflow.log_param, 'earlystopping_patience', patience)
             # Weights are restored only if early stopping occurs
-            if stopped_epoch != 0 and restore_best_weights:
-                best_epoch = stopped_epoch - max(1, patience)
-                try_mlflow_log(mlflow.log_metric, 'best_epoch', best_epoch)
-                best_metrics = {key: history.history[key][best_epoch]
-                                for key in history.history.keys()}
+            if stopped_epoch != 0 and kwargs['restore_best_weights']:
+                restored_epoch = stopped_epoch - max(1, kwargs['patience'])
+                try_mlflow_log(mlflow.log_metric, 'restored_epoch', restored_epoch)
+                restored_metrics = {key: history.history[key][restored_epoch]
+                                    for key in history.history.keys()}
                 # Checking that a metric history exists
                 metric_key = next(iter(history.history), None)
                 if metric_key is not None:
                     last_epoch = len(history.history[metric_key])
-                    try_mlflow_log(mlflow.log_metrics, best_metrics, step=last_epoch)
+                    try_mlflow_log(mlflow.log_metrics, restored_metrics, step=last_epoch)
 
     @gorilla.patch(keras.Model)
     def fit(self, *args, **kwargs):

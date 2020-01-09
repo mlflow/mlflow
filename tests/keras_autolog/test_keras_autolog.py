@@ -161,31 +161,19 @@ def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, rando
 
 
 @pytest.fixture
-def all_zeros_train_data():
-    return np.zeros((1000, 32))
-
-
-@pytest.fixture
-def all_zeros_one_hot_labels():
-    n, n_class = (1000, 10)
-    classes = np.zeros(n, dtype=int)
-    labels = np.zeros((n, n_class))
-    labels[np.arange(n), classes] = 0
-    return labels
-
-
-@pytest.fixture
-def keras_random_data_run_with_callback(all_zeros_train_data, fit_variant,
-                                        all_zeros_one_hot_labels, manual_run,
+def keras_random_data_run_with_callback(random_train_data, fit_variant,
+                                        random_one_hot_labels, manual_run,
                                         callback, restore_weights, patience):
     mlflow.keras.autolog()
 
-    data = all_zeros_train_data
-    labels = all_zeros_one_hot_labels
+    data = random_train_data
+    labels = random_one_hot_labels
 
     model = create_model()
     if callback == 'early':
+        # min_delta is set as such to guarantee early stopping
         callback = keras.callbacks.callbacks.EarlyStopping(monitor='loss', patience=patience,
+                                                           min_delta=99999999,
                                                            restore_best_weights=restore_weights)
     else:
         if fit_variant == 'fit_generator':
@@ -208,19 +196,24 @@ def keras_random_data_run_with_callback(all_zeros_train_data, fit_variant,
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant,restore_weights', [('fit', True),
-                                                         ('fit_generator', True)])
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+@pytest.mark.parametrize('restore_weights', [True])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [0, 1, 5])
 def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
+    assert 'patience' in params
+    assert params['patience'] == str(callback.patience)
+    assert 'monitor' in params
+    assert params['monitor'] == 'loss'
+    assert 'verbose' not in params
+    assert 'mode' not in params
     assert 'stopped_epoch' in metrics
-    assert 'earlystopping_patience' in params
-    assert params['earlystopping_patience'] == str(callback.patience)
-    assert 'best_epoch' in metrics
-    assert int(metrics['stopped_epoch']) - max(1, callback.patience) == int(metrics['best_epoch'])
+    assert 'restored_epoch' in metrics
+    restored_epoch = int(metrics['restored_epoch'])
+    assert int(metrics['stopped_epoch']) - max(1, callback.patience) == restored_epoch
     assert 'loss' in history.history
     num_of_epochs = len(history.history['loss'])
     client = mlflow.tracking.MlflowClient()
@@ -230,23 +223,27 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
     # Check that MLflow has logged the metrics of the "best" model
     assert len(metric_history) == num_of_epochs + 1
     # Check that MLflow has logged the correct data
-    assert history.history['loss'][callback.stopped_epoch] == metric_history[-1].value
+    assert history.history['loss'][restored_epoch] == metric_history[-1].value
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant,restore_weights', [('fit', True),
-                                                         ('fit_generator', True)])
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+@pytest.mark.parametrize('restore_weights', [True])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [11])
 def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
+    assert 'patience' in params
+    assert params['patience'] == str(callback.patience)
+    assert 'monitor' in params
+    assert params['monitor'] == 'loss'
+    assert 'verbose' not in params
+    assert 'mode' not in params
     assert 'stopped_epoch' in metrics
     assert metrics['stopped_epoch'] == 0
-    assert 'earlystopping_patience' in params
-    assert params['earlystopping_patience'] == str(callback.patience)
-    assert 'best_epoch' not in metrics
+    assert 'restored_epoch' not in metrics
     assert 'loss' in history.history
     num_of_epochs = len(history.history['loss'])
     client = mlflow.tracking.MlflowClient()
@@ -257,18 +254,22 @@ def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_wit
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant,restore_weights', [('fit', False),
-                                                         ('fit_generator', False)])
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+@pytest.mark.parametrize('restore_weights', [False])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [5])
 def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
+    assert 'patience' in params
+    assert params['patience'] == str(callback.patience)
+    assert 'monitor' in params
+    assert params['monitor'] == 'loss'
+    assert 'verbose' not in params
+    assert 'mode' not in params
     assert 'stopped_epoch' in metrics
-    assert 'earlystopping_patience' in params
-    assert params['earlystopping_patience'] == str(callback.patience)
-    assert 'best_epoch' not in metrics
+    assert 'restored_epoch' not in metrics
     assert 'loss' in history.history
     num_of_epochs = len(history.history['loss'])
     client = mlflow.tracking.MlflowClient()
@@ -279,17 +280,20 @@ def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant,restore_weights', [('fit', False),
-                                                         ('fit_generator', False)])
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+@pytest.mark.parametrize('restore_weights', [False])
 @pytest.mark.parametrize('callback', ['not-early'])
 @pytest.mark.parametrize('patience', [5])
 def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
+    assert 'patience' not in params
+    assert 'monitor' not in params
+    assert 'verbose' not in params
+    assert 'mode' not in params
     assert 'stopped_epoch' not in metrics
-    assert 'earlystopping_patience' not in params
-    assert 'best_epoch' not in metrics
+    assert 'restored_epoch' not in metrics
     assert 'loss' in history.history
     num_of_epochs = len(history.history['loss'])
     client = mlflow.tracking.MlflowClient()
