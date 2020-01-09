@@ -97,7 +97,7 @@ public class DatabricksContext {
       tagsForJob.put(MlflowTagConstants.DATABRICKS_JOB_RUN_ID, jobRunId);
       tagsForJob.put(MlflowTagConstants.SOURCE_TYPE, "JOB");
       tagsForJob.put(MlflowTagConstants.SOURCE_NAME,
-                          String.format("job/%s/run/%s", jobId, jobRunId));
+                          String.format("jobs/%s/run/%s", jobId, jobRunId));
     }
     if (jobType != null) {
       tagsForJob.put(MlflowTagConstants.DATABRICKS_JOB_TYPE, jobType);

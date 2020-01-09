@@ -115,7 +115,7 @@ public class DatabricksContextTest {
         MlflowTagConstants.DATABRICKS_JOB_ID, "70",
         MlflowTagConstants.DATABRICKS_JOB_RUN_ID, "5",
         MlflowTagConstants.SOURCE_TYPE, "JOB",
-        MlflowTagConstants.SOURCE_NAME, "job/70/run/5");
+        MlflowTagConstants.SOURCE_NAME, "jobs/70/run/5");
       baseMap.put("jobId", "70");
       baseMap.put("idInJob", "5");
       DatabricksContext context = DatabricksContext.createIfAvailable(MyDynamicProvider.class.getName());
