@@ -12,6 +12,8 @@ LightGBM (native) format
 .. _lightgbm.Booster.save_model:
     https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html
     #lightgbm.Booster.save_model
+.. _lightgbm.train:
+    https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
 .. _scikit-learn API:
     https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api
 """
