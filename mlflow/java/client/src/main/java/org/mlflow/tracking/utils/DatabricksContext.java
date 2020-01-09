@@ -32,13 +32,13 @@ public class DatabricksContext {
   }
 
   public Map<String, String> getTags() {
-    Map<String, String> tags = new HashMap<>();
     if (isInDatabricksNotebook()) {
-      tags.putAll(getTagsForDatabricksNotebook());
+      return getTagsForDatabricksNotebook();
     } else if (isInDatabricksJob()) {
-      tags.putAll(getTagsForDatabricksJob());
+      return getTagsForDatabricksJob();
+    } else {
+      return new HashMap<>();
     }
-    return tags;
   }
 
   public boolean isInDatabricksNotebook() {
