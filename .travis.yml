@@ -1,6 +1,6 @@
 language: python
 
-dist: trusty
+dist: xenial
 
 services:
   - docker
