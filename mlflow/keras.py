@@ -481,7 +481,7 @@ def autolog():
     def _log_early_stop_callback_params(callback):
         if callback:
             try:
-                params_to_be_logged = {'monitor': callback.monitor,
+                earlystopping_params = {'monitor': callback.monitor,
                                        'min_delta': callback.min_delta,
                                        'patience': callback.patience,
                                        'baseline': callback.baseline,
