@@ -33,6 +33,7 @@ def test_is_uri():
     assert is_uri("file://some/local/path")
     assert is_uri("hdfs://some/hdfs/path")
     assert is_uri("viewfs://some/viewfs/path")
+    assert is_uri("har://some/viewfs/path")
     assert not is_uri("/tmp/some/local/path")
 
 
