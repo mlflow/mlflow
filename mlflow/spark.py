@@ -24,8 +24,8 @@ from __future__ import absolute_import
 import os
 import yaml
 import logging
-import posixpath
 import re
+import traceback
 
 import mlflow
 from mlflow import pyfunc, mleap
@@ -37,8 +37,10 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import is_local_uri
+from mlflow.utils.uri import is_local_uri, append_to_uri_path
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
+from mlflow.utils import experimental
+
 
 FLAVOR_NAME = "spark"
 
@@ -47,6 +49,10 @@ DFS_TMP = "/tmp/mlflow"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 
 _logger = logging.getLogger(__name__)
+
+
+def _format_exception(ex):
+    return "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
 
 
 def get_default_conda_env():
@@ -431,7 +437,7 @@ def load_model(model_uri, dfs_tmpdir=None):
         model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
-    model_uri = posixpath.join(model_uri, flavor_conf["model_data"])
+    model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
     return _load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
 
 
@@ -473,3 +479,53 @@ class _PyFuncModelWrapper(object):
         spark_df = self.spark.createDataFrame(pandas_df)
         return [x.prediction for x in
                 self.spark_model.transform(spark_df).select("prediction").collect()]
+
+
+@experimental
+def autolog():
+    """
+    Enables automatic logging of Spark datasource paths, versions (if applicable), and formats
+    when they are read. This method is not threadsafe and assumes a
+    `SparkSession
+    <https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession>`_
+    already exists with the
+    `mlflow-spark JAR
+    <http://mlflow.org/docs/latest/tracking.html#automatic-logging-from-spark-experimental>`_
+    attached. It should be called on the Spark driver, not on the executors (i.e. do not call
+    this method within a function parallelized by Spark). This API requires Spark 3.0 or above,
+    but can be run on Spark 2.x environments with backports for compatibility with the
+    mlflow-spark JAR (e.g. Databricks Runtime 6.0 and above).
+
+    Datasource information is logged under the current active MLflow run, creating an active run
+    if none exists. Note that autologging of Spark ML (MLlib) models is not currently supported
+    via this API. Datasource-autologging is best-effort, meaning that if Spark is under heavy load
+    or MLflow logging fails for any reason (e.g. if the MLflow server is unavailable), logging may
+    be dropped.
+
+    For any unexpected issues with autologging, check Spark driver and executor logs in addition
+    to stderr & stdout generated from your MLflow code - datasource information is pulled from
+    Spark, so logs relevant to debugging may show up amongst the Spark logs.
+
+    >>> import mlflow.spark
+    >>> from pyspark.sql import SparkSession
+    >>> # Create and persist some dummy data
+    >>> spark = SparkSession.builder\
+    >>>   .config("spark.jars.packages", "org.mlflow.mlflow-spark").getOrCreate()
+    >>> df = spark.createDataFrame([
+    ...   (4, "spark i j k"),
+    ...   (5, "l m n"),
+    ...   (6, "spark hadoop spark"),
+    ...   (7, "apache hadoop")], ["id", "text"])
+    >>> import tempfile
+    >>> tempdir = tempfile.mkdtemp()
+    >>> df.write.format("csv").save(tempdir)
+    >>> # Enable Spark datasource autologging.
+    >>> mlflow.spark.autolog()
+    >>> loaded_df = spark.read.format("csv").load(tempdir)
+    >>> # Call collect() to trigger a read of the Spark datasource. Datasource info
+    >>> # (path and format)is automatically logged to an MLflow run.
+    >>> loaded_df.collect()
+    >>> shutil.rmtree(tempdir) # clean up tempdir
+    """
+    from mlflow import _spark_autologging
+    _spark_autologging.autolog()
