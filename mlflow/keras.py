@@ -486,7 +486,7 @@ def autolog():
                                        'patience': callback.patience,
                                        'baseline': callback.baseline,
                                        'restore_best_weights': callback.restore_best_weights}
-                log_fn_args_as_params(type(callback), [], params_to_be_logged, ['verbose', 'mode'])
+                try_mlflow_log(mlflow.log_params, earlystopping_params)
             except Exception:  # pylint: disable=W0703
                 return
 
