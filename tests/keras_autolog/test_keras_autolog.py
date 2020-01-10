@@ -49,7 +49,7 @@ def add_layers(model):
 
 def create_large_model():
     model = keras.Sequential()
-    while len(model.layers) > 60:
+    while len(model.layers) < 60:
         add_layers(model)
     model.compile(optimizer=keras.optimizers.Adam(lr=0.001, epsilon=1e-07),
                   loss='categorical_crossentropy',
@@ -57,7 +57,7 @@ def create_large_model():
     return model
 
 
-@pytest.mark.large
+#@pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels, fit_variant):
     mlflow.keras.autolog()
@@ -78,7 +78,7 @@ def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_l
     assert mlflow.active_run() is None
 
 
-@pytest.mark.large
+#@pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_keras_autolog_persists_manually_created_run(random_train_data,
                                                      random_one_hot_labels, fit_variant):
@@ -107,15 +107,16 @@ def keras_random_data_run(random_train_data,
                           fit_variant,
                           random_one_hot_labels,
                           manual_run,
-                          model_func=create_model):
+                          model_func):
 
     mlflow.keras.autolog()
 
     data = random_train_data
     labels = random_one_hot_labels
-
-    model = model_func()
-
+    if model_func == 'simple':
+       model = create_model()
+    else:
+       model = create_large_model()
     if fit_variant == 'fit_generator':
         def generator():
             while True:
@@ -123,18 +124,13 @@ def keras_random_data_run(random_train_data,
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
     else:
         model.fit(data, labels, epochs=10, steps_per_epoch=1)
-
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
 
-@pytest.fixture
-def keras_random_data_large_model_run(*args):
-    return keras_random_data_run(*args, model_func=create_large_model)
-
-
-@pytest.mark.large
+#@pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_keras_autolog_logs_expected_data(keras_random_data_run):
+@pytest.mark.parametrize('model_func', ['simple','large'])
+def test_keras_autolog_logs_expected_data(keras_random_data_run, model_func):
     data = keras_random_data_run.data
     assert 'accuracy' in data.metrics
     assert 'loss' in data.metrics
@@ -151,21 +147,13 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
     assert data.params['optimizer_name'] == 'Adam'
     assert 'epsilon' in data.params
     assert data.params['epsilon'] == '1e-07'
-    assert 'model_summary' in data.tags
-    assert 'Total params: 6,922' in data.tags['model_summary']
-    artifacts = client.list_artifacts(keras_random_data_run.info.run_id)
-    artifacts = map(lambda x: x.path, artifacts)
-    assert 'model_summary.txt' in artifacts
+    if model_func == 'large':
+        assert "see the artifacts" in data.tags['model_summary']
+    else:
+        assert 'Total params: 6,922' in data.tags['model_summary']
 
 
-@pytest.mark.large
-def test_keras_autolog_logs_expected_large_summary(keras_random_data_large_model_run):
-    data = keras_random_data_large_model_run.data
-    assert 'model_summary' in data.tags
-    assert "See the artifacts" in data.tags['model_summary']
-
-
-@pytest.mark.large
+#@pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit'])
 def test_keras_autolog_logs_default_params(keras_random_data_run):
     # Logging default parameters does not work with keras.Model.fit_generator
@@ -174,7 +162,7 @@ def test_keras_autolog_logs_default_params(keras_random_data_run):
     assert data.params['initial_epoch'] == '0'
 
 
-@pytest.mark.large
+#@pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, random_train_data):
     run_id = keras_random_data_run.info.run_id
