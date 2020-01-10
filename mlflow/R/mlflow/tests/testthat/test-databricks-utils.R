@@ -233,7 +233,7 @@ test_that("databricks get run context fetches expected tags for job environment"
                         webapp_url = "https://databricks-url.com")
   expected_tags = list("10", "2", "notebook", "https://databricks-url.com",
                        MLFLOW_SOURCE_TYPE$JOB, "jobs/10/run/2")
-  names(expected_tags) <- c( 
+  names(expected_tags) <- c(
     MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_JOB_RUN_ID,
     MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_JOB_TYPE,
