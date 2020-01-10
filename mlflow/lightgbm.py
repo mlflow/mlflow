@@ -198,11 +198,13 @@ class _LGBModelWrapper:
 def autolog():
     """
     Enables automatic logging from LightGBM to MLflow. Logs the following.
+
     - parameters specified in `lightgbm.train`_.
-    - metrics on each iteration (if ``evals`` specified).
+    - metrics on each iteration (if ``valid_sets`` specified).
     - metrics at the best iteration (if ``early_stopping_rounds`` specified).
-    - feature importance.
+    - feature importance (both "split" and "gain").
     - trained model.
+
     Note that the `scikit-learn API`_ is not supported.
     """
     import lightgbm
