@@ -89,7 +89,9 @@ def tracking_server_uri(backend_store_uri):
 @pytest.fixture()
 def mlflow_client(tracking_server_uri):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
-    return mock.Mock(wraps=MlflowClient(tracking_server_uri))
+    mlflow.set_tracking_uri(tracking_server_uri)
+    yield mock.Mock(wraps=MlflowClient(tracking_server_uri))
+    mlflow.set_tracking_uri(None)
 
 
 @pytest.fixture()
