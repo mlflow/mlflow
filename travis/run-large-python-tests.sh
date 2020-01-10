@@ -20,7 +20,8 @@ pytest tests --large --ignore=tests/examples --ignore=tests/h2o --ignore=tests/k
   --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
   --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/azureml --ignore=tests/onnx \
   --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore=tests/gluon \
-  --ignore=tests/gluon_autolog --ignore=tests/xgboost --ignore=tests/lightgbm --ignore=tests/models
+  --ignore=tests/gluon_autolog --ignore=tests/xgboost --ignore=tests/lightgbm \
+  --ignore tests/spark_autologging --ignore=tests/models
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
 pytest --verbose tests/h2o --large
@@ -46,4 +47,8 @@ pytest --verbose tests/keras --large
 pytest --verbose tests/keras_autolog --large
 pytest --verbose tests/gluon --large
 pytest --verbose tests/gluon_autolog --large
+
+# Run Spark autologging tests
+./travis/test-spark-autologging.sh
+
 test $err = 0
