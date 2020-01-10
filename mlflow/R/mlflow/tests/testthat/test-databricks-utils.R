@@ -226,7 +226,7 @@ test_that("databricks get run context fetches expected info for notebook environ
   }, notebook_info = mock_notebook_info, job_info = NULL)
 })
 
-test_that("databricks get run context fetches expected tags for job environment", {
+test_that("databricks get run context fetches expected info for job environment", {
   mock_job_info <- list(job_id = "10",
                         run_id = "2",
                         job_type = "notebook",
