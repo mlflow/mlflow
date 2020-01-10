@@ -298,6 +298,29 @@ If early stopping is activated, metrics at the best iteration will be logged as 
 .. _MLflow Model: https://mlflow.org/docs/latest/models.html
 .. _scikit-learn API:  https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 
+Spark (experimental)
+--------------------
+
+Initialize a SparkSession with the mlflow-spark JAR attached (e.g.
+``SparkSession.builder.config("spark.jars.packages", "org.mlflow.mlflow-spark")``) and then
+call :py:func:`mlflow.spark.autolog` to enable automatic logging of Spark datasource
+information at read-time, without the need for explicit
+log statements. Note that autologging of Spark ML (MLlib) models is not yet supported.
+
+Autologging captures the following information:
+
++------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
+| Framework        | Metrics | Parameters |  Tags                                                                                        | Artifacts |
++------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
+| Spark            | --      | --         | Single tag containing source path, version, format. The tag contains one line per datasource | --        |
++------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
+
+**Note**: this feature is experimental - the API and format of the logged data are subject to change.
+Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely)
+to see race conditions when launching short-lived MLflow runs that result in datasource information
+not being logged.
+
+
 .. _organizing_runs_in_experiments:
 
 Organizing Runs in Experiments
