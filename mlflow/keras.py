@@ -525,7 +525,7 @@ def autolog():
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
         early_stop_callback = None
 
-        # Checking if the 'callback' argument of fit() is set
+        # Checking if the 'callback' argument of the function is set
         if len(args) > callback_arg_index:
             tmp_list = list(args)
             early_stop_callback = _early_stop_check(tmp_list[callback_arg_index])
