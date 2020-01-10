@@ -130,7 +130,6 @@ build_context_tags_from_databricks_job_info <- function(job_info) {
 mlflow_get_run_context.mlflow_databricks_client <- function(client, experiment_id, ...) {
   if (exists(".databricks_internals")) {
     databricks_internal_env <- get(".databricks_internals", envir = .GlobalEnv)
-
     notebook_info <- do.call(".get_notebook_info", list(), envir = databricks_internal_env)
     if (!is.na(notebook_info$id) && !is.na(notebook_info$path)) {
       return(list(
@@ -150,7 +149,7 @@ mlflow_get_run_context.mlflow_databricks_client <- function(client, experiment_i
       return(list(
         client = client,
         tags = build_context_tags_from_databricks_job_info(job_info),
-        experiment_id = experiment_id %||% notebook_info$id,
+        experiment_id = experiment_id %||% 0,
         ...
       ))
     }
