@@ -47,7 +47,7 @@ matrix:
         - export NOT_CRAN=true
         - cd mlflow/R/mlflow
         - Rscript -e 'install.packages("devtools")'
-        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = "always")'
+        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = FALSE)'
         - cd ../../..
       install:
         - source ./travis/install-common-deps.sh
