@@ -4,7 +4,7 @@ set -ex
 sudo mkdir -p /travis-install
 sudo chown travis /travis-install
 sudo apt install openjdk-8-jdk
-sudo update-alternatives --config java
+export JAVA_HOME=$(/usr/libexec/java_home -v 1.8)
 java -version
 # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
 # We do this conditionally because it saves us some downloading if the
