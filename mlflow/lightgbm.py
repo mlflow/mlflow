@@ -195,7 +195,7 @@ class _LGBModelWrapper:
 
 
 @experimental
-def autolog(importance_types=['split']):  # pylint: disable=W0102
+def autolog():
     """
     Enables automatic logging from LightGBM to MLflow. Logs the following.
     - parameters specified in `lightgbm.train`_.
@@ -204,7 +204,6 @@ def autolog(importance_types=['split']):  # pylint: disable=W0102
     - feature importance.
     - trained model.
     Note that the `scikit-learn API`_ is not supported.
-    :param importance_types: importance types to log.
     """
     import lightgbm
 
@@ -280,7 +279,7 @@ def autolog(importance_types=['split']):  # pylint: disable=W0102
                            step=extra_step)
 
         # logging feature importance as artifacts.
-        for imp_type in importance_types:
+        for imp_type in ['split', 'gain']:
             features = model.feature_name()
             importance = model.feature_importance(importance_type=imp_type)
             imp = {ft: imp for ft, imp in zip(features, importance.tolist())}

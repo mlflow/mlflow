@@ -220,31 +220,7 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
     artifacts_dir = run.info.artifact_uri.replace('file://', '')
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
-    importance_type = 'split'
-    filename = 'feature_importance_{}.json'.format(importance_type)
-    filepath = os.path.join(artifacts_dir, filename)
-    with open(filepath, 'r') as f:
-        loaded_imp = json.load(f)
-
-    features = model.feature_name()
-    importance = model.feature_importance(importance_type=importance_type)
-    imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
-
-    assert filename in artifacts
-    assert loaded_imp == imp
-
-
-@pytest.mark.large
-def test_lgb_autolog_logs_specified_feature_importance(bst_params, train_set):
-    importance_types = ['split', 'gain']
-    mlflow.lightgbm.autolog(importance_types)
-    model = lgb.train(bst_params, train_set, num_boost_round=10)
-    run = get_latest_run()
-    run_id = run.info.run_id
-    artifacts_dir = run.info.artifact_uri.replace('file://', '')
-    artifacts = [x.path for x in client.list_artifacts(run_id)]
-
-    for imp_type in importance_types:
+    for imp_type in ['split', 'gain']:
         filename = 'feature_importance_{}.json'.format(imp_type)
         filepath = os.path.join(artifacts_dir, filename)
         with open(filepath, 'r') as f:
