@@ -4,6 +4,7 @@ set -ex
 sudo mkdir -p /travis-install
 sudo chown travis /travis-install
 which java
+rm -rf /usr/local/lib/jvm/openjdk11
 sudo apt install openjdk-8-jdk
 which java
 java -version
