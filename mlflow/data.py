@@ -24,16 +24,6 @@ class DownloadException(Exception):
     pass
 
 
-def parse_simple_uri(uri, scheme):
-    parsed = urllib.parse.urlparse(uri)
-    if parsed.scheme != scheme:
-        raise Exception("Not an %s URI: %s" % (scheme.upper(), uri))
-    path = parsed.path
-    if path.startswith('/'):
-        path = path[1:]
-    return parsed.netloc, path
-
-
 def _fetch_dbfs(uri, local_path):
     print(
         "=== Downloading DBFS file %s to local path %s ===" %
