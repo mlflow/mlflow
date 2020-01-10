@@ -49,4 +49,5 @@ Suggests:
   carrier,
   keras,
   lintr,
-  testthat
+  testthat,
+  stringi (< 1.4.4)
