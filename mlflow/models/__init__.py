@@ -144,7 +144,7 @@ class FlavorBackend(object):
         """
         Check whether this flavor backend can be deployed in the current environment.
 
-        :return: True if this flavor backend can be applied int he current environment.
+        :return: True if this flavor backend can be applied in the current environment.
         """
         pass
 
