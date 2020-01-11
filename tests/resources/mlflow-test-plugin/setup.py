@@ -18,7 +18,7 @@ setup(
         # Define a RunContextProvider plugin. The entry point name for run context providers
         # is not used, and so is set to the string "unused" here
         "mlflow.run_context_provider": "unused=mlflow_test_plugin:PluginRunContextProvider",
-        # Define a model-registry AbstractStore plugin for tracking URIs with scheme 'file-plugin'
+        # Define a Model Registry AbstractStore plugin for tracking URIs with scheme 'file-plugin'
         "mlflow.model_registry_store":
             "file-plugin=mlflow_test_plugin:PluginRegistrySqlAlchemyStore",
     },
