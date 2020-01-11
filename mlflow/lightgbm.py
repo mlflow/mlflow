@@ -242,14 +242,14 @@ def autolog(normalize=False, max_num_features=None):
             else:
                 indices = np.argsort(importance)[-max_num_features:]
 
-            num_features = len(features)
             features = np.array(features)[indices]
             importance = importance[indices]
+            num_features = len(features)
 
             # If num_features > 10, increase the figure height to prevent the plot
             # from being too dense.
             w, h = [6.4, 4.8]  # matplotlib's default figure size
-            h = h if (num_features <= 10) else (h + 0.1 * num_features)
+            h = h + 0.1 * num_features if num_features > 10 else h
             fig, ax = plt.subplots(figsize=(w, h))
 
             yloc = np.arange(num_features)
