@@ -8,19 +8,21 @@ As a framework-agnostic tool for machine learning, the MLflow Python API provide
 writing plugins that integrate with different ML frameworks and backends.
 
 Plugins provide a powerful mechanism for customizing the behavior of the MLflow
-Python client, allowing you to integrate third-party tracking and artifact storage solutions,
-set special context tags at run creation, and override model registry methods.
+Python client and integrating third-party tools.
 
 The MLflow Python API currently supports several types of plugins:
 
-* Tracking AbstractStore plugins: specify custom client behavior when users call
-  tracking API methods like :py:func:`mlflow.start_run`, :py:func:`mlflow.log_metric`, :py:func:`mlflow.log_param`.
-* ArtifactRepository plugins: specify custom client behavior when users call
-  :py:func:`mlflow.log_artifact`, :py:func:`mlflow.log_artifacts`
-* Run context providers: specify context tags to be set on runs created via the
+* **Tracking Store plugins**: specify custom client behavior when users call
+  tracking API methods like :py:func:`mlflow.start_run`, :py:func:`mlflow.log_metric`, :py:func:`mlflow.log_param`,
+  allowing you to integrate MLflow with third-party storage solutions
+* **ArtifactRepository plugins**: specify custom client behavior when users call
+  :py:func:`mlflow.log_artifact`, :py:func:`mlflow.log_artifacts`,
+  allowing you to integrate MLflow with third-party storage solutions
+* **Run context providers**: specify context tags to be set on runs created via the
   :py:func:`mlflow.start_run` fluent API.
-* Model registry AbstractStore plugins: specify custom client behavior when users call
-  model registry APIs like :py:func:`mlflow.register_model`
+* **Model Registry Store plugins**: specify custom client behavior when users call
+  Model Registry APIs like :py:func:`mlflow.register_model`, ,
+  allowing you to integrate MLflow with third-party storage solutions
 
 .. contents:: Table of Contents
   :local:
@@ -156,9 +158,9 @@ plugin:
      - `GitRunContext <https://github.com/mlflow/mlflow/blob/master/mlflow/tracking/context/git_context.py#L36>`_,
        `DefaultRunContext <https://github.com/mlflow/mlflow/blob/master/mlflow/tracking/context/default_context.py#L41>`_
 
-   * - Plugins for overriding definitions of model registry APIs like ``mlflow.register_model``.
+   * - Plugins for overriding definitions of Model Registry APIs like ``mlflow.register_model``.
      - mlflow.model_registry_store
-     - .. note:: The model registry is in beta (as of MLflow 1.5), so APIs are not guaranteed to be stable and model-registry plugins may break in the future.
+     - .. note:: The Model Registry is in beta (as of MLflow 1.5), so APIs are not guaranteed to be stable and model-registry plugins may break in the future.
 
        The entry point value (e.g. ``mlflow_test_plugin:PluginRegistrySqlAlchemyStore``) specifies a custom subclass of
        `mlflow.tracking.model_registry.AbstractStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/model_registry/abstract_store.py#L6>`_
