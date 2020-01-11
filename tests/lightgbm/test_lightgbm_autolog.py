@@ -268,7 +268,6 @@ def test_lgb_autolog_logs_feature_importance_with_normalization(bst_params, trai
         assert loaded_imp == imp
 
 
-
 @pytest.mark.large
 def test_lgb_autolog_loads_model_from_artifact(bst_params, train_set):
     mlflow.lightgbm.autolog()
