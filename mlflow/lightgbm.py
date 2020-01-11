@@ -195,19 +195,26 @@ class _LGBModelWrapper:
 
 
 @experimental
-def autolog():
+def autolog(normalize=False, max_num_features=None):
     """
     Enables automatic logging from LightGBM to MLflow. Logs the following.
 
     - parameters specified in `lightgbm.train`_.
     - metrics on each iteration (if ``valid_sets`` specified).
     - metrics at the best iteration (if ``early_stopping_rounds`` specified).
-    - feature importance (both "split" and "gain").
+    - feature importance (both "split" and "gain") as JSON files and plots.
     - trained model.
+
+    :param normalize: If ``True``, divide each value in feature importance
+                      by the sum of all values (default: ``False``).
+    :params max_num_features: Max number of top features displayed on plot.
+                              If ``None``, all features will be displayed (default: ``None``).
 
     Note that the `scikit-learn API`_ is not supported.
     """
     import lightgbm
+    import numpy as np
+    import matplotlib.pyplot as plt
 
     @gorilla.patch(lightgbm)
     def train(*args, **kwargs):
@@ -224,6 +231,42 @@ def autolog():
 
                 eval_results.append(res)
             return callback
+
+        def plot_importance(features, importance, importance_type, max_num_features=None):
+            """
+            Plot feature importance.
+            """
+
+            if max_num_features is None:
+                indices = np.argsort(importance)
+            else:
+                indices = np.argsort(importance)[-max_num_features:]
+
+            num_features = len(features)
+            features = np.array(features)[indices]
+            importance = importance[indices]
+
+            # If num_features > 10, increase the figure height to prevent the plot
+            # from being too dense.
+            w, h = [6.4, 4.8]  # matplotlib's default figure size
+            h = h if (num_features <= 10) else (h + 0.1 * num_features)
+            fig, ax = plt.subplots(figsize=(w, h))
+
+            yloc = np.arange(num_features)
+            ax.barh(yloc, importance, align='center', height=0.5)
+            ax.set_yticks(yloc)
+            ax.set_yticklabels(features)
+            ax.set_xlabel('Importance')
+            ax.set_title('Feature Importance ({})'.format(importance_type))
+            fig.tight_layout()
+
+            tmpdir = tempfile.mkdtemp()
+            try:
+                filepath = os.path.join(tmpdir, 'feature_importance_{}.png'.format(imp_type))
+                fig.savefig(filepath)
+                try_mlflow_log(mlflow.log_artifact, filepath)
+            finally:
+                shutil.rmtree(tmpdir)
 
         if not mlflow.active_run():
             try_mlflow_log(mlflow.start_run)
@@ -284,6 +327,10 @@ def autolog():
         for imp_type in ['split', 'gain']:
             features = model.feature_name()
             importance = model.feature_importance(importance_type=imp_type)
+            if normalize:
+                importance = importance / importance.sum()
+
+            plot_importance(features, importance, imp_type, max_num_features)
             imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
             tmpdir = tempfile.mkdtemp()
             try:
