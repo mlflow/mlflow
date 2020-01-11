@@ -482,10 +482,10 @@ def autolog():
         if callback:
             try:
                 earlystopping_params = {'monitor': callback.monitor,
-                                       'min_delta': callback.min_delta,
-                                       'patience': callback.patience,
-                                       'baseline': callback.baseline,
-                                       'restore_best_weights': callback.restore_best_weights}
+                                        'min_delta': callback.min_delta,
+                                        'patience': callback.patience,
+                                        'baseline': callback.baseline,
+                                        'restore_best_weights': callback.restore_best_weights}
                 try_mlflow_log(mlflow.log_params, earlystopping_params)
             except Exception:  # pylint: disable=W0703
                 return
