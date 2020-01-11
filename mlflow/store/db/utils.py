@@ -100,6 +100,9 @@ def _get_alembic_config(db_url, alembic_dir=None):
     from alembic.config import Config
     final_alembic_dir = os.path.join(_get_package_dir(), 'store', 'db_migrations')\
         if alembic_dir is None else alembic_dir
+    # Escape any '%' that appears in a db_url. This could be in a password,
+    # url, or anything that is part of a potentially complex database url
+    db_url = db_url.replace('%', '%%')
     config = Config(os.path.join(final_alembic_dir, 'alembic.ini'))
     config.set_main_option('script_location', final_alembic_dir)
     config.set_main_option('sqlalchemy.url', db_url)
