@@ -6,6 +6,7 @@ sudo chown travis /travis-install
 which java
 sudo rm -rf /usr/local/lib/jvm/openjdk11
 sudo apt install openjdk-8-jdk
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/
 hash -r
 which java
 java -version
