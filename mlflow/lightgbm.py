@@ -240,6 +240,7 @@ def autolog(normalize=False, max_num_features=None):
             if max_num_features is None:
                 indices = np.argsort(importance)
             else:
+                # pylint: disable=invalid-unary-operand-type
                 indices = np.argsort(importance)[-max_num_features:]
 
             features = np.array(features)[indices]
@@ -334,6 +335,7 @@ def autolog(normalize=False, max_num_features=None):
             imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
             tmpdir = tempfile.mkdtemp()
             try:
+                # pylint: disable=undefined-loop-variable
                 filepath = os.path.join(tmpdir, 'feature_importance_{}.json'.format(imp_type))
                 with open(filepath, 'w') as f:
                     json.dump(imp, f, indent=2)
