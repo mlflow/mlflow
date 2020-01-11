@@ -167,7 +167,7 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
 @pytest.fixture
 def tf_keras_random_data_run_with_callback(random_train_data, random_one_hot_labels, manual_run,
                                            callback, restore_weights, patience):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(every_n_iter=1)
 
     data = random_train_data
     labels = random_one_hot_labels
