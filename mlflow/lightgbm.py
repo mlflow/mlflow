@@ -336,7 +336,7 @@ def autolog(normalize=False, max_num_features=None):
             try:
                 filepath = os.path.join(tmpdir, 'feature_importance_{}.json'.format(imp_type))
                 with open(filepath, 'w') as f:
-                    json.dump(imp, f)
+                    json.dump(imp, f, indent=2)
                 try_mlflow_log(mlflow.log_artifact, filepath)
             finally:
                 shutil.rmtree(tmpdir)
