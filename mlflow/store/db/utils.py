@@ -152,8 +152,7 @@ def _upgrade_db_initialized_before_mlflow_1(url):
     """
     # alembic adds significant import time, so we import it lazily
     from alembic import command
-    _logger.info("Updating database tables at %s in preparation for MLflow 1.0 schema migrations",
-                 url)
+    _logger.info("Updating database tables in preparation for MLflow 1.0 schema migrations ")
     alembic_dir = os.path.join(_get_package_dir(), 'temporary_db_migrations_for_pre_1_users')
     config = _get_alembic_config(url, alembic_dir)
     command.upgrade(config, 'heads')
