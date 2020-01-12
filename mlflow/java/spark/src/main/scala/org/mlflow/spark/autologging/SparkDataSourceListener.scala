@@ -1,9 +1,7 @@
 package org.mlflow.spark.autologging
 
 import org.apache.spark.scheduler._
-import org.apache.spark.sql.catalyst.plans.logical.{LeafNode, LogicalPlan}
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd
-import org.apache.spark.sql.execution.QueryExecution
 import org.slf4j.LoggerFactory
 
 
@@ -13,7 +11,7 @@ import org.slf4j.LoggerFactory
  */
 class SparkDataSourceListener(
     publisher: MlflowAutologEventPublisherImpl = MlflowAutologEventPublisher) extends SparkListener {
-  private val logger = LoggerFactory.getLogger(getClass)
+  protected val logger = LoggerFactory.getLogger(getClass)
 
   protected def getDatasourceAttributeExtractor: DatasourceAttributeExtractorBase = {
     DatasourceAttributeExtractor

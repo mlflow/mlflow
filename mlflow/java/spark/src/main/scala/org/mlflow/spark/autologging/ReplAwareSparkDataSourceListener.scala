@@ -29,13 +29,19 @@ class ReplAwareSparkDataSourceListener(
     val properties = getProperties(event)
     val executionIdOpt = properties.get(SQLExecution.EXECUTION_ID_KEY).map(_.toLong)
     if (executionIdOpt.isEmpty) {
+      logger.warn(s"Unable to find execution ID of current Spark Job, " +
+        s"refusing to autolog datasource reads performed within current Spark job")
       return
     }
     val executionId = executionIdOpt.get
     val replIdOpt = properties.get("spark.databricks.replId")
-    replIdOpt.foreach { replId =>
-      executionIdToReplId.put(executionId, replId)
+    if (replIdOpt.isEmpty) {
+      logger.warn(s"Unable to find ID of REPL that triggered current Spark Job (execution ID " +
+        s"$executionId), " +
+        s"refusing to autolog datasource reads performed within current Spark job")
+      return
     }
+    executionIdToReplId.put(executionId, replIdOpt.get)
   }
 
   override protected def getReplIdOpt(event: SparkListenerSQLExecutionEnd): Option[String] = {

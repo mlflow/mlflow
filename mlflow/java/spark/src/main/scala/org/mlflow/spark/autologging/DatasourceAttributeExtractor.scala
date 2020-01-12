@@ -3,14 +3,11 @@ package org.mlflow.spark.autologging
 import org.apache.spark.sql.SparkAutologgingUtils
 import org.apache.spark.sql.catalyst.plans.logical.{LeafNode, LogicalPlan}
 import org.apache.spark.sql.execution.datasources.v2.{DataSourceV2Relation, FileTable}
-import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation, TextBasedFileFormat}
+import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
 import org.apache.spark.sql.connector.catalog.Table
-import org.apache.spark.sql.execution.datasources.csv.CSVFileFormat
-import org.apache.spark.sql.execution.datasources.json.JsonFileFormat
-import org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd
 import org.apache.spark.sql.sources.DataSourceRegister
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.control.NonFatal
 
@@ -20,9 +17,9 @@ private[autologging] case class SparkTableInfo(
     versionOpt: Option[String],
     formatOpt: Option[String])
 
-/** Helper object for extracting Spark datasource attributes from a Spark logical plan. */
+/** Base trait for extracting Spark datasource attributes from a Spark logical plan. */
 private[autologging] trait DatasourceAttributeExtractorBase {
-  private val logger = LoggerFactory.getLogger(getClass)
+  protected val logger: Logger = LoggerFactory.getLogger(getClass)
 
   private def getSparkTableInfoFromTable(table: Table): Option[SparkTableInfo] = {
     table match {
@@ -67,13 +64,7 @@ private[autologging] trait DatasourceAttributeExtractorBase {
     if (lp.isInstanceOf[LeafNode]) {
       Seq(lp)
     } else {
-      lp.children.flatMap { child =>
-        child match {
-          case l: LeafNode =>
-            Seq(l)
-          case other: LogicalPlan => getLeafNodes(other)
-        }
-      }
+      lp.children.flatMap(getLeafNodes)
     }
   }
 
@@ -92,6 +83,7 @@ private[autologging] trait DatasourceAttributeExtractorBase {
   }
 }
 
+/** Default datasource attribute extractor */
 object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
   // TODO: attempt to detect Delta table info when Delta Lake becomes compatible with Spark 3.0
   override def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = None
@@ -132,6 +124,7 @@ object ReplAwareDatasourceAttributeExtractor extends DatasourceAttributeExtracto
     }
   }
 
+  // Attempts to apply redaction to sensitive data within datasource paths (e.g. S3 keys)
   private def tryRedactString(value: String): String = {
     try {
       val redactor = ReflectionUtils.getScalaObjectByName(
@@ -139,7 +132,10 @@ object ReplAwareDatasourceAttributeExtractor extends DatasourceAttributeExtracto
       ReflectionUtils.callMethod(redactor, "redact", Seq(value)).asInstanceOf[String]
     } catch {
       case NonFatal(e) =>
-        value
+        val msg = ExceptionUtils.getUnexpectedExceptionMessage(e, "while applying redaction to " +
+          "datasource paths")
+        logger.error(msg)
+        throw e
     }
   }
 
