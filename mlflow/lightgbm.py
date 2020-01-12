@@ -237,10 +237,10 @@ def autolog(normalize=False, max_num_features=None):
             Plot feature importance.
             """
 
+            # pylint: disable=invalid-unary-operand-type
             if max_num_features is None:
                 indices = np.argsort(importance)
             else:
-                # pylint: disable=invalid-unary-operand-type
                 indices = np.argsort(importance)[-max_num_features:]
 
             features = np.array(features)[indices]
@@ -263,6 +263,7 @@ def autolog(normalize=False, max_num_features=None):
 
             tmpdir = tempfile.mkdtemp()
             try:
+                # pylint: disable=undefined-loop-variable
                 filepath = os.path.join(tmpdir, 'feature_importance_{}.png'.format(imp_type))
                 fig.savefig(filepath)
                 try_mlflow_log(mlflow.log_artifact, filepath)
@@ -335,7 +336,6 @@ def autolog(normalize=False, max_num_features=None):
             imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
             tmpdir = tempfile.mkdtemp()
             try:
-                # pylint: disable=undefined-loop-variable
                 filepath = os.path.join(tmpdir, 'feature_importance_{}.json'.format(imp_type))
                 with open(filepath, 'w') as f:
                     json.dump(imp, f, indent=2)
