@@ -10,7 +10,7 @@ setup(
     # the plugin & then immediately use it with MLflow
     install_requires=["mlflow"],
     entry_points={
-        # Define a tracking AbstractStore plugin for tracking URIs with scheme 'file-plugin'
+        # Define a Tracking Store plugin for tracking URIs with scheme 'file-plugin'
         "mlflow.tracking_store": "file-plugin=mlflow_test_plugin:PluginFileStore",
         # Define a ArtifactRepository plugin for artifact URIs with scheme 'file-plugin'
         "mlflow.artifact_repository":
@@ -18,7 +18,7 @@ setup(
         # Define a RunContextProvider plugin. The entry point name for run context providers
         # is not used, and so is set to the string "unused" here
         "mlflow.run_context_provider": "unused=mlflow_test_plugin:PluginRunContextProvider",
-        # Define a model-registry AbstractStore plugin for tracking URIs with scheme 'file-plugin'
+        # Define a Model Registry Store plugin for tracking URIs with scheme 'file-plugin'
         "mlflow.model_registry_store":
             "file-plugin=mlflow_test_plugin:PluginRegistrySqlAlchemyStore",
     },
