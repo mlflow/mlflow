@@ -3,9 +3,11 @@ package org.mlflow.tracking;
 import org.apache.http.client.utils.URIBuilder;
 
 import org.mlflow.api.proto.Service.*;
+import org.mlflow.tracking.creds.*;
 import org.mlflow.artifacts.ArtifactRepository;
 import org.mlflow.artifacts.ArtifactRepositoryFactory;
-import org.mlflow.tracking.creds.*;
+import org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed;
+import org.mlflow.api.proto.ModelRegistry.ModelVersion;
 
 import java.io.File;
 import java.net.URI;
@@ -636,4 +638,81 @@ public class MlflowClient {
     URI baseArtifactUri = URI.create(getRun(runId).getInfo().getArtifactUri());
     return artifactRepositoryFactory.getArtifactRepository(baseArtifactUri, runId);
   }
+
+
+  // ********************
+  // * Model Repository *
+  // ********************
+
+  /**
+   * Return the latest model version for each stage (devo, staging, prod).
+   *
+   *    <pre>
+   *        List<ModelVersionDetailed> detailsList = getLatestModelVersionPerStage("model");
+   *
+   *        for (ModelVersionDetailed details : detailsList) {
+   *            System.out.println("Model Name: " + details.getModelVersion().getRegisteredModel().getName());
+   *            System.out.println("Model Version: " + details.getModelVersion().getVersion());
+   *            System.out.println("Current Stage: " + details.getCurrentStage());
+   *        }
+   *    </pre>
+   *
+   * @param modelName The name of the model
+   * @return A collection of {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
+   */
+  public List<ModelVersionDetailed> getLatestModelVersionPerStage(String modelName) {
+    throw new UnsupportedOperationException("getLatestVersion is not currently supported");
+  }
+
+  /**
+   * Return the model URI containing for the given model version. THe model URI can be used to download
+   * the model version artifacts.
+   *
+   * For example, the model URI
+   *
+   *    <pre>
+   *        String modelUri = getModelVersionDownloadUri("model", 0);
+   *    </pre>
+   *
+   * @param modelName The name of the model
+   * @param modelVersion The version number of the model
+   * @return The specified model version's URI.
+   */
+  public String getModelVersionDownloadUri(String modelName, long modelVersion) {
+    throw new UnsupportedOperationException("getModelVersionDownloadUri is not currently supported");
+  }
+
+  /**
+   * Return a local file or directory containing all artifacts within the given registered model version. The method
+   * will download the model version artifacts to the local file system.
+   *
+   *    <pre>
+   *        File modelVersionFile = downloadModelVersion("model", 0);
+   *    </pre>
+   *
+   * @param modelName The name of the model
+   * @param modelVersion The version number of the model
+   * @return A the local file or directory ({@ java.io.File}) containing model artifacts
+   */
+  public File downloadModelVersion(String modelName, long modelVersion) {
+    throw new UnsupportedOperationException("downloadModel is not currently supported");
+  }
+
+  /**
+   * Return a local file or directory containing all artifacts within the latest registered model version. The method
+   * will download the model version artifacts to the local file system.
+   *
+   *    <pre>
+   *        File modelVersionFile = downloadLatestModelVersion("model");
+   *    </pre>
+   *
+   * (i.e., the contents of the local directory are now available).
+   *
+   * @param modelName The name of the model
+   * @return A the local file or directory ({@ java.io.File}) containing model artifacts
+   */
+  public File downloadLatestModelVersion(String modelName) {
+    throw new UnsupportedOperationException("downloadModel is not currently supported");
+  }
+
 }
