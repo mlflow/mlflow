@@ -1714,38 +1714,3 @@ Examples
    # launch mlflow ui for existing mlflow server
    mlflow_set_tracking_uri("http://tracking-server:5000")
    mlflow_ui()
-
-``mlflow-package``
-==================
-
-mlflow: Interface to ‘MLflow’
-
-R interface to ‘MLflow’, open source platform for the complete machine
-learning life cycle, see https://mlflow.org/. This package supports
-installing ‘MLflow’, tracking experiments, creating and running
-projects, and saving and serving models.
-
-Seealso
--------
-
-Useful links:
-
--  https://github.com/mlflow/mlflow
-
--  Report bugs at https://github.com/mlflow/mlflow/issues
-
-Author
-------
-
-Maintainer : Matei Zaharia matei@databricks.com
-
-Authors:
-
--  Javier Luraschi javier@rstudio.com
-
--  Kevin Kuo kevin.kuo@rstudio.com (
-   `ORCID <https://orcid.org/0000-0001-7803-7901>`__ )
-
-Other contributors:
-
--  RStudio [copyright holder]
