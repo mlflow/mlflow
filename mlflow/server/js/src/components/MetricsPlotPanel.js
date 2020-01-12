@@ -11,6 +11,7 @@ import { MetricsPlotControls, X_AXIS_RELATIVE, X_AXIS_STEP } from './MetricsPlot
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
+import RunsLinkPopover from './RunsLinkPopover';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
@@ -42,7 +43,16 @@ export class MetricsPlotPanel extends React.Component {
       historyRequestIds: [],
       yAxisLogScale: false,
       lineSmoothness: 0,
+
+      // states for RunLinkPopover
+      popoverVisible: false,
+      popoverX: 0,
+      popoverY: 0,
+      clickedRunUuid: '',
+      clickedPointIndex: null,
+      runsData: [],
     };
+    this.isClicked = false;
     this.loadMetricHistory(this.props.runUuids, selectedMetricKeys);
   }
 
@@ -126,6 +136,40 @@ export class MetricsPlotPanel extends React.Component {
 
   handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
 
+  showPopover = () => this.setState({ popoverVisible: true })
+
+  hidePopover = () => this.setState({ popoverVisible: false })
+
+  updatePopover = (data) => {
+    this.isClicked = !this.isClicked;
+
+    // Do not toggle the popover on double click.
+    setTimeout(() => {
+      if (this.isClicked) {
+        this.isClicked = false;
+        this.setState({ isOpen: !this.state.isOpen});
+        const { popoverVisible, clickedRunUuid, clickedPointIndex } = this.state;
+        const { points, event } = data;
+        const clickedDifferentPoint =
+          points[0].data.runUuid !== clickedRunUuid || points[0].pointIndex !== clickedPointIndex;
+
+        // Data to pass the popover.
+        const runsData = points.map((point) => ({
+          color: point.fullData.marker.color,
+          runUuid: point.data.runUuid,
+        }));
+        this.setState({
+          popoverVisible: !popoverVisible || clickedDifferentPoint,
+          popoverX: event.clientX,
+          popoverY: event.clientY,
+          clickedRunUuid: points[0].data.runUuid,
+          clickedPointIndex: points[0].pointIndex,
+          runsData,
+        });
+      }
+    }, 300);  // The same delay value as the legend click.
+  }
+
   render() {
     const { runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
     const {
@@ -135,6 +179,10 @@ export class MetricsPlotPanel extends React.Component {
       selectedMetricKeys,
       yAxisLogScale,
       lineSmoothness,
+      popoverVisible,
+      popoverX,
+      popoverY,
+      runsData,
     } = this.state;
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
@@ -158,6 +206,13 @@ export class MetricsPlotPanel extends React.Component {
             // optimistically render the children
             shouldOptimisticallyRender={historyRequestIds.length === 0}
         >
+          <RunsLinkPopover
+            visible={popoverVisible}
+            x={popoverX - 20} // add offset to align the popover arrow to the clicked point.
+            y={popoverY}
+            runsData={runsData}
+            onCloseClick={this.hidePopover}
+          />
           <MetricsPlotView
             runUuids={runUuids}
             runDisplayNames={runDisplayNames}
@@ -169,6 +224,8 @@ export class MetricsPlotPanel extends React.Component {
             isComparing={MetricsPlotPanel.isComparing(location.search)}
             yAxisLogScale={yAxisLogScale}
             lineSmoothness={lineSmoothness}
+            popoverVisible={popoverVisible}
+            onClick={this.updatePopover}
           />
         </RequestStateWrapper>
       </div>

@@ -21,6 +21,8 @@ export class MetricsPlotView extends React.Component {
     isComparing: PropTypes.bool.isRequired,
     yAxisLogScale: PropTypes.bool.isRequired,
     lineSmoothness: PropTypes.number,
+    popoverVisible: PropTypes.bool,
+    onClick: PropTypes.func,
   };
 
   static getLineLegend = (metricKey, runDisplayName, isComparing) => {
@@ -40,9 +42,9 @@ export class MetricsPlotView extends React.Component {
   };
 
   getPlotPropsForLineChart = () => {
-    const { metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness, isComparing } = this.props;
+    const {metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness, isComparing } = this.props;
     const data = metrics.map((metric) => {
-      const { metricKey, runDisplayName, history } = metric;
+      const { metricKey, runDisplayName, history, runUuid } = metric;
       const isSingleHistory = history.length === 0;
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
@@ -57,6 +59,7 @@ export class MetricsPlotView extends React.Component {
         mode: isSingleHistory ? 'markers' : 'lines+markers',
         line: { shape: 'spline', smoothing: lineSmoothness },
         marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
+        runUuid,
       };
     });
     const props = { data };
@@ -96,6 +99,7 @@ export class MetricsPlotView extends React.Component {
       x: sortedMetricKeys,
       y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
       type: 'bar',
+      runUuid,
     }));
 
     const layout = { barmode: 'group' };
@@ -107,12 +111,13 @@ export class MetricsPlotView extends React.Component {
   };
 
   render() {
+    const { onClick } = this.props;
     const plotProps =
       this.props.chartType === CHART_TYPE_BAR
         ? this.getPlotPropsForBarChart()
         : this.getPlotPropsForLineChart();
     return (
-      <div className='metrics-plot-view-container'>
+      <div className="metrics-plot-view-container">
         <Plot
           {...plotProps}
           useResizeHandler
@@ -123,6 +128,8 @@ export class MetricsPlotView extends React.Component {
             scrollZoom: true,
             modeBarButtonsToRemove: ['sendDataToCloud'],
           }}
+          onClick={onClick}
+          onRelayout={console.log}
         />
       </div>
     );
