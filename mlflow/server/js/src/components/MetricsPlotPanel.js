@@ -11,7 +11,7 @@ import { MetricsPlotControls, X_AXIS_RELATIVE, X_AXIS_STEP } from './MetricsPlot
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
-import RunsLinkPopover from './RunsLinkPopover';
+import RunLinksPopover from './RunLinksPopover';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
@@ -206,7 +206,7 @@ export class MetricsPlotPanel extends React.Component {
             // optimistically render the children
             shouldOptimisticallyRender={historyRequestIds.length === 0}
         >
-          <RunsLinkPopover
+          <RunLinksPopover
             visible={popoverVisible}
             x={popoverX - 20} // add offset to align the popover arrow to the clicked point.
             y={popoverY}

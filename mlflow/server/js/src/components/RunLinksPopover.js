@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Popover } from 'antd';
 
-class RunLinkPopover extends React.Component {
+class RunLinksPopover extends React.Component {
   static propTypes = {
     x: PropTypes.number.isRequired,
     y: PropTypes.number.isRequired,
@@ -60,4 +60,4 @@ class RunLinkPopover extends React.Component {
   }
 }
 
-export default RunLinkPopover;
+export default RunLinksPopover;
