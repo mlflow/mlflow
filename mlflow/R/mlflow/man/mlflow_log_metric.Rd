@@ -4,8 +4,14 @@
 \alias{mlflow_log_metric}
 \title{Log Metric}
 \usage{
-mlflow_log_metric(key, value, timestamp = NULL, step = NULL,
-  run_id = NULL, client = NULL)
+mlflow_log_metric(
+  key,
+  value,
+  timestamp = NULL,
+  step = NULL,
+  run_id = NULL,
+  client = NULL
+)
 }
 \arguments{
 \item{key}{Name of the metric.}

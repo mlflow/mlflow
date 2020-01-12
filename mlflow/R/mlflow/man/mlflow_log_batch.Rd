@@ -4,8 +4,13 @@
 \alias{mlflow_log_batch}
 \title{Log Batch}
 \usage{
-mlflow_log_batch(metrics = NULL, params = NULL, tags = NULL,
-  run_id = NULL, client = NULL)
+mlflow_log_batch(
+  metrics = NULL,
+  params = NULL,
+  tags = NULL,
+  run_id = NULL,
+  client = NULL
+)
 }
 \arguments{
 \item{metrics}{A dataframe of metrics to log, containing the following columns: "key", "value",

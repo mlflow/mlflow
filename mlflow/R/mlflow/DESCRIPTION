@@ -43,7 +43,7 @@ Imports:
   zeallot,
   tibble (>= 2.0.0),
   glue
-RoxygenNote: 6.1.1
+RoxygenNote: 7.0.2
 Suggests: 
   covr,
   carrier,

@@ -4,8 +4,12 @@
 \alias{mlflow_end_run}
 \title{End a Run}
 \usage{
-mlflow_end_run(status = c("FINISHED", "FAILED", "KILLED"),
-  end_time = NULL, run_id = NULL, client = NULL)
+mlflow_end_run(
+  status = c("FINISHED", "FAILED", "KILLED"),
+  end_time = NULL,
+  run_id = NULL,
+  client = NULL
+)
 }
 \arguments{
 \item{status}{Updated status of the run. Defaults to `FINISHED`. Can also be set to

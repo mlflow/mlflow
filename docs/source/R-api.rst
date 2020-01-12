@@ -272,8 +272,12 @@ is not specified.
 
 .. code:: r
 
-   mlflow_end_run(status = c("FINISHED", "FAILED", "KILLED"),
-     end_time = NULL, run_id = NULL, client = NULL)
+   mlflow_end_run(
+     status = c("FINISHED", "FAILED", "KILLED"),
+     end_time = NULL,
+     run_id = NULL,
+     client = NULL
+   )
 
 .. _arguments-7:
 
@@ -314,8 +318,7 @@ Attempts to obtain the active experiment if both ``experiment_id`` and
 
 .. code:: r
 
-   mlflow_get_experiment(experiment_id = NULL, name = NULL,
-     client = NULL)
+   mlflow_get_experiment(experiment_id = NULL, name = NULL, client = NULL)
 
 .. _arguments-8:
 
@@ -439,11 +442,11 @@ Extracts the ID of the run or experiment.
 Arguments
 ---------
 
-========== ==================================================
-Argument   Description
-========== ==================================================
-``object`` An ``mlflow_run`` or ``mlflow_experiment`` object.
-========== ==================================================
++------------+----------------------------------------------------+
+| Argument   | Description                                        |
++============+====================================================+
+| ``object`` | An ``mlflow_run`` or ``mlflow_experiment`` object. |
++------------+----------------------------------------------------+
 
 ``mlflow_list_artifacts``
 =========================
@@ -490,8 +493,10 @@ Gets a list of all experiments.
 
 .. code:: r
 
-   mlflow_list_experiments(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
-     "ALL"), client = NULL)
+   mlflow_list_experiments(
+     view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
+     client = NULL
+   )
 
 .. _arguments-13:
 
@@ -526,8 +531,11 @@ all runs under the specified experiment.
 
 .. code:: r
 
-   mlflow_list_run_infos(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
-     "ALL"), experiment_id = NULL, client = NULL)
+   mlflow_list_run_infos(
+     run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
+     experiment_id = NULL,
+     client = NULL
+   )
 
 .. _arguments-14:
 
@@ -654,8 +662,7 @@ Logs a specific file or directory as an artifact for a run.
 
 .. code:: r
 
-   mlflow_log_artifact(path, artifact_path = NULL, run_id = NULL,
-     client = NULL)
+   mlflow_log_artifact(path, artifact_path = NULL, run_id = NULL, client = NULL)
 
 .. _arguments-17:
 
@@ -709,8 +716,13 @@ request), partial data may be written.
 
 .. code:: r
 
-   mlflow_log_batch(metrics = NULL, params = NULL, tags = NULL,
-     run_id = NULL, client = NULL)
+   mlflow_log_batch(
+     metrics = NULL,
+     params = NULL,
+     tags = NULL,
+     run_id = NULL,
+     client = NULL
+   )
 
 .. _arguments-18:
 
@@ -763,8 +775,14 @@ historical metric values along two axes: timestamp and step.
 
 .. code:: r
 
-   mlflow_log_metric(key, value, timestamp = NULL, step = NULL,
-     run_id = NULL, client = NULL)
+   mlflow_log_metric(
+     key,
+     value,
+     timestamp = NULL,
+     step = NULL,
+     run_id = NULL,
+     client = NULL
+   )
 
 .. _arguments-19:
 
@@ -951,13 +969,17 @@ to be used by package authors to extend the supported MLflow models.
 Arguments
 ---------
 
-========= ===================================================================
-Argument  Description
-========= ===================================================================
-``model`` The loaded MLflow model flavor.
-``data``  A data frame to perform scoring.
-``...``   Optional additional arguments passed to underlying predict methods.
-========= ===================================================================
++-----------------------------------+-----------------------------------+
+| Argument                          | Description                       |
++===================================+===================================+
+| ``model``                         | The loaded MLflow model flavor.   |
++-----------------------------------+-----------------------------------+
+| ``data``                          | A data frame to perform scoring.  |
++-----------------------------------+-----------------------------------+
+| ``...``                           | Optional additional arguments     |
+|                                   | passed to underlying predict      |
+|                                   | methods.                          |
++-----------------------------------+-----------------------------------+
 
 ``mlflow_rename_experiment``
 ============================
@@ -1087,8 +1109,14 @@ endpoint will be removed in a future version of mlflow.
 
 .. code:: r
 
-   mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
-     daemonized = FALSE, browse = !daemonized, ...)
+   mlflow_rfunc_serve(
+     model_uri,
+     host = "127.0.0.1",
+     port = 8090,
+     daemonized = FALSE,
+     browse = !daemonized,
+     ...
+   )
 
 .. _arguments-27:
 
@@ -1169,10 +1197,18 @@ https://www.mlflow.org/docs/latest/cli.html#mlflow-run for more info.
 
 .. code:: r
 
-   mlflow_run(uri = ".", entry_point = NULL, version = NULL,
-     parameters = NULL, experiment_id = NULL, experiment_name = NULL,
-     backend = NULL, backend_config = NULL, no_conda = FALSE,
-     storage_dir = NULL)
+   mlflow_run(
+     uri = ".",
+     entry_point = NULL,
+     version = NULL,
+     parameters = NULL,
+     experiment_id = NULL,
+     experiment_name = NULL,
+     backend = NULL,
+     backend_config = NULL,
+     no_conda = FALSE,
+     storage_dir = NULL
+   )
 
 .. _arguments-28:
 
@@ -1262,8 +1298,7 @@ model types.
 .. code:: r
 
    list(list("mlflow_save_model"), list("crate"))(model, path, ...)
-   list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path,
-     conda_env = NULL, ...)
+   list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path, conda_env = NULL, ...)
    mlflow_save_model(model, path, ...)
 
 .. _arguments-29:
@@ -1271,14 +1306,20 @@ model types.
 Arguments
 ---------
 
-============= ==================================================================
-Argument      Description
-============= ==================================================================
-``model``     The model that will perform a prediction.
-``path``      Destination path where this MLflow compatible model will be saved.
-``...``       Optional additional arguments.
-``conda_env`` Path to Conda dependencies file.
-============= ==================================================================
++-----------------------------------+-----------------------------------+
+| Argument                          | Description                       |
++===================================+===================================+
+| ``model``                         | The model that will perform a     |
+|                                   | prediction.                       |
++-----------------------------------+-----------------------------------+
+| ``path``                          | Destination path where this       |
+|                                   | MLflow compatible model will be   |
+|                                   | saved.                            |
++-----------------------------------+-----------------------------------+
+| ``...``                           | Optional additional arguments.    |
++-----------------------------------+-----------------------------------+
+| ``conda_env``                     | Path to Conda dependencies file.  |
++-----------------------------------+-----------------------------------+
 
 ``mlflow_search_runs``
 ======================
@@ -1290,9 +1331,13 @@ Metric and Param keys.
 
 .. code:: r
 
-   mlflow_search_runs(filter = NULL, run_view_type = c("ACTIVE_ONLY",
-     "DELETED_ONLY", "ALL"), experiment_ids = NULL, order_by = list(),
-     client = NULL)
+   mlflow_search_runs(
+     filter = NULL,
+     run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
+     experiment_ids = NULL,
+     order_by = list(),
+     client = NULL
+   )
 
 .. _arguments-30:
 
@@ -1340,9 +1385,14 @@ Wrapper for ``mlflow server``.
 
 .. code:: r
 
-   mlflow_server(file_store = "mlruns", default_artifact_root = NULL,
-     host = "127.0.0.1", port = 5000, workers = 4,
-     static_prefix = NULL)
+   mlflow_server(
+     file_store = "mlruns",
+     default_artifact_root = NULL,
+     host = "127.0.0.1",
+     port = 5000,
+     workers = 4,
+     static_prefix = NULL
+   )
 
 .. _arguments-31:
 
@@ -1381,8 +1431,7 @@ metadata that can be updated.
 
 .. code:: r
 
-   mlflow_set_experiment_tag(key, value, experiment_id = NULL,
-     client = NULL)
+   mlflow_set_experiment_tag(key, value, experiment_id = NULL, client = NULL)
 
 .. _arguments-32:
 
@@ -1428,8 +1477,11 @@ provided name. Returns the ID of the active experiment.
 
 .. code:: r
 
-   mlflow_set_experiment(experiment_name = NULL, experiment_id = NULL,
-     artifact_location = NULL)
+   mlflow_set_experiment(
+     experiment_name = NULL,
+     experiment_id = NULL,
+     artifact_location = NULL
+   )
 
 .. _arguments-33:
 
@@ -1506,11 +1558,11 @@ experiments.
 Arguments
 ---------
 
-======== ====================================
-Argument Description
-======== ====================================
-``uri``  The URI to the remote MLflow server.
-======== ====================================
++----------+--------------------------------------+
+| Argument | Description                          |
++==========+======================================+
+| ``uri``  | The URI to the remote MLflow server. |
++----------+--------------------------------------+
 
 ``mlflow_source``
 =================
@@ -1529,11 +1581,11 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 Arguments
 ---------
 
-======== ========================================================
-Argument Description
-======== ========================================================
-``uri``  Path to an R script, can be a quoted or unquoted string.
-======== ========================================================
++----------+----------------------------------------------------------+
+| Argument | Description                                              |
++==========+==========================================================+
+| ``uri``  | Path to an R script, can be a quoted or unquoted string. |
++----------+----------------------------------------------------------+
 
 ``mlflow_start_run``
 ====================
@@ -1548,8 +1600,13 @@ can be provided.
 
 .. code:: r
 
-   mlflow_start_run(run_id = NULL, experiment_id = NULL,
-     start_time = NULL, tags = NULL, client = NULL)
+   mlflow_start_run(
+     run_id = NULL,
+     experiment_id = NULL,
+     start_time = NULL,
+     tags = NULL,
+     client = NULL
+   )
 
 .. _arguments-37:
 

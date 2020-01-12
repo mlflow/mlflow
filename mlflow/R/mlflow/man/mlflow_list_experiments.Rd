@@ -4,8 +4,10 @@
 \alias{mlflow_list_experiments}
 \title{List Experiments}
 \usage{
-mlflow_list_experiments(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
-  "ALL"), client = NULL)
+mlflow_list_experiments(
+  view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
+  client = NULL
+)
 }
 \arguments{
 \item{view_type}{Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.}

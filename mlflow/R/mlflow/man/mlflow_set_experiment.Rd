@@ -4,8 +4,11 @@
 \alias{mlflow_set_experiment}
 \title{Set Experiment}
 \usage{
-mlflow_set_experiment(experiment_name = NULL, experiment_id = NULL,
-  artifact_location = NULL)
+mlflow_set_experiment(
+  experiment_name = NULL,
+  experiment_id = NULL,
+  artifact_location = NULL
+)
 }
 \arguments{
 \item{experiment_name}{Name of experiment to be activated.}

@@ -4,8 +4,7 @@
 \alias{mlflow_get_experiment}
 \title{Get Experiment}
 \usage{
-mlflow_get_experiment(experiment_id = NULL, name = NULL,
-  client = NULL)
+mlflow_get_experiment(experiment_id = NULL, name = NULL, client = NULL)
 }
 \arguments{
 \item{experiment_id}{ID of the experiment.}
