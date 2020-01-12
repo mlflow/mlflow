@@ -4,10 +4,18 @@
 \alias{mlflow_run}
 \title{Run an MLflow Project}
 \usage{
-mlflow_run(uri = ".", entry_point = NULL, version = NULL,
-  parameters = NULL, experiment_id = NULL, experiment_name = NULL,
-  backend = NULL, backend_config = NULL, no_conda = FALSE,
-  storage_dir = NULL)
+mlflow_run(
+  uri = ".",
+  entry_point = NULL,
+  version = NULL,
+  parameters = NULL,
+  experiment_id = NULL,
+  experiment_name = NULL,
+  backend = NULL,
+  backend_config = NULL,
+  no_conda = FALSE,
+  storage_dir = NULL
+)
 }
 \arguments{
 \item{uri}{A directory containing modeling scripts, defaults to the current directory.}
