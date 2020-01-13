@@ -1,6 +1,7 @@
 package org.mlflow.tracking;
 
 import org.apache.http.client.utils.URIBuilder;
+<<<<<<< HEAD
 import org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed;
 import org.mlflow.api.proto.Service.CreateRun;
 import org.mlflow.api.proto.Service.Experiment;
@@ -21,6 +22,14 @@ import org.mlflow.tracking.creds.DatabricksConfigHostCredsProvider;
 import org.mlflow.tracking.creds.DatabricksDynamicHostCredsProvider;
 import org.mlflow.tracking.creds.HostCredsProviderChain;
 import org.mlflow.tracking.creds.MlflowHostCredsProvider;
+=======
+
+import org.mlflow.api.proto.ModelRegistry.*;
+import org.mlflow.api.proto.Service.*;
+import org.mlflow.tracking.creds.*;
+import org.mlflow.artifacts.ArtifactRepository;
+import org.mlflow.artifacts.ArtifactRepositoryFactory;
+>>>>>>> temp java api model registry
 
 import javax.annotation.Nonnull;
 import java.io.File;
@@ -677,7 +686,9 @@ public class MlflowClient {
    * @return A collection of {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
    */
   public List<ModelVersionDetailed> getLatestVersions(@Nonnull String modelName) {
-    throw new UnsupportedOperationException("getLatestVersion is not supported");
+    String json = sendPost("registered-models/get-latest-versions", mapper.makeGetLatestVersion(modelName));
+    GetLatestVersions.Response response =  mapper.toGetLatestVersionsResponse(json);
+    return response.getModelVersionsDetailedList();
   }
 
   /**
@@ -722,7 +733,9 @@ public class MlflowClient {
    * @return The specified model version's URI.
    */
   public String getModelVersionDownloadUri(@Nonnull String modelName, long version) {
-    throw new UnsupportedOperationException("getModelVersionDownloadUri is not supported");
+    String json = sendPost("/model-versions/get-download-uri",
+            mapper.makeGetModelVersionDownloadUri(modelName, version));
+    return mapper.toGetModelVersionDownloadUriResponse(json);
   }
 
   /**

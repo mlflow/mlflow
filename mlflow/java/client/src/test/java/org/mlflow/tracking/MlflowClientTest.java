@@ -11,11 +11,14 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.Stack;
+import java.util.UUID;
 import java.util.Vector;
 import java.util.LinkedList;
 
 import com.google.common.collect.Lists;
+import com.google.protobuf.util.JsonFormat;
 import org.apache.commons.io.FileUtils;
+import org.mlflow.api.proto.ModelRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -24,6 +27,7 @@ import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
 import org.mlflow.api.proto.Service.*;
+import org.mlflow.api.proto.ModelRegistry.*;
 
 import static org.mlflow.tracking.TestUtils.*;
 
@@ -567,5 +571,68 @@ public class MlflowClientTest {
       StandardCharsets.UTF_8);
     Assert.assertEquals(content, downloadedContent);
     Assert.assertEquals(content, downloadedContentFromDir);
+  }
+
+  public void testGetLatestModelVersionPerStage() throws IOException {
+    String content = "Hello, Worldz!";
+
+    // create experiment
+    String expName = createExperimentName();
+    String expId = client.createExperiment(expName);
+
+    // create run
+    RunInfo runCreated = client.createRun(expId);
+    runId = runCreated.getRunUuid();
+
+    File tempDir = Files.createTempDirectory("tempDir").toFile();
+    File tempFileForDir = Files.createTempFile(tempDir.toPath(), "file", ".txt").toFile();
+
+    FileUtils.writeStringToFile(tempFileForDir, content, StandardCharsets.UTF_8);
+
+    // create a new model
+    String modelName = "Model_" + UUID.randomUUID().toString();
+    CreateRegisteredModel.Builder createModelBuilder = CreateRegisteredModel
+            .newBuilder()
+            .setName(modelName);
+    String result = client.sendPost("registered-models/create",
+            JsonFormat.printer().preservingProtoFieldNames().print(createModelBuilder));
+
+    // create a new model version
+    String modelVersionName = "ModelVersion_" + UUID.randomUUID().toString();
+    CreateModelVersion.Builder createVersionBuilder = CreateModelVersion.newBuilder()
+            .setName(modelVersionName)
+            .setRunId(runId)
+            .setSource(tempFileForDir.getAbsolutePath());
+    result = client.sendPost("model-versions/create",
+            JsonFormat.printer().preservingProtoFieldNames().print(createVersionBuilder));
+    CreateModelVersion.Response createVersionResponse = CreateModelVersion.Response
+            .parseFrom(result.getBytes());
+
+    // set model version in devo
+    UpdateModelVersion.Builder updateModelVersionBuilder = UpdateModelVersion.newBuilder()
+            .setModelVersion(ModelRegistry.ModelVersion
+            .newBuilder())
+            .setModelVersion(createVersionResponse.getModelVersion())
+            .setStage("devo")
+            .setDescription("initial model version for devo");
+    result = client.sendPost("model-versions/update",
+            JsonFormat.printer().preservingProtoFieldNames().print(updateModelVersionBuilder));
+
+    // Now the company is ready to promote the model version to staging
+    // set model version in devo
+    updateModelVersionBuilder = UpdateModelVersion.newBuilder()
+            .setModelVersion(ModelRegistry.ModelVersion
+                    .newBuilder())
+            .setModelVersion(createVersionResponse.getModelVersion())
+            .setStage("staging")
+            .setDescription("initial model version for staging");
+    result = client.sendPost("model-versions/update",
+            JsonFormat.printer().preservingProtoFieldNames().print(updateModelVersionBuilder));
+
+    List<ModelVersionDetailed> detailedModelVersion =  client.getLatestModelVersionPerStage(modelName);
+
+    for (ModelVersionDetailed version : detailedModelVersion) {
+
+    }
   }
 }

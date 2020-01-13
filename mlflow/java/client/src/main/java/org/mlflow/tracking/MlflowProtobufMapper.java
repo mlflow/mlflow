@@ -6,6 +6,7 @@ import com.google.protobuf.util.JsonFormat;
 
 import java.lang.Iterable;
 
+import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 
 class MlflowProtobufMapper {
@@ -118,6 +119,33 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
+  String makeGetLatestVersion(String modelName) {
+    RegisteredModel model = RegisteredModel.newBuilder()
+            .setName(modelName)
+            .build();
+
+    GetLatestVersions.Builder builder = GetLatestVersions.newBuilder();
+    builder.setRegisteredModel(model);
+
+    return print(builder);
+  }
+
+  String makeGetModelVersionDownloadUri(String modelName, long modelVersion) {
+    GetModelVersionDownloadUri.Builder builder = GetModelVersionDownloadUri.newBuilder();
+
+    RegisteredModel model = RegisteredModel.newBuilder()
+            .setName(modelName)
+            .build();
+
+    ModelVersion version = ModelVersion.newBuilder()
+            .setRegisteredModel(model)
+            .setVersion(modelVersion)
+            .build();
+
+    builder.setModelVersion(version);
+    return print(builder);
+  }
+
   String toJson(MessageOrBuilder mb) {
     return print(mb);
   }
@@ -162,6 +190,18 @@ class MlflowProtobufMapper {
     SearchRuns.Response.Builder builder = SearchRuns.Response.newBuilder();
     merge(json, builder);
     return builder.build();
+  }
+
+  GetLatestVersions.Response toGetLatestVersionsResponse(String json) {
+    GetLatestVersions.Response.Builder builder = GetLatestVersions.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
+  String toGetModelVersionDownloadUriResponse(String json) {
+    GetModelVersionDownloadUri.Response.Builder builder = GetModelVersionDownloadUri.Response.newBuilder();
+    merge(json, builder);
+    return builder.getArtifactUri();
   }
 
   private String print(MessageOrBuilder message) {
