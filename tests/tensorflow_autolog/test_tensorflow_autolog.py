@@ -239,7 +239,7 @@ def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_r
 @pytest.mark.parametrize('restore_weights', [False])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [5])
-def test_tf_keras_autolog_early_stop_no_restore_does_not_log(tf_keras_random_data_run_with_callback):
+def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_run_with_callback):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params

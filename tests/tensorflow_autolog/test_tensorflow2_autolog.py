@@ -260,7 +260,7 @@ def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_r
 @pytest.mark.parametrize('restore_weights', [False])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [5])
-def test_tf_keras_autolog_early_stop_no_restore_does_not_log(tf_keras_random_data_run_with_callback):
+def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_run_with_callback):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
@@ -412,4 +412,3 @@ def test_duplicate_autolog_second_overrides(duplicate_autolog_tf_estimator_run):
     client = mlflow.tracking.MlflowClient()
     metrics = client.get_metric_history(duplicate_autolog_tf_estimator_run.info.run_id, 'loss')
     assert all((x.step - 1) % 4 == 0 for x in metrics)
-
