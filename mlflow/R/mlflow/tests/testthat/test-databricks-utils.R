@@ -169,3 +169,113 @@ test_that("mlflow can read databricks env congfig", {
     expect_true(length(setdiff(extracted_env, env)) == 0)
   })
 })
+
+#' Executes the specified functions while creating mock `.get_notebook_info` and
+#' `.get_job_info` functions in the `.databricks_internals` environment
+run_with_mock_notebook_and_job_info <- function(func, notebook_info = NULL, job_info = NULL) {
+  tryCatch({
+    assign(".databricks_internals", new.env(parent = baseenv()), envir = .GlobalEnv)
+    databricks_internal_env = get(".databricks_internals", envir = .GlobalEnv)
+    assign(".get_notebook_info", function() {
+        if (is.null(notebook_info)) {
+          notebook_info <- list(id = NA, path = NA, webapp_url = NA)
+        }
+        notebook_info
+      },
+      envir = databricks_internal_env)
+    if (!is.null(job_info)) {
+      assign(".get_job_info", function() { job_info }, envir = databricks_internal_env)
+    }
+    return(func())
+  },
+  finally = {
+    rm(".databricks_internals", envir = .GlobalEnv)
+  })
+}
+
+test_that("databricks get run context fetches expected info for notebook environment", {
+  mock_notebook_info <- list(id = "5",
+                             path = "/path/to/notebook",
+                             webapp_url = "https://databricks-url.com")
+  expected_tags = list("5", "/path/to/notebook", "https://databricks-url.com",
+                       MLFLOW_SOURCE_TYPE$NOTEBOOK, "/path/to/notebook")
+  names(expected_tags) <- c(
+    MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_ID,
+    MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_PATH,
+    MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_WEBAPP_URL,
+    MLFLOW_TAGS$MLFLOW_SOURCE_TYPE,
+    MLFLOW_TAGS$MLFLOW_SOURCE_NAME
+  )
+
+  run_with_mock_notebook_and_job_info(function() {
+    context <- mlflow:::mlflow_get_run_context.mlflow_databricks_client(
+      client = mlflow:::mlflow_client("databricks"),
+      experiment_id = "52"
+    )
+    expect_true(all(expected_tags %in% context$tags))
+    expect_true(context$experiment_id == "52")
+  }, notebook_info = mock_notebook_info, job_info = NULL)
+
+  run_with_mock_notebook_and_job_info(function() {
+    context <- mlflow:::mlflow_get_run_context.mlflow_databricks_client(
+      client = mlflow:::mlflow_client("databricks"),
+      experiment_id = NULL
+    )
+    expect_true(all(expected_tags %in% context$tags))
+    expect_true(context$experiment_id == "5")
+  }, notebook_info = mock_notebook_info, job_info = NULL)
+})
+
+test_that("databricks get run context fetches expected info for job environment", {
+  mock_job_info <- list(job_id = "10",
+                        run_id = "2",
+                        job_type = "notebook",
+                        webapp_url = "https://databricks-url.com")
+  expected_tags = list("10", "2", "notebook", "https://databricks-url.com",
+                       MLFLOW_SOURCE_TYPE$JOB, "jobs/10/run/2")
+  names(expected_tags) <- c(
+    MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_JOB_ID,
+    MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_JOB_RUN_ID,
+    MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_JOB_TYPE,
+    MLFLOW_TAGS$MLFLOW_SOURCE_TYPE,
+    MLFLOW_TAGS$MLFLOW_SOURCE_NAME
+  )
+
+  run_with_mock_notebook_and_job_info(function() {
+    context <- mlflow:::mlflow_get_run_context.mlflow_databricks_client(
+      mlflow:::mlflow_client("databricks"),
+      experiment_id = "52"
+    )
+    expect_true(all(expected_tags %in% context$tags))
+    expect_true(context$experiment_id == "52")
+  }, notebook_info = NULL, job_info = mock_job_info)
+
+  run_with_mock_notebook_and_job_info(function() {
+    context <- mlflow:::mlflow_get_run_context.mlflow_databricks_client(
+      mlflow:::mlflow_client("databricks"),
+      experiment_id = NULL
+    )
+    expect_true(all(expected_tags %in% context$tags))
+    expect_true(context$experiment_id == 0)
+  }, notebook_info = NULL, job_info = mock_job_info)
+})
+
+#' Verifies that, when notebook information is unavailable and there is no function
+#' available for fetching job info (as is the case for older Spark images), fetching
+#' the databricks run context delegates to the next context provider
+test_that("databricks get run context succeeds when job info function is unavailable", {
+  run_with_mock_notebook_and_job_info(function() {
+    test_env = new.env()
+    test_env$next_method_calls <- 0
+    mock_next_method = function() {
+      test_env$next_method_calls <- test_env$next_method_calls + 1
+    }
+    testthat::with_mock(NextMethod = mock_next_method, {
+      context <- mlflow:::mlflow_get_run_context.mlflow_databricks_client(
+        mlflow:::mlflow_client("databricks"),
+        experiment_id = 0
+      )
+    })
+    expect_true(test_env$next_method_calls == 1)
+  }, notebook_info = NULL, job_info = NULL)
+})
