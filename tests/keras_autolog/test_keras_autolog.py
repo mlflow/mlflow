@@ -57,9 +57,11 @@ def create_large_model():
     return model
 
 
-#@pytest.mark.large
+@pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels, fit_variant):
+def test_keras_autolog_ends_auto_created_run(random_train_data,
+                                             random_one_hot_labels,
+                                             fit_variant):
     mlflow.keras.autolog()
 
     data = random_train_data
@@ -78,10 +80,11 @@ def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_l
     assert mlflow.active_run() is None
 
 
-#@pytest.mark.large
+@pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_keras_autolog_persists_manually_created_run(random_train_data,
-                                                     random_one_hot_labels, fit_variant):
+                                                     random_one_hot_labels,
+                                                     fit_variant):
     mlflow.keras.autolog()
 
     with mlflow.start_run() as run:
@@ -114,9 +117,9 @@ def keras_random_data_run(random_train_data,
     data = random_train_data
     labels = random_one_hot_labels
     if model_func == 'simple':
-       model = create_model()
+        model = create_model()
     else:
-       model = create_large_model()
+        model = create_large_model()
     if fit_variant == 'fit_generator':
         def generator():
             while True:
@@ -127,9 +130,9 @@ def keras_random_data_run(random_train_data,
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
 
-#@pytest.mark.large
+@pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-@pytest.mark.parametrize('model_func', ['simple','large'])
+@pytest.mark.parametrize('model_func', ['simple', 'large'])
 def test_keras_autolog_logs_expected_data(keras_random_data_run, model_func):
     data = keras_random_data_run.data
     assert 'accuracy' in data.metrics
@@ -153,7 +156,7 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run, model_func):
         assert 'Total params: 6,922' in data.tags['model_summary']
 
 
-#@pytest.mark.large
+@pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit'])
 def test_keras_autolog_logs_default_params(keras_random_data_run):
     # Logging default parameters does not work with keras.Model.fit_generator
@@ -162,9 +165,10 @@ def test_keras_autolog_logs_default_params(keras_random_data_run):
     assert data.params['initial_epoch'] == '0'
 
 
-#@pytest.mark.large
+@pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, random_train_data):
+def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run,
+                                                    random_train_data):
     run_id = keras_random_data_run.info.run_id
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
