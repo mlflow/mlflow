@@ -641,14 +641,15 @@ public class MlflowClient {
 
 
   // ********************
-  // * Model Repository *
+  // * Model Registry *
   // ********************
 
   /**
-   * Return the latest model version for each stage (devo, staging, prod).
+   * Return the latest model version for each stage.
+   * Currently only the following stages are supported: [None, Staging, Production, Archived].
    *
    *    <pre>
-   *        List<ModelVersionDetailed> detailsList = getLatestModelVersionPerStage("model");
+   *        List<ModelVersionDetailed> detailsList = getLatestVersions("model");
    *
    *        for (ModelVersionDetailed details : detailsList) {
    *            System.out.println("Model Name: " + details.getModelVersion().getRegisteredModel().getName());
@@ -660,7 +661,27 @@ public class MlflowClient {
    * @param modelName The name of the model
    * @return A collection of {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
    */
-  public List<ModelVersionDetailed> getLatestModelVersionPerStage(String modelName) {
+  public List<ModelVersionDetailed> getLatestVersions(String modelName) {
+    throw new UnsupportedOperationException("getLatestVersion is not currently supported");
+  }
+
+  /**
+   * Return the latest model version for each stage..
+   * Currently only the following stages are supported: [None, Staging, Production, Archived].
+   *
+   *    <pre>
+   *        ModelVersionDetailed details = getLatestVersions("model", "Staging");
+   *
+   *        System.out.println("Model Name: " + details.getModelVersion().getRegisteredModel().getName());
+   *        System.out.println("Model Version: " + details.getModelVersion().getVersion());
+   *        System.out.println("Current Stage: " + details.getCurrentStage());
+   *    </pre>
+   *
+   * @param modelName The name of the model
+   * @param stage The name of the stage
+   * @return The latest model version {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
+   */
+  public ModelVersionDetailed getLatestVersions(String modelName, String stage) {
     throw new UnsupportedOperationException("getLatestVersion is not currently supported");
   }
 
@@ -691,16 +712,16 @@ public class MlflowClient {
    *    </pre>
    *
    * @param modelName The name of the model
-   * @param modelVersion The version number of the model
+   * @param version The version number of the model
    * @return A the local file or directory ({@ java.io.File}) containing model artifacts
    */
-  public File downloadModelVersion(String modelName, long modelVersion) {
+  public File downloadModelVersion(String modelName, long version) {
     throw new UnsupportedOperationException("downloadModel is not currently supported");
   }
 
   /**
-   * Return a local file or directory containing all artifacts within the latest registered model version. The method
-   * will download the model version artifacts to the local file system.
+   * Return a local file or directory containing all artifacts within the latest registered model version in the
+   * production stage. The method will download the model version artifacts to the local file system.
    *
    *    <pre>
    *        File modelVersionFile = downloadLatestModelVersion("model");
@@ -712,6 +733,24 @@ public class MlflowClient {
    * @return A the local file or directory ({@ java.io.File}) containing model artifacts
    */
   public File downloadLatestModelVersion(String modelName) {
+    throw new UnsupportedOperationException("downloadModel is not currently supported");
+  }
+
+  /**
+   * Return a local file or directory containing all artifacts within the latest registered model version in
+   * the given stage. The method will download the model version artifacts to the local file system.
+   *
+   *    <pre>
+   *        File modelVersionFile = downloadLatestModelVersion("model", "Staging");
+   *    </pre>
+   *
+   * (i.e., the contents of the local directory are now available).
+   *
+   * @param modelName The name of the model
+   * @param stage The name of the stage
+   * @return A the local file or directory ({@ java.io.File}) containing model artifacts
+   */
+  public File downloadLatestModelVersion(String modelName, String stage) {
     throw new UnsupportedOperationException("downloadModel is not currently supported");
   }
 
