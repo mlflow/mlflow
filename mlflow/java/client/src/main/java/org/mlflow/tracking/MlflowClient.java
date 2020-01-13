@@ -141,7 +141,7 @@ public class MlflowClient {
    * Return RunInfos from provided list of experiments that satisfy the search query.
    * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or
    *                    similar that returns a page of Run results.
-   * 
+   *
    * @param experimentIds List of experiment IDs.
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
@@ -157,7 +157,7 @@ public class MlflowClient {
 
   /**
    * Return RunInfos from provided list of experiments that satisfy the search query.
-   * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or 
+   * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or
    *                    similar that returns a page of Run results.
    *
    * @param experimentIds List of experiment IDs.
@@ -665,7 +665,9 @@ public class MlflowClient {
    *        List<ModelVersionDetailed> detailsList = getLatestVersions("model");
    *
    *        for (ModelVersionDetailed details : detailsList) {
-   *            System.out.println("Model Name: " + details.getModelVersion().getRegisteredModel().getName());
+   *            System.out.println("Model Name: " + details.getModelVersion()
+   *                                                       .getRegisteredModel()
+   *                                                       .getName());
    *            System.out.println("Model Version: " + details.getModelVersion().getVersion());
    *            System.out.println("Current Stage: " + details.getCurrentStage());
    *        }
@@ -675,7 +677,7 @@ public class MlflowClient {
    * @return A collection of {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
    */
   public List<ModelVersionDetailed> getLatestVersions(@Nonnull String modelName) {
-    throw new UnsupportedOperationException("getLatestVersion is not currently supported");
+    throw new UnsupportedOperationException("getLatestVersion is not supported");
   }
 
   /**
@@ -685,24 +687,27 @@ public class MlflowClient {
    *    <pre>
    *        ModelVersionDetailed details = getLatestVersions("model", "Staging");
    *
-   *        System.out.println("Model Name: " + details.getModelVersion().getRegisteredModel().getName());
+   *        System.out.println("Model Name: " + details.getModelVersion()
+   *                                                   .getRegisteredModel()
+   *                                                   .getName());
    *        System.out.println("Model Version: " + details.getModelVersion().getVersion());
    *        System.out.println("Current Stage: " + details.getCurrentStage());
    *    </pre>
    *
    * @param modelName The name of the model
    * @param stage The name of the stage
-   * @return The latest model version {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
+   * @return The latest model version
+   *         {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
    */
   public ModelVersionDetailed getLatestVersions(@Nonnull String modelName, @Nonnull String stage) {
-    throw new UnsupportedOperationException("getLatestVersion is not currently supported");
+    throw new UnsupportedOperationException("getLatestVersion is not supported");
   }
 
 
 
   /**
-   * Return the model URI containing for the given model version. THe model URI can be used to download
-   * the model version artifacts.
+   * Return the model URI containing for the given model version. The model URI can be used
+   * to download the model version artifacts.
    *
    * For example, the model URI
    *
@@ -715,12 +720,12 @@ public class MlflowClient {
    * @return The specified model version's URI.
    */
   public String getModelVersionDownloadUri(@Nonnull String modelName, long version) {
-    throw new UnsupportedOperationException("getModelVersionDownloadUri is not currently supported");
+    throw new UnsupportedOperationException("getModelVersionDownloadUri is not supported");
   }
 
   /**
-   * Return a local file or directory containing all artifacts within the given registered model version. The method
-   * will download the model version artifacts to the local file system.
+   * Return a local file or directory containing all artifacts within the given registered model
+   * version. The method will download the model version artifacts to the local file system.
    *
    *    <pre>
    *        File modelVersionFile = downloadModelVersion("model", 0);
@@ -735,8 +740,9 @@ public class MlflowClient {
   }
 
   /**
-   * Return a local file or directory containing all artifacts within the latest registered model version in
-   * the given stage. The method will download the model version artifacts to the local file system.
+   * Return a local file or directory containing all artifacts within the latest registered
+   * model version in the given stage. The method will download the model version artifacts
+   * to the local file system.
    *
    *    <pre>
    *        File modelVersionFile = downloadLatestModelVersion("model", "Staging");
