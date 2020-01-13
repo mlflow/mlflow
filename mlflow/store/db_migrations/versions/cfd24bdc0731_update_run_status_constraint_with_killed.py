@@ -16,6 +16,7 @@ down_revision = '2b4d017a5e9b'
 branch_labels = None
 depends_on = None
 
+
 new_run_status = [
     RunStatus.to_string(RunStatus.SCHEDULED),
     RunStatus.to_string(RunStatus.FAILED),

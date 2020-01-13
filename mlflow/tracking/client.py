@@ -3,7 +3,6 @@ Internal package providing a Python CRUD interface to MLflow experiments, runs, 
 and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module,
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
-
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
@@ -240,6 +239,15 @@ class MlflowClient(object):
         :return: None
         """
         self._tracking_client.log_batch(run_id, metrics, params, tags)
+
+    def update_artifacts_location(self, run_id, artifact_path):
+        """
+        define a new path to store artifacts for a run
+
+        :param run_id: String ID of the run
+        :param artifact_path: overrides the experiment's default directory .
+        """
+        self._tracking_client.update_artifacts_location(run_id, artifact_path)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
