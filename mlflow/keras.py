@@ -418,11 +418,10 @@ def autolog():
                 try:
                     summary_file = os.path.join(tempdir, "model_summary.txt")
                     with open(summary_file, 'w') as f:
-                       f.write(summary)
+                        f.write(summary)
                     try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
                 finally:
                     shutil.rmtree(tempdir)
-
 
         def on_epoch_end(self, epoch, logs=None):
             if not logs:
