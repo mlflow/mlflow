@@ -746,12 +746,12 @@ def autolog(every_n_iter=100):
     def _log_early_stop_callback_params(callback):
         if callback:
             try:
-                params_to_be_logged = {'monitor': callback.monitor,
-                                       'min_delta': callback.min_delta,
-                                       'patience': callback.patience,
-                                       'baseline': callback.baseline,
-                                       'restore_best_weights': callback.restore_best_weights}
-                log_fn_args_as_params(type(callback), [], params_to_be_logged, ['verbose', 'mode'])
+                earlystopping_params = {'monitor': callback.monitor,
+                                        'min_delta': callback.min_delta,
+                                        'patience': callback.patience,
+                                        'baseline': callback.baseline,
+                                        'restore_best_weights': callback.restore_best_weights}
+                try_mlflow_log(mlflow.log_params, earlystopping_params)
             except Exception:  # pylint: disable=W0703
                 return
 
