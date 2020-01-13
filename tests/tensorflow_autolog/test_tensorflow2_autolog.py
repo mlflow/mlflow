@@ -164,6 +164,19 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert 'model_summary.txt' in artifacts
 
 
+@pytest.mark.large
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
+    client = mlflow.tracking.MlflowClient()
+    artifacts = client.list_artifacts(tf_keras_random_data_run.info.run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert 'model' in artifacts
+    assert 'tensorboard_logs' in artifacts
+    model = mlflow.keras.load_model("runs:/" + tf_keras_random_data_run.info.run_id +
+                                    "/model")
+    model.predict(random_train_data)
+
+
 @pytest.fixture
 def tf_keras_random_data_run_with_callback(random_train_data, random_one_hot_labels, manual_run,
                                            callback, restore_weights, patience):
@@ -289,19 +302,6 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
     # Check the test epoch numbers are correct
     assert num_of_epochs == 10
     assert len(metric_history) == num_of_epochs
-
-
-@pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
-    client = mlflow.tracking.MlflowClient()
-    artifacts = client.list_artifacts(tf_keras_random_data_run.info.run_id)
-    artifacts = map(lambda x: x.path, artifacts)
-    assert 'model' in artifacts
-    assert 'tensorboard_logs' in artifacts
-    model = mlflow.keras.load_model("runs:/" + tf_keras_random_data_run.info.run_id +
-                                    "/model")
-    model.predict(random_train_data)
 
 
 def create_tf_estimator_model(dir, export):
