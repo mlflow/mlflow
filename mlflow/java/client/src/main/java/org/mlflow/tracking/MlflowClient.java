@@ -1,20 +1,33 @@
 package org.mlflow.tracking;
 
 import org.apache.http.client.utils.URIBuilder;
-
-import org.mlflow.api.proto.Service.*;
-import org.mlflow.tracking.creds.*;
+import org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed;
+import org.mlflow.api.proto.Service.CreateRun;
+import org.mlflow.api.proto.Service.Experiment;
+import org.mlflow.api.proto.Service.FileInfo;
+import org.mlflow.api.proto.Service.GetExperiment;
+import org.mlflow.api.proto.Service.Metric;
+import org.mlflow.api.proto.Service.Param;
+import org.mlflow.api.proto.Service.Run;
+import org.mlflow.api.proto.Service.RunInfo;
+import org.mlflow.api.proto.Service.RunStatus;
+import org.mlflow.api.proto.Service.RunTag;
+import org.mlflow.api.proto.Service.SearchRuns;
+import org.mlflow.api.proto.Service.ViewType;
 import org.mlflow.artifacts.ArtifactRepository;
 import org.mlflow.artifacts.ArtifactRepositoryFactory;
-import org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed;
-import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+import org.mlflow.tracking.creds.BasicMlflowHostCreds;
+import org.mlflow.tracking.creds.DatabricksConfigHostCredsProvider;
+import org.mlflow.tracking.creds.DatabricksDynamicHostCredsProvider;
+import org.mlflow.tracking.creds.HostCredsProviderChain;
+import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 
+import javax.annotation.Nonnull;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
-import java.lang.Iterable;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -646,7 +659,7 @@ public class MlflowClient {
 
   /**
    * Return the latest model version for each stage.
-   * Currently only the following stages are supported: [None, Staging, Production, Archived].
+   * The current stages are: [None, Staging, Production, Archived].
    *
    *    <pre>
    *        List<ModelVersionDetailed> detailsList = getLatestVersions("model");
@@ -661,13 +674,13 @@ public class MlflowClient {
    * @param modelName The name of the model
    * @return A collection of {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
    */
-  public List<ModelVersionDetailed> getLatestVersions(String modelName) {
+  public List<ModelVersionDetailed> getLatestVersions(@Nonnull String modelName) {
     throw new UnsupportedOperationException("getLatestVersion is not currently supported");
   }
 
   /**
    * Return the latest model version for each stage..
-   * Currently only the following stages are supported: [None, Staging, Production, Archived].
+   * The current stages are: [None, Staging, Production, Archived].
    *
    *    <pre>
    *        ModelVersionDetailed details = getLatestVersions("model", "Staging");
@@ -681,9 +694,11 @@ public class MlflowClient {
    * @param stage The name of the stage
    * @return The latest model version {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
    */
-  public ModelVersionDetailed getLatestVersions(String modelName, String stage) {
+  public ModelVersionDetailed getLatestVersions(@Nonnull String modelName, @Nonnull String stage) {
     throw new UnsupportedOperationException("getLatestVersion is not currently supported");
   }
+
+
 
   /**
    * Return the model URI containing for the given model version. THe model URI can be used to download
@@ -696,10 +711,10 @@ public class MlflowClient {
    *    </pre>
    *
    * @param modelName The name of the model
-   * @param modelVersion The version number of the model
+   * @param version The version number of the model
    * @return The specified model version's URI.
    */
-  public String getModelVersionDownloadUri(String modelName, long modelVersion) {
+  public String getModelVersionDownloadUri(@Nonnull String modelName, long version) {
     throw new UnsupportedOperationException("getModelVersionDownloadUri is not currently supported");
   }
 
@@ -715,24 +730,7 @@ public class MlflowClient {
    * @param version The version number of the model
    * @return A the local file or directory ({@ java.io.File}) containing model artifacts
    */
-  public File downloadModelVersion(String modelName, long version) {
-    throw new UnsupportedOperationException("downloadModel is not currently supported");
-  }
-
-  /**
-   * Return a local file or directory containing all artifacts within the latest registered model version in the
-   * production stage. The method will download the model version artifacts to the local file system.
-   *
-   *    <pre>
-   *        File modelVersionFile = downloadLatestModelVersion("model");
-   *    </pre>
-   *
-   * (i.e., the contents of the local directory are now available).
-   *
-   * @param modelName The name of the model
-   * @return A the local file or directory ({@ java.io.File}) containing model artifacts
-   */
-  public File downloadLatestModelVersion(String modelName) {
+  public File downloadModelVersion(@Nonnull String modelName, long version) {
     throw new UnsupportedOperationException("downloadModel is not currently supported");
   }
 
@@ -750,7 +748,7 @@ public class MlflowClient {
    * @param stage The name of the stage
    * @return A the local file or directory ({@ java.io.File}) containing model artifacts
    */
-  public File downloadLatestModelVersion(String modelName, String stage) {
+  public File downloadLatestModelVersion(@Nonnull String modelName,@Nonnull String stage) {
     throw new UnsupportedOperationException("downloadModel is not currently supported");
   }
 
