@@ -158,6 +158,7 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run, model_func):
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit'])
+@pytest.mark.parametrize('model_func',['simple'])
 def test_keras_autolog_logs_default_params(keras_random_data_run):
     # Logging default parameters does not work with keras.Model.fit_generator
     data = keras_random_data_run.data
@@ -167,6 +168,7 @@ def test_keras_autolog_logs_default_params(keras_random_data_run):
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+@pytest.mark.parametrize('model_func', ['simple'])
 def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run,
                                                     random_train_data):
     run_id = keras_random_data_run.info.run_id
