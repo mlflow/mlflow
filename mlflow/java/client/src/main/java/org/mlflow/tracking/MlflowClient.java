@@ -675,7 +675,7 @@ public class MlflowClient {
    * @param modelName The name of the model
    * @return A collection of {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
    */
-  public List<ModelVersionDetailed> getLatestVersions(String modelName) {
+  public List<ModelVersionDetailed> getLatestVersions(@Nonnull String modelName) {
     throw new UnsupportedOperationException("getLatestVersion is not supported");
   }
 
@@ -698,7 +698,7 @@ public class MlflowClient {
    * @return The latest model version
    *         {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
    */
-  public ModelVersionDetailed getLatestVersions(String modelName, String stage) {
+  public ModelVersionDetailed getLatestVersions(@Nonnull String modelName, @Nonnull String stage) {
     throw new UnsupportedOperationException("getLatestVersion is not supported");
   }
 
@@ -718,7 +718,7 @@ public class MlflowClient {
    * @param version The version number of the model
    * @return The specified model version's URI.
    */
-  public String getModelVersionDownloadUri(String modelName, long version) {
+  public String getModelVersionDownloadUri(@Nonnull String modelName, long version) {
     throw new UnsupportedOperationException("getModelVersionDownloadUri is not supported");
   }
 
@@ -734,7 +734,7 @@ public class MlflowClient {
    * @param version The version number of the model
    * @return A the local file or directory ({@ java.io.File}) containing model artifacts
    */
-  public File downloadModelVersion(String modelName, long version) {
+  public File downloadModelVersion(@Nonnull String modelName, long version) {
     throw new UnsupportedOperationException("downloadModel is not currently supported");
   }
 
@@ -753,7 +753,7 @@ public class MlflowClient {
    * @param stage The name of the stage
    * @return A the local file or directory ({@ java.io.File}) containing model artifacts
    */
-  public File downloadLatestModelVersion(String modelName,String stage) {
+  public File downloadLatestModelVersion(@Nonnull String modelName,@Nonnull String stage) {
     throw new UnsupportedOperationException("downloadModel is not currently supported");
   }
 
