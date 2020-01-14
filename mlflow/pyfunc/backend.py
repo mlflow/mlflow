@@ -2,7 +2,7 @@ import logging
 import os
 
 import subprocess
-
+import posixpath
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
 from mlflow.pyfunc import ENV
@@ -125,7 +125,7 @@ class PyFuncBackend(FlavorBackend):
                 ENV {disable_env}="true"
                 """.format(
                 disable_env=DISABLE_ENV_CREATION,
-                model_dir=os.path.join("model_dir", os.path.basename(model_path)),
+                model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
                 install_mlflow=repr(install_mlflow)
             )
 
