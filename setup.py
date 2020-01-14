@@ -63,7 +63,7 @@ setup(
             'google-cloud-storage',
         ],
          'sqlserver':[
-            "dbstoreplugin",
+            "mlflow-dbstore",
         ],
     },
     entry_points='''
