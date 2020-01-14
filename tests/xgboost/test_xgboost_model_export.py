@@ -44,7 +44,7 @@ def xgb_model():
     y = iris.target
 
     dtrain = xgb.DMatrix(X, y)
-    model = xgb.train({}, dtrain)  # pass an empty dict to use default booster paramters
+    model = xgb.train({'objective': 'multi:softprob', 'num_class': 3}, dtrain)
     return ModelWithData(model=model, inference_dataframe=X, inference_dmatrix=dtrain)
 
 

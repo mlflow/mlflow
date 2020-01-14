@@ -44,7 +44,7 @@ def lgb_model():
     y = iris.target
 
     dtrain = lgb.Dataset(X, y)
-    model = lgb.train({}, dtrain)  # pass an empty dict to use default booster paramters
+    model = lgb.train({'objective': 'multiclass', 'num_class': 3}, dtrain)
     return ModelWithData(model=model, inference_dataframe=X)
 
 
