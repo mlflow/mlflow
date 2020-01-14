@@ -39,6 +39,31 @@ export default class ExperimentViewUtil {
   };
 
   /**
+  * Returns an icon depending on run status.
+  */
+  static getRunStatusIcon(status) {
+    switch (status) {
+      case 'FAILED':
+      case 'KILLED':
+        return (
+            <i className="far fa-times-circle" style={{color: '#DB1905'}}/>
+        );
+      case 'FINISHED':
+        return (
+            <i className="far fa-check-circle" style={{color: '#10B36B'}}/>
+        );
+      case 'SCHEDULED':
+        return (
+            <i className="far fa-clock" style={{color: '#258BD2'}}/>
+        );
+      default:
+        return (
+            <i/>
+        );
+    }
+  }
+
+  /**
    * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
    * the display row for a run.
    */
@@ -48,9 +73,13 @@ export default class ExperimentViewUtil {
     const queryParams = window.location && window.location.search ? window.location.search : "";
     const sourceType = Utils.renderSource(tags, queryParams);
     const startTime = runInfo.start_time;
+    const status = runInfo.status;
     const runName = Utils.getRunName(tags);
     const childLeftMargin = isParent ? {} : {paddingLeft: '16px'};
     return [
+      <CellComponent key="meta-status" className="run-table-container" title={status}>
+        {ExperimentViewUtil.getRunStatusIcon(status)}
+      </CellComponent>,
       <CellComponent
         key="meta-link"
         className="run-table-container"
@@ -140,6 +169,7 @@ export default class ExperimentViewUtil {
         </CellComponent>);
     };
     return [
+      getHeaderCell("status", <span></span>, null),
       getHeaderCell("start_time", <span>{"Date"}</span>, "attributes.start_time"),
       getHeaderCell("user_id", <span>{"User"}</span>, "tags.`mlflow.user`"),
       getHeaderCell("run_name", <span>{"Run Name"}</span>, "tags.`mlflow.runName`"),
