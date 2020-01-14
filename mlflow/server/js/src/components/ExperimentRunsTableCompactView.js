@@ -13,7 +13,7 @@ import { LoadMoreBar } from './LoadMoreBar';
 
 import 'react-virtualized/styles.css';
 
-export const NUM_RUN_METADATA_COLS = 8;
+export const NUM_RUN_METADATA_COLS = 9;
 const TABLE_HEADER_HEIGHT = 40;
 const UNBAGGED_COL_WIDTH = 125;
 const BAGGED_COL_WIDTH = 250;
@@ -403,6 +403,7 @@ class ExperimentRunsTableCompactView extends React.Component {
               const runMetadataColWidths = [
                 30, // checkbox column width
                 20, // expander column width
+                35, // 'Status' column width
                 180, // 'Date' column width
                 120, // 'user' column width
                 120, // 'Run Name' column width
