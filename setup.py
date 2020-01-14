@@ -63,7 +63,7 @@ setup(
             'google-cloud-storage',
         ],
          'sqlserver':[
-            "sqlplugin",
+            "dbstoreplugin",
         ],
     },
     entry_points='''
