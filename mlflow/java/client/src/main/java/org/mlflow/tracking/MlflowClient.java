@@ -1,35 +1,11 @@
 package org.mlflow.tracking;
 
 import org.apache.http.client.utils.URIBuilder;
-<<<<<<< HEAD
-import org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed;
-import org.mlflow.api.proto.Service.CreateRun;
-import org.mlflow.api.proto.Service.Experiment;
-import org.mlflow.api.proto.Service.FileInfo;
-import org.mlflow.api.proto.Service.GetExperiment;
-import org.mlflow.api.proto.Service.Metric;
-import org.mlflow.api.proto.Service.Param;
-import org.mlflow.api.proto.Service.Run;
-import org.mlflow.api.proto.Service.RunInfo;
-import org.mlflow.api.proto.Service.RunStatus;
-import org.mlflow.api.proto.Service.RunTag;
-import org.mlflow.api.proto.Service.SearchRuns;
-import org.mlflow.api.proto.Service.ViewType;
-import org.mlflow.artifacts.ArtifactRepository;
-import org.mlflow.artifacts.ArtifactRepositoryFactory;
-import org.mlflow.tracking.creds.BasicMlflowHostCreds;
-import org.mlflow.tracking.creds.DatabricksConfigHostCredsProvider;
-import org.mlflow.tracking.creds.DatabricksDynamicHostCredsProvider;
-import org.mlflow.tracking.creds.HostCredsProviderChain;
-import org.mlflow.tracking.creds.MlflowHostCredsProvider;
-=======
-
 import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.creds.*;
 import org.mlflow.artifacts.ArtifactRepository;
 import org.mlflow.artifacts.ArtifactRepositoryFactory;
->>>>>>> temp java api model registry
 
 import javax.annotation.Nonnull;
 import java.io.File;

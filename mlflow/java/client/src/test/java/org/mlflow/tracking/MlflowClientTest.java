@@ -629,7 +629,7 @@ public class MlflowClientTest {
     result = client.sendPost("model-versions/update",
             JsonFormat.printer().preservingProtoFieldNames().print(updateModelVersionBuilder));
 
-    List<ModelVersionDetailed> detailedModelVersion =  client.getLatestModelVersionPerStage(modelName);
+    List<ModelVersionDetailed> detailedModelVersion =  client.getLatestVersions(modelName);
 
     for (ModelVersionDetailed version : detailedModelVersion) {
 
