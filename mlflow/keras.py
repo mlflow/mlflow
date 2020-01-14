@@ -403,6 +403,26 @@ def autolog():
     Logs loss and any other metrics specified in the fit
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
+
+    EarlyStopping Integration with Keras Automatic Logging
+
+    MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()``/``fit_generator()``
+    call, and if the ``restore_best_weights`` parameter is set to be ``True``, then MLflow will
+    log the metrics associated with the restored model as a final, extra step. The epoch of the
+    restored model will also be logged as the metric ``restored_epoch``.
+    This allows for easy comparison between the actual metrics of the restored model and
+    the metrics of other models.
+
+    If ``restore_best_weights`` is set to be ``False``,
+    then MLflow will not log an additional step.
+
+    Regardless of ``restore_best_weights``, MLflow will also log ``stopped_epoch``,
+    which indicates the epoch at which training stopped due to early stopping.
+
+    If training does not end due to early stopping, then ``stopped_epoch`` will be logged as ``0``.
+
+    MLflow will also log the parameters of the EarlyStopping callback,
+    excluding ``mode`` and ``verbose``.
     """
     import keras
 
@@ -448,63 +468,97 @@ def autolog():
         def on_train_end(self, logs=None):
             try_mlflow_log(log_model, self.model, artifact_path='model')
 
-    @gorilla.patch(keras.Model)
-    def fit(self, *args, **kwargs):
+    def _early_stop_check(callbacks):
+        if LooseVersion(keras.__version__) < LooseVersion('2.3.0'):
+            es_callback = keras.callbacks.EarlyStopping
+        else:
+            es_callback = keras.callbacks.callbacks.EarlyStopping
+        for callback in callbacks:
+            if isinstance(callback, es_callback):
+                return callback
+        return None
+
+    def _log_early_stop_callback_params(callback):
+        if callback:
+            try:
+                earlystopping_params = {'monitor': callback.monitor,
+                                        'min_delta': callback.min_delta,
+                                        'patience': callback.patience,
+                                        'baseline': callback.baseline,
+                                        'restore_best_weights': callback.restore_best_weights}
+                try_mlflow_log(mlflow.log_params, earlystopping_params)
+            except Exception:  # pylint: disable=W0703
+                return
+
+    def _get_early_stop_callback_attrs(callback):
+        try:
+            return callback.stopped_epoch, callback.restore_best_weights, callback.patience
+        except Exception:  # pylint: disable=W0703
+            return None
+
+    def _log_early_stop_callback_metrics(callback, history):
+        if callback:
+            callback_attrs = _get_early_stop_callback_attrs(callback)
+            if callback_attrs is None:
+                return
+            stopped_epoch, restore_best_weights, patience = callback_attrs
+            try_mlflow_log(mlflow.log_metric, 'stopped_epoch', stopped_epoch)
+            # Weights are restored only if early stopping occurs
+            if stopped_epoch != 0 and restore_best_weights:
+                restored_epoch = stopped_epoch - max(1, patience)
+                try_mlflow_log(mlflow.log_metric, 'restored_epoch', restored_epoch)
+                restored_metrics = {key: history.history[key][restored_epoch]
+                                    for key in history.history.keys()}
+                # Checking that a metric history exists
+                metric_key = next(iter(history.history), None)
+                if metric_key is not None:
+                    last_epoch = len(history.history[metric_key])
+                    try_mlflow_log(mlflow.log_metrics, restored_metrics, step=last_epoch)
+
+    def _run_and_log_function(self, original, args, kwargs, unlogged_params, callback_arg_index):
         if not mlflow.active_run():
             try_mlflow_log(mlflow.start_run)
             auto_end_run = True
         else:
             auto_end_run = False
 
-        original = gorilla.get_original_attribute(keras.Model, 'fit')
-
-        unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data', 'verbose']
-
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
+        early_stop_callback = None
 
-        # Checking if the 'callback' argument of fit() is set
-        if len(args) >= 6:
+        # Checking if the 'callback' argument of the function is set
+        if len(args) > callback_arg_index:
             tmp_list = list(args)
-            tmp_list[5] += [__MLflowKerasCallback()]
+            early_stop_callback = _early_stop_check(tmp_list[callback_arg_index])
+            tmp_list[callback_arg_index] += [__MLflowKerasCallback()]
             args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
+            early_stop_callback = _early_stop_check(kwargs['callbacks'])
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
 
-        result = original(self, *args, **kwargs)
+        _log_early_stop_callback_params(early_stop_callback)
+
+        history = original(self, *args, **kwargs)
+
+        _log_early_stop_callback_metrics(early_stop_callback, history)
+
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
-        return result
+
+        return history
+
+    @gorilla.patch(keras.Model)
+    def fit(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(keras.Model, 'fit')
+        unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data', 'verbose']
+        return _run_and_log_function(self, original, args, kwargs, unlogged_params, 5)
 
     @gorilla.patch(keras.Model)
     def fit_generator(self, *args, **kwargs):
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            auto_end_run = True
-        else:
-            auto_end_run = False
-
         original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
-
         unlogged_params = ['self', 'generator', 'callbacks', 'validation_data', 'verbose']
-
-        log_fn_args_as_params(original, args, kwargs, unlogged_params)
-
-        # Checking if the 'callback' argument of fit() is set
-        if len(args) >= 5:
-            tmp_list = list(args)
-            tmp_list[4] += [__MLflowKerasCallback()]
-            args = tuple(tmp_list)
-        elif 'callbacks' in kwargs:
-            kwargs['callbacks'] += [__MLflowKerasCallback()]
-        else:
-            kwargs['callbacks'] = [__MLflowKerasCallback()]
-
-        result = original(self, *args, **kwargs)
-        if auto_end_run:
-            try_mlflow_log(mlflow.end_run)
-        return result
+        return _run_and_log_function(self, original, args, kwargs, unlogged_params, 4)
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     gorilla.apply(gorilla.Patch(keras.Model, 'fit', fit, settings=settings))

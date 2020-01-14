@@ -4,9 +4,13 @@
 \alias{mlflow_search_runs}
 \title{Search Runs}
 \usage{
-mlflow_search_runs(filter = NULL, run_view_type = c("ACTIVE_ONLY",
-  "DELETED_ONLY", "ALL"), experiment_ids = NULL, order_by = list(),
-  client = NULL)
+mlflow_search_runs(
+  filter = NULL,
+  run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
+  experiment_ids = NULL,
+  order_by = list(),
+  client = NULL
+)
 }
 \arguments{
 \item{filter}{A filter expression over params, metrics, and tags, allowing returning a subset of runs.
