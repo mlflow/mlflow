@@ -4,8 +4,13 @@
 \alias{mlflow_start_run}
 \title{Start Run}
 \usage{
-mlflow_start_run(run_id = NULL, experiment_id = NULL,
-  start_time = NULL, tags = NULL, client = NULL)
+mlflow_start_run(
+  run_id = NULL,
+  experiment_id = NULL,
+  start_time = NULL,
+  tags = NULL,
+  client = NULL
+)
 }
 \arguments{
 \item{run_id}{If specified, get the run with the specified UUID and log metrics
