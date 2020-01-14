@@ -1,11 +1,13 @@
 package org.mlflow.tracking;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.util.JsonFormat;
 
 import java.lang.Iterable;
 
+import org.mlflow.api.proto.ModelRegistry;
 import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 
@@ -120,6 +122,10 @@ class MlflowProtobufMapper {
   }
 
   String makeGetLatestVersion(String modelName) {
+      return makeGetLatestVersion(modelName, null);
+  }
+
+  String makeGetLatestVersion(String modelName, Iterable<String> stages) {
     RegisteredModel model = RegisteredModel.newBuilder()
             .setName(modelName)
             .build();
@@ -127,6 +133,37 @@ class MlflowProtobufMapper {
     GetLatestVersions.Builder builder = GetLatestVersions.newBuilder();
     builder.setRegisteredModel(model);
 
+    if (stages != null) {
+      builder.addAllStages(stages);
+    }
+
+    return print(builder);
+  }
+
+  String makeCreateModel(String modelName) {
+    CreateRegisteredModel.Builder builder = CreateRegisteredModel.newBuilder()
+            .setName(modelName);
+    return print(builder);
+  }
+
+  String makeCreateModelVersion(String modelName, String runId, String source) {
+    CreateModelVersion.Builder builder = CreateModelVersion.newBuilder()
+            .setName(modelName)
+            .setRunId(runId)
+            .setSource(source);
+    return print(builder);
+  }
+
+  String makeGetModelVersionDetails(String modelName, long version) {
+    RegisteredModel.Builder modelBuilder = RegisteredModel.newBuilder()
+            .setName(modelName);
+
+    ModelVersion.Builder modelVerionBuilder = ModelVersion.newBuilder()
+            .setVersion(version)
+            .setRegisteredModel(modelBuilder);
+
+    GetModelVersionDetails.Builder builder = GetModelVersionDetails.newBuilder()
+            .setModelVersion(modelVerionBuilder);
     return print(builder);
   }
 

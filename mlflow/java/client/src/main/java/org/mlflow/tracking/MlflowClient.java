@@ -12,6 +12,7 @@ import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -662,9 +663,7 @@ public class MlflowClient {
    * @return A collection of {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
    */
   public List<ModelVersionDetailed> getLatestVersions(@Nonnull String modelName) {
-    String json = sendPost("registered-models/get-latest-versions", mapper.makeGetLatestVersion(modelName));
-    GetLatestVersions.Response response =  mapper.toGetLatestVersionsResponse(json);
-    return response.getModelVersionsDetailedList();
+      return getLatestVersions(modelName, Collections.emptyList());
   }
 
   /**
@@ -691,10 +690,13 @@ public class MlflowClient {
    */
   public List<ModelVersionDetailed> getLatestVersions(@Nonnull String modelName,
                                                       @Nonnull Iterable<String> stages) {
-    throw new UnsupportedOperationException("getLatestVersion is not supported");
+    String json = sendPost("registered-models/get-latest-versions",
+            mapper.makeGetLatestVersion(modelName, stages));
+
+    GetLatestVersions.Response response =  mapper.toGetLatestVersionsResponse(json);
+
+    return response.getModelVersionsDetailedList();
   }
-
-
 
   /**
    * Return the model URI containing for the given model version. The model URI can be used
@@ -709,7 +711,7 @@ public class MlflowClient {
    * @return The specified model version's URI.
    */
   public String getModelVersionDownloadUri(@Nonnull String modelName, long version) {
-    String json = sendPost("/model-versions/get-download-uri",
+    String json = sendPost("model-versions/get-download-uri",
             mapper.makeGetModelVersionDownloadUri(modelName, version));
     return mapper.toGetModelVersionDownloadUriResponse(json);
   }
@@ -727,7 +729,6 @@ public class MlflowClient {
    * @return A local file or directory ({@ java.io.File}) containing model artifacts
    */
   public File downloadModelVersion(@Nonnull String modelName, long version) {
-    throw new UnsupportedOperationException("downloadModel is not currently supported");
   }
 
   /**
@@ -746,7 +747,8 @@ public class MlflowClient {
    * @return A local file or directory ({@ java.io.File}) containing model artifacts
    */
   public File downloadLatestModelVersion(@Nonnull String modelName,@Nonnull String stage) {
-    throw new UnsupportedOperationException("downloadModel is not currently supported");
+      ModelVersionDetailed version = getLatestVersions(modelName, stage);
+
   }
 
 }
