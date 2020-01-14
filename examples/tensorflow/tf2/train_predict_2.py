@@ -49,7 +49,7 @@ def train_input_fn(features, labels, batch_size):
 
 def eval_input_fn(features, labels, batch_size):
     """An input function for evaluation or prediction"""
-    features=dict(features)
+    features = dict(features)
     if labels is None:
         # No labels, use only features.
         inputs = features
@@ -66,6 +66,7 @@ def eval_input_fn(features, labels, batch_size):
     # Return the dataset.
     return dataset
 
+
 # Enable auto-logging to MLflow to capture TensorBoard metrics.
 mlflow.tensorflow.autolog()
 
@@ -73,6 +74,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
 parser.add_argument('--train_steps', default=1000, type=int,
                     help='number of training steps')
+
 
 def main(argv):
     with mlflow.start_run():
@@ -98,14 +100,12 @@ def main(argv):
 
         # Train the Model.
         classifier.train(
-            input_fn=lambda:train_input_fn(train_x, train_y,
-                                                     args.batch_size),
+            input_fn=lambda: train_input_fn(train_x, train_y, args.batch_size),
             steps=args.train_steps)
 
         # Evaluate the model.
         eval_result = classifier.evaluate(
-            input_fn=lambda:eval_input_fn(test_x, test_y,
-                                                    args.batch_size))
+            input_fn=lambda: eval_input_fn(test_x, test_y, args.batch_size))
 
         print('\nTest set accuracy: {accuracy:0.3f}\n'.format(**eval_result))
 
@@ -119,9 +119,7 @@ def main(argv):
         }
 
         predictions = classifier.predict(
-            input_fn=lambda:eval_input_fn(predict_x,
-                                          labels=None,
-                                          batch_size=args.batch_size))
+            input_fn=lambda: eval_input_fn(predict_x, labels=None, batch_size=args.batch_size))
 
         old_predictions = []
         template = '\nPrediction is "{}" ({:.1f}%), expected "{}"'
@@ -130,8 +128,7 @@ def main(argv):
             class_id = pred_dict['class_ids'][0]
             probability = pred_dict['probabilities'][class_id]
 
-            print(template.format(SPECIES[class_id],
-                                  100 * probability, expec))
+            print(template.format(SPECIES[class_id], 100 * probability, expec))
 
             old_predictions.append(SPECIES[class_id])
 
@@ -165,11 +162,13 @@ def main(argv):
             # Checking the PyFunc's predictions are the same as the original model's predictions.
             template = '\nOriginal prediction is "{}", reloaded prediction is "{}"'
             for expec, pred in zip(old_predictions, predict_df['classes']):
-                class_id = predict_df['class_ids'][predict_df.loc[predict_df['classes'] == pred].index[0]]
+                index = predict_df.loc[predict_df['classes'] == pred].index[0]
+                class_id = predict_df['class_ids'][index]
                 reloaded_label = SPECIES[class_id]
                 print(template.format(expec, reloaded_label))
         finally:
             shutil.rmtree(temp)
+
 
 if __name__ == '__main__':
     main(sys.argv)

@@ -19,6 +19,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--steps', default=1000, type=int,
                     help='number of steps used for training and evaluation')
 
+
 def main(argv):
     with mlflow.start_run():
         args = parser.parse_args(argv[1:])

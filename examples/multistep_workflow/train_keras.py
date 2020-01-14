@@ -58,10 +58,14 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
     concat_arrays_udf = udf(concat_arrays, ArrayType(FloatType()))
 
     concat_train_df = (joined_train_df
-                       .select('userId', 'movieId', concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"),
+                       .select('userId', 'movieId',
+                               concat_arrays_udf(col("iFeatures"),
+                                                 col("uFeatures")).alias("features"),
                                col('rating').cast("float")))
     concat_test_df = (joined_test_df
-                      .select('userId', 'movieId', concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"),
+                      .select('userId', 'movieId',
+                              concat_arrays_udf(col("iFeatures"),
+                                                col("uFeatures")).alias("features"),
                               col('rating').cast("float")))
 
     pandas_df = concat_train_df.toPandas()

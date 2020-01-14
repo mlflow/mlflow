@@ -4,7 +4,8 @@
 #   MLflow model using ElasticNet (sklearn) and Plots ElasticNet Descent Paths
 #
 #   Uses the sklearn Diabetes dataset to predict diabetes progression using ElasticNet
-#       The predicted "progression" column is a quantitative measure of disease progression one year after baseline
+#       The predicted "progression" column is a quantitative measure of disease progression
+#       one year after baseline
 #       http://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_diabetes.html
 #   Combines the above with the Lasso Coordinate Descent Path Plot
 #       http://scikit-learn.org/stable/auto_examples/linear_model/plot_lasso_coordinate_descent_path.html
@@ -30,6 +31,11 @@ from sklearn.linear_model import ElasticNet
 from sklearn.linear_model import lasso_path, enet_path
 from sklearn import datasets
 
+# Import mlflow
+import mlflow
+import mlflow.sklearn
+
+
 # Load Diabetes datasets
 diabetes = datasets.load_diabetes()
 X = diabetes.data
@@ -42,18 +48,12 @@ cols = diabetes.feature_names + ['progression']
 data = pd.DataFrame(d, columns=cols)
 
 
-# Import mlflow
-import mlflow
-import mlflow.sklearn
-
-
 # Evaluate metrics
 def eval_metrics(actual, pred):
     rmse = np.sqrt(mean_squared_error(actual, pred))
     mae = mean_absolute_error(actual, pred)
     r2 = r2_score(actual, pred)
     return rmse, mae, r2
-
 
 
 if __name__ == "__main__":
@@ -63,7 +63,8 @@ if __name__ == "__main__":
     # Split the data into training and test sets. (0.75, 0.25) split.
     train, test = train_test_split(data)
 
-    # The predicted column is "progression" which is a quantitative measure of disease progression one year after baseline
+    # The predicted column is "progression" which is a quantitative measure of disease progression
+    # one year after baseline
     train_x = train.drop(["progression"], axis=1)
     test_x = test.drop(["progression"], axis=1)
     train_y = train[["progression"]]
@@ -92,7 +93,6 @@ if __name__ == "__main__":
     mlflow.log_metric("mae", mae)
     mlflow.sklearn.log_model(lr, "model")
 
-
     # Compute paths
     eps = 5e-3  # the smaller it is the longer is the path
 
@@ -113,7 +113,6 @@ if __name__ == "__main__":
     title = 'ElasticNet Path by alpha for l1_ratio = ' + str(l1_ratio)
     plt.title(title)
     plt.axis('tight')
-
 
     # Save figures
     fig.savefig("ElasticNet-paths.png")

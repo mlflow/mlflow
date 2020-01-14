@@ -24,7 +24,7 @@ epochs = 5
 np_load_old = np.load
 
 # modify the default parameters of np.load
-np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
+np.load = lambda *a, **k: np_load_old(*a, allow_pickle=True, **k)
 
 print('Loading data...')
 (x_train, y_train), (x_test, y_test) = reuters.load_data(num_words=max_words,
@@ -74,4 +74,3 @@ score = model.evaluate(x_test, y_test,
                        batch_size=batch_size, verbose=1)
 print('Test score:', score[0])
 print('Test accuracy:', score[1])
-

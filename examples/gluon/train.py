@@ -15,7 +15,8 @@ mlflow.gluon.autolog()
 mnist_train = datasets.FashionMNIST(train=True)
 X, y = mnist_train[0]
 
-text_labels = ["t-shirt", "trouser", "pullover", "dress", "coat", "sandal", "shirt", "sneaker", "bag", "ankle boot"]
+text_labels = ["t-shirt", "trouser", "pullover", "dress", "coat",
+               "sandal", "shirt", "sneaker", "bag", "ankle boot"]
 X, y = mnist_train[0:10]
 
 transformer = transforms.Compose([
@@ -48,5 +49,6 @@ net.hybridize()
 
 trainer = Trainer(net.collect_params(), "sgd", {"learning_rate": 0.1})
 
-est = estimator.Estimator(net=net, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer)
+est = estimator.Estimator(net=net, loss=SoftmaxCrossEntropyLoss(),
+                          metrics=Accuracy(), trainer=trainer)
 est.fit(train_data=train_data, epochs=2, val_data=valid_data)

@@ -148,16 +148,14 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
                                                                     _inf,
                                                                     _inf,
                                                                     True)(params=[[0, 0]])
+        evaluator_type = "local_penalization" if min(batch_size, max_p) > 1 else "sequential"
         myProblem = GPyOpt.methods.BayesianOptimization(new_eval(epochs,
                                                                  experiment_id,
                                                                  train_null_loss,
                                                                  valid_null_loss,
                                                                  test_null_loss),
                                                         bounds,
-                                                        evaluator_type=
-                                                        "local_penalization" if min(batch_size,
-                                                                                    max_p) > 1
-                                                        else "sequential",
+                                                        evaluator_type=evaluator_type,
                                                         batch_size=batch_size,
                                                         num_cores=max_p,
                                                         model_type=gpy_model,

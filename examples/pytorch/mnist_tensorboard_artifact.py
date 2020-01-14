@@ -65,6 +65,7 @@ test_loader = torch.utils.data.DataLoader(
                    ])),
     batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
+
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -93,13 +94,15 @@ class Net(nn.Module):
         writer.add_histogram('weights/fc2/weight', model.fc2.weight.data, step)
         writer.add_histogram('weights/fc2/bias', model.fc2.bias.data, step)
 
+
 model = Net()
 if args.cuda:
     model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
-writer = None # Will be used to write TensorBoard events
+writer = None  # Will be used to write TensorBoard events
+
 
 def train(epoch):
     model.train()
@@ -120,6 +123,7 @@ def train(epoch):
             log_scalar('train_loss', loss.data.item(), step)
             model.log_weights(step)
 
+
 def test(epoch):
     model.eval()
     test_loss = 0
@@ -130,8 +134,9 @@ def test(epoch):
                 data, target = data.cuda(), target.cuda()
             data, target = Variable(data), Variable(target)
             output = model(data)
-            test_loss += F.nll_loss(output, target, reduction='sum').data.item() # sum up batch loss
-            pred = output.data.max(1)[1] # get the index of the max log-probability
+            # sum up batch loss
+            test_loss += F.nll_loss(output, target, reduction='sum').data.item()
+            pred = output.data.max(1)[1]  # get the index of the max log-probability
             correct += pred.eq(target.data).cpu().sum().item()
 
     test_loss /= len(test_loader.dataset)
@@ -142,10 +147,12 @@ def test(epoch):
     log_scalar('test_loss', test_loss, step)
     log_scalar('test_accuracy', test_accuracy, step)
 
+
 def log_scalar(name, value, step):
     """Log a scalar value to both MLflow and TensorBoard"""
     writer.add_scalar(name, value, step)
     mlflow.log_metric(name, value)
+
 
 with mlflow.start_run():
     # Log our parameters into mlflow
@@ -166,4 +173,4 @@ with mlflow.start_run():
     print("Uploading TensorBoard events as a run artifact...")
     mlflow.log_artifacts(output_dir, artifact_path="events")
     print("\nLaunch TensorBoard with:\n\ntensorboard --logdir=%s" %
-        os.path.join(mlflow.get_artifact_uri(), "events"))
+          os.path.join(mlflow.get_artifact_uri(), "events"))

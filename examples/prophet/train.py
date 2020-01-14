@@ -1,4 +1,5 @@
-# The data set used in this example is from 'https://raw.githubusercontent.com/facebook/prophet/master/examples/example_wp_log_peyton_manning.csv'
+# The data set used in this example is from:
+# https://raw.githubusercontent.com/facebook/prophet/master/examples/example_wp_log_peyton_manning.csv  # noqa
 
 import warnings
 import sys
@@ -27,7 +28,6 @@ class FbProphetWrapper(mlflow.pyfunc.PythonModel):
         self.model = model
         super(FbProphetWrapper, self).__init__()
 
-
     def load_context(self, context):
         from fbprophet import Prophet
         return
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     np.random.seed(40)
 
     csv_url = sys.argv[1] if len(sys.argv) > 1 else \
-        'https://raw.githubusercontent.com/facebook/prophet/e21a05f4f9290649255a2a306855e8b4620816d7/examples/example_wp_log_peyton_manning.csv'
+        'https://raw.githubusercontent.com/facebook/prophet/e21a05f4f9290649255a2a306855e8b4620816d7/examples/example_wp_log_peyton_manning.csv'  # noqa
     rolling_window = float(sys.argv[2]) if len(sys.argv) > 2 else 0.1
 
     # Read the csv file from the URL
@@ -78,7 +78,8 @@ if __name__ == "__main__":
 
         # Log parameter, metrics, and model to MLflow
         mlflow.log_param("rolling_window", rolling_window)
-        mlflow.log_metric("rmse", df_p.loc[0,'rmse'])
+        mlflow.log_metric("rmse", df_p.loc[0, 'rmse'])
 
         mlflow.pyfunc.log_model("model", conda_env=conda_env, python_model=FbProphetWrapper(m))
-        print("Logged model with URI: runs:/{run_id}/model".format(run_id=mlflow.active_run().info.run_id))
+        print("Logged model with URI: runs:/{run_id}/model"
+              .format(run_id=mlflow.active_run().info.run_id))

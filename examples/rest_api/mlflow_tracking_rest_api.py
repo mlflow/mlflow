@@ -27,7 +27,9 @@ class MLFlowTrackingRestApi:
         """Create a new run for tracking."""
         url = self.base_url + '/runs/create'
         # user_id is deprecated and will be removed from the API in a future release
-        payload = {'experiment_id': self.experiment_id, 'start_time': int(time.time() * 1000), 'user_id': _get_user_id()}
+        payload = {'experiment_id': self.experiment_id,
+                   'start_time': int(time.time() * 1000),
+                   'user_id': _get_user_id()}
         r = requests.post(url, json=payload)
         run_id = None
         if r.status_code == 200:
@@ -59,6 +61,7 @@ class MLFlowTrackingRestApi:
         r = requests.post(url, json=payload)
         return r.status_code
 
+
 def _get_user_id():
     """Get the ID of the user for the current run."""
     try:
@@ -73,13 +76,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='MLFlow REST API Example')
 
     parser.add_argument('--hostname', type=str, default='localhost', dest='hostname',
-        help='MLFlow server hostname/ip (default: localhost)')
+                        help='MLFlow server hostname/ip (default: localhost)')
 
     parser.add_argument('--port', type=int, default=5000, dest='port',
-        help='MLFlow server port number (default: 5000)')
+                        help='MLFlow server port number (default: 5000)')
 
     parser.add_argument('--experiment-id', type=int, default=0, dest='experiment_id',
-        help='Experiment ID (default: 0)')
+                        help='Experiment ID (default: 0)')
 
     print("Running mlflow_tracking_rest_api.py")
 
@@ -90,13 +93,15 @@ if __name__ == "__main__":
     param = {'key': 'alpha', 'value': '0.1980'}
     status_code = mlflow_rest.log_param(param)
     if status_code == 200:
-        print("Successfully logged parameter: {} with value: {}".format(param['key'], param['value']))
+        print("Successfully logged parameter: {} with value: {}"
+              .format(param['key'], param['value']))
     else:
         print("Logging parameter failed!")
     # Metric is a key/val pair (key/val have str/float types)
     metric = {'key': 'precision', 'value': 0.769}
     status_code = mlflow_rest.log_metric(metric)
     if status_code == 200:
-        print("Successfully logged parameter: {} with value: {}".format(metric['key'], metric['value']))
+        print("Successfully logged parameter: {} with value: {}"
+              .format(metric['key'], metric['value']))
     else:
         print("Logging metric failed!")
