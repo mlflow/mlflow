@@ -19,14 +19,11 @@ Python client and integrating third-party tools, allowing you to:
 
 The MLflow Python API currently supports several types of plugins:
 
-* **Tracking Store plugins**: specify custom behavior when users call
-  tracking API methods like :py:func:`mlflow.start_run`, :py:func:`mlflow.log_metric`, :py:func:`mlflow.log_param`
-* **ArtifactRepository plugins**: specify custom behavior when users call
-  :py:func:`mlflow.log_artifact`, :py:func:`mlflow.log_artifacts`
+* **Tracking Store plugins**: override tracking backend logic, e.g. to log to a third-party storage solution
+* **ArtifactRepository plugins**: override artifact logging logic, e.g. to log to a third-party storage solution
 * **Run context providers**: specify context tags to be set on runs created via the
   :py:func:`mlflow.start_run` fluent API.
-* **Model Registry Store plugins**: specify custom behavior when users call
-  Model Registry APIs like :py:func:`mlflow.register_model`
+* **Model Registry Store plugins**: override model registry backend logic, e.g. to log to a third-party storage solution
 
 .. contents:: Table of Contents
   :local:
