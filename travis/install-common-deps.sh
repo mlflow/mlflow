@@ -3,7 +3,9 @@
 set -ex
 sudo mkdir -p /travis-install
 sudo chown travis /travis-install
-which java
+# Remove JDK 11 that's installed by default in Travis xenial images (see 
+# https://docs.travis-ci.com/user/reference/xenial/#environment-common-to-all-xenial-images)
+# in favor of JDK 8, which is needed to run tests with Spark 2.x
 sudo rm -rf /usr/local/lib/jvm/openjdk11
 sudo apt install openjdk-8-jdk
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/
