@@ -736,6 +736,55 @@ def autolog(every_n_iter=100):
             try_mlflow_log(mlflow.end_run)
         return serialized
 
+    def _early_stop_check(callbacks):
+        for callback in callbacks:
+            if isinstance(callback, tensorflow.keras.callbacks.EarlyStopping):
+                return callback
+        return None
+
+    def _log_early_stop_callback_params(callback):
+        if callback:
+            try:
+                earlystopping_params = {'monitor': callback.monitor,
+                                        'min_delta': callback.min_delta,
+                                        'patience': callback.patience,
+                                        'baseline': callback.baseline,
+                                        'restore_best_weights': callback.restore_best_weights}
+                try_mlflow_log(mlflow.log_params, earlystopping_params)
+            except Exception:  # pylint: disable=W0703
+                return
+
+    def _get_early_stop_callback_attrs(callback):
+        try:
+            return callback.stopped_epoch, callback.restore_best_weights, callback.patience
+        except Exception:  # pylint: disable=W0703
+            return None
+
+    def _log_early_stop_callback_metrics(callback, history):
+        if callback:
+            callback_attrs = _get_early_stop_callback_attrs(callback)
+            if callback_attrs is None:
+                return
+            stopped_epoch, restore_best_weights, patience = callback_attrs
+            try_mlflow_log(mlflow.log_metric, 'stopped_epoch', stopped_epoch)
+            # Weights are restored only if early stopping occurs
+            if stopped_epoch != 0 and restore_best_weights:
+                restored_epoch = stopped_epoch - max(1, patience)
+                try_mlflow_log(mlflow.log_metric, 'restored_epoch', restored_epoch)
+                restored_metrics = {key: history.history[key][restored_epoch]
+                                    for key in history.history.keys()}
+                # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
+                if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
+                    if 'loss' in restored_metrics:
+                        restored_metrics['epoch_loss'] = restored_metrics.pop('loss')
+                    if 'acc' in restored_metrics:
+                        restored_metrics['epoch_acc'] = restored_metrics.pop('acc')
+                # Checking that a metric history exists
+                metric_key = next(iter(history.history), None)
+                if metric_key is not None:
+                    last_epoch = len(history.history[metric_key])
+                    try_mlflow_log(mlflow.log_metrics, restored_metrics, step=last_epoch)
+
     @gorilla.patch(tensorflow.keras.Model)
     def fit(self, *args, **kwargs):
         with _manage_active_run():
@@ -744,22 +793,31 @@ def autolog(every_n_iter=100):
             unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data', 'verbose']
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
+            early_stop_callback = None
 
             # Checking if the 'callback' argument of fit() is set
             if len(args) >= 6:
                 tmp_list = list(args)
+                early_stop_callback = _early_stop_check(tmp_list[5])
                 tmp_list[5], log_dir = _setup_callbacks(tmp_list[5])
                 args = tuple(tmp_list)
             elif 'callbacks' in kwargs:
+                early_stop_callback = _early_stop_check(kwargs['callbacks'])
                 kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
             else:
                 kwargs['callbacks'], log_dir = _setup_callbacks([])
-            result = original(self, *args, **kwargs)
+
+            _log_early_stop_callback_params(early_stop_callback)
+
+            history = original(self, *args, **kwargs)
+
+            _log_early_stop_callback_metrics(early_stop_callback, history)
+
             _flush_queue()
             _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
             shutil.rmtree(log_dir)
 
-            return result
+            return history
 
     @gorilla.patch(tensorflow.keras.Model)
     def fit_generator(self, *args, **kwargs):
