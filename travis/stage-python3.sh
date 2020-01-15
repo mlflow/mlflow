@@ -7,16 +7,16 @@ then
      echo "skipping this step on windows."
   elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]
   then
-    ./run-small-python-tests.sh && ./../test-generate-protos.sh
+    ./travis/run-small-python-tests.sh && ./test-generate-protos.sh
   else
-    ./run-large-python-tests.sh
-    ./test-anaconda-compatibility.sh
+    ./travis/run-large-python-tests.sh
+    ./travis/test-anaconda-compatibility.sh
   fi
 fi
-CHANGED_FILES=$(git diff --name-only master..HEAD | grep "../tests/examples\|../examples") || true
+CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true
 if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"examples"* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]
 then
-  pytest --verbose ../tests/examples --large;
+  pytest --verbose tests/examples --large;
 fi
 if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"Dockerfile"* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]
 then
