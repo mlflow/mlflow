@@ -659,7 +659,7 @@ public class MlflowClient {
 
   /**
    * Return the latest model version for each stage.
-   * The current stages are: [None, Staging, Production, Archived].
+   * The current available stages are: [None, Staging, Production, Archived].
    *
    *    <pre>
    *        List<ModelVersionDetailed> detailsList = getLatestVersions("model");
@@ -682,7 +682,7 @@ public class MlflowClient {
 
   /**
    * Return the latest model version for each stage requested.
-   * The current stages are: [None, Staging, Production, Archived].
+   * The current available stages are: [None, Staging, Production, Archived].
    *
    *    <pre>
    *        List<ModelVersionDetailed> detailsList  = getLatestVersions("model",
@@ -713,8 +713,6 @@ public class MlflowClient {
    * Return the model URI containing for the given model version. The model URI can be used
    * to download the model version artifacts.
    *
-   * For example, the model URI
-   *
    *    <pre>
    *        String modelUri = getModelVersionDownloadUri("model", 0);
    *    </pre>
@@ -737,7 +735,7 @@ public class MlflowClient {
    *
    * @param modelName The name of the model
    * @param version The version number of the model
-   * @return A the local file or directory ({@ java.io.File}) containing model artifacts
+   * @return A local file or directory ({@ java.io.File}) containing model artifacts
    */
   public File downloadModelVersion(@Nonnull String modelName, long version) {
     throw new UnsupportedOperationException("downloadModel is not currently supported");
@@ -756,7 +754,7 @@ public class MlflowClient {
    *
    * @param modelName The name of the model
    * @param stage The name of the stage
-   * @return A the local file or directory ({@ java.io.File}) containing model artifacts
+   * @return A local file or directory ({@ java.io.File}) containing model artifacts
    */
   public File downloadLatestModelVersion(@Nonnull String modelName,@Nonnull String stage) {
     throw new UnsupportedOperationException("downloadModel is not currently supported");
