@@ -17,13 +17,13 @@ Python client and integrating third-party tools, allowing you to:
   experiment-tracking APIs
 - Automatically capture additional metadata as run tags, e.g. the git repository associated with a run
 
-The MLflow Python API currently supports several types of plugins:
+The MLflow Python API supports several types of plugins:
 
-* **Tracking Store plugins**: override tracking backend logic, e.g. to log to a third-party storage solution
-* **ArtifactRepository plugins**: override artifact logging logic, e.g. to log to a third-party storage solution
+* **Tracking Store**: override tracking backend logic, e.g. to log to a third-party storage solution
+* **ArtifactRepository**: override artifact logging logic, e.g. to log to a third-party storage solution
 * **Run context providers**: specify context tags to be set on runs created via the
   :py:func:`mlflow.start_run` fluent API.
-* **Model Registry Store plugins**: override model registry backend logic, e.g. to log to a third-party storage solution
+* **Model Registry Store**: override model registry backend logic, e.g. to log to a third-party storage solution
 
 .. contents:: Table of Contents
   :local:
@@ -33,10 +33,10 @@ The MLflow Python API currently supports several types of plugins:
 Using an MLflow Plugin
 ----------------------
 
-MLflow plugins are Python packages that can be installed via PyPI or conda.
+MLflow plugins are Python packages that you can install using PyPI or conda.
 This example installs a Tracking Store plugin from source and uses it within an example script.
 
-Install the plugin
+Install the Plugin
 ~~~~~~~~~~~~~~~~~~
 
 To get started, clone MLflow and install `this example plugin <https://github.com/mlflow/mlflow/tree/master/tests/resources/mlflow-test-plugin>`_:
@@ -48,10 +48,10 @@ To get started, clone MLflow and install `this example plugin <https://github.co
   pip install -e tests/resources/mlflow-test-plugin
 
 
-Run code using the plugin
+Run Code Using the Plugin
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-This plugin defines a custom Tracking Store for tracking URIs with the ``file-plugin`` scheme that
-delegates to MLflow's built-in file-based run storage. To use
+This plugin defines a custom Tracking Store for tracking URIs with the ``file-plugin`` scheme.
+The plugin implementation delegates to MLflow's built-in file-based run storage. To use
 the plugin, you can run any code that uses MLflow, setting the tracking URI to one with a
 ``file-plugin://`` scheme:
 
@@ -79,11 +79,11 @@ Writing Your Own MLflow Plugins
 
 Defining a Plugin
 ~~~~~~~~~~~~~~~~~
-You define an MLflow plugin as a standalone Python package which can then be distributed for
+You define an MLflow plugin as a standalone Python package that can be distributed for
 installation via PyPI or conda. See https://github.com/mlflow/mlflow/tree/branch-1.5/tests/resources/mlflow-test-plugin for an
-example package that implements all currently-supported plugin types.
+example package that implements all available plugin types.
 
-In particular, the example package contains a ``setup.py`` that declares a number of
+The example package contains a ``setup.py`` that declares a number of
 `entry points <https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_:
 
 .. code-block:: python
@@ -135,7 +135,7 @@ plugin:
 
        Users who install the example plugin and set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
-     - `FileStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/file_store.py>`_
+     - `FileStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/file_store.py#L80>`_
 
    * - Plugins for defining artifact read/write APIs like ``mlflow.log_artifact``, ``MlflowClient.download_artifacts`` for a specified
        artifact URI scheme (e.g. the scheme used by your in-house blob storage system).
@@ -150,7 +150,7 @@ plugin:
        Users who install the example plugin and log to a run whose artifact URI is of the form ``file-plugin://<path>`` will use the
        custom ArtifactRepository implementation defined in ``PluginLocalArtifactRepository``.
        The full artifact URI is passed to the ``PluginLocalArtifactRepository`` constructor.
-     - `LocalArtifactRepository <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/artifact/local_artifact_repo.py>`_
+     - `LocalArtifactRepository <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/artifact/local_artifact_repo.py#L10>`_
 
 
    * - Plugins for specifying custom context tags at run creation time, e.g. tags identifying the git repository associated with a run.
