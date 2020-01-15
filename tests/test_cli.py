@@ -13,6 +13,7 @@ from mlflow.server import handlers
 from mlflow import experiments
 
 
+@pytest.mark.large
 def test_travis_fix():
     assert False
 
