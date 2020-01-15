@@ -14,6 +14,7 @@ import Utils from '../utils/Utils';
 import { NOTE_CONTENT_TAG, NoteInfo } from "../utils/NoteUtils";
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import RenameRunModal from "./modals/RenameRunModal";
+import DeleteRunModal from "./modals/DeleteRunModal";
 import EditableTagsTableView from './EditableTagsTableView';
 import { Icon, Descriptions } from 'antd';
 import { CollapsibleSection } from '../common/components/CollapsibleSection';
@@ -36,6 +37,7 @@ class RunView extends Component {
 
   state = {
     showRunRenameModal: false,
+    showDeleteRunModal: false,
     showNoteEditor: false,
     showTags: Utils.getVisibleTagValues(this.props.tags).length > 0,
   };
@@ -46,6 +48,14 @@ class RunView extends Component {
 
   hideRenameRunModal = () => {
     this.setState({ showRunRenameModal: false });
+  };
+
+  handleDeleteRunClick = () => {
+    this.setState({ showDeleteRunModal: true });
+  };
+
+  onCloseDeleteRunModal = () => {
+    this.setState({ showDeleteRunModal: false });
   };
 
   getRunCommand() {
@@ -131,6 +141,12 @@ class RunView extends Component {
                >
                  Rename
                </MenuItem>
+               <MenuItem
+                 className="mlflow-menu-item"
+                 onClick={this.handleDeleteRunClick}
+               >
+                 Delete
+               </MenuItem>
              </Dropdown.Menu>
           </Dropdown>
           <RenameRunModal
@@ -139,6 +155,10 @@ class RunView extends Component {
             onClose={this.hideRenameRunModal}
             runName={this.props.runName}
             open={this.state.showRunRenameModal} />
+          <DeleteRunModal
+            isOpen={this.state.showDeleteRunModal}
+            onClose={this.onCloseDeleteRunModal}
+            selectedRunIds={[runUuid]} />
         </div>
 
         {/* Metadata List */}
