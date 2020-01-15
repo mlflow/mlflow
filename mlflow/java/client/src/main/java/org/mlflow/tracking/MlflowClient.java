@@ -759,7 +759,14 @@ public class MlflowClient {
    * @return A local file or directory ({@ java.io.File}) containing model artifacts
    */
   public File downloadLatestModelVersion(@Nonnull String modelName,@Nonnull String stage) {
-      ModelVersionDetailed details = getLatestVersions(modelName, stage);
+      List<ModelVersionDetailed> versions = getLatestVersions(modelName, Lists.newArrayList(stage));
+
+      if (versions.size() < 1) {
+        throw new MlflowClientException("No model version found for " + modelName +
+                "and stage " + stage);
+      }
+
+      ModelVersionDetailed details = versions.get(0);
       return downloadModelVersion(modelName, details.getModelVersion().getVersion());
   }
 

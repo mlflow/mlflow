@@ -1,5 +1,6 @@
 package org.mlflow.tracking;
 
+import com.google.common.collect.Lists;
 import org.apache.commons.io.FileUtils;
 import org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed;
 import org.mlflow.api.proto.Service.RunInfo;
@@ -24,7 +25,7 @@ import static org.mlflow.tracking.TestUtils.createExperimentName;
 public class ModelRegistryMlflowClientTest {
     private static final Logger logger = LoggerFactory.getLogger(ModelRegistryMlflowClientTest.class);
 
-    private static final  MlflowProtobufMapper mapper = new MlflowProtobufMapper();
+    private static final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
 
     private final TestClientProvider testClientProvider = new TestClientProvider();
 
@@ -57,10 +58,6 @@ public class ModelRegistryMlflowClientTest {
 
         client.sendPost("model-versions/create",
                 mapper.makeCreateModelVersion(modelName, runId, tempFile.getAbsolutePath()));
-
-
-        client.sendPost("model-versions/get-details",
-                mapper.makeGetModelVersionDetails(modelName, 1));
     }
 
     @AfterSuite
@@ -75,11 +72,13 @@ public class ModelRegistryMlflowClientTest {
 
     @Test
     public void testGetLatestModelVersions() throws IOException {
-        // single stage
-        ModelVersionDetailed details = client.getLatestVersions(modelName, "None");
-        validateDetailedModelVersion(details, modelName, "None", 1);
 
-        // all stages
+        // a list of stages
+        List<ModelVersionDetailed> versions = client.getLatestVersions(modelName,
+                Lists.newArrayList("None"));
+        validateDetailedModelVersion(versions.get(0), modelName, "None", 1);
+
+        // default stages
         List<ModelVersionDetailed> modelVersionDetails = client.getLatestVersions(modelName);
         Assert.assertEquals(modelVersionDetails.size(), 1);
         validateDetailedModelVersion(modelVersionDetails.get(0),
@@ -108,7 +107,8 @@ public class ModelRegistryMlflowClientTest {
         Assert.assertEquals(content, downloadedContent);
     }
 
-    private void validateDetailedModelVersion(ModelVersionDetailed details, String modelName, String stage, long version) {
+    private void validateDetailedModelVersion(ModelVersionDetailed details, String modelName,
+                                              String stage, long version) {
         Assert.assertEquals(details.getCurrentStage(), stage);
         Assert.assertEquals(details.getModelVersion().getRegisteredModel().getName(), modelName);
         Assert.assertEquals(details.getModelVersion().getVersion(), version);
