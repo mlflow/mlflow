@@ -533,7 +533,8 @@ class __MLflowTfKeras2Callback(Callback):
             shutil.rmtree(tempdir)
 
     def on_epoch_end(self, epoch, logs=None):
-        pass
+        if (epoch-1) % _LOG_EVERY_N_STEPS == 0:
+            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
