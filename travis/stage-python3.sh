@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -e
+#!/bin/bash
+set -ex
 if ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]
 then
   if [[ "$TRAVIS_OS_NAME" == "windows" ]]

@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -e
+#!/bin/bash
+set -ex
 if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"examples"* ]]
 then
     pytest --verbose tests/examples --large
