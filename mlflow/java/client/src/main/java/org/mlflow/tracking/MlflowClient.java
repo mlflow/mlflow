@@ -1,11 +1,13 @@
 package org.mlflow.tracking;
 
+import com.google.common.collect.Lists;
 import org.apache.http.client.utils.URIBuilder;
 import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.creds.*;
 import org.mlflow.artifacts.ArtifactRepository;
 import org.mlflow.artifacts.ArtifactRepositoryFactory;
+import org.mlflow.utils.CliCommand;
 
 import javax.annotation.Nonnull;
 import java.io.File;
@@ -729,6 +731,16 @@ public class MlflowClient {
    * @return A local file or directory ({@ java.io.File}) containing model artifacts
    */
   public File downloadModelVersion(@Nonnull String modelName, long version) {
+    String downloadUri = getModelVersionDownloadUri(modelName,
+            version);
+
+    CliCommand command = new CliCommand(
+            Lists.newArrayList("artifacts", "download",
+                    "--artifact-uri", downloadUri),
+            hostCredsProvider);
+
+    String localFilePath = command.call();
+    return new File(localFilePath.trim());
   }
 
   /**
@@ -747,8 +759,8 @@ public class MlflowClient {
    * @return A local file or directory ({@ java.io.File}) containing model artifacts
    */
   public File downloadLatestModelVersion(@Nonnull String modelName,@Nonnull String stage) {
-      ModelVersionDetailed version = getLatestVersions(modelName, stage);
-
+      ModelVersionDetailed details = getLatestVersions(modelName, stage);
+      return downloadModelVersion(modelName, details.getModelVersion().getVersion());
   }
 
 }

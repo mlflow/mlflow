@@ -92,6 +92,22 @@ public class ModelRegistryMlflowClientTest {
         Assert.assertEquals(tempFile.getAbsolutePath(), downloadUri);
     }
 
+    @Test
+    public void testDownloadModelVersion() throws IOException {
+        File tempDownloadFile = client.downloadModelVersion(modelName, 1);
+        String downloadedContent = FileUtils.readFileToString(tempDownloadFile,
+                StandardCharsets.UTF_8);
+        Assert.assertEquals(content, downloadedContent);
+    }
+
+    @Test
+    public void testDownloadLatestModelVersion() throws IOException {
+        File tempDownloadFile = client.downloadLatestModelVersion(modelName, "None");
+        String downloadedContent = FileUtils.readFileToString(tempDownloadFile,
+                StandardCharsets.UTF_8);
+        Assert.assertEquals(content, downloadedContent);
+    }
+
     private void validateDetailedModelVersion(ModelVersionDetailed details, String modelName, String stage, long version) {
         Assert.assertEquals(details.getCurrentStage(), stage);
         Assert.assertEquals(details.getModelVersion().getRegisteredModel().getName(), modelName);
