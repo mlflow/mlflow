@@ -436,6 +436,10 @@ public class MlflowClient {
     return httpCaller.post(path, json);
   }
 
+  public String sendPatch(String path, String json) {
+    return httpCaller.patch(path, json);
+  }
+
   /**
    * @return HostCredsProvider backing this MlflowClient. Visible for testing.
    */

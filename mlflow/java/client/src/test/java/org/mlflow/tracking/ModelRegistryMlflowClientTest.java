@@ -8,9 +8,8 @@ import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import org.testng.annotations.AfterSuite;
 import org.testng.annotations.AfterTest;
-import org.testng.annotations.BeforeSuite;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -36,8 +35,8 @@ public class ModelRegistryMlflowClientTest {
 
     private static final String content = "Hello, Worldz!";
 
-    @BeforeSuite
-    public void beforeAll() throws IOException {
+    @BeforeTest
+    public void before() throws IOException {
         client = Mockito.spy(testClientProvider.initializeClientAndSqlLiteBasedServer());
         modelName = "Model-" + UUID.randomUUID().toString();
 
@@ -59,13 +58,9 @@ public class ModelRegistryMlflowClientTest {
                 mapper.makeCreateModelVersion(modelName, runId, tempFile.getAbsolutePath()));
     }
 
-    @AfterSuite
-    public void afterAll() throws InterruptedException {
-        testClientProvider.cleanupClientAndServer();
-    }
-
     @AfterTest
-    public void after() {
+    public void after() throws InterruptedException {
+        testClientProvider.cleanupClientAndServer();
         Mockito.reset(client);
     }
 
@@ -76,11 +71,14 @@ public class ModelRegistryMlflowClientTest {
                 Lists.newArrayList("None"));
         validateDetailedModelVersion(versions.get(0), modelName, "None", 1);
 
-        // default stages
+        client.sendPatch("model-versions/update", mapper.makeUpdateModelVersion(modelName,
+                1, "Staging"));
+
+        // default stages (does not include "None")
         List<ModelVersionDetailed> modelVersionDetails = client.getLatestVersions(modelName);
         Assert.assertEquals(modelVersionDetails.size(), 1);
         validateDetailedModelVersion(modelVersionDetails.get(0),
-                modelName, "None", 1);
+                modelName, "Staging", 1);
     }
 
     @Test

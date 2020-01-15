@@ -121,10 +121,6 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
-  String makeGetLatestVersion(String modelName) {
-      return makeGetLatestVersion(modelName, null);
-  }
-
   String makeGetLatestVersion(String modelName, Iterable<String> stages) {
     RegisteredModel model = RegisteredModel.newBuilder()
             .setName(modelName)
@@ -136,6 +132,22 @@ class MlflowProtobufMapper {
     if (stages != null) {
       builder.addAllStages(stages);
     }
+
+    return print(builder);
+  }
+
+  String makeUpdateModelVersion(String modelName, long version, String stage) {
+
+    RegisteredModel.Builder modelBuilder = RegisteredModel.newBuilder()
+            .setName(modelName);
+
+    ModelVersion.Builder modelVerionBuilder = ModelVersion.newBuilder()
+            .setVersion(version)
+            .setRegisteredModel(modelBuilder);
+
+    UpdateModelVersion.Builder builder = UpdateModelVersion.newBuilder()
+            .setModelVersion(modelVerionBuilder)
+            .setStage(stage);
 
     return print(builder);
   }
@@ -236,7 +248,8 @@ class MlflowProtobufMapper {
   }
 
   String toGetModelVersionDownloadUriResponse(String json) {
-    GetModelVersionDownloadUri.Response.Builder builder = GetModelVersionDownloadUri.Response.newBuilder();
+    GetModelVersionDownloadUri.Response.Builder builder = GetModelVersionDownloadUri.Response
+            .newBuilder();
     merge(json, builder);
     return builder.getArtifactUri();
   }
