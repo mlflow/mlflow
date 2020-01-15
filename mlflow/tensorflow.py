@@ -493,8 +493,7 @@ class __MLflowTfKerasCallback(Callback):
             shutil.rmtree(tempdir)
 
     def on_epoch_end(self, epoch, logs=None):
-        if (epoch-1) % _LOG_EVERY_N_STEPS == 0:
-            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+        pass
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
@@ -534,8 +533,7 @@ class __MLflowTfKeras2Callback(Callback):
             shutil.rmtree(tempdir)
 
     def on_epoch_end(self, epoch, logs=None):
-        if (epoch-1) % _LOG_EVERY_N_STEPS == 0:
-            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+        pass
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
@@ -774,6 +772,12 @@ def autolog(every_n_iter=100):
                 try_mlflow_log(mlflow.log_metric, 'restored_epoch', restored_epoch)
                 restored_metrics = {key: history.history[key][restored_epoch]
                                     for key in history.history.keys()}
+                # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
+                if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
+                    if 'loss' in restored_metrics:
+                        restored_metrics['epoch_loss'] = restored_metrics.pop('loss')
+                    if 'acc' in restored_metrics:
+                        restored_metrics['epoch_acc'] = restored_metrics.pop('acc')
                 # Checking that a metric history exists
                 metric_key = next(iter(history.history), None)
                 if metric_key is not None:
