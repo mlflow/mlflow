@@ -219,7 +219,7 @@ class RunView extends Component {
             </CollapsibleSection>
           ) : null}
           <CollapsibleSection
-            title={<span>Notes {showNoteEditor ? null : editIcon}</span>}
+            title={<span>Notes {showNoteEditor || isDeleted ? null : editIcon}</span>}
             forceOpen={showNoteEditor}
           >
             <EditableNote
