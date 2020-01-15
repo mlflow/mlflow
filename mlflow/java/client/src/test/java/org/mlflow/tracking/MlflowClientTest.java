@@ -1,24 +1,18 @@
 package org.mlflow.tracking;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.util.List;
-import java.util.Optional;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.Stack;
-import java.util.UUID;
-import java.util.Vector;
-import java.util.LinkedList;
-
 import com.google.common.collect.Lists;
-import com.google.protobuf.util.JsonFormat;
 import org.apache.commons.io.FileUtils;
-import org.mlflow.api.proto.ModelRegistry;
+import org.mlflow.api.proto.Service.CreateRun;
+import org.mlflow.api.proto.Service.Experiment;
+import org.mlflow.api.proto.Service.ExperimentTag;
+import org.mlflow.api.proto.Service.GetExperiment;
+import org.mlflow.api.proto.Service.Metric;
+import org.mlflow.api.proto.Service.Param;
+import org.mlflow.api.proto.Service.Run;
+import org.mlflow.api.proto.Service.RunInfo;
+import org.mlflow.api.proto.Service.RunStatus;
+import org.mlflow.api.proto.Service.RunTag;
+import org.mlflow.api.proto.Service.ViewType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -26,10 +20,30 @@ import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
-import org.mlflow.api.proto.Service.*;
-import org.mlflow.api.proto.ModelRegistry.*;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.Stack;
+import java.util.Vector;
 
-import static org.mlflow.tracking.TestUtils.*;
+import static org.mlflow.tracking.TestUtils.assertMetric;
+import static org.mlflow.tracking.TestUtils.assertMetricHistory;
+import static org.mlflow.tracking.TestUtils.assertParam;
+import static org.mlflow.tracking.TestUtils.assertRunInfo;
+import static org.mlflow.tracking.TestUtils.assertTag;
+import static org.mlflow.tracking.TestUtils.createExperimentName;
+import static org.mlflow.tracking.TestUtils.createMetric;
+import static org.mlflow.tracking.TestUtils.createParam;
+import static org.mlflow.tracking.TestUtils.createTag;
+import static org.mlflow.tracking.TestUtils.getExperimentByName;
 
 public class MlflowClientTest {
   private static final Logger logger = LoggerFactory.getLogger(MlflowClientTest.class);

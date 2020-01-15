@@ -41,7 +41,6 @@ public class ModelRegistryMlflowClientTest {
         client = Mockito.spy(testClientProvider.initializeClientAndSqlLiteBasedServer());
         modelName = "Model-" + UUID.randomUUID().toString();
 
-
         String expName = createExperimentName();
         String expId = client.createExperiment(expName);
 
@@ -72,7 +71,6 @@ public class ModelRegistryMlflowClientTest {
 
     @Test
     public void testGetLatestModelVersions() throws IOException {
-
         // a list of stages
         List<ModelVersionDetailed> versions = client.getLatestVersions(modelName,
                 Lists.newArrayList("None"));
@@ -113,5 +111,4 @@ public class ModelRegistryMlflowClientTest {
         Assert.assertEquals(details.getModelVersion().getRegisteredModel().getName(), modelName);
         Assert.assertEquals(details.getModelVersion().getVersion(), version);
     }
-
 }
