@@ -15,8 +15,9 @@ import { NOTE_CONTENT_TAG, NoteInfo } from "../utils/NoteUtils";
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import RenameRunModal from "./modals/RenameRunModal";
 import DeleteRunModal from "./modals/DeleteRunModal";
+import RestoreRunModal from "./modals/RestoreRunModal";
 import EditableTagsTableView from './EditableTagsTableView';
-import { Icon, Descriptions } from 'antd';
+import {Icon, Descriptions, Alert} from 'antd';
 import { CollapsibleSection } from '../common/components/CollapsibleSection';
 import { EditableNote } from '../common/components/EditableNote';
 
@@ -38,6 +39,7 @@ class RunView extends Component {
   state = {
     showRunRenameModal: false,
     showDeleteRunModal: false,
+    showRestoreRunModal: false,
     showNoteEditor: false,
     showTags: Utils.getVisibleTagValues(this.props.tags).length > 0,
     isDeleted: this.props.run.getLifecycleStage() === 'deleted',
@@ -58,6 +60,21 @@ class RunView extends Component {
   onCloseDeleteRunModal = () => {
     this.setState({ showDeleteRunModal: false });
   };
+
+  onRestoreRun = () => {
+    this.setState({ showRestoreRunModal: true });
+  };
+
+  onCloseRestoreRunModal = () => {
+    this.setState({ showRestoreRunModal: false });
+  };
+
+  static getDerivedStateFromProps(nextProps, prevState) {
+    return {
+      ...prevState,
+      isDeleted: nextProps.run.getLifecycleStage() === 'deleted',
+    };
+  }
 
   getRunCommand() {
     const { tags, params } = this.props;
@@ -139,7 +156,7 @@ class RunView extends Component {
                {isDeleted ?
                 <MenuItem
                  className="mlflow-menu-item"
-                 onClick={this.handleRenameRunClick}
+                 onClick={this.onRestoreRun}
                >
                  Restore
                </MenuItem> :
@@ -149,7 +166,7 @@ class RunView extends Component {
                 >
                 Rename
                 </MenuItem>,
-               <MenuItem
+                 <MenuItem
                  className="mlflow-menu-item"
                  onClick={this.handleDeleteRunClick}
                >
@@ -168,8 +185,21 @@ class RunView extends Component {
             isOpen={this.state.showDeleteRunModal}
             onClose={this.onCloseDeleteRunModal}
             selectedRunIds={[runUuid]} />
+          <RestoreRunModal
+            isOpen={this.state.showRestoreRunModal}
+            onClose={this.onCloseRestoreRunModal}
+            selectedRunIds={[runUuid]}
+          />
         </div>
-
+        {isDeleted ?
+          <Alert
+            type={'info'}
+            className={`status-alert status-alert-info`}
+            message={'This run is deleted and ' +
+            'will be automatically purged after 30 days of deletion.'}
+            banner
+          /> : null
+        }
         {/* Metadata List */}
         <Descriptions className='metadata-list'>
           <Descriptions.Item label='Date'>{startTime}</Descriptions.Item>
