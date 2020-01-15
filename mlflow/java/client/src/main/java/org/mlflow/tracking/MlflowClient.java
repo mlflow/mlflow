@@ -681,25 +681,29 @@ public class MlflowClient {
   }
 
   /**
-   * Return the latest model version for each stage..
+   * Return the latest model version for each stage requested.
    * The current stages are: [None, Staging, Production, Archived].
    *
    *    <pre>
-   *        ModelVersionDetailed details = getLatestVersions("model", "Staging");
+   *        List<ModelVersionDetailed> detailsList  = getLatestVersions("model",
+   *                                                              Lists.newArrayList<>("Staging"));
    *
-   *        System.out.println("Model Name: " + details.getModelVersion()
-   *                                                   .getRegisteredModel()
-   *                                                   .getName());
-   *        System.out.println("Model Version: " + details.getModelVersion().getVersion());
-   *        System.out.println("Current Stage: " + details.getCurrentStage());
+   *        for (ModelVersionDetailed details : detailsList) {
+   *            System.out.println("Model Name: " + details.getModelVersion()
+   *                                                       .getRegisteredModel()
+   *                                                       .getName());
+   *            System.out.println("Model Version: " + details.getModelVersion().getVersion());
+   *            System.out.println("Current Stage: " + details.getCurrentStage());
+   *        }
    *    </pre>
    *
    * @param modelName The name of the model
-   * @param stage The name of the stage
+   * @param stages A list of stages
    * @return The latest model version
    *         {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
    */
-  public ModelVersionDetailed getLatestVersions(@Nonnull String modelName, @Nonnull String stage) {
+  public List<ModelVersionDetailed> getLatestVersions(@Nonnull String modelName,
+                                                      @Nonnull Iterable<String> stages) {
     throw new UnsupportedOperationException("getLatestVersion is not supported");
   }
 
