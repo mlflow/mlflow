@@ -40,6 +40,7 @@ class RunView extends Component {
     showDeleteRunModal: false,
     showNoteEditor: false,
     showTags: Utils.getVisibleTagValues(this.props.tags).length > 0,
+    isDeleted: this.props.run.getLifecycleStage() === 'deleted',
   };
 
   handleRenameRunClick = () => {
@@ -102,7 +103,7 @@ class RunView extends Component {
 
   render() {
     const { runUuid, run, params, tags, latestMetrics, getMetricPagePath } = this.props;
-    const { showNoteEditor } = this.state;
+    const { showNoteEditor, isDeleted } = this.state;
     const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
@@ -135,18 +136,26 @@ class RunView extends Component {
                <i className="fas fa-caret-down"/>
              </Dropdown.Toggle>
              <Dropdown.Menu className="mlflow-menu header-menu">
-               <MenuItem
+               {isDeleted ?
+                <MenuItem
                  className="mlflow-menu-item"
                  onClick={this.handleRenameRunClick}
                >
-                 Rename
-               </MenuItem>
+                 Restore
+               </MenuItem> :
+               [<MenuItem
+                  className="mlflow-menu-item"
+                  onClick={this.handleRenameRunClick}
+                >
+                Rename
+                </MenuItem>,
                <MenuItem
                  className="mlflow-menu-item"
                  onClick={this.handleDeleteRunClick}
                >
                  Delete
-               </MenuItem>
+               </MenuItem>]
+               }
              </Dropdown.Menu>
           </Dropdown>
           <RenameRunModal
