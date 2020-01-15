@@ -13,6 +13,10 @@ from mlflow.server import handlers
 from mlflow import experiments
 
 
+def test_travis_fix():
+    assert False
+
+
 def test_server_static_prefix_validation():
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
         CliRunner().invoke(server)
