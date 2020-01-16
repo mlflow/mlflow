@@ -148,7 +148,17 @@ search programmatically. You can specify the list of columns to order by
 optional ``DESC`` or ``ASC`` value; the default is ``ASC``. The default ordering is to sort by 
 ``start_time DESC``, then ``run_id``.
 
-For example, to get all `active` runs from experiments IDs 3, 4, and 17 that used a CNN model
+For example, to extract the best `active` run from experiment ID 0 by MAE, use:
+
+.. code-block:: py
+
+  from mlflow.tracking.client import MlflowClient
+  from mlflow.entities import ViewType
+
+  run = MlflowClient().search_runs("0", "", ViewType.ACTIVE_ONLY, max_results=1, order_by=["metrics.mae DESC"])[0]
+
+
+To get all active runs from experiments IDs 3, 4, and 17 that used a CNN model
 with 10 layers and had a prediction accuracy of 94.5% or higher, use:
 
 .. code-block:: py
