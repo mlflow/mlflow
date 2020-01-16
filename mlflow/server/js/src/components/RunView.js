@@ -157,18 +157,21 @@ class RunView extends Component {
                 <MenuItem
                  className="mlflow-menu-item"
                  onClick={this.onRestoreRun}
+                 key={"restore-button"}
                >
                  Restore
                </MenuItem> :
                [<MenuItem
                   className="mlflow-menu-item"
                   onClick={this.handleRenameRunClick}
+                  key={"rename-button"}
                 >
                 Rename
                 </MenuItem>,
                  <MenuItem
                  className="mlflow-menu-item"
                  onClick={this.handleDeleteRunClick}
+                 key={"delete-button"}
                >
                  Delete
                </MenuItem>]
