@@ -61,7 +61,7 @@ class RunView extends Component {
     this.setState({ showDeleteRunModal: false });
   };
 
-  onRestoreRun = () => {
+  handleRestoreRun = () => {
     this.setState({ showRestoreRunModal: true });
   };
 
@@ -156,7 +156,7 @@ class RunView extends Component {
                {isDeleted ?
                 <MenuItem
                  className="mlflow-menu-item"
-                 onClick={this.onRestoreRun}
+                 onClick={this.handleRestoreRun}
                  key={"restore-button"}
                >
                  Restore
