@@ -27,7 +27,7 @@ The MLflow Python API supports several types of plugins:
 
 .. contents:: Table of Contents
   :local:
-  :depth: 2
+  :depth: 3
 
 
 Using an MLflow Plugin
@@ -198,3 +198,39 @@ Assuming you've structured your plugin similarly to the example plugin, you can 
 via PyPI <https://packaging.python.org/guides/distributing-packages-using-setuptools/>`_.
 
 Congrats, you've now written and distributed your own MLflow plugin!
+
+
+Community Plugins
+-----------------
+
+
+SQL Server Plugin
+~~~~~~~~~~~~~~~~~
+
+The `mlflow-dbstore plugin <https://pypi.org/project/mlflow-dbstore/>`_ allows MLflow to use a relational database as an artifact store.
+As of now, it has only been tested with SQL Server as the artifact store.
+
+Users can simply install MLflow with the SQL Server plugin via: 
+
+.. code-block:: bash
+
+        pip install mlflow[sqlserver] 
+
+and then use MLflow as normal. The SQL Server artifact store support will be provided automatically.
+
+The plugin implements all the MLflow artifact store APIs. To use SQL server as an artifact store, a database URI must be provided as shown in the example below:
+
+.. code-block:: python
+
+        db_uri= "mssql+pyodbc://username:password@host:port/database?driver=ODBC+Driver+17+for+SQL+Server"
+
+        client.create_experiment(exp_name, artifact_location=db_uri)
+        mlflow.set_experiment(exp_name)
+        mlflow.onnx.log_model(onnx, "model")
+
+The first time an artifact is logged in the artifact store, the plugin will automatically create a database table (``artifacts``)
+in the database specified in the database URI and store the artifact there as a BLOB. 
+Subsequent artifacts will also be stored in the same table.
+
+In the example provided above, the ``log_model`` operation will create three entries in the database table to store the onnx model, the MLmodel file
+and the conda.yaml file associated with the model.
