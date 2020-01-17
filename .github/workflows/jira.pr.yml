@@ -1,0 +1,28 @@
+on: pull_request
+
+name: Jira Ticket Creation for PRs
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Jira Example
+    steps:
+    - name: Login
+      uses: atlassian/gajira-login@master
+      env:
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+    - name: Jira Ticket
+      uses: atlassian/gajira-create@master
+      with:
+        project: ML
+        issuetype: Story
+        summary: Review PR ${{ github.repository }} event path ${{ github.event_path }} 
+        description: by ${{ github.actor }} with context ${{ toJson(github) }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Log created issue
+      run: echo "Issue ${{ steps.create.outputs.issue }} was created"
