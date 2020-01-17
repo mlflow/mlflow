@@ -27,7 +27,7 @@ The MLflow Python API supports several types of plugins:
 
 .. contents:: Table of Contents
   :local:
-  :depth: 2
+  :depth: 3
 
 
 Using an MLflow Plugin
@@ -198,3 +198,23 @@ Assuming you've structured your plugin similarly to the example plugin, you can 
 via PyPI <https://packaging.python.org/guides/distributing-packages-using-setuptools/>`_.
 
 Congrats, you've now written and distributed your own MLflow plugin!
+
+
+Community Plugins
+-----------------
+
+
+SQL Server Plugin
+~~~~~~~~~~~~~~~~~
+
+The `mlflow-dbstore plugin <https://pypi.org/project/mlflow-dbstore/>` allows MLflow to use a relational database as an artifact store.
+As of now, it has only been tested with SQL Server as the artifact store.
+
+Users can simply install MLflow with the SQL Server plugin via 
+
+.. code-block:: bash
+
+pip install mlflow[sqlserver] 
+
+and then use MLflow as normal. The SQL Server artifact store support will be provided automatically.
+
