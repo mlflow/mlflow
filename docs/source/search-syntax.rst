@@ -165,14 +165,14 @@ For example, if you'd like to identify the best `active` run from experiment ID 
 
 
 To get all active runs from experiments IDs 3, 4, and 17 that used a CNN model
-with 10 layers and had an accuracy of 94.5% or higher, use:
+with 10 layers and had a prediction accuracy of 94.5% or higher, use:
 
 .. code-block:: py
 
   from mlflow.tracking.client import MlflowClient
   from mlflow.entities import ViewType
 
-  query = "params.model = 'CNN' and params.layers = '10' and metrics.accuracy >= 0.945"
+  query = "params.model = 'CNN' and params.layers = '10' and metrics.`prediction accuracy` >= 0.945"
   runs = MlflowClient().search_runs(experiment_ids=["3", "4", "17"], filter_string=query, run_view_type=ViewType.ACTIVE_ONLY)
 
 To search all known experiments for any MLflow runs created using the Inception model architecture:
