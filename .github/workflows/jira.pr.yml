@@ -12,5 +12,5 @@ jobs:
         curl 
         -u ${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }} 
         -H 'Content-Type: application/json' 
-        -d '{"fields":{"project":{"key":"ML"},"summary":"Review ${{ github.repository }} PR #${{ github.event.number }} by ${{ github.event.pull_request.user.login }}","description":"${{ github.event.pull_request._links.html }} \r\n ${{ github.event.pull_request.body }} ","issuetype":{"name":"Story"},"components":[{"name":"ML Platform"}]}}' 
+        -d '{"fields":{"project":{"key":"ML"},"summary":"Review ${{ github.repository }} PR #${{ github.event.number }} by ${{ github.event.pull_request.user.login }}","description":"${{ github.event.pull_request._links.html }} \r\n ${{ toJson(github.event.pull_request.body) }} ","issuetype":{"name":"Story"},"components":[{"name":"ML Platform"}]}}' 
         ${{ secrets.JIRA_BASE_URL }}/rest/api/2/issue/
