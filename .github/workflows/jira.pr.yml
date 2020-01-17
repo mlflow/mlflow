@@ -13,7 +13,7 @@ jobs:
         -u ${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }} 
         -X PUT 
         -H 'Content-Type: application/json' 
-        -d '{"fields":{"project":{"key":"ML"},"summary":"Review ${{ github.repository }} PR number","description":"${{ toJson(github) }}","issuetype":{"name":"Story"},"components:":[{"name":"ML Platform"}]}}' 
+        -d '{"fields":{"project":{"key":"ML"},"summary":"Review ${{ github.repository }} PR number","description":"${{ toJson(github) }}","issuetype":{"name":"Story"},"components":[{"name":"ML Platform"}]}}' 
         ${{ secrets.JIRA_BASE_URL }}/rest/api/2/issue/
 
     - name: Login
