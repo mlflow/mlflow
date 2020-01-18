@@ -239,36 +239,6 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
 
 
 @pytest.mark.large
-def test_lgb_autolog_logs_feature_importance_with_normalization(bst_params, train_set):
-    mlflow.lightgbm.autolog(normalize=True)
-    model = lgb.train(bst_params, train_set, num_boost_round=10)
-    run = get_latest_run()
-    run_id = run.info.run_id
-    artifacts_dir = run.info.artifact_uri.replace('file://', '')
-    artifacts = [x.path for x in client.list_artifacts(run_id)]
-
-    for imp_type in ['split', 'gain']:
-        plot_name = 'feature_importance_{}.png'.format(imp_type)
-        assert plot_name in artifacts
-
-        json_name = 'feature_importance_{}.json'.format(imp_type)
-        assert json_name in artifacts
-
-        json_path = os.path.join(artifacts_dir, json_name)
-        with open(json_path, 'r') as f:
-            loaded_imp = json.load(f)
-
-        features = model.feature_name()
-        importance = model.feature_importance(importance_type=imp_type)
-        importance = importance / importance.sum()
-        imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
-
-        assert all(v <= 1.0 for v in loaded_imp.values())
-        assert sum(loaded_imp.values()) == 1.0
-        assert loaded_imp == imp
-
-
-@pytest.mark.large
 def test_lgb_autolog_loads_model_from_artifact(bst_params, train_set):
     mlflow.lightgbm.autolog()
     model = lgb.train(bst_params, train_set, num_boost_round=10)

@@ -205,11 +205,6 @@ def autolog(normalize=False, max_num_features=None):
     - feature importance (both "split" and "gain") as JSON files and plots.
     - trained model.
 
-    :param normalize: If ``True``, divide each value in feature importance
-                      by the sum of all values (default: ``False``).
-    :params max_num_features: Max number of top features displayed on plot.
-                              If ``None``, all features will be displayed (default: ``None``).
-
     Note that the `scikit-learn API`_ is not supported.
     """
     import lightgbm
@@ -232,17 +227,11 @@ def autolog(normalize=False, max_num_features=None):
                 eval_results.append(res)
             return callback
 
-        def plot_importance(features, importance, importance_type, max_num_features=None):
+        def plot_importance(features, importance, importance_type):
             """
             Plot feature importance.
             """
-
-            # pylint: disable=invalid-unary-operand-type
-            if max_num_features is None:
-                indices = np.argsort(importance)
-            else:
-                indices = np.argsort(importance)[-max_num_features:]
-
+            indices = np.argsort(importance)
             features = np.array(features)[indices]
             importance = importance[indices]
             num_features = len(features)
@@ -329,10 +318,7 @@ def autolog(normalize=False, max_num_features=None):
         for imp_type in ['split', 'gain']:
             features = model.feature_name()
             importance = model.feature_importance(importance_type=imp_type)
-            if normalize:
-                importance = importance / importance.sum()
-
-            plot_importance(features, importance, imp_type, max_num_features)
+            plot_importance(features, importance, imp_type)
             imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
             tmpdir = tempfile.mkdtemp()
             try:
