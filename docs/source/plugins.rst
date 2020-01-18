@@ -207,6 +207,7 @@ Community Plugins
 SQL Server Plugin
 ~~~~~~~~~~~~~~~~~
 
+
 The `mlflow-dbstore plugin <https://pypi.org/project/mlflow-dbstore/>`_ allows MLflow to use a relational database as an artifact store.
 As of now, it has only been tested with SQL Server as the artifact store.
 
@@ -225,12 +226,13 @@ The plugin implements all the MLflow artifact store APIs. To use SQL server as a
         db_uri= "mssql+pyodbc://username:password@host:port/database?driver=ODBC+Driver+17+for+SQL+Server"
 
         client.create_experiment(exp_name, artifact_location=db_uri)
-        mlflow.set_experiment(exp_name)
+        mlflow.set_experiment(exp_name)i
+
         mlflow.onnx.log_model(onnx, "model")
 
-The first time an artifact is logged in the artifact store, the plugin will automatically create a database table (``artifacts``)
+The first time an artifact is logged in the artifact store, the plugin will automatically create a database table ``artifacts``
 in the database specified in the database URI and store the artifact there as a BLOB. 
-Subsequent artifacts will also be stored in the same table.
+Subsequent logged artifacts will also be stored in the same table.
 
 In the example provided above, the ``log_model`` operation will create three entries in the database table to store the onnx model, the MLmodel file
 and the conda.yaml file associated with the model.
