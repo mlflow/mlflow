@@ -4,8 +4,14 @@
 \alias{mlflow_rfunc_serve}
 \title{Serve an RFunc MLflow Model}
 \usage{
-mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
-  daemonized = FALSE, browse = !daemonized, ...)
+mlflow_rfunc_serve(
+  model_uri,
+  host = "127.0.0.1",
+  port = 8090,
+  daemonized = FALSE,
+  browse = !daemonized,
+  ...
+)
 }
 \arguments{
 \item{model_uri}{The location, in URI format, of the MLflow model.}
