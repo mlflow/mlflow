@@ -195,7 +195,7 @@ class _LGBModelWrapper:
 
 
 @experimental
-def autolog(normalize=False, max_num_features=None):
+def autolog():
     """
     Enables automatic logging from LightGBM to MLflow. Logs the following.
 
