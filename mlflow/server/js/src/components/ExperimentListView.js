@@ -60,7 +60,7 @@ export class ExperimentListView extends Component {
                 type="text"
                 placeholder="Search Experiments"
                 value={searchInput}
-                  onChange={this.onSearchInput}
+                onChange={this.onSearchInput}
           />
           <div className="experiment-list-container" style={{ height: experimentListHeight }}>
             {
