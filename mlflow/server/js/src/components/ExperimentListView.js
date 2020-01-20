@@ -63,12 +63,17 @@ export class ExperimentListView extends Component {
                   onChange={this.onSearchInput}
           />
           <div className="experiment-list-container" style={{ height: experimentListHeight }}>
-            {this.props.experiments.map((e, idx) => {
+            {
+            // filter experiments based on searchInput
+            this.props.experiments.filter((e) => {
+              return e.getName().toLowerCase().includes(searchInput.toLowerCase());
+            }).map((e, idx) => {
               let active;
+              const parsedExperimentId = parseInt(e.getExperimentId(), 10);
               if (this.props.activeExperimentId) {
-                active = parseInt(e.getExperimentId(), 10) === this.props.activeExperimentId;
+                active = parsedExperimentId === this.props.activeExperimentId;
               } else {
-                active = idx === 0;
+                active = parsedExperimentId === 0;
               }
               let className = "experiment-list-item";
               if (active) {
