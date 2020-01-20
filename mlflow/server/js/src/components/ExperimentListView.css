@@ -23,10 +23,19 @@
   padding-left: 12px;
 }
 
+.experiment-list-search-input {
+  flex: 1;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  width: 220px;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+
 .experiments-header {
   font-weight: normal;
   display: inline-block;
-  padding-bottom: 6px;
+  /* padding-bottom: 6px; */
   margin-bottom: 8px;
 }
 

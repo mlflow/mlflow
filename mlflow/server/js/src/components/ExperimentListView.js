@@ -8,15 +8,20 @@ import Routes from '../Routes';
 import { Link } from 'react-router-dom';
 
 export class ExperimentListView extends Component {
+  constructor(props) {
+    super(props);
+    this.onSearchInput = this.onSearchInput.bind(this);
+
+    this.state = {
+      height: undefined,
+      searchInput: '',
+    };
+  }
   static propTypes = {
     onClickListExperiments: PropTypes.func.isRequired,
     // If activeExperimentId is undefined, then the active experiment is the first one.
     activeExperimentId: PropTypes.number,
     experiments: PropTypes.arrayOf(Experiment).isRequired,
-  };
-
-  state = {
-    height: undefined,
   };
 
   componentDidMount() {
@@ -30,11 +35,17 @@ export class ExperimentListView extends Component {
     window.removeEventListener('resize', this.resizeListener);
   }
 
+  onSearchInput(event) {
+    this.setState({ searchInput: event.target.value });
+  }
+
   render() {
     const height = this.state.height || window.innerHeight;
     // 60 pixels for the height of the top bar.
     // 100 for the experiments header and some for bottom padding.
     const experimentListHeight = height - 60 - 100;
+    // get searchInput from state
+    const {searchInput} = this.state;
     return (
       <div className="experiment-list-outer-container">
         <div>
@@ -44,6 +55,13 @@ export class ExperimentListView extends Component {
                title="Hide experiment list"
                className="collapser fa fa-chevron-left login-icon"/>
           </div>
+          <input
+                className="experiment-list-search-input"
+                type="text"
+                placeholder="Search Experiments"
+                value={searchInput}
+                  onChange={this.onSearchInput}
+          />
           <div className="experiment-list-container" style={{ height: experimentListHeight }}>
             {this.props.experiments.map((e, idx) => {
               let active;
