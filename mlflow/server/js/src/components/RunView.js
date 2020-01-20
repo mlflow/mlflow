@@ -42,7 +42,6 @@ class RunView extends Component {
     showRestoreRunModal: false,
     showNoteEditor: false,
     showTags: Utils.getVisibleTagValues(this.props.tags).length > 0,
-    isDeleted: this.props.run.getLifecycleStage() === 'deleted',
   };
 
   handleRenameRunClick = () => {
@@ -68,13 +67,6 @@ class RunView extends Component {
   onCloseRestoreRunModal = () => {
     this.setState({ showRestoreRunModal: false });
   };
-
-  static getDerivedStateFromProps(nextProps, prevState) {
-    return {
-      ...prevState,
-      isDeleted: nextProps.run.getLifecycleStage() === 'deleted',
-    };
-  }
 
   getRunCommand() {
     const { tags, params } = this.props;
@@ -118,9 +110,13 @@ class RunView extends Component {
     this.setState({ showNoteEditor: true });
   };
 
+  isDeleted = () => {
+    return this.props.run.getLifecycleStage() === 'deleted';
+  };
+
   render() {
     const { runUuid, run, params, tags, latestMetrics, getMetricPagePath } = this.props;
-    const { showNoteEditor, isDeleted } = this.state;
+    const { showNoteEditor } = this.state;
     const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
@@ -153,7 +149,7 @@ class RunView extends Component {
                <i className="fas fa-caret-down"/>
              </Dropdown.Toggle>
              <Dropdown.Menu className="mlflow-menu header-menu">
-               {isDeleted ?
+               {this.isDeleted() ?
                 <MenuItem
                  className="mlflow-menu-item"
                  onClick={this.handleRestoreRun}
@@ -194,7 +190,7 @@ class RunView extends Component {
             selectedRunIds={[runUuid]}
           />
         </div>
-        {isDeleted ?
+        {this.isDeleted() ?
           <Alert
             type={'info'}
             className={`status-alert status-alert-info`}
@@ -252,7 +248,7 @@ class RunView extends Component {
             </CollapsibleSection>
           ) : null}
           <CollapsibleSection
-            title={<span>Notes {showNoteEditor || isDeleted ? null : editIcon}</span>}
+            title={<span>Notes {showNoteEditor || this.isDeleted() ? null : editIcon}</span>}
             forceOpen={showNoteEditor}
           >
             <EditableNote
