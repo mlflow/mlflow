@@ -17,7 +17,6 @@ xgboost_conda_yaml = os.path.join(EXAMPLES_DIR, 'xgboost', 'conda.yaml')
 
 @pytest.mark.large
 @pytest.mark.parametrize("directory, params", [
-    ('flower_classifier', []),
     ('h2o', []),
     ('hyperparam', ['-e', 'train']),
     ('hyperparam', ['-e', 'random']),
@@ -25,7 +24,6 @@ xgboost_conda_yaml = os.path.join(EXAMPLES_DIR, 'xgboost', 'conda.yaml')
     ('hyperparam', ['-e', 'hyperopt']),
     ('lightgbm', ['-P', 'conda-env=' + str(lightgbm_conda_yaml),
                   '-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9']),
-    ('multistep_workflow', ['-P', 'als_max_iter=20', '-P', 'keras_hidden_units=50']),
     ('prophet', []),
     ('pytorch', []),
     ('sklearn_logistic_regression', []),
