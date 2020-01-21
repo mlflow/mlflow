@@ -7,6 +7,7 @@ import projectSvg from '../static/project.svg';
 import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import { message } from 'antd';
+import _ from 'lodash';
 
 class Utils {
   /**
@@ -253,8 +254,8 @@ class Utils {
     const imageStyle = {
       height: '20px',
       position: 'relative',
-      top: '-1px',
-      marginRight: '2px',
+      top: '-3px',
+      marginRight: '4px',
     };
     if (sourceType === "NOTEBOOK") {
       return <img alt="" title="Notebook" style={imageStyle} src={notebookSvg} />;
@@ -426,6 +427,12 @@ class Utils {
     );
   }
 
+  static getVisibleTagKeyList(tagsList) {
+    return _.uniq(
+      _.flatMap(tagsList, (tags) => Utils.getVisibleTagValues(tags).map(([key]) => key)),
+    );
+  }
+
   static getAjaxUrl(relativeUrl) {
     if (process.env.USE_ABSOLUTE_AJAX_URLS === "true") {
       return '/' + relativeUrl;
@@ -441,8 +448,10 @@ class Utils {
     }
   }
 
-  static isModelRegistryEnabled() {
-    return true;
+  static isMessageFromSameOrigin(messageEvent) {
+    // For Chrome, the origin property is in the event.originalEvent object.
+    const origin = messageEvent.origin || messageEvent.originalEvent.origin;
+    return window.location.origin === origin;
   }
 }
 
