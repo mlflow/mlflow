@@ -230,9 +230,9 @@ def autolog():
                 eval_results.append(res)
             return callback
 
-        def plot_feature_importance(features, importance, importance_type):
+        def log_feature_importance_plot(features, importance, importance_type):
             """
-            Plot feature importance.
+            Log feature importance plot.
             """
             indices = np.argsort(importance)
             features = np.array(features)[indices]
@@ -326,7 +326,7 @@ def autolog():
             except Exception as e:
                 _logger.exception('Failed to log feature importance plot. LightGBM autologging'
                                   'will ignore the failure and continue. Exception: ')
-            plot_feature_importance(features, importance, imp_type)
+            log_feature_importance_plot(features, importance, imp_type)
             imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
             tmpdir = tempfile.mkdtemp()
             try:
