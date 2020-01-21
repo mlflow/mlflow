@@ -227,7 +227,7 @@ def autolog():
                 eval_results.append(res)
             return callback
 
-        def plot_importance(features, importance, importance_type):
+        def plot_feature_importance(features, importance, importance_type):
             """
             Plot feature importance.
             """
@@ -318,7 +318,7 @@ def autolog():
         for imp_type in ['split', 'gain']:
             features = model.feature_name()
             importance = model.feature_importance(importance_type=imp_type)
-            plot_importance(features, importance, imp_type)
+            plot_feature_importance(features, importance, imp_type)
             imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
             tmpdir = tempfile.mkdtemp()
             try:
