@@ -26,6 +26,7 @@ import json
 import tempfile
 import shutil
 import inspect
+import logging
 import gorilla
 
 import mlflow
@@ -40,6 +41,8 @@ from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
 
 FLAVOR_NAME = "lightgbm"
+
+_logger = logging.getLogger(__name__)
 
 
 def get_default_conda_env():
@@ -318,6 +321,11 @@ def autolog():
         for imp_type in ['split', 'gain']:
             features = model.feature_name()
             importance = model.feature_importance(importance_type=imp_type)
+            try:
+                log_feature_importance_plot(features, importance, imp_type)
+            except Exception as e:
+                _logger.exception('Failed to log feature importance plot. LightGBM autologging'
+                                  'will ignore the failure and continue. Exception: ')
             plot_feature_importance(features, importance, imp_type)
             imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
             tmpdir = tempfile.mkdtemp()
