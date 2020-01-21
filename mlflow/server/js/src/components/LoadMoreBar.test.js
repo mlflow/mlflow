@@ -8,9 +8,6 @@ describe('unit tests', () => {
 
   beforeEach(() => {
     mininumProps = {
-      height: 37,
-      width: 1000,
-      borderStyle: '',
       loadingMore: false,
       onLoadMore: jest.fn(),
     };
