@@ -648,6 +648,8 @@ following are examples of valid model uris:
 -  ``file:relative/path/to/local/model``
 -  ``s3://my_bucket/path/to/model``
 -  ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+-  ``models:/<model_name>/<model_version>``
+-  ``models:/<model_name>/<stage>``
 
 For more information about supported URI schemes, see the Artifacts
 Documentation at
@@ -1164,6 +1166,8 @@ following are examples of valid model uris:
 -  ``file:relative/path/to/local/model``
 -  ``s3://my_bucket/path/to/model``
 -  ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+-  ``models:/<model_name>/<model_version>``
+-  ``models:/<model_name>/<stage>``
 
 For more information about supported URI schemes, see the Artifacts
 Documentation at

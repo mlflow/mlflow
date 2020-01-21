@@ -13,5 +13,9 @@ Rscript -e 'devtools::install_github("https://github.com/smurching/Rd2md", ref =
 Rscript -e 'install.packages("rmarkdown", repos = "https://cloud.r-project.org")'
 rm -rf man
 Rscript -e "roxygen2::roxygenise()"
+# remove mlflow-package doc temporarily because no rst doc should be generated for it.
+rm man/mlflow-package.Rd
 Rscript document.R
+# roxygenize again to make sure the previously removed mlflow-packge doc is available as R helpfile
+Rscript -e "roxygen2::roxygenise()"
 popd
