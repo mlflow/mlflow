@@ -448,10 +448,8 @@ class Utils {
     }
   }
 
-  static isMessageFromSameOrigin(messageEvent) {
-    // For Chrome, the origin property is in the event.originalEvent object.
-    const origin = messageEvent.origin || messageEvent.originalEvent.origin;
-    return window.location.origin === origin;
+  static isModelRegistryEnabled() {
+    return true;
   }
 }
 
