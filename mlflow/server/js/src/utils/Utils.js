@@ -7,6 +7,7 @@ import projectSvg from '../static/project.svg';
 import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import { message } from 'antd';
+import _ from 'lodash';
 
 class Utils {
   /**
@@ -253,8 +254,8 @@ class Utils {
     const imageStyle = {
       height: '20px',
       position: 'relative',
-      top: '-1px',
-      marginRight: '2px',
+      top: '-3px',
+      marginRight: '4px',
     };
     if (sourceType === "NOTEBOOK") {
       return <img alt="" title="Notebook" style={imageStyle} src={notebookSvg} />;
@@ -423,6 +424,12 @@ class Utils {
       [t.getKey(), t.getValue()]
     ).filter(t =>
       !t[0].startsWith(MLFLOW_INTERNAL_PREFIX)
+    );
+  }
+
+  static getVisibleTagKeyList(tagsList) {
+    return _.uniq(
+      _.flatMap(tagsList, (tags) => Utils.getVisibleTagValues(tags).map(([key]) => key)),
     );
   }
 

@@ -103,31 +103,21 @@
 }
 
 .ExperimentView-lifecycle-input {
-  width: 156px;
   padding-right: 8px;
 }
 
 .ExperimentView-lifecycle-button {
-  width: 100px;
+  width: 80px;
 }
 
 .ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter, .ExperimentView-search-input, .ExperimentView-lifecycle-input {
   padding-right: 8px;
 }
 
-.ExperimentView-search-buttons {
-  float: right;
-  width: 100px;
-}
-
 .ExperimentView-search-buttons .btn {
   display: block;
   width: 100%;
   margin-bottom: 8px;
-}
-
-.ExperimentView-search-inputs {
-  margin-right: 104px;
 }
 
 .ExperimentView-search-controls .filter-label {
@@ -145,12 +135,11 @@
 }
 
 .search-button {
-  margin-right: 30px;
+  width: 120px;
 }
 
 .clear-button {
-  margin-bottom: 0;
-  height: 32px;
+  margin-left: 8px;
 }
 
 div.error-message {
@@ -281,6 +270,7 @@ span.error-message {
   flex: 1 1 auto;
   flex-direction: column;
   display: flex;
+  min-height: 800px;
 }
 
 .ExperimentView .ReactVirtualized__Table__row:hover {
@@ -296,4 +286,29 @@ span.error-message {
 .search-input-tooltip.ant-popover-placement-bottom > .ant-popover-content > .ant-popover-arrow {
   border-top-color: rgba(0, 0, 0, 0.75);
   border-left-color: rgba(0, 0, 0, 0.75);
+}
+
+.ExperimentView .ag-row-hover, .ExperimentView .ag-column-hover{
+  background-color: #f3fafd !important; /* TODO(Zangr) override specificity in a better way */
+}
+
+.ExperimentView .ag-row-hover .ag-column-hover {
+  background-color: #e8f6fd !important;
+}
+
+.ExperimentView .multi-column-view .load-more-button,
+.ExperimentView .multi-column-view .loading-more-wrapper {
+  height: 24px;
+  margin-top: 1px;
+}
+
+.ExperimentView .ag-header-cell .ag-react-container {
+  width: 100%;
+  height: 100%;
+}
+
+.ExperimentView .multi-column-view {
+  width: 100%;
+  height: 700px;
+  margin-bottom: 50px;
 }
