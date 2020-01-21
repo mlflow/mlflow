@@ -7,11 +7,10 @@ from sklearn import datasets
 import lightgbm as lgb
 import matplotlib
 
-matplotlib.use('Agg')
-
 import mlflow
 import mlflow.lightgbm
 
+matplotlib.use('Agg')
 client = mlflow.tracking.MlflowClient()
 
 
