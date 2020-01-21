@@ -323,7 +323,7 @@ def autolog():
             importance = model.feature_importance(importance_type=imp_type)
             try:
                 log_feature_importance_plot(features, importance, imp_type)
-            except Exception as e:
+            except Exception:  # pylint: disable=broad-except
                 _logger.exception('Failed to log feature importance plot. LightGBM autologging'
                                   'will ignore the failure and continue. Exception: ')
             log_feature_importance_plot(features, importance, imp_type)
