@@ -246,6 +246,7 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
         json_path = os.path.join(artifacts_dir, json_name)
         with open(json_path, 'r') as f:
             loaded_imp = json.load(f)
+
         assert loaded_imp == model.get_score(importance_type=imp_type)
 
 
