@@ -25,7 +25,7 @@ else
 fi
 source activate test-environment
 python --version
-pip install --upgrade pip
+pip install --upgrade pip==19.3.1
 # Install Python test dependencies only if we're running Python tests
 if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
   pip install -r ./travis/small-requirements.txt
