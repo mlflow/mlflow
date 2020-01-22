@@ -62,6 +62,9 @@ setup(
             'azure-storage',
             'google-cloud-storage',
         ],
+         'sqlserver':[
+            "mlflow-dbstore",
+        ],
     },
     entry_points='''
         [console_scripts]

@@ -259,7 +259,6 @@ If a run exists when ``autolog()`` captures data, MLflow will log to that run an
   - Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
   - This feature is experimental - the API and format of the logged data are subject to change.
 
-
 Gluon (experimental)
 --------------------
 Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
