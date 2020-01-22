@@ -23,5 +23,5 @@ def pytest_configure(config):
         markexpr.append('not release')
     if not config.option.requires_ssh:
         markexpr.append('not requires_ssh')
-    if len(markexpr) > 0:
-        setattr(config.option, 'markexpr', " and ".join(markexpr))
+    # if len(markexpr) > 0:
+    #     setattr(config.option, 'markexpr', " and ".join(markexpr))
