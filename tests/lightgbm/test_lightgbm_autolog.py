@@ -5,10 +5,12 @@ import numpy as np
 import pandas as pd
 from sklearn import datasets
 import lightgbm as lgb
+import matplotlib
 
 import mlflow
 import mlflow.lightgbm
 
+matplotlib.use('Agg')
 client = mlflow.tracking.MlflowClient()
 
 
@@ -221,16 +223,20 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     for imp_type in ['split', 'gain']:
-        filename = 'feature_importance_{}.json'.format(imp_type)
-        filepath = os.path.join(artifacts_dir, filename)
-        with open(filepath, 'r') as f:
+        plot_name = 'feature_importance_{}.png'.format(imp_type)
+        assert plot_name in artifacts
+
+        json_name = 'feature_importance_{}.json'.format(imp_type)
+        assert json_name in artifacts
+
+        json_path = os.path.join(artifacts_dir, json_name)
+        with open(json_path, 'r') as f:
             loaded_imp = json.load(f)
 
         features = model.feature_name()
         importance = model.feature_importance(importance_type=imp_type)
         imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
 
-        assert filename in artifacts
         assert loaded_imp == imp
 
 

@@ -26,6 +26,7 @@ import json
 import tempfile
 import shutil
 import inspect
+import logging
 import gorilla
 
 import mlflow
@@ -40,6 +41,8 @@ from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
 
 FLAVOR_NAME = "lightgbm"
+
+_logger = logging.getLogger(__name__)
 
 
 def get_default_conda_env():
@@ -202,12 +205,14 @@ def autolog():
     - parameters specified in `lightgbm.train`_.
     - metrics on each iteration (if ``valid_sets`` specified).
     - metrics at the best iteration (if ``early_stopping_rounds`` specified).
-    - feature importance (both "split" and "gain").
+    - feature importance (both "split" and "gain") as JSON files and plots.
     - trained model.
 
     Note that the `scikit-learn API`_ is not supported.
     """
     import lightgbm
+    import numpy as np
+    import matplotlib.pyplot as plt
 
     @gorilla.patch(lightgbm)
     def train(*args, **kwargs):
@@ -224,6 +229,38 @@ def autolog():
 
                 eval_results.append(res)
             return callback
+
+        def log_feature_importance_plot(features, importance, importance_type):
+            """
+            Log feature importance plot.
+            """
+            indices = np.argsort(importance)
+            features = np.array(features)[indices]
+            importance = importance[indices]
+            num_features = len(features)
+
+            # If num_features > 10, increase the figure height to prevent the plot
+            # from being too dense.
+            w, h = [6.4, 4.8]  # matplotlib's default figure size
+            h = h + 0.1 * num_features if num_features > 10 else h
+            fig, ax = plt.subplots(figsize=(w, h))
+
+            yloc = np.arange(num_features)
+            ax.barh(yloc, importance, align='center', height=0.5)
+            ax.set_yticks(yloc)
+            ax.set_yticklabels(features)
+            ax.set_xlabel('Importance')
+            ax.set_title('Feature Importance ({})'.format(importance_type))
+            fig.tight_layout()
+
+            tmpdir = tempfile.mkdtemp()
+            try:
+                # pylint: disable=undefined-loop-variable
+                filepath = os.path.join(tmpdir, 'feature_importance_{}.png'.format(imp_type))
+                fig.savefig(filepath)
+                try_mlflow_log(mlflow.log_artifact, filepath)
+            finally:
+                shutil.rmtree(tmpdir)
 
         if not mlflow.active_run():
             try_mlflow_log(mlflow.start_run)
@@ -284,12 +321,18 @@ def autolog():
         for imp_type in ['split', 'gain']:
             features = model.feature_name()
             importance = model.feature_importance(importance_type=imp_type)
+            try:
+                log_feature_importance_plot(features, importance, imp_type)
+            except Exception:  # pylint: disable=broad-except
+                _logger.exception('Failed to log feature importance plot. LightGBM autologging '
+                                  'will ignore the failure and continue. Exception: ')
+            log_feature_importance_plot(features, importance, imp_type)
             imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
             tmpdir = tempfile.mkdtemp()
             try:
                 filepath = os.path.join(tmpdir, 'feature_importance_{}.json'.format(imp_type))
                 with open(filepath, 'w') as f:
-                    json.dump(imp, f)
+                    json.dump(imp, f, indent=2)
                 try_mlflow_log(mlflow.log_artifact, filepath)
             finally:
                 shutil.rmtree(tmpdir)
