@@ -45,8 +45,10 @@ pytest --verbose tests/tensorflow/test_tensorflow2_model_export.py --large
 pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
 pytest --verbose tests/keras --large
 pytest --verbose tests/keras_autolog --large
-pytest --verbose tests/gluon --large
-pytest --verbose tests/gluon_autolog --large
+# TODO(juntai-zheng) Re-enable mxnet tests once pip is patched
+# Disabling mxnet.gluon since pip is broken: https://github.com/pypa/pip/issues/7626
+# pytest --verbose tests/gluon --large
+# pytest --verbose tests/gluon_autolog --large
 
 # Run Spark autologging tests
 ./travis/test-spark-autologging.sh
