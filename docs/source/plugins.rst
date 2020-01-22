@@ -226,7 +226,7 @@ The plugin implements all of the MLflow artifact store APIs. To use SQL server a
         db_uri = "mssql+pyodbc://username:password@host:port/database?driver=ODBC+Driver+17+for+SQL+Server"
 
         client.create_experiment(exp_name, artifact_location=db_uri)
-        mlflow.set_experiment(exp_name)i
+        mlflow.set_experiment(exp_name)
 
         mlflow.onnx.log_model(onnx, "model")
 
