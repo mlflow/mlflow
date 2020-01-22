@@ -20,5 +20,5 @@ then
 fi
 if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"Dockerfile"* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]
 then
-  cddocker build -t mlflow_test_build . && docker images | grep mlflow_test_build
+  docker build -t mlflow_test_build . && docker images | grep mlflow_test_build
 fi
