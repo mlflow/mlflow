@@ -413,13 +413,16 @@ class FileStore(AbstractStore):
         if run_dir is None:
             raise MlflowException("Run '%s' not found" % run_uuid,
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
+        run_info = self._get_run_info_from_dir(exp_id, run_dir)
+        return run_info
 
+    def _get_run_info_from_dir(self, experiment_id, run_dir):
         meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
         run_info = _read_persisted_run_info_dict(meta)
-        if run_info.experiment_id != exp_id:
+        if run_info.experiment_id != experiment_id:
             logging.warning("Wrong experiment ID (%s) recorded for run '%s'. It should be %s. "
                             "Run will be ignored.", str(run_info.experiment_id),
-                            str(run_info.run_id), str(exp_id), exc_info=True)
+                            str(run_info.run_id), str(experiment_id), exc_info=True)
             return None
         return run_info
 
@@ -558,23 +561,24 @@ class FileStore(AbstractStore):
         if not self._has_experiment(experiment_id):
             return []
         experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
-        run_uuids = list_all(experiment_dir,
-                             filter_func=lambda x:
-                             all([os.path.basename(os.path.normpath(x)) != reservedFolderName
-                                  for reservedFolderName in
-                                  FileStore.RESERVED_EXPERIMENT_FOLDERS]) and os.path.isdir(x),
-                             full_path=False)
+        run_dirs = list_all(experiment_dir,
+                            filter_func=lambda x:
+                            all([os.path.basename(os.path.normpath(x)) != reservedFolderName
+                                 for reservedFolderName in
+                                 FileStore.RESERVED_EXPERIMENT_FOLDERS]) and os.path.isdir(x),
+                            full_path=True)
         run_infos = []
-        for r_id in run_uuids:
+        for r_dir in run_dirs:
             try:
                 # trap and warn known issues, will raise unexpected exceptions to caller
-                run_info = self._get_run_info(r_id)
+                run_info = self._get_run_info_from_dir(experiment_id, r_dir)
                 if run_info is None:
                     continue
                 if LifecycleStage.matches_view_type(view_type, run_info.lifecycle_stage):
                     run_infos.append(run_info)
             except MissingConfigException as rnfe:
                 # trap malformed run exception and log warning
+                r_id = os.path.basename(r_dir)
                 logging.warning("Malformed run '%s'. Detailed error %s", r_id, str(rnfe),
                                 exc_info=True)
         return run_infos
