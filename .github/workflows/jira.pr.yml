@@ -7,7 +7,7 @@ name: Jira Ticket Creation for PRs
 
 jobs:
   create_ticket:
-    name: Create JIRA ticket over API
+    name: Create Jira ticket over API
     runs-on: ubuntu-latest
     steps:
     - name: Call REST API
