@@ -25,7 +25,7 @@ xgboost_conda_yaml = os.path.join(EXAMPLES_DIR, 'xgboost', 'conda.yaml')
     ('lightgbm', ['-P', 'conda-env=' + str(lightgbm_conda_yaml),
                   '-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9']),
     ('prophet', []),
-    ('pytorch', []),
+    ('pytorch', ['-P', 'epochs=2']),
     ('sklearn_logistic_regression', []),
     ('sklearn_elasticnet_wine', ['-P', 'alpha=0.5']),
     (os.path.join('sklearn_elasticnet_diabetes', 'linux'), []),
