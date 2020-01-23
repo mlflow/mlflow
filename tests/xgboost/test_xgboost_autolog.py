@@ -5,10 +5,12 @@ import numpy as np
 import pandas as pd
 from sklearn import datasets
 import xgboost as xgb
+import matplotlib
 
 import mlflow
 import mlflow.xgboost
 
+matplotlib.use('Agg')
 client = mlflow.tracking.MlflowClient()
 
 
@@ -211,12 +213,16 @@ def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     importance_type = 'weight'
-    filename = 'feature_importance_{}.json'.format(importance_type)
-    filepath = os.path.join(artifacts_dir, filename)
-    with open(filepath, 'r') as f:
+    plot_name = 'feature_importance_{}.png'.format(importance_type)
+    assert plot_name in artifacts
+
+    json_name = 'feature_importance_{}.json'.format(importance_type)
+    assert json_name in artifacts
+
+    json_path = os.path.join(artifacts_dir, json_name)
+    with open(json_path, 'r') as f:
         loaded_imp = json.load(f)
 
-    assert filename in artifacts
     assert loaded_imp == model.get_score(importance_type=importance_type)
 
 
@@ -231,12 +237,16 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     for imp_type in importance_types:
-        filename = 'feature_importance_{}.json'.format(imp_type)
-        filepath = os.path.join(artifacts_dir, filename)
-        with open(filepath, 'r') as f:
+        plot_name = 'feature_importance_{}.png'.format(imp_type)
+        assert plot_name in artifacts
+
+        json_name = 'feature_importance_{}.json'.format(imp_type)
+        assert json_name in artifacts
+
+        json_path = os.path.join(artifacts_dir, json_name)
+        with open(json_path, 'r') as f:
             loaded_imp = json.load(f)
 
-        assert filename in artifacts
         assert loaded_imp == model.get_score(importance_type=imp_type)
 
 
