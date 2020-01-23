@@ -30,7 +30,7 @@ xgboost_conda_yaml = os.path.join(EXAMPLES_DIR, 'xgboost', 'conda.yaml')
     ('sklearn_elasticnet_wine', ['-P', 'alpha=0.5']),
     (os.path.join('sklearn_elasticnet_diabetes', 'linux'), []),
     (os.path.join('tensorflow', 'tf1'), ['-P', 'steps=10']),
-    ('xgboost', ['-P', 'conda-env=xgboost_conda_yaml',
+    ('xgboost', ['-P', 'conda-env=' + str(xgboost_conda_yaml),
                  '-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9'])
 ])
 def test_mlflow_run_example(tracking_uri_mock, directory, params):
