@@ -874,9 +874,9 @@ class TestFileStore(unittest.TestCase):
 
         def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
             raise Exception("Some internal error")
-        with mock.patch(FILESTORE_PACKAGE + ".FileStore.log_metric") as log_metric_mock, \
-                mock.patch(FILESTORE_PACKAGE + ".FileStore.log_param") as log_param_mock, \
-                mock.patch(FILESTORE_PACKAGE + ".FileStore.set_tag") as set_tag_mock:
+        with mock.patch(FILESTORE_PACKAGE + ".FileStore._log_run_metric") as log_metric_mock, \
+                mock.patch(FILESTORE_PACKAGE + ".FileStore._log_run_param") as log_param_mock, \
+                mock.patch(FILESTORE_PACKAGE + ".FileStore._set_run_tag") as set_tag_mock:
             log_metric_mock.side_effect = _raise_exception_fn
             log_param_mock.side_effect = _raise_exception_fn
             set_tag_mock.side_effect = _raise_exception_fn
