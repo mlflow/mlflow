@@ -442,7 +442,7 @@ def test_save_model_with_wrong_codepaths_fails_corrrectly(
     assert str(exc_info).endswith("TypeError: Argument code_paths should be a list, "
                                   "not <class 'str'>")
     assert not os.path.exists(model_path)
-    
+
 
 @pytest.mark.large
 def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickle_module(
