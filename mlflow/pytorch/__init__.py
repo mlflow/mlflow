@@ -217,7 +217,9 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
 
     if not isinstance(pytorch_model, torch.nn.Module):
         raise TypeError("Argument 'pytorch_model' should be a torch.nn.Module")
-
+    if code_paths is not None:
+        if not isinstance(code_paths, list):
+            raise TypeError('Argument code_paths should be a list, not {}'.format(type(code_paths)))
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise RuntimeError("Path '{}' already exists".format(path))
@@ -250,8 +252,6 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     if code_paths is not None:
-        if not isinstance(code_paths, list):
-            raise TypeError('Code_paths should be a list, not {type(code_paths)}')
         code_dir_subpath = "code"
         for code_path in code_paths:
             _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
