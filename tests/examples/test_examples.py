@@ -21,7 +21,7 @@ xgboost_conda_yaml = os.path.join(EXAMPLES_DIR, 'xgboost', 'conda.yaml')
     ('hyperparam', ['-e', 'train']),
     ('hyperparam', ['-e', 'random']),
     ('hyperparam', ['-e', 'gpyopt']),
-    ('hyperparam', ['-e', 'hyperopt']),
+    ('hyperparam', ['-e', 'hyperopt', '-P', 'epochs=1']),
     ('lightgbm', ['-P', 'conda-env=' + str(lightgbm_conda_yaml),
                   '-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9']),
     ('prophet', []),
