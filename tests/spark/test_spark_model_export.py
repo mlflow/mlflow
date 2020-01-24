@@ -242,7 +242,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
             decimal=4)
 
 
-@pytest.mark.large
+@pytest.mark.skip(reason="not used at Criteo, skipped to avoid timout")
 def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris, model_path):
     sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=None)
 
