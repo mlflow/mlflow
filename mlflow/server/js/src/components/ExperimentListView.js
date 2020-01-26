@@ -7,6 +7,7 @@ import { getExperiments } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../Routes';
 import { Link } from 'react-router-dom';
+import DeleteExperimentModal from './modals/DeleteExperimentModal';
 
 
 export class ExperimentListView extends Component {
@@ -20,6 +21,9 @@ export class ExperimentListView extends Component {
   state = {
     height: undefined,
     searchInput: '',
+    showDeleteExperimentModal: false,
+    selectedExperimentId: null,
+    selectedExperimentName: null,
   };
 
   componentDidMount() {
@@ -39,6 +43,22 @@ export class ExperimentListView extends Component {
 
   preventDefault = (ev) => ev.preventDefault();
 
+  onDeleteExperiment = (ev) => {
+    this.setState({
+      showDeleteExperimentModal: true,
+      selectedExperimentId: ev.currentTarget.dataset.experimentid,
+      selectedExperimentName: ev.currentTarget.dataset.experimentname,
+    });
+  }
+
+  onCloseDeleteExperimentModal = () => {
+    this.setState({
+      showDeleteExperimentModal: false,
+      selectedExperimentId: null,
+      selectedExperimentName: null,
+    });
+  }
+
   render() {
     const height = this.state.height || window.innerHeight;
     // 60 pixels for the height of the top bar.
@@ -48,6 +68,12 @@ export class ExperimentListView extends Component {
     const { searchInput } = this.state;
     return (
       <div className='experiment-list-outer-container'>
+        <DeleteExperimentModal
+          isOpen={this.state.showDeleteExperimentModal}
+          onClose={this.onCloseDeleteExperimentModal}
+          experimentId={this.state.selectedExperimentId}
+          experimentName={this.state.selectedExperimentName}
+        />
         <div>
           <h1 className='experiments-header'>Experiments</h1>
           <div className='collapser-container'>
@@ -83,11 +109,12 @@ export class ExperimentListView extends Component {
                       to={Routes.getExperimentPageRoute(experiment_id)}
                       onClick={active ? ev => ev.preventDefault() : ev => ev}
                     >
-                    <div
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
                       title={name}
                     >
                       {name}
                     </div>
+                  {/* Edit/Rename Experiment Option */}
                   </Link>
                   <a
                     onClick={() => {}}
@@ -95,8 +122,11 @@ export class ExperimentListView extends Component {
                   >
                     <Icon type="edit" />
                   </a>
+                  {/* Delete Experiment option */}
                   <a
-                    onClick={() => {}}
+                    onClick={this.onDeleteExperiment}
+                    data-experimentid={experiment_id}
+                    data-experimentname={name}
                   >
                     <Icon type="delete" />
                   </a>
