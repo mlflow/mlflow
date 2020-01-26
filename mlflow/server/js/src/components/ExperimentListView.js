@@ -1,11 +1,13 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
+import { Icon } from 'antd';
 import './ExperimentListView.css';
 import { getExperiments } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../Routes';
 import { Link } from 'react-router-dom';
+
 
 export class ExperimentListView extends Component {
   static propTypes = {
@@ -75,14 +77,30 @@ export class ExperimentListView extends Component {
                 const className =
                   `experiment-list-item ${active ? 'active-experiment-list-item' : ''}`;
                 return (
-                  <Link
-                    style={{ textDecoration: 'none', color: 'unset' }}
-                    key={name}
-                    to={Routes.getExperimentPageRoute(experiment_id)}
-                    onClick={active ? this.preventDefault : undefined}
-                  >
-                    <div className={className} title={name}>{name}</div>
+                  <div key={experiment_id} className={`header-container ${className}`}>
+                    <Link
+                      style={{ textDecoration: 'none', color: 'unset', width: '80%'}}
+                      to={Routes.getExperimentPageRoute(experiment_id)}
+                      onClick={active ? ev => ev.preventDefault() : ev => ev}
+                    >
+                    <div
+                      title={name}
+                    >
+                      {name}
+                    </div>
                   </Link>
+                  <a
+                    onClick={() => {}}
+                    style={{ marginRight: 10 }}
+                  >
+                    <Icon type="edit" />
+                  </a>
+                  <a
+                    onClick={() => {}}
+                  >
+                    <Icon type="delete" />
+                  </a>
+                </div>
                 );
               })}
           </div>
