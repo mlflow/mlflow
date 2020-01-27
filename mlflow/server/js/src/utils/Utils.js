@@ -203,7 +203,6 @@ class Utils {
     } else if (!url && Utils.getPrivateVcsConfig()) {
       const privateVcsMatch = sourceName.match(window.privateVcsRegex);
       if (privateVcsMatch) {
-        console.log('vcs match:', privateVcsMatch, window.privateVcsCommit);
         url = window.privateVcsCommit.replace("privateVcsMatch", privateVcsMatch[2]);
         url = url.replace("sourceVersion", sourceVersion);
       }
