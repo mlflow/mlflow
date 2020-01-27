@@ -9,3 +9,11 @@ export const shouldRender404 = (requests, requestIdsToCheck) => {
     return error && error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST;
   });
 };
+
+// TODO(Zangr) move to /experiment-tracking after folder refactor
+export const ColumnTypes = {
+  ATTRIBUTES: 'attributes',
+  PARAMS: 'params',
+  METRICS: 'metrics',
+  TAGS: 'tags',
+};

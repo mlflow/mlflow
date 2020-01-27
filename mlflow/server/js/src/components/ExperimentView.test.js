@@ -12,6 +12,7 @@ import {
   emptyState} from "../test-utils/ReduxStoreFixtures";
 import {getUUID} from "../Actions";
 import {Spinner} from "./Spinner";
+import { ExperimentViewPersistedState } from '../sdk/MlflowLocalStorageMessages';
 
 let onSearchSpy;
 
@@ -43,6 +44,7 @@ const getExperimentViewMock = () => {
     orderByAsc={false}
   />);
 };
+
 test(`Clearing filter state calls search handler with correct arguments`, () => {
   const wrapper = getExperimentViewMock();
   wrapper.instance().onClear();
@@ -54,17 +56,10 @@ test(`Clearing filter state calls search handler with correct arguments`, () => 
   expect(onSearchSpy.mock.calls[0][4]).toBe(null);
   expect(onSearchSpy.mock.calls[0][5]).toBe(true);
 });
-test('Entering filter input updates component state', () => {
+
+test('Entering search input updates component state', () => {
   const wrapper = getExperimentViewMock();
   wrapper.instance().setState = jest.fn();
-  // Test entering param filter input
-  wrapper.find('.ExperimentView-paramKeyFilter input').first().simulate(
-    'change', {target: {value: 'param name'}});
-  expect(wrapper.instance().setState).toBeCalledWith({paramKeyFilterInput: 'param name'});
-  // Test entering metric filter input
-  wrapper.find('.ExperimentView-metricKeyFilter input').first().simulate(
-    'change', {target: {value: 'metric name'}});
-  expect(wrapper.instance().setState).toBeCalledWith({metricKeyFilterInput: 'metric name'});
   // Test entering search input
   wrapper.find('.ExperimentView-search-input input').first().simulate(
     'change', {target: {value: 'search input string'}});
@@ -73,6 +68,10 @@ test('Entering filter input updates component state', () => {
 
 test("ExperimentView will show spinner if isLoading prop is true", () => {
   const wrapper = getExperimentViewMock();
+  const instance = wrapper.instance();
+  instance.setState({
+    persistedState: new ExperimentViewPersistedState({ showMultiColumns: false }).toJSON(),
+  });
   expect(wrapper.find(Spinner)).toHaveLength(1);
 });
 
