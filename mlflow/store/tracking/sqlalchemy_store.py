@@ -429,7 +429,7 @@ class SqlAlchemyStore(AbstractStore):
             run.lifecycle_stage = LifecycleStage.DELETED
             self._save_to_db(objs=run, session=session)
 
-    def hard_delete_run(self, run_id):
+    def _hard_delete_run(self, run_id):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             session.delete(run)

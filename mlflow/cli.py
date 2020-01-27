@@ -19,8 +19,10 @@ import mlflow.store.artifact.cli
 import mlflow.store.db.utils
 from mlflow import tracking
 from mlflow.server import _run_server
-from mlflow.server.handlers import initialize_backend_stores
+from mlflow.server.handlers import initialize_backend_stores, _get_tracking_store
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking.dbmodels.models import SqlRun
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
@@ -279,6 +281,38 @@ def server(backend_store_uri, default_artifact_root, host, port,
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
+
+
+@cli.command()
+@click.option("--backend-store-uri", metavar="PATH",
+              default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+              help="URI to which to persist experiment and run data. Acceptable URIs are "
+                   "SQLAlchemy-compatible database connection strings "
+                   "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
+                   "(e.g. 'file:///absolute/path/to/directory'). By default, data will be deleted "
+                   "from the ./mlruns directory.")
+@click.option("--run-ids", default=None,
+              help="Comma separated list of runs to be permanently deleted.")
+def gc(backend_store_uri, run_ids):
+    """
+    Permanently delete runs in state deleted in the backend store.
+    """
+    backend_store = _get_tracking_store(backend_store_uri, None)
+    if not run_ids:
+        with backend_store.ManagedSessionMaker() as session:
+            run_ids = session\
+                .query(SqlRun.run_uuid)\
+                .filter(SqlRun.lifecycle_stage == 'deleted')\
+                .all()
+    else:
+        run_ids = run_ids.split(',')
+
+    for run_id in run_ids:
+        run = backend_store.get_run(run_id)
+        artifact_repo = get_artifact_repository(run.info.artifact_uri)
+        artifact_repo.delete_artifacts(run.info.artifact_uri)
+        backend_store._hard_delete_run(run_id)
+        print("Run with ID %s has been permanently deleted." % str(run_id))
 
 
 cli.add_command(mlflow.models.cli.commands)

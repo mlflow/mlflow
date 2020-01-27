@@ -317,7 +317,7 @@ class FileStore(AbstractStore):
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
         self._overwrite_run_info(new_info)
 
-    def hard_delete_run(self, run_id):
+    def _hard_delete_run(self, run_id):
         _, run_dir = self._find_run_root(run_id)
         os.remove(os.path.join(run_dir, FileStore.META_DATA_FILE_NAME))
         shutil.rmtree(os.path.join(run_dir, FileStore.METRICS_FOLDER_NAME))
