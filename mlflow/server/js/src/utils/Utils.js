@@ -200,7 +200,7 @@ class Utils {
       const baseUrl = "https://bitbucket.org/";
       url = (baseUrl + bitbucketMatch[1] + "/" + bitbucketMatch[2].replace(/.git/, '') +
         "/src/" + sourceVersion) + "/" + bitbucketMatch[3];
-    } else if (!url && Utils.getPrivateVcsConfig) {
+    } else if (!url && Utils.getPrivateVcsConfig()) {
       const privateVcsMatch = sourceName.match(window.privateVcsRegex);
       if (privateVcsMatch) {
         url = window.privateVcsCommit.replace("privateVcsMatch", privateVcsMatch[2]);
