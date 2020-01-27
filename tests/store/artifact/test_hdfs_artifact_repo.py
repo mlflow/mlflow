@@ -1,4 +1,6 @@
+from mlflow.utils.file_utils import TempDir
 import os
+import shlex
 import sys
 from tempfile import NamedTemporaryFile
 
@@ -8,9 +10,10 @@ from mock import call, mock_open
 from pyarrow import HadoopFileSystem
 
 from mlflow.entities import FileInfo
+
 from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository, _resolve_base_path, \
-    _relative_path_remote, _parse_extra_conf, _download_hdfs_file
-from mlflow.utils.file_utils import TempDir
+    _relative_path_remote, _parse_extra_conf, _download_hdfs_file, _parse_har_filesystem, \
+    HdfsArtifactRepositoryException, archive_artifacts
 
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
@@ -44,7 +47,7 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
     os.environ['MLFLOW_KERBEROS_USER'] = 'some_kerberos_user'
     os.environ['MLFLOW_HDFS_DRIVER'] = 'libhdfs3'
 
-    repo = HdfsArtifactRepository('hdfs:/some/maybe/path')
+    repo = HdfsArtifactRepository('hdfs:///some/maybe/path')
 
     with NamedTemporaryFile() as tmp_local_file:
         tmp_local_file.write(b'PyArrow Works')
@@ -77,7 +80,7 @@ def test_log_artifacts(hdfs_system_mock):
     os.environ['MLFLOW_KERBEROS_USER'] = 'some_kerberos_user'
     os.environ['MLFLOW_HDFS_DRIVER'] = 'libhdfs3'
 
-    repo = HdfsArtifactRepository('hdfs:/some_path/maybe/path')
+    repo = HdfsArtifactRepository('hdfs:///some_path/maybe/path')
 
     with TempDir() as root_dir:
         with open(root_dir.path("file_one.txt"), "w") as f:
@@ -111,10 +114,10 @@ def test_list_artifacts_root(hdfs_system_mock):
     expected = [FileInfo('model', True, 0)]
 
     hdfs_system_mock.return_value.ls.return_value = [{
-            'kind': 'directory',
-            'name': 'hdfs://host/some/path/model',
-            'size': 0,
-            }]
+        'kind': 'directory',
+        'name': 'hdfs://host/some/path/model',
+        'size': 0,
+    }]
 
     actual = repo.list_artifacts()
 
@@ -123,27 +126,27 @@ def test_list_artifacts_root(hdfs_system_mock):
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
 def test_list_artifacts_nested(hdfs_system_mock):
-    repo = HdfsArtifactRepository('hdfs:://host/some/path')
+    repo = HdfsArtifactRepository('hdfs://host/some/path')
 
     expected = [FileInfo('model/conda.yaml', False, 33),
                 FileInfo('model/model.pkl', False, 33),
                 FileInfo('model/MLmodel', False, 33)]
 
     hdfs_system_mock.return_value.ls.return_value = [{
-            'kind': 'file',
-            'name': 'hdfs://host/some/path/model/conda.yaml',
-            'size': 33,
-            },
-            {
-            'kind': 'file',
+        'kind': 'file',
+        'name': 'hdfs://host/some/path/model/conda.yaml',
+        'size': 33,
+    },
+        {
+        'kind': 'file',
             'name': 'hdfs://host/some/path/model/model.pkl',
             'size': 33,
-            },
-            {
-            'kind': 'file',
+    },
+        {
+        'kind': 'file',
             'name': 'hdfs://host/some/path/model/MLmodel',
             'size': 33,
-            }]
+    }]
 
     actual = repo.list_artifacts('model')
 
@@ -154,7 +157,7 @@ def test_list_artifacts_nested(hdfs_system_mock):
 def test_list_artifacts_empty_hdfs_dir(hdfs_system_mock):
     hdfs_system_mock.return_value.exists.return_value = False
 
-    repo = HdfsArtifactRepository('hdfs:/some_path/maybe/path')
+    repo = HdfsArtifactRepository('hdfs://some_path/maybe/path')
     actual = repo.list_artifacts()
     assert actual == []
 
@@ -171,7 +174,7 @@ def test_relative_path():
 
 def test_parse_extra_conf():
     assert _parse_extra_conf("fs.permissions.umask-mode=022,some_other.extra.conf=abcd") == \
-           {'fs.permissions.umask-mode': '022',
+        {'fs.permissions.umask-mode': '022',
             'some_other.extra.conf': 'abcd'}
     assert _parse_extra_conf(None) is None
 
@@ -191,3 +194,56 @@ def test_download_artifacts():
                             os.path.join(tmp_dir.path(), artifact_path))
         with open(os.path.join(tmp_dir.path(), artifact_path), "rb") as fd:
             assert expected_data == fd.read()
+
+
+@pytest.mark.parametrize("uri,expected_path,expected_uri",
+                         [("har://hdfs-root/user/j.doe/myarchive.har/",
+                           "har://hdfs-root/user/j.doe/myarchive.har",
+                           "har://hdfs-root/user/j.doe/myarchive.har/"),
+                          ("har://hdfs-root/user/j.doe/myarchive.har/subfolder",
+                           "har://hdfs-root/user/j.doe/myarchive.har",
+                           "har://hdfs-root/user/j.doe/myarchive.har/subfolder")])
+def test_har_resolve_connection_params(uri, expected_path, expected_uri):
+    path, port, computed_uri = _parse_har_filesystem(uri)
+    assert expected_path == path
+    assert 0 == port
+    assert expected_uri == computed_uri
+
+
+@pytest.mark.raises(HdfsArtifactRepositoryException)
+@pytest.mark.parametrize("uri", ["har:///hdfs-root/user/j.doe/blah",
+                                 "har:///hdfs-root/user/j.doe/har/"])
+def test_har_resolve_wrong_path(uri):
+    _parse_har_filesystem(uri)
+
+
+@mock.patch("subprocess.check_output")
+@mock.patch("mlflow.store.artifact.hdfs_artifact_repo.remove_folder")
+def test_archive_artifacts(mock_remove_folder, mock_checkoutput):
+    run_folder = "hdfs://root/user/j.doe/experiment/1/xxxyyy"
+    mock_hdfs_artifact_repo = mock.Mock(spec=HdfsArtifactRepository)
+    mock_hdfs_artifact_repo.list_artifacts.return_value = [
+        FileInfo("foo", True, 0), FileInfo("bar", True, 0)]
+    mock_hdfs_artifact_repo.host = "root"
+    mock_hdfs_artifact_repo.path = "{run_folder}/artifacts".format(run_folder=run_folder)
+    expected_har_path = "har://hdfs-root/user/j.doe/experiment/1/xxxyyy/artifacts.har"
+    expected_package_cmd = "hadoop archive -archiveName artifacts.har "\
+        "-p hdfs://root/user/j.doe/experiment/1/xxxyyy/artifacts foo bar "\
+        "hdfs://root/user/j.doe/experiment/1/xxxyyy"
+    assert expected_har_path == archive_artifacts(
+        mock_hdfs_artifact_repo, run_folder, "artifacts.har")
+    mock_remove_folder.assert_called_once()
+    mock_checkoutput.assert_called_once_with(shlex.split(expected_package_cmd))
+
+
+@mock.patch("mlflow.store.artifact.hdfs_artifact_repo.remove_folder")
+def test_archive_artifacts_empty_run(mock_remove_folder):
+    run_folder = "hdfs://root/user/j.doe/experiment/1/xxxyyyyyy"
+    mock_hdfs_artifact_repo = mock.Mock(spec=HdfsArtifactRepository)
+    mock_hdfs_artifact_repo.list_artifacts.return_value = []
+    mock_hdfs_artifact_repo.host = "root"
+    mock_hdfs_artifact_repo.path = "{run_folder}/artifacts".format(run_folder=run_folder)
+    expected_har_path = ""
+    assert expected_har_path == archive_artifacts(
+        mock_hdfs_artifact_repo, run_folder, "artifacts.har")
+    mock_remove_folder.assert_called_once()

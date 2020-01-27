@@ -230,6 +230,15 @@ class TrackingServiceClient(object):
             _validate_tag_name(tag.key)
         self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
 
+    def update_artifacts_location(self, run_id, artifact_path):
+        """
+        define a new path to store artifacts for a run
+
+        :param run_id: String ID of the run
+        :param artifact_path: overrides the experiment's default directory .
+        """
+        self.store.update_artifacts_location(run_id, artifact_path)
+
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
         Write a local file or directory to the remote ``artifact_uri``.
