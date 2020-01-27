@@ -9,7 +9,6 @@ import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import { message } from 'antd';
 import _ from 'lodash';
 
-
 class Utils {
   /**
    * Merge a runs parameters / metrics.
