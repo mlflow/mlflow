@@ -8,8 +8,8 @@ class DeleteExperimentModal extends Component {
   static propTypes = {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
-    experimentId: PropTypes.string,
-    experimentName: PropTypes.string,
+    experimentId: PropTypes.number.isRequired,
+    experimentName: PropTypes.string.isRequired,
     dispatch: PropTypes.func.isRequired,
   };
 

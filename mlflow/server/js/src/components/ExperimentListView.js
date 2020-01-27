@@ -22,8 +22,8 @@ export class ExperimentListView extends Component {
     height: undefined,
     searchInput: '',
     showDeleteExperimentModal: false,
-    selectedExperimentId: null,
-    selectedExperimentName: null,
+    selectedExperimentId: 0,
+    selectedExperimentName: '',
   };
 
   componentDidMount() {
@@ -42,21 +42,29 @@ export class ExperimentListView extends Component {
   };
 
   preventDefault = (ev) => ev.preventDefault();
+  
+  onSelectExperiment = (experimentId, experimentName) => {
+    this.setState({
+      selectedExperimentId: experimentId,
+      selectedExperimentName: experimentName,
+    });
+  }
 
   onDeleteExperiment = (ev) => {
     this.setState({
       showDeleteExperimentModal: true,
-      selectedExperimentId: ev.currentTarget.dataset.experimentid,
-      selectedExperimentName: ev.currentTarget.dataset.experimentname,
     });
+
+    const data = ev.currentTarget.dataset;
+    this.onSelectExperiment(parseInt(data.experimentid, 10), data.experimentname);
   }
 
   onCloseDeleteExperimentModal = () => {
     this.setState({
       showDeleteExperimentModal: false,
-      selectedExperimentId: null,
-      selectedExperimentName: null,
     });
+    // reset
+    this.onSelectExperiment(0, '');
   }
 
   render() {
