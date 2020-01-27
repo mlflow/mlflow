@@ -8,6 +8,7 @@ import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../Routes';
 import { Link } from 'react-router-dom';
 import DeleteExperimentModal from './modals/DeleteExperimentModal';
+import RenameExperimentModal from './modals/RenameExperimentModal';
 
 
 export class ExperimentListView extends Component {
@@ -22,6 +23,7 @@ export class ExperimentListView extends Component {
     height: undefined,
     searchInput: '',
     showDeleteExperimentModal: false,
+    showRenameExperimentModal: false,
     selectedExperimentId: 0,
     selectedExperimentName: '',
   };
@@ -59,9 +61,26 @@ export class ExperimentListView extends Component {
     this.onSelectExperiment(parseInt(data.experimentid, 10), data.experimentname);
   }
 
+  onRenameExperiment = (ev) => {
+    this.setState({
+      showRenameExperimentModal: true,
+    });
+
+    const data = ev.currentTarget.dataset;
+    this.onSelectExperiment(parseInt(data.experimentid, 10), data.experimentname);
+  }
+
   onCloseDeleteExperimentModal = () => {
     this.setState({
       showDeleteExperimentModal: false,
+    });
+    // reset
+    this.onSelectExperiment(0, '');
+  }
+
+  onCloseRenameExperimentModal = () => {
+    this.setState({
+      showRenameExperimentModal: false,
     });
     // reset
     this.onSelectExperiment(0, '');
@@ -79,6 +98,12 @@ export class ExperimentListView extends Component {
         <DeleteExperimentModal
           isOpen={this.state.showDeleteExperimentModal}
           onClose={this.onCloseDeleteExperimentModal}
+          experimentId={this.state.selectedExperimentId}
+          experimentName={this.state.selectedExperimentName}
+        />
+        <RenameExperimentModal
+          isOpen={this.state.showRenameExperimentModal}
+          onClose={this.onCloseRenameExperimentModal}
           experimentId={this.state.selectedExperimentId}
           experimentName={this.state.selectedExperimentName}
         />
@@ -125,7 +150,9 @@ export class ExperimentListView extends Component {
                   {/* Edit/Rename Experiment Option */}
                   </Link>
                   <a
-                    onClick={() => {}}
+                    onClick={this.onRenameExperiment}
+                    data-experimentid={e.getExperimentId()}
+                    data-experimentname={e.getName()}
                     style={{ marginRight: 10 }}
                   >
                     <Icon type="edit" />
