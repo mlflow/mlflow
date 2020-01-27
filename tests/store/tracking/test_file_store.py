@@ -314,7 +314,7 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         run_id = self.exp_data[exp_id]['runs'][0]
-        fs.hard_delete_run(run_id)
+        fs._hard_delete_run(run_id)
         with self.assertRaises(MlflowException):
             fs.get_run(run_id)
         with self.assertRaises(MlflowException):

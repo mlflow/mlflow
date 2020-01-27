@@ -527,7 +527,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         tag = entities.RunTag('test tag', 'a boogie')
         self.store.set_tag(run.info.run_id, tag)
 
-        self.store.hard_delete_run(run.info.run_id)
+        self.store._hard_delete_run(run.info.run_id)
 
         with self.store.ManagedSessionMaker() as session:
             actual_run = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
