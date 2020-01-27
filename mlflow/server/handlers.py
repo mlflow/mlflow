@@ -15,7 +15,7 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
-    DeleteTag, SetExperimentTag, GetExperimentByName, HardDeleteRun
+    DeleteTag, SetExperimentTag, GetExperimentByName
 from mlflow.protos.model_registry_pb2 import ModelRegistryService, CreateRegisteredModel, \
     UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModelDetails, \
     GetLatestVersions, CreateModelVersion, UpdateModelVersion, DeleteModelVersion, \
@@ -275,16 +275,6 @@ def _delete_run():
     request_message = _get_request_message(DeleteRun())
     _get_tracking_store().delete_run(request_message.run_id)
     response_message = DeleteRun.Response()
-    response = Response(mimetype='application/json')
-    response.set_data(message_to_json(response_message))
-    return response
-
-
-@catch_mlflow_exception
-def _hard_delete_run():
-    request_message = _get_request_message(HardDeleteRun())
-    _get_tracking_store().hard_delete_run(request_message.run_id)
-    response_message = HardDeleteRun.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
     return response
@@ -647,7 +637,6 @@ HANDLERS = {
     CreateRun: _create_run,
     UpdateRun: _update_run,
     DeleteRun: _delete_run,
-    HardDeleteRun: _hard_delete_run,
     RestoreRun: _restore_run,
     LogParam: _log_param,
     LogMetric: _log_metric,

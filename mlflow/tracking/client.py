@@ -300,12 +300,6 @@ class MlflowClient(object):
         """
         self._tracking_client.delete_run(run_id)
 
-    def hard_delete_run(self, run_id):
-        """
-        Deletes a run with the given ID. This action is irreversible.
-        """
-        self._tracking_client.hard_delete_run(run_id)
-
     def restore_run(self, run_id):
         """
         Restores a deleted run with the given ID.

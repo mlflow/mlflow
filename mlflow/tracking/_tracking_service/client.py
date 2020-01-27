@@ -308,15 +308,6 @@ class TrackingServiceClient(object):
         """
         self.store.delete_run(run_id)
 
-    def hard_delete_run(self, run_id):
-        """
-        Deletes a run with the given ID. This action is irreversible.
-        """
-        run = self.get_run(run_id)
-        artifact_repo = get_artifact_repository(run.info.artifact_uri)
-        artifact_repo.delete_artifacts(run.info.artifact_uri)
-        self.store.hard_delete_run(run_id)
-
     def restore_run(self, run_id):
         """
         Restores a deleted run with the given ID.
