@@ -136,23 +136,22 @@ export class ExperimentListView extends Component {
                 const className =
                   `experiment-list-item ${active ? 'active-experiment-list-item' : ''}`;
                 return (
-                  <div key={experiment_id} className={`header-container ${className}`}>
+                  <div key={experiment_id} title={name}
+                    className={`header-container ${className}`}>
                     <Link
                       style={{ textDecoration: 'none', color: 'unset', width: '80%'}}
                       to={Routes.getExperimentPageRoute(experiment_id)}
                       onClick={active ? ev => ev.preventDefault() : ev => ev}
                     >
-                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
-                      title={name}
-                    >
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {name}
                     </div>
                   {/* Edit/Rename Experiment Option */}
                   </Link>
                   <a
                     onClick={this.onRenameExperiment}
-                    data-experimentid={e.getExperimentId()}
-                    data-experimentname={e.getName()}
+                    data-experimentid={experiment_id}
+                    data-experimentname={name}
                     style={{ marginRight: 10 }}
                   >
                     <Icon type="edit" />
