@@ -61,3 +61,7 @@ input.experiment-list-search-input[type="text"]:focus{
   margin-left: 96px;
   cursor: pointer;
 }
+
+.rename-experiment-form {
+  width: 480px;
+}
