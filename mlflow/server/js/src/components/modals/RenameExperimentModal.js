@@ -43,7 +43,7 @@ export class RenameExperimentModal extends Component {
    * of how / when this method is called.
    */
   handleSubmit = (values, {setSubmitting, setStatus}) => {
-    const { newExperimentName } = values;
+    const { experimentName: newExperimentName } = values;
     this.setState({ isSubmittingState: true });
 
     return this.props.dispatch(
@@ -54,7 +54,6 @@ export class RenameExperimentModal extends Component {
       }).catch((err) => {
         this.setState({ isSubmittingState: false });
         setSubmitting(false);
-        // TODO: ??
         setStatus({errorMsg: err.getUserVisibleError()});
       });
   };
