@@ -4,19 +4,21 @@ import { Button, Modal } from 'react-bootstrap';
 import { withRouter } from 'react-router-dom';
 import { Formik, Field } from 'formik';
 
-import { validationSchema } from './validation';
+import { getValidationSchema } from './validation';
 import TextField from '../fields/TextField';
 
 /**
- * Component that renders a form for updating a run's name. Expects to be 'closeable'
- * (i.e. rendered within a closeable dialog) and so accepts an `onClose` callback.
+ * Component that renders a form for updating a run's or experiment's name.
+ * Expects to be 'closeable' (i.e. rendered within a closeable dialog) and
+ * so accepts an `onClose` callback.
  */
-class RenameRunFormView extends Component {
+class RenameFormView extends Component {
   static propTypes = {
     onSubmit: PropTypes.func.isRequired,
     onClose: PropTypes.func.isRequired,
-    runName: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
     experimentId: PropTypes.number.isRequired,
+    type: PropTypes.string.isRequired,
   }
 
   renderForm = (renderProps) => {
@@ -29,16 +31,16 @@ class RenameRunFormView extends Component {
     const handleFocus = (event) => {
       event.target.select();
     };
-    return <form onSubmit={handleSubmit} className="rename-run-form">
+    return <form onSubmit={handleSubmit} className={`rename-${this.props.type}-form`}>
       <Modal.Header>
         <Modal.Title>
-          Rename Run
+          Rename {this.props.type}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Field
-            name="newRunName"
-            label="New run name:"
+            name={`${this.props.type}Name`}
+            label={`New ${this.props.type} name:`}
             autoFocus
             onFocus={handleFocus}
             autoComplete="off"
@@ -72,9 +74,10 @@ class RenameRunFormView extends Component {
   }
 
   render() {
+    const validationSchema = getValidationSchema(this.props.type);
     return (<div>
       <Formik
-        initialValues={{newRunName: this.props.runName}}
+        initialValues={{[`${this.props.type}Name`]: this.props.name}}
         validationSchema={validationSchema}
         onSubmit={this.props.onSubmit}
         render={this.renderForm}/>
@@ -82,4 +85,4 @@ class RenameRunFormView extends Component {
   }
 }
 
-export default withRouter(RenameRunFormView);
+export default withRouter(RenameFormView);

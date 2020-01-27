@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 
-import RenameRunFormView from './RenameRunFormView';
+import RenameFormView from './RenameFormView';
 
 import Utils from '../../utils/Utils';
 import ReactModal from 'react-modal';
@@ -56,7 +56,7 @@ export class RenameRunModal extends Component {
       setSubmitting,
       setStatus,
     }) => {
-    const { newRunName } = values;
+    const { runName: newRunName } = values;
     this.setState({ isSubmittingState: true });
     const tagKey = Utils.runNameTag;
     const setTagRequestId = getUUID();
@@ -75,11 +75,15 @@ export class RenameRunModal extends Component {
 
   renderForm() {
     const { runName, experimentId } = this.props;
-    return (<RenameRunFormView
-      onSubmit={this.handleSubmit}
-      onClose={this.onRequestCloseHandler}
-      runName={runName}
-      experimentId={experimentId}/>);
+    return (
+      <RenameFormView
+        onSubmit={this.handleSubmit}
+        onClose={this.onRequestCloseHandler}
+        name={runName}
+        experimentId={experimentId}
+        type={"run"}
+      />
+    );
   }
 
   onRequestCloseHandler() {
