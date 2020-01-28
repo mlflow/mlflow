@@ -6,7 +6,7 @@ Create Date: 2019-10-11 15:55:10.853449
 
 """
 import logging
-from alembic import op 
+from alembic import op
 from mlflow.entities import RunStatus, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking.dbmodels.models import SqlRun, SourceTypes
