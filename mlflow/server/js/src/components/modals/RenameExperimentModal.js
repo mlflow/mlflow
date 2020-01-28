@@ -1,30 +1,12 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
+import { Modal } from 'antd';
 
-import RenameFormView from './RenameFormView';
+import { RenameFormView, NEW_NAME_FIELD } from './RenameFormView';
+import { updateExperimentApi, openErrorModal } from '../../Actions';
+import Utils from '../../utils/Utils';
 
-import ReactModal from 'react-modal';
-
-import { updateExperimentApi } from '../../Actions';
-
-
-const modalStyles = {
-  content: {
-    top: '50%',
-    left: '50%',
-    right: 'auto',
-    bottom: 'auto',
-    marginRight: '-50%',
-    transform: 'translate(-50%, -50%)',
-    padding: 0,
-  },
-  overlay: {
-    backgroundColor: 'rgba(33, 37, 41, .75)',
-    /* otherwise bootstrap's active button zIndex will take over */
-    zIndex: 3,
-  },
-};
 
 export class RenameExperimentModal extends Component {
   state = {
@@ -39,55 +21,68 @@ export class RenameExperimentModal extends Component {
     dispatch: PropTypes.func.isRequired,
   };
 
-  /**
-   * Form-submission handler with method signature as prescribed by Formik.
-   * See https://github.com/jaredpalmer/formik#how-form-submission-works for an explanation
-   * of how / when this method is called.
-   */
-  handleSubmit = (values, {setSubmitting, setStatus}) => {
-    const { experimentName: newExperimentName } = values;
-    this.setState({ isSubmittingState: true });
+  handleRenameExperiment = () => {
+    this.form.validateFields((err, values) => {
+      if (!err) {
+        this.setState({ isSubmittingState: true });
+        const newExperimentName = values[NEW_NAME_FIELD];
 
-    return this.props.dispatch(
-      updateExperimentApi(this.props.experimentId, newExperimentName)).then(() => {
-        this.setState({ isSubmittingState: false });
-        setSubmitting(false);
-        this.onRequestCloseHandler();
-      }).catch((err) => {
-        this.setState({ isSubmittingState: false });
-        setSubmitting(false);
-        setStatus({errorMsg: err.getUserVisibleError()});
-      });
+        this.props.dispatch(updateExperimentApi(this.props.experimentId, newExperimentName))
+        .then(this.resetAndClearModalForm)
+        .then(this.onRequestCloseHandler)
+        .catch(this.handleSubmitFailure);
+      }
+    });
+  }
+
+  resetAndClearModalForm = () => {
+    this.setState({ isSubmittingState: false });
+    this.form.resetFields();
   };
 
+  handleRegistrationFailure = (e) => {
+    this.setState({ isSubmittingState: false });
+    Utils.logErrorAndNotifyUser(e);
+    this.props.dispatch(openErrorModal('While renaming an experiment, an error occurred.'));
+  };
 
   onRequestCloseHandler = () => {
     if (!this.state.isSubmittingState) {
+      this.resetAndClearModalForm();
       this.props.onClose();
     }
   }
 
+  saveFormRef = (form) => {
+    this.form = form;
+  };
+
+  saveFormComponentRef = (formComponent) => {
+    this.formComponent = formComponent;
+  };
+
   render() {
-    const { isOpen, experimentId, experimentName } = this.props;
+    const { isSubmittingState } = this.state;
+    const { isOpen, experimentName } = this.props;
     return (
-    <ReactModal
-      isOpen={isOpen}
-      onRequestClose={this.onRequestCloseHandler}
-      style={modalStyles}
-      closeTimeoutMS={200}
-      appElement={document.body}
-    >
-      <a className="modal-close-link">
-        <i onClick={this.onRequestCloseHandler} className="fas fa-times"/>
-      </a>
-      <RenameFormView
-        onSubmit={this.handleSubmit}
-        onClose={this.onRequestCloseHandler}
-        name={experimentName}
-        experimentId={experimentId}
-        type={"experiment"}
-      />
-    </ReactModal>);
+      <Modal
+        title='Rename Experiment'
+        width={540}
+        visible={isOpen}
+        onOk={this.handleRenameExperiment}
+        okText='Save'
+        confirmLoading={isSubmittingState}
+        onCancel={this.onRequestCloseHandler}
+        centered
+      >
+        <RenameFormView
+          type='experiment'
+          // name={experimentName}
+          ref={this.saveFormRef}
+          wrappedComponentRef={this.saveFormComponentRef}
+        />
+      </Modal>
+    );
   }
 }
 
@@ -99,3 +94,4 @@ const mapDispatchToProps = (dispatch, ownProps) => {
 };
 
 export default connect(null, mapDispatchToProps)(RenameExperimentModal);
+

@@ -1,43 +1,19 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
+import { Modal } from 'antd';
 
-import RenameFormView from './RenameFormView';
-
+import { RenameFormView, NEW_NAME_FIELD } from './RenameFormView';
+import { setTagApi, getUUID, openErrorModal } from '../../Actions';
 import Utils from '../../utils/Utils';
-import ReactModal from 'react-modal';
-
-import { setTagApi, getUUID } from '../../Actions';
-
-
-const modalStyles = {
-  content: {
-    top: '50%',
-    left: '50%',
-    right: 'auto',
-    bottom: 'auto',
-    marginRight: '-50%',
-    transform: 'translate(-50%, -50%)',
-    padding: 0,
-  },
-  overlay: {
-    backgroundColor: 'rgba(33, 37, 41, .75)',
-  },
-};
 
 export class RenameRunModal extends Component {
-  constructor(props) {
-    super(props);
-    this.handleSubmit = this.handleSubmit.bind(this);
-    this.onRequestCloseHandler = this.onRequestCloseHandler.bind(this);
-  }
-
   state = {
     isSubmittingState: false,
   };
 
   static propTypes = {
-    open: PropTypes.bool,
+    isOpen: PropTypes.bool,
     experimentId: PropTypes.number.isRequired,
     runUuid: PropTypes.string.isRequired,
     runName: PropTypes.string.isRequired,
@@ -45,68 +21,71 @@ export class RenameRunModal extends Component {
     dispatch: PropTypes.func.isRequired,
   };
 
-  /**
-   * Form-submission handler with method signature as prescribed by Formik.
-   * See https://github.com/jaredpalmer/formik#how-form-submission-works for an explanation
-   * of how / when this method is called.
-   */
-  handleSubmit = (
-    values,
-    {
-      setSubmitting,
-      setStatus,
-    }) => {
-    const { runName: newRunName } = values;
-    this.setState({ isSubmittingState: true });
-    const tagKey = Utils.runNameTag;
-    const setTagRequestId = getUUID();
-    return this.props.dispatch(
-      setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId)).then(() => {
-        this.setState({ isSubmittingState: false });
-        setSubmitting(false);
-        this.onRequestCloseHandler();
-      }).catch((err) => {
-        this.setState({ isSubmittingState: false });
-        setSubmitting(false);
-        setStatus({errorMsg: err.getUserVisibleError()});
-      });
-  };
+  handleRenameRun = () => {
+    this.form.validateFields((err, values) => {
+      if (!err) {
+        this.setState({ isSubmittingState: true });
+        const newRunName = values[NEW_NAME_FIELD];
+        const tagKey = Utils.runNameTag;
+        const setTagRequestId = getUUID();
 
-
-  renderForm() {
-    const { runName, experimentId } = this.props;
-    return (
-      <RenameFormView
-        onSubmit={this.handleSubmit}
-        onClose={this.onRequestCloseHandler}
-        name={runName}
-        experimentId={experimentId}
-        type={"run"}
-      />
-    );
+        this.props.dispatch(setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId))
+          .then(this.resetAndClearModalForm)
+          .then(this.onRequestCloseHandler)
+          .then(this.handleSubmitFailure);
+      }
+    });
   }
 
-  onRequestCloseHandler() {
+  resetAndClearModalForm = () => {
+    this.setState({ isSubmittingState: false });
+    this.form.resetFields();
+  };
+
+  handleRegistrationFailure = (e) => {
+    this.setState({ isSubmittingState: false });
+    Utils.logErrorAndNotifyUser(e);
+    this.props.dispatch(openErrorModal('While renaming a run, an error occurred.'));
+  };
+
+  onRequestCloseHandler = () => {
     if (!this.state.isSubmittingState) {
+      this.resetAndClearModalForm();
       this.props.onClose();
     }
   }
 
+  saveFormRef = (form) => {
+    this.form = form;
+  };
+
+  saveFormComponentRef = (formComponent) => {
+    this.formComponent = formComponent;
+  };
+
   render() {
-    const { open } = this.props;
+    const { isSubmittingState } = this.state;
+    const { isOpen, runName } = this.props;
+
     return (
-    <ReactModal
-      isOpen={open}
-      onRequestClose={this.onRequestCloseHandler}
-      style={modalStyles}
-      closeTimeoutMS={200}
-      appElement={document.body}
-    >
-      <a className="modal-close-link">
-        <i onClick={this.onRequestCloseHandler} className="fas fa-times"/>
-      </a>
-      {this.renderForm()}
-    </ReactModal>);
+      <Modal
+        title='Rename Run'
+        width={540}
+        visible={isOpen}
+        onOk={this.handleRenameRun}
+        okText='Save'
+        confirmLoading={isSubmittingState}
+        onCancel={this.onRequestCloseHandler}
+        centered
+      >
+        <RenameFormView
+          type='run'
+          // name={runName}
+          ref={this.saveFormRef}
+          wrappedComponentRef={this.saveFormComponentRef}
+        />
+      </Modal>
+    );
   }
 }
 

@@ -147,7 +147,7 @@ class RunView extends Component {
             experimentId={this.props.experimentId}
             onClose={this.hideRenameRunModal}
             runName={this.props.runName}
-            open={this.state.showRunRenameModal} />
+            isOpen={this.state.showRunRenameModal} />
         </div>
 
         {/* Metadata List */}
