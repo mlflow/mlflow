@@ -28,13 +28,6 @@ new_run_statuses = [
     RunStatus.to_string(RunStatus.KILLED)
 ]
 
-previous_run_statuses = [
-    RunStatus.to_string(RunStatus.SCHEDULED),
-    RunStatus.to_string(RunStatus.FAILED),
-    RunStatus.to_string(RunStatus.FINISHED),
-    RunStatus.to_string(RunStatus.RUNNING)
-]
-
 # Certain SQL backends (e.g., SQLite) do not preserve CHECK constraints during migrations.
 # For these backends, CHECK constraints must be specified as table arguments. Here, we define
 # the collection of CHECK constraints that should be preserved when performing the migration.
