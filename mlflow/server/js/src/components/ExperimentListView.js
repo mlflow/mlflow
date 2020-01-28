@@ -159,7 +159,7 @@ export class ExperimentListView extends Component {
                   {/* Delete Experiment option */}
                   <a
                     onClick={this.onDeleteExperiment}
-                    disabled={experiment_id == this.props.activeExperimentId}
+                    disabled={active}
                     data-experimentid={experiment_id}
                     data-experimentname={name}
                   >

@@ -53,7 +53,7 @@ test('If button to delete experiment is pressed then open DeleteExperimentModal'
   // mock event that is passed when clicking the link
   const mockedExperiment = Fixtures.experiments[0];
   const mockedEvent = { currentTarget: { dataset: {
-    experimentid: mockedExperiment.experiment_id, 
+    experimentid: mockedExperiment.experiment_id,
     experimentname: mockedExperiment.name,
   }} };
   deleteLink.simulate('click', mockedEvent);
@@ -72,7 +72,7 @@ test('If button to edit experiment is pressed then open RenameExperimentModal', 
   // mock event that is passed when clicking the link
   const mockedExperiment = Fixtures.experiments[0];
   const mockedEvent = { currentTarget: { dataset: {
-    experimentid: mockedExperiment.experiment_id, 
+    experimentid: mockedExperiment.experiment_id,
     experimentname: mockedExperiment.name,
   }} };
   editLink.simulate('click', mockedEvent);
