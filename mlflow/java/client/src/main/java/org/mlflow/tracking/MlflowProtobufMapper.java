@@ -137,16 +137,15 @@ class MlflowProtobufMapper {
   }
 
   String makeUpdateModelVersion(String modelName, long version, String stage) {
-
     RegisteredModel.Builder modelBuilder = RegisteredModel.newBuilder()
             .setName(modelName);
 
-    ModelVersion.Builder modelVerionBuilder = ModelVersion.newBuilder()
+    ModelVersion.Builder modelVersionBuilder = ModelVersion.newBuilder()
             .setVersion(version)
             .setRegisteredModel(modelBuilder);
 
     UpdateModelVersion.Builder builder = UpdateModelVersion.newBuilder()
-            .setModelVersion(modelVerionBuilder)
+            .setModelVersion(modelVersionBuilder)
             .setStage(stage);
 
     return print(builder);
