@@ -130,10 +130,6 @@ export class MetricsPlotPanel extends React.Component {
 
   handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
 
-  showPopover = () => this.popoverRef.current.setState({ popoverVisible: true });
-
-  hidePopover = () => this.popoverRef.current.setState({ popoverVisible: false });
-
   updatePopover = (data) => {
     this.isClicked = !this.isClicked;
 
@@ -173,7 +169,6 @@ export class MetricsPlotPanel extends React.Component {
       selectedMetricKeys,
       yAxisLogScale,
       lineSmoothness,
-      popoverVisible,
     } = this.state;
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
@@ -198,10 +193,8 @@ export class MetricsPlotPanel extends React.Component {
             shouldOptimisticallyRender={historyRequestIds.length === 0}
         >
           <RunLinksPopover
-            visible={popoverVisible}
             experimentId={experimentId}
             ref={this.popoverRef}
-            onCloseClick={this.hidePopover}
           />
           <MetricsPlotView
             runUuids={runUuids}
@@ -214,7 +207,6 @@ export class MetricsPlotPanel extends React.Component {
             isComparing={MetricsPlotPanel.isComparing(location.search)}
             yAxisLogScale={yAxisLogScale}
             lineSmoothness={lineSmoothness}
-            popoverVisible={popoverVisible}
             onClick={this.updatePopover}
             onRelayout={() => {
               this.isClicked = false;

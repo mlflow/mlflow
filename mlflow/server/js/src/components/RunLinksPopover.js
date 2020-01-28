@@ -7,7 +7,6 @@ import Routes from '../Routes';
 class RunLinksPopover extends React.Component {
   static propTypes = {
     experimentId: PropTypes.string.isRequired,
-    onCloseClick: PropTypes.func.isRequired,
   };
 
   constructor(props) {
