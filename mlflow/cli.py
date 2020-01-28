@@ -21,7 +21,6 @@ from mlflow import tracking
 from mlflow.server import _run_server
 from mlflow.server.handlers import initialize_backend_stores, _get_tracking_store
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-from mlflow.store.tracking.dbmodels.models import SqlRun
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
