@@ -11,7 +11,6 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking.dbmodels.models import SqlRun, SourceTypes
 from sqlalchemy import CheckConstraint, Enum
 
-
 # revision identifiers, used by Alembic.
 revision = 'cfd24bdc0731'
 down_revision = '2b4d017a5e9b'
@@ -40,7 +39,7 @@ check_constraint_table_args = [
 
 def upgrade():
     with op.batch_alter_table("runs", table_args=check_constraint_table_args) as batch_op:
-        # Define a new "status" constraint via the SqlAlchemy `Enum` type. Specify
+        # Transform the "status" column to an `Enum` and define a new check constraint. Specify
         # `native_enum=False` to create a check constraint rather than a
         # database-backend-dependent enum (see https://docs.sqlalchemy.org/en/13/core/
         # type_basics.html#sqlalchemy.types.Enum.params.native_enum)
