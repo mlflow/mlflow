@@ -752,7 +752,8 @@ public class MlflowClient {
     String downloadUri = getModelVersionDownloadUri(modelName,
             version);
 
-    CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null, hostCredsProvider);
+    CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null,
+            hostCredsProvider);
     return repository.downloadArtifactUri(downloadUri);
   }
 
