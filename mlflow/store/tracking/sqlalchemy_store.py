@@ -434,6 +434,13 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             session.delete(run)
 
+    def _get_deleted_runs(self):
+        with self.ManagedSessionMaker() as session:
+            return session\
+                .query(SqlRun.run_uuid) \
+                .filter(SqlRun.lifecycle_stage == 'deleted') \
+                .all()
+
     def log_metric(self, run_id, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         is_nan = math.isnan(metric.value)

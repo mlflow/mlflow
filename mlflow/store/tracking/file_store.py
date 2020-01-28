@@ -324,6 +324,9 @@ class FileStore(AbstractStore):
         shutil.rmtree(os.path.join(run_dir, FileStore.PARAMS_FOLDER_NAME))
         shutil.rmtree(os.path.join(run_dir, FileStore.TAGS_FOLDER_NAME))
 
+    def _get_deleted_runs(self):
+        raise MlflowException("Not implemented yet")
+
     def restore_run(self, run_id):
         run_info = self._get_run_info(run_id)
         if run_info is None:

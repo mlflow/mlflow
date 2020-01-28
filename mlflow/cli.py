@@ -299,11 +299,7 @@ def gc(backend_store_uri, run_ids):
     """
     backend_store = _get_tracking_store(backend_store_uri, None)
     if not run_ids:
-        with backend_store.ManagedSessionMaker() as session:
-            run_ids = session\
-                .query(SqlRun.run_uuid)\
-                .filter(SqlRun.lifecycle_stage == 'deleted')\
-                .all()
+        run_ids = backend_store._get_deleted_runs()
     else:
         run_ids = run_ids.split(',')
 
