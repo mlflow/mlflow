@@ -140,6 +140,22 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     return listArtifacts(null);
   }
 
+  /**
+   * Only available in the CliBasedArtifactRepository. Downloads an artifact to the local
+   * filesystem when provided with an artifact uri. This method should not be used directly
+   * by the user. Please use {@link org.mlflow.tracking.MlflowClient}
+   *
+   * @param artifactUri Artifact uri
+   * @return Directory/file of the artifact
+   */
+  public File downloadArtifactUri(String artifactUri) {
+    checkMlflowAccessible();
+    String tag = "download artifacts for " + artifactUri;
+    List<String> command = Lists.newArrayList("download", "--artifact-uri", artifactUri);
+    String localPath = forkMlflowProcess(command, tag).trim();
+    return new File(localPath);
+  }
+
   /** Parses a list of JSON FileInfos, as returned by 'mlflow artifacts list'. */
   private List<Service.FileInfo> parseFileInfos(String json) {
     // The protobuf deserializer doesn't allow us to directly deserialize a list, so we

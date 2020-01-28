@@ -4,10 +4,10 @@ import com.google.common.collect.Lists;
 import org.apache.http.client.utils.URIBuilder;
 import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
+import org.mlflow.artifacts.CliBasedArtifactRepository;
 import org.mlflow.tracking.creds.*;
 import org.mlflow.artifacts.ArtifactRepository;
 import org.mlflow.artifacts.ArtifactRepositoryFactory;
-import org.mlflow.utils.CliCommand;
 
 import javax.annotation.Nonnull;
 import java.io.File;
@@ -650,6 +650,10 @@ public class MlflowClient {
   // ********************
 
   /**
+   * :: Experimental ::
+   *
+   * This API may change or be removed in a future release without warning.
+   *
    * Return the latest model version for each stage.
    * The current available stages are: [None, Staging, Production, Archived].
    *
@@ -673,6 +677,10 @@ public class MlflowClient {
   }
 
   /**
+   * :: Experimental ::
+   *
+   * This API may change or be removed in a future release without warning.
+   *
    * Return the latest model version for each stage requested.
    * The current available stages are: [None, Staging, Production, Archived].
    *
@@ -698,13 +706,15 @@ public class MlflowClient {
                                                       @Nonnull Iterable<String> stages) {
     String json = sendPost("registered-models/get-latest-versions",
             mapper.makeGetLatestVersion(modelName, stages));
-
     GetLatestVersions.Response response =  mapper.toGetLatestVersionsResponse(json);
-
     return response.getModelVersionsDetailedList();
   }
 
   /**
+   * :: Experimental ::
+   *
+   * This API may change or be removed in a future release without warning.
+   *
    * Return the model URI containing for the given model version. The model URI can be used
    * to download the model version artifacts.
    *
@@ -723,6 +733,10 @@ public class MlflowClient {
   }
 
   /**
+   * :: Experimental ::
+   *
+   * This API may change or be removed in a future release without warning.
+   *
    * Return a local file or directory containing all artifacts within the given registered model
    * version. The method will download the model version artifacts to the local file system.
    *
@@ -738,16 +752,15 @@ public class MlflowClient {
     String downloadUri = getModelVersionDownloadUri(modelName,
             version);
 
-    CliCommand command = new CliCommand(
-            Lists.newArrayList("artifacts", "download",
-                    "--artifact-uri", downloadUri),
-            hostCredsProvider);
-
-    String localFilePath = command.call();
-    return new File(localFilePath.trim());
+    CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null, hostCredsProvider);
+    return repository.downloadArtifactUri(downloadUri);
   }
 
   /**
+   * :: experimental ::
+   *
+   * this api may change or be removed in a future release without warning.
+   *
    * Return a local file or directory containing all artifacts within the latest registered
    * model version in the given stage. The method will download the model version artifacts
    * to the local file system.
@@ -762,7 +775,7 @@ public class MlflowClient {
    * @param stage The name of the stage
    * @return A local file or directory ({@ java.io.File}) containing model artifacts
    */
-  public File downloadLatestModelVersion(@Nonnull String modelName,@Nonnull String stage) {
+  public File downloadLatestModelVersion(@Nonnull String modelName, @Nonnull String stage) {
       List<ModelVersionDetailed> versions = getLatestVersions(modelName, Lists.newArrayList(stage));
 
       if (versions.size() < 1) {

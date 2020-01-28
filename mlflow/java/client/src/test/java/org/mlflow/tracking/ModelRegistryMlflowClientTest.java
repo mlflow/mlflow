@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mlflow.tracking.TestUtils.createExperimentName;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 
 public class ModelRegistryMlflowClientTest {
     private static final Logger logger = LoggerFactory.getLogger(ModelRegistryMlflowClientTest.class);
@@ -61,7 +63,6 @@ public class ModelRegistryMlflowClientTest {
     @AfterTest
     public void after() throws InterruptedException {
         testClientProvider.cleanupClientAndServer();
-        Mockito.reset(client);
     }
 
     @Test
@@ -101,6 +102,15 @@ public class ModelRegistryMlflowClientTest {
         String downloadedContent = FileUtils.readFileToString(tempDownloadFile,
                 StandardCharsets.UTF_8);
         Assert.assertEquals(content, downloadedContent);
+    }
+
+    @Test(expectedExceptions = MlflowClientException.class)
+    public void testDownloadLatestModelVersionWhenMoreThanOneVersionIsReturned() {
+        List<ModelVersionDetailed> modelVersions = Lists.newArrayList();
+        modelVersions.add(ModelVersionDetailed.newBuilder().build());
+        modelVersions.add(ModelVersionDetailed.newBuilder().build());
+        doReturn(modelVersions).when(client).getLatestVersions(any(), any());
+        client.downloadLatestModelVersion(modelName, "None");
     }
 
     private void validateDetailedModelVersion(ModelVersionDetailed details, String modelName,
