@@ -86,10 +86,11 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
                         "momentum": str(momentum),
                         "seed": seed},
                     experiment_id=experiment_id,
-                    use_conda=False  # We are already in the environment
+                    use_conda=False,  # We are already in the environment
+                    synchronous=False  # Allow the run to fail if a model is not properly created
                 )
-                succeded = p.wait()
-            if succeded:
+                succeeded = p.wait()
+            if succeeded:
                 training_run = tracking_client.get_run(p.run_id)
                 metrics = training_run.data.metrics
                 # cap the loss at the loss of the null model
