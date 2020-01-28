@@ -545,7 +545,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         run = self._run_factory()
         deleted_run_ids = self.store._get_deleted_runs()
         self.assertEqual([], deleted_run_ids)
-        
+
         self.store.delete_run(run.info.run_uuid)
         deleted_run_ids = self.store._get_deleted_runs()
         self.assertEqual([(run.info.run_uuid,)], deleted_run_ids)
