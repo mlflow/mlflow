@@ -53,13 +53,13 @@ def upgrade():
     except Exception as e: # pylint: disable=broad-except
         _logger.warning(
             "Failed to drop check constraint. Dropping check constraints may not be supported"
-            " by your SQL database.\nException content: %s", e)
+            " by your SQL database. Exception content: %s", e)
 
     with op.batch_alter_table("runs", table_args=check_constraint_table_args) as batch_op:
         # Define a new "status" constraint via the SqlAlchemy `Enum` type. Specify
         # `native_enum=False` to create a check constraint rather than a
         # database-backend-dependent enum (see https://docs.sqlalchemy.org/en/13/core/
-        # type_basics.html#sqlalchemy.types.En
+        # type_basics.html#sqlalchemy.types.Enum.params.native_enum)
         batch_op.alter_column("status",
                               existing_type=String,
                               type_=Enum(*new_run_statuses, create_constraint=True,
