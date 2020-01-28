@@ -130,14 +130,14 @@ export class MetricsPlotPanel extends React.Component {
 
   handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
 
-  showPopover = () => this.popoverRef.current.setState({ popoverVisible: true })
+  showPopover = () => this.popoverRef.current.setState({ popoverVisible: true });
 
-  hidePopover = () => this.popoverRef.current.setState({ popoverVisible: false })
+  hidePopover = () => this.popoverRef.current.setState({ popoverVisible: false });
 
   updatePopover = (data) => {
     this.isClicked = !this.isClicked;
 
-    // Use setTimeout to ignore double click.
+    // Ignore double click.
     setTimeout(() => {
       if (this.isClicked) {
         this.isClicked = false;
@@ -216,6 +216,9 @@ export class MetricsPlotPanel extends React.Component {
             lineSmoothness={lineSmoothness}
             popoverVisible={popoverVisible}
             onClick={this.updatePopover}
+            onRelayout={() => {
+              this.isClicked = false;
+            }}
           />
         </RequestStateWrapper>
       </div>

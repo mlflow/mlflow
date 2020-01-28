@@ -22,6 +22,7 @@ export class MetricsPlotView extends React.Component {
     yAxisLogScale: PropTypes.bool.isRequired,
     lineSmoothness: PropTypes.number,
     onClick: PropTypes.func,
+    onRelayout: PropTypes.func,
   };
 
   static getLineLegend = (metricKey, runDisplayName, isComparing) => {
@@ -110,7 +111,7 @@ export class MetricsPlotView extends React.Component {
   };
 
   render() {
-    const { onClick } = this.props;
+    const { onClick, onRelayout } = this.props;
     const plotProps =
       this.props.chartType === CHART_TYPE_BAR
         ? this.getPlotPropsForBarChart()
@@ -128,6 +129,7 @@ export class MetricsPlotView extends React.Component {
             modeBarButtonsToRemove: ['sendDataToCloud'],
           }}
           onClick={onClick}
+          onRelayout={onRelayout}
         />
       </div>
     );
