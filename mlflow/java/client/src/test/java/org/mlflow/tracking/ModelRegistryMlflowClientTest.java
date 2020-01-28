@@ -39,7 +39,7 @@ public class ModelRegistryMlflowClientTest {
 
     @BeforeTest
     public void before() throws IOException {
-        client = Mockito.spy(testClientProvider.initializeClientAndSqlLiteBasedServer());
+        client = testClientProvider.initializeClientAndSqlLiteBasedServer();
         modelName = "Model-" + UUID.randomUUID().toString();
 
         String expName = createExperimentName();
@@ -70,6 +70,8 @@ public class ModelRegistryMlflowClientTest {
         // a list of stages
         List<ModelVersionDetailed> versions = client.getLatestVersions(modelName,
                 Lists.newArrayList("None"));
+        Assert.assertEquals(versions.size(), 1);
+
         validateDetailedModelVersion(versions.get(0), modelName, "None", 1);
 
         client.sendPatch("model-versions/update", mapper.makeUpdateModelVersion(modelName,
@@ -106,11 +108,14 @@ public class ModelRegistryMlflowClientTest {
 
     @Test(expectedExceptions = MlflowClientException.class)
     public void testDownloadLatestModelVersionWhenMoreThanOneVersionIsReturned() {
+        MlflowClient mockedClient = Mockito.spy(client);
+
         List<ModelVersionDetailed> modelVersions = Lists.newArrayList();
         modelVersions.add(ModelVersionDetailed.newBuilder().build());
         modelVersions.add(ModelVersionDetailed.newBuilder().build());
-        doReturn(modelVersions).when(client).getLatestVersions(any(), any());
-        client.downloadLatestModelVersion(modelName, "None");
+        doReturn(modelVersions).when(mockedClient).getLatestVersions(any(), any());
+
+        mockedClient.downloadLatestModelVersion(modelName, "None");
     }
 
     private void validateDetailedModelVersion(ModelVersionDetailed details, String modelName,
