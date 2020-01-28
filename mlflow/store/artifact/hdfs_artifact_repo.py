@@ -9,7 +9,6 @@ import shlex
 from six.moves import urllib
 
 from mlflow.entities import FileInfo
-from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import mkdir, relative_path_to_artifact_path
 
@@ -154,8 +153,12 @@ class HdfsArtifactRepository(ArtifactRepository):
             return local_dir
 
     def _download_file(self, remote_file_path, local_path):
-        raise MlflowException(
-            'This is not implemented. Should never be called.')
+        _, _, path = _resolve_connection_params(remote_file_path)
+        if path.endswith('/'):
+            path = path[:-1]
+        with hdfs_system(host=self.host, port=self.port) as hdfs:
+            local_path = os.path.join(local_path, os.path.normpath(path.split('/')[-1]))
+            _download_hdfs_file(hdfs, path, local_path)
 
 
 @contextmanager
