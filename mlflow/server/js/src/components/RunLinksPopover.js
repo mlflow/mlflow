@@ -1,37 +1,44 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import { Link } from 'react-router-dom';
 import { Popover } from 'antd';
+import Routes from '../Routes';
 
 class RunLinksPopover extends React.Component {
   static propTypes = {
-    x: PropTypes.number.isRequired,
-    y: PropTypes.number.isRequired,
-    visible: PropTypes.bool.isRequired,
+    experimentId: PropTypes.string.isRequired,
     onCloseClick: PropTypes.func.isRequired,
-    runsData: PropTypes.arrayOf(Object).isRequired,
   };
 
-  renderPopoverContent = () => {
-    const { runsData } = this.props;
+  constructor(props) {
+    super(props);
+    this.state = {
+      visible: false,
+      x: 0,
+      y: 0,
+      runsData: [],
+    };
+  }
+
+  renderContent = () => {
+    const { runsData } = this.state;
+    const { experimentId } = this.props;
     return (
       <div>
-        {runsData.map(({ runUuid, color }) => (
-          <p key={runUuid}>
-            <a href="" style={{ color }}>
-              {runUuid}
-            </a>
-          </p>
+        {runsData.map(({ name, runUuid, color }, index) => (
+          <Link key={`${runUuid}-${index}`} to={Routes.getRunPageRoute(experimentId, runUuid)}>
+            <p style={{ color }}>{name}</p>
+          </Link>
         ))}
       </div>
     );
   };
 
   renderTitle = () => {
-    const { onCloseClick } = this.props;
     return (
       <div>
         <span>Jump to the run</span>
-        <a onClick={onCloseClick} style={{ float: 'right' }}>
+        <a onClick={() => this.setState({ visible: false })} style={{ float: 'right' }}>
           <i className="fas fa-times"></i>
         </a>
       </div>
@@ -39,12 +46,12 @@ class RunLinksPopover extends React.Component {
   };
 
   render() {
-    const { x, y, visible } = this.props;
+    const { visible, x, y } = this.state;
     return (
       <Popover
-        content={this.renderPopoverContent()}
+        content={this.renderContent()}
         title={this.renderTitle()}
-        placement="topLeft"
+        placement="top"
         visible={visible}
       >
         {/* dummy div to control the position of the popover */}

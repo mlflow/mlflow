@@ -21,6 +21,7 @@ class MetricView extends Component {
   render() {
     const { experiment, runUuids, runNames, metricKey, location } = this.props;
     const plotMetricKeys = Utils.getPlotMetricKeysFromUrl(location.search);
+    const { experiment_id: experimentId } = experiment;
     return (
       <div className='MetricView'>
         <div className='header-container'>
@@ -31,7 +32,7 @@ class MetricView extends Component {
             title={<span>{plotMetricKeys.length > 1 ? 'Metrics' : plotMetricKeys[0]}</span>}
           />
         </div>
-        <MetricsPlotPanel {...{ runUuids, metricKey }} />
+        <MetricsPlotPanel {...{ experimentId, runUuids, metricKey }} />
       </div>
     );
   }

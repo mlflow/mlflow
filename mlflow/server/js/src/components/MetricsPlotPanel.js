@@ -18,6 +18,7 @@ export const CHART_TYPE_BAR = 'bar';
 
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
+    experimentId: PropTypes.string.isRequired,
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricKey: PropTypes.string.isRequired,
     // A map of { runUuid : { metricKey: value } }
@@ -43,15 +44,8 @@ export class MetricsPlotPanel extends React.Component {
       historyRequestIds: [],
       yAxisLogScale: false,
       lineSmoothness: 0,
-
-      // states for RunLinkPopover
-      popoverVisible: false,
-      popoverX: 0,
-      popoverY: 0,
-      clickedRunUuid: '',
-      clickedPointIndex: null,
-      runsData: [],
     };
+    this.popoverRef = React.createRef();
     this.isClicked = false;
     this.loadMetricHistory(this.props.runUuids, selectedMetricKeys);
   }
@@ -136,42 +130,42 @@ export class MetricsPlotPanel extends React.Component {
 
   handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
 
-  showPopover = () => this.setState({ popoverVisible: true })
+  showPopover = () => this.popoverRef.current.setState({ popoverVisible: true })
 
-  hidePopover = () => this.setState({ popoverVisible: false })
+  hidePopover = () => this.popoverRef.current.setState({ popoverVisible: false })
 
   updatePopover = (data) => {
     this.isClicked = !this.isClicked;
 
-    // Do not toggle the popover on double click.
+    // Use setTimeout to ignore double click.
     setTimeout(() => {
       if (this.isClicked) {
         this.isClicked = false;
-        this.setState({ isOpen: !this.state.isOpen});
-        const { popoverVisible, clickedRunUuid, clickedPointIndex } = this.state;
-        const { points, event } = data;
-        const clickedDifferentPoint =
-          points[0].data.runUuid !== clickedRunUuid || points[0].pointIndex !== clickedPointIndex;
+        const popover = this.popoverRef.current;
+        const { visible, x, y } = popover.state;
+        const { points, event: { clientX, clientY } } = data;
+        const clickedSamePoint = x === clientX && y === clientY;
 
-        // Data to pass the popover.
         const runsData = points.map((point) => ({
+          name: point.data.name,
           color: point.fullData.marker.color,
           runUuid: point.data.runUuid,
-        }));
-        this.setState({
-          popoverVisible: !popoverVisible || clickedDifferentPoint,
-          popoverX: event.clientX,
-          popoverY: event.clientY,
-          clickedRunUuid: points[0].data.runUuid,
-          clickedPointIndex: points[0].pointIndex,
+        })).reverse();
+
+        // Instead of setting state on MetricPlotPanel (current component),
+        // should call a method on the Popover directly via the ref.
+        popover.setState({
+          visible: !visible || !clickedSamePoint,
+          x: clientX,
+          y: clientY,
           runsData,
         });
       }
-    }, 300);  // The same delay value as the legend click.
+    }, 300);
   }
 
   render() {
-    const { runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
+    const { experimentId, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
     const {
       historyRequestIds,
       showPoint,
@@ -180,9 +174,6 @@ export class MetricsPlotPanel extends React.Component {
       yAxisLogScale,
       lineSmoothness,
       popoverVisible,
-      popoverX,
-      popoverY,
-      runsData,
     } = this.state;
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
@@ -208,9 +199,8 @@ export class MetricsPlotPanel extends React.Component {
         >
           <RunLinksPopover
             visible={popoverVisible}
-            x={popoverX - 20} // add offset to align the popover arrow to the clicked point.
-            y={popoverY}
-            runsData={runsData}
+            experimentId={experimentId}
+            ref={this.popoverRef}
             onCloseClick={this.hidePopover}
           />
           <MetricsPlotView

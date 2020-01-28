@@ -21,7 +21,6 @@ export class MetricsPlotView extends React.Component {
     isComparing: PropTypes.bool.isRequired,
     yAxisLogScale: PropTypes.bool.isRequired,
     lineSmoothness: PropTypes.number,
-    popoverVisible: PropTypes.bool,
     onClick: PropTypes.func,
   };
 
@@ -129,7 +128,6 @@ export class MetricsPlotView extends React.Component {
             modeBarButtonsToRemove: ['sendDataToCloud'],
           }}
           onClick={onClick}
-          onRelayout={console.log}
         />
       </div>
     );
