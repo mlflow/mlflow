@@ -24,11 +24,15 @@ class RunLinksPopover extends React.Component {
     const { experimentId } = this.props;
     return (
       <div>
-        {runsData.map(({ name, runUuid, color }, index) => (
-          <Link key={`${runUuid}-${index}`} to={Routes.getRunPageRoute(experimentId, runUuid)}>
-            <p style={{ color }}>{name}</p>
-          </Link>
-        ))}
+        {runsData.map(({ name, runUuid, color }, index) => {
+          const key = `${runUuid}-${index}`;
+          const to = Routes.getRunPageRoute(experimentId, runUuid);
+          return (
+            <Link key={key} to={to}>
+              <p style={{ color }}>{name}</p>
+            </Link>
+          );
+        })}
       </div>
     );
   };
@@ -38,7 +42,7 @@ class RunLinksPopover extends React.Component {
       <div>
         <span>Jump to the run</span>
         <a onClick={() => this.setState({ visible: false })} style={{ float: 'right' }}>
-          <i className="fas fa-times"></i>
+          <i className="fas fa-times" />
         </a>
       </div>
     );
@@ -53,7 +57,6 @@ class RunLinksPopover extends React.Component {
         placement="top"
         visible={visible}
       >
-        {/* dummy div to control the position of the popover */}
         <div
           style={{
             left: x,
