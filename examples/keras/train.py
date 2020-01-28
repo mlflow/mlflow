@@ -20,18 +20,9 @@ max_words = 1000
 batch_size = 32
 epochs = 5
 
-# save np.load
-np_load_old = np.load
-
-# modify the default parameters of np.load
-np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
-
 print('Loading data...')
 (x_train, y_train), (x_test, y_test) = reuters.load_data(num_words=max_words,
                                                          test_split=0.2)
-
-# restore np.load for future normal usage
-np.load = np_load_old
 
 print(len(x_train), 'train sequences')
 print(len(x_test), 'test sequences')
