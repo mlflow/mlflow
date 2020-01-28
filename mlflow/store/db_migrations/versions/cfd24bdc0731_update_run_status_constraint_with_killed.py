@@ -5,14 +5,12 @@ Revises: 89d4b8295536
 Create Date: 2019-10-11 15:55:10.853449
 
 """
-import logging
 from alembic import op
 from mlflow.entities import RunStatus, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking.dbmodels.models import SqlRun, SourceTypes
-from sqlalchemy import CheckConstraint, Enum, String
+from sqlalchemy import CheckConstraint, Enum
 
-_logger = logging.getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision = 'cfd24bdc0731'
@@ -41,27 +39,12 @@ check_constraint_table_args = [
 
 
 def upgrade():
-    # Attempt to drop any existing `status` constraints on the `runs` table. This operation
-    # may fail against certain backends with different classes of Exception. For example,
-    # in MySQL <= 8.0.15, dropping constraints produces an invalid `ALTER TABLE` expression.
-    # Further, in certain versions of sqlite, `ALTER` (which is invoked by `drop_constraint`)
-    # is unsupported on `CHECK` constraints. Accordingly, we catch the generic `Exception`
-    # object because the failure modes are not well-enumerated or consistent across database
-    # backends.
-    try:
-        op.drop_constraint(constraint_name="status", table_name="runs", type_="check")
-    except Exception as e: # pylint: disable=broad-except
-        _logger.warning(
-            "Failed to drop check constraint. Dropping check constraints may not be supported"
-            " by your SQL database. Exception content: %s", e)
-
     with op.batch_alter_table("runs", table_args=check_constraint_table_args) as batch_op:
         # Define a new "status" constraint via the SqlAlchemy `Enum` type. Specify
         # `native_enum=False` to create a check constraint rather than a
         # database-backend-dependent enum (see https://docs.sqlalchemy.org/en/13/core/
         # type_basics.html#sqlalchemy.types.Enum.params.native_enum)
         batch_op.alter_column("status",
-                              existing_type=String,
                               type_=Enum(*new_run_statuses, create_constraint=True,
                                          constraint_name="status", native_enum=False))
 
