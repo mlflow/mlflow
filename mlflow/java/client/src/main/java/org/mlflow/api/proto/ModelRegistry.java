@@ -883,6 +883,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * User that created this ``registered_model``
+     * NOTE: this field is not currently returned.
      * </pre>
      *
      * <code>optional string user_id = 4;</code>
@@ -891,6 +892,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * User that created this ``registered_model``
+     * NOTE: this field is not currently returned.
      * </pre>
      *
      * <code>optional string user_id = 4;</code>
@@ -899,6 +901,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * User that created this ``registered_model``
+     * NOTE: this field is not currently returned.
      * </pre>
      *
      * <code>optional string user_id = 4;</code>
@@ -1194,6 +1197,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * User that created this ``registered_model``
+     * NOTE: this field is not currently returned.
      * </pre>
      *
      * <code>optional string user_id = 4;</code>
@@ -1204,6 +1208,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * User that created this ``registered_model``
+     * NOTE: this field is not currently returned.
      * </pre>
      *
      * <code>optional string user_id = 4;</code>
@@ -1225,6 +1230,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * User that created this ``registered_model``
+     * NOTE: this field is not currently returned.
      * </pre>
      *
      * <code>optional string user_id = 4;</code>
@@ -2099,6 +2105,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * User that created this ``registered_model``
+       * NOTE: this field is not currently returned.
        * </pre>
        *
        * <code>optional string user_id = 4;</code>
@@ -2109,6 +2116,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * User that created this ``registered_model``
+       * NOTE: this field is not currently returned.
        * </pre>
        *
        * <code>optional string user_id = 4;</code>
@@ -2130,6 +2138,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * User that created this ``registered_model``
+       * NOTE: this field is not currently returned.
        * </pre>
        *
        * <code>optional string user_id = 4;</code>
@@ -2150,6 +2159,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * User that created this ``registered_model``
+       * NOTE: this field is not currently returned.
        * </pre>
        *
        * <code>optional string user_id = 4;</code>
@@ -2167,6 +2177,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * User that created this ``registered_model``
+       * NOTE: this field is not currently returned.
        * </pre>
        *
        * <code>optional string user_id = 4;</code>
@@ -2180,6 +2191,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * User that created this ``registered_model``
+       * NOTE: this field is not currently returned.
        * </pre>
        *
        * <code>optional string user_id = 4;</code>
