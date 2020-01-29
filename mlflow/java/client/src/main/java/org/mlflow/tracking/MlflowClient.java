@@ -749,8 +749,7 @@ public class MlflowClient {
    * @return A local file or directory ({@ java.io.File}) containing model artifacts
    */
   public File downloadModelVersion(@Nonnull String modelName, long version) {
-    String downloadUri = getModelVersionDownloadUri(modelName,
-            version);
+    String downloadUri = getModelVersionDownloadUri(modelName, version);
 
     CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null,
             hostCredsProvider);
