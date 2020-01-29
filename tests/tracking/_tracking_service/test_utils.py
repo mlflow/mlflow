@@ -289,4 +289,6 @@ def test_ensure_run_id_in_path():
     from mlflow.tracking._tracking_service.client import ensure_run_id_in_path
     assert ensure_run_id_in_path('path', 'run_id') == os.path.join('path', 'run_id')
     assert ensure_run_id_in_path('path/', 'run_id') == os.path.join('path', 'run_id')
-    assert ensure_run_id_in_path('path/run_id', 'run_id') == os.path.join('path', 'run_id')
+    # need to do this or windows, if the path already contains the run_id, we return it as is
+    # as forward slash work in windows too
+    assert ensure_run_id_in_path('path/run_id', 'run_id') == 'path/run_id'
