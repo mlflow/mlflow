@@ -77,7 +77,8 @@ export class RenameExperimentModal extends Component {
       >
         <RenameFormView
           type='experiment'
-          // name={experimentName}
+          name={experimentName}
+          visible={isOpen}
           ref={this.saveFormRef}
           wrappedComponentRef={this.saveFormComponentRef}
         />

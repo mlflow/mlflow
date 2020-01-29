@@ -80,7 +80,8 @@ export class RenameRunModal extends Component {
       >
         <RenameFormView
           type='run'
-          // name={runName}
+          name={runName}
+          visible={isOpen}
           ref={this.saveFormRef}
           wrappedComponentRef={this.saveFormComponentRef}
         />

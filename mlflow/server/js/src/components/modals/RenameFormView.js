@@ -12,6 +12,35 @@ class RenameFormViewComponent extends Component {
   static propTypes = {
     form: PropTypes.object.isRequired,
     type: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    visible: PropTypes.bool.isRequired,
+  }
+
+  componentDidUpdate(prevProps) {
+    this.autoFocus(prevProps);
+    this.resetFields(prevProps);
+  }
+
+  autoFocusInputRef = (inputToAutoFocus) => {
+    this.inputToAutoFocus = inputToAutoFocus;
+    inputToAutoFocus.focus();
+    inputToAutoFocus.select();
+  }
+
+  autoFocus = (prevProps) => {
+    if (prevProps.visible === false && this.props.visible === true) {
+      // focus on input field
+      this.inputToAutoFocus && this.inputToAutoFocus.focus();
+      // select text
+      this.inputToAutoFocus && this.inputToAutoFocus.select();
+    }
+  }
+
+  resetFields = (prevProps) => {
+    if (prevProps.name !== this.props.name) {
+      // reset input field to reset displayed initialValue
+      this.props.form.resetFields([NEW_NAME_FIELD]);
+    }
   }
 
   render() {
@@ -24,9 +53,10 @@ class RenameFormViewComponent extends Component {
             rules: [
               { required: true, message: `Please input a new name for the ${this.props.type}.`},
             ],
+            initialValue: this.props.name,
           })(<Input
               placeholder={`Input a ${this.props.type} name`}
-              autoFocus
+              ref={this.autoFocusInputRef}
             />)
           }
         </Form.Item>
