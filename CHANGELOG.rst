@@ -23,7 +23,7 @@ Bug fixes and documentation updates:
 - Adds an example of using the Search API to find the best performing model (#2313, @AveshCSingh)
 - Documents how to write and use MLflow plugins (#2270, @smurching)
 
-Small bug fixes and doc updates (#2293, #2328, #2244, @harupy; #2269, #2332, #2306, #2307, #2292, #2267, #2191, #2231, @juntai-zheng; #2325, @shubham769; #2291, @sueann; #2315, #2249, #2288, #2278, #2253, #2181, @smurching; #2342, @tomasatdatabricks; #2245, @dependabot[bot]; #2338, @jcuquemelle; #2285, @avflor; #2340, @pogil; #2237, #2226, #2243, #2272, #2286, @dbczumar; #2281, @renaudhager; #2246, @avaucher; #2258, @lorenzwalthert; #2261, @smith-kyle)
+Small bug fixes and doc updates (#2293, #2328, #2244, @harupy; #2269, #2332, #2306, #2307, #2292, #2267, #2191, #2231, @juntai-zheng; #2325, @shubham769; #2291, @sueann; #2315, #2249, #2288, #2278, #2253, #2181, @smurching; #2342, @tomasatdatabricks; #2245, @dependabot[bot]; #2338, @jcuquemelle; #2285, @avflor; #2340, @pogil; #2237, #2226, #2243, #2272, #2286, @dbczumar; #2281, @renaudhager; #2246, @avaucher; #2258, @lorenzwalthert; #2261, @smith-kyle; 2352, @dbczumar)
 
 1.5.0 (2019-12-19)
 -----------------------
