@@ -19,14 +19,12 @@ pytest-cov==2.6.0
 scikit-learn==0.20.2
 scipy==1.2.1
 tensorflow==1.14.0
-torch==1.0.1
-torchvision==0.2.2
+torch==1.4.0
+torchvision==0.5.0
 xgboost>=0.82
 lightgbm==2.3.0
 # Install typing to fix torch on Python 2.7 (see https://github.com/pytorch/pytorch/issues/16775)
 typing==3.6.6
-# Pin pillow to fix torch on Python 3 (see https://github.com/pytorch/vision/issues/1712)
-pillow==6.2.1
 pysftp==0.2.9
 keras==2.3.1
 attrdict==2.0.0
