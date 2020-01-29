@@ -8,7 +8,7 @@ Features:
 
 - Adds a new runs table column view based on `ag-grid` which adds functionality for nested runs, serverside sorting, column reordering, highlighting, and more. (#2251, @Zangr)
 - Adds contour plot to the run comparsion page to better support parameter tuning (#2225, @harupy)
-- Supports EarlyStopping callback in Keras autologging. When EarlyStopping.restore_best_weights==True, MLflow will now surface metrics of the restored model, rather than the model at the end of training. (#2301, #2219, @juntai-zheng)
+- If you use EarlyStopping with Keras autologging, MLflow now automatically captures the best model trained and the associated metrics (#2301, #2219, @juntai-zheng)
 - Adds autologging functionality for LightGBM and XGBoost flavors to log feature importance, metrics per iteration, the trained model, and more. (#2275, #2238, @harupy) 
 - Adds an experimental mlflow.spark.autolog() API for automatic logging of Spark datasource information to the current active run. (#2220, @smurching)
 - Optimizes the file store to load less data from disk for each operation (#2339, @jonas)
