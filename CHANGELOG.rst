@@ -6,22 +6,22 @@ MLflow 1.6.0 includes several new features, including a better runs table interf
 
 Features:
 
-- Add a new runs table column view based on `ag-grid`. Adds functionality for nested runs, serverside sorting, column reordering, highlighting, and more. (#2251, @Zangr)
+- Adds a new runs table column view based on `ag-grid` which adds functionality for nested runs, serverside sorting, column reordering, highlighting, and more. (#2251, @Zangr)
 - Adds contour plot to the run comparsion page to better support parameter tuning (#2225, @harupy)
 - Supports EarlyStopping callback in Keras autologging. When EarlyStopping.restore_best_weights==True, MLflow will now surface metrics of the restored model, rather than the model at the end of training. (#2301, #2219, @juntai-zheng)
-- Adds autologging functionality for LightGBM and XGBoost flavors to log metrics on each iteration, feature importance, the trained model, and more. (#2275, #2238, @harupy) 
+- Adds autologging functionality for LightGBM and XGBoost flavors to log feature importance, metrics per iteration, the trained model, and more. (#2275, #2238, @harupy) 
 - Adds an experimental mlflow.spark.autolog() API for automatic logging of Spark datasource information to the current active run. (#2220, @smurching)
-- Optimize the file store to load less data from disk for each operation (#2339, @jonas)
-- `mlflow models build-docker` builds a Docker image containing ubuntu:18.04 rather than ubuntu:16.04 (#2256, @andychow-db)
+- Optimizes the file store to load less data from disk for each operation (#2339, @jonas)
+- Upgrades from ubuntu:16.04 to ubuntu:18.04 when building a Docker image with `mlflow models build-docker` (#2256, @andychow-db)
 
 Bug fixes and documentation updates:
 
 - Fixes bug when running server against database URLs with @ symbols (#2289, @hershaw)
-- Fixed model Docker image build on Windows (#2257, @jahas)
-- Document the SQL Server plugin (#2320, @avflor)
-- Add help file for R package (#2259, @lorenzwalthert)
-- Adds an example query for the best performing model using the Search API (#2313, @AveshCSingh)
-- Document how to write and use MLflow plugins (#2270, @smurching)
+- Fixes model Docker image build on Windows (#2257, @jahas)
+- Documents the SQL Server plugin (#2320, @avflor)
+- Adds a help file for the R package (#2259, @lorenzwalthert)
+- Adds an example of using the Search API to find the best performing model (#2313, @AveshCSingh)
+- Documents how to write and use MLflow plugins (#2270, @smurching)
 
 Small bug fixes and doc updates (#2293, #2328, #2244, @harupy; #2269, #2332, #2306, #2307, #2292, #2267, #2191, #2231, @juntai-zheng; #2325, @shubham769; #2291, @sueann; #2315, #2249, #2288, #2278, #2253, #2181, @smurching; #2342, @tomasatdatabricks; #2245, @dependabot[bot]; #2338, @jcuquemelle; #2285, @avflor; #2340, @pogil; #2237, #2226, #2243, #2272, #2286, @dbczumar; #2281, @renaudhager; #2246, @avaucher; #2258, @lorenzwalthert; #2261, @smith-kyle)
 
