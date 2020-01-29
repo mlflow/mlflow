@@ -163,7 +163,7 @@ export class ExperimentListView extends Component {
                     data-experimentid={experiment_id}
                     data-experimentname={name}
                   >
-                    <Icon type="delete" />
+                    <i className="far fa-trash-alt"/>
                   </a>
                 </div>
                 );
