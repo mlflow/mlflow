@@ -45,7 +45,7 @@ def upgrade():
         # type_basics.html#sqlalchemy.types.Enum.params.native_enum)
         batch_op.alter_column("status",
                               type_=Enum(*new_run_statuses, create_constraint=True,
-                                         constraint_name="status", native_enum=False))
+                                         native_enum=False))
 
 
 def downgrade():
