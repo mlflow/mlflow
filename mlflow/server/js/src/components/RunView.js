@@ -144,7 +144,6 @@ class RunView extends Component {
           </Dropdown>
           <RenameRunModal
             runUuid={runUuid}
-            experimentId={this.props.experimentId}
             onClose={this.hideRenameRunModal}
             runName={this.props.runName}
             isOpen={this.state.showRunRenameModal} />
