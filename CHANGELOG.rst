@@ -1,28 +1,27 @@
 Changelog
 =========
-1.6.0 (2020-01-28)
+1.6.0 (2020-01-29)
 -----------------------
-MLflow 1.6.0 includes several major features and improvements:
+MLflow 1.6.0 includes several new features, including a better runs table interface and a utility for easier parameter tuning. It also implements a long-awaited fix allowing @ symbols in URLs, and adds documentation of MLflow plugins, the Search API, and more. A complete list is below.
 
 Features:
 
-- Performance improvements for file-based experiment data storage (#2339, @jonas)
-- Revamps the runs table (#2251, @Zangr)
-- Add EarlyStopping integration to TensorFlow.Keras autologging (#2301, #2219, @juntai-zheng)
-- Add auto logging functionality for LightGBM flavor. (#2275, @harupy)
-- Adds mlflow.spark.autolog() Python API for recording Spark datasource information (#2220, @smurching)
-- Adds mlflow.xgboost.autolog() Python API for recording XGBoost params, metrics, and models (#2238, @harupy)
-- `mlflow models build-docker` builds a docker image containing ubuntu:18.04 rather than ubuntu:16.04 (#2256, @andychow-db)
-- Add contour plot to the run comparsion page (#2225, @harupy)
+- Add a new runs table column view based on `ag-grid`. Adds functionality for nested runs, serverside sorting, column reordering, highlighting, and more. (#2251, @Zangr)
+- Adds contour plot to the run comparsion page to better support parameter tuning (#2225, @harupy)
+- Supports EarlyStopping callback in Keras autologging. When EarlyStopping.restore_best_weights==True, MLflow will now surface metrics of the restored model, rather than the model at the end of training. (#2301, #2219, @juntai-zheng)
+- Adds autologging functionality for LightGBM and XGBoost flavors to log metrics on each iteration, feature importance, the trained model, and more. (#2275, #2238, @harupy) 
+- Adds an experimental mlflow.spark.autolog() API for automatic logging of Spark datasource information to the current active run. (#2220, @smurching)
+- Optimize the file store to load less data from disk for each operation (#2339, @jonas)
+- `mlflow models build-docker` builds a Docker image containing ubuntu:18.04 rather than ubuntu:16.04 (#2256, @andychow-db)
 
 Bug fixes and documentation updates:
 
 - Fixes bug when running server against database URLs with @ symbols (#2289, @hershaw)
-- Fixed model docker image build on Windows (#2257, @jahas)
-- Documentation for the SQL Server plugin (#2320, @avflor)
-- Documentation: Add help file for R package (#2259, @lorenzwalthert)
-- Documentation: Adds an example query for the best performing model using the Search API (#2313, @AveshCSingh)
-- Documentation: MLflow plugin system (#2270, @smurching)
+- Fixed model Docker image build on Windows (#2257, @jahas)
+- Document the SQL Server plugin (#2320, @avflor)
+- Add help file for R package (#2259, @lorenzwalthert)
+- Adds an example query for the best performing model using the Search API (#2313, @AveshCSingh)
+- Document how to write and use MLflow plugins (#2270, @smurching)
 
 Small bug fixes and doc updates (#2293, #2328, #2244, @harupy; #2269, #2332, #2306, #2307, #2292, #2267, #2191, #2231, @juntai-zheng; #2325, @shubham769; #2291, @sueann; #2315, #2249, #2288, #2278, #2253, #2181, @smurching; #2342, @tomasatdatabricks; #2245, @dependabot[bot]; #2338, @jcuquemelle; #2285, @avflor; #2340, @pogil; #2237, #2226, #2243, #2272, #2286, @dbczumar; #2281, @renaudhager; #2246, @avaucher; #2258, @lorenzwalthert; #2261, @smith-kyle)
 
