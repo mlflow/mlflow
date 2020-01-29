@@ -1,13 +1,11 @@
 package org.mlflow.tracking;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.util.JsonFormat;
 
 import java.lang.Iterable;
 
-import org.mlflow.api.proto.ModelRegistry;
 import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 

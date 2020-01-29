@@ -2,14 +2,13 @@ package org.mlflow.tracking;
 
 import com.google.common.collect.Lists;
 import org.apache.http.client.utils.URIBuilder;
-import org.mlflow.api.proto.ModelRegistry.*;
-import org.mlflow.api.proto.Service.*;
-import org.mlflow.artifacts.CliBasedArtifactRepository;
-import org.mlflow.tracking.creds.*;
 import org.mlflow.artifacts.ArtifactRepository;
 import org.mlflow.artifacts.ArtifactRepositoryFactory;
+import org.mlflow.artifacts.CliBasedArtifactRepository;
+import org.mlflow.api.proto.ModelRegistry.*;
+import org.mlflow.api.proto.Service.*;
+import org.mlflow.tracking.creds.*;
 
-import javax.annotation.Nonnull;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -18,6 +17,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 
 /**
  * Client to an MLflow Tracking Sever.
@@ -754,7 +754,7 @@ public class MlflowClient {
 
     CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null,
             hostCredsProvider);
-    return repository.downloadArtifactUri(downloadUri);
+    return repository.downloadArtifactFromUri(downloadUri);
   }
 
   /**

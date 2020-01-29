@@ -141,6 +141,10 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   }
 
   /**
+   * :: experimental ::
+   *
+   * This api may change or be removed in a future release without warning.
+   *
    * Only available in the CliBasedArtifactRepository. Downloads an artifact to the local
    * filesystem when provided with an artifact uri. This method should not be used directly
    * by the user. Please use {@link org.mlflow.tracking.MlflowClient}
@@ -148,7 +152,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
    * @param artifactUri Artifact uri
    * @return Directory/file of the artifact
    */
-  public File downloadArtifactUri(String artifactUri) {
+  public File downloadArtifactFromUri(String artifactUri) {
     checkMlflowAccessible();
     String tag = "download artifacts for " + artifactUri;
     List<String> command = Lists.newArrayList("download", "--artifact-uri", artifactUri);

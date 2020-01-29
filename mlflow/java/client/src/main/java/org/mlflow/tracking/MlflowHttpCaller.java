@@ -10,6 +10,7 @@ import java.util.Base64;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
@@ -116,22 +117,16 @@ class MlflowHttpCaller {
   String post(String path, String json) {
     logger.debug("Sending POST " + path + ": " + json);
     HttpPost request = new HttpPost();
-    fillRequestSettings(request, path);
-    request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
-    request.setHeader("Content-Type", "application/json");
-    try {
-      HttpResponse response = executeRequest(request);
-      String responseJson = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-      logger.debug("Response: " + responseJson);
-      return responseJson;
-    } catch (IOException e) {
-      throw new MlflowClientException(e);
-    }
+    return send(request, path, json);
   }
 
   String patch(String path, String json) {
     logger.debug("Sending PATCH " + path + ": " + json);
     HttpPatch request = new HttpPatch();
+    return send(request, path, json);
+  }
+
+  private String send(HttpEntityEnclosingRequestBase request, String path, String json) {
     fillRequestSettings(request, path);
     request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
     request.setHeader("Content-Type", "application/json");

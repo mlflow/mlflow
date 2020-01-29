@@ -1,25 +1,5 @@
 package org.mlflow.tracking;
 
-import com.google.common.collect.Lists;
-import org.apache.commons.io.FileUtils;
-import org.mlflow.api.proto.Service.CreateRun;
-import org.mlflow.api.proto.Service.Experiment;
-import org.mlflow.api.proto.Service.ExperimentTag;
-import org.mlflow.api.proto.Service.GetExperiment;
-import org.mlflow.api.proto.Service.Metric;
-import org.mlflow.api.proto.Service.Param;
-import org.mlflow.api.proto.Service.Run;
-import org.mlflow.api.proto.Service.RunInfo;
-import org.mlflow.api.proto.Service.RunStatus;
-import org.mlflow.api.proto.Service.RunTag;
-import org.mlflow.api.proto.Service.ViewType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.Assert;
-import org.testng.annotations.AfterSuite;
-import org.testng.annotations.BeforeSuite;
-import org.testng.annotations.Test;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -33,6 +13,27 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 import java.util.Vector;
+
+import com.google.common.collect.Lists;
+import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.Assert;
+import org.testng.annotations.AfterSuite;
+import org.testng.annotations.BeforeSuite;
+import org.testng.annotations.Test;
+
+import org.mlflow.api.proto.Service.CreateRun;
+import org.mlflow.api.proto.Service.Experiment;
+import org.mlflow.api.proto.Service.ExperimentTag;
+import org.mlflow.api.proto.Service.GetExperiment;
+import org.mlflow.api.proto.Service.Metric;
+import org.mlflow.api.proto.Service.Param;
+import org.mlflow.api.proto.Service.Run;
+import org.mlflow.api.proto.Service.RunInfo;
+import org.mlflow.api.proto.Service.RunStatus;
+import org.mlflow.api.proto.Service.RunTag;
+import org.mlflow.api.proto.Service.ViewType;
 
 import static org.mlflow.tracking.TestUtils.assertMetric;
 import static org.mlflow.tracking.TestUtils.assertMetricHistory;
