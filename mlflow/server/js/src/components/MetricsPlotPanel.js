@@ -142,7 +142,7 @@ export class MetricsPlotPanel extends React.Component {
         const { points, event: { clientX, clientY } } = data;
         const clickedSamePoint = x === clientX && y === clientY;
 
-        const runsData = points.map((point) => ({
+        const runItems = points.map((point) => ({
           name: point.data.name,
           color: point.fullData.marker.color,
           runUuid: point.data.runUuid,
@@ -154,7 +154,7 @@ export class MetricsPlotPanel extends React.Component {
           visible: !visible || !clickedSamePoint,
           x: clientX,
           y: clientY,
-          runsData,
+          runItems,
         });
       }
     }, 300);

@@ -15,16 +15,16 @@ class RunLinksPopover extends React.Component {
       visible: false,
       x: 0,
       y: 0,
-      runsData: [],
+      runItems: [],
     };
   }
 
   renderContent = () => {
-    const { runsData } = this.state;
+    const { runItems } = this.state;
     const { experimentId } = this.props;
     return (
       <div>
-        {runsData.map(({ name, runUuid, color }, index) => {
+        {runItems.map(({ name, runUuid, color }, index) => {
           const key = `${runUuid}-${index}`;
           const to = Routes.getRunPageRoute(experimentId, runUuid);
           return (
