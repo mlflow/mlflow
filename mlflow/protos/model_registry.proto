@@ -225,6 +225,7 @@ message RegisteredModelDetailed {
   optional int64 last_updated_timestamp = 3;
 
   // User that created this ``registered_model``
+  // NOTE: this field is not currently returned.
   optional string user_id = 4;
 
   // Description of this ``registered_model``.
