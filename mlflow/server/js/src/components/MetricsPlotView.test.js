@@ -123,7 +123,8 @@ describe('unit tests', () => {
             shape: 'spline',
             smoothing: 0,
           },
-          "marker": {"opacity": 0},
+          marker: {"opacity": 0},
+          runUuid: "runUuid1",
         },
         {
           name: 'metric_1',
@@ -135,7 +136,8 @@ describe('unit tests', () => {
             shape: 'spline',
             smoothing: 0,
           },
-          "marker": {"opacity": 0},
+          marker: {"opacity": 0},
+          runUuid: "runUuid2",
         },
       ],
     });
@@ -148,12 +150,14 @@ describe('unit tests', () => {
       data: [
         {
           name: 'RunDisplayName1',
+          runUuid: "runUuid1",
           x: ['metric_0'],
           y: [100],
           type: 'bar',
         },
         {
           name: 'RunDisplayName2',
+          runUuid: "runUuid2",
           x: ['metric_0'],
           y: [300],
           type: 'bar',
