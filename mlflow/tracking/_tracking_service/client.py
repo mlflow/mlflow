@@ -6,6 +6,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 import time
 import os
+import posixpath
 from six import iteritems
 
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -22,7 +23,7 @@ def ensure_run_id_in_path(path, run_id):
     if run_id in path:
         return path
 
-    return os.path.join(path, run_id)
+    return posixpath.join(path, run_id)
 
 
 class TrackingServiceClient(object):
