@@ -59,7 +59,7 @@ export class MetricsPlotView extends React.Component {
         mode: isSingleHistory ? 'markers' : 'lines+markers',
         line: { shape: 'spline', smoothing: lineSmoothness },
         marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
-        runUuid,
+        runUuid,  // Include runUUid in data to use it in the on-click callback.
       };
     });
     const props = { data };
