@@ -39,8 +39,8 @@ export class GenericInputModal extends Component {
         // handleSubmit is expected to return a promise
         this.props.handleSubmit(newName)
           .then(this.resetAndClearModalForm)
-          .then(this.onRequestCloseHandler)
-          .catch(this.handleSubmitFailure);
+          .catch(this.handleSubmitFailure)
+          .finally(this.onRequestCloseHandler);
       }
     });
   }
@@ -50,7 +50,7 @@ export class GenericInputModal extends Component {
     this.form.resetFields();
   };
 
-  handleRegistrationFailure = (e) => {
+  handleSubmitFailure = (e) => {
     this.setState({ isSubmittingState: false });
     Utils.logErrorAndNotifyUser(e);
     this.props.dispatch(openErrorModal(this.props.errorMessage));
