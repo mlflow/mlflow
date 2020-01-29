@@ -2,7 +2,7 @@ Changelog
 =========
 1.6.0 (2020-01-29)
 -----------------------
-MLflow 1.6.0 includes several new features, including a better runs table interface and a utility for easier parameter tuning. It also implements a long-awaited fix allowing @ symbols in URLs, and adds documentation of MLflow plugins, the Search API, and more. A complete list is below.
+MLflow 1.6.0 includes several new features, including a better runs table interface, a utility for easier parameter tuning, and automatic logging from XGBoost, LightGBM, and Spark. It also implements a long-awaited fix allowing @ symbols in URLs. A complete list is below:
 
 Features:
 
