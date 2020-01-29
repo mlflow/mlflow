@@ -18,6 +18,13 @@ from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 
 
+def ensure_run_id_in_path(path, run_id):
+    if run_id in path:
+        return path
+
+    return os.path.join(path, run_id)
+
+
 class TrackingServiceClient(object):
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs.
@@ -237,7 +244,8 @@ class TrackingServiceClient(object):
         :param run_id: String ID of the run
         :param artifact_path: overrides the experiment's default directory .
         """
-        self.store.update_artifacts_location(run_id, artifact_path)
+        new_location = ensure_run_id_in_path(artifact_path, run_id)
+        self.store.update_artifacts_location(run_id, new_location)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
