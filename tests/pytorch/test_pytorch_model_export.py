@@ -1,5 +1,8 @@
 from __future__ import print_function
 
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
 import importlib
 import os
 import json
@@ -12,10 +15,7 @@ import numpy as np
 import pandas as pd
 import pandas.testing
 import sklearn.datasets as datasets
-import torch
-import torch.nn as nn
 import yaml
-from torch.utils.data import DataLoader
 
 import mlflow.pyfunc as pyfunc
 import mlflow.pytorch
