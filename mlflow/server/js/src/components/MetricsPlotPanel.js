@@ -18,7 +18,7 @@ export const CHART_TYPE_BAR = 'bar';
 
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
-    experimentId: PropTypes.string.isRequired,
+    experimentId: PropTypes.number.isRequired,
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricKey: PropTypes.string.isRequired,
     // A map of { runUuid : { metricKey: value } }
