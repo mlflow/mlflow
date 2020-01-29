@@ -1,37 +1,30 @@
 Changelog
 =========
-1.5.1.dev0 (2020-01-28)
+1.6.0 (2020-01-28)
 -----------------------
-MLflow 1.5.1.dev0 includes several major features and improvements:
+MLflow 1.6.0 includes several major features and improvements:
 
 Features:
 
-- File store optimizations (#2339, @jonas)
-- Add feature importance plot for the XGBoost flavor (#2337, @harupy)
-- New runs table column view (#2251, @Zangr)
-- Add EarlyStopping integration to TensorFlow.Keras autologging (#2301, @juntai-zheng)
-- EarlyStopping Callback support for Keras Autologging (#2219, @juntai-zheng)
-- Add autodetection of job environments to R client (#2272, @dbczumar)
-- Add autodetection of job environments to Java client (#2286, @dbczumar)
+- Performance improvements for file-based experiment data storage (#2339, @jonas)
+- Revamps the runs table (#2251, @Zangr)
+- Add EarlyStopping integration to TensorFlow.Keras autologging (#2301, #2219, @juntai-zheng)
 - Add auto logging functionality for LightGBM flavor. (#2275, @harupy)
-- Python implementation of Spark datasource autologging (#2220, @smurching)
-- Add autologging functionality for XGBoost flavor (#2238, @harupy)
-- Reactivate Large Docker Tests (#2256, @andychow-db)
+- Adds mlflow.spark.autolog() Python API for recording Spark datasource information (#2220, @smurching)
+- Adds mlflow.xgboost.autolog() Python API for recording XGBoost params, metrics, and models (#2238, @harupy)
+- `mlflow models build-docker` builds a docker image containing ubuntu:18.04 rather than ubuntu:16.04 (#2256, @andychow-db)
 - Add contour plot to the run comparsion page (#2225, @harupy)
 
 Bug fixes and documentation updates:
 
-- Escape % in db_url (#2289, @hershaw)
-- Fixed model docker image building on docker (#2257, @jahas)
-- Solve race condition for directory creation (#2246, @avaucher)
+- Fixes bug when running server against database URLs with @ symbols (#2289, @hershaw)
+- Fixed model docker image build on Windows (#2257, @jahas)
 - Documentation for the SQL Server plugin (#2320, @avflor)
 - Documentation: Add help file for R package (#2259, @lorenzwalthert)
-- Adds an example of querying for the best model (#2313, @AveshCSingh)
-- Document MLflow plugin system (#2270, @smurching)
-- Regenerate R docs with up-to-date version of roxygen2 (#2258, @lorenzwalthert)
-- Fix typo in  documentation (#2261, @smith-kyle)
+- Documentation: Adds an example query for the best performing model using the Search API (#2313, @AveshCSingh)
+- Documentation: MLflow plugin system (#2270, @smurching)
 
-Small bug fixes and doc updates (#2293, #2328, #2244, @harupy; #2269, #2332, #2306, #2307, #2292, #2267, #2191, #2231, @juntai-zheng; #2325, @shubham769; #2291, @sueann; #2315, #2249, #2288, #2278, #2253, #2181, @smurching; #2342, @tomasatdatabricks; #2245, @dependabot[bot]; #2338, @jcuquemelle; #2285, @avflor; #2340, @pogil; #2237, #2226, #2243, @dbczumar; #2281, @renaudhager)
+Small bug fixes and doc updates (#2293, #2328, #2244, @harupy; #2269, #2332, #2306, #2307, #2292, #2267, #2191, #2231, @juntai-zheng; #2325, @shubham769; #2291, @sueann; #2315, #2249, #2288, #2278, #2253, #2181, @smurching; #2342, @tomasatdatabricks; #2245, @dependabot[bot]; #2338, @jcuquemelle; #2285, @avflor; #2340, @pogil; #2237, #2226, #2243, #2272, #2286, @dbczumar; #2281, @renaudhager; #2246, @avaucher; #2258, @lorenzwalthert; #2261, @smith-kyle)
 
 1.5.0 (2019-12-19)
 -----------------------
