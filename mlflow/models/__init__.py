@@ -17,11 +17,16 @@ For details, see `MLflow Models <../models.html>`_.
 
 from abc import abstractmethod, ABCMeta
 from datetime import datetime
+import logging
 
 import yaml
 
 import mlflow
+from mlflow.exceptions import MlflowException
+from mlflow.protos import databricks_pb2
 from mlflow.utils.file_utils import TempDir
+
+_logger = logging.getLogger(__name__)
 
 
 class Model(object):
@@ -29,6 +34,7 @@ class Model(object):
     An MLflow Model that can support multiple model flavors. Provides APIs for implementing
     new Model flavors.
     """
+
     def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:
@@ -42,8 +48,14 @@ class Model(object):
         self.flavors[name] = params
         return self
 
+    def to_dict(self):
+        return self.__dict__
+
     def to_yaml(self, stream=None):
         return yaml.safe_dump(self.__dict__, stream=stream, default_flow_style=False)
+
+    def to_json(self, stream=None):
+        return yaml.safe_dump(self.__dict__, stream=stream, default_flow_style=True)
 
     def save(self, path):
         """Write the model as a local YAML file."""
@@ -81,6 +93,17 @@ class Model(object):
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
+            try:
+                mlflow.tracking.fluent._record_logged_model(mlflow_model)
+            except MlflowException as e:
+                if e.error_code == databricks_pb2.ErrorCode.Name(
+                        databricks_pb2.ENDPOINT_NOT_FOUND):
+                    _logger.warning(
+                        "The current store does not support log model api. "
+                        "The model information has not been logged with the tracking store.")
+                else:
+                    raise e
+
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
                 mlflow.register_model("runs:/%s/%s" % (run_id, artifact_path),
