@@ -118,7 +118,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
         <configuration>
-          <sourcepath>${project.basedir}/src/main/scala</sourcepath>
+          <sourcepath>${project.basedir}/src/main/java</sourcepath>
         </configuration>
       </plugin>
       <plugin>
