@@ -67,7 +67,7 @@ class PythonModel(object):
         """
 
     @abstractmethod
-    def predict(self, context, model_input):
+    def predict(self, context, model_input, **kwargs):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
         For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.
@@ -239,5 +239,5 @@ class _PythonModelPyfuncWrapper(object):
         self.python_model = python_model
         self.context = context
 
-    def predict(self, model_input):
-        return self.python_model.predict(self.context, model_input)
+    def predict(self, model_input, **kwargs):
+        return self.python_model.predict(self.context, model_input, **kwargs)
