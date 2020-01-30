@@ -6,6 +6,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 import time
 import os
+import posixpath
 from six import iteritems
 
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -16,6 +17,13 @@ from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, Experime
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
+
+
+def ensure_run_id_in_path(path, run_id):
+    if run_id in path:
+        return path
+
+    return posixpath.join(path, run_id)
 
 
 class TrackingServiceClient(object):
@@ -229,6 +237,16 @@ class TrackingServiceClient(object):
         for tag in tags:
             _validate_tag_name(tag.key)
         self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
+
+    def update_artifacts_location(self, run_id, artifact_path):
+        """
+        define a new path to store artifacts for a run
+
+        :param run_id: String ID of the run
+        :param artifact_path: overrides the experiment's default directory .
+        """
+        new_location = ensure_run_id_in_path(artifact_path, run_id)
+        self.store.update_artifacts_location(run_id, new_location)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """

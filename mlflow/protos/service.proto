@@ -406,6 +406,25 @@ service MlflowService {
     };
   }
 
+  // Update Artifact location of an existing run.
+  //
+  rpc updateArtifactsLocation(UpdateArtifactsLocation) returns (UpdateArtifactsLocation.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PUT",
+        path: "/mlflow/runs/update-artifacts-location"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "PUT",
+        path: "/preview/mlflow/runs/update-artifacts-location"
+        since { major: 2, minor: 0 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Update Artifacts Location",
+    };
+  }
+
 
   // Log a batch of metrics, params, and tags for a run.
   // If any data failed to be persisted, the server will respond with an error (non-200 status code).
@@ -469,6 +488,38 @@ service MlflowService {
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Log Batch",
+    };
+  }
+
+  rpc vcsRegex (GetVcsRegex) returns (GetVcsRegex.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/private_vcs/regex"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "GET",
+        path: "/mlflow/private_vcs/regex"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Private VCS Regex",
+    };
+  }
+
+  rpc vcsUrl (GetVcsUrl) returns (GetVcsUrl.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/private_vcs/url"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "GET",
+        path: "/mlflow/private_vcs/url"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Private VCS Urls",
     };
   }
 }
@@ -1020,5 +1071,37 @@ message GetExperimentByName {
   message Response {
     // Experiment details.
     optional Experiment experiment = 1;
+  }
+}
+
+message UpdateArtifactsLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run. Must be provided.
+  optional string run_id = 1 [(validate_required) = true];
+
+  optional string new_artifacts_location = 2 [(validate_required) = true];
+
+  message Response {
+  }  
+}
+
+
+// Private VCS
+message GetVcsRegex {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  message Response {
+    optional string vcs_regex = 1;
+  }
+}
+
+message GetVcsUrl {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string type = 1;
+
+  message Response {
+    optional string vcs_url = 1;
   }
 }

@@ -8,8 +8,6 @@ from mlflow.utils.file_utils import path_to_local_file_uri
 from tests.integration.utils import invoke_cli_runner
 import pytest
 
-from tests.projects.utils import tracking_uri_mock
-
 EXAMPLES_DIR = 'examples'
 lightgbm_conda_yaml = os.path.join(EXAMPLES_DIR, 'lightgbm', 'conda.yaml')
 xgboost_conda_yaml = os.path.join(EXAMPLES_DIR, 'xgboost', 'conda.yaml')
@@ -33,9 +31,13 @@ xgboost_conda_yaml = os.path.join(EXAMPLES_DIR, 'xgboost', 'conda.yaml')
     ('xgboost', ['-P', 'conda-env=' + str(xgboost_conda_yaml),
                  '-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9'])
 ])
-def test_mlflow_run_example(tracking_uri_mock, directory, params):
-    cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params
-    invoke_cli_runner(cli.run, cli_run_list)
+def test_mlflow_run_example(tmpdir, directory, params):
+    os.environ['MLFLOW_TRACKING_URI'] = path_to_local_file_uri(str(tmpdir.join("mlruns")))
+    try:
+        cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params
+        invoke_cli_runner(cli.run, cli_run_list)
+    finally:
+        del os.environ['MLFLOW_TRACKING_URI']
 
 
 @pytest.mark.large
