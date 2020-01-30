@@ -90,6 +90,10 @@ class RunView extends Component {
     this.setState({ showNoteEditor: true });
   };
 
+  static getRunStatusDisplayName(status) {
+    return status !== "RUNNING" ? status : "UNFINISHED";
+  }
+
   render() {
     const { runUuid, run, params, tags, latestMetrics, getMetricPagePath } = this.props;
     const { showNoteEditor } = this.state;
@@ -97,6 +101,7 @@ class RunView extends Component {
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
       run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
+    const status = RunView.getRunStatusDisplayName(run.getStatus());
     const queryParams = window.location && window.location.search ?
       window.location.search : "";
     const tableStyles = {
@@ -162,6 +167,7 @@ class RunView extends Component {
           {duration !== null ? (
             <Descriptions.Item label='Duration'>{Utils.formatDuration(duration)}</Descriptions.Item>
           ) : null}
+          <Descriptions.Item label='Status'>{status}</Descriptions.Item>
           {tags['mlflow.parentRunId'] !== undefined ? (
             <Descriptions.Item label='Parent Run'>
               <Link to={Routes.getRunPageRoute(this.props.experimentId,
