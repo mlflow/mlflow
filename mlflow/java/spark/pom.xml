@@ -12,6 +12,14 @@
     <spec2.version>4.2.0</spec2.version>
   </properties>
 
+    <distributionManagement>
+        <repository>
+            <id>bintray</id>
+            <name>mlflow</name>
+            <url>https://api.bintray.com/maven/mlflow/mlflow/mlflow-spark/;publish=1</url>
+        </repository>
+    </distributionManagement>
+
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
@@ -117,6 +125,17 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+            <sourcepath>${project.basedir}/src/main/scala</sourcepath>
+        </configuration>
       </plugin>
     </plugins>
   </build>
