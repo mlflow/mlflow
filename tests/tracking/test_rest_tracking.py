@@ -116,12 +116,12 @@ def test_create_get_list_experiment(mlflow_client):
     assert set([e.name for e in experiments]) == {'My Experiment', 'Default'}
     mlflow_client.delete_experiment(experiment_id)
     assert set([e.name for e in mlflow_client.list_experiments()]) == {'Default'}
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)]) ==\
-        {'Default'}
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)]) ==\
-        {'My Experiment'}
+    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)]) == \
+           {'Default'}
+    assert set([e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)]) == \
+           {'My Experiment'}
     assert set([e.name for e in mlflow_client.list_experiments(ViewType.ALL)]) == \
-        {'My Experiment', 'Default'}
+           {'My Experiment', 'Default'}
 
 
 def test_delete_restore_experiment(mlflow_client):
@@ -322,6 +322,34 @@ def test_log_batch(mlflow_client, backend_store_uri):
     assert metric.value == 123.456
     assert metric.timestamp == 789
     assert metric.step == 3
+
+
+def test_log_model(mlflow_client, backend_store_uri):
+    experiment_id = mlflow_client.create_experiment('Log models')
+    import json
+    import os
+    import mlflow.pyfunc
+    from mlflow.models import Model
+    from mlflow.utils.file_utils import TempDir
+
+    with TempDir(chdr=True) as tmp:
+        mlflow.set_experiment("Log models")
+        model_paths = ["model/path/{}".format(i) for i in range(3)]
+        with mlflow.start_run(experiment_id=experiment_id) as run:
+            for i, m in enumerate(model_paths):
+                mlflow.pyfunc.log_model(m, loader_module="mlflow.pyfunc")
+                mlflow.pyfunc.save_model(m,
+                                         mlflow_model=Model(artifact_path=m, run_id=run.info.run_id),
+                                         loader_module="mlflow.pyfunc")
+                model = Model.load(os.path.join(m, "MLmodel"))
+                run = mlflow.get_run(run.info.run_id)
+                tag = run.data.tags["mlflow.models"]
+                models = json.loads(tag)
+                model.utc_time_created = models[i]["utc_time_created"]
+                assert models[i] == model.to_dict()
+                assert len(models) == i + 1
+                for j in range(0, i + 1):
+                    assert models[j]["artifact_path"] == model_paths[j]
 
 
 def test_set_terminated_defaults(mlflow_client):

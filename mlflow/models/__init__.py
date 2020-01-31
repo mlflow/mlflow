@@ -17,6 +17,7 @@ For details, see `MLflow Models <../models.html>`_.
 
 from abc import abstractmethod, ABCMeta
 from datetime import datetime
+import json
 import logging
 
 import yaml
@@ -35,13 +36,15 @@ class Model(object):
     new Model flavors.
     """
 
-    def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None):
+    def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None,
+                 **kwargs):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:
             self.run_id = run_id
             self.artifact_path = artifact_path
         self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
+        self.__dict__.update(kwargs)
 
     def add_flavor(self, name, **params):
         """Add an entry for how to serve the model in a given format."""
@@ -54,8 +57,8 @@ class Model(object):
     def to_yaml(self, stream=None):
         return yaml.safe_dump(self.__dict__, stream=stream, default_flow_style=False)
 
-    def to_json(self, stream=None):
-        return yaml.safe_dump(self.__dict__, stream=stream, default_flow_style=True)
+    def to_json(self):
+        return json.dumps(self.__dict__)
 
     def save(self, path):
         """Write the model as a local YAML file."""
@@ -70,6 +73,11 @@ class Model(object):
             path = os.path.join(path, "MLmodel")
         with open(path) as f:
             return cls(**yaml.safe_load(f.read()))
+
+    @classmethod
+    def from_dict(cls, model_dict):
+        """Load a model from its YAML representation."""
+        return cls(**model_dict)
 
     @classmethod
     def log(cls, artifact_path, flavor, registered_model_name=None, **kwargs):
@@ -102,9 +110,8 @@ class Model(object):
                         "MLflow clients 1.7.0 and above attempt to log models to an artifact store and record model "
                         "metadata to the tracking store. The model has been logged to the artifact store under %s, "
                         "but the current tracking store does not support recording model metadata, so model metadata "
-                         "will not be logged to the tracking store. If logging to a server via REST, consider "
-                         "upgrading the server version to MLflow 1.7.0 or above." % mlflow.get_artifact_uri()) 
-                        "The model information has not been logged with the tracking store.")
+                        "will not be logged to the tracking store. If logging to a server via REST, consider "
+                        "upgrading the server version to MLflow 1.7.0 or above." % mlflow.get_artifact_uri())
                 else:
                     raise e
 
