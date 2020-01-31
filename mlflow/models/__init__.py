@@ -99,7 +99,11 @@ class Model(object):
                 if e.error_code == databricks_pb2.ErrorCode.Name(
                         databricks_pb2.ENDPOINT_NOT_FOUND):
                     _logger.warning(
-                        "The current store does not support log model api. "
+                        "MLflow clients 1.7.0 and above attempt to log models to an artifact store and record model "
+                        "metadata to the tracking store. The model has been logged to the artifact store under %s, "
+                        "but the current tracking store does not support recording model metadata, so model metadata "
+                         "will not be logged to the tracking store. If logging to a server via REST, consider "
+                         "upgrading the server version to MLflow 1.7.0 or above." % mlflow.get_artifact_uri()) 
                         "The model information has not been logged with the tracking store.")
                 else:
                     raise e
