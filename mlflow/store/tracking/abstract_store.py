@@ -3,6 +3,7 @@ from abc import abstractmethod, ABCMeta
 from mlflow.entities import ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.utils import experimental
 
 
 class AbstractStore:
@@ -272,6 +273,7 @@ class AbstractStore:
         """
         pass
 
+    @experimental
     @abstractmethod
     def record_logged_model(self, run_id, mlflow_model):
         """

@@ -231,9 +231,10 @@ class TrackingServiceClient(object):
             _validate_tag_name(tag.key)
         self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
 
-    def record_logged_model(self, run_id, mlflow_model):
+    def _record_logged_model(self, run_id, mlflow_model):
         if not isinstance(mlflow_model, Model):
-            raise Exception("wrong model")
+            raise TypeError("Argument 'mlflow_model' should be of type mlflow.models.Model but was "
+                            "{}".format(type(mlflow_model)))
         self.store.record_logged_model(run_id, mlflow_model)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):

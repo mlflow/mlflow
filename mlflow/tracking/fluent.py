@@ -325,7 +325,7 @@ def log_artifacts(local_dir, artifact_path=None):
 
 def _record_logged_model(mlflow_model):
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().record_logged_model(run_id, mlflow_model)
+    MlflowClient()._record_logged_model(run_id, mlflow_model)
 
 
 def get_experiment(experiment_id):
