@@ -15,38 +15,51 @@ else
   cat $SAGEMAKER_OUT;
 fi
 
+ignore=(
+  h2o
+  pytorch
+  pyfunc
+  sagemaker
+  sklearn
+  spark
+  azureml
+  onnx
+  xgboost
+  lightgbm
+  tensorflow/test_tensorflow_model_export.py
+  tensorflow_autolog/test_tensorflow_autolog.py
+)
+
+ignore_tf2=(
+  tensorflow/test_tensorflow2_model_export.py
+  tensorflow_autolog/test_tensorflow2_autolog.py
+  keras
+  keras_autolog
+  gluon
+  gluon_autolog
+)
+
+ignore_all=("${ignore[@]}" "${ignore_tf2[@]}")
+
 # NB: Also add --ignore'd tests to run-small-python-tests.sh
-pytest tests --large --ignore=tests/examples --ignore=tests/h2o --ignore=tests/keras \
-  --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
-  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/azureml --ignore=tests/onnx \
-  --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore=tests/gluon \
-  --ignore=tests/gluon_autolog --ignore=tests/xgboost --ignore=tests/lightgbm \
-  --ignore tests/spark_autologging --ignore=tests/models
+
+echo pytest tests --large "${ignore_all[@]/#/--ignore=tests/}" --ignore tests/spark_autologging
+
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
-pytest --verbose tests/pytorch --large
-pytest --verbose tests/h2o --large
-pytest --verbose tests/onnx --large
-pytest --verbose tests/pyfunc --large
-pytest --verbose tests/sagemaker --large
-pytest --verbose tests/sagemaker/mock --large
-pytest --verbose tests/sklearn --large
-pytest --verbose tests/spark --large
-pytest --verbose tests/tensorflow/test_tensorflow_model_export.py --large
-pytest --verbose tests/tensorflow_autolog/test_tensorflow_autolog.py --large
-pytest --verbose tests/azureml --large
-pytest --verbose tests/models --large
-pytest --verbose tests/xgboost --large
-pytest --verbose tests/lightgbm --large
+for path in "${ignore[@]}"
+do
+	echo pytest --verbose --large tests/$path
+done
+
 # TODO(smurching) Unpin TensorFlow dependency version once test failures with TF 2.1.0 have been
 # fixed
 pip install 'tensorflow==2.0.0'
-pytest --verbose tests/tensorflow/test_tensorflow2_model_export.py --large
-pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
-pytest --verbose tests/keras --large
-pytest --verbose tests/keras_autolog --large
-pytest --verbose tests/gluon --large
-pytest --verbose tests/gluon_autolog --large
+
+for path in "${ignore_tf2[@]}"
+do
+	echo pytest --verbose --large tests/$path
+done
 
 # Run Spark autologging tests
 ./travis/test-spark-autologging.sh
