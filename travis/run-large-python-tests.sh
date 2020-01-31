@@ -42,7 +42,6 @@ ignore_tf2=(
 ignore_all=("${ignore[@]}" "${ignore_tf2[@]}")
 
 # NB: Also add --ignore'd tests to run-small-python-tests.sh
-
 pytest tests --large "${ignore_all[@]/#/--ignore=tests/}" --ignore tests/spark_autologging
 
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
