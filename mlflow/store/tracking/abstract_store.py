@@ -278,14 +278,14 @@ class AbstractStore:
     def record_logged_model(self, run_id, mlflow_model):
         """
         Record logged model information with tracking store. The list of logged model infos is
-        maintained in a mlflow.models tag in json format.
+        maintained in a mlflow.models tag in JSON format.
 
         Note: The actual models are logged as artifacts via artifact repository.
 
         :param run_id: String id for the run
         :param mlflow_model: Model object to be recorded.
 
-        NB: This api is experimental and may change in the future.
+        NB: This API is experimental and may change in the future. The default implementation is a no-op.
 
         :return: None.
         """
