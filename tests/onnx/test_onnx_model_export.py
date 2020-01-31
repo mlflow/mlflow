@@ -83,8 +83,6 @@ def tf_model_multiple_inputs_float32():
 
 
 @pytest.fixture(scope='module')
-@pytest.mark.skip(reason='tf2onnx is not installed, and cannot be installed until we drop '
-                  'python2 support')
 def onnx_model_multiple_inputs_float64(tf_model_multiple_inputs_float64):
     import tf2onnx
     sess = tf.Session(graph=tf_model_multiple_inputs_float64)
@@ -101,8 +99,6 @@ def onnx_model_multiple_inputs_float64(tf_model_multiple_inputs_float64):
 
 
 @pytest.fixture(scope='module')
-@pytest.mark.skip(reason='tf2onnx is not installed, and cannot be installed until we drop '
-                  'python2 support')
 def onnx_model_multiple_inputs_float32(tf_model_multiple_inputs_float32):
     import tf2onnx
     sess = tf.Session(graph=tf_model_multiple_inputs_float32)
