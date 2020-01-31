@@ -260,7 +260,7 @@ class MlflowClient(object):
         self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
 
     def record_logged_model(self, run_id, mlflow_model):
-        self._tracking_client.log_artifacts(run_id, mlflow_model)
+        self._tracking_client.record_logged_model(run_id, mlflow_model)
 
     def list_artifacts(self, run_id, path=None):
         """
