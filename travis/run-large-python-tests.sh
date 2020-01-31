@@ -43,13 +43,13 @@ ignore_all=("${ignore[@]}" "${ignore_tf2[@]}")
 
 # NB: Also add --ignore'd tests to run-small-python-tests.sh
 
-echo pytest tests --large "${ignore_all[@]/#/--ignore=tests/}" --ignore tests/spark_autologging
+pytest tests --large "${ignore_all[@]/#/--ignore=tests/}" --ignore tests/spark_autologging
 
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
 for path in "${ignore[@]}"
 do
-	echo pytest --verbose --large tests/$path
+	pytest --verbose --large tests/$path
 done
 
 # TODO(smurching) Unpin TensorFlow dependency version once test failures with TF 2.1.0 have been
@@ -58,7 +58,7 @@ pip install 'tensorflow==2.0.0'
 
 for path in "${ignore_tf2[@]}"
 do
-	echo pytest --verbose --large tests/$path
+	pytest --verbose --large tests/$path
 done
 
 # Run Spark autologging tests
