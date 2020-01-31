@@ -6,11 +6,28 @@ err=0
 trap 'err=1' ERR
 export MLFLOW_HOME=$(pwd)
 
+ignore=(
+  h2o
+  pytorch
+  pyfunc
+  sagemaker
+  sklearn
+  spark
+  azureml
+  onnx
+  xgboost
+  lightgbm
+  tensorflow
+  tensorflow_autolog
+  keras
+  keras_autolog
+  gluon
+  gluon_autolog
+  spark_autologging
+)
+
 # NB: Also add --ignore'd tests to run-large-python-tests.sh
-pytest --cov=mlflow --verbose --ignore=tests/h2o --ignore=tests/keras \
-  --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
-  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog \
-  --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx \
-  --ignore=tests/xgboost --ignore=tests/lightgbm tests --ignore=tests/spark_autologging
+pytest tests --large "${ignore[@]/#/--ignore=tests/}"
+
 
 test $err = 0
