@@ -595,22 +595,13 @@ class TestFileStore(unittest.TestCase):
         run = fs.get_run(run_id)
         assert run.data.params[WEIRD_PARAM_NAME] == "Value"
 
-    def test_log_param_empty_str(self):
+    def test_log_empty_str(self):
         PARAM_NAME = "new param"
         fs = FileStore(self.test_root)
         run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.log_param(run_id, Param(PARAM_NAME, ""))
         run = fs.get_run(run_id)
         assert run.data.params[PARAM_NAME] == ""
-
-    def test_log_param_with_newline(self):
-        param_name = "new param"
-        param_value = "a string\nwith multiple\nlines"
-        fs = FileStore(self.test_root)
-        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
-        fs.log_param(run_id, Param(param_name, param_value))
-        run = fs.get_run(run_id)
-        assert run.data.params[param_name] == param_value
 
     def test_weird_metric_names(self):
         WEIRD_METRIC_NAME = "this is/a weird/but valid metric"
