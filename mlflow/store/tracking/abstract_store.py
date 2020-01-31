@@ -285,7 +285,8 @@ class AbstractStore:
         :param run_id: String id for the run
         :param mlflow_model: Model object to be recorded.
 
-        NB: This API is experimental and may change in the future. The default implementation is a no-op.
+        NB: This API is experimental and may change in the future. The default implementation is a
+        no-op.
 
         :return: None.
         """

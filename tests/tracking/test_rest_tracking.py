@@ -2,7 +2,7 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
-
+import json
 import mock
 import os
 import sys
@@ -16,10 +16,15 @@ import tempfile
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.models import Model
+
+import mlflow.pyfunc
 from mlflow.tracking import MlflowClient
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, \
     MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
 from mlflow.utils.file_utils import path_to_local_file_uri
+
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import _await_server_down_or_die, _init_server
 
@@ -116,12 +121,12 @@ def test_create_get_list_experiment(mlflow_client):
     assert set([e.name for e in experiments]) == {'My Experiment', 'Default'}
     mlflow_client.delete_experiment(experiment_id)
     assert set([e.name for e in mlflow_client.list_experiments()]) == {'Default'}
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)]) == \
-           {'Default'}
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)]) == \
-           {'My Experiment'}
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ALL)]) == \
-           {'My Experiment', 'Default'}
+    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)]) == {
+        'Default'}
+    assert set([e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)]) == {
+        'My Experiment'}
+    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ALL)]) == {
+        'My Experiment', 'Default'}
 
 
 def test_delete_restore_experiment(mlflow_client):
@@ -326,20 +331,15 @@ def test_log_batch(mlflow_client, backend_store_uri):
 
 def test_log_model(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment('Log models')
-    import json
-    import os
-    import mlflow.pyfunc
-    from mlflow.models import Model
-    from mlflow.utils.file_utils import TempDir
-
-    with TempDir(chdr=True) as tmp:
+    with TempDir(chdr=True):
         mlflow.set_experiment("Log models")
         model_paths = ["model/path/{}".format(i) for i in range(3)]
         with mlflow.start_run(experiment_id=experiment_id) as run:
             for i, m in enumerate(model_paths):
                 mlflow.pyfunc.log_model(m, loader_module="mlflow.pyfunc")
                 mlflow.pyfunc.save_model(m,
-                                         mlflow_model=Model(artifact_path=m, run_id=run.info.run_id),
+                                         mlflow_model=Model(artifact_path=m,
+                                                            run_id=run.info.run_id),
                                          loader_module="mlflow.pyfunc")
                 model = Model.load(os.path.join(m, "MLmodel"))
                 run = mlflow.get_run(run.info.run_id)

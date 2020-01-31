@@ -33,8 +33,6 @@ from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
 
-
-
 _logger = logging.getLogger(__name__)
 _tracking_store = None
 _model_registry_store = None
@@ -147,6 +145,7 @@ def catch_mlflow_exception(func):
             response.set_data(e.serialize_as_json())
             response.status_code = e.get_http_status_code()
             return response
+
     return wrapper
 
 
@@ -459,8 +458,8 @@ def _log_model():
     except JSONDecodeError:
         raise MlflowException("Model info is not a valid json.", error_code=INVALID_PARAMETER_VALUE)
 
-    missing_fields = set(("artifact_path", "flavors", "utc_time_created", "run_id")) - \
-                     set(model.keys())
+    missing_fields = set(("artifact_path", "flavors", "utc_time_created", "run_id")) - set(
+        model.keys())
     if missing_fields:
         raise MlflowException("Model json is missing mandatory fields: {}".format(missing_fields),
                               error_code=INVALID_PARAMETER_VALUE)
@@ -642,6 +641,7 @@ def get_endpoints():
     """
     :return: List of tuples (path, handler, methods)
     """
+
     def get_service_endpoints(service):
         ret = []
         for service_method in service.DESCRIPTOR.methods:
