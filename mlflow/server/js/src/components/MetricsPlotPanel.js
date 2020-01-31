@@ -42,6 +42,7 @@ export class MetricsPlotPanel extends React.Component {
       historyRequestIds: [],
       yAxisLogScale: false,
       lineSmoothness: 0,
+      layout: {},
     };
     this.loadMetricHistory(this.props.runUuids, selectedMetricKeys);
   }
@@ -113,6 +114,33 @@ export class MetricsPlotPanel extends React.Component {
     this.setState({ selectedXAxis: e.target.value });
   };
 
+  handleLayoutChange = (newLayout) => {
+    console.log("Yo from sid setting new layout " + JSON.stringify(newLayout));
+    // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
+    // see https://plot.ly/javascript/plotlyjs-events/#update-data
+    const newXRange0 = newLayout["xaxis.range[0]"];
+    const newXRange1 = newLayout["xaxis.range[1]"];
+    const newYRange0 = newLayout["yaxis.range[0]"];
+    const newYRange1 = newLayout["yaxis.range[1]"];
+    let mergedLayout = {
+      ...this.state.layout,
+    };
+    console.log(newXRange0);
+    if (newXRange0) {
+      console.log("Setting merged layout my friends");
+      mergedLayout = {
+        ...mergedLayout,
+        xaxis: {
+          range: [newXRange0, newXRange1],
+        },
+        yaxis: {
+          range: [newYRange0, newYRange1],
+        },
+      };
+    }
+    this.setState({layout: mergedLayout});
+  };
+
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
     const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
     this.setState((prevState) => ({
@@ -169,6 +197,8 @@ export class MetricsPlotPanel extends React.Component {
             isComparing={MetricsPlotPanel.isComparing(location.search)}
             yAxisLogScale={yAxisLogScale}
             lineSmoothness={lineSmoothness}
+            extraLayout={this.state.layout}
+            onLayoutChange={this.handleLayoutChange}
           />
         </RequestStateWrapper>
       </div>

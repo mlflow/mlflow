@@ -21,6 +21,8 @@ export class MetricsPlotView extends React.Component {
     isComparing: PropTypes.bool.isRequired,
     yAxisLogScale: PropTypes.bool.isRequired,
     lineSmoothness: PropTypes.number,
+    extraLayout: PropTypes.object,
+    onLayoutChange: PropTypes.func.isRequired,
   };
 
   static getLineLegend = (metricKey, runDisplayName, isComparing) => {
@@ -60,11 +62,19 @@ export class MetricsPlotView extends React.Component {
       };
     });
     const props = { data };
+    props.layout = {
+      ...props.layout,
+      ...this.props.extraLayout,
+    };
     if (yAxisLogScale) {
-      props.layout = {
-        yaxis: { type: 'log', autorange: true },
+      const existingYAxis = props.layout.yaxis ? props.layout.yaxis : {};
+      props.layout.yaxis = {
+        ...existingYAxis,
+        type: 'log',
+        autorange: true,
       };
     }
+    console.log("Final props.layout: " + JSON.stringify(props.layout));
     return props;
   };
 
@@ -103,10 +113,16 @@ export class MetricsPlotView extends React.Component {
     if (yAxisLogScale) {
       props.layout.yaxis = { type: 'log', autorange: true };
     }
+    props.layout = {
+      ...props.layout,
+      ...this.props.extraLayout,
+    };
+    console.log("Final props.layout: " + JSON.stringify(props.layout));
     return props;
   };
 
   render() {
+    const { onLayoutChange } = this.props;
     const plotProps =
       this.props.chartType === CHART_TYPE_BAR
         ? this.getPlotPropsForBarChart()
@@ -116,8 +132,12 @@ export class MetricsPlotView extends React.Component {
         <Plot
           {...plotProps}
           useResizeHandler
+          onRelayout={(first, second, third) => {
+            // debugger;
+            onLayoutChange(first);
+          }}
           style={{ width: '100%', height: '100%' }}
-          layout={{ ...plotProps.layout, ...{ autosize: true } }}
+          layout={{ ...{ autosize: true }, ...plotProps.layout }}
           config={{
             displaylogo: false,
             scrollZoom: true,
