@@ -37,6 +37,7 @@ from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-imp
 
 _logger = logging.getLogger(__name__)
 
+
 @pytest.fixture
 def spark_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
