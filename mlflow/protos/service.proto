@@ -472,6 +472,8 @@ service MlflowService {
     };
   }
 
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
   rpc logModel (LogModel) returns (LogModel.Response) {
     option (rpc) = {
       endpoints: [{
