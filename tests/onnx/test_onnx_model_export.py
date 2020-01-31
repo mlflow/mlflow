@@ -83,6 +83,8 @@ def tf_model_multiple_inputs_float32():
 
 
 @pytest.fixture(scope='module')
+@pytest.mark.skip(reason='tf2onnx is not installed, and cannot be installed until we drop '
+                  'python2 support')
 def onnx_model_multiple_inputs_float64(tf_model_multiple_inputs_float64):
     import tf2onnx
     sess = tf.Session(graph=tf_model_multiple_inputs_float64)
@@ -99,6 +101,8 @@ def onnx_model_multiple_inputs_float64(tf_model_multiple_inputs_float64):
 
 
 @pytest.fixture(scope='module')
+@pytest.mark.skip(reason='tf2onnx is not installed, and cannot be installed until we drop '
+                  'python2 support')
 def onnx_model_multiple_inputs_float32(tf_model_multiple_inputs_float32):
     import tf2onnx
     sess = tf.Session(graph=tf_model_multiple_inputs_float32)
@@ -157,9 +161,6 @@ def test_cast_float64_to_float32():
 # library
 @pytest.mark.large
 def test_model_save_load(onnx_model, model_path, onnx_custom_env):
-    if sys.version_info.major == 2:
-        pytest.skip("onnyx does not support python2")
-
     import onnx
     import mlflow.onnx
     mlflow.onnx.save_model(onnx_model, model_path, conda_env=onnx_custom_env)
@@ -173,9 +174,6 @@ def test_model_save_load(onnx_model, model_path, onnx_custom_env):
 # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
 @pytest.mark.release
 def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, predicted):
-    if sys.version_info.major == 2:
-        pytest.skip("onnyx does not support python2")
-
     import onnx
     import mlflow.onnx
     x, y = data
@@ -201,9 +199,6 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
 @pytest.mark.large
 def test_model_save_load_multiple_inputs(
         onnx_model_multiple_inputs_float64, model_path, onnx_custom_env):
-    if sys.version_info.major == 2:
-        pytest.skip("onnyx does not support python2")
-
     import onnx
     import mlflow.onnx
 
@@ -221,9 +216,6 @@ def test_model_save_load_multiple_inputs(
 def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
         onnx_model_multiple_inputs_float64, data_multiple_inputs, predicted_multiple_inputs,
         model_path):
-    if sys.version_info.major == 2:
-        pytest.skip("onnyx does not support python2")
-
     import onnx
     import mlflow.onnx
 
@@ -259,9 +251,6 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
     precision (e.g., 32-bit floats may be converted to 64-bit floats when persisting a
     DataFrame as JSON).
     """
-    if sys.version_info.major == 2:
-        pytest.skip("onnyx does not support python2")
-
     import onnx
     import mlflow.onnx
 
@@ -281,9 +270,6 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
 @pytest.mark.large
 def test_model_log(tracking_uri_mock, onnx_model, onnx_custom_env):
     # pylint: disable=unused-argument
-    if sys.version_info.major == 2:
-        pytest.skip("onnyx does not support python2")
-
     import onnx
     import mlflow.onnx
     # should_start_run tests whether or not calling log_model() automatically starts a run.
@@ -332,9 +318,6 @@ def test_log_model_no_registered_model_name(tracking_uri_mock, onnx_model, onnx_
 # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
 @pytest.mark.release
 def test_model_log_evaluate_pyfunc_format(tracking_uri_mock, onnx_model, data, predicted):
-    if sys.version_info.major == 2:
-        pytest.skip("onnyx does not support python2")
-
     import onnx
     import mlflow.onnx
     x, y = data
