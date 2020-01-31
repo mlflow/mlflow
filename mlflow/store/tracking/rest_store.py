@@ -254,6 +254,7 @@ class DatabricksRestStore(RestStore):
     on all internal server errors. This implementation should be deprecated once
     GetExperimentByName is available everywhere.
     """
+
     def get_experiment_by_name(self, experiment_name):
         try:
             req_body = message_to_json(GetExperimentByName(experiment_name=experiment_name))

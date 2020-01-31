@@ -19,7 +19,6 @@ from abc import abstractmethod, ABCMeta
 from datetime import datetime
 import json
 import logging
-
 import yaml
 
 import mlflow
@@ -103,20 +102,16 @@ class Model(object):
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
-            except MlflowException as e:
-                if e.error_code == databricks_pb2.ErrorCode.Name(
-                        databricks_pb2.ENDPOINT_NOT_FOUND):
-                    _logger.warning(
-                        "MLflow clients 1.7.0 and above attempt to log models to an artifact store "
-                        "and record model metadata to the tracking store. The model has been logged"
-                        " to the artifact store under %s, but the current tracking store does not "
-                        "support recording model metadata, so model metadata  will not be logged to"
-                        " the tracking store. If logging to a server via REST, consider "
-                        "upgrading the server version to MLflow 1.7.0 or above.",
-                        mlflow.get_artifact_uri())
-                else:
-                    raise e
-
+            except MlflowException:
+                # We need to swallow all mlflow exceptions to maintain backwards compatibility with
+                # older tracking servers. Only print out a warning for now.
+                _logger.warning(
+                    "Logging model metadata to the tracking server has failed, possibly due older "
+                    "server version. The model artifacts have been logged successfully under %s. "
+                    "In addition to exporting model artifacts, MLflow clients 1.7.0 and above "
+                    "attempt to record model metadata to the  tracking store. If logging to a "
+                    "mlflow server via REST, consider  upgrading the server version to MLflow "
+                    "1.7.0 or above.", mlflow.get_artifact_uri())
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
                 mlflow.register_model("runs:/%s/%s" % (run_id, artifact_path),

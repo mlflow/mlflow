@@ -5,7 +5,7 @@ import re
 
 import logging
 from functools import wraps
-from json import JSONDecodeError
+
 
 from flask import Response, request, send_file
 from querystring_parser import parser
@@ -455,8 +455,10 @@ def _log_model():
     try:
         _logger.error(request_message.model_json)
         model = json.loads(request_message.model_json)
-    except JSONDecodeError:
-        raise MlflowException("Model info is not a valid json.", error_code=INVALID_PARAMETER_VALUE)
+    except:  # NB: can not be more specific here due to python2 compatibility
+        raise MlflowException("Malformed model info. \n {} \n is not a valid JSON.".format(
+            request_message.model_json),
+            error_code=INVALID_PARAMETER_VALUE)
 
     missing_fields = set(("artifact_path", "flavors", "utc_time_created", "run_id")) - set(
         model.keys())
