@@ -24,9 +24,9 @@ pytest tests --large --ignore=tests/examples --ignore=tests/h2o --ignore=tests/k
   --ignore tests/spark_autologging --ignore=tests/models
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
+pytest --verbose tests/pytorch --large
 pytest --verbose tests/h2o --large
 pytest --verbose tests/onnx --large
-pytest --verbose tests/pytorch --large
 pytest --verbose tests/pyfunc --large
 pytest --verbose tests/sagemaker --large
 pytest --verbose tests/sagemaker/mock --large
