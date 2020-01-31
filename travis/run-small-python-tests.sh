@@ -29,5 +29,4 @@ ignore=(
 # NB: Also add --ignore'd tests to run-large-python-tests.sh
 pytest tests --large "${ignore[@]/#/--ignore=tests/}"
 
-
 test $err = 0
