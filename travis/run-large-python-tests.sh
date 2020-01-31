@@ -49,7 +49,7 @@ pytest tests --large "${ignore_all[@]/#/--ignore=tests/}" --ignore tests/spark_a
 # overhead
 for path in "${ignore[@]}"
 do
-	pytest --verbose --large tests/$path
+  pytest --verbose --large tests/$path
 done
 
 # TODO(smurching) Unpin TensorFlow dependency version once test failures with TF 2.1.0 have been
@@ -58,7 +58,7 @@ pip install 'tensorflow==2.0.0'
 
 for path in "${ignore_tf2[@]}"
 do
-	pytest --verbose --large tests/$path
+  pytest --verbose --large tests/$path
 done
 
 # Run Spark autologging tests
