@@ -266,6 +266,7 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
 @pytest.mark.large
 def test_model_log(tracking_uri_mock, onnx_model, onnx_custom_env):
     # pylint: disable=unused-argument
+
     import onnx
     import mlflow.onnx
     # should_start_run tests whether or not calling log_model() automatically starts a run.
