@@ -51,11 +51,11 @@ def main():
         # evaluate model
         y_proba = model.predict(dtest)
         y_pred = y_proba.argmax(axis=1)
-        log_loss = log_loss(y_test, y_proba)
+        loss = log_loss(y_test, y_proba)
         acc = accuracy_score(y_test, y_pred)
 
         # log metrics
-        mlflow.log_metrics({'log_loss': log_loss, 'accuracy': acc})
+        mlflow.log_metrics({'log_loss': loss, 'accuracy': acc})
 
 
 if __name__ == '__main__':
