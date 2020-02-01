@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 
 import GenericInputModal from './GenericInputModal';
+import { InputFormView, NEW_NAME_FIELD } from './InputFormView';
 
 import { updateExperimentApi } from '../../Actions';
 
@@ -15,19 +16,26 @@ export class RenameExperimentModal extends Component {
     updateExperimentApi: PropTypes.func.isRequired,
   };
 
-  handleRenameExperiment = (newExperimentName) => {
+  handleRenameExperiment = (values) => {
+    // get value of input field
+    const newExperimentName = values[NEW_NAME_FIELD];
     return this.props.updateExperimentApi(this.props.experimentId, newExperimentName);
   }
 
   render() {
     const { isOpen, experimentName } = this.props;
 
+    const inputComponent = <InputFormView
+      type='experiment'
+      name={experimentName}
+      visible={isOpen}
+    />;
+
     return (
       <GenericInputModal
         title='Rename Experiment'
-        type='experiment'
+        childForm={inputComponent}
         isOpen={isOpen}
-        defaultValue={experimentName}
         handleSubmit={this.handleRenameExperiment}
         onClose={this.props.onClose}
         errorMessage='While renaming an experiment, an error occurred.'

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 
 import GenericInputModal from './GenericInputModal';
+import { InputFormView, NEW_NAME_FIELD } from './InputFormView';
 
 import { setTagApi, getUUID } from '../../Actions';
 import Utils from '../../utils/Utils';
@@ -16,7 +17,10 @@ export class RenameRunModal extends Component {
     setTagApi: PropTypes.func.isRequired,
   };
 
-  handleRenameRun = (newRunName) => {
+  handleRenameRun = (values) => {
+    // get value of input field
+    const newRunName = values[NEW_NAME_FIELD];
+
     const tagKey = Utils.runNameTag;
     const setTagRequestId = getUUID();
 
@@ -26,12 +30,17 @@ export class RenameRunModal extends Component {
   render() {
     const { isOpen, runName } = this.props;
 
+    const inputComponent = <InputFormView
+      type='run'
+      name={runName}
+      visible={isOpen}
+    />;
+
     return (
       <GenericInputModal
         title='Rename Run'
-        type='run'
+        childForm={inputComponent}
         isOpen={isOpen}
-        defaultValue={runName}
         handleSubmit={this.handleRenameRun}
         onClose={this.props.onClose}
         errorMessage='While renaming a run, an error occurred.'
