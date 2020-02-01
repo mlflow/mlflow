@@ -10,18 +10,17 @@ import Utils from '../../utils/Utils';
 export class RenameRunModal extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
-    experimentId: PropTypes.number.isRequired,
     runUuid: PropTypes.string.isRequired,
     runName: PropTypes.string.isRequired,
     onClose: PropTypes.func.isRequired,
-    dispatch: PropTypes.func.isRequired,
+    setTagApi: PropTypes.func.isRequired,
   };
 
   handleRenameRun = (newRunName) => {
     const tagKey = Utils.runNameTag;
     const setTagRequestId = getUUID();
 
-    return this.props.dispatch(setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId));
+    return this.props.setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId);
   }
 
   render() {
@@ -41,11 +40,9 @@ export class RenameRunModal extends Component {
   }
 }
 
-// eslint-disable-next-line no-unused-vars
-const mapDispatchToProps = (dispatch, ownProps) => {
-  return {
-    dispatch,
-  };
+const mapDispatchToProps = {
+  setTagApi,
 };
 
-export default connect(null, mapDispatchToProps)(RenameRunModal);
+export default connect(undefined, mapDispatchToProps)(RenameRunModal);
+

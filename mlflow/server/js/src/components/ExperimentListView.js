@@ -45,45 +45,45 @@ export class ExperimentListView extends Component {
 
   preventDefault = (ev) => ev.preventDefault();
   
-  onSelectExperiment = (experimentId, experimentName) => {
+  updateSelectedExperiment = (experimentId, experimentName) => {
     this.setState({
       selectedExperimentId: experimentId,
       selectedExperimentName: experimentName,
     });
   }
 
-  onDeleteExperiment = (ev) => {
+  handleDeleteExperiment = (ev) => {
     this.setState({
       showDeleteExperimentModal: true,
     });
 
     const data = ev.currentTarget.dataset;
-    this.onSelectExperiment(parseInt(data.experimentid, 10), data.experimentname);
+    this.updateSelectedExperiment(parseInt(data.experimentid, 10), data.experimentname);
   }
 
-  onRenameExperiment = (ev) => {
+  handleRenameExperiment = (ev) => {
     this.setState({
       showRenameExperimentModal: true,
     });
 
     const data = ev.currentTarget.dataset;
-    this.onSelectExperiment(parseInt(data.experimentid, 10), data.experimentname);
+    this.updateSelectedExperiment(parseInt(data.experimentid, 10), data.experimentname);
   }
 
-  onCloseDeleteExperimentModal = () => {
+  handleCloseDeleteExperimentModal = () => {
     this.setState({
       showDeleteExperimentModal: false,
     });
     // reset
-    this.onSelectExperiment(0, '');
+    this.updateSelectedExperiment(0, '');
   }
 
-  onCloseRenameExperimentModal = () => {
+  handleCloseRenameExperimentModal = () => {
     this.setState({
       showRenameExperimentModal: false,
     });
     // reset
-    this.onSelectExperiment(0, '');
+    this.updateSelectedExperiment(0, '');
   }
 
   render() {
@@ -97,13 +97,13 @@ export class ExperimentListView extends Component {
       <div className='experiment-list-outer-container'>
         <DeleteExperimentModal
           isOpen={this.state.showDeleteExperimentModal}
-          onClose={this.onCloseDeleteExperimentModal}
+          onClose={this.handleCloseDeleteExperimentModal}
           experimentId={this.state.selectedExperimentId}
           experimentName={this.state.selectedExperimentName}
         />
         <RenameExperimentModal
           isOpen={this.state.showRenameExperimentModal}
-          onClose={this.onCloseRenameExperimentModal}
+          onClose={this.handleCloseRenameExperimentModal}
           experimentId={this.state.selectedExperimentId}
           experimentName={this.state.selectedExperimentName}
         />
@@ -149,7 +149,7 @@ export class ExperimentListView extends Component {
                   {/* Edit/Rename Experiment Option */}
                   </Link>
                   <a
-                    onClick={this.onRenameExperiment}
+                    onClick={this.handleRenameExperiment}
                     data-experimentid={experiment_id}
                     data-experimentname={name}
                     style={{ marginRight: 10 }}
@@ -158,7 +158,7 @@ export class ExperimentListView extends Component {
                   </a>
                   {/* Delete Experiment option */}
                   <a
-                    onClick={this.onDeleteExperiment}
+                    onClick={this.handleDeleteExperiment}
                     disabled={active}
                     data-experimentid={experiment_id}
                     data-experimentname={name}

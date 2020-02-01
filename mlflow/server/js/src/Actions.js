@@ -52,8 +52,8 @@ export const deleteExperimentApi = (experimentId, id = getUUID()) => {
       type: DELETE_EXPERIMENT_API,
       payload: wrapDeferred(MlflowService.deleteExperiment, { experiment_id: experimentId }),
       meta: { id: getUUID() },
-    });
-    return deleteResponse.then(() => dispatch(listExperimentsApi(id)));
+    }).then(() => dispatch(listExperimentsApi(id)));
+    return deleteResponse;
   };
 };
 
@@ -67,8 +67,8 @@ export const updateExperimentApi = (experimentId, newExperimentName, id = getUUI
         new_name: newExperimentName,
       }),
       meta: { id: getUUID() },
-    });
-    return updateResponse.then(() => dispatch(getExperimentApi(experimentId, id)));
+    }).then(() => dispatch(getExperimentApi(experimentId, id)));
+    return updateResponse;
   };
 };
 

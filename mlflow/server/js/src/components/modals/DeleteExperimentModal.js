@@ -10,14 +10,16 @@ class DeleteExperimentModal extends Component {
     onClose: PropTypes.func.isRequired,
     experimentId: PropTypes.number.isRequired,
     experimentName: PropTypes.string.isRequired,
-    dispatch: PropTypes.func.isRequired,
+    deleteExperimentApi: PropTypes.func.isRequired,
+    openErrorModal: PropTypes.func.isRequired,
   };
 
   handleSubmit = () => {
-    const deletePromise = this.props.dispatch(deleteExperimentApi(this.props.experimentId));
-    return deletePromise.catch(() => {
-      this.props.dispatch(openErrorModal('While deleting an experiment, an error occurred.'));
+    const deletePromise = this.props.deleteExperimentApi(this.props.experimentId).catch(() => {
+      this.props.openErrorModal('While deleting an experiment, an error occurred.');
     });
+
+    return deletePromise;
   }
 
   render() {
@@ -51,4 +53,9 @@ class DeleteExperimentModal extends Component {
   }
 }
 
-export default connect()(DeleteExperimentModal);
+const mapDispatchToProps = {
+  deleteExperimentApi,
+  openErrorModal,
+};
+
+export default connect(undefined, mapDispatchToProps)(DeleteExperimentModal);

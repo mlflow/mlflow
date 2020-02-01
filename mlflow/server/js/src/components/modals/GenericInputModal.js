@@ -13,7 +13,7 @@ import Utils from '../../utils/Utils';
  */
 export class GenericInputModal extends Component {
   state = {
-    isSubmittingState: false,
+    isSubmitting: false,
   };
 
   static propTypes = {
@@ -31,7 +31,7 @@ export class GenericInputModal extends Component {
   onSubmit = () => {
     this.form.validateFields((err, values) => {
       if (!err) {
-        this.setState({ isSubmittingState: true });
+        this.setState({ isSubmitting: true });
 
         // get value of input field
         const newName = values[NEW_NAME_FIELD];
@@ -46,18 +46,18 @@ export class GenericInputModal extends Component {
   }
 
   resetAndClearModalForm = () => {
-    this.setState({ isSubmittingState: false });
+    this.setState({ isSubmitting: false });
     this.form.resetFields();
   };
 
   handleSubmitFailure = (e) => {
-    this.setState({ isSubmittingState: false });
+    this.setState({ isSubmitting: false });
     Utils.logErrorAndNotifyUser(e);
     this.props.dispatch(openErrorModal(this.props.errorMessage));
   };
 
   onRequestCloseHandler = () => {
-    if (!this.state.isSubmittingState) {
+    if (!this.state.isSubmitting) {
       this.resetAndClearModalForm();
       this.props.onClose();
     }
@@ -67,12 +67,8 @@ export class GenericInputModal extends Component {
     this.form = form;
   };
 
-  saveFormComponentRef = (formComponent) => {
-    this.formComponent = formComponent;
-  };
-
   render() {
-    const { isSubmittingState } = this.state;
+    const { isSubmitting } = this.state;
     const { isOpen, defaultValue } = this.props;
 
     return (
@@ -82,7 +78,7 @@ export class GenericInputModal extends Component {
         visible={isOpen}
         onOk={this.onSubmit}
         okText='Save'
-        confirmLoading={isSubmittingState}
+        confirmLoading={isSubmitting}
         onCancel={this.onRequestCloseHandler}
         centered
       >
@@ -91,7 +87,6 @@ export class GenericInputModal extends Component {
           name={defaultValue}
           visible={isOpen}
           ref={this.saveFormRef}
-          wrappedComponentRef={this.saveFormComponentRef}
         />
       </Modal>
     );

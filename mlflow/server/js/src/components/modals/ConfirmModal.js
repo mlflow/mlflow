@@ -44,7 +44,7 @@ export class ConfirmModal extends Component {
         visible={this.props.isOpen}
         onOk={this.handleSubmitWrapper}
         okText={this.props.confirmButtonText}
-        okButtonProps={{ disabled: this.state.isSubmitting }}
+        confirmLoading={this.state.isSubmitting}
         onCancel={this.onRequestCloseHandler}
         centered
       >

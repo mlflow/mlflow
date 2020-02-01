@@ -12,15 +12,16 @@ export class RenameExperimentModal extends Component {
     experimentId: PropTypes.number,
     experimentName: PropTypes.string,
     onClose: PropTypes.func.isRequired,
-    dispatch: PropTypes.func.isRequired,
+    updateExperimentApi: PropTypes.func.isRequired,
   };
 
   handleRenameExperiment = (newExperimentName) => {
-    return this.props.dispatch(updateExperimentApi(this.props.experimentId, newExperimentName));
+    return this.props.updateExperimentApi(this.props.experimentId, newExperimentName);
   }
 
   render() {
     const { isOpen, experimentName } = this.props;
+
     return (
       <GenericInputModal
         title='Rename Experiment'
@@ -29,18 +30,15 @@ export class RenameExperimentModal extends Component {
         defaultValue={experimentName}
         handleSubmit={this.handleRenameExperiment}
         onClose={this.props.onClose}
-        errorMessage='While renaming a run, an error occurred.'
+        errorMessage='While renaming an experiment, an error occurred.'
       />
     );
   }
 }
 
-// eslint-disable-next-line no-unused-vars
-const mapDispatchToProps = (dispatch, ownProps) => {
-  return {
-    dispatch,
-  };
+const mapDispatchToProps = {
+  updateExperimentApi,
 };
 
-export default connect(null, mapDispatchToProps)(RenameExperimentModal);
+export default connect(undefined, mapDispatchToProps)(RenameExperimentModal);
 
