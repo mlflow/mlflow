@@ -32,29 +32,30 @@ def main():
     dtrain = xgb.DMatrix(X_train, label=y_train)
     dtest = xgb.DMatrix(X_test, label=y_test)
 
-    # train model
-    params = {
-        'objective': 'multi:softprob',
-        'num_class': 3,
-        'eval_metric': 'mlogloss',
-        'colsample_bytree': args.colsample_bytree,
-        'subsample': args.subsample,
-        'seed': 42,
-    }
-    model = xgb.train(params, dtrain)
+    # enable auto logging
+    mlflow.xgboost.autolog()
 
-    # evaluate model
-    y_proba = model.predict(dtest)
-    y_pred = y_proba.argmax(axis=1)
-    loss = log_loss(y_test, y_proba)
-    acc = accuracy_score(y_test, y_pred)
-
-    # log parameters, metrics, and model
     with mlflow.start_run() as run:
-        mlflow.log_params(params)
+
+        # train model
+        params = {
+            'objective': 'multi:softprob',
+            'num_class': 3,
+            'eval_metric': 'mlogloss',
+            'colsample_bytree': args.colsample_bytree,
+            'subsample': args.subsample,
+            'seed': 42,
+        }
+        model = xgb.train(params, dtrain, evals=[(dtrain, 'train')])
+
+        # evaluate model
+        y_proba = model.predict(dtest)
+        y_pred = y_proba.argmax(axis=1)
+        loss = log_loss(y_test, y_proba)
+        acc = accuracy_score(y_test, y_pred)
+
+        # log metrics
         mlflow.log_metrics({'log_loss': loss, 'accuracy': acc})
-        mlflow.xgboost.log_model(model, 'model', args.conda_env)
-        print('Model logged in run {}'.format(run.info.run_uuid))
 
 
 if __name__ == '__main__':
