@@ -1,6 +1,6 @@
 import React from 'react';
 import { shallow } from 'enzyme';
-import { InputFormView } from './InputFormView';
+import { RenameForm } from './RenameForm';
 
 describe('Render test', () => {
   const minimalProps = {
@@ -12,7 +12,7 @@ describe('Render test', () => {
   };
 
   it('should render with minimal props without exploding', () => {
-    const wrapper = shallow(<InputFormView {...minimalProps} />);
+    const wrapper = shallow(<RenameForm {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 });

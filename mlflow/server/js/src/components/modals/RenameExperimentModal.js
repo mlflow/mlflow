@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 
 import GenericInputModal from './GenericInputModal';
-import { InputFormView, NEW_NAME_FIELD } from './InputFormView';
+import { RenameForm, NEW_NAME_FIELD } from './RenameForm';
 
 import { updateExperimentApi } from '../../Actions';
 
@@ -25,7 +25,7 @@ export class RenameExperimentModal extends Component {
   render() {
     const { isOpen, experimentName } = this.props;
 
-    const inputComponent = <InputFormView
+    const inputComponent = <RenameForm
       type='experiment'
       name={experimentName}
       visible={isOpen}

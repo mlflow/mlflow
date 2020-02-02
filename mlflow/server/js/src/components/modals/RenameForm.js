@@ -8,7 +8,7 @@ export const NEW_NAME_FIELD = 'newName';
 /**
  * Component that renders a form for updating a run's or experiment's name.
  */
-class InputFormViewComponent extends Component {
+class RenameFormComponent extends Component {
   static propTypes = {
     form: PropTypes.object.isRequired,
     type: PropTypes.string.isRequired,
@@ -65,4 +65,4 @@ class InputFormViewComponent extends Component {
   }
 }
 
-export const InputFormView = Form.create()(InputFormViewComponent);
+export const RenameForm = Form.create()(RenameFormComponent);
