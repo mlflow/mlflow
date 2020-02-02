@@ -3,7 +3,7 @@ import { shallow } from 'enzyme';
 import { InputFormView } from './InputFormView';
 
 describe('Render test', () => {
-  const defaultProps = {
+  const minimalProps = {
     type: 'run',
     name: 'Test',
     visible: true,
@@ -11,8 +11,8 @@ describe('Render test', () => {
     form: { getFieldDecorator: jest.fn(opts => c => c) },
   };
 
-  it('renders with props', () => {
-    const wrapper = shallow(<InputFormView {...defaultProps} />);
+  it('should render with minimal props without exploding', () => {
+    const wrapper = shallow(<InputFormView {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 });
