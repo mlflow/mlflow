@@ -98,6 +98,7 @@ export class ExperimentListView extends Component {
         <DeleteExperimentModal
           isOpen={this.state.showDeleteExperimentModal}
           onClose={this.handleCloseDeleteExperimentModal}
+          activeExperimentId={this.props.activeExperimentId}
           experimentId={this.state.selectedExperimentId}
           experimentName={this.state.selectedExperimentName}
         />
@@ -159,7 +160,6 @@ export class ExperimentListView extends Component {
                   {/* Delete Experiment option */}
                   <a
                     onClick={this.handleDeleteExperiment}
-                    disabled={active}
                     data-experimentid={experiment_id}
                     data-experimentname={name}
                   >

@@ -1,23 +1,40 @@
 import React, { Component } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import PropTypes from 'prop-types';
-import { deleteExperimentApi, openErrorModal } from '../../Actions';
+import { deleteExperimentApi, listExperimentsApi, openErrorModal, getUUID } from '../../Actions';
+import Routes from '../../Routes';
 import { connect } from 'react-redux';
+import { withRouter } from 'react-router-dom';
 
 class DeleteExperimentModal extends Component {
   static propTypes = {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
+    activeExperimentId: PropTypes.number,
     experimentId: PropTypes.number.isRequired,
     experimentName: PropTypes.string.isRequired,
     deleteExperimentApi: PropTypes.func.isRequired,
+    listExperimentsApi: PropTypes.func.isRequired,
     openErrorModal: PropTypes.func.isRequired,
+    history: PropTypes.object.isRequired,
   };
 
   handleSubmit = () => {
-    const deletePromise = this.props.deleteExperimentApi(this.props.experimentId).catch(() => {
-      this.props.openErrorModal('While deleting an experiment, an error occurred.');
-    });
+    const {experimentId, activeExperimentId} = this.props;
+    const deleteExperimentRequestId = getUUID();
+
+    const deletePromise = this.props.deleteExperimentApi(experimentId, deleteExperimentRequestId)
+      .then(() => {
+        // check whether the deleted experiment is currently selected
+        if (experimentId === activeExperimentId) {
+          // navigate to root URL and let route pick the next active experiment to show
+          this.props.history.push(Routes.rootRoute);
+        }
+      })
+      .then(() => this.props.listExperimentsApi(deleteExperimentRequestId))
+      .catch(() => {
+        this.props.openErrorModal('While deleting an experiment, an error occurred.');
+      });
 
     return deletePromise;
   }
@@ -55,7 +72,8 @@ class DeleteExperimentModal extends Component {
 
 const mapDispatchToProps = {
   deleteExperimentApi,
+  listExperimentsApi,
   openErrorModal,
 };
 
-export default connect(undefined, mapDispatchToProps)(DeleteExperimentModal);
+export default withRouter(connect(undefined, mapDispatchToProps)(DeleteExperimentModal));

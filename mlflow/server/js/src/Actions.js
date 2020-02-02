@@ -52,7 +52,7 @@ export const deleteExperimentApi = (experimentId, id = getUUID()) => {
       type: DELETE_EXPERIMENT_API,
       payload: wrapDeferred(MlflowService.deleteExperiment, { experiment_id: experimentId }),
       meta: { id: getUUID() },
-    }).then(() => dispatch(listExperimentsApi(id)));
+    });
     return deleteResponse;
   };
 };
