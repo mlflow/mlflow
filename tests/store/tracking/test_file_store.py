@@ -277,6 +277,19 @@ class TestFileStore(unittest.TestCase):
     def test_rename_experiment(self):
         fs = FileStore(self.test_root)
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+
+        # Error cases
+        with self.assertRaises(Exception):
+            fs.rename_experiment(exp_id, None)
+        with self.assertRaises(Exception):
+            # test that names of existing experiments are checked before renaming
+            other_exp_id = None
+            for exp in self.experiments:
+                if exp != exp_id:
+                    other_exp_id = exp
+                    break
+            fs.rename_experiment(exp_id, fs.get_experiment(other_exp_id).name)
+
         exp_name = self.exp_data[exp_id]["name"]
         new_name = exp_name + "!!!"
         self.assertNotEqual(exp_name, new_name)
