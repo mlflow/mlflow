@@ -151,7 +151,6 @@ class EntryPoint(object):
         self._validate_parameters(user_parameters)
         final_params = {}
         extra_params = {}
-
         for key, param_obj in self.parameters.items():
             value = user_parameters[key] if key in user_parameters else self.parameters[key].default
             final_params[key] = param_obj.compute_value(value, storage_dir)
@@ -202,10 +201,18 @@ class Parameter(object):
             data.download_uri(uri=user_param_value, output_path=dest_path)
         return os.path.abspath(dest_path)
 
+    def _compute_action_value(self, user_param_value):
+        if not data.is_action(user_param_value):
+            raise ExecutionException("Expected parameter %s but got "
+                                     "%s" % (self.name, user_param_value))
+        return user_param_value
+
     def compute_value(self, param_value, storage_dir):
         if storage_dir and self.type == "path":
             return self._compute_path_value(param_value, storage_dir)
         elif self.type == "uri":
             return self._compute_uri_value(param_value)
+        elif self.type == "action":
+            return self._compute_action_value(param_value)
         else:
             return param_value

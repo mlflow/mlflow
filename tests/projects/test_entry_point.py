@@ -15,17 +15,17 @@ def test_entry_point_compute_params():
     Tests that EntryPoint correctly computes a final set of parameters to use when running a project
     """
     project = load_project()
-    entry_point = project.get_entry_point("greeter")
+    entry_point = project.get_entry_point("greeter_compute_params")
     # Pass extra "excitement" param, use default value for `greeting` param
     with TempDir() as storage_dir:
         params, extra_params = entry_point.compute_parameters(
             {"name": "friend", "excitement": 10}, storage_dir)
-        assert params == {"name": "friend", "greeting": "hi"}
+        assert params == {"name": "friend", "greeting": "hi", "args": "--goodbye"}
         assert extra_params == {"excitement": "10"}
         # Don't pass extra "excitement" param, pass value for `greeting`
         params, extra_params = entry_point.compute_parameters(
             {"name": "friend", "greeting": "hello"}, storage_dir)
-        assert params == {"name": "friend", "greeting": "hello"}
+        assert params == {"name": "friend", "greeting": "hello", "args": "--goodbye"}
         assert extra_params == {}
         # Raise exception on missing required parameter
         with pytest.raises(ExecutionException):
@@ -47,6 +47,7 @@ def test_entry_point_compute_command():
         # Test shell escaping
         name_value = "friend; echo 'hi'"
         command = entry_point.compute_command({"name": name_value}, storage_dir)
+        print(command)
         assert command == "python greeter.py %s %s" % (shlex_quote("hi"), shlex_quote(name_value))
 
 
@@ -108,12 +109,14 @@ def test_uri_parameter():
             entry_point.compute_command(user_parameters={"uri": dst_dir}, storage_dir=dst_dir)
 
 
+
 def test_params():
     defaults = {
         "alpha": "float",
         "l1_ratio": {"type": "float", "default": 0.1},
         "l2_ratio": {"type": "float", "default": 0.0003},
         "random_str": {"type": "string", "default": "hello"},
+        "args": {"type": "action", "default": "--early-stopping"}
     }
     entry_point = EntryPoint("entry_point_name", defaults, "command_name script.py")
 
@@ -127,7 +130,7 @@ def test_params():
 
     user_3 = {"alpha": 0.004, "gamma": 0.89}
     expected_final_3 = {"alpha": '0.004', "l1_ratio": '0.1', "l2_ratio": '0.0003',
-                        "random_str": "hello"}
+                        "random_str": "hello", "args": "--early-stopping"}
     expected_extra_3 = {"gamma": "0.89"}
     final_3, extra_3 = entry_point.compute_parameters(user_3, None)
     assert expected_extra_3 == extra_3
@@ -135,7 +138,7 @@ def test_params():
 
     user_4 = {"alpha": 0.004, "l1_ratio": 0.0008, "random_str_2": "hello"}
     expected_final_4 = {"alpha": '0.004', "l1_ratio": '0.0008', "l2_ratio": '0.0003',
-                        "random_str": "hello"}
+                        "random_str": "hello", "args": "--early-stopping"}
     expected_extra_4 = {"random_str_2": "hello"}
     final_4, extra_4 = entry_point.compute_parameters(user_4, None)
     assert expected_extra_4 == extra_4
@@ -143,7 +146,7 @@ def test_params():
 
     user_5 = {"alpha": -0.99, "random_str": "hi"}
     expected_final_5 = {"alpha": '-0.99', "l1_ratio": '0.1', "l2_ratio": '0.0003',
-                        "random_str": "hi"}
+                        "random_str": "hi", "args": "--early-stopping"}
     expected_extra_5 = {}
     final_5, extra_5 = entry_point.compute_parameters(user_5, None)
     assert expected_final_5 == final_5
@@ -151,7 +154,7 @@ def test_params():
 
     user_6 = {"alpha": 0.77, "ALPHA": 0.89}
     expected_final_6 = {"alpha": '0.77', "l1_ratio": '0.1', "l2_ratio": '0.0003',
-                        "random_str": "hello"}
+                        "random_str": "hello", "args": "--early-stopping"}
     expected_extra_6 = {"ALPHA": "0.89"}
     final_6, extra_6 = entry_point.compute_parameters(user_6, None)
     assert expected_extra_6 == extra_6

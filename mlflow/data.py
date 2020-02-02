@@ -65,6 +65,12 @@ def is_uri(string):
     return len(parsed_uri.scheme) > 0
 
 
+def is_action(action_string):
+    pattern = re.compile("^-{1,2}[a-zA-z]+")
+    return pattern.match(action_string)
+
+
+
 def download_uri(uri, output_path):
     if DBFS_REGEX.match(uri):
         _fetch_dbfs(uri, output_path)
