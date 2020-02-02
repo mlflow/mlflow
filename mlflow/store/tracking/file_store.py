@@ -212,8 +212,8 @@ class FileStore(AbstractStore):
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, experiment_dict)
         return experiment_id
 
-    def create_experiment(self, name, artifact_location=None):
-        self._check_root_dir()
+    def _validate_experiment_name(self, name):
+        """Check the validity of an experiment name."""
         if name is None or name == "":
             raise MlflowException("Invalid experiment name '%s'" % name,
                                   databricks_pb2.INVALID_PARAMETER_VALUE)
@@ -223,12 +223,16 @@ class FileStore(AbstractStore):
                 raise MlflowException(
                     "Experiment '%s' already exists in deleted state. "
                     "You can restore the experiment, or permanently delete the experiment "
-                    "from the .trash folder (under tracking server's root folder) before "
-                    "creating a new one with the same name." % experiment.name,
+                    "from the .trash folder (under tracking server's root folder) in order to "
+                    "use this experiment name again." % experiment.name,
                     databricks_pb2.RESOURCE_ALREADY_EXISTS)
             else:
                 raise MlflowException("Experiment '%s' already exists." % experiment.name,
                                       databricks_pb2.RESOURCE_ALREADY_EXISTS)
+
+    def create_experiment(self, name, artifact_location=None):
+        self._check_root_dir()
+        self._validate_experiment_name(name)
         # Get all existing experiments and find the one with largest ID.
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [int(e.experiment_id) for e in self.list_experiments(ViewType.ALL)]
@@ -301,6 +305,7 @@ class FileStore(AbstractStore):
         if experiment is None:
             raise MlflowException("Experiment '%s' does not exist." % experiment_id,
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
+        self._validate_experiment_name(new_name)
         experiment._set_name(new_name)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception("Cannot rename experiment in non-active lifecycle stage."
