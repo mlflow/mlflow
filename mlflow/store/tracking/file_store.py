@@ -318,6 +318,10 @@ class FileStore(AbstractStore):
         self._overwrite_run_info(new_info)
 
     def _hard_delete_run(self, run_id):
+        """
+        Permanently delete a run (metadata and metrics, tags, parameters).
+        This is used by the mlflow gc command line and is not intented to be used elsewhere.
+        """
         _, run_dir = self._find_run_root(run_id)
         os.remove(os.path.join(run_dir, FileStore.META_DATA_FILE_NAME))
         shutil.rmtree(os.path.join(run_dir, FileStore.METRICS_FOLDER_NAME))

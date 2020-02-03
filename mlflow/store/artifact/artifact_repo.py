@@ -153,6 +153,8 @@ class ArtifactRepository:
     def delete_artifacts(self, artifact_path):
         """
         Delete the artifacts at the specified location.
+        Support the deletion of a single file or of a directory. Deletion of a directory
+        is recursive.
         :param artifact_path: Path to delete
         """
         pass

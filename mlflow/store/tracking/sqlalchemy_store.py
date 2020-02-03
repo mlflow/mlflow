@@ -430,6 +430,10 @@ class SqlAlchemyStore(AbstractStore):
             self._save_to_db(objs=run, session=session)
 
     def _hard_delete_run(self, run_id):
+        """
+        Permanently delete a run (metadata and metrics, tags, parameters).
+        This is used by the mlflow gc command line and is not intented to be used elsewhere.
+        """
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             session.delete(run)

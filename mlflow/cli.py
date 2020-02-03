@@ -19,10 +19,11 @@ import mlflow.store.artifact.cli
 import mlflow.store.db.utils
 from mlflow import tracking
 from mlflow.server import _run_server
-from mlflow.server.handlers import initialize_backend_stores, _get_tracking_store
+from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.utils import cli_args
+from mlflow.tracking import _get_store
+from mlflow.utils import cli_args, experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.uri import is_local_uri
@@ -291,12 +292,14 @@ def server(backend_store_uri, default_artifact_root, host, port,
                    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be deleted "
                    "from the ./mlruns directory.")
 @click.option("--run-ids", default=None,
-              help="Comma separated list of runs to be permanently deleted.")
+              help="Optional comma separated list of runs to be permanently deleted."
+                   "If run ids are not specified, by default, all deleted runs are gc'ed.")
+@experimental
 def gc(backend_store_uri, run_ids):
     """
     Permanently delete runs in state deleted in the backend store.
     """
-    backend_store = _get_tracking_store(backend_store_uri, None)
+    backend_store = _get_store(backend_store_uri, None)
     if not run_ids:
         run_ids = backend_store._get_deleted_runs()
     else:
