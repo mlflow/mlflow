@@ -17,7 +17,7 @@ import RenameRunModal from "./modals/RenameRunModal";
 import DeleteRunModal from "./modals/DeleteRunModal";
 import RestoreRunModal from "./modals/RestoreRunModal";
 import EditableTagsTableView from './EditableTagsTableView';
-import {Icon, Descriptions, Alert} from 'antd';
+import { Icon, Descriptions, Alert } from 'antd';
 import { CollapsibleSection } from '../common/components/CollapsibleSection';
 import { EditableNote } from '../common/components/EditableNote';
 
@@ -154,23 +154,23 @@ class RunView extends Component {
                  className="mlflow-menu-item"
                  onClick={this.handleRestoreRun}
                  key={"restore-button"}
-               >
+                >
                  Restore
-               </MenuItem> :
+                </MenuItem> :
                [<MenuItem
                   className="mlflow-menu-item"
                   onClick={this.handleRenameRunClick}
                   key={"rename-button"}
                 >
-                Rename
+                  Rename
                 </MenuItem>,
                  <MenuItem
-                 className="mlflow-menu-item"
-                 onClick={this.handleDeleteRunClick}
-                 key={"delete-button"}
-               >
+                  className="mlflow-menu-item"
+                  onClick={this.handleDeleteRunClick}
+                  key={"delete-button"}
+                 >
                  Delete
-               </MenuItem>]
+                </MenuItem>]
                }
              </Dropdown.Menu>
           </Dropdown>
