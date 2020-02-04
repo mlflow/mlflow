@@ -35,7 +35,7 @@ def main():
     # enable auto logging
     mlflow.xgboost.autolog()
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
 
         # train model
         params = {
