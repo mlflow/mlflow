@@ -9,9 +9,10 @@ import mlflow
 from mlflow.entities import Param, Metric, RunTag, SourceType, ViewType, ExperimentTag, Experiment,\
     LifecycleStage
 from mlflow.exceptions import MlflowException
+from mlflow.models import Model
 from mlflow.protos.service_pb2 import CreateRun, DeleteExperiment, DeleteRun, LogBatch, \
     LogMetric, LogParam, RestoreExperiment, RestoreRun, RunTag as ProtoRunTag, SearchRuns, \
-    SetTag, DeleteTag, SetExperimentTag, GetExperimentByName, ListExperiments
+    SetTag, DeleteTag, SetExperimentTag, GetExperimentByName, ListExperiments, LogModel
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ENDPOINT_NOT_FOUND,\
     REQUEST_LIMIT_EXCEEDED, INTERNAL_ERROR, ErrorCode
 from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
@@ -248,6 +249,16 @@ class TestRestStore(object):
                                   "runs/search", "POST",
                                   message_to_json(expected_message))
             assert result.token == "67890fghij"
+
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
+            run_id = "run_id"
+            m = Model(artifact_path="model/path", run_id="run_id", flavors={"tf": "flavor body"})
+            result = store.record_logged_model("run_id", m)
+            expected_message = LogModel(run_id=run_id,
+                                        model_json=m.to_json())
+            self._verify_requests(mock_http, creds,
+                                  "runs/log-model", "POST",
+                                  message_to_json(expected_message))
 
     @pytest.mark.parametrize("store_class", [RestStore, DatabricksRestStore])
     def test_get_experiment_by_name(self, store_class):

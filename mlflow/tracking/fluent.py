@@ -323,6 +323,11 @@ def log_artifacts(local_dir, artifact_path=None):
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
+def _record_logged_model(mlflow_model):
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient()._record_logged_model(run_id, mlflow_model)
+
+
 def get_experiment(experiment_id):
     """
     Retrieve an experiment by experiment_id from the backend store

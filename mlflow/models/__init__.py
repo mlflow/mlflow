@@ -17,11 +17,16 @@ For details, see `MLflow Models <../models.html>`_.
 
 from abc import abstractmethod, ABCMeta
 from datetime import datetime
-
+import json
+import logging
 import yaml
 
 import mlflow
+from mlflow.exceptions import MlflowException
+from mlflow.protos import databricks_pb2
 from mlflow.utils.file_utils import TempDir
+
+_logger = logging.getLogger(__name__)
 
 
 class Model(object):
@@ -29,21 +34,30 @@ class Model(object):
     An MLflow Model that can support multiple model flavors. Provides APIs for implementing
     new Model flavors.
     """
-    def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None):
+
+    def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None,
+                 **kwargs):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:
             self.run_id = run_id
             self.artifact_path = artifact_path
         self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
+        self.__dict__.update(kwargs)
 
     def add_flavor(self, name, **params):
         """Add an entry for how to serve the model in a given format."""
         self.flavors[name] = params
         return self
 
+    def to_dict(self):
+        return self.__dict__
+
     def to_yaml(self, stream=None):
         return yaml.safe_dump(self.__dict__, stream=stream, default_flow_style=False)
+
+    def to_json(self):
+        return json.dumps(self.__dict__)
 
     def save(self, path):
         """Write the model as a local YAML file."""
@@ -58,6 +72,11 @@ class Model(object):
             path = os.path.join(path, "MLmodel")
         with open(path) as f:
             return cls(**yaml.safe_load(f.read()))
+
+    @classmethod
+    def from_dict(cls, model_dict):
+        """Load a model from its YAML representation."""
+        return cls(**model_dict)
 
     @classmethod
     def log(cls, artifact_path, flavor, registered_model_name=None, **kwargs):
@@ -81,6 +100,18 @@ class Model(object):
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
+            try:
+                mlflow.tracking.fluent._record_logged_model(mlflow_model)
+            except MlflowException:
+                # We need to swallow all mlflow exceptions to maintain backwards compatibility with
+                # older tracking servers. Only print out a warning for now.
+                _logger.warning(
+                    "Logging model metadata to the tracking server has failed, possibly due older "
+                    "server version. The model artifacts have been logged successfully under %s. "
+                    "In addition to exporting model artifacts, MLflow clients 1.7.0 and above "
+                    "attempt to record model metadata to the  tracking store. If logging to a "
+                    "mlflow server via REST, consider  upgrading the server version to MLflow "
+                    "1.7.0 or above.", mlflow.get_artifact_uri())
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
                 mlflow.register_model("runs:/%s/%s" % (run_id, artifact_path),

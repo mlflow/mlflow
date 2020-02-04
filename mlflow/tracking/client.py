@@ -259,6 +259,15 @@ class MlflowClient(object):
         """
         self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
 
+    def _record_logged_model(self, run_id, mlflow_model):
+        """
+        Record logged model info with the tracking server.
+
+        :param run_id: run_id under which the model has been logged.
+        :param mlflow_model: Model info to be recorded.
+        """
+        self._tracking_client._record_logged_model(run_id, mlflow_model)
+
     def list_artifacts(self, run_id, path=None):
         """
         List the artifacts for a run.

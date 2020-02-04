@@ -471,6 +471,24 @@ service MlflowService {
       rpc_doc_title: "Log Batch",
     };
   }
+
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
+  rpc logModel (LogModel) returns (LogModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/log-model"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
+        path: "/preview/mlflow/runs/log-model"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Model",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -1007,6 +1025,18 @@ message LogBatch {
   // Tags to log. A single request can contain up to 100 tags, and up to 1000
   // metrics, params, and tags in total.
   repeated RunTag tags = 4;
+  message Response {
+  }
+}
+
+message LogModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  // ID of the run to log under
+  optional string run_id = 1;
+
+  // MLmodel file in json format.
+  optional string model_json = 2;
+
   message Response {
   }
 }

@@ -22,17 +22,24 @@ from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_ur
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
-
+from tests.store.tracking import AbstractStoreTest
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
 
 
-class TestFileStore(unittest.TestCase):
+class TestFileStore(unittest.TestCase, AbstractStoreTest):
     ROOT_LOCATION = tempfile.gettempdir()
+
+    def create_test_run(self):
+        fs = FileStore(self.test_root)
+        return self._create_run(fs)
 
     def setUp(self):
         self._create_root(TestFileStore.ROOT_LOCATION)
         self.maxDiff = None
+
+    def get_store(self):
+        return FileStore(self.test_root)
 
     def _create_root(self, root):
         self.test_root = os.path.join(root, "test_file_store_%d" % random_int())
@@ -866,19 +873,6 @@ class TestFileStore(unittest.TestCase):
         return fs.create_run(
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id='user',
             start_time=0, tags=[])
-
-    def _verify_logged(self, fs, run_id, metrics, params, tags):
-        run = fs.get_run(run_id)
-        all_metrics = sum([fs.get_metric_history(run_id, key)
-                           for key in run.data.metrics], [])
-        assert len(all_metrics) == len(metrics)
-        logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
-        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp, m.step) for m in metrics])
-        logged_tags = set([(tag_key, tag_value) for tag_key, tag_value in run.data.tags.items()])
-        assert set([(tag.key, tag.value) for tag in tags]) <= logged_tags
-        assert len(run.data.params) == len(params)
-        logged_params = [(param_key, param_val) for param_key, param_val in run.data.params.items()]
-        assert set(logged_params) == set([(param.key, param.value) for param in params])
 
     def test_log_batch_internal_error(self):
         # Verify that internal errors during log_batch result in MlflowExceptions

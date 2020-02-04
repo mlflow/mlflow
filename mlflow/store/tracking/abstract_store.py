@@ -3,6 +3,7 @@ from abc import abstractmethod, ABCMeta
 from mlflow.entities import ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.utils import experimental
 
 
 class AbstractStore:
@@ -267,6 +268,25 @@ class AbstractStore:
         :param metrics: List of :py:class:`mlflow.entities.Metric` instances to log
         :param params: List of :py:class:`mlflow.entities.Param` instances to log
         :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
+
+        :return: None.
+        """
+        pass
+
+    @experimental
+    @abstractmethod
+    def record_logged_model(self, run_id, mlflow_model):
+        """
+        Record logged model information with tracking store. The list of logged model infos is
+        maintained in a mlflow.models tag in JSON format.
+
+        Note: The actual models are logged as artifacts via artifact repository.
+
+        :param run_id: String id for the run
+        :param mlflow_model: Model object to be recorded.
+
+        NB: This API is experimental and may change in the future. The default implementation is a
+        no-op.
 
         :return: None.
         """
