@@ -70,3 +70,11 @@ export const MODEL_VERSION_STATUS_POLL_INTERVAL = 5000;
 
 export const REGISTER_DIALOG_DESCRIPTION = ConstantOverrides.REGISTER_DIALOG_DESCRIPTION ||
   'Once registered, the model will be available in the model registry and become public.';
+
+export const MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT = `Model versions in active 
+stages cannot be deleted. To delete this model version, transition it to an inactive stage
+(e.g., 'None' or 'Archived').`;
+
+export const REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT = `Registered models with
+versions in active stages cannot be deleted. To delete this registered model, transition its
+versions to inactive stages (e.g., 'None' or 'Archived').`;
