@@ -42,7 +42,6 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
     :target: https://pepy.tech/project/mlflow
     :alt: Total Downloads
 
-
 Installing
 ----------
 Install MLflow from PyPI via ``pip install mlflow``
