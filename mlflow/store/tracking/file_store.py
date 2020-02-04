@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sys
@@ -10,6 +11,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
+from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -24,6 +26,7 @@ from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, 
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -715,5 +718,27 @@ class FileStore(AbstractStore):
                 self._log_run_metric(run_info, metric)
             for tag in tags:
                 self._set_run_tag(run_info, tag)
+        except Exception as e:
+            raise MlflowException(e, INTERNAL_ERROR)
+
+    def record_logged_model(self, run_id, mlflow_model):
+        if not isinstance(mlflow_model, Model):
+            raise TypeError("Argument 'mlflow_model' should be mlflow.models.Model, got '{}'"
+                            .format(type(mlflow_model)))
+        _validate_run_id(run_id)
+        run_info = self._get_run_info(run_id)
+        check_run_is_active(run_info)
+        model_dict = mlflow_model.to_dict()
+        run_info = self._get_run_info(run_id)
+        path = self._get_tag_path(run_info.experiment_id, run_info.run_id, MLFLOW_LOGGED_MODELS)
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                model_list = json.loads(f.read())
+        else:
+            model_list = []
+        tag = RunTag(MLFLOW_LOGGED_MODELS, json.dumps(model_list + [model_dict]))
+
+        try:
+            self._set_run_tag(run_info, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)

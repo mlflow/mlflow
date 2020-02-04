@@ -33,6 +33,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import extract_db_type_from_uri
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
+from tests.store.tracking import AbstractStoreTest
 
 DB_URI = 'sqlite:///'
 ARTIFACT_URI = 'artifact_folder'
@@ -78,10 +79,13 @@ class TestParseDbUri(unittest.TestCase):
                            "mlflow.org/docs/latest/tracking.html#storage for format specifications")
 
 
-class TestSqlAlchemyStoreSqlite(unittest.TestCase):
+class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
     def _get_store(self, db_uri=''):
         return SqlAlchemyStore(db_uri, ARTIFACT_URI)
+
+    def create_test_run(self):
+        return self._run_factory()
 
     def setUp(self):
         self.maxDiff = None  # print all differences on assert failures
@@ -90,6 +94,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         os.close(fd)
         self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
         self.store = self._get_store(self.db_url)
+
+    def get_store(self):
+        return self.store
 
     def tearDown(self):
         mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
@@ -101,19 +108,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             return [self.store.create_experiment(name=name) for name in names]
 
         return self.store.create_experiment(name=names)
-
-    def _verify_logged(self, run_id, metrics, params, tags):
-        run = self.store.get_run(run_id)
-        all_metrics = sum([self.store.get_metric_history(run_id, key)
-                           for key in run.data.metrics], [])
-        assert len(all_metrics) == len(metrics)
-        logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
-        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp, m.step) for m in metrics])
-        logged_tags = set([(tag_key, tag_value) for tag_key, tag_value in run.data.tags.items()])
-        assert set([(tag.key, tag.value) for tag in tags]) <= logged_tags
-        assert len(run.data.params) == len(params)
-        logged_params = [(param_key, param_val) for param_key, param_val in run.data.params.items()]
-        assert set(logged_params) == set([(param.key, param.value) for param in params])
 
     def test_default_experiment(self):
         experiments = self.store.list_experiments()
@@ -951,10 +945,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         def create_run(start_time, end):
             return self.store.create_run(
-                    experiment_id,
-                    user_id="MrDuck",
-                    start_time=start_time,
-                    tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)]).info.run_id
+                experiment_id,
+                user_id="MrDuck",
+                start_time=start_time,
+                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)]).info.run_id
 
         start_time = 123
         for end in [234, None, 456, -123, 789, 123]:
@@ -1335,7 +1329,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                  tags=[tag])
         self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        self._verify_logged(run.info.run_id, metrics=[], params=[param], tags=[])
+        self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param], tags=[])
 
     def test_log_batch_param_overwrite_disallowed_single_req(self):
         # Test that attempting to overwrite a param via log_batch results in an exception
@@ -1350,12 +1344,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                  tags=[tag])
         self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        self._verify_logged(run.info.run_id, metrics=[], params=[param0], tags=[])
+        self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param0], tags=[])
 
     def test_log_batch_accepts_empty_payload(self):
         run = self._run_factory()
         self.store.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
-        self._verify_logged(run.info.run_id, metrics=[], params=[], tags=[])
+        self._verify_logged(self.store, run.info.run_id, metrics=[], params=[], tags=[])
 
     def test_log_batch_internal_error(self):
         # Verify that internal errors during the DB save step for log_batch result in
@@ -1366,7 +1360,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             raise Exception("Some internal error")
 
         package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-        with mock.patch(package + ".log_metric") as metric_mock,\
+        with mock.patch(package + ".log_metric") as metric_mock, \
                 mock.patch(package + ".log_param") as param_mock, \
                 mock.patch(package + ".set_tag") as tags_mock:
             metric_mock.side_effect = _raise_exception_fn
@@ -1392,7 +1386,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         params = [Param("p-key", "p-val")]
         self.store.log_batch(run.info.run_id, metrics=[], params=params, tags=[])
         self.store.log_batch(run.info.run_id, metrics=[], params=params, tags=[])
-        self._verify_logged(run.info.run_id, metrics=[], params=params, tags=[])
+        self._verify_logged(self.store, run.info.run_id, metrics=[], params=params, tags=[])
 
     def test_log_batch_tags_idempotency(self):
         run = self._run_factory()
@@ -1400,8 +1394,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
         self.store.log_batch(
             run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
-        self._verify_logged(
-            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+        self._verify_logged(self.store,
+                            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
 
     def test_log_batch_allows_tag_overwrite(self):
         run = self._run_factory()
@@ -1409,30 +1403,33 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "val")])
         self.store.log_batch(
             run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
-        self._verify_logged(
-            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
+        self._verify_logged(self.store,
+                            run.info.run_id, metrics=[], params=[],
+                            tags=[RunTag("t-key", "newval")])
 
     def test_log_batch_allows_tag_overwrite_single_req(self):
         run = self._run_factory()
         tags = [RunTag("t-key", "val"), RunTag("t-key", "newval")]
         self.store.log_batch(run.info.run_id, metrics=[], params=[], tags=tags)
-        self._verify_logged(run.info.run_id, metrics=[], params=[], tags=[tags[-1]])
+        self._verify_logged(self.store, run.info.run_id, metrics=[], params=[], tags=[tags[-1]])
 
     def test_log_batch_same_metric_repeated_single_req(self):
         run = self._run_factory()
         metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
         metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
         self.store.log_batch(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
-        self._verify_logged(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+        self._verify_logged(self.store, run.info.run_id, params=[], metrics=[metric0, metric1],
+                            tags=[])
 
     def test_log_batch_same_metric_repeated_multiple_reqs(self):
         run = self._run_factory()
         metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
         metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
         self.store.log_batch(run.info.run_id, params=[], metrics=[metric0], tags=[])
-        self._verify_logged(run.info.run_id, params=[], metrics=[metric0], tags=[])
+        self._verify_logged(self.store, run.info.run_id, params=[], metrics=[metric0], tags=[])
         self.store.log_batch(run.info.run_id, params=[], metrics=[metric1], tags=[])
-        self._verify_logged(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+        self._verify_logged(self.store, run.info.run_id, params=[], metrics=[metric0, metric1],
+                            tags=[])
 
     def test_upgrade_cli_idempotence(self):
         # Repeatedly run `mlflow db upgrade` against our database, verifying that the command
@@ -1715,12 +1712,12 @@ class TestZeroValueInsertion(unittest.TestCase):
 
 
 def test_get_attribute_name():
-    assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
-    assert(models.SqlRun.get_attribute_name("status") == "status")
-    assert(models.SqlRun.get_attribute_name("start_time") == "start_time")
-    assert(models.SqlRun.get_attribute_name("end_time") == "end_time")
+    assert (models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
+    assert (models.SqlRun.get_attribute_name("status") == "status")
+    assert (models.SqlRun.get_attribute_name("start_time") == "start_time")
+    assert (models.SqlRun.get_attribute_name("end_time") == "end_time")
 
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
     # searchable attibutes are also orderable
-    assert(len(entities.RunInfo.get_orderable_attributes()) == 4)
+    assert (len(entities.RunInfo.get_orderable_attributes()) == 4)
