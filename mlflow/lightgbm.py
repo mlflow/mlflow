@@ -260,6 +260,7 @@ def autolog():
                 fig.savefig(filepath)
                 try_mlflow_log(mlflow.log_artifact, filepath)
             finally:
+                plt.close(fig)
                 shutil.rmtree(tmpdir)
 
         if not mlflow.active_run():
