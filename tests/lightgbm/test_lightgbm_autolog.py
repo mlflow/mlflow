@@ -5,13 +5,11 @@ import numpy as np
 import pandas as pd
 from sklearn import datasets
 import lightgbm as lgb
-import matplotlib
 import matplotlib.pyplot as plt
 
 import mlflow
 import mlflow.lightgbm
 
-matplotlib.use('Agg')
 client = mlflow.tracking.MlflowClient()
 
 
