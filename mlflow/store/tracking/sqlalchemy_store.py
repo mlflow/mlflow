@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 
@@ -6,6 +7,7 @@ import sqlalchemy
 import sqlalchemy.sql.expression as sql
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
 import mlflow.store.db.utils
@@ -25,7 +27,7 @@ from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
     _validate_run_id, _validate_metric, _validate_experiment_tag, _validate_tag
-
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
 _logger = logging.getLogger(__name__)
 
@@ -406,6 +408,14 @@ class SqlAlchemyStore(AbstractStore):
 
             return run.info
 
+    def _try_get_run_tag(self,  session, run_id, tagKey, eager=False):
+        query_options = self._get_eager_run_query_options() if eager else []
+        tags = session \
+            .query(SqlTag) \
+            .options(*query_options) \
+            .filter(SqlTag.run_uuid == run_id and SqlTag.key == tagKey).all()
+        return None if not tags else tags[0]
+
     def get_run(self, run_id):
         with self.ManagedSessionMaker() as session:
             # Load the run with the specified id and eagerly load its summary metrics, params, and
@@ -644,6 +654,22 @@ class SqlAlchemyStore(AbstractStore):
             raise e
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
+
+    def record_logged_model(self, run_id, mlflow_model):
+        if not isinstance(mlflow_model, Model):
+            raise TypeError("Argument 'mlflow_model' should be mlflow.models.Model, got '{}'"
+                            .format(type(mlflow_model)))
+        model_dict = mlflow_model.to_dict()
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+            previous_tag = [t for t in run.tags if t.key == MLFLOW_LOGGED_MODELS]
+            if previous_tag:
+                value = json.dumps(json.loads(previous_tag[0].value) + [model_dict])
+            else:
+                value = json.dumps([model_dict])
+            _validate_tag(MLFLOW_LOGGED_MODELS, value)
+            session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
 
 
 def _get_attributes_filtering_clauses(parsed):
