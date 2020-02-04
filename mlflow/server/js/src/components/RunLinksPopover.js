@@ -40,11 +40,13 @@ class RunLinksPopover extends React.Component {
     );
   };
 
+  hide = () => this.setState({ visible: false });
+
   renderTitle = () => {
     return (
       <div>
         <span>Jump to the run</span>
-        <a onClick={() => this.setState({ visible: false })} style={{ float: 'right' }}>
+        <a onClick={this.hide} style={{ float: 'right' }}>
           <i className="fas fa-times" />
         </a>
       </div>
