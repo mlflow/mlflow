@@ -71,9 +71,10 @@ export class MetricsPlotView extends React.Component {
       props.layout.yaxis = {
         ...existingYAxis,
         type: 'log',
-        autorange: true,
+        // autorange: true,
       };
     }
+    console.log("Extra layout: " + JSON.stringify(props.layout));
     console.log("Final props.layout: " + JSON.stringify(props.layout));
     return props;
   };

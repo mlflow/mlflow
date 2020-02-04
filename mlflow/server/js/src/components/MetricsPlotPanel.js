@@ -107,7 +107,24 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   handleYAxisLogScaleChange = (yAxisLogScale) => {
+    const newLayout = _.cloneDeep(this.state.layout);
+    // If yaxis was already explicitly specified, convert range to appropriate coordinates
+    // for log axis (base 10), and vice versa. When converting to log scale, handle negative values
+    // by bumping them to near zero
+    if (this.state.layout.yaxis) {
+      const oldYRange = this.state.layout.yaxis.range;
+      if (this.state.yAxisLogScale) {
+        newLayout.yaxis = {
+          range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
+        };
+      } else {
+        newLayout.yaxis = {
+          range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
+        };
+      }
+    }
     this.setState({ yAxisLogScale });
+    // this.setState({ yAxisLogScale, layout: newLayout });
   };
 
   handleXAxisChange = (e) => {
@@ -125,14 +142,17 @@ export class MetricsPlotPanel extends React.Component {
     let mergedLayout = {
       ...this.state.layout,
     };
-    console.log(newXRange0);
     if (newXRange0) {
-      console.log("Setting merged layout my friends");
       mergedLayout = {
         ...mergedLayout,
         xaxis: {
           range: [newXRange0, newXRange1],
         },
+      };
+    }
+    if (newYRange0) {
+      mergedLayout = {
+        ...mergedLayout,
         yaxis: {
           range: [newYRange0, newYRange1],
         },
