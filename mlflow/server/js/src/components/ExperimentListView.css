@@ -32,6 +32,11 @@
   margin-bottom: 8px;
 }
 
+input.experiment-list-search-input[type="text"]:focus{
+  border-color: #258BD2;
+  outline: none;
+}
+
 .experiments-header {
   font-weight: normal;
   display: inline-block;
