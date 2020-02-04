@@ -4,14 +4,12 @@ import { Link } from 'react-router-dom';
 import { modelListPageRoute, getModelPageRoute } from '../routes';
 import Utils from '../../utils/Utils';
 import { ModelStageTransitionDropdown} from './ModelStageTransitionDropdown';
-import { Dropdown, Icon, Menu, Modal, Alert, Descriptions, Tooltip } from 'antd';
+import { Dropdown, Icon, Menu, Modal, Alert, Descriptions } from 'antd';
 import {
   ModelVersionStatus,
   StageTagComponents,
   ModelVersionStatusIcons,
   DefaultModelVersionStatusMessages,
-  ACTIVE_STAGES,
-  MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT,
 } from '../constants';
 import Routers from '../../Routes';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
@@ -86,19 +84,7 @@ export class ModelVersionView extends React.Component {
   renderBreadCrumbDropdown() {
     const menu = (
       <Menu>
-        {ACTIVE_STAGES.includes(this.props.modelVersion.current_stage) ?
-          (
-            <Menu.Item disabled>
-              <Tooltip title={MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>
-                Delete
-              </Tooltip>
-            </Menu.Item>
-          ) :
-          (
-            <Menu.Item onClick={this.showDeleteModal}>
-              Delete
-            </Menu.Item>
-          )}
+        <Menu.Item onClick={this.showDeleteModal}>Delete</Menu.Item>
       </Menu>
     );
     return (
@@ -151,9 +137,7 @@ export class ModelVersionView extends React.Component {
           </Link>
           {chevron}
           <span className={breadcrumbItemClass}>Version {modelVersion.version}</span>
-          {status !== ModelVersionStatus.PENDING_REGISTRATION
-           && this.renderBreadCrumbDropdown()
-          }
+          {status !== ModelVersionStatus.PENDING_REGISTRATION && this.renderBreadCrumbDropdown()}
         </h1>
         {this.renderStatusAlert()}
 

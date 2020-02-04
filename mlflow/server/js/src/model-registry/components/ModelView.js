@@ -4,11 +4,8 @@ import ModelVersionTable from './ModelVersionTable';
 import Utils from '../../utils/Utils';
 import { Link } from 'react-router-dom';
 import { modelListPageRoute } from '../routes';
-import { Radio, Icon, Descriptions, Menu, Dropdown, Modal, Tooltip } from 'antd';
-import {
-  ACTIVE_STAGES,
-  REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT,
-} from '../constants';
+import { Radio, Icon, Descriptions, Menu, Dropdown, Modal } from 'antd';
+import { ACTIVE_STAGES } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 
@@ -70,17 +67,7 @@ export class ModelView extends React.Component {
   renderBreadCrumbDropdown() {
     const menu = (
       <Menu>
-        {this.getActiveVersionsCount() > 0 ?
-          (
-            <Menu.Item disabled>
-              <Tooltip title={REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>
-                Delete
-              </Tooltip>
-            </Menu.Item>
-          ) :
-          (
-            <Menu.Item onClick={this.showDeleteModal}>Delete</Menu.Item>
-          )}
+        <Menu.Item onClick={this.showDeleteModal}>Delete</Menu.Item>
       </Menu>
     );
     return (
