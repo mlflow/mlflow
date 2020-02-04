@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn import datasets
 import lightgbm as lgb
 import matplotlib
+import matplotlib.pyplot as plt
 
 import mlflow
 import mlflow.lightgbm
@@ -238,6 +239,13 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
         imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
 
         assert loaded_imp == imp
+
+
+@pytest.mark.large
+def test_no_figure_is_opened_after_logging(bst_params, train_set):
+    mlflow.lightgbm.autolog()
+    lgb.train(bst_params, train_set, num_boost_round=10)
+    assert plt.get_fignums() == []
 
 
 @pytest.mark.large
