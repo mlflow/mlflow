@@ -29,7 +29,10 @@ class RunLinksPopover extends React.Component {
           const to = Routes.getRunPageRoute(experimentId, runUuid);
           return (
             <Link key={key} to={to}>
-              <p style={{ color }}>{name}</p>
+              <p style={{ color }}>
+                <i className="fas fa-external-link-alt" style={{ marginRight: 5 }} />
+                {name}
+              </p>
             </Link>
           );
         })}
