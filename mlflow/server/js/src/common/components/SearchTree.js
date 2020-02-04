@@ -192,6 +192,7 @@ export const styles = {
     maxWidth: 400,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+    marginRight: 20,
   },
   searchHighlight: { color: '#f50' },
 };
