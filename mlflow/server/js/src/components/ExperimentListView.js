@@ -7,6 +7,7 @@ import { getExperiments } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../Routes';
 import { Link } from 'react-router-dom';
+import CreateExperimentModal from './modals/CreateExperimentModal';
 import DeleteExperimentModal from './modals/DeleteExperimentModal';
 import RenameExperimentModal from './modals/RenameExperimentModal';
 
@@ -22,6 +23,7 @@ export class ExperimentListView extends Component {
   state = {
     height: undefined,
     searchInput: '',
+    showCreateExperimentModal: false,
     showDeleteExperimentModal: false,
     showRenameExperimentModal: false,
     selectedExperimentId: 0,
@@ -52,6 +54,12 @@ export class ExperimentListView extends Component {
     });
   }
 
+  handleCreateExperiment = () => {
+    this.setState({
+      showCreateExperimentModal: true,
+    });
+  }
+
   handleDeleteExperiment = (ev) => {
     this.setState({
       showDeleteExperimentModal: true,
@@ -68,6 +76,12 @@ export class ExperimentListView extends Component {
 
     const data = ev.currentTarget.dataset;
     this.updateSelectedExperiment(parseInt(data.experimentid, 10), data.experimentname);
+  }
+
+  handleCloseCreateExperimentModal = () => {
+    this.setState({
+      showCreateExperimentModal: false,
+    });
   }
 
   handleCloseDeleteExperimentModal = () => {
@@ -95,6 +109,10 @@ export class ExperimentListView extends Component {
     const { searchInput } = this.state;
     return (
       <div className='experiment-list-outer-container'>
+        <CreateExperimentModal
+          isOpen={this.state.showCreateExperimentModal}
+          onClose={this.handleCloseCreateExperimentModal}
+        />
         <DeleteExperimentModal
           isOpen={this.state.showDeleteExperimentModal}
           onClose={this.handleCloseDeleteExperimentModal}
@@ -110,6 +128,11 @@ export class ExperimentListView extends Component {
         />
         <div>
           <h1 className='experiments-header'>Experiments</h1>
+          <div className="experiment-list-create-btn-container">
+            <i onClick={this.handleCreateExperiment}
+               title="New Experiment"
+               className="fas fa-plus fa-border experiment-list-create-btn"/>
+          </div>
           <div className='collapser-container'>
             <i
               onClick={this.props.onClickListExperiments}

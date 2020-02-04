@@ -4,6 +4,7 @@ import { ExperimentListView } from './ExperimentListView';
 import Fixtures from '../test-utils/Fixtures';
 import DeleteExperimentModal from './modals/DeleteExperimentModal';
 import RenameExperimentModal from './modals/RenameExperimentModal';
+import CreateExperimentModal from './modals/CreateExperimentModal';
 
 test('If activeExperimentId is defined then choose that one', () => {
   const wrapper = shallow(<ExperimentListView
@@ -41,6 +42,19 @@ test('If searchInput is set to "Test" and default experiment is active then no a
 
   wrapper.setState({ searchInput: 'Test' });
   expect(wrapper.find('.active-experiment-list-item')).toHaveLength(0);
+});
+
+test('If button to create experiment is pressed then open CreateExperimentModal', () => {
+  const wrapper = shallow(<ExperimentListView
+    onClickListExperiments={() => {}}
+    experiments={Fixtures.experiments}
+  />);
+  // find create experiment link
+  const createExpLink = wrapper.find('.experiment-list-create-btn');
+  // mock event that is passed when clicking the link
+  createExpLink.simulate('click');
+
+  expect(wrapper.find(CreateExperimentModal).prop('isOpen')).toEqual(true);
 });
 
 test('If button to delete experiment is pressed then open DeleteExperimentModal', () => {
