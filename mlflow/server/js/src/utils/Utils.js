@@ -387,6 +387,12 @@ class Utils {
     return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
   }
 
+  static getPlotLayoutFromUrl(search) {
+    const params = qs.parse(search);
+    const layout = params["plot_layout"];
+    return layout ? JSON.parse(layout) : {};
+  }
+
   static getSearchParamsFromUrl(search) {
     const params = qs.parse(search, {ignoreQueryPrefix: true});
     const str = JSON.stringify(params,

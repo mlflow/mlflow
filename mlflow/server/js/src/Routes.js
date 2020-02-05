@@ -15,10 +15,11 @@ class Routes {
 
   static runPageRoute = "/experiments/:experimentId/runs/:runUuid";
 
-  static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys) {
+  static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys, plotLayout) {
     return `/metric/${encodeURIComponent(metricKey)}?runs=${JSON.stringify(runUuids)}&` +
       `experiment=${experimentId}` +
-      `&plot_metric_keys=${JSON.stringify(plotMetricKeys || [metricKey])}`;
+      `&plot_metric_keys=${JSON.stringify(plotMetricKeys || [metricKey])}` +
+      `&plot_layout=${JSON.stringify(plotLayout)}`;
   }
 
   static metricPageRoute = "/metric/:metricKey";

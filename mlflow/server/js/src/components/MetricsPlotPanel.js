@@ -35,6 +35,7 @@ export class MetricsPlotPanel extends React.Component {
     super(props);
     const plotMetricKeys = Utils.getPlotMetricKeysFromUrl(props.location.search);
     const selectedMetricKeys = plotMetricKeys.length ? plotMetricKeys : [props.metricKey];
+    const layout = Utils.getPlotLayoutFromUrl(props.location.search);
     this.state = {
       selectedXAxis: X_AXIS_RELATIVE,
       selectedMetricKeys,
@@ -42,7 +43,7 @@ export class MetricsPlotPanel extends React.Component {
       historyRequestIds: [],
       yAxisLogScale: false,
       lineSmoothness: 0,
-      layout: {},
+      layout,
     };
     this.loadMetricHistory(this.props.runUuids, selectedMetricKeys);
   }
@@ -69,7 +70,18 @@ export class MetricsPlotPanel extends React.Component {
     const { runUuids, metricKey, location, history } = this.props;
     const params = qs.parse(location.search);
     const experimentId = params['experiment'];
-    history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys));
+    const plotLayout = Utils.getPlotLayoutFromUrl(location.search);
+    history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
+        plotLayout));
+  }
+
+  updateUrlWithPlotLayout(plotLayout) {
+    const { runUuids, metricKey, location, history } = this.props;
+    const params = qs.parse(location.search);
+    const experimentId = params['experiment'];
+    const selectedMetricKeys = Utils.getPlotMetricKeysFromUrl(location.search);
+    history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
+        plotLayout));
   }
 
   loadMetricHistory = (runUuids, metricKeys) => {
@@ -178,6 +190,7 @@ export class MetricsPlotPanel extends React.Component {
       };
     }
     this.setState({layout: mergedLayout});
+    this.updateUrlWithPlotLayout(mergedLayout);
   };
 
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
