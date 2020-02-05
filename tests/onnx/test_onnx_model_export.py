@@ -167,27 +167,27 @@ def test_model_save_load(onnx_model, model_path, onnx_custom_env):
     assert onnx.checker.check_model.called
 
 
-# TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
-@pytest.mark.release
-def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, predicted):
-    import onnx
-    import mlflow.onnx
-    x, y = data
-    mlflow.onnx.save_model(onnx_model, model_path)
-
-    # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
-    assert np.allclose(pyfunc_loaded.predict(x).values, predicted, rtol=1e-05,
-                       atol=1e-05)
-
-    # pyfunc serve
-    scoring_response = pyfunc_serve_and_score_model(
-        model_uri=os.path.abspath(model_path),
-        data=x,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    assert np.allclose(
-        pd.read_json(scoring_response.content, orient="records").values.astype(np.float32),
-        predicted, rtol=1e-05, atol=1e-05)
+# # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
+# @pytest.mark.release
+# def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, predicted):
+#     import onnx
+#     import mlflow.onnx
+#     x, y = data
+#     mlflow.onnx.save_model(onnx_model, model_path)
+#
+#     # Loading pyfunc model
+#     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+#     assert np.allclose(pyfunc_loaded.predict(x).values, predicted, rtol=1e-05,
+#                        atol=1e-05)
+#
+#     # pyfunc serve
+#     scoring_response = pyfunc_serve_and_score_model(
+#         model_uri=os.path.abspath(model_path),
+#         data=x,
+#         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+#     assert np.allclose(
+#         pd.read_json(scoring_response.content, orient="records").values.astype(np.float32),
+#         predicted, rtol=1e-05, atol=1e-05)
 
 
 # TODO: Use the default conda environment once MLflow's Travis build supports the onnxruntime
@@ -207,58 +207,58 @@ def test_model_save_load_multiple_inputs(
     assert onnx.checker.check_model.called
 
 
-# TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
-@pytest.mark.release
-def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
-        onnx_model_multiple_inputs_float64, data_multiple_inputs, predicted_multiple_inputs,
-        model_path):
-    import onnx
-    import mlflow.onnx
+# # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
+# @pytest.mark.release
+# def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
+#         onnx_model_multiple_inputs_float64, data_multiple_inputs, predicted_multiple_inputs,
+#         model_path):
+#     import onnx
+#     import mlflow.onnx
+#
+#     mlflow.onnx.save_model(onnx_model_multiple_inputs_float64, model_path)
+#
+#     # Loading pyfunc model
+#     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+#     assert np.allclose(pyfunc_loaded.predict(data_multiple_inputs).values,
+#                        predicted_multiple_inputs.values, rtol=1e-05, atol=1e-05)
+#
+#     # pyfunc serve
+#     scoring_response = pyfunc_serve_and_score_model(
+#         model_uri=os.path.abspath(model_path),
+#         data=data_multiple_inputs,
+#         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+#     assert np.allclose(pd.read_json(scoring_response.content, orient="records").values,
+#                        predicted_multiple_inputs.values, rtol=1e-05, atol=1e-05)
 
-    mlflow.onnx.save_model(onnx_model_multiple_inputs_float64, model_path)
 
-    # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
-    assert np.allclose(pyfunc_loaded.predict(data_multiple_inputs).values,
-                       predicted_multiple_inputs.values, rtol=1e-05, atol=1e-05)
-
-    # pyfunc serve
-    scoring_response = pyfunc_serve_and_score_model(
-        model_uri=os.path.abspath(model_path),
-        data=data_multiple_inputs,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    assert np.allclose(pd.read_json(scoring_response.content, orient="records").values,
-                       predicted_multiple_inputs.values, rtol=1e-05, atol=1e-05)
-
-
-# TODO: Remove test, along with explicit casting, when https://github.com/mlflow/mlflow/issues/1286
-# is fixed.
-# TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
-@pytest.mark.release
-def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_inputs(
-         onnx_model_multiple_inputs_float32, model_path, data_multiple_inputs,
-         predicted_multiple_inputs):
-    """
-    The ``python_function`` representation of an MLflow model with the ONNX flavor
-    casts 64-bit floats to 32-bit floats automatically before evaluating, as opposed
-    to throwing an unexpected type exception. This behavior is implemented due
-    to the issue described in https://github.com/mlflow/mlflow/issues/1286 where
-    the JSON representation of a Pandas DataFrame does not always preserve float
-    precision (e.g., 32-bit floats may be converted to 64-bit floats when persisting a
-    DataFrame as JSON).
-    """
-    import onnx
-    import mlflow.onnx
-
-    mlflow.onnx.save_model(onnx_model_multiple_inputs_float32, model_path)
-
-    # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
-    assert np.allclose(pyfunc_loaded.predict(data_multiple_inputs.astype("float64")).values,
-                       predicted_multiple_inputs.astype("float32").values, rtol=1e-05, atol=1e-05)
-
-    with pytest.raises(RuntimeError):
-        pyfunc_loaded.predict(data_multiple_inputs.astype("int32"))
+# # TODO: Remove test, along with explicit casting, when https://github.com/mlflow/mlflow/issues/1286
+# # is fixed.
+# # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
+# @pytest.mark.release
+# def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_inputs(
+#          onnx_model_multiple_inputs_float32, model_path, data_multiple_inputs,
+#          predicted_multiple_inputs):
+#     """
+#     The ``python_function`` representation of an MLflow model with the ONNX flavor
+#     casts 64-bit floats to 32-bit floats automatically before evaluating, as opposed
+#     to throwing an unexpected type exception. This behavior is implemented due
+#     to the issue described in https://github.com/mlflow/mlflow/issues/1286 where
+#     the JSON representation of a Pandas DataFrame does not always preserve float
+#     precision (e.g., 32-bit floats may be converted to 64-bit floats when persisting a
+#     DataFrame as JSON).
+#     """
+#     import onnx
+#     import mlflow.onnx
+#
+#     mlflow.onnx.save_model(onnx_model_multiple_inputs_float32, model_path)
+#
+#     # Loading pyfunc model
+#     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+#     assert np.allclose(pyfunc_loaded.predict(data_multiple_inputs.astype("float64")).values,
+#                        predicted_multiple_inputs.astype("float32").values, rtol=1e-05, atol=1e-05)
+#
+#     with pytest.raises(RuntimeError):
+#         pyfunc_loaded.predict(data_multiple_inputs.astype("int32"))
 
 
 # TODO: Use the default conda environment once MLflow's Travis build supports the onnxruntime
@@ -312,29 +312,29 @@ def test_log_model_no_registered_model_name(tracking_uri_mock, onnx_model, onnx_
         mlflow.register_model.assert_not_called()
 
 
-# TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
-@pytest.mark.release
-def test_model_log_evaluate_pyfunc_format(tracking_uri_mock, onnx_model, data, predicted):
-    import onnx
-    import mlflow.onnx
-    x, y = data
-    # should_start_run tests whether or not calling log_model() automatically starts a run.
-    for should_start_run in [False, True]:
-        try:
-            if should_start_run:
-                mlflow.start_run()
-            artifact_path = "onnx_model"
-            mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
-            model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id,
-                artifact_path=artifact_path)
-
-            # Loading pyfunc model
-            pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
-            assert np.allclose(pyfunc_loaded.predict(x).values, predicted,
-                               rtol=1e-05, atol=1e-05)
-        finally:
-            mlflow.end_run()
+# # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
+# @pytest.mark.release
+# def test_model_log_evaluate_pyfunc_format(tracking_uri_mock, onnx_model, data, predicted):
+#     import onnx
+#     import mlflow.onnx
+#     x, y = data
+#     # should_start_run tests whether or not calling log_model() automatically starts a run.
+#     for should_start_run in [False, True]:
+#         try:
+#             if should_start_run:
+#                 mlflow.start_run()
+#             artifact_path = "onnx_model"
+#             mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
+#             model_uri = "runs:/{run_id}/{artifact_path}".format(
+#                 run_id=mlflow.active_run().info.run_id,
+#                 artifact_path=artifact_path)
+#
+#             # Loading pyfunc model
+#             pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
+#             assert np.allclose(pyfunc_loaded.predict(x).values, predicted,
+#                                rtol=1e-05, atol=1e-05)
+#         finally:
+#             mlflow.end_run()
 
 
 @pytest.mark.large
@@ -354,21 +354,21 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == onnx_custom_env_parsed
 
 
-# TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
-@pytest.mark.release
-def test_model_save_accepts_conda_env_as_dict(onnx_model, model_path):
-    import mlflow.onnx
-    conda_env = dict(mlflow.onnx.get_default_conda_env())
-    conda_env["dependencies"].append("pytest")
-    mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path, conda_env=conda_env)
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    assert os.path.exists(saved_conda_env_path)
-
-    with open(saved_conda_env_path, "r") as f:
-        saved_conda_env_parsed = yaml.safe_load(f)
-    assert saved_conda_env_parsed == conda_env
+# # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
+# @pytest.mark.release
+# def test_model_save_accepts_conda_env_as_dict(onnx_model, model_path):
+#     import mlflow.onnx
+#     conda_env = dict(mlflow.onnx.get_default_conda_env())
+#     conda_env["dependencies"].append("pytest")
+#     mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path, conda_env=conda_env)
+#
+#     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+#     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+#     assert os.path.exists(saved_conda_env_path)
+#
+#     with open(saved_conda_env_path, "r") as f:
+#         saved_conda_env_parsed = yaml.safe_load(f)
+#     assert saved_conda_env_parsed == conda_env
 
 
 @pytest.mark.large
@@ -394,34 +394,34 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(onnx_m
     assert saved_conda_env_parsed == onnx_custom_env_parsed
 
 
-# TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
-@pytest.mark.release
-def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        onnx_model, model_path):
-    import mlflow.onnx
-    mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path, conda_env=None)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
+# # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
+# @pytest.mark.release
+# def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+#         onnx_model, model_path):
+#     import mlflow.onnx
+#     mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path, conda_env=None)
+#     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+#     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+#     with open(conda_env_path, "r") as f:
+#         conda_env = yaml.safe_load(f)
+#
+#     assert conda_env == mlflow.onnx.get_default_conda_env()
 
-    assert conda_env == mlflow.onnx.get_default_conda_env()
 
-
-# TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
-@pytest.mark.release
-def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        onnx_model):
-    import mlflow.onnx
-    artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path, conda_env=None)
-        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.onnx.get_default_conda_env()
+# # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
+# @pytest.mark.release
+# def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+#         onnx_model):
+#     import mlflow.onnx
+#     artifact_path = "model"
+#     with mlflow.start_run():
+#         mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path, conda_env=None)
+#         model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+#             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
+#
+#     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+#     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+#     with open(conda_env_path, "r") as f:
+#         conda_env = yaml.safe_load(f)
+#
+#     assert conda_env == mlflow.onnx.get_default_conda_env()

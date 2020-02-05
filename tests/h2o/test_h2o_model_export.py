@@ -214,21 +214,21 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     assert conda_env == mlflow.h2o.get_default_conda_env()
 
 
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(h2o_iris_model, model_path):
-    mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=None)
-    reloaded_h2o_pyfunc = mlflow.pyfunc.load_pyfunc(model_path)
-
-    scoring_response = score_model_in_sagemaker_docker_container(
-            model_uri=model_path,
-            data=h2o_iris_model.inference_data.as_data_frame(),
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-            flavor=mlflow.pyfunc.FLAVOR_NAME)
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds["predict"].to_frame(),
-        reloaded_h2o_pyfunc.predict(
-            h2o_iris_model.inference_data.as_data_frame())["predict"].to_frame(),
-        check_dtype=False,
-        check_less_precise=6)
+# @pytest.mark.release
+# def test_sagemaker_docker_model_scoring_with_default_conda_env(h2o_iris_model, model_path):
+#     mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=None)
+#     reloaded_h2o_pyfunc = mlflow.pyfunc.load_pyfunc(model_path)
+#
+#     scoring_response = score_model_in_sagemaker_docker_container(
+#             model_uri=model_path,
+#             data=h2o_iris_model.inference_data.as_data_frame(),
+#             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+#             flavor=mlflow.pyfunc.FLAVOR_NAME)
+#     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+#
+#     pandas.testing.assert_frame_equal(
+#         deployed_model_preds["predict"].to_frame(),
+#         reloaded_h2o_pyfunc.predict(
+#             h2o_iris_model.inference_data.as_data_frame())["predict"].to_frame(),
+#         check_dtype=False,
+#         check_less_precise=6)

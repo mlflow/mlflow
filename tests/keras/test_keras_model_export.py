@@ -429,19 +429,19 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     assert all(model_loaded.predict(data[0]) == predicted)
 
 
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path, data, predicted):
-    mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=None)
-
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
-        activity_polling_timeout_seconds=500)
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    np.testing.assert_array_almost_equal(
-        deployed_model_preds.values,
-        predicted,
-        decimal=4)
+# @pytest.mark.release
+# def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path, data, predicted):
+#     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=None)
+#
+#     scoring_response = score_model_in_sagemaker_docker_container(
+#         model_uri=model_path,
+#         data=data[0],
+#         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+#         flavor=mlflow.pyfunc.FLAVOR_NAME,
+#         activity_polling_timeout_seconds=500)
+#     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+#
+#     np.testing.assert_array_almost_equal(
+#         deployed_model_preds.values,
+#         predicted,
+#         decimal=4)
