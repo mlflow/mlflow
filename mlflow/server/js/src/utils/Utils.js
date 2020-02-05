@@ -387,7 +387,6 @@ class Utils {
       selectedXAxis: X_AXIS_RELATIVE,
       selectedMetricKeys: [],
       showPoint: false,
-      historyRequestIds: [],
       yAxisLogScale: false,
       lineSmoothness: 0,
       layout: {},

@@ -71,17 +71,14 @@ export class MetricsPlotView extends React.Component {
       props.layout.yaxis = {
         ...existingYAxis,
         type: 'log',
-        // autorange: true,
       };
     }
-    console.log("Extra layout: " + JSON.stringify(props.layout));
-    console.log("Final props.layout: " + JSON.stringify(props.layout));
     return props;
   };
 
   getPlotPropsForBarChart = () => {
     /* eslint-disable no-param-reassign */
-    const { runUuids, runDisplayNames, yAxisLogScale } = this.props;
+    const { runUuids, runDisplayNames } = this.props;
 
     // A reverse lookup of `metricKey: { runUuid: value, metricKey }`
     const historyByMetricKey = this.props.metrics.reduce((map, metric) => {
@@ -111,9 +108,6 @@ export class MetricsPlotView extends React.Component {
 
     const layout = { barmode: 'group' };
     const props = { data, layout };
-    // if (yAxisLogScale) {
-    //   props.layout.yaxis = { type: 'log', autorange: true };
-    // }
     props.layout = {
       ...props.layout,
       ...this.props.extraLayout,
