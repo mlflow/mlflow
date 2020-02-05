@@ -7,7 +7,12 @@ import PropTypes from 'prop-types';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
 import { getRunTags } from '../reducers/Reducers';
-import { MetricsPlotControls, X_AXIS_RELATIVE, X_AXIS_STEP } from './MetricsPlotControls';
+import {
+  MetricsPlotControls,
+  X_AXIS_RELATIVE,
+  X_AXIS_STEP,
+  X_AXIS_WALL
+} from './MetricsPlotControls';
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
@@ -144,7 +149,16 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   handleXAxisChange = (e) => {
-    this.setState({ selectedXAxis: e.target.value }, this.updateURLFromState);
+    // Set axis value type, & reset axis scaling via autorange
+    const axisType = e.target.value === X_AXIS_WALL ? "date" : "linear";
+    const newLayout = {
+      ...this.state.layout,
+      xaxis: {
+        autorange: true,
+        type: axisType,
+      },
+    };
+    this.setState({ selectedXAxis: e.target.value, layout: newLayout }, this.updateURLFromState);
   };
 
   handleLayoutChange = (newLayout) => {
