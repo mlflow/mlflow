@@ -113,14 +113,10 @@ export class MetricsPlotPanel extends React.Component {
     // by deferring to plotly autorange
     if (this.state.layout.yaxis) {
       const oldYRange = this.state.layout.yaxis.range;
-      if (this.state.layout.yaxis.type === 'log') {
-        console.log("type is log!");
+      if (this.state.yAxisLogScale) {
         // When converting from log scale to linear scale, only apply conversion if autorange
-        // was not true (otherwise restore old axis values). Problem: this doesn't work if
-        // you took the initial state, put it into an autoranged log scale, then are now
-        // converting back to linear (because we keep the autoranged log scale range as a linear
-        // range)
-        if (this.state.layout.yaxis.hasNegativeValues) {
+        // was not true (otherwise restore old axis values)
+        if (this.state.layout.yaxis.autorange) {
           newLayout.yaxis = {
             type: 'linear',
             range: oldYRange,
@@ -131,7 +127,6 @@ export class MetricsPlotPanel extends React.Component {
             range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
           };
         }
-      // Linear scale to log scale conversion
       } else if (oldYRange[0] < 0) {
         // When converting to log scale, handle negative values as follows:
         // If bottom of old Y range is negative, then simply autorange the plot, so that we
@@ -140,7 +135,6 @@ export class MetricsPlotPanel extends React.Component {
           type: 'log',
           range: oldYRange,
           autorange: true,
-          hasNegativeValues: true,
         };
       } else {
         newLayout.yaxis = {
@@ -148,15 +142,9 @@ export class MetricsPlotPanel extends React.Component {
           range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
         };
       }
-    } else {
-      // Handle case where yaxis isn't already set, e.g. on initial load
-      newLayout.yaxis = {
-        type: yAxisLogScale ? 'log' : 'linear',
-        autorange: true,
-      };
     }
-    console.log("Setting layout to new object " + JSON.stringify(newLayout));
-    this.setState({ layout: newLayout });
+    // this.setState({ yAxisLogScale });
+    this.setState({ yAxisLogScale, layout: newLayout });
   };
 
   handleXAxisChange = (e) => {
@@ -212,6 +200,7 @@ export class MetricsPlotPanel extends React.Component {
       showPoint,
       selectedXAxis,
       selectedMetricKeys,
+      yAxisLogScale,
       lineSmoothness,
     } = this.state;
     const metrics = this.getMetrics();
@@ -245,6 +234,7 @@ export class MetricsPlotPanel extends React.Component {
             showPoint={showPoint}
             chartType={chartType}
             isComparing={MetricsPlotPanel.isComparing(location.search)}
+            yAxisLogScale={yAxisLogScale}
             lineSmoothness={lineSmoothness}
             extraLayout={this.state.layout}
             onLayoutChange={this.handleLayoutChange}
