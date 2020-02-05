@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>1.5.1-SNAPSHOT</version>
+    <version>1.6.1-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -118,7 +118,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
         <configuration>
-          <sourcepath>${project.basedir}/src/main/scala</sourcepath>
+          <sourcepath>${project.basedir}/src/main/java</sourcepath>
         </configuration>
       </plugin>
       <plugin>
