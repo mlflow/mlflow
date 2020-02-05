@@ -23,8 +23,8 @@ pytest tests --testmon --ignore=tests/h2o --ignore=tests/keras \
   --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx \
   --ignore=tests/xgboost --ignore=tests/lightgbm tests --ignore=tests/spark_autologging --ignore=tests/models --ignore=tests/examples
 
-test $err = 0
-
 # Copy testmon DB file into cache directory. TODO: allow people to run this locally without
 # copying into cache directory
 mv .testmondata testmon
+
+test $err = 0
