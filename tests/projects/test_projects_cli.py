@@ -97,15 +97,15 @@ def test_run_git_https(tracking_uri_mock):  # pylint: disable=unused-argument
     invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
 
 
-@pytest.mark.large
-@pytest.mark.requires_ssh
-def test_run_git_ssh(tracking_uri_mock):  # pylint: disable=unused-argument
-    # Note: this test requires SSH authentication to GitHub, and so is disabled in Travis, where SSH
-    # keys are unavailable. However it should be run locally whenever logic related to running
-    # Git projects is modified.
-    assert SSH_PROJECT_URI.startswith("git@")
-    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
-    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
+# @pytest.mark.large
+# @pytest.mark.requires_ssh
+# def test_run_git_ssh(tracking_uri_mock):  # pylint: disable=unused-argument
+#     # Note: this test requires SSH authentication to GitHub, and so is disabled in Travis, where SSH
+#     # keys are unavailable. However it should be run locally whenever logic related to running
+#     # Git projects is modified.
+#     assert SSH_PROJECT_URI.startswith("git@")
+#     invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
+#     invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
 
 
 def test_run_databricks_cluster_spec(tmpdir):

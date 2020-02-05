@@ -49,19 +49,19 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
     }
     with mock.patch.dict("os.environ", mock_env):
         with NamedTemporaryFile() as tmp_local_file:
-        tmp_local_file.write(b'PyArrow Works')
-        tmp_local_file.seek(0)
+            tmp_local_file.write(b'PyArrow Works')
+            tmp_local_file.seek(0)
 
-        repo.log_artifact(tmp_local_file.name, 'test_hdfs/some/path')
+            repo.log_artifact(tmp_local_file.name, 'test_hdfs/some/path')
 
-        hdfs_system_mock.assert_called_once_with(driver='libhdfs3', extra_conf=None,
-                                                 host='default',
-                                                 kerb_ticket='/tmp/krb5cc_22222222', port=0,
-                                                 user='some_kerberos_user')
+            hdfs_system_mock.assert_called_once_with(driver='libhdfs3', extra_conf=None,
+                                                     host='default',
+                                                     kerb_ticket='/tmp/krb5cc_22222222', port=0,
+                                                     user='some_kerberos_user')
 
-        # TODO: refactor this magic ...
-        write_mock = hdfs_system_mock.return_value.open.return_value.__enter__.return_value.write
-        write_mock.assert_called_once_with(b'PyArrow Works')
+            # TODO: refactor this magic ...
+            write_mock = hdfs_system_mock.return_value.open.return_value.__enter__.return_value.write
+            write_mock.assert_called_once_with(b'PyArrow Works')
 
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')

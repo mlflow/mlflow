@@ -45,7 +45,7 @@ def docker_example_base_image():
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
     if not mlflow_home:
         raise Exception("MLFLOW_HOME environment variable is not set. Please set the variable to "
-                        "point to your mlflow dev root.")
+                        "point to your mlflow dev root. Available environment variables %s" % os.environ)
     with TempDir() as tmp:
         cwd = tmp.path()
         mlflow_dir = _copy_project(
