@@ -1,3 +1,5 @@
+import {X_AXIS_RELATIVE} from "./components/MetricsPlotControls";
+
 class Routes {
   static rootRoute = "/";
 
@@ -15,11 +17,19 @@ class Routes {
 
   static runPageRoute = "/experiments/:experimentId/runs/:runUuid";
 
-  static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys, plotLayout) {
+  static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys = null, plotLayout = {},
+                            selectedXAxis = X_AXIS_RELATIVE, yAxisLogScale = false,
+                            lineSmoothness = 0, showPoint = false) {
+    // Convert boolean to enum to keep URL format extensible to adding new types of y axis scales
+    const yAxisScale = yAxisLogScale ? "log" : "linear";
     return `/metric/${encodeURIComponent(metricKey)}?runs=${JSON.stringify(runUuids)}&` +
       `experiment=${experimentId}` +
       `&plot_metric_keys=${JSON.stringify(plotMetricKeys || [metricKey])}` +
-      `&plot_layout=${JSON.stringify(plotLayout)}`;
+      `&plot_layout=${JSON.stringify(plotLayout)}` +
+      `&x_axis=${selectedXAxis}` +
+      `&y_axis_scale=${yAxisScale}` +
+      `&line_smoothness=${lineSmoothness}` +
+      `&show_point=${showPoint}`;
   }
 
   static metricPageRoute = "/metric/:metricKey";

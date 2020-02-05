@@ -33,19 +33,11 @@ export class MetricsPlotPanel extends React.Component {
 
   constructor(props) {
     super(props);
-    const plotMetricKeys = Utils.getPlotMetricKeysFromUrl(props.location.search);
-    const selectedMetricKeys = plotMetricKeys.length ? plotMetricKeys : [props.metricKey];
-    const layout = Utils.getPlotLayoutFromUrl(props.location.search);
     this.state = {
-      selectedXAxis: X_AXIS_RELATIVE,
-      selectedMetricKeys,
-      showPoint: false,
       historyRequestIds: [],
-      yAxisLogScale: false,
-      lineSmoothness: 0,
-      layout,
+      ...Utils.getMetricPlotStateFromUrl(props.location.search),
     };
-    this.loadMetricHistory(this.props.runUuids, selectedMetricKeys);
+    this.loadMetricHistory(this.props.runUuids, this.state.selectedMetricKeys);
   }
 
   static predictChartType(metrics) {
@@ -66,23 +58,20 @@ export class MetricsPlotPanel extends React.Component {
     return runs ? JSON.parse(runs).length > 1 : false;
   }
 
-  updateUrlWithSelectedMetrics(selectedMetricKeys) {
+  // Update page URL from component state. Intended to be called after React applies component
+  // state updates, e.g. in a setState callback
+  updateURLFromState() {
     const { runUuids, metricKey, location, history } = this.props;
-    const params = qs.parse(location.search);
-    const experimentId = params['experiment'];
-    const plotLayout = Utils.getPlotLayoutFromUrl(location.search);
+    const experimentId = qs.parse(location.search)['experiment'];
+    const { selectedXAxis, selectedMetricKeys, showPoint, yAxisLogScale, lineSmoothness,
+      layout } = this.state;
     history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
-        plotLayout));
+        layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint));
   }
-
-  updateUrlWithPlotLayout(plotLayout) {
-    const { runUuids, metricKey, location, history } = this.props;
-    const params = qs.parse(location.search);
-    const experimentId = params['experiment'];
-    const selectedMetricKeys = Utils.getPlotMetricKeysFromUrl(location.search);
-    history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
-        plotLayout));
-  }
+  //
+  // componentDidUpdate(prevProps, prevState, snapshot) {
+  //   this.updateURLFromState();
+  // }
 
   loadMetricHistory = (runUuids, metricKeys) => {
     const requestIds = [];
@@ -155,12 +144,11 @@ export class MetricsPlotPanel extends React.Component {
         };
       }
     }
-    // this.setState({ yAxisLogScale });
-    this.setState({ yAxisLogScale, layout: newLayout });
+    this.setState({ yAxisLogScale, layout: newLayout }, this.updateURLFromState);
   };
 
   handleXAxisChange = (e) => {
-    this.setState({ selectedXAxis: e.target.value });
+    this.setState({ selectedXAxis: e.target.value }, this.updateURLFromState);
   };
 
   handleLayoutChange = (newLayout) => {
@@ -189,8 +177,7 @@ export class MetricsPlotPanel extends React.Component {
         },
       };
     }
-    this.setState({layout: mergedLayout});
-    this.updateUrlWithPlotLayout(mergedLayout);
+    this.setState({layout: mergedLayout}, this.updateURLFromState);
   };
 
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
@@ -198,13 +185,14 @@ export class MetricsPlotPanel extends React.Component {
     this.setState((prevState) => ({
       selectedMetricKeys: metricValues,
       historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
-    }));
-    this.updateUrlWithSelectedMetrics(metricValues);
+    }), this.updateURLFromState);
   };
 
-  handleShowPointChange = (showPoint) => this.setState({ showPoint });
+  handleShowPointChange = (showPoint) => this.setState({ showPoint }, this.updateURLFromState);
 
-  handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
+  handleLineSmoothChange = (lineSmoothness) => {
+    this.setState({ lineSmoothness }, this.updateURLFromState);
+  };
 
   render() {
     const { runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;

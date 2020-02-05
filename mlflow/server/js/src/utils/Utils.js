@@ -8,6 +8,7 @@ import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import { message } from 'antd';
 import _ from 'lodash';
+import {X_AXIS_RELATIVE} from "../components/MetricsPlotControls";
 
 class Utils {
   /**
@@ -381,10 +382,43 @@ class Utils {
     return requests.find((r) => r.id === requestId);
   }
 
-  static getPlotMetricKeysFromUrl(search) {
+  static getDefaultMetricPlotState() {
+    return {
+      selectedXAxis: X_AXIS_RELATIVE,
+      selectedMetricKeys: [],
+      showPoint: false,
+      historyRequestIds: [],
+      yAxisLogScale: false,
+      lineSmoothness: 0,
+      layout: {},
+    };
+  }
+
+  // Get metric plot state from URL, exposed as a static util
+  // The reverse transformation (from metric plot component state to URL) is exposed as a component
+  // method, as it only needs to be called within the metric plot component
+  static getMetricPlotStateFromUrl(search) {
+    const defaultState = Utils.getDefaultMetricPlotState();
     const params = qs.parse(search);
-    const plotMetricKeysStr = params && params['plot_metric_keys'];
-    return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
+    if (!params) {
+      return defaultState;
+    }
+
+    const selectedXAxis = params['x_axis'];
+    const selectedMetricKeys = JSON.parse(params['plot_metric_keys']) ||
+        defaultState.selectedMetricKeys;
+    const showPoint = params['show_point'] === 'true';
+    const yAxisLogScale = params['y_axis_scale'] === 'log';
+    const lineSmoothness = params['line_smoothness'] ? parseFloat(params['line_smoothness']) : 0;
+    const layout = JSON.parse(params['plot_layout']) || {};
+    return {
+      selectedXAxis,
+      selectedMetricKeys,
+      showPoint,
+      yAxisLogScale,
+      lineSmoothness,
+      layout,
+    };
   }
 
   static getPlotLayoutFromUrl(search) {
