@@ -19,7 +19,6 @@ export class MetricsPlotView extends React.Component {
     showPoint: PropTypes.bool.isRequired,
     chartType: PropTypes.string.isRequired,
     isComparing: PropTypes.bool.isRequired,
-    yAxisLogScale: PropTypes.bool.isRequired,
     lineSmoothness: PropTypes.number,
     extraLayout: PropTypes.object,
     onLayoutChange: PropTypes.func.isRequired,
@@ -42,7 +41,7 @@ export class MetricsPlotView extends React.Component {
   };
 
   getPlotPropsForLineChart = () => {
-    const { metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness, isComparing } = this.props;
+    const { metrics, xAxis, showPoint, lineSmoothness, isComparing } = this.props;
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history } = metric;
       const isSingleHistory = history.length === 0;
@@ -66,22 +65,12 @@ export class MetricsPlotView extends React.Component {
       ...props.layout,
       ...this.props.extraLayout,
     };
-    if (yAxisLogScale) {
-      const existingYAxis = props.layout.yaxis ? props.layout.yaxis : {};
-      props.layout.yaxis = {
-        ...existingYAxis,
-        type: 'log',
-        // autorange: true,
-      };
-    }
-    console.log("Extra layout: " + JSON.stringify(props.layout));
-    console.log("Final props.layout: " + JSON.stringify(props.layout));
     return props;
   };
 
   getPlotPropsForBarChart = () => {
     /* eslint-disable no-param-reassign */
-    const { runUuids, runDisplayNames, yAxisLogScale } = this.props;
+    const { runUuids, runDisplayNames } = this.props;
 
     // A reverse lookup of `metricKey: { runUuid: value, metricKey }`
     const historyByMetricKey = this.props.metrics.reduce((map, metric) => {
@@ -111,9 +100,9 @@ export class MetricsPlotView extends React.Component {
 
     const layout = { barmode: 'group' };
     const props = { data, layout };
-    if (yAxisLogScale) {
-      props.layout.yaxis = { type: 'log', autorange: true };
-    }
+    // if (yAxisLogScale) {
+    //   props.layout.yaxis = { type: 'log', autorange: true };
+    // }
     props.layout = {
       ...props.layout,
       ...this.props.extraLayout,
