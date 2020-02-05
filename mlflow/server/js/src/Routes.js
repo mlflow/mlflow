@@ -17,8 +17,8 @@ class Routes {
 
   static runPageRoute = "/experiments/:experimentId/runs/:runUuid";
 
-  static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys = null, plotLayout = {},
-                            selectedXAxis = X_AXIS_RELATIVE, yAxisLogScale = false,
+  static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys = null,
+                            plotLayout = {}, selectedXAxis = X_AXIS_RELATIVE, yAxisLogScale = false,
                             lineSmoothness = 0, showPoint = false) {
     // Convert boolean to enum to keep URL format extensible to adding new types of y axis scales
     const yAxisScale = yAxisLogScale ? "log" : "linear";
