@@ -5,6 +5,11 @@ dist: trusty
 services:
   - docker
 
+cache:
+  directories:
+    - $HOME/testmon
+
+
 matrix:
   include:
     # Nightly builds run the tests/examples end-to-end test suite.

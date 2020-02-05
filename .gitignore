@@ -60,6 +60,9 @@ docs/_build/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# Testmondata generated during local development
+/.testmondata
+
 # Environments
 env
 env3

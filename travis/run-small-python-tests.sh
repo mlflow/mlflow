@@ -6,6 +6,9 @@ err=0
 trap 'err=1' ERR
 export MLFLOW_HOME=$(pwd)
 
+# Include testmon database file
+cp testmon/.testmondata .testmondata
+
 # NB: Also add --ignore'd tests to run-large-python-tests.sh
 pytest tests --testmon --ignore=tests/h2o --ignore=tests/keras \
   --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
@@ -21,3 +24,7 @@ pytest tests --testmon --ignore=tests/h2o --ignore=tests/keras \
   --ignore=tests/xgboost --ignore=tests/lightgbm tests --ignore=tests/spark_autologging --ignore=tests/models --ignore=tests/examples
 
 test $err = 0
+
+# Copy testmon DB file into cache directory. TODO: allow people to run this locally without
+# copying into cache directory
+mv .testmondata testmon
