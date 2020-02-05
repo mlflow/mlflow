@@ -9,6 +9,7 @@ import os
 import posixpath
 from six import iteritems
 
+from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
@@ -237,6 +238,12 @@ class TrackingServiceClient(object):
         for tag in tags:
             _validate_tag_name(tag.key)
         self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
+
+    def _record_logged_model(self, run_id, mlflow_model):
+        if not isinstance(mlflow_model, Model):
+            raise TypeError("Argument 'mlflow_model' should be of type mlflow.models.Model but was "
+                            "{}".format(type(mlflow_model)))
+        self.store.record_logged_model(run_id, mlflow_model)
 
     def update_artifacts_location(self, run_id, artifact_path):
         """
