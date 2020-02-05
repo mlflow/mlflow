@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# MLFlow documentation build configuration file, created by
+# MLflow documentation build configuration file, created by
 # cookiecutter pipproject
 #
 # This file is execfile()d with the current directory set to its
@@ -229,16 +229,16 @@ htmlhelp_basename = 'MLflowdoc'
 
 latex_elements = {
 # The paper size ('letterpaper' or 'a4paper').
-#'papersize': 'letterpaper',
+# 'papersize': 'letterpaper',
 
 # The font size ('10pt', '11pt' or '12pt').
-#'pointsize': '10pt',
+# 'pointsize': '10pt',
 
 # Additional stuff for the LaTeX preamble.
-#'preamble': '',
+# 'preamble': '',
 
 # Latex figure (float) alignment
-#'figure_align': 'htbp',
+# 'figure_align': 'htbp',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
