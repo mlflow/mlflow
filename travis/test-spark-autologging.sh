@@ -6,7 +6,7 @@ set -ex
 
 # Build Java package
 pushd mlflow/java/spark
-mvn package -DskipTests
+mvn package -DskipTests -q
 popd
 
 # Install PySpark 3.0 preview & run tests. For faster local iteration, you can also simply download
