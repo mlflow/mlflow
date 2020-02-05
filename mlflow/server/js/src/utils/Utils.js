@@ -403,13 +403,13 @@ class Utils {
       return defaultState;
     }
 
-    const selectedXAxis = params['x_axis'];
+    const selectedXAxis = params['x_axis'] || X_AXIS_RELATIVE;
     const selectedMetricKeys = JSON.parse(params['plot_metric_keys']) ||
         defaultState.selectedMetricKeys;
     const showPoint = params['show_point'] === 'true';
     const yAxisLogScale = params['y_axis_scale'] === 'log';
     const lineSmoothness = params['line_smoothness'] ? parseFloat(params['line_smoothness']) : 0;
-    const layout = JSON.parse(params['plot_layout']) || {};
+    const layout = params['plot_layout'] ? JSON.parse(params['plot_layout']) : {};
     return {
       selectedXAxis,
       selectedMetricKeys,
