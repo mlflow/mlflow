@@ -75,35 +75,37 @@ def test_log_artifact_with_invalid_local_dir(_):
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
 def test_log_artifacts(hdfs_system_mock):
-    os.environ['MLFLOW_KERBEROS_TICKET_CACHE'] = '/tmp/krb5cc_22222222'
-    os.environ['MLFLOW_KERBEROS_USER'] = 'some_kerberos_user'
-    os.environ['MLFLOW_HDFS_DRIVER'] = 'libhdfs3'
+    mock_env = {
+        'MLFLOW_KERBEROS_TICKET_CACHE': '/tmp/krb5cc_22222222',
+        'MLFLOW_KERBEROS_USER': 'some_kerberos_user',
+        'MLFLOW_HDFS_DRIVER': 'libhdfs3',
+    }
 
-    repo = HdfsArtifactRepository('hdfs:/some_path/maybe/path')
+    with mock.patch.dict(os.environ, mock_env):
+        repo = HdfsArtifactRepository('hdfs:/some_path/maybe/path')
+        with TempDir() as root_dir:
+            with open(root_dir.path("file_one.txt"), "w") as f:
+                f.write('PyArrow Works once')
 
-    with TempDir() as root_dir:
-        with open(root_dir.path("file_one.txt"), "w") as f:
-            f.write('PyArrow Works once')
+            os.mkdir(root_dir.path("subdir"))
+            with open(root_dir.path("subdir/file_two.txt"), "w") as f:
+                f.write('PyArrow Works two')
 
-        os.mkdir(root_dir.path("subdir"))
-        with open(root_dir.path("subdir/file_two.txt"), "w") as f:
-            f.write('PyArrow Works two')
+            repo.log_artifacts(root_dir._path)
 
-        repo.log_artifacts(root_dir._path)
+            hdfs_system_mock.assert_called_once_with(driver='libhdfs3', extra_conf=None,
+                                                     host='default',
+                                                     kerb_ticket='/tmp/krb5cc_22222222', port=0,
+                                                     user='some_kerberos_user')
 
-        hdfs_system_mock.assert_called_once_with(driver='libhdfs3', extra_conf=None,
-                                                 host='default',
-                                                 kerb_ticket='/tmp/krb5cc_22222222', port=0,
-                                                 user='some_kerberos_user')
-
-        open_mock = hdfs_system_mock.return_value.open
-        open_mock.assert_has_calls(calls=[call('/some_path/maybe/path/file_one.txt', 'wb'),
-                                          call('/some_path/maybe/path/subdir/file_two.txt', 'wb')],
-                                   any_order=True)
-        write_mock = open_mock.return_value.__enter__.return_value.write
-        write_mock.assert_has_calls(calls=[call(b'PyArrow Works once'),
-                                           call(b'PyArrow Works two')],
-                                    any_order=True)
+            open_mock = hdfs_system_mock.return_value.open
+            open_mock.assert_has_calls(calls=[call('/some_path/maybe/path/file_one.txt', 'wb'),
+                                              call('/some_path/maybe/path/subdir/file_two.txt', 'wb')],
+                                       any_order=True)
+            write_mock = open_mock.return_value.__enter__.return_value.write
+            write_mock.assert_has_calls(calls=[call(b'PyArrow Works once'),
+                                               call(b'PyArrow Works two')],
+                                        any_order=True)
 
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
