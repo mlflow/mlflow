@@ -60,18 +60,14 @@ export class MetricsPlotPanel extends React.Component {
 
   // Update page URL from component state. Intended to be called after React applies component
   // state updates, e.g. in a setState callback
-  updateURLFromState() {
+  updateURLFromState = () => {
     const { runUuids, metricKey, location, history } = this.props;
     const experimentId = qs.parse(location.search)['experiment'];
     const { selectedXAxis, selectedMetricKeys, showPoint, yAxisLogScale, lineSmoothness,
       layout } = this.state;
     history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
         layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint));
-  }
-  //
-  // componentDidUpdate(prevProps, prevState, snapshot) {
-  //   this.updateURLFromState();
-  // }
+  };
 
   loadMetricHistory = (runUuids, metricKeys) => {
     const requestIds = [];
@@ -218,6 +214,9 @@ export class MetricsPlotPanel extends React.Component {
           handleYAxisLogScaleChange={this.handleYAxisLogScaleChange}
           handleLineSmoothChange={this.handleLineSmoothChange}
           chartType={chartType}
+          initialLineSmoothness={lineSmoothness}
+          yAxisLogScale={yAxisLogScale}
+          showPoint={showPoint}
         />
         <RequestStateWrapper
             requestIds={historyRequestIds}
@@ -286,7 +285,9 @@ const mapStateToProps = (state, ownProps) => {
   };
 };
 
-const mapDispatchToProps = { getMetricHistoryApi };
+const mapDispatchToProps = () => {
+  return { getMetricHistoryApi };
+};
 
 export default withRouter(
   connect(
