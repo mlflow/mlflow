@@ -52,7 +52,7 @@ export const createExperimentApi = (experimentName, id = getUUID()) => {
       type: CREATE_EXPERIMENT_API,
       payload: wrapDeferred(MlflowService.createExperiment, { name: experimentName }),
       meta: { id: getUUID() },
-    }).then(() => dispatch(listExperimentsApi(id)));
+    });
     return createResponse;
   };
 };
