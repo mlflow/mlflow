@@ -20,7 +20,7 @@ ERROR_CODE_TO_HTTP_STATUS = {
 
 
 class ExceptionEncoder(json.JSONEncoder):
-    def default(self, obj):
+    def default(self, obj):  # pylint: disable=E0202,W0221
         if isinstance(obj, Exception):
             return str(obj)
         return json.JSONEncoder.default(self, obj)
