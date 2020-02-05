@@ -13,7 +13,7 @@ def tmp_wkdir(tmpdir):
     os.chdir(initial_wkdir)
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def reset_active_experiment():
     yield
     mlflow.tracking.fluent._active_experiment_id = None

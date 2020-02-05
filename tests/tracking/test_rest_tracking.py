@@ -329,7 +329,7 @@ def test_log_batch(mlflow_client, backend_store_uri):
     assert metric.step == 3
 
 
-def test_log_model(mlflow_client, backend_store_uri):
+def test_log_model(mlflow_client, backend_store_uri, reset_active_experiment):
     experiment_id = mlflow_client.create_experiment('Log models')
     with TempDir(chdr=True):
         mlflow.set_experiment("Log models")

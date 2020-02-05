@@ -120,7 +120,7 @@ def test_get_experiment_id_from_env():
         assert _get_experiment_id_from_env() == exp_id
 
 
-def test_get_experiment_id_with_active_experiment_returns_active_experiment_id():
+def test_get_experiment_id_with_active_experiment_returns_active_experiment_id(reset_active_experiment):
     # Create a new experiment and set that as active experiment
     with TempDir(chdr=True):
         name = "Random experiment %d" % random.randint(1, 1e6)
@@ -144,7 +144,7 @@ def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
         assert _get_experiment_id() == notebook_id
 
 
-def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_experiment_id():
+def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_experiment_id(reset_active_experiment):
     with TempDir(chdr=True):
         exp_name = "random experiment %d" % random.randint(1, 1e6)
         exp_id = mlflow.create_experiment(exp_name)

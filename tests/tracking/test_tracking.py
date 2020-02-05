@@ -95,7 +95,7 @@ def test_set_experiment(tracking_uri_mock, reset_active_experiment):
         assert another_run.info.experiment_id == exp_id2.experiment_id
 
 
-def test_set_experiment_with_deleted_experiment_name(tracking_uri_mock):
+def test_set_experiment_with_deleted_experiment_name(tracking_uri_mock, reset_active_experiment):
     name = "dead_exp"
     mlflow.set_experiment(name)
     with start_run() as run:
@@ -578,7 +578,7 @@ def test_get_artifact_uri_uses_currently_active_run_id():
     ),
 ])
 def test_get_artifact_uri_appends_to_uri_path_component_correctly(
-        tracking_uri_mock, artifact_location, expected_uri_format):
+        tracking_uri_mock, artifact_location, expected_uri_format, reset_active_experiment):
     client = MlflowClient()
     client.create_experiment("get-artifact-uri-test", artifact_location=artifact_location)
     mlflow.set_experiment("get-artifact-uri-test")

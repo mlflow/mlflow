@@ -40,13 +40,15 @@ def test_log_artifact(hdfs_system_mock):
 def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
     if sys.platform == 'win32':
         pytest.skip()
-    os.environ['MLFLOW_KERBEROS_TICKET_CACHE'] = '/tmp/krb5cc_22222222'
-    os.environ['MLFLOW_KERBEROS_USER'] = 'some_kerberos_user'
-    os.environ['MLFLOW_HDFS_DRIVER'] = 'libhdfs3'
 
     repo = HdfsArtifactRepository('hdfs:/some/maybe/path')
-
-    with NamedTemporaryFile() as tmp_local_file:
+    mock_env = {
+        "MLFLOW_KERBEROS_TICKET_CACHE": '/tmp/krb5cc_22222222',
+        "MLFLOW_KERBEROS_USER": 'some_kerberos_user',
+        "MLFLOW_HDFS_DRIVER": 'libhdfs3',
+    }
+    with mock.patch.dict("os.environ", mock_env):
+        with NamedTemporaryFile() as tmp_local_file:
         tmp_local_file.write(b'PyArrow Works')
         tmp_local_file.seek(0)
 
