@@ -28,15 +28,15 @@ matrix:
         - ./travis/stage-python2-nightly.sh
     - stage: small
       if: type != cron
-    - language: python
-      name: "Lint (Python 3.6)"
-      if: type != cron
-      python: 3.6
-      install:
-        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-        - pip install -r ./travis/lint-requirements.txt
-      script:
-        - ./lint.sh
+#    - language: python
+#      name: "Lint (Python 3.6)"
+#      if: type != cron
+#      python: 3.6
+#      install:
+#        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+#        - pip install -r ./travis/lint-requirements.txt
+#      script:
+#        - ./lint.sh
     - language: r
       name: "R"
       if: type != cron
