@@ -36,7 +36,6 @@ class DeleteRunModal extends Component {
       });
     }
     const deletePromises = [];
-    debugger;
     idsToDelete.forEach((runId) => {
       deletePromises.push(this.props.dispatch(deleteRunApi(runId)));
     });
