@@ -68,9 +68,10 @@ export class MetricsPlotPanel extends React.Component {
     const { runUuids, metricKey, location, history } = this.props;
     const experimentId = qs.parse(location.search)['experiment'];
     const { selectedXAxis, selectedMetricKeys, showPoint, yAxisLogScale, lineSmoothness,
-      layout, runsToDisplay } = this.state;
+      layout, selectedRunIds } = this.state;
+    console.log("Update URL with selected run IDS " + JSON.stringify(selectedRunIds));
     history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
-        layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint, runsToDisplay));
+        layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint, selectedRunIds));
   };
 
   loadMetricHistory = (runUuids, metricKeys) => {
@@ -189,12 +190,30 @@ export class MetricsPlotPanel extends React.Component {
     this.setState({layout: mergedLayout}, this.updateURLFromState);
   };
 
-  handleLegendClick = (first, second, third) => {
-    debugger;
+  legendClickTimeout = null;
+
+  handleLegendClick = ({ curveNumber }) => {
+    console.log("In handleLegendClick"); // TODO handle double-clicking yourself here
+    const runIdClicked = this.props.runUuids[curveNumber];
+    const existingIdsClicked = new Set(this.state.selectedRunIds);
+    if (existingIdsClicked.has(runIdClicked)) {
+      existingIdsClicked.delete(runIdClicked);
+    } else {
+      existingIdsClicked.add(runIdClicked);
+    }
+    this.legendClickTimeout = window.setTimeout(() => {
+      console.log("Running single-click handler " + this.legendClickTimeout);
+      this.setState({selectedRunIds: Array.from(existingIdsClicked)}, this.updateURLFromState);
+    }, 500);
+    return false;
   };
 
-  handleLegendDoubleClick = (first, second, third) => {
-    debugger;
+  handleLegendDoubleClick = ({ curveNumber }) => {
+    window.clearTimeout(this.legendClickTimeout);
+    console.log("Cleared single-click handler " + this.legendClickTimeout);
+    const runIdClicked = this.props.runUuids[curveNumber];
+    this.setState({selectedRunIds: [runIdClicked]}, this.updateURLFromState);
+    return false;
   };
 
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
@@ -258,7 +277,7 @@ export class MetricsPlotPanel extends React.Component {
             yAxisLogScale={yAxisLogScale}
             lineSmoothness={lineSmoothness}
             extraLayout={this.state.layout}
-            runsToDisplay={this.state.runsToDisplay}
+            selectedRunIds={this.state.selectedRunIds}
             onLayoutChange={this.handleLayoutChange}
             onLegendClick={this.handleLegendClick}
             onLegendDoubleClick={this.handleLegendDoubleClick}
