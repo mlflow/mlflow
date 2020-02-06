@@ -298,6 +298,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
 def gc(backend_store_uri, run_ids):
     """
     Permanently delete runs in state deleted in the backend store.
+    This command deletes both artifacts and runs metadata.
     """
     backend_store = _get_store(backend_store_uri, None)
     if not run_ids:

@@ -324,6 +324,15 @@ class TestFileStore(unittest.TestCase):
         with self.assertRaises(MlflowException):
             fs.get_all_params(run_id)
 
+    def test_get_deleted_runs(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[0]
+        run_id = self.exp_data[exp_id]['runs'][0]
+        fs.delete_run(run_id)
+        deleted_runs = fs._get_deleted_runs()
+        assert len(deleted_runs) == 1
+        assert deleted_runs[0] == run_id
+
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [
             ("path/to/local/folder", "path/to/local/folder/{e}/{r}/artifacts"),

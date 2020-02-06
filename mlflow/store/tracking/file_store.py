@@ -329,7 +329,10 @@ class FileStore(AbstractStore):
         shutil.rmtree(os.path.join(run_dir, FileStore.TAGS_FOLDER_NAME))
 
     def _get_deleted_runs(self):
-        raise MlflowException("Not implemented yet")
+        experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
+        deleted_runs = self.search_runs(experiment_ids=experiment_ids, filter_string='',
+                                        run_view_type=ViewType.DELETED_ONLY)
+        return [deleted_run.info.run_uuid for deleted_run in deleted_runs]
 
     def restore_run(self, run_id):
         run_info = self._get_run_info(run_id)

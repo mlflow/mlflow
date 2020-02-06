@@ -442,7 +442,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             return session\
                 .query(SqlRun.run_uuid) \
-                .filter(SqlRun.lifecycle_stage == 'deleted') \
+                .filter(SqlRun.lifecycle_stage == LifecycleStage.DELETED) \
                 .all()
 
     def log_metric(self, run_id, metric):
