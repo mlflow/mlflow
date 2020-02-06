@@ -35,6 +35,16 @@ export class MetricsPlotPanel extends React.Component {
     runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
 
+  // The fields below are exposed as instance attributes rather than component state so that they
+  // can be updated without triggering a rerender.
+  //
+  // ID of Javascript future (created via setTimeout()) used to trigger legend-click events after a
+  // delay, to allow time for double-click events to occur
+  legendClickTimeout = null;
+  // Time (millis after Unix epoch) since last legend click - if two clicks occur in short
+  // succession, we trigger a double-click event & cancel the pending single-click.
+  prevLegendClickTime = Math.inf;
+
   constructor(props) {
     super(props);
     this.state = {
@@ -190,14 +200,10 @@ export class MetricsPlotPanel extends React.Component {
     this.setState({layout: mergedLayout}, this.updateURLFromState);
   };
 
-  legendClickTimeout = null;
-  prevClickTime = Math.inf;
-
   handleLegendClick = ({ curveNumber }) => {
-    console.log("In handleLegendClick"); // TODO handle double-clicking yourself here
     // If two clicks in short succession, trigger double-click event
     const currentTime = Date.now();
-    if (currentTime - this.prevClickTime < 300) {
+    if (currentTime - this.prevLegendClickTime < 300) {
       this.handleLegendDoubleClick({ curveNumber });
       this.prevClickTime = Math.inf;
     } else {
@@ -206,7 +212,6 @@ export class MetricsPlotPanel extends React.Component {
       // Wait full double-click window to trigger setting state, and only if there was no
       // double-click do we run the single-click logic (we wait a little extra to be safe)
       this.legendClickTimeout = window.setTimeout(() => {
-        console.log("Running single-click handler " + this.legendClickTimeout);
         const existingIdsClicked = new Set(this.state.selectedRunIds);
         if (existingIdsClicked.has(runIdClicked)) {
           existingIdsClicked.delete(runIdClicked);
@@ -216,7 +221,7 @@ export class MetricsPlotPanel extends React.Component {
         this.setState({selectedRunIds: Array.from(existingIdsClicked)},
             this.updateURLFromState);
       }, 310);
-      this.prevClickTime = currentTime;
+      this.prevLegendClickTime = currentTime;
     }
     // Return false to disable plotly event handler
     return false;
@@ -224,7 +229,6 @@ export class MetricsPlotPanel extends React.Component {
 
   handleLegendDoubleClick = ({ curveNumber }) => {
     window.clearTimeout(this.legendClickTimeout);
-    console.log("Cleared single-click handler " + this.legendClickTimeout);
     const runIdClicked = this.props.runUuids[curveNumber];
     this.setState({selectedRunIds: [runIdClicked]}, this.updateURLFromState);
     return false;
