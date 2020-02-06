@@ -50,17 +50,22 @@ class DeleteRunModal extends Component {
     const number = selectedRunIds.length;
     const parentIdsSelectedForDeletion = this.getParentsSelectedForDeletion();
     const extraConfirmButtonContents = parentIdsSelectedForDeletion.length === 0 ? [] :
-        ["Delete parent and child runs"];
+        ["Delete selected runs and their children"];
+    const promptMessage = `Delete Experiment ${Utils.pluralize("Run", number)}`;
+    const runNoun = Utils.pluralize('run', number);
+    const description = parentIdsSelectedForDeletion.length === 0 ?
+        `${number} experiment ${runNoun} will be deleted.` :
+        `Selected ${number} ${runNoun}, delete selected runs and optionally children as well`;
     return (
       <ConfirmModal
         isOpen={this.props.isOpen}
         onClose={this.props.onClose}
         handleSubmit={this.handleSubmit}
-        title={`Delete Experiment ${Utils.pluralize("Run", number)}`}
+        title={promptMessage}
         helpText={
           <div>
             <p>
-              <b>{number} experiment {Utils.pluralize('run', number)} will be deleted.</b>
+              <b>{description}</b>
             </p>
             {
               process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ?

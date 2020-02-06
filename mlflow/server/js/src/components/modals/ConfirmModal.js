@@ -89,16 +89,16 @@ export class ConfirmModal extends Component {
             Cancel
           </Button>
           <Button
-            bsStyle="primary"
+            bsStyle={extraConfirmButtonContents.length === 0 ? "primary" : "default"}
             onClick={() => this.handleSubmitWrapper(this.props.confirmButtonText)}
             disabled={this.state.isSubmitting}
             className="mlflow-save-button mlflow-form-button"
           >
             {this.props.confirmButtonText}
           </Button>
-          {extraConfirmButtonContents.map((confirmText) => {
+          {extraConfirmButtonContents.map((confirmText, i) => {
             return <Button
-                bsStyle="primary"
+                bsStyle={i === extraConfirmButtonContents.length - 1 ? "primary" : "default"}
                 onClick={() => this.handleSubmitWrapper(confirmText)}
                 disabled={this.state.isSubmitting}
                 className="mlflow-save-button mlflow-form-button"
