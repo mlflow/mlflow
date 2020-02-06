@@ -32,7 +32,12 @@ def _fit_keras(pandas_df, epochs):
     keras_model.add(Dense(1))
     keras_model.compile(loss='mean_squared_error', optimizer='SGD')
     keras_model.fit(x, y, epochs=epochs)
-    time.sleep(2)
+    # Sleep to allow time for datasource read event to fire asynchronously from the JVM & for
+    # the Python-side event handler to run & log a tag to the current active run.
+    # This race condition (& the risk of dropping datasource read events for short-lived runs)
+    # is known and documented in
+    # https://mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.autolog
+    time.sleep(5)
 
 
 def _fit_keras_model_with_active_run(pandas_df, epochs):
