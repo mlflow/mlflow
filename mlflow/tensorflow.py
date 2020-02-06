@@ -706,12 +706,13 @@ def autolog(every_n_iter=100):
             result = original(self, *args, **kwargs)
 
             # log eval metrics
+            step = result['global_step'] if 'global_step' in result.keys() else None
             for key, value in result.items():
                 # Only log numbers
                 if isinstance(value, np.number):
                     # Filter out characters that can't be used in metric name
-                    metric_name = ''.join(filter(lambda c: c not in '()[]@', key))
-                    try_mlflow_log(mlflow.log_metric, metric_name, value)
+                    metric_name = 'Eval/{}'.format(''.join(filter(lambda c: c not in '()[]@', key)))
+                    try_mlflow_log(mlflow.log_metric, metric_name, value, step=step)
             return result
 
     @gorilla.patch(tensorflow.estimator.Estimator)
