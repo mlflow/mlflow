@@ -637,8 +637,29 @@ class FileStore(AbstractStore):
 
     def _log_run_param(self, run_info, param):
         param_path = self._get_param_path(run_info.experiment_id, run_info.run_id, param.key)
+        writeable_param_value = self._writeable_value(param.value)
+        if os.path.exists(param_path):
+            self._validate_new_param_value(
+                param_path=param_path, param_key=param.key,
+                run_id=run_info.run_id, new_value=writeable_param_value)
         make_containing_dirs(param_path)
-        write_to(param_path, self._writeable_value(param.value))
+        write_to(param_path, writeable_param_value)
+
+    def _validate_new_param_value(self, param_path, param_key, run_id, new_value):
+        """
+        When logging a parameter with a key that already exists, this function is used to
+        enforce immutability by verifying that the specified parameter value matches the existing
+        value.
+        :raises: py:class:`mlflow.exceptions.MlflowException` if the specified new parameter value
+                 does not match the existing parameter value.
+        """
+        with open(param_path, "r") as param_file:
+            current_value = param_file.read()
+        if current_value != new_value:
+            raise MlflowException(
+                "Changing param value is not allowed. Param with key='{}' was already"
+                " logged with value='{}' for run ID='{}'. Attempted logging new value"
+                " '{}'.".format(param_key, current_value, run_id, new_value))
 
     def set_experiment_tag(self, experiment_id, tag):
         """
