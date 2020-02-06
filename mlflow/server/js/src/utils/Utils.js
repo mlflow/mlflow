@@ -410,6 +410,9 @@ class Utils {
     const yAxisLogScale = params['y_axis_scale'] === 'log';
     const lineSmoothness = params['line_smoothness'] ? parseFloat(params['line_smoothness']) : 0;
     const layout = params['plot_layout'] ? JSON.parse(params['plot_layout']) : {};
+    // Default to displaying all runs if user hasn't selected out any
+    const runsToDisplay = params['selected_run_ids'] ? JSON.parse('selected_run_ids') :
+        JSON.parse(params['runs']);
     return {
       selectedXAxis,
       selectedMetricKeys,
@@ -417,6 +420,7 @@ class Utils {
       yAxisLogScale,
       lineSmoothness,
       layout,
+      runsToDisplay,
     };
   }
 

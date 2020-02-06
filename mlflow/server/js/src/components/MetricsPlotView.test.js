@@ -95,6 +95,8 @@ describe('unit tests', () => {
       yAxisLogScale: false,
       lineSmoothness: 0,
       onLayoutChange: jest.fn(),
+      onDoubleClick: jest.fn(),
+      onClick: jest.fn(),
     };
     minimalPropsForBarChart = {
       ...minimalPropsForLineChart,

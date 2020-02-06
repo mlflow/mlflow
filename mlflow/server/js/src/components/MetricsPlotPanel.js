@@ -68,9 +68,9 @@ export class MetricsPlotPanel extends React.Component {
     const { runUuids, metricKey, location, history } = this.props;
     const experimentId = qs.parse(location.search)['experiment'];
     const { selectedXAxis, selectedMetricKeys, showPoint, yAxisLogScale, lineSmoothness,
-      layout } = this.state;
+      layout, runsToDisplay } = this.state;
     history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
-        layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint));
+        layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint, runsToDisplay));
   };
 
   loadMetricHistory = (runUuids, metricKeys) => {
@@ -189,6 +189,14 @@ export class MetricsPlotPanel extends React.Component {
     this.setState({layout: mergedLayout}, this.updateURLFromState);
   };
 
+  handleLegendClick = (first, second, third) => {
+    debugger;
+  };
+
+  handleLegendDoubleClick = (first, second, third) => {
+    debugger;
+  };
+
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
     const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
     this.setState((prevState) => ({
@@ -250,7 +258,10 @@ export class MetricsPlotPanel extends React.Component {
             yAxisLogScale={yAxisLogScale}
             lineSmoothness={lineSmoothness}
             extraLayout={this.state.layout}
+            runsToDisplay={this.state.runsToDisplay}
             onLayoutChange={this.handleLayoutChange}
+            onLegendClick={this.handleLegendClick}
+            onLegendDoubleClick={this.handleLegendDoubleClick}
           />
         </RequestStateWrapper>
       </div>

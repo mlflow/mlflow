@@ -23,6 +23,9 @@ export class MetricsPlotView extends React.Component {
     lineSmoothness: PropTypes.number,
     extraLayout: PropTypes.object,
     onLayoutChange: PropTypes.func.isRequired,
+    onLegendClick: PropTypes.func.isRequired,
+    onLegendDoubleClick: PropTypes.func.isRequired,
+    runsToDisplay: PropTypes.arrayOf(String).isRequired,
   };
 
   static getLineLegend = (metricKey, runDisplayName, isComparing) => {
@@ -117,20 +120,23 @@ export class MetricsPlotView extends React.Component {
   };
 
   render() {
-    const { onLayoutChange } = this.props;
+    const { onLayoutChange, onLegendClick, onLegendDoubleClick, runsToDisplay } = this.props;
     const plotProps =
       this.props.chartType === CHART_TYPE_BAR
         ? this.getPlotPropsForBarChart()
         : this.getPlotPropsForLineChart();
+    // TODO configure plot to use runsToDisplay & update handler props to use appropriate functions
+    // e.g. onLegendClick?
     return (
       <div className='metrics-plot-view-container'>
         <Plot
           {...plotProps}
           useResizeHandler
-          onRelayout={(first, second, third) => {
-            // debugger;
-            onLayoutChange(first);
+          onRelayout={(newLayout) => {
+            onLayoutChange(newLayout);
           }}
+          onLegendClick={onLegendClick}
+          onLegendDoubleClick={onLegendDoubleClick}
           style={{ width: '100%', height: '100%' }}
           layout={{ ...{ autosize: true }, ...plotProps.layout }}
           config={{
