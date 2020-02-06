@@ -356,6 +356,13 @@ export class ExperimentView extends Component {
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
     const noteInfo = NoteInfo.fromTags(experimentTags);
+    const runsExpanded = persistedState.runsExpanded;
+    const parentsWithChildren = ExperimentViewUtil.getRowRenderMetadata({runInfos, tagsList,
+      runsExpanded}).filter((row) => row.childrenIds && row.childrenIds.length > 0);
+    const parentToChildRunIds = {};
+    parentsWithChildren.forEach(
+        (rowMetadata) => parentToChildRunIds[rowMetadata.runId] = rowMetadata.childrenIds);
+
     const searchInputHelpTooltipContent = (
       <div className="search-input-tooltip-content">
         Search runs using a simplified version of the SQL <b>WHERE</b> clause.<br/>
@@ -374,6 +381,7 @@ export class ExperimentView extends Component {
           isOpen={this.state.showDeleteRunModal}
           onClose={this.onCloseDeleteRunModal}
           selectedRunIds={Object.keys(this.state.runsSelected)}
+          parentRunIdToChildren={parentToChildRunIds}
         />
         <RestoreRunModal
           isOpen={this.state.showRestoreRunModal}

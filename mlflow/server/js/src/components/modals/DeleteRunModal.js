@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import { deleteRunApi, openErrorModal } from '../../Actions';
 import { connect } from 'react-redux';
 import Utils from '../../utils/Utils';
+import _ from 'lodash';
 
 class DeleteRunModal extends Component {
   constructor(props) {
@@ -15,21 +16,42 @@ class DeleteRunModal extends Component {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
     selectedRunIds: PropTypes.arrayOf(String).isRequired,
+    // Object mapping parent run IDs to lists of child IDs
+    parentRunIdToChildren: PropTypes.object.isRequired,
     dispatch: PropTypes.func.isRequired,
   };
 
-  handleSubmit() {
+  getParentsSelectedForDeletion() {
+    const { selectedRunIds, parentRunIdToChildren } = this.props;
+    const parentIds = new Set(Object.keys(parentRunIdToChildren));
+    return Array.from(new Set([...selectedRunIds].filter(x => parentIds.has(x))));
+  }
+
+  handleSubmit(deletionType) {
+    const deleteChildren = deletionType === "Delete parent and child runs";
+    let idsToDelete = _.cloneDeep(this.props.selectedRunIds);
+    if (deleteChildren) {
+      this.getParentsSelectedForDeletion().forEach((runId) => {
+        idsToDelete = idsToDelete.concat(this.props.parentRunIdToChildren[runId]);
+      });
+    }
     const deletePromises = [];
-    this.props.selectedRunIds.forEach((runId) => {
+    debugger;
+    idsToDelete.forEach((runId) => {
       deletePromises.push(this.props.dispatch(deleteRunApi(runId)));
     });
+
     return Promise.all(deletePromises).catch(() => {
       this.props.dispatch(openErrorModal('While deleting an experiment run, an error occurred.'));
     });
   }
 
   render() {
-    const number = this.props.selectedRunIds.length;
+    const { selectedRunIds } = this.props;
+    const number = selectedRunIds.length;
+    const parentIdsSelectedForDeletion = this.getParentsSelectedForDeletion();
+    const extraConfirmButtonContents = parentIdsSelectedForDeletion.length === 0 ? [] :
+        ["Delete parent and child runs"];
     return (
       <ConfirmModal
         isOpen={this.props.isOpen}
@@ -53,6 +75,7 @@ class DeleteRunModal extends Component {
           </div>
         }
         confirmButtonText={"Delete"}
+        extraConfirmButtonContents={extraConfirmButtonContents}
       />
     );
   }

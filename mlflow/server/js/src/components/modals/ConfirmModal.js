@@ -35,6 +35,10 @@ export class ConfirmModal extends Component {
     title: PropTypes.string.isRequired,
     helpText: PropTypes.node.isRequired,
     confirmButtonText: PropTypes.string.isRequired,
+    // The component displays an additional confirm button per element of this array,
+    // allowing for the specification of multiple confirm options (e.g. "Delete selected runs" and
+    // "Delete selected runs and child runs")
+    extraConfirmButtonContents: PropTypes.arrayOf(String),
   };
 
   state = {
@@ -47,15 +51,16 @@ export class ConfirmModal extends Component {
     }
   }
 
-  handleSubmitWrapper() {
+  handleSubmitWrapper(confirmText) {
     this.setState({ isSubmitting: true });
-    this.props.handleSubmit().finally(() => {
+    this.props.handleSubmit(confirmText).finally(() => {
       this.props.onClose();
       this.setState({ isSubmitting: false });
     });
   }
 
   render() {
+    const extraConfirmButtonContents = this.props.extraConfirmButtonContents || [];
     return (
       <ReactModal
         isOpen={this.props.isOpen}
@@ -85,12 +90,22 @@ export class ConfirmModal extends Component {
           </Button>
           <Button
             bsStyle="primary"
-            onClick={this.handleSubmitWrapper}
+            onClick={() => this.handleSubmitWrapper(this.props.confirmButtonText)}
             disabled={this.state.isSubmitting}
             className="mlflow-save-button mlflow-form-button"
           >
             {this.props.confirmButtonText}
           </Button>
+          {extraConfirmButtonContents.map((confirmText) => {
+            return <Button
+                bsStyle="primary"
+                onClick={() => this.handleSubmitWrapper(confirmText)}
+                disabled={this.state.isSubmitting}
+                className="mlflow-save-button mlflow-form-button"
+            >
+              {confirmText}
+            </Button>;
+          })}
         </Modal.Footer>
       </ReactModal>
     );
