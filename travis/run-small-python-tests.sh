@@ -13,17 +13,21 @@ fi
 
 # NB: Also add --ignore'd tests to run-large-python-tests.sh
 pytest tests --testmon --ignore=tests/h2o --ignore=tests/keras \
+pytest tests --testmon --ignore=tests/examples --ignore=tests/h2o --ignore=tests/keras \
   --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
-  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog \
-  --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx \
-  --ignore=tests/xgboost --ignore=tests/lightgbm tests --ignore=tests/spark_autologging --ignore=tests/models --ignore=tests/examples
+  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/azureml --ignore=tests/onnx \
+  --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore=tests/gluon \
+  --ignore=tests/gluon_autolog --ignore=tests/xgboost --ignore=tests/lightgbm \
+  --ignore tests/spark_autologging --ignore=tests/models
+
 
 # We expect this to not run the same tests again/exit immediately
-pytest tests --testmon --ignore=tests/h2o --ignore=tests/keras \
+pytest tests --testmon --ignore=tests/examples --ignore=tests/h2o --ignore=tests/keras \
   --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
-  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog \
-  --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx \
-  --ignore=tests/xgboost --ignore=tests/lightgbm tests --ignore=tests/spark_autologging --ignore=tests/models --ignore=tests/examples
+  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/azureml --ignore=tests/onnx \
+  --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore=tests/gluon \
+  --ignore=tests/gluon_autolog --ignore=tests/xgboost --ignore=tests/lightgbm \
+  --ignore tests/spark_autologging --ignore=tests/models
 
 # Copy testmon DB file into cache directory. TODO: allow people to run this locally without
 # copying into cache directory

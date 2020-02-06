@@ -15,40 +15,43 @@ else
   cat $SAGEMAKER_OUT;
 fi
 
-# NB: Also add --ignore'd tests to run-small-python-tests.sh
-pytest tests --large --ignore=tests/examples --ignore=tests/h2o --ignore=tests/keras \
-  --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
-  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/azureml --ignore=tests/onnx \
-  --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore=tests/gluon \
-  --ignore=tests/gluon_autolog --ignore=tests/xgboost --ignore=tests/lightgbm \
-  --ignore tests/spark_autologging --ignore=tests/models
+# Include testmon database file, assuming it exists
+if [ -e "testmon/.testmondata" ]; then
+    cp testmon/.testmondata .testmondata
+fi
+
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
-pytest --verbose tests/pytorch --large
-pytest --verbose tests/h2o --large
-pytest --verbose tests/onnx --large
-pytest --verbose tests/pyfunc --large
-pytest --verbose tests/sagemaker --large
-pytest --verbose tests/sagemaker/mock --large
-pytest --verbose tests/sklearn --large
-pytest --verbose tests/spark --large
-pytest --verbose tests/tensorflow/test_tensorflow_model_export.py --large
-pytest --verbose tests/tensorflow_autolog/test_tensorflow_autolog.py --large
-pytest --verbose tests/azureml --large
-pytest --verbose tests/models --large
-pytest --verbose tests/xgboost --large
-pytest --verbose tests/lightgbm --large
+pytest --testmon tests/pytorch
+pytest --testmon tests/h2o
+pytest --testmon tests/onnx
+pytest --testmon tests/pyfunc
+pytest --testmon tests/sagemaker
+pytest --testmon tests/sagemaker/mock
+pytest --testmon tests/sklearn
+pytest --testmon tests/spark
+pytest --testmon tests/tensorflow/test_tensorflow_model_export.py
+pytest --testmon tests/tensorflow_autolog/test_tensorflow_autolog.py
+pytest --testmon tests/azureml
+pytest --testmon tests/models
+pytest --testmon tests/xgboost
+pytest --testmon tests/lightgbm
 # TODO(smurching) Unpin TensorFlow dependency version once test failures with TF 2.1.0 have been
 # fixed
 pip install 'tensorflow==2.0.0'
-pytest --verbose tests/tensorflow/test_tensorflow2_model_export.py --large
-pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
-pytest --verbose tests/keras --large
-pytest --verbose tests/keras_autolog --large
-pytest --verbose tests/gluon --large
-pytest --verbose tests/gluon_autolog --large
+pytest --testmon tests/tensorflow/test_tensorflow2_model_export.py
+pytest --testmon tests/tensorflow_autolog/test_tensorflow2_autolog.py
+pytest --testmon tests/keras
+pytest --testmon tests/keras_autolog
+pytest --testmon tests/gluon
+pytest --testmon tests/gluon_autolog
 
 # Run Spark autologging tests
 ./travis/test-spark-autologging.sh
+
+# Copy testmon DB file into cache directory. TODO: allow people to run this locally without
+# copying into cache directory
+mkdir -p testmon
+mv .testmondata testmon
 
 test $err = 0
