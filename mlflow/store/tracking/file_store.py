@@ -657,9 +657,10 @@ class FileStore(AbstractStore):
             current_value = param_file.read()
         if current_value != new_value:
             raise MlflowException(
-                "Changing param value is not allowed. Param with key='{}' was already"
+                "Changing param values is not allowed. Param with key='{}' was already"
                 " logged with value='{}' for run ID='{}'. Attempted logging new value"
-                " '{}'.".format(param_key, current_value, run_id, new_value))
+                " '{}'.".format(param_key, current_value, run_id, new_value),
+                databricks_pb2.INVALID_PARAMETER_VALUE)
 
     def set_experiment_tag(self, experiment_id, tag):
         """
