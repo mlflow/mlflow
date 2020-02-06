@@ -27,7 +27,7 @@ Provide a clear high-level description of the feature request in the following s
 
 ### Motivation
 What is the use case in mind?  Why is it valuable to support, and why is it currently difficult or impossible to achieve?
-Could the desired functionality alternatively be implemented as a third-party plugin using MLflow public APIs? Could
+Could the desired functionality alternatively be implemented as a third-party package using MLflow public APIs? Could
 the functionality be implemented as an [MLflow plugin](http://mlflow.org/docs/latest/plugins.html)?
 
 ### Proposed Changes
