@@ -70,7 +70,7 @@ There are different kinds of remote tracking URIs:
 
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
 - Database encoded as ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. MLflow supports the dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. For more details, see `SQLAlchemy database uri <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
-- HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLFlow tracking server <tracking_server>`.
+- HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLflow tracking server <tracking_server>`.
 - Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
   `See docs <http://docs.databricks.com/applications/mlflow/logging-from-outside-databricks.html>`_ on
   logging to Databricks-hosted MLflow, or :ref:`the quickstart <quickstart_logging_to_remote_server>` to
@@ -259,7 +259,6 @@ If a run exists when ``autolog()`` captures data, MLflow will log to that run an
   - Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
   - This feature is experimental - the API and format of the logged data are subject to change.
 
-
 Gluon (experimental)
 --------------------
 Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
@@ -292,11 +291,54 @@ If early stopping is activated, metrics at the best iteration will be logged as 
 
 .. note::
   - This feature is experimental - the API and format of the logged data are subject to change.
-  - The `scikit-learn API`_ is not supported.
+  - The `scikit-learn API <https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn>`__ is not supported.
 
 .. _xgboost.train: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
 .. _MLflow Model: https://mlflow.org/docs/latest/models.html
-.. _scikit-learn API:  https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
+
+
+LightGBM (experimental)
+-----------------------
+Call :py:func:`mlflow.lightgbm.autolog` before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
++-----------+------------------------+------------------------------+---------------+----------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                   | Tags          | Artifacts                                                            |
++-----------+------------------------+------------------------------+---------------+----------------------------------------------------------------------+
+| LightGBM  | user-specified metrics | `lightgbm.train`_ parameters | --            | `MLflow Model`_ (LightGBM model) on training end; feature importance |
++-----------+------------------------+------------------------------+---------------+----------------------------------------------------------------------+
+
+If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
+
+.. note::
+  - This feature is experimental - the API and format of the logged data are subject to change.
+  - The `scikit-learn API <https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api>`__ is not supported.
+
+.. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
+
+Spark (experimental)
+--------------------
+
+Initialize a SparkSession with the mlflow-spark JAR attached (e.g.
+``SparkSession.builder.config("spark.jars.packages", "org.mlflow.mlflow-spark")``) and then
+call :py:func:`mlflow.spark.autolog` to enable automatic logging of Spark datasource
+information at read-time, without the need for explicit
+log statements. Note that autologging of Spark ML (MLlib) models is not yet supported.
+
+Autologging captures the following information:
+
++------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
+| Framework        | Metrics | Parameters |  Tags                                                                                        | Artifacts |
++------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
+| Spark            | --      | --         | Single tag containing source path, version, format. The tag contains one line per datasource | --        |
++------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
+
+**Note**: this feature is experimental - the API and format of the logged data are subject to change.
+Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely)
+to see race conditions when launching short-lived MLflow runs that result in datasource information
+not being logged.
+
 
 .. _organizing_runs_in_experiments:
 
@@ -384,7 +426,7 @@ You can access all of the functions in the Tracking UI programmatically. This ma
 
 * Query and compare runs using any data analysis tool of your choice, for example, **pandas**. 
 * Determine the artifact URI for a run to feed some of its artifacts into a new run when executing a workflow. For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
-* Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLFlow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
+* Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLflow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 * Run automated parameter search algorithms, where you query the metrics from various runs to submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
 
 
@@ -468,7 +510,7 @@ SQLAlchemy Options
 You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalchemy.org/en/latest/core/pooling.html>`_ using environment variables.
 
 +-----------------------------------------+-----------------------------+
-| MLFlow Environment Variable             | SQLAlchemy QueuePool Option |
+| MLflow Environment Variable             | SQLAlchemy QueuePool Option |
 +-----------------------------------------+-----------------------------+
 | ``MLFLOW_SQLALCHEMYSTORE_POOL_SIZE``    | ``pool_size``               |
 +-----------------------------------------+-----------------------------+

@@ -2,11 +2,12 @@ package org.mlflow.spark.autologging
 
 import java.util.concurrent.{ConcurrentHashMap, ScheduledFuture, ScheduledThreadPoolExecutor, TimeUnit}
 
-import scala.collection.JavaConverters._
+import py4j.Py4JException
+import org.apache.spark.scheduler.SparkListener
 
+import scala.collection.JavaConverters._
 import org.apache.spark.sql.SparkSession
 import org.slf4j.LoggerFactory
-import py4j.Py4JException
 
 import scala.util.control.NonFatal
 
@@ -28,7 +29,7 @@ object MlflowAutologEventPublisher extends MlflowAutologEventPublisherImpl {
 private[autologging] trait MlflowAutologEventPublisherImpl {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  private[autologging] var sparkQueryListener: SparkDataSourceListener = _
+  private[autologging] var sparkQueryListener: SparkListener = _
   private val executor = new ScheduledThreadPoolExecutor(1)
   private[autologging] val subscribers =
     new ConcurrentHashMap[String, MlflowAutologEventSubscriber]()
@@ -42,8 +43,15 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
   }
 
   // Exposed for testing
-  private[autologging] def getSparkDataSourceListener: SparkDataSourceListener = {
-    new SparkDataSourceListener(this)
+  private[autologging] def getSparkDataSourceListener: SparkListener = {
+    // Get SparkContext & determine if REPL id is set - if not, then we log irrespective of repl
+    // ID, but if so, we log conditionally on repl ID
+    val sc = spark.sparkContext
+    val replId = Option(sc.getLocalProperty("spark.databricks.replId"))
+    replId match {
+      case None => new SparkDataSourceListener(this)
+      case Some(_) => new ReplAwareSparkDataSourceListener(this)
+    }
   }
 
   // Initialize Spark listener that pulls Delta query plan information & bubbles it up to registered
@@ -105,10 +113,9 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
             s"removing it")
           Seq(replId)
         case NonFatal(e) =>
-          logger.error(s"Unexpected exception while checking health of subscriber with repl ID " +
-            s"$replId, removing it. Please report this error at " +
-            s"https://github.com/mlflow/mlflow/issues, along with the following stacktrace:\n" +
-            s"${ExceptionUtils.serializeException(e)}")
+          val msg = ExceptionUtils.getUnexpectedExceptionMessage(e, "while checking health " +
+            s"of subscriber with repl ID $replId, removing it")
+          logger.error(msg)
           Seq(replId)
       }
     }
@@ -123,12 +130,14 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
     sparkTableInfo match {
       case SparkTableInfo(path, version, format) =>
         for ((replId, listener) <- getSubscribers) {
-          try {
-            listener.notify(path, version.getOrElse("unknown"), format.getOrElse("unknown"))
-          } catch {
-            case NonFatal(e) =>
-              logger.error(s"Unable to forward event to listener with repl ID $replId. " +
-                s"Exception:\n${ExceptionUtils.serializeException(e)}")
+          if (replIdOpt.isEmpty || replId == replIdOpt.get) {
+            try {
+              listener.notify(path, version.getOrElse("unknown"), format.getOrElse("unknown"))
+            } catch {
+              case NonFatal(e) =>
+                logger.error(s"Unable to forward event to listener with repl ID $replId. " +
+                  s"Exception:\n${ExceptionUtils.serializeException(e)}")
+            }
           }
         }
       case _ =>

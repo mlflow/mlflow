@@ -12,5 +12,5 @@ export const getModelVersionPageURL = (modelName, version) => {
     const parentOrigin = window.parent.location.origin;
     return `${parentOrigin}/#mlflow${modelRoute}`;
   }
-  return `/#${modelRoute}`;
+  return `./#${modelRoute}`; // issue-2213 use relative path in case there is a url prefix
 };
