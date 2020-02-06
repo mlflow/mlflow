@@ -6,7 +6,7 @@ import org.junit.Test;
 import org.mlflow.mleap.MLeapFlavor;
 
 /**
- * Unit tests associated with MLFlow model configuration parsing and other operations associated
+ * Unit tests associated with MLflow model configuration parsing and other operations associated
  * with the {@link Model} class
  */
 public class ModelTest {

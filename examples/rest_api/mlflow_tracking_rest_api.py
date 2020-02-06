@@ -1,10 +1,10 @@
 """
-This simple example shows how you could use MLFlow REST API to create new
-runs inside an experiment to log parameters/metrics.  Using MLFlow REST API
-instead of MLFlow library might be useful to embed in an application where
-you don't want to depend on the whole mlflow library, or to make
+This simple example shows how you could use MLflow REST API to create new
+runs inside an experiment to log parameters/metrics.  Using MLflow REST API
+instead of MLflow library might be useful to embed in an application where
+you don't want to depend on the whole MLflow library, or to make
 your own HTTP requests in another programming language (not Python).
-For more details on MLFLow REST API endpoints check the following page:
+For more details on MLflow REST API endpoints check the following page:
 
 https://www.mlflow.org/docs/latest/rest-api.html
 """
@@ -17,7 +17,7 @@ import requests
 _DEFAULT_USER_ID = "unknown"
 
 
-class MLFlowTrackingRestApi:
+class MLflowTrackingRestApi:
     def __init__(self, hostname, port, experiment_id):
         self.base_url = 'http://' + hostname + ':' + str(port) + '/api/2.0/preview/mlflow'
         self.experiment_id = experiment_id
@@ -59,6 +59,7 @@ class MLFlowTrackingRestApi:
         r = requests.post(url, json=payload)
         return r.status_code
 
+
 def _get_user_id():
     """Get the ID of the user for the current run."""
     try:
@@ -70,22 +71,22 @@ def _get_user_id():
 
 if __name__ == "__main__":
     # Command-line arguments
-    parser = argparse.ArgumentParser(description='MLFlow REST API Example')
+    parser = argparse.ArgumentParser(description='MLflow REST API Example')
 
     parser.add_argument('--hostname', type=str, default='localhost', dest='hostname',
-        help='MLFlow server hostname/ip (default: localhost)')
+                        help='MLflow server hostname/ip (default: localhost)')
 
     parser.add_argument('--port', type=int, default=5000, dest='port',
-        help='MLFlow server port number (default: 5000)')
+                        help='MLflow server port number (default: 5000)')
 
     parser.add_argument('--experiment-id', type=int, default=0, dest='experiment_id',
-        help='Experiment ID (default: 0)')
+                        help='Experiment ID (default: 0)')
 
     print("Running mlflow_tracking_rest_api.py")
 
     args = parser.parse_args()
 
-    mlflow_rest = MLFlowTrackingRestApi(args.hostname, args.port, args.experiment_id)
+    mlflow_rest = MLflowTrackingRestApi(args.hostname, args.port, args.experiment_id)
     # Parameter is a key/val pair (str types)
     param = {'key': 'alpha', 'value': '0.1980'}
     status_code = mlflow_rest.log_param(param)
