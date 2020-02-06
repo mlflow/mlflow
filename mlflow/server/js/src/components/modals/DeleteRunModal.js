@@ -50,12 +50,12 @@ class DeleteRunModal extends Component {
     const number = selectedRunIds.length;
     const parentIdsSelectedForDeletion = this.getParentsSelectedForDeletion();
     const extraConfirmButtonContents = parentIdsSelectedForDeletion.length === 0 ? [] :
-        ["Delete selected runs and their children"];
+        ["Delete selected and children"];
     const promptMessage = `Delete Experiment ${Utils.pluralize("Run", number)}`;
     const runNoun = Utils.pluralize('run', number);
     const description = parentIdsSelectedForDeletion.length === 0 ?
         `${number} experiment ${runNoun} will be deleted.` :
-        `Selected ${number} ${runNoun}, delete selected runs and optionally children as well`;
+        `Selected ${number} ${runNoun}`;
     return (
       <ConfirmModal
         isOpen={this.props.isOpen}
@@ -78,7 +78,7 @@ class DeleteRunModal extends Component {
             }
           </div>
         }
-        confirmButtonText={"Delete"}
+        confirmButtonText={extraConfirmButtonContents.length > 0 ? "Delete selected" : "Delete"}
         extraConfirmButtonContents={extraConfirmButtonContents}
       />
     );
