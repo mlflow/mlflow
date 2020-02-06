@@ -627,7 +627,6 @@ class TestFileStore(unittest.TestCase):
         run = fs.get_run(run_id)
         assert run.data.params[param_name] == "value1"
 
-
     def test_weird_metric_names(self):
         WEIRD_METRIC_NAME = "this is/a weird/but valid metric"
         fs = FileStore(self.test_root)
