@@ -693,7 +693,6 @@ def autolog(every_n_iter=100):
 
     @gorilla.patch(tensorflow.estimator.Estimator)
     def evaluate(self, *args, **kwargs):
-        print('evaluate: args({}), kwargs({})'.format(args,kwargs))
         with _manage_active_run():
             original = gorilla.get_original_attribute(tensorflow.estimator.Estimator, 'evaluate')
 
@@ -705,7 +704,7 @@ def autolog(every_n_iter=100):
                     try_mlflow_log(mlflow.log_artifact, checkpoint_artifact)
 
             result = original(self, *args, **kwargs)
-            
+
             # log eval metrics
             for key, value in result.items():
                 # Only log numbers
@@ -714,7 +713,6 @@ def autolog(every_n_iter=100):
                     metric_name = ''.join(filter(lambda c: c not in '()[]@', key))
                     try_mlflow_log(mlflow.log_metric, metric_name, value)
             return result
-
 
     @gorilla.patch(tensorflow.estimator.Estimator)
     def export_saved_model(self, *args, **kwargs):
