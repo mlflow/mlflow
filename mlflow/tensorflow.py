@@ -20,7 +20,8 @@ import warnings
 import atexit
 import time
 import tempfile
-
+from glob import glob
+import numpy as np
 import pandas
 
 import mlflow
@@ -691,6 +692,31 @@ def autolog(every_n_iter=100):
             return result
 
     @gorilla.patch(tensorflow.estimator.Estimator)
+    def evaluate(self, *args, **kwargs):
+        print('evaluate: args({}), kwargs({})'.format(args,kwargs))
+        with _manage_active_run():
+            original = gorilla.get_original_attribute(tensorflow.estimator.Estimator, 'evaluate')
+
+            # Add eval checkpoint files as artifacts
+            if 'checkpoint_path' in kwargs:
+                checkpoint_artifacts = glob('{}*'.format(kwargs['checkpoint_path']))
+                print('checkpoint_artifacts:{}'.format(checkpoint_artifacts))
+                for checkpoint_artifact in checkpoint_artifacts:
+                    try_mlflow_log(mlflow.log_artifact, checkpoint_artifact)
+
+            result = original(self, *args, **kwargs)
+            
+            # log eval metrics
+            for key, value in result.items():
+                # Only log numbers
+                if isinstance(value, np.number):
+                    # Filter out characters that can't be used in metric name
+                    metric_name = ''.join(filter(lambda c: c not in '()[]@', key))
+                    try_mlflow_log(mlflow.log_metric, metric_name, value)
+            return result
+
+
+    @gorilla.patch(tensorflow.estimator.Estimator)
     def export_saved_model(self, *args, **kwargs):
         auto_end = False
         if not mlflow.active_run():
@@ -862,6 +888,7 @@ def autolog(every_n_iter=100):
         gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings),
         gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'train', train, settings=settings),
+        gorilla.Patch(tensorflow.estimator.Estimator, 'evaluate', evaluate, settings=settings),
         gorilla.Patch(tensorflow.keras.Model, 'fit', fit, settings=settings),
         gorilla.Patch(tensorflow.keras.Model, 'fit_generator', fit_generator, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_saved_model',
