@@ -261,7 +261,13 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds }) => {
       const tags = tagsList[idx];
       const params = paramsList[idx];
-      const metrics = metricsList[idx];
+      const metrics = metricsList[idx].map(({key, value}) => {
+        const formattedMetric = Utils.formatMetric(value);
+        return {
+          key: key,
+          value: formattedMetric,
+        };
+      });
       const runInfo = runInfos[idx];
 
       const user = Utils.getUser(runInfo, tags);
