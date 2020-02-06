@@ -262,10 +262,9 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       const tags = tagsList[idx];
       const params = paramsList[idx];
       const metrics = metricsList[idx].map(({key, value}) => {
-        const formattedMetric = Utils.formatMetric(value);
         return {
           key: key,
-          value: formattedMetric,
+          value: Utils.formatMetric(value),
         };
       });
       const runInfo = runInfos[idx];
