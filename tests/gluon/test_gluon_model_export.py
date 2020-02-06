@@ -1,4 +1,6 @@
 import os
+import shutil
+import tempfile
 import warnings
 import yaml
 
@@ -38,6 +40,17 @@ def gluon_custom_env(tmpdir):
         conda_env,
         additional_conda_deps=["mxnet", "pytest"])
     return conda_env
+
+@pytest.fixture(scope="module", autouse=True)
+def update_cwd_for_data_download():
+    original_wd = os.getcwd()
+    tempdir = tempfile.mkdtemp()
+    try:
+        os.chdir(tempdir)
+        yield
+    finally:
+        os.chdir(original_wd)
+        shutil.rmtree(tempdir)
 
 
 @pytest.fixture(scope="module")

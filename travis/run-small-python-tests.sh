@@ -6,8 +6,10 @@ err=0
 trap 'err=1' ERR
 export MLFLOW_HOME=$(pwd)
 
-# Include testmon database file
-#cp testmon/.testmondata .testmondata
+# Include testmon database file, assuming it exists
+if [ -e "testmon/.testmondata" ]; then
+    cp testmon/.testmondata .testmondata
+fi
 
 # NB: Also add --ignore'd tests to run-large-python-tests.sh
 pytest tests --testmon --ignore=tests/h2o --ignore=tests/keras \
