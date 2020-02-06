@@ -196,23 +196,27 @@ export class MetricsPlotPanel extends React.Component {
   handleLegendClick = ({ curveNumber }) => {
     console.log("In handleLegendClick"); // TODO handle double-clicking yourself here
     // If two clicks in short succession, trigger double-click event
-    const currentTime = "..."
-    if (currentTime - this.prevClickTime > 300) {
-      this.handleDoubleClick({ curveNumber });
+    const currentTime = Date.now();
+    if (currentTime - this.prevClickTime < 300) {
+      this.handleLegendDoubleClick({ curveNumber });
       this.prevClickTime = Math.inf;
     } else {
       // Otherwise, record time of current click & trigger click event
       const runIdClicked = this.props.runUuids[curveNumber];
-      const existingIdsClicked = new Set(this.state.selectedRunIds);
-      if (existingIdsClicked.has(runIdClicked)) {
-        existingIdsClicked.delete(runIdClicked);
-      } else {
-        existingIdsClicked.add(runIdClicked);
-      }
+      // Wait full double-click window to trigger setting state, and only if there was no
+      // double-click do we run the single-click logic (we wait a little extra to be safe)
       this.legendClickTimeout = window.setTimeout(() => {
         console.log("Running single-click handler " + this.legendClickTimeout);
-        this.setState({selectedRunIds: Array.from(existingIdsClicked)}, this.updateURLFromState);
-      }, 500);
+        const existingIdsClicked = new Set(this.state.selectedRunIds);
+        if (existingIdsClicked.has(runIdClicked)) {
+          existingIdsClicked.delete(runIdClicked);
+        } else {
+          existingIdsClicked.add(runIdClicked);
+        }
+        this.setState({selectedRunIds: Array.from(existingIdsClicked)},
+            this.updateURLFromState);
+      }, 310);
+      this.prevClickTime = currentTime;
     }
     // Return false to disable plotly event handler
     return false;
