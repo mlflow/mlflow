@@ -706,7 +706,7 @@ def autolog(every_n_iter=100):
         serialized = original(self, *args, **kwargs)
         try_mlflow_log(log_model, tf_saved_model_dir=serialized.decode('utf-8'),
                        tf_meta_graph_tags=[tag_constants.SERVING],
-                       tf_signature_def_key='predict',
+                       tf_signature_def_key='serving_default',
                        artifact_path='model')
         if (mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID)\
                 or auto_end:
