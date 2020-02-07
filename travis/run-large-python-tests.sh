@@ -25,7 +25,6 @@ fi
 pytest --testmon tests/pytorch
 pytest --testmon tests/h2o
 pytest --testmon tests/onnx
-pytest --testmon tests/pyfunc
 pytest --testmon tests/sagemaker
 pytest --testmon tests/sagemaker/mock
 pytest --testmon tests/sklearn
@@ -44,6 +43,7 @@ pytest --testmon tests/keras
 pytest --testmon tests/keras_autolog
 pytest --testmon tests/gluon
 pytest --testmon tests/gluon_autolog
+pytest --testmon tests/pyfunc --capture=no
 pytest --testmon tests/spark --capture=no
 
 # Run Spark autologging tests
