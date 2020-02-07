@@ -52,7 +52,6 @@ export class MetricsPlotView extends React.Component {
       const { metricKey, runDisplayName, history, runUuid } = metric;
       const isSingleHistory = history.length === 0;
       const visible = selectedRunIdSet.has(runUuid) ? true : "legendonly";
-      // console.log("Checking if set " + JSON.stringify(selectedRunIds) + " contains " + runUuid + ", answer: " + visible);
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
         x: history.map((entry) => {
@@ -121,7 +120,6 @@ export class MetricsPlotView extends React.Component {
       ...props.layout,
       ...this.props.extraLayout,
     };
-    console.log("Final props.layout: " + JSON.stringify(props.layout));
     return props;
   };
 
@@ -133,7 +131,6 @@ export class MetricsPlotView extends React.Component {
         : this.getPlotPropsForLineChart();
     // TODO configure plot to use runsToDisplay & update handler props to use appropriate functions
     // e.g. onLegendClick?
-    console.log("Rerendering with plot props data: " + JSON.stringify(plotProps.data.map((elem) => elem.visible)));
     return (
       <div className='metrics-plot-view-container'>
         <Plot
