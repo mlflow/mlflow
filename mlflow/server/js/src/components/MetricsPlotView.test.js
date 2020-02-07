@@ -121,6 +121,7 @@ describe('unit tests', () => {
           x: [0, 1],
           y: [100, 200],
           type: 'scatter',
+          visible: "legendonly",
           mode: 'lines+markers',
           line: {
             shape: 'spline',
@@ -133,6 +134,7 @@ describe('unit tests', () => {
           x: [0, 1],
           y: [300, 400],
           type: 'scatter',
+          visible: "legendonly",
           mode: 'lines+markers',
           line: {
             shape: 'spline',
@@ -155,12 +157,14 @@ describe('unit tests', () => {
           x: ['metric_0'],
           y: [100],
           type: 'bar',
+          visible: false,
         },
         {
           name: 'RunDisplayName2',
           x: ['metric_0'],
           y: [300],
           type: 'bar',
+          visible: false,
         },
       ],
       layout: {

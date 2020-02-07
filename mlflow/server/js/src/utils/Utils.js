@@ -398,7 +398,8 @@ class Utils {
   // method, as it only needs to be called within the metric plot component
   static getMetricPlotStateFromUrl(search) {
     const defaultState = Utils.getDefaultMetricPlotState();
-    const params = qs.parse(search);
+    const params = qs.parse(search.slice(1, search.length));
+    console.log("@SID got parsed params " + JSON.stringify(params));
     if (!params) {
       return defaultState;
     }
@@ -411,8 +412,12 @@ class Utils {
     const lineSmoothness = params['line_smoothness'] ? parseFloat(params['line_smoothness']) : 0;
     const layout = params['plot_layout'] ? JSON.parse(params['plot_layout']) : {};
     // Default to displaying all runs if user hasn't selected out any
-    const selectedRunIds = params['selected_run_ids'] ? JSON.parse(params['selected_run_ids']) :
-        JSON.parse(params['runs']);
+    const parsedSelectedRuns = params['selected_run_ids'] ?
+        JSON.parse(params['selected_run_ids']) : undefined;
+    console.log("Got params " + JSON.stringify(params));
+    const parsedRuns = params['runs'] ? JSON.parse(params['runs']) : [];
+    console.log("Got parsedSelecteDRuns " + JSON.stringify(parsedSelectedRuns) + ", parsed runs " + JSON.stringify(parsedRuns));
+    const selectedRunIds = parsedSelectedRuns || parsedRuns;
     return {
       selectedXAxis,
       selectedMetricKeys,

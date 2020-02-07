@@ -167,4 +167,53 @@ describe('unit tests', () => {
     metrics[0].history.sort(Utils.compareByStepAndTimestamp); // sort in place before comparison
     expect(instance.getMetrics()).toEqual(metrics);
   });
+
+  test('handleYAxisLogScale properly converts layout between log and linear scales', () => {
+    const props = {
+      ...minimalPropsForLineChart,
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    wrapper.setState({ layout: {xaxis: {range: [2, 4]}, yaxis: {range: [1, 100]}} });
+    instance = wrapper.instance();
+    instance.handleYAxisLogScaleChange(true);
+    expect(instance.state.layout).toEqual({xaxis: {range: [2, 4]}, yaxis: {range: [0, 2], type: "log"}});
+    instance.handleYAxisLogScaleChange(false);
+    expect(instance.state.layout).toEqual(
+        {xaxis: {range: [2, 4]}, yaxis: {range: [1, 100], type: "linear"}});
+  });
+
+  test('single-click handler in metric comparison plot', (done) => {
+    const props = {
+      ...minimalPropsForLineChart,
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    instance = wrapper.instance();
+    // Verify that clicking doesn't immediately update the run state
+    expect(instance.state.selectedRunIds).toEqual(['runUuid1', 'runUuid2']);
+    instance.handleLegendClick({curveNumber: 0});
+    expect(instance.state.selectedRunIds).toEqual(['runUuid1', 'runUuid2']);
+    // Wait a second, verify first run was deselected
+    window.setTimeout(() => {
+      expect(instance.state.selectedRunIds).toEqual(['runUuid2']);
+      done();
+    }, 1000);
+  });
+
+  test('double-click handler in metric comparison plot', (done) => {
+    const props = {
+      ...minimalPropsForLineChart,
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    instance = wrapper.instance();
+    // Verify that clicking doesn't immediately update the run state
+    expect(instance.state.selectedRunIds).toEqual(['runUuid1', 'runUuid2']);
+    instance.handleLegendClick({curveNumber: 0});
+    expect(instance.state.selectedRunIds).toEqual(['runUuid1', 'runUuid2']);
+    // Double-click, verify that only the clicked run is selected (that the other one is deselected)
+    instance.handleLegendClick({curveNumber: 0});
+    window.setTimeout(() => {
+      expect(instance.state.selectedRunIds).toEqual(['runUuid1']);
+      done();
+    }, 1000);
+  });
 });

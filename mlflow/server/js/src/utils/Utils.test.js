@@ -235,7 +235,7 @@ test('getMetricPlotStateFromUrl', () => {
     yAxisLogScale: true,
     lineSmoothness: 0,
     layout: {},
-    selectedRunIds: ['runUuid1'],
+    selectedRunIds: ['runUuid1', 'runUuid2'],
   });
   expect(Utils.getMetricPlotStateFromUrl(url2)).toEqual({
     selectedXAxis: X_AXIS_RELATIVE,
@@ -244,6 +244,7 @@ test('getMetricPlotStateFromUrl', () => {
     yAxisLogScale: false,
     lineSmoothness: 0,
     layout: {},
+    selectedRunIds: ['runUuid1', 'runUuid2'],
   });
 });
 
