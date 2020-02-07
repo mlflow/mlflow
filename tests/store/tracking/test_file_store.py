@@ -19,7 +19,9 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
-from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import (
+    ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+)
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 from tests.store.tracking import AbstractStoreTest
@@ -615,13 +617,35 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run = fs.get_run(run_id)
         assert run.data.params[WEIRD_PARAM_NAME] == "Value"
 
-    def test_log_empty_str(self):
+    def test_log_param_empty_str(self):
         PARAM_NAME = "new param"
         fs = FileStore(self.test_root)
         run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.log_param(run_id, Param(PARAM_NAME, ""))
         run = fs.get_run(run_id)
         assert run.data.params[PARAM_NAME] == ""
+
+    def test_log_param_with_newline(self):
+        param_name = "new param"
+        param_value = "a string\nwith multiple\nlines"
+        fs = FileStore(self.test_root)
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        fs.log_param(run_id, Param(param_name, param_value))
+        run = fs.get_run(run_id)
+        assert run.data.params[param_name] == param_value
+
+    def test_log_param_enforces_value_immutability(self):
+        param_name = "new param"
+        fs = FileStore(self.test_root)
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        fs.log_param(run_id, Param(param_name, "value1"))
+        # Duplicate calls to `log_param` with the same key and value should succeed
+        fs.log_param(run_id, Param(param_name, "value1"))
+        with pytest.raises(MlflowException) as exc:
+            fs.log_param(run_id, Param(param_name, "value2"))
+        assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        run = fs.get_run(run_id)
+        assert run.data.params[param_name] == "value1"
 
     def test_weird_metric_names(self):
         WEIRD_METRIC_NAME = "this is/a weird/but valid metric"
