@@ -29,7 +29,6 @@ pytest --testmon tests/pyfunc
 pytest --testmon tests/sagemaker
 pytest --testmon tests/sagemaker/mock
 pytest --testmon tests/sklearn
-pytest --testmon tests/spark
 pytest --testmon tests/tensorflow/test_tensorflow_model_export.py
 pytest --testmon tests/tensorflow_autolog/test_tensorflow_autolog.py
 pytest --testmon tests/azureml
@@ -45,6 +44,7 @@ pytest --testmon tests/keras
 pytest --testmon tests/keras_autolog
 pytest --testmon tests/gluon
 pytest --testmon tests/gluon_autolog
+pytest --testmon tests/spark --capture=no
 
 # Run Spark autologging tests
 ./travis/test-spark-autologging.sh

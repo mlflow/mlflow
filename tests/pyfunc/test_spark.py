@@ -110,16 +110,19 @@ def test_spark_udf(spark, model_path):
 
 @pytest.mark.large
 def test_model_cache(spark, model_path):
+    print("@SID in test_model_cache")
     mlflow.pyfunc.save_model(
         path=model_path,
         loader_module=__name__,
         code_path=[os.path.dirname(tests.__file__)],
     )
 
+    print("@SID adding local model")
     archive_path = SparkModelCache.add_local_model(spark, model_path)
     assert archive_path != model_path
 
     # Ensure we can use the model locally.
+    print("@SID get or load model")
     local_model = SparkModelCache.get_or_load(archive_path)
     assert isinstance(local_model, ConstantPyfuncWrapper)
 
@@ -139,9 +142,11 @@ def test_model_cache(spark, model_path):
     # exactly 2 python processes launched, due to Spark and its mysterious ways, but we do
     # expect significant reuse.
     results = spark.sparkContext.parallelize(range(0, 100), 30).map(get_model).collect()
+    print("@SID got `results`")
 
     # TODO(tomas): Looks like spark does not reuse python workers with python==3.x
     assert sys.version[0] == '3' or max(results) > 10
     # Running again should see no newly-loaded models.
     results2 = spark.sparkContext.parallelize(range(0, 100), 30).map(get_model).collect()
+    print("@SID got `results2`, the second time")
     assert sys.version[0] == '3' or min(results2) > 0

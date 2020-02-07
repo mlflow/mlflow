@@ -438,7 +438,7 @@ def test_save_model_with_wrong_codepaths_fails_corrrectly(
             pytorch_model=module_scoped_subclassed_model,
             conda_env=None,
             code_paths="some string")
-    assert "TypeError: Argument code_paths should be a list, not {}".format(type("")) \
+    assert "Argument code_paths should be a list, not {}".format(type("")) \
            in str(exc_info.value)
     assert not os.path.exists(model_path)
 
