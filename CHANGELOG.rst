@@ -167,7 +167,7 @@ MLflow 1.2 includes the following major features and improvements:
 - [Projects] Fixed a bug that prevented docker-based MLflow Projects from logging artifacts to the ``LocalArtifactRepository`` (#1450, @nlaille)
 - [Projects] Running MLflow projects with the ``--no-conda`` flag in R no longer requires Anaconda to be installed (#1650, @spadarian)
 - [Models/Scoring] Fixed a bug that prevented Spark UDFs from being loaded on Databricks (#1658, @smurching)
-- [UI] AJAX requests made by the MLFlow Server Frontend now specify correct MIME-Types (#1679, @ynotzort)
+- [UI] AJAX requests made by the MLflow Server Frontend now specify correct MIME-Types (#1679, @ynotzort)
 - [UI] Previews now render correctly for artifacts with uppercase file extensions (e.g., ``.JSON``, ``.YAML``) (#1664, @ankitmathur-db)
 - [UI] Fixed a bug that caused search API errors to surface a Niagara Falls page (#1681, @dbczumar)
 - [Installation] MLflow dependencies are now selected properly based on the target installation platform (#1643, @akshaya-a)
