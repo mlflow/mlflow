@@ -439,7 +439,7 @@ def test_save_model_with_wrong_codepaths_fails_corrrectly(
             conda_env=None,
             code_paths="some string")
     assert "TypeError: Argument code_paths should be a list, not {}".format(type("")) \
-           in str(exc_info)
+           in str(exc_info.value)
     assert not os.path.exists(model_path)
 
 
@@ -705,24 +705,24 @@ def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pytorch.load_model(model_uri=model_path)
 
-    assert "Failed to import the pickle module" in str(exc_info)
-    assert bad_pickle_module_name in str(exc_info)
+    assert "Failed to import the pickle module" in str(exc_info.value)
+    assert bad_pickle_module_name in str(exc_info.value)
 
 
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_env(
-        model, model_path, data, sequential_predicted):
-    mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
-
-    scoring_response = score_model_in_sagemaker_docker_container(
-            model_uri=model_path,
-            data=data[0],
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            flavor=mlflow.pyfunc.FLAVOR_NAME,
-            activity_polling_timeout_seconds=360)
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    np.testing.assert_array_almost_equal(
-        deployed_model_preds.values[:, 0],
-        sequential_predicted,
-        decimal=4)
+# @pytest.mark.release
+# def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_env(
+#         model, model_path, data, sequential_predicted):
+#     mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
+#
+#     scoring_response = score_model_in_sagemaker_docker_container(
+#             model_uri=model_path,
+#             data=data[0],
+#             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+#             flavor=mlflow.pyfunc.FLAVOR_NAME,
+#             activity_polling_timeout_seconds=360)
+#     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+#
+#     np.testing.assert_array_almost_equal(
+#         deployed_model_preds.values[:, 0],
+#         sequential_predicted,
+#         decimal=4)

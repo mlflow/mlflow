@@ -636,12 +636,12 @@ def test_save_model_with_python_model_argument_of_invalid_type_raises_exeption(t
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "model1"),
                                  python_model="not the right type")
-    assert "python_model` must be a subclass of `PythonModel`" in str(exc_info)
+    assert "python_model` must be a subclass of `PythonModel`" in str(exc_info.value)
 
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.save_model(path=os.path.join(str(tmpdir), "model2"),
                                  python_model="not the right type")
-    assert "python_model` must be a subclass of `PythonModel`" in str(exc_info)
+    assert "python_model` must be a subclass of `PythonModel`" in str(exc_info.value)
 
 
 @pytest.mark.large
@@ -652,7 +652,7 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
                                      "artifact": "/path/to/artifact",
                                  },
                                  python_model=None)
-    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
+    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info.value)
 
     python_model = ModuleScopedSklearnModel(predict_fn=None)
     loader_module = __name__
@@ -660,9 +660,9 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
         mlflow.pyfunc.save_model(path=model_path,
                                  python_model=python_model,
                                  loader_module=loader_module)
-    assert "The following sets of parameters cannot be specified together" in str(exc_info)
-    assert str(python_model) in str(exc_info)
-    assert str(loader_module) in str(exc_info)
+    assert "The following sets of parameters cannot be specified together" in str(exc_info.value)
+    assert str(python_model) in str(exc_info.value)
+    assert str(loader_module) in str(exc_info.value)
 
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.save_model(path=model_path,
@@ -671,13 +671,13 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
                                  artifacts={
                                      "artifact": "/path/to/artifact",
                                  })
-    assert "The following sets of parameters cannot be specified together" in str(exc_info)
+    assert "The following sets of parameters cannot be specified together" in str(exc_info.value)
 
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.save_model(path=model_path,
                                  python_model=None,
                                  loader_module=None)
-    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
+    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info.value)
 
 
 @pytest.mark.large
@@ -688,7 +688,7 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
                                     "artifact": "/path/to/artifact",
                                 },
                                 python_model=None)
-    assert "Either `loader_module` or `python_model` must be specified!" in str(exc_info)
+    assert "Either `loader_module` or `python_model` must be specified!" in str(exc_info.value)
 
     python_model = ModuleScopedSklearnModel(predict_fn=None)
     loader_module = __name__
@@ -696,9 +696,9 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model",
                                 python_model=python_model,
                                 loader_module=loader_module)
-    assert "The following sets of parameters cannot be specified together" in str(exc_info)
-    assert str(python_model) in str(exc_info)
-    assert str(loader_module) in str(exc_info)
+    assert "The following sets of parameters cannot be specified together" in str(exc_info.value)
+    assert str(python_model) in str(exc_info.value)
+    assert str(loader_module) in str(exc_info.value)
 
     with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model",
@@ -707,13 +707,13 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
                                 artifacts={
                                     "artifact1": "/path/to/artifact",
                                 })
-    assert "The following sets of parameters cannot be specified together" in str(exc_info)
+    assert "The following sets of parameters cannot be specified together" in str(exc_info.value)
 
     with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model",
                                 python_model=None,
                                 loader_module=None)
-    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
+    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info.value)
 
 
 @pytest.mark.large

@@ -122,7 +122,7 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.save_model(path=model_path,
                                  data_path="/path/to/data")
-    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
+    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info.value)
 
 
 @pytest.mark.large
@@ -130,4 +130,4 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
     with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model",
                                 data_path="/path/to/data")
-    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
+    assert "Either `loader_module` or `python_model` must be specified" in str(exc_info.value)

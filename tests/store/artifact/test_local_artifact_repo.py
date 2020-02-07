@@ -142,7 +142,7 @@ def test_log_artifact_throws_exception_for_invalid_artifact_paths(local_artifact
         for bad_artifact_path in ["/", "//", "/tmp", "/bad_path", ".", "../terrible_path"]:
             with pytest.raises(MlflowException) as exc_info:
                 local_artifact_repo.log_artifact(local_dir.path(), bad_artifact_path)
-            assert "Invalid artifact path" in str(exc_info)
+            assert "Invalid artifact path" in str(exc_info.value)
 
 
 def test_logging_directory_of_artifacts_produces_expected_repo_contents(local_artifact_repo):
