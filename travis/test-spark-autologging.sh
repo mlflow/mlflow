@@ -21,7 +21,12 @@ pip install -e spark-3.0.0-preview-bin-hadoop2.7/python
 popd
 
 export SPARK_HOME=$TEMPDIR/spark-3.0.0-preview-bin-hadoop2.7
-find tests/spark_autologging -name 'test*.py' | xargs -L 1 pytest --large
+for run in {1..25}
+do
+  echo "In run $run"
+  find tests/spark_autologging -name 'test*.py' | xargs -L 1 pytest --large
+done
+
 
 rm -rf $TEMPDIR
 

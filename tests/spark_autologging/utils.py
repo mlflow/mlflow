@@ -28,7 +28,17 @@ def _get_expected_table_info_row(path, data_format, version=None):
         path=expected_path, version=version, data_format=data_format)
 
 
+def _is_spark_data_logged(run, path, data_format, version=None):
+    table_info_tag = run.data.tags.get(_SPARK_TABLE_INFO_TAG_NAME)
+    return table_info_tag == _get_expected_table_info_row(path, data_format, version)
+
+
 def _assert_spark_data_logged(run, path, data_format, version=None):
+    for i in range(30):
+        if _is_spark_data_logged(run, path, data_format, version):
+            return
+        time.sleep(1)
+        print("Waiting for Spark data to be logged, attempt %s" % (i + 1))
     assert _SPARK_TABLE_INFO_TAG_NAME in run.data.tags
     table_info_tag = run.data.tags[_SPARK_TABLE_INFO_TAG_NAME]
     assert table_info_tag == _get_expected_table_info_row(path, data_format, version)
