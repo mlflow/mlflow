@@ -19,6 +19,24 @@ class RunLinksPopover extends React.Component {
     };
   }
 
+  componentDidMount() {
+    document.addEventListener('keydown', this.handleKeyDown);
+  }
+
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this.handleKeyDown);
+  }
+
+  hide = () => this.setState({ visible: false });
+
+  handleVisibleChange = (visible) => this.setState({ visible });
+
+  handleKeyDown = ({ key }) => {
+    if (key === 'Escape') {
+      this.hide();
+    }
+  };
+
   renderContent = () => {
     const { runItems } = this.state;
     const { experimentId } = this.props;
@@ -40,8 +58,6 @@ class RunLinksPopover extends React.Component {
     );
   };
 
-  hide = () => this.setState({ visible: false });
-
   renderTitle = () => {
     return (
       <div>
@@ -61,6 +77,7 @@ class RunLinksPopover extends React.Component {
         title={this.renderTitle()}
         placement="top"
         visible={visible}
+        onVisibleChange={this.handleVisibleChange}
       >
         <div
           style={{
