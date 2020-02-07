@@ -176,10 +176,19 @@ describe('unit tests', () => {
     wrapper.setState({ layout: {xaxis: {range: [2, 4]}, yaxis: {range: [1, 100]}} });
     instance = wrapper.instance();
     instance.handleYAxisLogScaleChange(true);
-    expect(instance.state.layout).toEqual({xaxis: {range: [2, 4]}, yaxis: {range: [0, 2], type: "log"}});
+    expect(instance.state.layout).toEqual({xaxis: {range: [2, 4]},
+      yaxis: {range: [0, 2], type: "log"}});
     instance.handleYAxisLogScaleChange(false);
     expect(instance.state.layout).toEqual(
         {xaxis: {range: [2, 4]}, yaxis: {range: [1, 100], type: "linear"}});
+    // Test converting to & from log scale for a layout with negative Y axis
+    wrapper.setState({ layout: {xaxis: {range: [-5, 5]}, yaxis: {range: [-3, 6]}} });
+    instance.handleYAxisLogScaleChange(true);
+    expect(instance.state.layout).toEqual({xaxis: {range: [-5, 5]},
+      yaxis: {autorange: true, range: [-3, 6], type: "log"}});
+    instance.handleYAxisLogScaleChange(false);
+    expect(instance.state.layout).toEqual(
+        {xaxis: {range: [-5, 5]}, yaxis: {range: [-3, 6], type: "linear"}});
   });
 
   test('single-click handler in metric comparison plot', (done) => {

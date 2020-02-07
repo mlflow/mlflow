@@ -79,7 +79,6 @@ export class MetricsPlotPanel extends React.Component {
     const experimentId = qs.parse(location.search)['experiment'];
     const { selectedXAxis, selectedMetricKeys, showPoint, yAxisLogScale, lineSmoothness,
       layout, selectedRunIds } = this.state;
-    console.log("Update URL with selected run IDS " + JSON.stringify(selectedRunIds));
     history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
         layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint, selectedRunIds));
   };
