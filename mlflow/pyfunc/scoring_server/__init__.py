@@ -261,4 +261,5 @@ def _get_jsonable_obj(data, pandas_orient="records"):
     if isinstance(data, pd.Series):
         return pd.DataFrame(data).to_dict(orient=pandas_orient)
     else:  # by default just return whatever this is and hope for the best
+        print("@SID got unexpected jsonable type %s" % type(data))
         return data
