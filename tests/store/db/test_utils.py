@@ -18,3 +18,9 @@ def test_create_sqlalchemy_engine_no_pool_options():
         with mock.patch('sqlalchemy.create_engine') as mock_create_engine:
             utils.create_sqlalchemy_engine("mydb://host:port/")
             mock_create_engine.assert_called_once_with("mydb://host:port/", pool_pre_ping=True)
+
+
+def test_alembic_escape_logic():
+    url = "fakesql://cooluser%40stillusername:apassword@localhost:3306/testingdb"
+    config = utils._get_alembic_config(url)
+    assert config.get_main_option("sqlalchemy.url") == url

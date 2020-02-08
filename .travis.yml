@@ -20,12 +20,7 @@ matrix:
             INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
           fi;
       script:
-        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"examples"* ]]; then
-            pytest --verbose tests/examples --large;
-          fi
-        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"Dockerfile"* ]]; then
-            docker build -t mlflow_test_build . && docker images | grep mlflow_test_build;
-          fi
+        - ./travis/stage-python2-nightly.sh
     - stage: small
       if: type != cron
     - language: python
@@ -47,7 +42,7 @@ matrix:
         - export NOT_CRAN=true
         - cd mlflow/R/mlflow
         - Rscript -e 'install.packages("devtools")'
-        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = "always")'
+        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = FALSE)'
         - cd ../../..
       install:
         - source ./travis/install-common-deps.sh
@@ -106,7 +101,7 @@ matrix:
         - pip install -r travis/small-requirements.txt
         - pip install -e .
       script:
-        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects --ignore=tests/xgboost --ignore=tests/lightgbm --ignore=tests/spacy tests
+        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects --ignore=tests/xgboost --ignore=tests/lightgbm --ignore=tests/spark_autologging tests --ignore=tests/spacy tests
     # Run small Python 2.7 tests in the "large" test builder so that we don't spend Travis executor
     # time running Python 2.7 tests if Python 3 small tests fail.
     - language: python
@@ -147,23 +142,7 @@ install:
     fi;
 
 script:
-    if ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
-      if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
-         echo "skipping this step on windows.";
-      elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-        ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
-      else
-        ./travis/run-large-python-tests.sh;
-        ./travis/test-anaconda-compatibility.sh;
-      fi
-    fi;
-    CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples\|Dockerfile") || true;
-    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"examples"* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
-      pytest --verbose tests/examples --large;
-    fi;
-    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"Dockerfile"* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
-      docker build -t mlflow_test_build . && docker images | grep mlflow_test_build;
-    fi;
+  - ./travis/stage-python3.sh;
 
 notifications:
   # Send Slack notifications on build being broken or fixed, and email (Pagerduty) notifications

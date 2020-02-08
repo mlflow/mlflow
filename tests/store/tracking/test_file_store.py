@@ -19,20 +19,29 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
-from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import (
+    ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+)
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
-
+from tests.store.tracking import AbstractStoreTest
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
 
 
-class TestFileStore(unittest.TestCase):
+class TestFileStore(unittest.TestCase, AbstractStoreTest):
     ROOT_LOCATION = tempfile.gettempdir()
+
+    def create_test_run(self):
+        fs = FileStore(self.test_root)
+        return self._create_run(fs)
 
     def setUp(self):
         self._create_root(TestFileStore.ROOT_LOCATION)
         self.maxDiff = None
+
+    def get_store(self):
+        return FileStore(self.test_root)
 
     def _create_root(self, root):
         self.test_root = os.path.join(root, "test_file_store_%d" % random_int())
@@ -277,6 +286,19 @@ class TestFileStore(unittest.TestCase):
     def test_rename_experiment(self):
         fs = FileStore(self.test_root)
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+
+        # Error cases
+        with self.assertRaises(Exception):
+            fs.rename_experiment(exp_id, None)
+        with self.assertRaises(Exception):
+            # test that names of existing experiments are checked before renaming
+            other_exp_id = None
+            for exp in self.experiments:
+                if exp != exp_id:
+                    other_exp_id = exp
+                    break
+            fs.rename_experiment(exp_id, fs.get_experiment(other_exp_id).name)
+
         exp_name = self.exp_data[exp_id]["name"]
         new_name = exp_name + "!!!"
         self.assertNotEqual(exp_name, new_name)
@@ -595,13 +617,35 @@ class TestFileStore(unittest.TestCase):
         run = fs.get_run(run_id)
         assert run.data.params[WEIRD_PARAM_NAME] == "Value"
 
-    def test_log_empty_str(self):
+    def test_log_param_empty_str(self):
         PARAM_NAME = "new param"
         fs = FileStore(self.test_root)
         run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.log_param(run_id, Param(PARAM_NAME, ""))
         run = fs.get_run(run_id)
         assert run.data.params[PARAM_NAME] == ""
+
+    def test_log_param_with_newline(self):
+        param_name = "new param"
+        param_value = "a string\nwith multiple\nlines"
+        fs = FileStore(self.test_root)
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        fs.log_param(run_id, Param(param_name, param_value))
+        run = fs.get_run(run_id)
+        assert run.data.params[param_name] == param_value
+
+    def test_log_param_enforces_value_immutability(self):
+        param_name = "new param"
+        fs = FileStore(self.test_root)
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        fs.log_param(run_id, Param(param_name, "value1"))
+        # Duplicate calls to `log_param` with the same key and value should succeed
+        fs.log_param(run_id, Param(param_name, "value1"))
+        with pytest.raises(MlflowException) as exc:
+            fs.log_param(run_id, Param(param_name, "value2"))
+        assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        run = fs.get_run(run_id)
+        assert run.data.params[param_name] == "value1"
 
     def test_weird_metric_names(self):
         WEIRD_METRIC_NAME = "this is/a weird/but valid metric"
@@ -854,19 +898,6 @@ class TestFileStore(unittest.TestCase):
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id='user',
             start_time=0, tags=[])
 
-    def _verify_logged(self, fs, run_id, metrics, params, tags):
-        run = fs.get_run(run_id)
-        all_metrics = sum([fs.get_metric_history(run_id, key)
-                           for key in run.data.metrics], [])
-        assert len(all_metrics) == len(metrics)
-        logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
-        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp, m.step) for m in metrics])
-        logged_tags = set([(tag_key, tag_value) for tag_key, tag_value in run.data.tags.items()])
-        assert set([(tag.key, tag.value) for tag in tags]) <= logged_tags
-        assert len(run.data.params) == len(params)
-        logged_params = [(param_key, param_val) for param_key, param_val in run.data.params.items()]
-        assert set(logged_params) == set([(param.key, param.value) for param in params])
-
     def test_log_batch_internal_error(self):
         # Verify that internal errors during log_batch result in MlflowExceptions
         fs = FileStore(self.test_root)
@@ -874,9 +905,9 @@ class TestFileStore(unittest.TestCase):
 
         def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
             raise Exception("Some internal error")
-        with mock.patch(FILESTORE_PACKAGE + ".FileStore.log_metric") as log_metric_mock, \
-                mock.patch(FILESTORE_PACKAGE + ".FileStore.log_param") as log_param_mock, \
-                mock.patch(FILESTORE_PACKAGE + ".FileStore.set_tag") as set_tag_mock:
+        with mock.patch(FILESTORE_PACKAGE + ".FileStore._log_run_metric") as log_metric_mock, \
+                mock.patch(FILESTORE_PACKAGE + ".FileStore._log_run_param") as log_param_mock, \
+                mock.patch(FILESTORE_PACKAGE + ".FileStore._set_run_tag") as set_tag_mock:
             log_metric_mock.side_effect = _raise_exception_fn
             log_param_mock.side_effect = _raise_exception_fn
             set_tag_mock.side_effect = _raise_exception_fn

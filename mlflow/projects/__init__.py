@@ -254,7 +254,9 @@ def run(uri, entry_point="main", version=None, parameters=None,
                         Note that if ``synchronous`` is False and ``backend`` is "local", this
                         method will return, but the current process will block when exiting until
                         the local run completes. If the current process is interrupted, any
-                        asynchronous runs launched via this method will be terminated.
+                        asynchronous runs launched via this method will be terminated. If
+                        ``synchronous`` is True and the run fails, the current process will
+                        error out as well.
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
