@@ -7,10 +7,13 @@ import PropTypes from 'prop-types';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
 import { getRunTags } from '../reducers/Reducers';
-import { MetricsPlotControls, X_AXIS_RELATIVE, X_AXIS_STEP } from './MetricsPlotControls';
+import {
+  MetricsPlotControls,
+  X_AXIS_STEP,
+  X_AXIS_WALL,
+} from './MetricsPlotControls';
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
-import Routes from '../Routes';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
@@ -33,17 +36,11 @@ export class MetricsPlotPanel extends React.Component {
 
   constructor(props) {
     super(props);
-    const plotMetricKeys = Utils.getPlotMetricKeysFromUrl(props.location.search);
-    const selectedMetricKeys = plotMetricKeys.length ? plotMetricKeys : [props.metricKey];
     this.state = {
-      selectedXAxis: X_AXIS_RELATIVE,
-      selectedMetricKeys,
-      showPoint: false,
       historyRequestIds: [],
-      yAxisLogScale: false,
-      lineSmoothness: 0,
+      ...Utils.getMetricPlotStateFromUrl(props.location.search),
     };
-    this.loadMetricHistory(this.props.runUuids, selectedMetricKeys);
+    this.loadMetricHistory(this.props.runUuids, this.state.selectedMetricKeys);
   }
 
   static predictChartType(metrics) {
@@ -64,12 +61,6 @@ export class MetricsPlotPanel extends React.Component {
     return runs ? JSON.parse(runs).length > 1 : false;
   }
 
-  updateUrlWithSelectedMetrics(selectedMetricKeys) {
-    const { runUuids, metricKey, location, history } = this.props;
-    const params = qs.parse(location.search);
-    const experimentId = params['experiment'];
-    history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys));
-  }
 
   loadMetricHistory = (runUuids, metricKeys) => {
     const requestIds = [];
@@ -106,12 +97,87 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   handleYAxisLogScaleChange = (yAxisLogScale) => {
-    this.setState({ yAxisLogScale });
+    const newLayout = _.cloneDeep(this.state.layout);
+    // If yaxis was already explicitly specified, convert range to appropriate coordinates
+    // for log axis (base 10), and vice versa. When converting to log scale, handle negative values
+    // by deferring to plotly autorange
+    if (this.state.layout.yaxis) {
+      const oldYRange = this.state.layout.yaxis.range;
+      if (this.state.yAxisLogScale) {
+        // When converting from log scale to linear scale, only apply conversion if autorange
+        // was not true (otherwise restore old axis values)
+        if (this.state.layout.yaxis.autorange) {
+          newLayout.yaxis = {
+            type: 'linear',
+            range: oldYRange,
+          };
+        } else {
+          newLayout.yaxis = {
+            type: 'linear',
+            range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
+          };
+        }
+      } else if (oldYRange[0] < 0) {
+        // When converting to log scale, handle negative values as follows:
+        // If bottom of old Y range is negative, then simply autorange the plot, so that we
+        // can convert back. Otherwise, do the conversion
+        newLayout.yaxis = {
+          type: 'log',
+          range: oldYRange,
+          autorange: true,
+        };
+      } else {
+        newLayout.yaxis = {
+          type: 'log',
+          range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
+        };
+      }
+    }
+    this.setState({ yAxisLogScale, layout: newLayout });
   };
 
   handleXAxisChange = (e) => {
-    this.setState({ selectedXAxis: e.target.value });
+    // Set axis value type, & reset axis scaling via autorange
+    const axisType = e.target.value === X_AXIS_WALL ? "date" : "linear";
+    const newLayout = {
+      ...this.state.layout,
+      xaxis: {
+        autorange: true,
+        type: axisType,
+      },
+    };
+    this.setState({ selectedXAxis: e.target.value, layout: newLayout });
   };
+
+  handleLayoutChange = (newLayout) => {
+    // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
+    // see https://plot.ly/javascript/plotlyjs-events/#update-data
+    const newXRange0 = newLayout["xaxis.range[0]"];
+    const newXRange1 = newLayout["xaxis.range[1]"];
+    const newYRange0 = newLayout["yaxis.range[0]"];
+    const newYRange1 = newLayout["yaxis.range[1]"];
+    let mergedLayout = {
+      ...this.state.layout,
+    };
+    if (newXRange0) {
+      mergedLayout = {
+        ...mergedLayout,
+        xaxis: {
+          range: [newXRange0, newXRange1],
+        },
+      };
+    }
+    if (newYRange0) {
+      mergedLayout = {
+        ...mergedLayout,
+        yaxis: {
+          range: [newYRange0, newYRange1],
+        },
+      };
+    }
+    this.setState({layout: mergedLayout});
+  };
+
 
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
     const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
@@ -119,12 +185,13 @@ export class MetricsPlotPanel extends React.Component {
       selectedMetricKeys: metricValues,
       historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
     }));
-    this.updateUrlWithSelectedMetrics(metricValues);
   };
 
   handleShowPointChange = (showPoint) => this.setState({ showPoint });
 
-  handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
+  handleLineSmoothChange = (lineSmoothness) => {
+    this.setState({ lineSmoothness });
+  };
 
   render() {
     const { runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
@@ -150,6 +217,9 @@ export class MetricsPlotPanel extends React.Component {
           handleYAxisLogScaleChange={this.handleYAxisLogScaleChange}
           handleLineSmoothChange={this.handleLineSmoothChange}
           chartType={chartType}
+          initialLineSmoothness={lineSmoothness}
+          yAxisLogScale={yAxisLogScale}
+          showPoint={showPoint}
         />
         <RequestStateWrapper
             requestIds={historyRequestIds}
@@ -169,6 +239,8 @@ export class MetricsPlotPanel extends React.Component {
             isComparing={MetricsPlotPanel.isComparing(location.search)}
             yAxisLogScale={yAxisLogScale}
             lineSmoothness={lineSmoothness}
+            extraLayout={this.state.layout}
+            onLayoutChange={this.handleLayoutChange}
           />
         </RequestStateWrapper>
       </div>
@@ -216,7 +288,9 @@ const mapStateToProps = (state, ownProps) => {
   };
 };
 
-const mapDispatchToProps = { getMetricHistoryApi };
+const mapDispatchToProps = () => {
+  return { getMetricHistoryApi };
+};
 
 export default withRouter(
   connect(
