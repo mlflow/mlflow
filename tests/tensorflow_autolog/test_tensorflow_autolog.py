@@ -391,6 +391,11 @@ def test_tf_estimator_autolog_persists_manually_created_run(tmpdir, export):
         assert mlflow.active_run()
         assert mlflow.active_run().info.run_id == run.info.run_id
 
+def _get_estimator_random_data_run(tempdir, manual_run, export):
+    create_tf_estimator_model(str(dir), export)
+    client = mlflow.tracking.MlflowClient()
+    return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
+
 
 @pytest.fixture
 def tf_estimator_random_data_run(tmpdir, manual_run, export):
@@ -426,7 +431,9 @@ def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_d
 @pytest.fixture
 def duplicate_autolog_tf_estimator_run(tmpdir, manual_run, export):
     mlflow.tensorflow.autolog(every_n_iter=23)  # 23 is prime; no false positives in test
-    run = tf_estimator_random_data_run(tmpdir, manual_run, export)
+    _get_estimator_random_data_run(tmpdir.join("test0"), manual_run, export)
+    mlflow.tensorflow.autolog(every_n_iter=4)
+    run = _get_estimator_random_data_run(tmpdir.join("test1"), manual_run, export)
     return run  # should be autologged every 4 steps
 
 
