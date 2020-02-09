@@ -208,6 +208,18 @@ export class MetricsPlotPanel extends React.Component {
         },
       };
     }
+    if (newLayout["xaxis.autorange"]) {
+      mergedLayout = {
+        ...mergedLayout,
+        xaxis: {autorange: true}
+      };
+    }
+    if (newLayout["yaxis.autorange"]) {
+      mergedLayout = {
+        ...mergedLayout,
+        yaxis: {autorange: true}
+      };
+    }
     this.updateUrlState({layout: mergedLayout});
   };
 
