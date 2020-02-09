@@ -44,10 +44,8 @@ def data():
     x = data.drop('target', axis=1)
     return x, y
 
-
-@pytest.fixture(scope='module')
-def model(data):
-    x, y = data
+def _get_keras_model(dataset):
+    x, y = dataset
     model = Sequential()
     model.add(Dense(3, input_dim=4))
     model.add(Dense(1))
@@ -55,10 +53,14 @@ def model(data):
     model.fit(x, y)
     return model
 
-
 @pytest.fixture(scope='module')
-def tf_keras_model(data):
-    x, y = data
+def model(data):
+    return _get_keras_model(data)
+
+
+
+def _get_tf_keras_model(dataset):
+    x, y = dataset
     from tensorflow.keras.models import Sequential as TfSequential
     from tensorflow.keras.layers import Dense as TfDense
     model = TfSequential()
@@ -67,6 +69,11 @@ def tf_keras_model(data):
     model.compile(loss='mean_squared_error', optimizer='SGD')
     model.fit(x, y)
     return model
+
+
+@pytest.fixture(scope='module')
+def tf_keras_model(data):
+    _get_tf_keras_model(data)
 
 
 @pytest.fixture(scope='module')
@@ -182,7 +189,7 @@ def test_that_keras_module_arg_works(model_path):
             assert x == b
 
 
-@pytest.mark.parametrize("build_model", [model, tf_keras_model])
+@pytest.mark.parametrize("build_model", [_get_keras_model, _get_tf_keras_model])
 @pytest.mark.large
 def test_model_save_load(build_model, model_path, data):
     x, _ = data
