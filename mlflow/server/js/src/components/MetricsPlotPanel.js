@@ -49,9 +49,13 @@ export class MetricsPlotPanel extends React.Component {
     super(props);
     this.state = {
       historyRequestIds: [],
-      ...Utils.getMetricPlotStateFromUrl(props.location.search),
     };
-    this.loadMetricHistory(this.props.runUuids, this.state.selectedMetricKeys);
+    const state = this.getUrlState();
+    this.loadMetricHistory(this.props.runUuids, state.selectedMetricKeys);
+  }
+
+  getUrlState() {
+    return Utils.getMetricPlotStateFromUrl(this.props.location.search);
   }
 
   static predictChartType(metrics) {
@@ -74,11 +78,15 @@ export class MetricsPlotPanel extends React.Component {
 
   // Update page URL from component state. Intended to be called after React applies component
   // state updates, e.g. in a setState callback
-  updateURLFromState = () => {
+  updateUrlState = (updatedState) => {
     const { runUuids, metricKey, location, history } = this.props;
     const experimentId = qs.parse(location.search)['experiment'];
+    const newState = {
+      ...this.getUrlState(),
+      ...updatedState,
+    };
     const { selectedXAxis, selectedMetricKeys, showPoint, yAxisLogScale, lineSmoothness,
-      layout, selectedRunIds } = this.state;
+      layout, selectedRunIds } = newState;
     history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
         layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint, selectedRunIds));
   };
@@ -100,8 +108,9 @@ export class MetricsPlotPanel extends React.Component {
 
   getMetrics = () => {
     /* eslint-disable no-param-reassign */
-    const selectedMetricsSet = new Set(this.state.selectedMetricKeys);
-    const { selectedXAxis } = this.state;
+    const state = this.getUrlState();
+    const selectedMetricsSet = new Set(state.selectedMetricKeys);
+    const { selectedXAxis } = state;
     const { metricsWithRunInfoAndHistory } = this.props;
 
     // Take only selected metrics
@@ -118,16 +127,17 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   handleYAxisLogScaleChange = (yAxisLogScale) => {
-    const newLayout = _.cloneDeep(this.state.layout);
+    const state = this.getUrlState();
+    const newLayout = _.cloneDeep(state.layout);
     // If yaxis was already explicitly specified, convert range to appropriate coordinates
     // for log axis (base 10), and vice versa. When converting to log scale, handle negative values
     // by deferring to plotly autorange
-    if (this.state.layout.yaxis) {
-      const oldYRange = this.state.layout.yaxis.range;
-      if (this.state.yAxisLogScale) {
+    if (state.layout.yaxis) {
+      const oldYRange = state.layout.yaxis.range;
+      if (state.yAxisLogScale) {
         // When converting from log scale to linear scale, only apply conversion if autorange
         // was not true (otherwise restore old axis values)
-        if (this.state.layout.yaxis.autorange) {
+        if (state.layout.yaxis.autorange) {
           newLayout.yaxis = {
             type: 'linear',
             range: oldYRange,
@@ -154,31 +164,33 @@ export class MetricsPlotPanel extends React.Component {
         };
       }
     }
-    this.setState({ yAxisLogScale, layout: newLayout }, this.updateURLFromState);
+    this.updateUrlState({ yAxisLogScale, layout: newLayout });
   };
 
   handleXAxisChange = (e) => {
+    const state = this.getUrlState();
     // Set axis value type, & reset axis scaling via autorange
     const axisType = e.target.value === X_AXIS_WALL ? "date" : "linear";
     const newLayout = {
-      ...this.state.layout,
+      ...state.layout,
       xaxis: {
         autorange: true,
         type: axisType,
       },
     };
-    this.setState({ selectedXAxis: e.target.value, layout: newLayout }, this.updateURLFromState);
+    this.updateUrlState({ selectedXAxis: e.target.value, layout: newLayout });
   };
 
   handleLayoutChange = (newLayout) => {
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
+    const state = this.getUrlState();
     const newXRange0 = newLayout["xaxis.range[0]"];
     const newXRange1 = newLayout["xaxis.range[1]"];
     const newYRange0 = newLayout["yaxis.range[0]"];
     const newYRange1 = newLayout["yaxis.range[1]"];
     let mergedLayout = {
-      ...this.state.layout,
+      ...state.layout,
     };
     if (newXRange0) {
       mergedLayout = {
@@ -196,11 +208,12 @@ export class MetricsPlotPanel extends React.Component {
         },
       };
     }
-    this.setState({layout: mergedLayout}, this.updateURLFromState);
+    this.updateUrlState({layout: mergedLayout});
   };
 
   handleLegendClick = ({ curveNumber }) => {
     // If two clicks in short succession, trigger double-click event
+    const state = this.getUrlState();
     const currentTime = Date.now();
     if (currentTime - this.prevLegendClickTime < 300) {
       this.handleLegendDoubleClick({ curveNumber });
@@ -211,14 +224,13 @@ export class MetricsPlotPanel extends React.Component {
       // Wait full double-click window to trigger setting state, and only if there was no
       // double-click do we run the single-click logic (we wait a little extra to be safe)
       this.legendClickTimeout = window.setTimeout(() => {
-        const existingIdsClicked = new Set(this.state.selectedRunIds);
+        const existingIdsClicked = new Set(state.selectedRunIds);
         if (existingIdsClicked.has(runIdClicked)) {
           existingIdsClicked.delete(runIdClicked);
         } else {
           existingIdsClicked.add(runIdClicked);
         }
-        this.setState({selectedRunIds: Array.from(existingIdsClicked)},
-            this.updateURLFromState);
+        this.updateUrlState({selectedRunIds: Array.from(existingIdsClicked)});
       }, 310);
       this.prevLegendClickTime = currentTime;
     }
@@ -229,34 +241,38 @@ export class MetricsPlotPanel extends React.Component {
   handleLegendDoubleClick = ({ curveNumber }) => {
     window.clearTimeout(this.legendClickTimeout);
     const runIdClicked = this.props.runUuids[curveNumber];
-    this.setState({selectedRunIds: [runIdClicked]}, this.updateURLFromState);
+    this.updateUrlState({selectedRunIds: [runIdClicked]});
     return false;
   };
 
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
     const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
-    this.setState((prevState) => ({
-      selectedMetricKeys: metricValues,
-      historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
-    }), this.updateURLFromState);
+    this.setState((prevState) => {
+      this.setState({historyRequestIds: [...prevState.historyRequestIds, ...requestIds]}, () => {
+        this.updateUrlState({
+          selectedMetricKeys: metricValues,
+        });
+      });
+    });
   };
 
-  handleShowPointChange = (showPoint) => this.setState({ showPoint }, this.updateURLFromState);
+  handleShowPointChange = (showPoint) => this.updateUrlState({ showPoint });
 
   handleLineSmoothChange = (lineSmoothness) => {
-    this.setState({ lineSmoothness }, this.updateURLFromState);
+    this.updateUrlState({ lineSmoothness });
   };
 
   render() {
     const { runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
+    const state = this.getUrlState();
     const {
-      historyRequestIds,
       showPoint,
       selectedXAxis,
       selectedMetricKeys,
       yAxisLogScale,
       lineSmoothness,
-    } = this.state;
+    } = state;
+    const { historyRequestIds } = this.state;
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
     return (
@@ -293,8 +309,8 @@ export class MetricsPlotPanel extends React.Component {
             isComparing={MetricsPlotPanel.isComparing(location.search)}
             yAxisLogScale={yAxisLogScale}
             lineSmoothness={lineSmoothness}
-            extraLayout={this.state.layout}
-            selectedRunIds={this.state.selectedRunIds}
+            extraLayout={state.layout}
+            selectedRunIds={state.selectedRunIds}
             onLayoutChange={this.handleLayoutChange}
             onLegendClick={this.handleLegendClick}
             onLegendDoubleClick={this.handleLegendDoubleClick}
