@@ -9,6 +9,7 @@ import { MetricsPlotView } from './MetricsPlotView';
 import { getRunTags } from '../reducers/Reducers';
 import {
   MetricsPlotControls,
+  X_AXIS_RELATIVE,
   X_AXIS_STEP,
   X_AXIS_WALL,
 } from './MetricsPlotControls';
@@ -36,9 +37,15 @@ export class MetricsPlotPanel extends React.Component {
 
   constructor(props) {
     super(props);
+    const plotMetricKeys = Utils.getPlotMetricKeysFromUrl(props.location.search);
+    const selectedMetricKeys = plotMetricKeys.length ? plotMetricKeys : [props.metricKey];
     this.state = {
+      selectedXAxis: X_AXIS_RELATIVE,
+      selectedMetricKeys,
+      showPoint: false,
       historyRequestIds: [],
-      ...Utils.getMetricPlotStateFromUrl(props.location.search),
+      yAxisLogScale: false,
+      lineSmoothness: 0,
     };
     this.loadMetricHistory(this.props.runUuids, this.state.selectedMetricKeys);
   }

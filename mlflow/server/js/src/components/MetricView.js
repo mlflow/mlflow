@@ -20,7 +20,7 @@ class MetricView extends Component {
 
   render() {
     const { experiment, runUuids, runNames, metricKey, location } = this.props;
-    const { selectedMetricKeys } = Utils.getPlotMetricKeysFromUrl(location.search);
+    const selectedMetricKeys = Utils.getPlotMetricKeysFromUrl(location.search);
     return (
       <div className='MetricView'>
         <div className='header-container'>
