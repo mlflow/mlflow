@@ -18,12 +18,15 @@ hash -r
 conda config --set always_yes yes --set changeps1 no
 # Useful for debugging any issues with conda
 conda info -a
-if [[ -n "$TRAVIS_PYTHON_VERSION" ]]; then
-  conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
-else
-  conda create -q -n test-environment python=3.6
+env_name="test-environment"
+if [[ -z  $(conda info --envs | grep $env_name)  ]]; then
+    if [[ -n "$TRAVIS_PYTHON_VERSION" ]]; then
+      conda create -q -n $env_name python=$TRAVIS_PYTHON_VERSION
+    else
+       conda create -q -n $env_name python=3.6
+    fi
 fi
-source activate test-environment
+source activate $env_name
 python --version
 pip install --upgrade pip==19.3.1
 # Install Python test dependencies only if we're running Python tests
