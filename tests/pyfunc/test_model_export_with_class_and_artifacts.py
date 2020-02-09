@@ -784,34 +784,34 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(
 # TODO(czumar) Re-mark this test as "large" instead of "release" after SageMaker docker container
 # build issues have been debugged
 # @pytest.mark.large
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(
-        sklearn_logreg_model, main_scoped_model_class, iris_data, tmpdir):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
-    mlflow.sklearn.save_model(sk_model=sklearn_logreg_model, path=sklearn_model_path)
-
-    def test_predict(sk_model, model_input):
-        return sk_model.predict(model_input) * 2
-
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
-    mlflow.pyfunc.save_model(path=pyfunc_model_path,
-                             artifacts={
-                                 "sk_model": sklearn_model_path
-                             },
-                             python_model=main_scoped_model_class(test_predict),
-                             conda_env=_conda_env())
-    reloaded_pyfunc = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
-
-    inference_df = pd.DataFrame(iris_data[0])
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=pyfunc_model_path,
-        data=inference_df,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME)
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        pd.DataFrame(reloaded_pyfunc.predict(inference_df)),
-        check_dtype=False,
-        check_less_precise=6)
+# @pytest.mark.release
+# def test_sagemaker_docker_model_scoring_with_default_conda_env(
+#         sklearn_logreg_model, main_scoped_model_class, iris_data, tmpdir):
+#     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+#     mlflow.sklearn.save_model(sk_model=sklearn_logreg_model, path=sklearn_model_path)
+#
+#     def test_predict(sk_model, model_input):
+#         return sk_model.predict(model_input) * 2
+#
+#     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+#     mlflow.pyfunc.save_model(path=pyfunc_model_path,
+#                              artifacts={
+#                                  "sk_model": sklearn_model_path
+#                              },
+#                              python_model=main_scoped_model_class(test_predict),
+#                              conda_env=_conda_env())
+#     reloaded_pyfunc = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
+#
+#     inference_df = pd.DataFrame(iris_data[0])
+#     scoring_response = score_model_in_sagemaker_docker_container(
+#         model_uri=pyfunc_model_path,
+#         data=inference_df,
+#         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+#         flavor=mlflow.pyfunc.FLAVOR_NAME)
+#     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+#
+#     pandas.testing.assert_frame_equal(
+#         deployed_model_preds,
+#         pd.DataFrame(reloaded_pyfunc.predict(inference_df)),
+#         check_dtype=False,
+#         check_less_precise=6)

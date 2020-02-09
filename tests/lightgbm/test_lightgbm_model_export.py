@@ -251,20 +251,20 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     assert conda_env == mlflow.lightgbm.get_default_conda_env()
 
 
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(lgb_model, model_path):
-    mlflow.lightgbm.save_model(lgb_model=lgb_model.model, path=model_path, conda_env=None)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
-
-    scoring_response = score_model_in_sagemaker_docker_container(
-            model_uri=model_path,
-            data=lgb_model.inference_dataframe,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            flavor=mlflow.pyfunc.FLAVOR_NAME)
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        pd.DataFrame(reloaded_pyfunc.predict(lgb_model.inference_dataframe)),
-        check_dtype=False,
-        check_less_precise=6)
+# @pytest.mark.release
+# def test_sagemaker_docker_model_scoring_with_default_conda_env(lgb_model, model_path):
+#     mlflow.lightgbm.save_model(lgb_model=lgb_model.model, path=model_path, conda_env=None)
+#     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+#
+#     scoring_response = score_model_in_sagemaker_docker_container(
+#             model_uri=model_path,
+#             data=lgb_model.inference_dataframe,
+#             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+#             flavor=mlflow.pyfunc.FLAVOR_NAME)
+#     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+#
+#     pandas.testing.assert_frame_equal(
+#         deployed_model_preds,
+#         pd.DataFrame(reloaded_pyfunc.predict(lgb_model.inference_dataframe)),
+#         check_dtype=False,
+#         check_less_precise=6)
