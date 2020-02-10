@@ -132,7 +132,8 @@ export class MetricsPlotPanel extends React.Component {
     // If yaxis was already explicitly specified, convert range to appropriate coordinates
     // for log axis (base 10), and vice versa. When converting to log scale, handle negative values
     // by deferring to plotly autorange
-    if (state.layout.yaxis) {
+    console.log("@SID got layout state " + JSON.stringify(state.layout));
+    if (state.layout.yaxis && state.layout.yaxis.range) {
       const oldYRange = state.layout.yaxis.range;
       if (state.yAxisLogScale) {
         // When converting from log scale to linear scale, only apply conversion if autorange
