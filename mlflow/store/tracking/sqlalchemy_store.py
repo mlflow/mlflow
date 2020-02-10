@@ -527,8 +527,8 @@ class SqlAlchemyStore(AbstractStore):
                 if len(existing_params) > 0:
                     old_value = existing_params[0]
                     raise MlflowException(
-                        "Changing param value is not allowed. Param with key='{}' was already"
-                        " logged with value='{}' for run ID='{}. Attempted logging new value"
+                        "Changing param values is not allowed. Param with key='{}' was already"
+                        " logged with value='{}' for run ID='{}'. Attempted logging new value"
                         " '{}'.".format(
                             param.key, old_value, run_id, param.value), INVALID_PARAMETER_VALUE)
                 else:
