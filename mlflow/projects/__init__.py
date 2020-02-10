@@ -19,6 +19,7 @@ import posixpath
 import docker
 
 import mlflow.projects.databricks
+from mlflow.projects.backend.loader import load_backend
 import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
 from mlflow.entities import RunStatus, SourceType
@@ -93,7 +94,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
-         backend=None, backend_config=None, use_conda=True,
+         backend_name=None, backend_config=None, use_conda=True,
          storage_dir=None, synchronous=True, run_id=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
@@ -103,7 +104,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     parameters = parameters or {}
     work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version)
     project = _project_spec.load_project(work_dir)
-    _validate_execution_environment(project, backend)
+    _validate_execution_environment(project, backend_name)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     if run_id:
         active_run = tracking.MlflowClient().get_run(run_id)
@@ -127,7 +128,15 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         for tag in [MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_BRANCH_NAME]:
             tracking.MlflowClient().set_tag(active_run.info.run_id, tag, version)
 
-    if backend == "databricks":
+    backend = load_backend(backend_name=backend_name)
+    if backend:
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
+                                        backend.name)
+        return backend.run(active_run=active_run,
+                           uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
+                           experiment_id=experiment_id, cluster_spec=backend_config, project=project)
+
+    if backend_name == "databricks":
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         "databricks")
         from mlflow.projects.databricks import run_databricks
@@ -136,7 +145,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
             experiment_id=experiment_id, cluster_spec=backend_config)
 
-    elif backend == "local" or backend is None:
+    elif backend_name == "local" or backend_name is None:
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "local")
         command_args = []
         command_separator = " "
@@ -174,7 +183,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             work_dir=work_dir, entry_point=entry_point, parameters=parameters,
             experiment_id=experiment_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
-    elif backend == "kubernetes":
+    elif backend_name == "kubernetes":
         from mlflow.projects import kubernetes as kb
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
@@ -204,7 +213,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
 
     supported_backends = ["local", "databricks", "kubernetes"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
-                             "values: %s" % (backend, supported_backends))
+                             "values: %s" % (backend_name, supported_backends))
 
 
 def run(uri, entry_point="main", version=None, parameters=None,
@@ -284,7 +293,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
 
     submitted_run_obj = _run(
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
-        parameters=parameters, backend=backend, backend_config=cluster_spec_dict,
+        parameters=parameters, backend_name=backend, backend_config=cluster_spec_dict,
         use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id)
     if synchronous:
         _wait_for(submitted_run_obj)
