@@ -16,6 +16,7 @@ Python client and integrating third-party tools, allowing you to:
 - Use the MLflow client to communicate with other REST APIs, e.g. your organization's existing
   experiment-tracking APIs
 - Automatically capture additional metadata as run tags, e.g. the git repository associated with a run
+- Add new backend to execute MLflow Project entrypoints.
 
 The MLflow Python API supports several types of plugins:
 
@@ -24,6 +25,7 @@ The MLflow Python API supports several types of plugins:
 * **Run context providers**: specify context tags to be set on runs created via the
   :py:func:`mlflow.start_run` fluent API.
 * **Model Registry Store**: override model registry backend logic, e.g. to log to a third-party storage solution
+* **MLFlow Project backend**: override the local execution backend to execute a project on your own cluster (Databricks, kubernetes, etc.)
 
 .. contents:: Table of Contents
   :local:
@@ -106,6 +108,9 @@ The example package contains a ``setup.py`` that declares a number of
             # Define a Model Registry Store plugin for tracking URIs with scheme 'file-plugin'
             "mlflow.model_registry_store":
                 "file-plugin=mlflow_test_plugin:PluginRegistrySqlAlchemyStore",
+            # Define a MLflow Project Backend plugin with scheme 'file-plugin'
+            "mlflow.mlproject_backend":
+                "file-plugin=mlflow_test_plugin:PluginMLProjectLocalExecutionBackend",
         },
     )
 
@@ -177,6 +182,12 @@ plugin:
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
      - `SqlAlchemyStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/model_registry/sqlalchemy_store.py#L34>`_
 
+   * - Plugins for overridding MLflow Project Execution backend like databricks or kubernetes
+     - mlflow.project.backend
+     - The entry point value (e.g. ``mlflow_test_plugin:PluginMLProjectLocalExecutionBackend``) specifies a custom subclass of
+       ``mlflow.project.backend.AbstractBackend``)
+     - `DatabricksBackend`_
+
 Testing Your Plugin
 ~~~~~~~~~~~~~~~~~~~
 
@@ -189,6 +200,7 @@ reference implementations as an example:
 * `Example ArtifactRepository tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/artifact/test_local_artifact_repo.py>`_
 * `Example RunContextProvider tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/tracking/context/test_git_context.py>`_
 * `Example Model Registry Store tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/model_registry/test_sqlalchemy_store.py>`_
+* `Example MLflow Project Backend tests `_
 
 
 Distributing Your Plugin
