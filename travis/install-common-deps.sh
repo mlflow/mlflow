@@ -12,7 +12,7 @@ else
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
 fi
 
-if [ ! -e "$HOME/miniconda" ]; then
+if [ -z $(ls "$HOME/miniconda") ]; then
     bash /travis-install/miniconda.sh -b -p $HOME/miniconda
 fi;
 
