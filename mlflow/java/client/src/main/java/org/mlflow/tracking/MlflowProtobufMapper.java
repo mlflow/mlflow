@@ -6,6 +6,7 @@ import com.google.protobuf.util.JsonFormat;
 
 import java.lang.Iterable;
 
+import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 
 class MlflowProtobufMapper {
@@ -118,6 +119,79 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
+  String makeGetLatestVersion(String modelName, Iterable<String> stages) {
+    RegisteredModel model = RegisteredModel.newBuilder()
+            .setName(modelName)
+            .build();
+
+    GetLatestVersions.Builder builder = GetLatestVersions.newBuilder();
+    builder.setRegisteredModel(model);
+
+    if (stages != null) {
+      builder.addAllStages(stages);
+    }
+
+    return print(builder);
+  }
+
+  String makeUpdateModelVersion(String modelName, long version, String stage) {
+    RegisteredModel.Builder modelBuilder = RegisteredModel.newBuilder()
+            .setName(modelName);
+
+    ModelVersion.Builder modelVersionBuilder = ModelVersion.newBuilder()
+            .setVersion(version)
+            .setRegisteredModel(modelBuilder);
+
+    UpdateModelVersion.Builder builder = UpdateModelVersion.newBuilder()
+            .setModelVersion(modelVersionBuilder)
+            .setStage(stage);
+
+    return print(builder);
+  }
+
+  String makeCreateModel(String modelName) {
+    CreateRegisteredModel.Builder builder = CreateRegisteredModel.newBuilder()
+            .setName(modelName);
+    return print(builder);
+  }
+
+  String makeCreateModelVersion(String modelName, String runId, String source) {
+    CreateModelVersion.Builder builder = CreateModelVersion.newBuilder()
+            .setName(modelName)
+            .setRunId(runId)
+            .setSource(source);
+    return print(builder);
+  }
+
+  String makeGetModelVersionDetails(String modelName, long version) {
+    RegisteredModel.Builder modelBuilder = RegisteredModel.newBuilder()
+            .setName(modelName);
+
+    ModelVersion.Builder modelVerionBuilder = ModelVersion.newBuilder()
+            .setVersion(version)
+            .setRegisteredModel(modelBuilder);
+
+    GetModelVersionDetails.Builder builder = GetModelVersionDetails.newBuilder()
+            .setModelVersion(modelVerionBuilder);
+    return print(builder);
+  }
+
+  String makeGetModelVersionDownloadUri(String modelName, long modelVersion) {
+    GetModelVersionDownloadUri.Builder builder = GetModelVersionDownloadUri.newBuilder();
+
+    RegisteredModel model = RegisteredModel.newBuilder()
+            .setName(modelName)
+            .build();
+
+    ModelVersion version = ModelVersion.newBuilder()
+            .setRegisteredModel(model)
+            .setVersion(modelVersion)
+            .build();
+
+    builder.setModelVersion(version);
+    return print(builder);
+  }
+
   String toJson(MessageOrBuilder mb) {
     return print(mb);
   }
@@ -162,6 +236,19 @@ class MlflowProtobufMapper {
     SearchRuns.Response.Builder builder = SearchRuns.Response.newBuilder();
     merge(json, builder);
     return builder.build();
+  }
+
+  GetLatestVersions.Response toGetLatestVersionsResponse(String json) {
+    GetLatestVersions.Response.Builder builder = GetLatestVersions.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
+  String toGetModelVersionDownloadUriResponse(String json) {
+    GetModelVersionDownloadUri.Response.Builder builder = GetModelVersionDownloadUri.Response
+            .newBuilder();
+    merge(json, builder);
+    return builder.getArtifactUri();
   }
 
   private String print(MessageOrBuilder message) {

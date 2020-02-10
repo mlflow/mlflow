@@ -1,5 +1,8 @@
 from __future__ import print_function
 
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
 import importlib
 import os
 import json
@@ -12,10 +15,7 @@ import numpy as np
 import pandas as pd
 import pandas.testing
 import sklearn.datasets as datasets
-import torch
-import torch.nn as nn
 import yaml
-from torch.utils.data import DataLoader
 
 import mlflow.pyfunc as pyfunc
 import mlflow.pytorch
@@ -428,6 +428,19 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
         deployed_model_preds.values[:, 0],
         _predict(model=module_scoped_subclassed_model, data=data),
         decimal=4)
+
+
+def test_save_model_with_wrong_codepaths_fails_corrrectly(
+        module_scoped_subclassed_model, model_path, data):
+    with pytest.raises(TypeError) as exc_info:
+        mlflow.pytorch.save_model(
+            path=model_path,
+            pytorch_model=module_scoped_subclassed_model,
+            conda_env=None,
+            code_paths="some string")
+    assert "TypeError: Argument code_paths should be a list, not {}".format(type("")) \
+           in str(exc_info)
+    assert not os.path.exists(model_path)
 
 
 @pytest.mark.large

@@ -7,12 +7,11 @@
 
 .Spinner img {
     position: absolute;
-    top: 350px;
+    top: 50%;
     left: 50%;
     width: 80px;
     height: 80px;
     margin:-40px 0 0 -40px;
-    opacity: 0;
     -webkit-animation: spin 3s linear 1s infinite;
     -moz-animation: spin 3s linear 1s infinite;
     animation: spin 3s linear 1s infinite;

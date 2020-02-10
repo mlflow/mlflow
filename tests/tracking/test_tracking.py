@@ -559,6 +559,38 @@ def test_get_artifact_uri_uses_currently_active_run_id():
                 run_id=active_run.info.run_id, artifact_path=artifact_path)
 
 
+@pytest.mark.parametrize("artifact_location, expected_uri_format", [
+    (
+     "mysql://user:password@host:port/dbname?driver=mydriver",
+     "mysql://user:password@host:port/dbname/{run_id}/artifacts/{path}?driver=mydriver",
+    ),
+    (
+     "mysql+driver://user:password@host:port/dbname/subpath/#fragment",
+     "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",
+    ),
+    (
+     "s3://bucketname/rootpath",
+     "s3://bucketname/rootpath/{run_id}/artifacts/{path}",
+    ),
+    (
+     "/dirname/rootpa#th?",
+     "/dirname/rootpa#th?/{run_id}/artifacts/{path}",
+    ),
+])
+def test_get_artifact_uri_appends_to_uri_path_component_correctly(
+        tracking_uri_mock, artifact_location, expected_uri_format):
+    client = MlflowClient()
+    client.create_experiment("get-artifact-uri-test", artifact_location=artifact_location)
+    mlflow.set_experiment("get-artifact-uri-test")
+    with mlflow.start_run():
+        run_id = mlflow.active_run().info.run_id
+        for artifact_path in ["path/to/artifact", "/artifact/path", "arty.txt"]:
+            artifact_uri = mlflow.get_artifact_uri(artifact_path)
+            assert artifact_uri == tracking.artifact_utils.get_artifact_uri(run_id, artifact_path)
+            assert artifact_uri == expected_uri_format.format(
+                run_id=run_id, path=artifact_path.lstrip("/"))
+
+
 def test_search_runs(tracking_uri_mock, reset_active_experiment):
     mlflow.set_experiment("exp-for-search")
     # Create a run and verify that the current active experiment is the one we just set
