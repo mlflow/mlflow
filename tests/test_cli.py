@@ -7,10 +7,16 @@ import pytest
 import shutil
 import tempfile
 import textwrap
+import time
+import subprocess
 
 from mlflow.cli import run, server, ui
 from mlflow.server import handlers
 from mlflow import experiments
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.file_store import FileStore
+from mlflow.exceptions import MlflowException
+from mlflow.entities import ViewType
 
 
 def test_server_static_prefix_validation():
@@ -115,3 +121,78 @@ def test_csv_generation():
                 assert expected_csv == fd.read()
         finally:
             shutil.rmtree(tempdir)
+
+
+@pytest.fixture(scope="function")
+def sqlite_store():
+    fd, temp_dbfile = tempfile.mkstemp()
+    # Close handle immediately so that we can remove the file later on in Windows
+    os.close(fd)
+    db_uri = "sqlite:///%s" % temp_dbfile
+    store = SqlAlchemyStore(db_uri, 'artifact_folder')
+    yield (store, db_uri)
+    os.remove(temp_dbfile)
+    shutil.rmtree('artifact_folder')
+
+
+@pytest.fixture(scope="function")
+def file_store():
+    ROOT_LOCATION = os.path.join(tempfile.gettempdir(), 'test_mlflow_gc')
+    yield (FileStore(ROOT_LOCATION), ROOT_LOCATION)
+    shutil.rmtree(ROOT_LOCATION)
+
+
+def _create_run_in_store(store):
+    config = {
+        'experiment_id': '0',
+        'user_id': 'Anderson',
+        'start_time': int(time.time()),
+        'tags': {}
+    }
+    run = store.create_run(**config)
+    os.makedirs(run.info.artifact_uri)
+    return run
+
+
+def test_mlflow_gc_sqlite(sqlite_store):
+    store = sqlite_store[0]
+    run = _create_run_in_store(store)
+    store.delete_run(run.info.run_uuid)
+    subprocess.check_output(["mlflow", "gc", "--backend-store-uri", sqlite_store[1]])
+    runs = store.search_runs(experiment_ids=['0'], filter_string='', run_view_type=ViewType.ALL)
+    assert len(runs) == 0
+    with pytest.raises(MlflowException):
+        store.get_run(run.info.run_uuid)
+
+
+def test_mlflow_gc_file_store(file_store):
+    store = file_store[0]
+    run = _create_run_in_store(store)
+    store.delete_run(run.info.run_uuid)
+    subprocess.check_output(["mlflow", "gc", "--backend-store-uri", file_store[1]])
+    runs = store.search_runs(experiment_ids=['0'], filter_string='', run_view_type=ViewType.ALL)
+    assert len(runs) == 0
+    with pytest.raises(MlflowException):
+        store.get_run(run.info.run_uuid)
+
+
+def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
+    store = file_store[0]
+    run = _create_run_in_store(store)
+    store.delete_run(run.info.run_uuid)
+    subprocess.check_output(["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids",
+                             run.info.run_uuid])
+    runs = store.search_runs(experiment_ids=['0'], filter_string='', run_view_type=ViewType.ALL)
+    assert len(runs) == 0
+    with pytest.raises(MlflowException):
+        store.get_run(run.info.run_uuid)
+
+
+def test_mlflow_gc_not_deleted_run(file_store):
+    store = file_store[0]
+    run = _create_run_in_store(store)
+    with pytest.raises(subprocess.CalledProcessError):
+        subprocess.check_output(["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids",
+                                 run.info.run_uuid])
+    runs = store.search_runs(experiment_ids=['0'], filter_string='', run_view_type=ViewType.ALL)
+    assert len(runs) == 1
