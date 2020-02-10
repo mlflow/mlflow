@@ -12,8 +12,10 @@ else
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
 fi
 
+# Travis caching creates the $HOME/miniconda directory, so we check whether it's empty before
+# running the installer
 if [ -z $(ls "$HOME/miniconda") ]; then
-    bash /travis-install/miniconda.sh -b -p $HOME/miniconda
+    bash /travis-install/miniconda.sh -b -p -u $HOME/miniconda
 fi;
 
 export PATH="$HOME/miniconda/bin:$PATH"
