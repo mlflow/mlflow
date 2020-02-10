@@ -27,6 +27,8 @@ from mlflow.utils import cli_args, experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.uri import is_local_uri
+from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.exceptions import MlflowException
 
 _logger = logging.getLogger(__name__)
 
@@ -286,7 +288,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
 @cli.command()
 @click.option("--backend-store-uri", metavar="PATH",
               default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-              help="URI to which to persist experiment and run data. Acceptable URIs are "
+              help="URI of the backend store from which to delete runs. Acceptable URIs are "
                    "SQLAlchemy-compatible database connection strings "
                    "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
                    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be deleted "
@@ -297,8 +299,8 @@ def server(backend_store_uri, default_artifact_root, host, port,
 @experimental
 def gc(backend_store_uri, run_ids):
     """
-    Permanently delete runs in state deleted in the backend store.
-    This command deletes both artifacts and runs metadata.
+    Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
+    This command deletes all artifacts and metadata associated with the specified runs.
     """
     backend_store = _get_store(backend_store_uri, None)
     if not run_ids:
@@ -308,8 +310,11 @@ def gc(backend_store_uri, run_ids):
 
     for run_id in run_ids:
         run = backend_store.get_run(run_id)
+        if run.info.lifecycle_stage != LifecycleStage.DELETED:
+            raise MlflowException('Run {} is not in `deleted` lifecycle stage. Only runs in '
+                                  '`deleted` lifecycle stage can be deleted.'.format(run_id))
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
-        artifact_repo.delete_artifacts(run.info.artifact_uri)
+        artifact_repo.delete_artifacts()
         backend_store._hard_delete_run(run_id)
         print("Run with ID %s has been permanently deleted." % str(run_id))
 

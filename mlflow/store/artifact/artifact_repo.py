@@ -4,6 +4,7 @@ import tempfile
 from abc import abstractmethod, ABCMeta
 
 from mlflow.utils.validation import path_not_unique, bad_path_message
+from mlflow.utils import experimental
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -150,12 +151,13 @@ class ArtifactRepository:
         """
         pass
 
-    def delete_artifacts(self, artifact_path):
+    @experimental
+    def delete_artifacts(self, artifact_path=None):
         """
         Delete the artifacts at the specified location.
-        Support the deletion of a single file or of a directory. Deletion of a directory
+        Supports the deletion of a single file or of a directory. Deletion of a directory
         is recursive.
-        :param artifact_path: Path to delete
+        :param artifact_path: Path of the artifact to delete
         """
         pass
 

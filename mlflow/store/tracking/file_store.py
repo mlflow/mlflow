@@ -320,13 +320,10 @@ class FileStore(AbstractStore):
     def _hard_delete_run(self, run_id):
         """
         Permanently delete a run (metadata and metrics, tags, parameters).
-        This is used by the mlflow gc command line and is not intented to be used elsewhere.
+        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
         """
         _, run_dir = self._find_run_root(run_id)
-        os.remove(os.path.join(run_dir, FileStore.META_DATA_FILE_NAME))
-        shutil.rmtree(os.path.join(run_dir, FileStore.METRICS_FOLDER_NAME))
-        shutil.rmtree(os.path.join(run_dir, FileStore.PARAMS_FOLDER_NAME))
-        shutil.rmtree(os.path.join(run_dir, FileStore.TAGS_FOLDER_NAME))
+        shutil.rmtree(run_dir)
 
     def _get_deleted_runs(self):
         experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
