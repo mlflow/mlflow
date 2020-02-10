@@ -126,5 +126,5 @@ class RunsArtifactRepository(ArtifactRepository):
         """
         self.repo._download_file(remote_file_path, local_path)
 
-    def delete_artifacts(self, artifact_path):
+    def delete_artifacts(self, artifact_path=None):
         self.repo.delete_artifacts(artifact_path)

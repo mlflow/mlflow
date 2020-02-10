@@ -130,5 +130,5 @@ class FTPArtifactRepository(ArtifactRepository):
             with open(local_path, 'wb') as f:
                 ftp.retrbinary('RETR ' + remote_full_path, f.write)
 
-    def delete_artifacts(self, artifact_path):
+    def delete_artifacts(self, artifact_path=None):
         raise MlflowException('Not implemented yet')

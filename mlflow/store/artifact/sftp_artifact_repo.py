@@ -97,5 +97,5 @@ class SFTPArtifactRepository(ArtifactRepository):
         remote_full_path = posixpath.join(self.path, remote_file_path)
         self.sftp.get(remote_full_path, local_path)
 
-    def delete_artifacts(self, artifact_path):
+    def delete_artifacts(self, artifact_path=None):
         raise MlflowException('Not implemented yet')

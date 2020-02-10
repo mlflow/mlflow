@@ -132,5 +132,5 @@ class ModelsArtifactRepository(ArtifactRepository):
         """
         self.repo._download_file(remote_file_path, local_path)
 
-    def delete_artifacts(self, artifact_path):
+    def delete_artifacts(self, artifact_path=None):
         raise MlflowException('Not implemented yet')

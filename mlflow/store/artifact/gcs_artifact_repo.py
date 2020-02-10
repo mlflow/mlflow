@@ -104,5 +104,5 @@ class GCSArtifactRepository(ArtifactRepository):
         gcs_bucket = self._get_bucket(bucket)
         gcs_bucket.blob(remote_full_path).download_to_filename(local_path)
 
-    def delete_artifacts(self, artifact_path):
+    def delete_artifacts(self, artifact_path=None):
         raise MlflowException('Not implemented yet')

@@ -101,5 +101,5 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_client = self._get_s3_client()
         s3_client.download_file(bucket, s3_full_path, local_path)
 
-    def delete_artifacts(self, artifact_path):
+    def delete_artifacts(self, artifact_path=None):
         raise MlflowException('Not implemented yet')
