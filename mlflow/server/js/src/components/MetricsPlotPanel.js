@@ -133,7 +133,21 @@ export class MetricsPlotPanel extends React.Component {
     // for log axis (base 10), and vice versa. When converting to log scale, handle negative values
     // by deferring to plotly autorange
     console.log("@SID got layout state " + JSON.stringify(state.layout));
-    if (state.layout.yaxis && state.layout.yaxis.range) {
+
+    // Possible layout types
+    // {yaxis: {range: []}}
+    // {yaxis: {autorange: true}}
+    // {yaxis: {autorange: true, range: [...]}}
+
+    //
+    // if (state.layout.yaxis && state.layout.yaxis.range) {
+    //   this.updateExistingYAxisLogScale()
+    // } else {
+    //   newLayout.yaxis = {autorange: true, type: "log"};
+    // }
+
+
+    if (state.layout.yaxis) {
       const oldYRange = state.layout.yaxis.range;
       if (state.yAxisLogScale) {
         // When converting from log scale to linear scale, only apply conversion if autorange
@@ -149,20 +163,23 @@ export class MetricsPlotPanel extends React.Component {
             range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
           };
         }
-      } else if (oldYRange[0] < 0) {
-        // When converting to log scale, handle negative values as follows:
-        // If bottom of old Y range is negative, then simply autorange the plot, so that we
-        // can convert back. Otherwise, do the conversion
-        newLayout.yaxis = {
-          type: 'log',
-          range: oldYRange,
-          autorange: true,
-        };
       } else {
-        newLayout.yaxis = {
-          type: 'log',
-          range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
-        };
+          debugger;
+          if (oldYRange[0] < 0) {
+              // When converting to log scale, handle negative values as follows:
+              // If bottom of old Y range is negative, then simply autorange the plot, so that we
+              // can convert back. Otherwise, do the conversion
+              newLayout.yaxis = {
+                  type: 'log',
+                  range: oldYRange,
+                  autorange: true,
+              };
+          } else {
+              newLayout.yaxis = {
+                  type: 'log',
+                  range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
+              };
+          }
       }
     }
     this.updateUrlState({ yAxisLogScale, layout: newLayout });
@@ -183,6 +200,7 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   handleLayoutChange = (newLayout) => {
+    console.log("Handling layout change, new layout " + JSON.stringify(newLayout));
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
     const state = this.getUrlState();

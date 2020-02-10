@@ -409,7 +409,7 @@ class Utils {
     const showPoint = params['show_point'] === 'true';
     const yAxisLogScale = params['y_axis_scale'] === 'log';
     const lineSmoothness = params['line_smoothness'] ? parseFloat(params['line_smoothness']) : 0;
-    const layout = params['plot_layout'] ? JSON.parse(params['plot_layout']) : {};
+    const layout = params['plot_layout'] ? JSON.parse(params['plot_layout']) : {autosize: true};
     // Default to displaying all runs if user hasn't selected out any
     const parsedSelectedRuns = params['selected_run_ids'] ?
         JSON.parse(params['selected_run_ids']) : undefined;
