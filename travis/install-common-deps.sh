@@ -48,6 +48,7 @@ sudo rm -f /etc/boto.cfg
 # Print current environment info
 pip list
 which mlflow
+which pytest
 echo $MLFLOW_HOME
 
 # Turn off trace output & exit-on-errors
