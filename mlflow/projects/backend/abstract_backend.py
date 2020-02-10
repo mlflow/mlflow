@@ -9,7 +9,8 @@ class AbstractBackend():
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def run(self, active_run, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, project):
+    def run(self, active_run, uri, entry_point, work_dir, parameters,
+            experiment_id, cluster_spec, project):
         """
         Submit an entrypoint. It must returns a SubmittedRun object to track the execution
         """

@@ -132,9 +132,10 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     if backend:
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         backend.name)
-        return backend.run(active_run=active_run,
-                           uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
-                           experiment_id=experiment_id, cluster_spec=backend_config, project=project)
+        return backend.run(active_run=active_run, uri=uri, entry_point=entry_point,
+                           work_dir=work_dir, parameters=parameters,
+                           experiment_id=experiment_id, cluster_spec=backend_config,
+                           project=project)
 
     if backend_name == "databricks":
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
