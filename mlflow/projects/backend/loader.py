@@ -1,8 +1,6 @@
 import entrypoints
 import logging
 
-from mlflow.projects.backend.databricks import DatabricksBackend
-
 ENTRYPOINT_GROUP_NAME = ""
 
 __logger__ = logging.getLogger(__name__)
