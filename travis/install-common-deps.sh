@@ -15,7 +15,7 @@ fi
 # Travis caching creates the $HOME/miniconda directory, so we check whether it's empty before
 # running the installer
 if [ -z $(ls "$HOME/miniconda") ]; then
-    bash /travis-install/miniconda.sh -b -p -u $HOME/miniconda
+    bash /travis-install/miniconda.sh -b -p $HOME/miniconda -u
 fi;
 
 export PATH="$HOME/miniconda/bin:$PATH"
