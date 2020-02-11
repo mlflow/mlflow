@@ -147,9 +147,6 @@ def run(training_data, epochs, batch_size, learning_rate, momentum, seed):
                 model.add(Dense(16,
                                 activation='relu',
                                 kernel_initializer='normal'))
-                model.add(Dense(16,
-                                activation='relu',
-                                kernel_initializer='normal'))
                 model.add(Dense(1,
                                 kernel_initializer='normal',
                                 activation='linear'))
