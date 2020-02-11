@@ -15,6 +15,7 @@ import {
 } from './MetricsPlotControls';
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
+import Routes from '../Routes';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
@@ -48,6 +49,13 @@ export class MetricsPlotPanel extends React.Component {
       lineSmoothness: 0,
     };
     this.loadMetricHistory(this.props.runUuids, this.state.selectedMetricKeys);
+  }
+
+  updateUrlWithSelectedMetrics(selectedMetricKeys) {
+    const { runUuids, metricKey, location, history } = this.props;
+    const params = qs.parse(location.search);
+    const experimentId = params['experiment'];
+    history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys));
   }
 
   static predictChartType(metrics) {
@@ -215,6 +223,7 @@ export class MetricsPlotPanel extends React.Component {
       selectedMetricKeys: metricValues,
       historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
     }));
+    this.updateUrlWithSelectedMetrics(metricValues);
   };
 
   handleShowPointChange = (showPoint) => this.setState({ showPoint });
