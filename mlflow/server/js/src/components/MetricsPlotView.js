@@ -48,10 +48,10 @@ export class MetricsPlotView extends React.Component {
     const { metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness, isComparing,
       selectedRunIds } = this.props;
     const selectedRunIdSet = new Set(selectedRunIds);
-    const data = metrics.map((metric) => {
+    const data = metrics.map((metric, idx) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
       const isSingleHistory = history.length === 0;
-      const visible = selectedRunIdSet.has(runUuid) ? true : "legendonly";
+      const visible = !selectedRunIdSet.has(idx) ? true : "legendonly";
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
         x: history.map((entry) => {
@@ -66,6 +66,7 @@ export class MetricsPlotView extends React.Component {
         line: { shape: 'spline', smoothing: lineSmoothness },
         marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
         visible: visible,
+        runId: runUuid,
       };
     });
     const props = { data };

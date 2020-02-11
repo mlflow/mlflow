@@ -8,7 +8,6 @@ import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import { message } from 'antd';
 import _ from 'lodash';
-import {X_AXIS_RELATIVE} from "../components/MetricsPlotControls";
 
 class Utils {
   /**
@@ -384,7 +383,7 @@ class Utils {
 
   static getDefaultMetricPlotState() {
     return {
-      selectedXAxis: X_AXIS_RELATIVE,
+      selectedXAxis: 'relative',
       selectedMetricKeys: [],
       showPoint: false,
       yAxisLogScale: false,
@@ -403,7 +402,7 @@ class Utils {
       return defaultState;
     }
 
-    const selectedXAxis = params['x_axis'] || X_AXIS_RELATIVE;
+    const selectedXAxis = params['x_axis'] || 'relative';
     const selectedMetricKeys = JSON.parse(params['plot_metric_keys']) ||
         defaultState.selectedMetricKeys;
     const showPoint = params['show_point'] === 'true';
@@ -414,7 +413,7 @@ class Utils {
     const parsedSelectedRuns = params['selected_run_ids'] ?
         JSON.parse(params['selected_run_ids']) : undefined;
     const parsedRuns = params['runs'] ? JSON.parse(params['runs']) : [];
-    const selectedRunIds = parsedSelectedRuns || parsedRuns;
+    const selectedRunIds = parsedSelectedRuns || [];
     return {
       selectedXAxis,
       selectedMetricKeys,

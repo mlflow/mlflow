@@ -247,24 +247,23 @@ export class MetricsPlotPanel extends React.Component {
     this.updateUrlState({layout: mergedLayout});
   };
 
-  handleLegendClick = ({ curveNumber }) => {
+  handleLegendClick = ({ curveNumber, data }) => {
     // If two clicks in short succession, trigger double-click event
     const state = this.getUrlState();
     const currentTime = Date.now();
     if (currentTime - this.prevLegendClickTime < 300) {
-      this.handleLegendDoubleClick({ curveNumber });
-      this.prevClickTime = Math.inf;
+      this.handleLegendDoubleClick({curveNumber, data});
+      this.prevLegendClickTime = Math.inf;
     } else {
       // Otherwise, record time of current click & trigger click event
-      const runIdClicked = this.props.runUuids[curveNumber];
       // Wait full double-click window to trigger setting state, and only if there was no
       // double-click do we run the single-click logic (we wait a little extra to be safe)
       this.legendClickTimeout = window.setTimeout(() => {
         const existingIdsClicked = new Set(state.selectedRunIds);
-        if (existingIdsClicked.has(runIdClicked)) {
-          existingIdsClicked.delete(runIdClicked);
+        if (existingIdsClicked.has(curveNumber)) {
+          existingIdsClicked.delete(curveNumber);
         } else {
-          existingIdsClicked.add(runIdClicked);
+          existingIdsClicked.add(curveNumber);
         }
         this.updateUrlState({selectedRunIds: Array.from(existingIdsClicked)});
       }, 310);
@@ -274,10 +273,10 @@ export class MetricsPlotPanel extends React.Component {
     return false;
   };
 
-  handleLegendDoubleClick = ({ curveNumber }) => {
+  handleLegendDoubleClick = ({curveNumber, data}) => {
     window.clearTimeout(this.legendClickTimeout);
-    const runIdClicked = this.props.runUuids[curveNumber];
-    this.updateUrlState({selectedRunIds: [runIdClicked]});
+    const newSelectedIds = [...Array(data.length).keys()].filter((idx) => idx !== curveNumber);
+    this.updateUrlState({selectedRunIds: newSelectedIds});
     return false;
   };
 
