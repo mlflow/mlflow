@@ -4,9 +4,12 @@ from sklearn import datasets
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, log_loss
 import lightgbm as lgb
+import matplotlib as mpl
 
 import mlflow
 import mlflow.lightgbm
+
+mpl.use('Agg')
 
 
 def parse_args():
