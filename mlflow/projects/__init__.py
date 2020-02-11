@@ -48,6 +48,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, MLFLOW_PROJECT_BACKEND,
 )
 from mlflow.utils.uri import get_db_profile_from_uri, is_databricks_uri
+from mlflow.projects import backend
 
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
@@ -910,5 +911,6 @@ def _get_docker_tracking_cmd_and_envs(tracking_uri):
 
 __all__ = [
     "run",
-    "SubmittedRun"
+    "SubmittedRun",
+    "backend"
 ]
