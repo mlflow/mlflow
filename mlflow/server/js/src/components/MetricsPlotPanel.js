@@ -131,49 +131,55 @@ export class MetricsPlotPanel extends React.Component {
     //   newLayout.yaxis = {autorange: true, type: "log"};
     // }
 
+    // If plot previously had no y axis range configured, simply set the axis type to log or
+    // linear scale appropriately
+    if (!state.layout.yaxis || !this.state.layout.yaxis.range) {
+      newLayout.yaxis = {type: yAxisLogScale ? "log" : "linear", autorange: true};
+      this.setState({layout: newLayout});
+      return;
+    }
 
-    if (state.layout.yaxis) {
-      const oldYRange = state.layout.yaxis.range;
-      // Old y range was unspecified, e.g. y axis was just on autorange. Just set the axis
-      // type & let plotly handle things
-      if (!oldYRange) {
-        newLayout.yaxis = {...newLayout.yaxis, type: yAxisLogScale ? "log" : "linear"};
-      } else if (state.yAxisLogScale) {
-        // We at this point know that there was an old y scale, so should convert it to/from
-        // log scale.
-        // When converting from log scale to linear scale, only apply conversion if autorange
-        // was not true (otherwise restore old axis values)
-        if (state.layout.yaxis.autorange) {
-          newLayout.yaxis = {
-            type: 'linear',
-            range: oldYRange,
-          };
-        } else {
-          newLayout.yaxis = {
-            type: 'linear',
-            range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
-          };
-        }
+    // At this point, we know the plot previously had a y axis specified with range
+    // Convert the range to/from log scale as appropriate
+    const oldYRange = state.layout.yaxis.range;
+    if (state.layout.yaxis.type === 'log') {
+      console.log("Old state was log scale, converting back to linear scale");
+      // We at this point know that there was an old y scale, so should convert it to/from
+      // log scale.
+      // When converting from log scale to linear scale, only apply conversion if autorange
+      // was not true (otherwise restore old axis values)
+      if (state.layout.yaxis.autorange) {
+        newLayout.yaxis = {
+          type: 'linear',
+          range: oldYRange,
+        };
       } else {
-        if (oldYRange[0] < 0) {
-          // When converting to log scale, handle negative values as follows:
-          // If bottom of old Y range is negative, then simply autorange the plot, so that we
-          // can convert back. Otherwise, do the conversion
-          newLayout.yaxis = {
-            type: 'log',
-            range: oldYRange,
-            autorange: true,
-          };
-        } else {
-          newLayout.yaxis = {
-            type: 'log',
-            range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
-          };
-        }
+        newLayout.yaxis = {
+          type: 'linear',
+          range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
+        };
       }
     } else {
-      newLayout.yaxis = {type: 'log', autorange: true};
+      console.log("Old state was linear scale, converting to log scale");
+      if (oldYRange[0] < 0) {
+        console.log("Linear-to-log: Y axis range negative, applying autorange");
+        // When converting to log scale, handle negative values as follows:
+        // If bottom of old Y range is negative, then simply autorange the plot, so that we
+        // can convert back. Otherwise, do the conversion
+        newLayout.yaxis = {
+          type: 'log',
+          range: oldYRange,
+          autorange: true,
+        };
+      } else {
+        console.log("Linear-to-log: Y axis range positive, applying standard conversion");
+        newLayout.yaxis = {
+          type: 'log',
+          range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
+        };
+      }
     }
+    console.log("Setting layout state to " + JSON.stringify(newLayout));
     this.setState({layout: newLayout});
   };
 
