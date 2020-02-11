@@ -197,14 +197,16 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   handleLayoutChange = (newLayout) => {
+    console.log("Handling layout change, new layout " + JSON.stringify(newLayout));
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
+    const state = this.state;
     const newXRange0 = newLayout["xaxis.range[0]"];
     const newXRange1 = newLayout["xaxis.range[1]"];
     const newYRange0 = newLayout["yaxis.range[0]"];
     const newYRange1 = newLayout["yaxis.range[1]"];
     let mergedLayout = {
-      ...this.state.layout,
+      ...state.layout,
     };
     if (newXRange0) {
       mergedLayout = {
@@ -220,6 +222,18 @@ export class MetricsPlotPanel extends React.Component {
         yaxis: {
           range: [newYRange0, newYRange1],
         },
+      };
+    }
+    if (newLayout["xaxis.autorange"]) {
+      mergedLayout = {
+        ...mergedLayout,
+        xaxis: {autorange: true},
+      };
+    }
+    if (newLayout["yaxis.autorange"]) {
+      mergedLayout = {
+        ...mergedLayout,
+        yaxis: {autorange: true},
       };
     }
     this.setState({layout: mergedLayout});
