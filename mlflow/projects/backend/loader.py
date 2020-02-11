@@ -14,7 +14,11 @@ def load_backend(backend_name):
         return backend_builder()
     except entrypoints.NoSuchEntryPoint:
         # TODO Should be a error when all backends are migrated here
-        __logger__.warning("Backend '{backend_name}' is not available.",
-                           backend_name=backend_name)
+        available_entrypoints = entrypoints.get_group_all(
+            ENTRYPOINT_GROUP_NAME)
+        available_plugins = [
+            entrypoint. name for entrypoint in available_entrypoints]
+        __logger__.warning(
+            "Backend '%s' is not available. Available plugins are %s", backend_name, available_plugins)
 
     return None
