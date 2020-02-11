@@ -399,9 +399,7 @@ const mapStateToProps = (state, ownProps) => {
   };
 };
 
-const mapDispatchToProps = () => {
-  return { getMetricHistoryApi };
-};
+const mapDispatchToProps = { getMetricHistoryApi };
 
 export default withRouter(
   connect(
