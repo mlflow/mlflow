@@ -186,7 +186,7 @@ plugin:
      - mlflow.project.backend
      - The entry point value (e.g. ``mlflow_test_plugin:PluginDummyProjectBackend``) specifies a custom subclass of
        ``mlflow.project.backend.AbstractBackend``)
-     - (TODO) `DataBricksProjectBackend ``_
+     - `DatabricksProjectBackend <https://github.com/mlflow/mlflow/blob/master/mlflow/projects/backend/databricks.py#L291>`_
 
 Testing Your Plugin
 ~~~~~~~~~~~~~~~~~~~
@@ -200,7 +200,7 @@ reference implementations as an example:
 * `Example ArtifactRepository tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/artifact/test_local_artifact_repo.py>`_
 * `Example RunContextProvider tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/tracking/context/test_git_context.py>`_
 * `Example Model Registry Store tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/model_registry/test_sqlalchemy_store.py>`_
-* (TODO) `Example MLflow Project Backend tests `_
+* `Example MLflow Project Backend tests <https://github.com/mlflow/mlflow/blob/master/tests/projects/backend/test_databricks.py>`_
 
 
 Distributing Your Plugin

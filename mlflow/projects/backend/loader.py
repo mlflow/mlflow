@@ -1,12 +1,22 @@
 import entrypoints
 import logging
 
+from mlflow.projects.backend import databricks
+
 ENTRYPOINT_GROUP_NAME = "mlflow.mlproject_backend"
 
 __logger__ = logging.getLogger(__name__)
 
 
+# Statically register backend defined in mlflow
+MLFLOW_BACKENDS = {"databricks": databricks.DatabricksProjectBackend}
+
+
 def load_backend(backend_name):
+    # Static backends
+    if backend_name in MLFLOW_BACKENDS:
+        return MLFLOW_BACKENDS[backend_name]()
+
     # backends from plugin
     try:
         backend_builder = entrypoints.get_single(ENTRYPOINT_GROUP_NAME,
