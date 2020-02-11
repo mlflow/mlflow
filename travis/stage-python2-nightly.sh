@@ -3,7 +3,7 @@ set -ex
 CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples\|Dockerfile") || true
 if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"examples"* ]]
 then
-    pytest --verbose tests/examples --large
+    pytest --verbose --durations=0 tests/examples --large
 fi
 if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"Dockerfile"* ]]
 then
