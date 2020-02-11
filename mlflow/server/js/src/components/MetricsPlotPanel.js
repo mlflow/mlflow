@@ -171,8 +171,11 @@ export class MetricsPlotPanel extends React.Component {
           };
         }
       }
+    } else {
+      newLayout.yaxis = {type: 'log', autorange: true};
     }
-  }
+    this.setState({layout: newLayout});
+  };
 
   handleXAxisChange = (e) => {
     // Set axis value type, & reset axis scaling via autorange
@@ -242,7 +245,6 @@ export class MetricsPlotPanel extends React.Component {
       yAxisLogScale,
       lineSmoothness,
     } = this.state;
-    console.log("Got history request IDs " + historyRequestIds + ", state: " + JSON.stringify(this.state));
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
     return (
