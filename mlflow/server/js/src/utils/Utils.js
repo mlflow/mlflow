@@ -392,6 +392,16 @@ class Utils {
     };
   }
 
+  static getCurveKey(runId, metricName) {
+    return `${runId}-${metricName}`;
+  }
+  
+  static getCurveInfoFromKey(curvePair) {
+    const splitPair = curvePair.split("-");
+    return {runId: splitPair[0], metricName: splitPair.slice(1, splitPair.length).join("-")};
+  }
+
+
   // Get metric plot state from URL, exposed as a static util
   // The reverse transformation (from metric plot component state to URL) is exposed as a component
   // method, as it only needs to be called within the metric plot component
@@ -410,10 +420,9 @@ class Utils {
     const lineSmoothness = params['line_smoothness'] ? parseFloat(params['line_smoothness']) : 0;
     const layout = params['plot_layout'] ? JSON.parse(params['plot_layout']) : {autosize: true};
     // Default to displaying all runs if user hasn't selected out any
-    const parsedSelectedRuns = params['selected_run_ids'] ?
-        JSON.parse(params['selected_run_ids']) : undefined;
-    const parsedRuns = params['runs'] ? JSON.parse(params['runs']) : [];
-    const selectedRunIds = parsedSelectedRuns || [];
+    // TODO(sid): rename this, this is actually excluded curve infos
+    const selectedRunIds = params['selected_run_ids'] ?
+        JSON.parse(params['selected_run_ids']) : [];
     return {
       selectedXAxis,
       selectedMetricKeys,

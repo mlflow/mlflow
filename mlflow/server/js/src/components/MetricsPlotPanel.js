@@ -258,12 +258,13 @@ export class MetricsPlotPanel extends React.Component {
       // Otherwise, record time of current click & trigger click event
       // Wait full double-click window to trigger setting state, and only if there was no
       // double-click do we run the single-click logic (we wait a little extra to be safe)
+      const curveKey = Utils.getCurveKey(data[curveNumber].runId, data[curveNumber].metricName);
       this.legendClickTimeout = window.setTimeout(() => {
         const existingIdsClicked = new Set(state.selectedRunIds);
-        if (existingIdsClicked.has(curveNumber)) {
-          existingIdsClicked.delete(curveNumber);
+        if (existingIdsClicked.has(curveKey)) {
+          existingIdsClicked.delete(curveKey);
         } else {
-          existingIdsClicked.add(curveNumber);
+          existingIdsClicked.add(curveKey);
         }
         this.updateUrlState({selectedRunIds: Array.from(existingIdsClicked)});
       }, 310);
@@ -274,8 +275,12 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   handleLegendDoubleClick = ({curveNumber, data}) => {
+    const state = this.getUrlState();
     window.clearTimeout(this.legendClickTimeout);
-    const newSelectedIds = [...Array(data.length).keys()].filter((idx) => idx !== curveNumber);
+    const curveKey = Utils.getCurveKey(data[curveNumber].runId, data[curveNumber].metricName);
+    // Exclude everything besides the current curve key
+    const allCurveKeys = data.map((elem) => Utils.getCurveKey(elem.runId, elem.metricName));
+    const newSelectedIds = allCurveKeys.filter((curvePair) => curvePair !== curveKey);
     this.updateUrlState({selectedRunIds: newSelectedIds});
     return false;
   };

@@ -51,7 +51,8 @@ export class MetricsPlotView extends React.Component {
     const data = metrics.map((metric, idx) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
       const isSingleHistory = history.length === 0;
-      const visible = !selectedRunIdSet.has(idx) ? true : "legendonly";
+      const visible = !selectedRunIdSet.has(Utils.getCurveKey(runUuid, metricKey)) ?
+          true : "legendonly";
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
         x: history.map((entry) => {
@@ -67,6 +68,7 @@ export class MetricsPlotView extends React.Component {
         marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
         visible: visible,
         runId: runUuid,
+        metricName: metricKey,
       };
     });
     const props = { data };
