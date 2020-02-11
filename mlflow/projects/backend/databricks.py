@@ -141,8 +141,7 @@ class DatabricksJobRunner(object):
             file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME,
                                     custom_filter=custom_filter)
             with open(temp_tar_filename, "rb") as tarred_project:
-                tarfile_hash = hashlib.sha256(
-                    tarred_project.read()).hexdigest()
+                tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
             # TODO: Get subdirectory for experiment from the tracking server
             dbfs_path = posixpath.join(DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
                                        "projects-code", "%s.tar.gz" % tarfile_hash)
