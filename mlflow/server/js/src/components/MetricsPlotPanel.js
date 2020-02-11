@@ -112,7 +112,7 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   handleYAxisLogScaleChange = (yAxisLogScale) => {
-    const state = this.getUrlState();
+    const state = this.state;
     const newLayout = _.cloneDeep(state.layout);
     // If yaxis was already explicitly specified, convert range to appropriate coordinates
     // for log axis (base 10), and vice versa. When converting to log scale, handle negative values
@@ -328,9 +328,7 @@ const mapStateToProps = (state, ownProps) => {
   };
 };
 
-const mapDispatchToProps = () => {
-  return { getMetricHistoryApi };
-};
+const mapDispatchToProps = { getMetricHistoryApi };
 
 export default withRouter(
   connect(
