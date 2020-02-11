@@ -5,11 +5,12 @@ import numpy as np
 import pandas as pd
 from sklearn import datasets
 import lightgbm as lgb
-import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 import mlflow
 import mlflow.lightgbm
 
+mpl.use('Agg')
 client = mlflow.tracking.MlflowClient()
 
 
@@ -243,7 +244,7 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
 def test_no_figure_is_opened_after_logging(bst_params, train_set):
     mlflow.lightgbm.autolog()
     lgb.train(bst_params, train_set, num_boost_round=10)
-    assert plt.get_fignums() == []
+    assert mpl.pyplot.get_fignums() == []
 
 
 @pytest.mark.large

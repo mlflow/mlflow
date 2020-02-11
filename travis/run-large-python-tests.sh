@@ -15,10 +15,6 @@ else
   cat $SAGEMAKER_OUT;
 fi
 
-# Set matplotlib to not use the Xwindows backend which causes an error.
-# Ref.: https://stackoverflow.com/questions/37604289/tkinter-tclerror-no-display-name-and-no-display-environment-variable
-echo "backend: Agg" > ~/.config/matplotlib/matplotlibrc
-
 # NB: Also add --ignore'd tests to run-small-python-tests.sh
 pytest tests --large --ignore=tests/examples --ignore=tests/h2o --ignore=tests/keras \
   --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \

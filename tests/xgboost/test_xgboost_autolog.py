@@ -5,11 +5,12 @@ import numpy as np
 import pandas as pd
 from sklearn import datasets
 import xgboost as xgb
-import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 import mlflow
 import mlflow.xgboost
 
+mpl.use('Agg')
 client = mlflow.tracking.MlflowClient()
 
 
@@ -253,7 +254,7 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
 def test_no_figure_is_opened_after_logging(bst_params, dtrain):
     mlflow.xgboost.autolog()
     xgb.train(bst_params, dtrain)
-    assert plt.get_fignums() == []
+    assert mpl.pyplot.get_fignums() == []
 
 
 @pytest.mark.large
