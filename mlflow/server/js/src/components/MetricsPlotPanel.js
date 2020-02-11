@@ -233,6 +233,7 @@ export class MetricsPlotPanel extends React.Component {
       yAxisLogScale,
       lineSmoothness,
     } = this.state;
+    console.log("Got history request IDs " + historyRequestIds + ", state: " + JSON.stringify(this.state));
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
     return (
