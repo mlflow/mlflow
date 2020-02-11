@@ -69,8 +69,7 @@ def dbfs_root_mock(tmpdir):
 @pytest.fixture()
 def upload_to_dbfs_mock(dbfs_root_mock):
     def upload_mock_fn(_, src_path, dbfs_uri):
-        mock_dbfs_dst = os.path.join(
-            dbfs_root_mock, dbfs_uri.split("/dbfs/")[1])
+        mock_dbfs_dst = os.path.join(dbfs_root_mock, dbfs_uri.split("/dbfs/")[1])
         os.makedirs(os.path.dirname(mock_dbfs_dst))
         shutil.copy(src_path, mock_dbfs_dst)
 

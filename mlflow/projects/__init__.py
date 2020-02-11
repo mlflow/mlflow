@@ -113,8 +113,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     # Consolidate parameters for logging.
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
     entry_point_obj = project.get_entry_point(entry_point)
-    final_params, extra_params = entry_point_obj.compute_parameters(
-        parameters, storage_dir=None)
+    final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
     for key, value in (list(final_params.items()) + list(extra_params.items())):
         tracking.MlflowClient().log_param(active_run.info.run_id, key, value)
 
@@ -362,8 +361,7 @@ def _fetch_zip_repo(uri):
     try:
         response.raise_for_status()
     except requests.HTTPError as error:
-        raise ExecutionException(
-            "Unable to retrieve ZIP file. Reason: %s" % str(error))
+        raise ExecutionException("Unable to retrieve ZIP file. Reason: %s" % str(error))
     return BytesIO(response.content)
 
 
@@ -552,8 +550,7 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
     used to report additional data about the run (metrics/params) to the tracking server.
     """
     if _is_local_uri(uri):
-        source_name = tracking._tracking_service.utils._get_git_url_if_present(
-            _expand_uri(uri))
+        source_name = tracking._tracking_service.utils._get_git_url_if_present(_expand_uri(uri))
     else:
         source_name = _expand_uri(uri)
     source_version = _get_git_commit(work_dir)
@@ -770,8 +767,7 @@ def _build_docker_image(work_dir, repository_uri, base_image, run_id):
         client = docker.from_env()
         image, _ = client.images.build(
             tag=image_uri, forcerm=True,
-            dockerfile=posixpath.join(
-                _PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
+            dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
             fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
     try:
         os.remove(build_ctx_path)
