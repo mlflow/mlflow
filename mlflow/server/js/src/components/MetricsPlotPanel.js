@@ -149,7 +149,13 @@ export class MetricsPlotPanel extends React.Component {
 
     if (state.layout.yaxis) {
       const oldYRange = state.layout.yaxis.range;
-      if (state.yAxisLogScale) {
+      // Old y range was unspecified, e.g. y axis was just on autorange. Just set the axis
+      // type & let plotly handle things
+      if (!oldYRange) {
+        newLayout.yaxis = {...newLayout.yaxis, type: yAxisLogScale ? "log" : "linear"};
+      } else if (state.yAxisLogScale) {
+        // We at this point know that there was an old y scale, so should convert it to/from
+        // log scale.
         // When converting from log scale to linear scale, only apply conversion if autorange
         // was not true (otherwise restore old axis values)
         if (state.layout.yaxis.autorange) {
@@ -164,7 +170,6 @@ export class MetricsPlotPanel extends React.Component {
           };
         }
       } else {
-          debugger;
           if (oldYRange[0] < 0) {
               // When converting to log scale, handle negative values as follows:
               // If bottom of old Y range is negative, then simply autorange the plot, so that we
@@ -280,6 +285,7 @@ export class MetricsPlotPanel extends React.Component {
     const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
     this.setState((prevState) => {
       this.setState({historyRequestIds: [...prevState.historyRequestIds, ...requestIds]}, () => {
+        // Problem seems to be setting this state in a nested way
         this.updateUrlState({
           selectedMetricKeys: metricValues,
         });
@@ -306,6 +312,7 @@ export class MetricsPlotPanel extends React.Component {
     const { historyRequestIds } = this.state;
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
+    console.log("got history request IDs " + historyRequestIds);
     return (
       <div className='metrics-plot-container'>
         <MetricsPlotControls
