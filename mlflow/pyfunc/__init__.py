@@ -585,8 +585,10 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
                     second_set_entries=second_argument_set)),
             error_code=INVALID_PARAMETER_VALUE)
     elif (loader_module is None) and (python_model is None):
+        msg = "Either `loader_module` or `python_model` must be specified. A `loader_module` " \
+              "should be a python module. A `python_model` should be a subclass of PythonModel"
         raise MlflowException(
-            message="Either `loader_module` or `python_model` must be specified!",
+            message=msg,
             error_code=INVALID_PARAMETER_VALUE)
 
     if first_argument_set_specified:

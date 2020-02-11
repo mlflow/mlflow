@@ -688,7 +688,9 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
                                     "artifact": "/path/to/artifact",
                                 },
                                 python_model=None)
-    assert "Either `loader_module` or `python_model` must be specified!" in str(exc_info)
+    assert "Either `loader_module` or `python_model` must be specified. A `loader_module` " \
+           "should be a python module. A `python_model` should be a subclass of " \
+           "PythonModel" in str(exc_info)
 
     python_model = ModuleScopedSklearnModel(predict_fn=None)
     loader_module = __name__
