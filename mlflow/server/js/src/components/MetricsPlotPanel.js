@@ -111,7 +111,6 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   handleYAxisLogScaleChange = (yAxisLogScale) => {
-    const state = this.state;
     const newLayout = _.cloneDeep(state.layout);
     // If yaxis was already explicitly specified, convert range to appropriate coordinates
     // for log axis (base 10), and vice versa. When converting to log scale, handle negative values
@@ -120,7 +119,7 @@ export class MetricsPlotPanel extends React.Component {
 
     // If plot previously had no y axis range configured, simply set the axis type to log or
     // linear scale appropriately
-    if (!state.layout.yaxis || !this.state.layout.yaxis.range) {
+    if (!this.state.layout.yaxis || !this.state.layout.yaxis.range) {
       newLayout.yaxis = {type: newAxisType, autorange: true};
       this.setState({layout: newLayout});
       return;
@@ -128,13 +127,13 @@ export class MetricsPlotPanel extends React.Component {
 
     // At this point, we know the plot previously had a y axis specified with range
     // Convert the range to/from log scale as appropriate
-    const oldYRange = state.layout.yaxis.range;
-    if (state.layout.yaxis.type === 'log') {
+    const oldYRange = this.state.layout.yaxis.range;
+    if (this.state.layout.yaxis.type === 'log') {
       // We at this point know that there was an old y scale, so should convert it to/from
       // log scale.
       // When converting from log scale to linear scale, only apply conversion if autorange
       // was not true (otherwise restore old axis values)
-      if (state.layout.yaxis.autorange) {
+      if (this.state.layout.yaxis.autorange) {
         newLayout.yaxis = {
           type: 'linear',
           range: oldYRange,
