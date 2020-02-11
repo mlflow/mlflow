@@ -41,7 +41,7 @@ class RunView extends Component {
   };
 
   componentDidMount() {
-    document.title = this.props.runDisplayName;
+    document.title = `${this.props.runDisplayName} - MLflow Run`;
   }
 
   handleRenameRunClick = () => {

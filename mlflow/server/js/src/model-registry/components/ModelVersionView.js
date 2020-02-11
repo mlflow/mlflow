@@ -112,6 +112,10 @@ export class ModelVersionView extends React.Component {
     return null;
   }
 
+  componentDidMount() {
+    document.title = `${this.props.modelName} v${this.props.modelVersion.version} - MLflow Model`;
+  }
+
   render() {
     const {
       modelName,

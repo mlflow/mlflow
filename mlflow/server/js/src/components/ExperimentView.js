@@ -187,7 +187,7 @@ export class ExperimentView extends Component {
     if (this.props.location.pathname === "/") {
       document.title = "MLflow Experiments";
     } else {
-      document.title = this.props.experiment.name;
+      document.title = `${this.props.experiment.name} - MLflow Experiment`;
     }
   }
 
