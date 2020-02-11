@@ -17,7 +17,7 @@ def load_backend(backend_name):
         available_entrypoints = entrypoints.get_group_all(
             ENTRYPOINT_GROUP_NAME)
         available_plugins = [
-            entrypoint. name for entrypoint in available_entrypoints]
+            entrypoint.name for entrypoint in available_entrypoints]
         __logger__.warning(
             "Backend '%s' is not available. Available plugins are %s", backend_name, available_plugins)
 
