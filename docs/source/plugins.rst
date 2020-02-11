@@ -108,9 +108,9 @@ The example package contains a ``setup.py`` that declares a number of
             # Define a Model Registry Store plugin for tracking URIs with scheme 'file-plugin'
             "mlflow.model_registry_store":
                 "file-plugin=mlflow_test_plugin:PluginRegistrySqlAlchemyStore",
-            # Define a MLflow Project Backend plugin with scheme 'file-plugin'
+            # Define a MLflow Project Backend plugin called 'dummy-backend'
             "mlflow.mlproject_backend":
-                "file-plugin=mlflow_test_plugin:PluginMLProjectLocalExecutionBackend",
+                "dummy-backend=mlflow_test_plugin:PluginDummyProjectBackend",
         },
     )
 
@@ -184,9 +184,9 @@ plugin:
 
    * - Plugins for overridding MLflow Project Execution backend like databricks or kubernetes
      - mlflow.project.backend
-     - The entry point value (e.g. ``mlflow_test_plugin:PluginMLProjectLocalExecutionBackend``) specifies a custom subclass of
+     - The entry point value (e.g. ``mlflow_test_plugin:PluginDummyProjectBackend``) specifies a custom subclass of
        ``mlflow.project.backend.AbstractBackend``)
-     - `DatabricksBackend`_
+     - (TODO) `DataBricksProjectBackend ``_
 
 Testing Your Plugin
 ~~~~~~~~~~~~~~~~~~~
@@ -200,7 +200,7 @@ reference implementations as an example:
 * `Example ArtifactRepository tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/artifact/test_local_artifact_repo.py>`_
 * `Example RunContextProvider tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/tracking/context/test_git_context.py>`_
 * `Example Model Registry Store tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/model_registry/test_sqlalchemy_store.py>`_
-* `Example MLflow Project Backend tests `_
+* (TODO) `Example MLflow Project Backend tests `_
 
 
 Distributing Your Plugin

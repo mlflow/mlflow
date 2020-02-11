@@ -21,5 +21,8 @@ setup(
         # Define a Model Registry Store plugin for tracking URIs with scheme 'file-plugin'
         "mlflow.model_registry_store":
             "file-plugin=mlflow_test_plugin:PluginRegistrySqlAlchemyStore",
+        # Define a dummy project backend
+        "mlflow.mlproject_backend":
+            "dummy-backend=mlflow_test_plugin:PluginDummyProjectBackend",
     },
 )
