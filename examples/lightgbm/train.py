@@ -48,7 +48,8 @@ def main():
             'subsample': args.subsample,
             'seed': 42,
         }
-        model = lgb.train(params, train_set, valid_sets=[train_set], valid_names=['train'])
+        model = lgb.train(params, train_set, num_boost_round=10,
+                          valid_sets=[train_set], valid_names=['train'])
 
         # evaluate model
         y_proba = model.predict(X_test)
