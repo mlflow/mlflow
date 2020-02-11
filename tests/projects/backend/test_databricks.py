@@ -157,8 +157,7 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disa
 
 
 @pytest.mark.parametrize("response_mock", [
-    helper_functions.create_mock_response(
-        400, "Error message but not a JSON string"),
+    helper_functions.create_mock_response(400, "Error message but not a JSON string"),
     helper_functions.create_mock_response(400, ""),
     helper_functions.create_mock_response(400, None)
 ])
@@ -226,10 +225,8 @@ def test_run_databricks(
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         # Test that MLflow gets the correct run status when performing a Databricks run
         for run_succeeded, expect_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
-            runs_get_mock.return_value = mock_runs_get_result(
-                succeeded=run_succeeded)
-            submitted_run = run_databricks_project(
-                cluster_spec_mock, synchronous=False)
+            runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
+            submitted_run = run_databricks_project(cluster_spec_mock, synchronous=False)
             assert submitted_run.wait() == run_succeeded
             assert submitted_run.run_id is not None
             assert runs_submit_mock.call_count == 1
@@ -272,8 +269,7 @@ def test_run_databricks_throws_exception_when_spec_uses_existing_cluster(
         }
         with pytest.raises(MlflowException) as exc:
             run_databricks_project(cluster_spec=existing_cluster_spec)
-        assert "execution against existing clusters is not currently supported" in str(
-            exc)
+        assert "execution against existing clusters is not currently supported" in str(exc)
         assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -286,8 +282,7 @@ def test_run_databricks_cancel(
     # waiting for run status.
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
-        submitted_run = run_databricks_project(
-            cluster_spec_mock, synchronous=False)
+        submitted_run = run_databricks_project(cluster_spec_mock, synchronous=False)
         submitted_run.cancel()
         validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
         assert runs_cancel_mock.call_count == 1

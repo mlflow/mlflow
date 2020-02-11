@@ -73,8 +73,7 @@ class DatabricksJobRunner(object):
         self.databricks_profile = databricks_profile
 
     def _databricks_api_request(self, endpoint, method, **kwargs):
-        host_creds = databricks_utils.get_databricks_host_creds(
-            self.databricks_profile)
+        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
         return rest_utils.http_request_safe(
             host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
 
@@ -88,17 +87,14 @@ class DatabricksJobRunner(object):
         Upload the file at `src_path` to the specified DBFS URI within the Databricks workspace
         corresponding to the default Databricks CLI profile.
         """
-        _logger.info(
-            "=== Uploading project to DBFS path %s ===", dbfs_fuse_uri)
+        _logger.info("=== Uploading project to DBFS path %s ===", dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
         with open(src_path, 'rb') as f:
             try:
-                self._databricks_api_request(
-                    endpoint=http_endpoint, method='POST', data=f)
+                self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
             except MlflowException as e:
                 if "Error 409" in e.message and "File already exists" in e.message:
-                    _logger.info(
-                        "=== Did not overwrite existing DBFS path %s ===", dbfs_fuse_uri)
+                    _logger.info("=== Did not overwrite existing DBFS path %s ===", dbfs_fuse_uri)
                 else:
                     raise e
 
@@ -108,8 +104,7 @@ class DatabricksJobRunner(object):
         default Databricks CLI profile. The path is expected to be a relative path to the DBFS root
         directory, e.g. 'path/to/file'.
         """
-        host_creds = databricks_utils.get_databricks_host_creds(
-            self.databricks_profile)
+        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
         response = rest_utils.http_request(
             host_creds=host_creds, endpoint="/api/2.0/dbfs/get-status", method="GET",
             json={"path": "/%s" % dbfs_path})
@@ -154,8 +149,7 @@ class DatabricksJobRunner(object):
             dbfs_fuse_uri = posixpath.join("/dbfs", dbfs_path)
             if not self._dbfs_path_exists(dbfs_path):
                 self._upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
-                _logger.info(
-                    "=== Finished uploading project to %s ===", dbfs_fuse_uri)
+                _logger.info("=== Finished uploading project to %s ===", dbfs_fuse_uri)
             else:
                 _logger.info("=== Project already exists in DBFS ===")
         finally:
@@ -201,11 +195,9 @@ class DatabricksJobRunner(object):
             tracking._TRACKING_URI_ENV_VAR: tracking_uri,
             tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
         }
-        _logger.info(
-            "=== Running entry point %s of project %s on Databricks ===", entry_point, uri)
+        _logger.info("=== Running entry point %s of project %s on Databricks ===", entry_point, uri)
         # Launch run on Databricks
-        command = _get_databricks_run_cmd(
-            dbfs_fuse_uri, run_id, entry_point, parameters)
+        command = _get_databricks_run_cmd(dbfs_fuse_uri, run_id, entry_point, parameters)
         return self._run_shell_command_job(uri, command, env_vars, cluster_spec)
 
     def _get_status(self, databricks_run_id):
@@ -254,8 +246,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     Generate MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks.
     """
     # Strip ".gz" and ".tar" file extensions from base filename of the tarfile
-    tar_hash = posixpath.splitext(posixpath.splitext(
-        posixpath.basename(dbfs_fuse_tar_uri))[0])[0]
+    tar_hash = posixpath.splitext(posixpath.splitext(posixpath.basename(dbfs_fuse_tar_uri))[0])[0]
     container_tar_path = posixpath.abspath(posixpath.join(DB_TARFILE_BASE,
                                                           posixpath.basename(dbfs_fuse_tar_uri)))
     project_dir = posixpath.join(DB_PROJECTS_BASE, tar_hash)
@@ -341,8 +332,7 @@ class DatabricksSubmittedRun(SubmittedRun):
         run_info = self._job_runner.jobs_runs_get(self._databricks_run_id)
         jobs_page_url = run_info["run_page_url"]
         _logger.info("=== Check the run's status at %s ===", jobs_page_url)
-        host_creds = databricks_utils.get_databricks_host_creds(
-            self._job_runner.databricks_profile)
+        host_creds = databricks_utils.get_databricks_host_creds(self._job_runner.databricks_profile)
         tracking.MlflowClient().set_tag(self._mlflow_run_id,
                                         MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
         tracking.MlflowClient().set_tag(self._mlflow_run_id,
@@ -361,12 +351,10 @@ class DatabricksSubmittedRun(SubmittedRun):
         return self._mlflow_run_id
 
     def wait(self):
-        result_state = self._job_runner.get_run_result_state(
-            self._databricks_run_id)
+        result_state = self._job_runner.get_run_result_state(self._databricks_run_id)
         while result_state is None:
             time.sleep(self.POLL_STATUS_INTERVAL)
-            result_state = self._job_runner.get_run_result_state(
-                self._databricks_run_id)
+            result_state = self._job_runner.get_run_result_state(self._databricks_run_id)
         return result_state == "SUCCESS"
 
     def cancel(self):
