@@ -111,7 +111,7 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   handleYAxisLogScaleChange = (yAxisLogScale) => {
-    const newLayout = _.cloneDeep(state.layout);
+    const newLayout = _.cloneDeep(this.state.layout);
     // If yaxis was already explicitly specified, convert range to appropriate coordinates
     // for log axis (base 10), and vice versa. When converting to log scale, handle negative values
     // by deferring to plotly autorange
@@ -127,28 +127,15 @@ export class MetricsPlotPanel extends React.Component {
 
     // At this point, we know the plot previously had a y axis specified with range
     // Convert the range to/from log scale as appropriate
-    const oldYRange = this.state.layout.yaxis.range;
-    if (this.state.layout.yaxis.type === 'log') {
-      // We at this point know that there was an old y scale, so should convert it to/from
-      // log scale.
-      // When converting from log scale to linear scale, only apply conversion if autorange
-      // was not true (otherwise restore old axis values)
-      if (this.state.layout.yaxis.autorange) {
-        newLayout.yaxis = {
-          type: 'linear',
-          range: oldYRange,
-        };
-      } else {
-        newLayout.yaxis = {
-          type: 'linear',
-          range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
-        };
-      }
-    } else {
+    const oldLayout = this.state.layout;
+    const oldYRange = oldLayout.yaxis.range;
+    if (oldLayout.yaxis.type !== 'log') {
       if (oldYRange[0] < 0) {
         // When converting to log scale, handle negative values as follows:
-        // If bottom of old Y range is negative, then simply autorange the plot, so that we
-        // can convert back. Otherwise, do the conversion
+        // If bottom of old Y range is negative, then tell plotly to infer the y-axis scale
+        // (set 'autorange' to true), and preserve the old range in the 'range' attribute of
+        // the layout so that we can restore it if the user converts back to a linear-scale
+        // y axis.
         newLayout.yaxis = {
           type: 'log',
           range: oldYRange,
@@ -160,6 +147,20 @@ export class MetricsPlotPanel extends React.Component {
           range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
         };
       }
+    // Handle conversion from log to linear scale. If old Y axis was autoranged (had a range
+    // inferred by Plotly), this means that there were negative Y values (on a linear scale).
+    // We handle this by removing the 'autorange' value and restoring the old y range
+    } else if (oldLayout.yaxis.autorange) {
+      newLayout.yaxis = {
+        type: 'linear',
+        range: oldYRange,
+      };
+    } else {
+      // Otherwise, convert from log to linear scale normally
+      newLayout.yaxis = {
+        type: 'linear',
+        range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
+      };
     }
     this.setState({layout: newLayout});
   };
