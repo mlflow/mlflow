@@ -19,7 +19,6 @@ export class MetricsPlotView extends React.Component {
     showPoint: PropTypes.bool.isRequired,
     chartType: PropTypes.string.isRequired,
     isComparing: PropTypes.bool.isRequired,
-    yAxisLogScale: PropTypes.bool.isRequired,
     lineSmoothness: PropTypes.number,
     extraLayout: PropTypes.object,
     onLayoutChange: PropTypes.func.isRequired,
@@ -42,7 +41,7 @@ export class MetricsPlotView extends React.Component {
   };
 
   getPlotPropsForLineChart = () => {
-    const { metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness, isComparing } = this.props;
+    const { metrics, xAxis, showPoint, lineSmoothness, isComparing } = this.props;
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history } = metric;
       const isSingleHistory = history.length === 0;
@@ -66,13 +65,6 @@ export class MetricsPlotView extends React.Component {
       ...props.layout,
       ...this.props.extraLayout,
     };
-    if (yAxisLogScale) {
-      const existingYAxis = props.layout.yaxis ? props.layout.yaxis : {};
-      props.layout.yaxis = {
-        ...existingYAxis,
-        type: 'log',
-      };
-    }
     return props;
   };
 
@@ -129,7 +121,7 @@ export class MetricsPlotView extends React.Component {
             onLayoutChange(newLayout);
           }}
           style={{ width: '100%', height: '100%' }}
-          layout={{ ...{ autosize: true }, ...plotProps.layout }}
+          layout={_.cloneDeep(plotProps.layout)}
           config={{
             displaylogo: false,
             scrollZoom: true,
