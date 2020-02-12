@@ -98,11 +98,12 @@ def get_tracking_uri():
     """
     global _tracking_uri
     if _tracking_uri is not None:
-        return _tracking_uri
+        uri = _tracking_uri
     elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
-        return env.get_env(_TRACKING_URI_ENV_VAR)
+        uri = env.get_env(_TRACKING_URI_ENV_VAR)
     else:
-        return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
+        uri = path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
+    return os.path.abspath(os.path.expanduser(uri))
 
 
 def _get_file_store(store_uri, **_):
