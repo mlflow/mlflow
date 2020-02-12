@@ -129,65 +129,53 @@ export class MetricsPlotPanel extends React.Component {
   handleYAxisLogScaleChange = (yAxisLogScale) => {
     const state = this.getUrlState();
     const newLayout = _.cloneDeep(state.layout);
-    // If yaxis was already explicitly specified, convert range to appropriate coordinates
-    // for log axis (base 10), and vice versa. When converting to log scale, handle negative values
-    // by deferring to plotly autorange
-    console.log("@SID got layout state " + JSON.stringify(state.layout));
-
-    // Possible layout types
-    // {yaxis: {range: []}}
-    // {yaxis: {autorange: true}}
-    // {yaxis: {autorange: true, range: [...]}}
-
-    //
-    // if (state.layout.yaxis && state.layout.yaxis.range) {
-    //   this.updateExistingYAxisLogScale()
-    // } else {
-    //   newLayout.yaxis = {autorange: true, type: "log"};
-    // }
-
-
-    if (state.layout.yaxis) {
-      const oldYRange = state.layout.yaxis.range;
-      // Old y range was unspecified, e.g. y axis was just on autorange. Just set the axis
-      // type & let plotly handle things
-      if (!oldYRange) {
-        newLayout.yaxis = {...newLayout.yaxis, type: yAxisLogScale ? "log" : "linear"};
-      } else if (state.yAxisLogScale) {
-        // We at this point know that there was an old y scale, so should convert it to/from
-        // log scale.
-        // When converting from log scale to linear scale, only apply conversion if autorange
-        // was not true (otherwise restore old axis values)
-        if (state.layout.yaxis.autorange) {
-          newLayout.yaxis = {
-            type: 'linear',
-            range: oldYRange,
-          };
-        } else {
-          newLayout.yaxis = {
-            type: 'linear',
-            range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
-          };
-        }
-      } else {
-          if (oldYRange[0] < 0) {
-              // When converting to log scale, handle negative values as follows:
-              // If bottom of old Y range is negative, then simply autorange the plot, so that we
-              // can convert back. Otherwise, do the conversion
-              newLayout.yaxis = {
-                  type: 'log',
-                  range: oldYRange,
-                  autorange: true,
-              };
-          } else {
-              newLayout.yaxis = {
-                  type: 'log',
-                  range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
-              };
-          }
-      }
+    const newAxisType = yAxisLogScale ? "log" : "linear";
+    // If plot previously had no y axis range configured, simply set the axis type to log or
+    // linear scale appropriately
+    if (!state.layout.yaxis || !state.layout.yaxis.range) {
+      newLayout.yaxis = {type: newAxisType, autorange: true};
+      this.updateUrlState({layout: newLayout});
+      return;
     }
-    this.updateUrlState({ yAxisLogScale, layout: newLayout });
+
+    // At this point, we know the plot previously had a y axis specified with range
+    // Convert the range to/from log scale as appropriate
+    const oldLayout = state.layout;
+    const oldYRange = oldLayout.yaxis.range;
+    if (oldLayout.yaxis.type !== 'log') {
+      if (oldYRange[0] < 0) {
+        // When converting to log scale, handle negative values as follows:
+        // If bottom of old Y range is negative, then tell plotly to infer the y-axis scale
+        // (set 'autorange' to true), and preserve the old range in the 'range' attribute of
+        // the layout so that we can restore it if the user converts back to a linear-scale
+        // y axis.
+        newLayout.yaxis = {
+          type: 'log',
+          range: oldYRange,
+          autorange: true,
+        };
+      } else {
+        newLayout.yaxis = {
+          type: 'log',
+          range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
+        };
+      }
+      // Handle conversion from log to linear scale. If old Y axis was autoranged (had a range
+      // inferred by Plotly), this means that there were negative Y values (on a linear scale).
+      // We handle this by removing the 'autorange' value and restoring the old y range
+    } else if (oldLayout.yaxis.autorange) {
+      newLayout.yaxis = {
+        type: 'linear',
+        range: oldYRange,
+      };
+    } else {
+      // Otherwise, convert from log to linear scale normally
+      newLayout.yaxis = {
+        type: 'linear',
+        range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
+      };
+    }
+    this.updateUrlState({layout: newLayout});
   };
 
   handleXAxisChange = (e) => {
@@ -205,7 +193,6 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   handleLayoutChange = (newLayout) => {
-    console.log("Handling layout change, new layout " + JSON.stringify(newLayout));
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
     const state = this.getUrlState();
@@ -233,6 +220,7 @@ export class MetricsPlotPanel extends React.Component {
       };
     }
     if (newLayout["xaxis.autorange"]) {
+      // TODO add logic from other branch
       mergedLayout = {
         ...mergedLayout,
         xaxis: {autorange: true}
