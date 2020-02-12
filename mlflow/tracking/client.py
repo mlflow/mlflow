@@ -316,7 +316,7 @@ class MlflowClient(object):
         self._tracking_client.restore_run(run_id)
 
     def search_runs(self, experiment_ids, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, diff_params=False, page_token=None):
         """
         Search experiments that fit the search criteria.
 
@@ -328,6 +328,7 @@ class MlflowClient(object):
         :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
                      can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
                      The default ordering is to sort by ``start_time DESC``, then ``run_id``.
+        :param diff_params: Return only parameters that are inconsistent for the runs
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
 
@@ -336,7 +337,7 @@ class MlflowClient(object):
             the next page may be obtained via the ``token`` attribute of the returned object.
         """
         return self._tracking_client.search_runs(experiment_ids, filter_string, run_view_type,
-                                                 max_results, order_by, page_token)
+                                                 max_results, order_by, diff_params, page_token)
 
     # Registry API
 
