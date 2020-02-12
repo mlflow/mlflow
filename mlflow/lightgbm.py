@@ -260,6 +260,7 @@ def autolog():
                 fig.savefig(filepath)
                 try_mlflow_log(mlflow.log_artifact, filepath)
             finally:
+                plt.close(fig)
                 shutil.rmtree(tmpdir)
 
         if not mlflow.active_run():
@@ -326,7 +327,7 @@ def autolog():
             except Exception:  # pylint: disable=broad-except
                 _logger.exception('Failed to log feature importance plot. LightGBM autologging '
                                   'will ignore the failure and continue. Exception: ')
-            log_feature_importance_plot(features, importance, imp_type)
+
             imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
             tmpdir = tempfile.mkdtemp()
             try:
