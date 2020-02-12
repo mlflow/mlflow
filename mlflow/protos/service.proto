@@ -950,6 +950,8 @@ message SearchRuns {
   // (and this is the default ordering criterion if order_by is not provided).
   repeated string order_by = 6;
 
+  optional bool diff_params = 8;
+
   optional string page_token = 7;
 
   message Response {

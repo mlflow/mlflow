@@ -244,7 +244,7 @@ class TestRestStore(object):
 
             expected_message = SearchRuns(experiment_ids=["0", "1"], filter="params.p1 = 'a'",
                                           run_view_type=ViewType.to_proto(ViewType.ACTIVE_ONLY),
-                                          max_results=10, order_by=["a"], page_token="12345abcde")
+                                          max_results=10, order_by=["a"], diff_params=False, page_token="12345abcde")
             self._verify_requests(mock_http, creds,
                                   "runs/search", "POST",
                                   message_to_json(expected_message))

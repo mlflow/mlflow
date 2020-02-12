@@ -188,13 +188,14 @@ class RestStore(AbstractStore):
         return [Metric.from_proto(metric) for metric in response_proto.metrics]
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token):
+                     diff_params, page_token):
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(experiment_ids=experiment_ids,
                         filter=filter_string,
                         run_view_type=ViewType.to_proto(run_view_type),
                         max_results=max_results,
                         order_by=order_by,
+                        diff_params=diff_params,
                         page_token=page_token)
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
