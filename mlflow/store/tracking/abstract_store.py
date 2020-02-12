@@ -207,7 +207,7 @@ class AbstractStore:
         pass
 
     def search_runs(self, experiment_ids, filter_string, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, parameter_diff=False, page_token=None):
         """
         Return runs that match the given list of search expressions within the experiments.
 
@@ -218,6 +218,7 @@ class AbstractStore:
         :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
         :param max_results: Maximum number of runs desired.
         :param order_by: List of order_by clauses.
+        :param parameter_diff: Return only the parameters that differ between runs
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
 
@@ -227,12 +228,12 @@ class AbstractStore:
             and thus the returned token would not be meaningful in such cases.
         """
         runs, token = self._search_runs(experiment_ids, filter_string, run_view_type, max_results,
-                                        order_by, page_token)
+                                        order_by, parameter_diff, page_token)
         return PagedList(runs, token)
 
     @abstractmethod
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token):
+                     parameter_diff, page_token):
         """
         Return runs that match the given list of search expressions within the experiments, as
         well as a pagination token (indicating where the next page should start). Subclasses of

@@ -1,6 +1,7 @@
 import base64
 import json
 import operator
+import collections
 
 import sqlparse
 from sqlparse.sql import Identifier, Token, Comparison, Statement
@@ -463,3 +464,18 @@ class SearchUtils(object):
                                   error_code=INVALID_PARAMETER_VALUE)
         return [cls._get_comparison_for_model_registry(si)
                 for si in statement.tokens if isinstance(si, Comparison)]
+
+    @classmethod
+    def diff_parameters(cls, runs):
+        """Modify the run parameters to contain only differently valued ones."""
+        run_params = [r.data.params for r in runs]
+        param_lists = [params.items() for params in run_params]
+        counts = collections.Counter()
+        for param_list in param_lists:
+            counts.update(param_list)
+        diff_keys = set(key for (key, _), count in counts.items() if count < len(runs))
+
+        for r, params in zip(runs, run_params):
+            params = dict(filter(lambda item: item[0] in diff_keys, params.items()))
+            r.data._params = params
+        return runs
