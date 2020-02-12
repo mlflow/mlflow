@@ -19,7 +19,6 @@ export class MetricsPlotView extends React.Component {
     showPoint: PropTypes.bool.isRequired,
     chartType: PropTypes.string.isRequired,
     isComparing: PropTypes.bool.isRequired,
-    yAxisLogScale: PropTypes.bool.isRequired,
     lineSmoothness: PropTypes.number,
     extraLayout: PropTypes.object,
     onLayoutChange: PropTypes.func.isRequired,
@@ -45,10 +44,10 @@ export class MetricsPlotView extends React.Component {
   };
 
   getPlotPropsForLineChart = () => {
-    const { metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness, isComparing,
+    const { metrics, xAxis, showPoint, lineSmoothness, isComparing,
       selectedRunIds } = this.props;
     const selectedRunIdSet = new Set(selectedRunIds);
-    const data = metrics.map((metric, idx) => {
+    const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
       const isSingleHistory = history.length === 0;
       const visible = !selectedRunIdSet.has(Utils.getCurveKey(runUuid, metricKey)) ?
@@ -76,13 +75,6 @@ export class MetricsPlotView extends React.Component {
       ...props.layout,
       ...this.props.extraLayout,
     };
-    if (yAxisLogScale) {
-      const existingYAxis = props.layout.yaxis ? props.layout.yaxis : {};
-      props.layout.yaxis = {
-        ...existingYAxis,
-        type: 'log',
-      };
-    }
     return props;
   };
 

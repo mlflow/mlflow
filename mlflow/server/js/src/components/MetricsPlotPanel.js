@@ -192,6 +192,12 @@ export class MetricsPlotPanel extends React.Component {
     this.updateUrlState({ selectedXAxis: e.target.value, layout: newLayout });
   };
 
+  getAxisType() {
+    const state = this.getUrlState();
+    return state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log' ?
+        "log" : "linear";
+  }
+
   handleLayoutChange = (newLayout) => {
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
@@ -220,16 +226,15 @@ export class MetricsPlotPanel extends React.Component {
       };
     }
     if (newLayout["xaxis.autorange"]) {
-      // TODO add logic from other branch
       mergedLayout = {
         ...mergedLayout,
-        xaxis: {autorange: true}
+        xaxis: {autorange: true},
       };
     }
     if (newLayout["yaxis.autorange"]) {
       mergedLayout = {
         ...mergedLayout,
-        yaxis: {autorange: true}
+        yaxis: {autorange: true, type: this.getAxisType()},
       };
     }
     this.updateUrlState({layout: mergedLayout});
@@ -263,7 +268,6 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   handleLegendDoubleClick = ({curveNumber, data}) => {
-    const state = this.getUrlState();
     window.clearTimeout(this.legendClickTimeout);
     const curveKey = Utils.getCurveKey(data[curveNumber].runId, data[curveNumber].metricName);
     // Exclude everything besides the current curve key
@@ -298,13 +302,12 @@ export class MetricsPlotPanel extends React.Component {
       showPoint,
       selectedXAxis,
       selectedMetricKeys,
-      yAxisLogScale,
       lineSmoothness,
     } = state;
+    const yAxisLogScale = this.getAxisType() === "log";
     const { historyRequestIds } = this.state;
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
-    console.log("got history request IDs " + historyRequestIds);
     return (
       <div className='metrics-plot-container'>
         <MetricsPlotControls
@@ -337,7 +340,6 @@ export class MetricsPlotPanel extends React.Component {
             showPoint={showPoint}
             chartType={chartType}
             isComparing={MetricsPlotPanel.isComparing(location.search)}
-            yAxisLogScale={yAxisLogScale}
             lineSmoothness={lineSmoothness}
             extraLayout={state.layout}
             selectedRunIds={state.selectedRunIds}
