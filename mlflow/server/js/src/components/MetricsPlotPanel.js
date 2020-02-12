@@ -86,9 +86,9 @@ export class MetricsPlotPanel extends React.Component {
       ...updatedState,
     };
     const { selectedXAxis, selectedMetricKeys, showPoint, yAxisLogScale, lineSmoothness,
-      layout, selectedRunIds } = newState;
+      layout, deselectedCurves } = newState;
     history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
-        layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint, selectedRunIds));
+        layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint, deselectedCurves));
   };
 
   loadMetricHistory = (runUuids, metricKeys) => {
@@ -253,13 +253,13 @@ export class MetricsPlotPanel extends React.Component {
       // double-click do we run the single-click logic (we wait a little extra to be safe)
       const curveKey = Utils.getCurveKey(data[curveNumber].runId, data[curveNumber].metricName);
       this.legendClickTimeout = window.setTimeout(() => {
-        const existingIdsClicked = new Set(state.selectedRunIds);
-        if (existingIdsClicked.has(curveKey)) {
-          existingIdsClicked.delete(curveKey);
+        const existingDeselectedCurves = new Set(state.deselectedCurves);
+        if (existingDeselectedCurves.has(curveKey)) {
+          existingDeselectedCurves.delete(curveKey);
         } else {
-          existingIdsClicked.add(curveKey);
+          existingDeselectedCurves.add(curveKey);
         }
-        this.updateUrlState({selectedRunIds: Array.from(existingIdsClicked)});
+        this.updateUrlState({deselectedCurves: Array.from(existingDeselectedCurves)});
       }, 310);
       this.prevLegendClickTime = currentTime;
     }
@@ -272,8 +272,8 @@ export class MetricsPlotPanel extends React.Component {
     const curveKey = Utils.getCurveKey(data[curveNumber].runId, data[curveNumber].metricName);
     // Exclude everything besides the current curve key
     const allCurveKeys = data.map((elem) => Utils.getCurveKey(elem.runId, elem.metricName));
-    const newSelectedIds = allCurveKeys.filter((curvePair) => curvePair !== curveKey);
-    this.updateUrlState({selectedRunIds: newSelectedIds});
+    const newDeselectedCurves = allCurveKeys.filter((curvePair) => curvePair !== curveKey);
+    this.updateUrlState({deselectedCurves: newDeselectedCurves});
     return false;
   };
 
@@ -342,7 +342,7 @@ export class MetricsPlotPanel extends React.Component {
             isComparing={MetricsPlotPanel.isComparing(location.search)}
             lineSmoothness={lineSmoothness}
             extraLayout={state.layout}
-            selectedRunIds={state.selectedRunIds}
+            deselectedCurves={state.deselectedCurves}
             onLayoutChange={this.handleLayoutChange}
             onLegendClick={this.handleLegendClick}
             onLegendDoubleClick={this.handleLegendDoubleClick}

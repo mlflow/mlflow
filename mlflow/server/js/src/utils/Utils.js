@@ -419,10 +419,9 @@ class Utils {
     const yAxisLogScale = params['y_axis_scale'] === 'log';
     const lineSmoothness = params['line_smoothness'] ? parseFloat(params['line_smoothness']) : 0;
     const layout = params['plot_layout'] ? JSON.parse(params['plot_layout']) : {autosize: true};
-    // Default to displaying all runs if user hasn't selected out any
-    // TODO(sid): rename this, this is actually excluded curve infos
-    const selectedRunIds = params['selected_run_ids'] ?
-        JSON.parse(params['selected_run_ids']) : [];
+    // Default to displaying all runs
+    const deselectedCurves = params['deselected_curves'] ?
+        JSON.parse(params['deselected_curves']) : [];
     return {
       selectedXAxis,
       selectedMetricKeys,
@@ -430,7 +429,7 @@ class Utils {
       yAxisLogScale,
       lineSmoothness,
       layout,
-      selectedRunIds,
+      deselectedCurves,
     };
   }
 

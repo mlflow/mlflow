@@ -24,7 +24,7 @@ export class MetricsPlotView extends React.Component {
     onLayoutChange: PropTypes.func.isRequired,
     onLegendClick: PropTypes.func.isRequired,
     onLegendDoubleClick: PropTypes.func.isRequired,
-    selectedRunIds: PropTypes.arrayOf(String).isRequired,
+    deselectedCurves: PropTypes.arrayOf(String).isRequired,
   };
 
   static getLineLegend = (metricKey, runDisplayName, isComparing) => {
@@ -45,12 +45,12 @@ export class MetricsPlotView extends React.Component {
 
   getPlotPropsForLineChart = () => {
     const { metrics, xAxis, showPoint, lineSmoothness, isComparing,
-      selectedRunIds } = this.props;
-    const selectedRunIdSet = new Set(selectedRunIds);
+      deselectedCurves } = this.props;
+    const deselectedCurvesSet = new Set(deselectedCurves);
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
       const isSingleHistory = history.length === 0;
-      const visible = !selectedRunIdSet.has(Utils.getCurveKey(runUuid, metricKey)) ?
+      const visible = !deselectedCurvesSet.has(Utils.getCurveKey(runUuid, metricKey)) ?
           true : "legendonly";
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
@@ -80,7 +80,7 @@ export class MetricsPlotView extends React.Component {
 
   getPlotPropsForBarChart = () => {
     /* eslint-disable no-param-reassign */
-    const { runUuids, runDisplayNames, selectedRunIds } = this.props;
+    const { runUuids, runDisplayNames, deselectedCurves } = this.props;
 
     // A reverse lookup of `metricKey: { runUuid: value, metricKey }`
     const historyByMetricKey = this.props.metrics.reduce((map, metric) => {
@@ -100,13 +100,13 @@ export class MetricsPlotView extends React.Component {
     );
 
     const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map((history) => history.metricKey);
-    const selectedRunIdSet = new Set(selectedRunIds);
+    const deselectedCurvesSet = new Set(deselectedCurves);
     const data = runUuids.map((runUuid, i) => ({
       name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
       x: sortedMetricKeys,
       y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
       type: 'bar',
-      visible: selectedRunIdSet.has(runUuid),
+      visible: deselectedCurvesSet.has(runUuid),
     }));
 
     const layout = { barmode: 'group' };
