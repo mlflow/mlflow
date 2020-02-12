@@ -117,7 +117,7 @@ export class MetricsPlotView extends React.Component {
         ? this.getPlotPropsForBarChart()
         : this.getPlotPropsForLineChart();
     return (
-      <div className="metrics-plot-view-container">
+      <div className='metrics-plot-view-container'>
         <Plot
           {...plotProps}
           useResizeHandler
