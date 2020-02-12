@@ -267,6 +267,7 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
                 fig.savefig(filepath)
                 try_mlflow_log(mlflow.log_artifact, filepath)
             finally:
+                plt.close(fig)
                 shutil.rmtree(tmpdir)
 
         original = gorilla.get_original_attribute(xgboost, 'train')
