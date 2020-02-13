@@ -216,7 +216,6 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
     """
     import xgboost
     import numpy as np
-    import matplotlib.pyplot as plt
 
     @gorilla.patch(xgboost)
     def train(*args, **kwargs):
@@ -239,6 +238,8 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
             """
             Log feature importance plot.
             """
+            import matplotlib.pyplot as plt
+
             features = np.array(features)
             importance = np.array(importance)
             indices = np.argsort(importance)
