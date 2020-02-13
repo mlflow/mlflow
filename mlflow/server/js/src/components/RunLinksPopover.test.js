@@ -2,7 +2,7 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { shallow, mount } from 'enzyme';
 
-import RunLinksPopover from './RunLinksPopover';
+import { RunLinksPopover } from './RunLinksPopover';
 import Routes from '../Routes';
 
 describe('unit tests', () => {

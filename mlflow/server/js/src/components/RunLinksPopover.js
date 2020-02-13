@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Popover } from 'antd';
 import Routes from '../Routes';
 
-class RunLinksPopover extends React.Component {
+export class RunLinksPopover extends React.Component {
   static propTypes = {
     experimentId: PropTypes.number.isRequired,
   };
@@ -90,5 +90,3 @@ class RunLinksPopover extends React.Component {
     );
   }
 }
-
-export default RunLinksPopover;

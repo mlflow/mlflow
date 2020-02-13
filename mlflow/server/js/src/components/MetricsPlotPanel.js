@@ -11,7 +11,7 @@ import { MetricsPlotControls, X_AXIS_RELATIVE, X_AXIS_STEP } from './MetricsPlot
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
-import RunLinksPopover from './RunLinksPopover';
+import { RunLinksPopover } from './RunLinksPopover';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
