@@ -150,10 +150,14 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run, model_func):
     assert data.params['optimizer_name'] == 'Adam'
     assert 'epsilon' in data.params
     assert data.params['epsilon'] == '1e-07'
+    assert 'model_summary' in data.tags
     if model_func == 'large':
         assert "see the artifacts" in data.tags['model_summary']
     else:
         assert 'Total params: 6,922' in data.tags['model_summary']
+        artifacts = client.list_artifacts(keras_random_data_run.info.run_id)
+        artifacts = map(lambda x: x.path, artifacts)
+        assert 'model_summary.txt' in artifacts
 
 
 @pytest.mark.large
