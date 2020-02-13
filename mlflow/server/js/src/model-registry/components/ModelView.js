@@ -8,6 +8,8 @@ import { Radio, Icon, Descriptions, Menu, Dropdown, Modal } from 'antd';
 import { ACTIVE_STAGES } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
+import Routes from "../../Routes";
+import {Button} from "react-bootstrap";
 
 const Stages = {
   ALL: 'ALL',
@@ -15,6 +17,10 @@ const Stages = {
 };
 
 export class ModelView extends React.Component {
+  constructor(props) {
+    super(props);
+    this.onCompare = this.onCompare.bind(this);
+  }
   static propTypes = {
     model: PropTypes.shape({
       registered_model: PropTypes.object.isRequired,
@@ -34,7 +40,24 @@ export class ModelView extends React.Component {
     showDescriptionEditor: false,
     isDeleteModalVisible: false,
     isDeleteModalConfirmLoading: false,
+    runsSelected: {},
   };
+
+  // static getDerivedStateFromProps(nextProps, prevState) {
+  //   // Compute the actual runs selected. (A run cannot be selected if it is not passed in as a
+  //   // prop)
+  //   const newRunsSelected = {};
+  //   nextProps.runInfos.forEach((rInfo) => {
+  //     const prevRunSelected = prevState.runsSelected[rInfo.run_uuid];
+  //     if (prevRunSelected) {
+  //       newRunsSelected[rInfo.run_uuid] = prevRunSelected;
+  //     }
+  //   });
+  //   return {
+  //     ...prevState,
+  //     runsSelected: newRunsSelected,
+  //   };
+  // }
 
   handleStageFilterChange = (e) => {
     this.setState({ stageFilter: e.target.value });
@@ -107,6 +130,29 @@ export class ModelView extends React.Component {
       });
   };
 
+  // rowSelection object indicates the need for row selection
+  createRowSelection = () => {
+    return {
+      onChange: (selectedRowKeys, selectedRows) => {
+        const newState = Object.assign({}, this.state);
+        newState.runsSelected = {};
+        selectedRows.forEach((row) => {
+          newState.runsSelected = {
+            ...newState.runsSelected,
+            [row.run_id]: true,
+          };
+        });
+        this.setState(newState);
+      }
+    };
+  };
+
+  onCompare() {
+    const runsSelectedList = Object.keys(this.state.runsSelected);
+    this.props.history.push(Routes.getCompareRunPageRoute(
+        runsSelectedList, 0));
+  }
+
   render() {
     const { model, modelVersions } = this.props;
     const {
@@ -119,6 +165,7 @@ export class ModelView extends React.Component {
     const chevron = <i className='fas fa-chevron-right breadcrumb-chevron' />;
     const breadcrumbItemClass = 'truncate-text single-line breadcrumb-title';
     const editIcon = <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
+    const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     return (
       <div className='model-view-content'>
         {/* Breadcrumbs */}
@@ -164,12 +211,16 @@ export class ModelView extends React.Component {
                 Active({this.getActiveVersionsCount()})
               </Radio.Button>
             </Radio.Group>
+            <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
+              Compare
+            </Button>
           </span>
         )}>
           <ModelVersionTable
             activeStageOnly={stageFilter === Stages.ACTIVE}
             modelName={modelName}
             modelVersions={modelVersions}
+            rowSelection={this.createRowSelection()}
           />
         </CollapsibleSection>
 
