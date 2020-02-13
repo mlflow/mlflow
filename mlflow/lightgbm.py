@@ -212,7 +212,6 @@ def autolog():
     """
     import lightgbm
     import numpy as np
-    import matplotlib.pyplot as plt
 
     @gorilla.patch(lightgbm)
     def train(*args, **kwargs):
@@ -234,6 +233,8 @@ def autolog():
             """
             Log feature importance plot.
             """
+            import matplotlib.pyplot as plt
+
             indices = np.argsort(importance)
             features = np.array(features)[indices]
             importance = importance[indices]
