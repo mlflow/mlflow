@@ -150,12 +150,7 @@ export class MetricsPlotPanel extends React.Component {
 
         // Instead of setting state on MetricPlotPanel (current component),
         // should call a method on the Popover directly via the ref.
-        popover.setState({
-          visible: !visible || !clickedSamePoint,
-          x: clientX,
-          y: clientY,
-          runItems,
-        });
+        popover.updateState(!visible || !clickedSamePoint, clientX, clientY, runItems);
       }
     }, 300);
   }

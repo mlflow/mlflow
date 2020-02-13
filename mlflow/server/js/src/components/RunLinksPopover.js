@@ -27,6 +27,8 @@ export class RunLinksPopover extends React.Component {
     document.removeEventListener('keydown', this.handleKeyDown);
   }
 
+  updateState = (visible, x, y, runItems) => this.setState({visible, x, y, runItems});
+
   hide = () => this.setState({ visible: false });
 
   handleVisibleChange = (visible) => this.setState({ visible });
