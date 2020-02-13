@@ -40,6 +40,10 @@ export class ModelView extends React.Component {
     this.setState({ stageFilter: e.target.value });
   };
 
+  componentDidMount() {
+    document.title = `${this.props.model.registered_model.name} - MLflow Model`;
+  }
+
   getActiveVersionsCount() {
     const { modelVersions } = this.props;
     return modelVersions
