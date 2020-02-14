@@ -376,10 +376,10 @@ def _search_runs():
     max_results = request_message.max_results
     experiment_ids = request_message.experiment_ids
     order_by = request_message.order_by
-    diff_params = request_message.diff_params
+    parameter_diff = request_message.parameter_diff
     page_token = request_message.page_token
     run_entities = _get_tracking_store().search_runs(experiment_ids, filter_string, run_view_type,
-                                                     max_results, order_by, diff_params, page_token)
+                                                     max_results, order_by, parameter_diff, page_token)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:
         response_message.next_page_token = run_entities.token

@@ -78,7 +78,7 @@ def test_client_search_runs_defaults(mock_store):
                                                    run_view_type=ViewType.ACTIVE_ONLY,
                                                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
                                                    order_by=None,
-                                                   diff_params=False,
+                                                   parameter_diff=False,
                                                    page_token=None)
 
 
@@ -89,7 +89,7 @@ def test_client_search_runs_filter(mock_store):
                                                    run_view_type=ViewType.ACTIVE_ONLY,
                                                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
                                                    order_by=None,
-                                                   diff_params=False,
+                                                   parameter_diff=False,
                                                    page_token=None)
 
 
@@ -100,7 +100,7 @@ def test_client_search_runs_view_type(mock_store):
                                                    run_view_type=ViewType.DELETED_ONLY,
                                                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
                                                    order_by=None,
-                                                   diff_params=False,
+                                                   parameter_diff=False,
                                                    page_token=None)
 
 
@@ -111,7 +111,7 @@ def test_client_search_runs_max_results(mock_store):
                                                    run_view_type=ViewType.ALL,
                                                    max_results=2876,
                                                    order_by=None,
-                                                   diff_params=False,
+                                                   parameter_diff=False,
                                                    page_token=None)
 
 
@@ -122,7 +122,7 @@ def test_client_search_runs_int_experiment_id(mock_store):
                                                    run_view_type=ViewType.ACTIVE_ONLY,
                                                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
                                                    order_by=None,
-                                                   diff_params=False,
+                                                   parameter_diff=False,
                                                    page_token=None)
 
 
@@ -133,7 +133,7 @@ def test_client_search_runs_string_experiment_id(mock_store):
                                                    run_view_type=ViewType.ACTIVE_ONLY,
                                                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
                                                    order_by=None,
-                                                   diff_params=False,
+                                                   parameter_diff=False,
                                                    page_token=None)
 
 
@@ -144,7 +144,7 @@ def test_client_search_runs_order_by(mock_store):
                                                    run_view_type=ViewType.ACTIVE_ONLY,
                                                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
                                                    order_by=["a", "b"],
-                                                   diff_params=False,
+                                                   parameter_diff=False,
                                                    page_token=None)
 
 
@@ -155,7 +155,7 @@ def test_client_search_runs_page_token(mock_store):
                                                    run_view_type=ViewType.ACTIVE_ONLY,
                                                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
                                                    order_by=None,
-                                                   diff_params=False,
+                                                   parameter_diff=False,
                                                    page_token="blah")
 
 

@@ -950,7 +950,8 @@ message SearchRuns {
   // (and this is the default ordering criterion if order_by is not provided).
   repeated string order_by = 6;
 
-  optional bool diff_params = 8;
+  // Whether to return only the parameters that are inconsistent in the runs
+  optional bool parameter_diff = 8;
 
   optional string page_token = 7;
 
