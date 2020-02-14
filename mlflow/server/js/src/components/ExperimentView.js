@@ -57,6 +57,7 @@ export class ExperimentView extends Component {
     this.onRestoreRun = this.onRestoreRun.bind(this);
     this.onLifecycleFilterInput = this.onLifecycleFilterInput.bind(this);
     this.onParameterDiffClick = this.onParameterDiffClick.bind(this);
+    this.onParameterAllClick = this.onParameterAllClick.bind(this);
     this.onCloseDeleteRunModal = this.onCloseDeleteRunModal.bind(this);
     this.onCloseRestoreRunModal = this.onCloseRestoreRunModal.bind(this);
     this.onExpand = this.onExpand.bind(this);
@@ -463,6 +464,9 @@ export class ExperimentView extends Component {
               <Button onClick={this.onParameterDiffClick}>
                 Parameters Diff
               </Button>
+              <Button onClick={this.onParameterAllClick}>
+                Parameters All
+              </Button>
             </div>
           </form>
           <div className="ExperimentView-run-buttons">
@@ -707,6 +711,10 @@ export class ExperimentView extends Component {
 
   onParameterDiffClick() {
     this.setState({ parameterDiff: true }, this.onSearch);
+  }
+
+  onParameterAllClick() {
+    this.setState({ parameterDiff: false }, this.onSearch);
   }
 
   onSearch(e) {
