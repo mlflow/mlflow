@@ -53,7 +53,7 @@ setup(
         'prometheus-flask-exporter',
     ],
     extras_require={
-        'extras':[
+        'extras': [
             "scikit-learn; python_version >= '3.5'",
             # scikit-learn 0.20 is the last version to support Python 2.x  & Python 3.4.
             "scikit-learn==0.20; python_version < '3.5'",
@@ -62,7 +62,7 @@ setup(
             'azure-storage',
             'google-cloud-storage',
         ],
-         'sqlserver':[
+         'sqlserver': [
             "mlflow-dbstore",
         ],
     },
@@ -81,5 +81,10 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
     keywords='ml ai databricks',
-    url='https://mlflow.org/'
+    url='https://mlflow.org/',
+    project_urls={
+        'Bug Tracker': 'https://github.com/mlflow/mlflow/issues',
+        'Documentation': 'https://mlflow.org/docs/latest/index.html',
+        'Source Code': 'https://github.com/mlflow/mlflow/issues'
+    },
 )
