@@ -280,14 +280,15 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
 
 class DatabricksProjectBackend(AbstractBackend):
 
-    def run(self, active_run, uri, entry_point, work_dir, parameters,
-            backend_config, command_args, env_vars):
+    def run(self, active_run, uri, entry_point, parameters,
+            backend_config):
         """
         Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
         used to query the run's status or wait for the resulting Databricks Job run to terminate.
         """
         tracking_uri = tracking.get_tracking_uri()
         before_run_validations(tracking_uri, backend_config)
+        work_dir = backend_config['local_project_dir']
 
         profile = get_db_profile_from_uri(tracking_uri)
         run_id = active_run.info.run_id
