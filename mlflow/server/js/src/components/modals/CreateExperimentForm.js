@@ -12,6 +12,7 @@ class CreateExperimentFormComponent extends Component {
   static propTypes = {
     form: PropTypes.object.isRequired,
     visible: PropTypes.bool.isRequired,
+    validator: PropTypes.func,
   }
 
   componentDidUpdate(prevProps) {
@@ -39,6 +40,7 @@ class CreateExperimentFormComponent extends Component {
           {getFieldDecorator(EXP_NAME_FIELD, {
             rules: [
               { required: true, message: `Please input a new name for the new experiment.`},
+              { validator: this.props.validator },
             ],
           })(<Input
               placeholder='Input an experiment name'

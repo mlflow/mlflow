@@ -2,17 +2,21 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
+import debounce from "lodash.debounce";
 
 import Routes from '../../Routes';
 import GenericInputModal from './GenericInputModal';
 import { CreateExperimentForm, EXP_NAME_FIELD } from './CreateExperimentForm';
+import { getExperimentNameValidator } from './validation';
 
 import { createExperimentApi, listExperimentsApi, getUUID } from '../../Actions';
+import { getExperiments } from '../../reducers/Reducers';
 
 export class CreateExperimentModal extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
     onClose: PropTypes.func.isRequired,
+    experimentNames: PropTypes.arrayOf(String).isRequired,
     createExperimentApi: PropTypes.func.isRequired,
     listExperimentsApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
@@ -42,9 +46,11 @@ export class CreateExperimentModal extends Component {
 
   render() {
     const { isOpen } = this.props;
+    const experimentNameValidator = getExperimentNameValidator(this.props.experimentNames);
 
     const inputComponent = <CreateExperimentForm
       visible={isOpen}
+      validator={debounce(experimentNameValidator, 400)}
     />;
 
     return (
@@ -54,16 +60,21 @@ export class CreateExperimentModal extends Component {
         isOpen={isOpen}
         handleSubmit={this.handleCreateExperiment}
         onClose={this.props.onClose}
-        errorMessage='While creating a new experiment, an error occurred.'
       />
     );
   }
 }
+
+const mapStateToProps = (state) => {
+  const experiments = getExperiments(state);
+  const experimentNames = experiments.map((e) => e.getName());
+  return { experimentNames };
+};
 
 const mapDispatchToProps = {
   createExperimentApi,
   listExperimentsApi,
 };
 
-export default withRouter(connect(undefined, mapDispatchToProps)(CreateExperimentModal));
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(CreateExperimentModal));
 

@@ -1,9 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { connect } from 'react-redux';
 import { Modal } from 'antd';
 
-import { openErrorModal } from '../../Actions';
 import Utils from '../../utils/Utils';
 
 /**
@@ -20,11 +18,9 @@ export class GenericInputModal extends Component {
     onClose: PropTypes.func.isRequired,
     // Function which returns a promise which resolves when the submission is done.
     handleSubmit: PropTypes.func.isRequired,
-    errorMessage: PropTypes.string.isRequired,
     title: PropTypes.string.isRequired,
     // Antd Form
     childForm: PropTypes.node.isRequired,
-    openErrorModal: PropTypes.func.isRequired,
   };
 
   onSubmit = () => {
@@ -50,7 +46,6 @@ export class GenericInputModal extends Component {
   handleSubmitFailure = (e) => {
     this.setState({ isSubmitting: false });
     Utils.logErrorAndNotifyUser(e);
-    this.props.openErrorModal(this.props.errorMessage);
   };
 
   onRequestCloseHandler = () => {
@@ -91,9 +86,5 @@ export class GenericInputModal extends Component {
   }
 }
 
-const mapDispatchToProps = {
-  openErrorModal,
-};
-
-export default connect(undefined, mapDispatchToProps)(GenericInputModal);
+export default GenericInputModal;
 

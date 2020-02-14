@@ -43,7 +43,6 @@ export class RenameRunModal extends Component {
         isOpen={isOpen}
         handleSubmit={this.handleRenameRun}
         onClose={this.props.onClose}
-        errorMessage='While renaming a run, an error occurred.'
       />
     );
   }

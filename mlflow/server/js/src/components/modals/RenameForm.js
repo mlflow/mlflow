@@ -14,6 +14,7 @@ class RenameFormComponent extends Component {
     type: PropTypes.string.isRequired,
     name: PropTypes.string.isRequired,
     visible: PropTypes.bool.isRequired,
+    validator: PropTypes.func,
   }
 
   componentDidUpdate(prevProps) {
@@ -44,7 +45,6 @@ class RenameFormComponent extends Component {
   }
 
   render() {
-    // const validationSchema = getValidationSchema(this.props.type);
     const { getFieldDecorator } = this.props.form;
     return (
       <Form layout='vertical'>
@@ -52,6 +52,7 @@ class RenameFormComponent extends Component {
           {getFieldDecorator(NEW_NAME_FIELD, {
             rules: [
               { required: true, message: `Please input a new name for the ${this.props.type}.`},
+              { validator: this.props.validator },
             ],
             initialValue: this.props.name,
           })(<Input
