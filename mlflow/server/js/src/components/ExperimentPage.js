@@ -46,9 +46,10 @@ export class ExperimentPage extends Component {
   loadData() {
     const { persistedState, lifecycleFilter } = this.state;
     const { experimentId } = this.props;
-    const { orderByKey, orderByAsc, searchInput } = persistedState;
+    const { orderByKey, orderByAsc, searchInput, diff_params } = persistedState;
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
+    const parameter_diff = diff_params;
 
     this.props
       .getExperimentApi(experimentId, this.getExperimentRequestId)
@@ -56,7 +57,7 @@ export class ExperimentPage extends Component {
         console.error(e);
       });
     this.props
-      .searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId)
+      .searchRunsApi([experimentId], searchInput, viewType, orderBy, parameter_diff, this.searchRunsRequestId)
       .then(this.updateNextPageToken)
       .catch((e) => {
         Utils.logErrorAndNotifyUser(e);
