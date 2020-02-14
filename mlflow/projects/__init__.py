@@ -48,7 +48,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, MLFLOW_PROJECT_BACKEND,
 )
 from mlflow.utils.uri import get_db_profile_from_uri, is_databricks_uri
-from mlflow.projects import backend
+from mlflow.projects import backend, utils
 
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
@@ -195,10 +195,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             image.tags[0],
             image_digest,
             _get_entry_point_command(project, entry_point, parameters, storage_dir),
-            _get_run_env_vars(
-                run_id=active_run.info.run_uuid,
-                experiment_id=active_run.info.experiment_id
-            ),
+            utils.generate_env_vars_to_attach_to_run(active_run),
             kube_config.get('kube-context', None),
             kube_config['kube-job-template']
         )
