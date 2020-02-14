@@ -28,8 +28,22 @@ mlflow_save_model <- function(model, path, ...) {
 #' @export
 mlflow_log_model <- function(model, artifact_path, ...) {
   temp_path <- fs::path_temp(artifact_path)
-  mlflow_save_model(model, path = temp_path, ...)
-  mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
+  model_spec <- mlflow_save_model(model, path = temp_path, model_spec = list(
+    utc_time_created = mlflow_timestamp(),
+    run_id = mlflow_get_active_run_id(),
+    artifact_path = artifact_path,
+    flavors = list()
+  ), ...)
+  res <- mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
+  mlflow_record_logged_model(model_spec)
+  res
+}
+
+mlflow_write_model_spec <- function(path, content) {
+  write_yaml(
+    purrr::compact(content),
+    file.path(path, "MLmodel")
+  )
 }
 
 mlflow_timestamp <- function() {
@@ -39,16 +53,6 @@ mlflow_timestamp <- function() {
       as.POSIXlt(Sys.time(), tz = "GMT"),
       "%y-%m-%dT%H:%M:%S.%OS"
     )
-  )
-}
-
-mlflow_write_model_spec <- function(path, content) {
-  content$utc_time_created <- mlflow_timestamp()
-  content$run_id <- mlflow_get_active_run_id()
-
-  write_yaml(
-    purrr::compact(content),
-    file.path(path, "MLmodel")
   )
 }
 
