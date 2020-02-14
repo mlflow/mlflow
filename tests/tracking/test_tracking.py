@@ -21,6 +21,8 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
     MLFLOW_SOURCE_TYPE
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
+
+from tests.helper_functions import random_int
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 # pylint: disable=unused-argument
@@ -658,6 +660,63 @@ def test_search_runs(tracking_uri_mock, reset_active_experiment):
 
     runs = MlflowClient().search_runs([experiment_id], "params.p1 = 'a'", ViewType.ACTIVE_ONLY)
     verify_runs(runs, [])
+
+
+def test_search_runs_with_parameter_diff():
+    exp = "test_search_runs_with_parameter_diff"
+    mlflow.set_experiment(exp)
+
+    # Create single run
+    params = dict([('model', 'BaselineNetwork'),
+                   ('optim', 'Adam'),
+                   ('dataset', 'MNIST'),
+                   ('lr', 0.01),
+                   ('num_layers', 5),
+                   ('num_classes', 10)])
+    with mlflow.start_run() as first_run:
+        for key, value in params.items():
+            mlflow.log_param(key, value)
+
+    # Returned diff params of single run should be empty
+    retrieved_runs = MlflowClient().search_runs([exp], None, ViewType.ALL, parameter_diff=True)
+    assert all([r.data.params == {} for r in retrieved_runs])
+
+    # Create runs without same parameterss
+    for i in range(10):
+        with mlflow.start_run() as active_run:
+            for key, value in params.items():
+                mlflow.log_param(key, value)
+
+    # Returned diff parameters should be empty
+    retrieved_runs = MlflowClient().search_runs([exp], None, ViewType.ALL,  parameter_diff=True)
+    assert all([r.data.params == {} for r in retrieved_runs])
+
+    # Create additional runs with some changed parameters
+    changed_params = {'model': 'ResNet',
+                      'lr': 0.001,
+                      'num_layers': 6,
+                      'weight_decay': 0.01}
+    for i in range(5):
+        with mlflow.start_run() as active_run:
+            keys = random.sample(changed_params.keys(), random_int(1, 3))
+            for key in keys:
+                mlflow.log_param(key, changed_params[key])
+            for key, value in params.items():
+                try:
+                    mlflow.log_param(key, value)
+                except MlflowException:
+                    pass
+
+    # Returned diff parameters should contain only the ones not consistent in all runs
+    # Returned diff params should still have the same values as the undiffed ones
+    org_runs = MlflowClient().search_runs([exp], None, ViewType.ALL,  parameter_diff=False)
+    diffed_runs = MlflowClient().search_runs([exp], None, ViewType.ALL, parameter_diff=True)
+    assert all([[diff_key in changed_params.keys()
+                 for diff_key in r.data.params.keys()]
+                for r in diffed_runs])
+    assert all([[org_r.data.params[key] == diff_r.data.params[key]
+                 for key in diff_r.data.params.keys()]
+                for org_r, diff_r in zip(org_runs, diffed_runs)])
 
 
 def test_search_runs_multiple_experiments(tracking_uri_mock, reset_active_experiment):

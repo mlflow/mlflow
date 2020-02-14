@@ -159,6 +159,17 @@ def test_client_search_runs_page_token(mock_store):
                                                    page_token="blah")
 
 
+def test_client_search_runs_parameter_diff(mock_store):
+    MlflowClient().search_runs([1, 2, 3], parameter_diff=True)
+    mock_store.search_runs.assert_called_once_with(experiment_ids=[1, 2, 3],
+                                                   filter_string="",
+                                                   run_view_type=ViewType.ACTIVE_ONLY,
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=None,
+                                                   parameter_diff=True,
+                                                   page_token=None)
+
+
 def test_client_registry_operations_raise_exception_with_unsupported_registry_store():
     """
     This test case ensures that Model Registry operations invoked on the `MlflowClient`
