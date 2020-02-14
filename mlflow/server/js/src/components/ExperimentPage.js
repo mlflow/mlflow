@@ -149,7 +149,8 @@ export class ExperimentPage extends Component {
       searchInput,
       lifecycleFilterInput,
       orderByKey,
-      orderByAsc
+      orderByAsc,
+      parameterDiff
   ) => {
     this.setState({
       persistedState: new ExperimentPagePersistedState({
@@ -158,6 +159,7 @@ export class ExperimentPage extends Component {
         searchInput,
         orderByKey,
         orderByAsc,
+        parameterDiff,
       }).toJSON(),
       lifecycleFilter: lifecycleFilterInput,
     });
@@ -169,6 +171,7 @@ export class ExperimentPage extends Component {
         searchInput,
         lifecycleFilterToRunViewType(lifecycleFilterInput),
         orderBy,
+        parameterDiff,
         this.searchRunsRequestId,
       )
       .then(this.updateNextPageToken)

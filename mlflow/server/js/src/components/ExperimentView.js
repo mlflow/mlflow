@@ -584,9 +584,9 @@ export class ExperimentView extends Component {
       metricKeyFilterInput,
       searchInput,
       lifecycleFilterInput,
-      diffParams,
       orderByKey,
       orderByAsc,
+      diffParams,
     }) {
     const myParamKeyFilterInput = (paramKeyFilterInput !== undefined ?
       paramKeyFilterInput : this.state.paramKeyFilterInput);
@@ -601,7 +601,7 @@ export class ExperimentView extends Component {
 
     try {
       this.props.onSearch(myParamKeyFilterInput, myMetricKeyFilterInput, mySearchInput,
-        myLifecycleFilterInput, myDiffParams, myOrderByKey, myOrderByAsc);
+        myLifecycleFilterInput, myOrderByKey, myOrderByAsc, myDiffParams);
     } catch (ex) {
       if (ex.errorMessage !== undefined) {
         this.setState({ searchErrorMessage: ex.errorMessage });
@@ -733,8 +733,8 @@ export class ExperimentView extends Component {
     this.setState({persistedState: newPersistedState.toJSON()}, () => {
       this.snapshotComponentState();
       this.initiateSearch({paramKeyFilterInput: "", metricKeyFilterInput: "",
-        searchInput: "", lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE, diffParams: false,
-        orderByKey: null, orderByAsc: true});
+        searchInput: "", lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
+        orderByKey: null, orderByAsc: true, diffParams: false});
     });
   }
 

@@ -33,6 +33,8 @@ export const ExperimentPagePersistedState = Immutable.Record({
   orderByKey: null,
   // Whether the order imposed by orderByKey should be ascending or descending.
   orderByAsc: false,
+  // Whether only inconsistent parameters should be shown
+  parameterDiff: false,
 }, 'ExperimentPagePersistedState');
 /**
  * This class wraps attributes of the ExperimentPage component's state that should be
