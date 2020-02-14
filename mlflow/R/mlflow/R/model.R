@@ -6,10 +6,11 @@
 #' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
+#' @param model_spec MLflow model config this model flavor is being added to.
 #' @param ... Optional additional arguments.
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(model, path, ...) {
+mlflow_save_model <- function(model, path, model_spec = list(), ...) {
   UseMethod("mlflow_save_model")
 }
 
