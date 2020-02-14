@@ -56,7 +56,7 @@ export class ExperimentView extends Component {
     this.onDeleteRun = this.onDeleteRun.bind(this);
     this.onRestoreRun = this.onRestoreRun.bind(this);
     this.onLifecycleFilterInput = this.onLifecycleFilterInput.bind(this);
-    this.onDiffParamsClick = this.onDiffParamsClick.bind(this);
+    this.onParameterDiffClick = this.onParameterDiffClick.bind(this);
     this.onCloseDeleteRunModal = this.onCloseDeleteRunModal.bind(this);
     this.onCloseRestoreRunModal = this.onCloseRestoreRunModal.bind(this);
     this.onExpand = this.onExpand.bind(this);
@@ -140,7 +140,7 @@ export class ExperimentView extends Component {
       // True if a model for restoring one or more runs should be displayed
       showRestoreRunModal: false,
       // Whether to show only inconsistent parameters of runs
-      diffParams: false,
+      parameterDiff: false,
     };
   }
 
@@ -460,8 +460,8 @@ export class ExperimentView extends Component {
                 </button>
                 <button className='btn clear-button' onClick={this.onClear}>Clear</button>
               </div>
-              <Button onClick={this.onDiffParamsClick}>
-                Diff Parameters
+              <Button onClick={this.onParameterDiffClick}>
+                Parameters Diff
               </Button>
             </div>
           </form>
@@ -586,7 +586,7 @@ export class ExperimentView extends Component {
       lifecycleFilterInput,
       orderByKey,
       orderByAsc,
-      diffParams,
+      parameterDiff,
     }) {
     const myParamKeyFilterInput = (paramKeyFilterInput !== undefined ?
       paramKeyFilterInput : this.state.paramKeyFilterInput);
@@ -597,11 +597,11 @@ export class ExperimentView extends Component {
       lifecycleFilterInput : this.state.lifecycleFilterInput);
     const myOrderByKey = (orderByKey !== undefined ? orderByKey : this.props.orderByKey);
     const myOrderByAsc = (orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc);
-    const myDiffParams = (diffParams !== undefined ? diffParams : this.props.diffParams);
+    const myParameterDiff = (parameterDiff !== undefined ? parameterDiff : this.props.parameterDiff);
 
     try {
       this.props.onSearch(myParamKeyFilterInput, myMetricKeyFilterInput, mySearchInput,
-        myLifecycleFilterInput, myOrderByKey, myOrderByAsc, myDiffParams);
+        myLifecycleFilterInput, myOrderByKey, myOrderByAsc, myParameterDiff);
     } catch (ex) {
       if (ex.errorMessage !== undefined) {
         this.setState({ searchErrorMessage: ex.errorMessage });
@@ -705,8 +705,8 @@ export class ExperimentView extends Component {
     this.setState({ lifecycleFilterInput: newLifecycleInput }, this.onSearch);
   }
 
-  onDiffParamsClick() {
-    this.setState({ diffParams: true }, this.onSearch);
+  onParameterDiffClick() {
+    this.setState({ parameterDiff: true }, this.onSearch);
   }
 
   onSearch(e) {
@@ -718,10 +718,10 @@ export class ExperimentView extends Component {
       metricKeyFilterInput,
       searchInput,
       lifecycleFilterInput,
-      diffParams,
+      parameterDiff,
     } = this.state;
     this.initiateSearch({paramKeyFilterInput, metricKeyFilterInput, searchInput,
-      lifecycleFilterInput, diffParams});
+      lifecycleFilterInput, parameterDiff});
   }
 
   onClear() {
@@ -734,7 +734,7 @@ export class ExperimentView extends Component {
       this.snapshotComponentState();
       this.initiateSearch({paramKeyFilterInput: "", metricKeyFilterInput: "",
         searchInput: "", lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
-        orderByKey: null, orderByAsc: true, diffParams: false});
+        orderByKey: null, orderByAsc: true, parameterDiff: false});
     });
   }
 
