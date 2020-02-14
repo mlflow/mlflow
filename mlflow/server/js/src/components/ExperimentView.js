@@ -107,6 +107,8 @@ export class ExperimentView extends Component {
     orderByKey: PropTypes.string,
     orderByAsc: PropTypes.bool.isRequired,
 
+    parameterDiff: PropTypes.bool.isRequired,
+
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
     searchRunsError: PropTypes.string,
@@ -601,11 +603,11 @@ export class ExperimentView extends Component {
       lifecycleFilterInput : this.state.lifecycleFilterInput);
     const myOrderByKey = (orderByKey !== undefined ? orderByKey : this.props.orderByKey);
     const myOrderByAsc = (orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc);
-    const myParameterDiff = (parameterDiff !== undefined ? parameterDiff : this.props.parameterDiff);
+    const myParamDiff = (parameterDiff !== undefined ? parameterDiff : this.props.parameterDiff);
 
     try {
       this.props.onSearch(myParamKeyFilterInput, myMetricKeyFilterInput, mySearchInput,
-        myLifecycleFilterInput, myOrderByKey, myOrderByAsc, myParameterDiff);
+        myLifecycleFilterInput, myOrderByKey, myOrderByAsc, myParamDiff);
     } catch (ex) {
       if (ex.errorMessage !== undefined) {
         this.setState({ searchErrorMessage: ex.errorMessage });

@@ -57,7 +57,8 @@ export class ExperimentPage extends Component {
         console.error(e);
       });
     this.props
-      .searchRunsApi([experimentId], searchInput, viewType, orderBy, parameter_diff, this.searchRunsRequestId)
+      .searchRunsApi([experimentId], searchInput, viewType, orderBy, parameter_diff,
+                     this.searchRunsRequestId)
       .then(this.updateNextPageToken)
       .catch((e) => {
         Utils.logErrorAndNotifyUser(e);
