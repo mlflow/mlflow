@@ -109,6 +109,26 @@ export class MlflowService {
   }
 
   /**
+   * @param {GetExperimentByName} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static getExperimentByName({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/mlflow/experiments/get-by-name'), {
+      type: 'GET',
+      dataType: 'json',
+      converters: {
+        'text json': StrictJsonBigInt.parse,
+      },
+      data: data,
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
    * @param {CreateRun} data: Immutable Record
    * @param {function} success
    * @param {function} error
