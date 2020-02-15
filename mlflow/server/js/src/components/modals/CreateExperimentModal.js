@@ -6,7 +6,7 @@ import debounce from "lodash.debounce";
 
 import Routes from '../../Routes';
 import GenericInputModal from './GenericInputModal';
-import { CreateExperimentForm, EXP_NAME_FIELD } from './CreateExperimentForm';
+import { CreateExperimentForm, EXP_NAME_FIELD, ARTIFACT_LOCATION } from './CreateExperimentForm';
 import { getExperimentNameValidator } from './validation';
 
 import { createExperimentApi, listExperimentsApi, getUUID } from '../../Actions';
@@ -23,10 +23,14 @@ class CreateExperimentModal extends Component {
   };
 
   handleCreateExperiment = (values) => {
-    // get value of input field
+    // get values of input fields
     const experimentName = values[EXP_NAME_FIELD];
+    const artifactLocation = values[ARTIFACT_LOCATION];
     const createRequestId = getUUID();
-    const createExperimentPromise = this.props.createExperimentApi(experimentName, createRequestId);
+
+    const createExperimentPromise = this.props.createExperimentApi(
+      experimentName, artifactLocation, createRequestId
+    );
     const listExperimentsPromise = this.props.listExperimentsApi(createRequestId);
 
     // The listExperimentsPromise needs to be fulfilled before redirecting the user

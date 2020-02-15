@@ -4,6 +4,8 @@ import PropTypes from 'prop-types';
 import { Form, Input } from 'antd';
 
 export const EXP_NAME_FIELD = 'experimentName';
+export const ARTIFACT_LOCATION = 'artifactLocation';
+
 
 /**
  * Component that renders a form for creating a new experiment.
@@ -45,6 +47,16 @@ class CreateExperimentFormComponent extends Component {
           })(<Input
               placeholder='Input an experiment name'
               ref={this.autoFocusInputRef}
+            />)
+          }
+        </Form.Item>
+        <Form.Item label={`Artifact Location`}>
+          {getFieldDecorator(ARTIFACT_LOCATION, {
+            rules: [
+              { required: false },
+            ],
+          })(<Input
+              placeholder='Input an artifact location (optional)'
             />)
           }
         </Form.Item>

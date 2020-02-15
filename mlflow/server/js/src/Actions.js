@@ -46,11 +46,14 @@ export const getExperimentApi = (experimentId, id = getUUID()) => {
 };
 
 export const CREATE_EXPERIMENT_API = 'CREATE_EXPERIMENT_API';
-export const createExperimentApi = (experimentName, id = getUUID()) => {
+export const createExperimentApi = (experimentName, artifactPath = undefined, id = getUUID()) => {
   return (dispatch) => {
     const createResponse = dispatch({
       type: CREATE_EXPERIMENT_API,
-      payload: wrapDeferred(MlflowService.createExperiment, { name: experimentName }),
+      payload: wrapDeferred(MlflowService.createExperiment, {
+        name: experimentName,
+        artifact_location: artifactPath,
+      }),
       meta: { id: getUUID() },
     });
     return createResponse;
