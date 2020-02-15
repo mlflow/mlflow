@@ -1,14 +1,14 @@
 import { wrapDeferred } from '../../Actions';
 import { MlflowService } from '../../sdk/MlflowService';
 
-export const getExperimentNameValidator = (experimentNames) => {
+export const getExperimentNameValidator = (getExistingExperimentNames) => {
   return (rule, value, callback) => {
     if (value.length === 0) {
       // no need to execute below validations when no value is entered
       // eslint-disable-next-line callback-return
       callback(undefined);
-    } else if (experimentNames.includes(value)) {
-      // experimentNames contains the names of all active experiments
+    } else if (getExistingExperimentNames().includes(value)) {
+      // getExistingExperimentNames returns the names of all active experiments
       // check whether the passed value is part of the list
       // eslint-disable-next-line callback-return
       callback(`Experiment "${value}" already exists.`);

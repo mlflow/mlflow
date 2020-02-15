@@ -11,7 +11,7 @@ import { updateExperimentApi } from '../../Actions';
 import { getExperiments } from '../../reducers/Reducers';
 
 
-export class RenameExperimentModal extends Component {
+class RenameExperimentModal extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
     experimentId: PropTypes.number,
@@ -27,15 +27,19 @@ export class RenameExperimentModal extends Component {
     return this.props.updateExperimentApi(this.props.experimentId, newExperimentName);
   };
 
+  debouncedExperimentNameValidator = debounce(
+    getExperimentNameValidator(() => this.props.experimentNames),
+    400,
+  );
+
   render() {
     const { isOpen, experimentName } = this.props;
-    const experimentNameValidator = getExperimentNameValidator(this.props.experimentNames);
 
     const inputComponent = <RenameForm
       type='experiment'
       name={experimentName}
       visible={isOpen}
-      validator={debounce(experimentNameValidator, 400)}
+      validator={this.debouncedExperimentNameValidator}
     />;
 
     return (

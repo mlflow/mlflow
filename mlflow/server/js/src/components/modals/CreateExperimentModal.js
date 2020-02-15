@@ -12,7 +12,7 @@ import { getExperimentNameValidator } from './validation';
 import { createExperimentApi, listExperimentsApi, getUUID } from '../../Actions';
 import { getExperiments } from '../../reducers/Reducers';
 
-export class CreateExperimentModal extends Component {
+class CreateExperimentModal extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
     onClose: PropTypes.func.isRequired,
@@ -44,13 +44,18 @@ export class CreateExperimentModal extends Component {
     return returnPromise;
   }
 
+  debouncedExperimentNameValidator = debounce(
+    getExperimentNameValidator(() => this.props.experimentNames),
+    400,
+  );
+
+
   render() {
     const { isOpen } = this.props;
-    const experimentNameValidator = getExperimentNameValidator(this.props.experimentNames);
 
     const inputComponent = <CreateExperimentForm
       visible={isOpen}
-      validator={debounce(experimentNameValidator, 400)}
+      validator={this.debouncedExperimentNameValidator}
     />;
 
     return (

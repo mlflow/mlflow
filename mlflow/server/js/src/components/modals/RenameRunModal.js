@@ -8,7 +8,7 @@ import { RenameForm, NEW_NAME_FIELD } from './RenameForm';
 import { setTagApi, getUUID } from '../../Actions';
 import Utils from '../../utils/Utils';
 
-export class RenameRunModal extends Component {
+class RenameRunModal extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
     runUuid: PropTypes.string.isRequired,
