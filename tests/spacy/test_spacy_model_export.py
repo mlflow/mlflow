@@ -13,10 +13,12 @@ import mlflow.spacy
 from sklearn.datasets import fetch_20newsgroups
 
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -74,7 +76,19 @@ def test_model_save_load(spacy_model_with_data, model_path):
 
 
 @pytest.mark.large
-def test_model_log(spacy_model_with_data):
+def test_predict_df_with_wrong_shape(spacy_model_with_data, model_path):
+    mlflow.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+
+    # Concatenating with itself to duplicate column and mess up input shape
+    # then asserting n MlflowException is raised
+    with pytest.raises(MlflowException):
+        pyfunc_loaded.predict(pd.concat([spacy_model_with_data.inference_data,
+                                         spacy_model_with_data.inference_data], axis=1))
+
+
+@pytest.mark.large
+def test_model_log(spacy_model_with_data, tracking_uri_mock):
     spacy_model = spacy_model_with_data.model
     old_uri = mlflow.get_tracking_uri()
     # should_start_run tests whether or not calling log_model() automatically starts a run.
@@ -82,7 +96,6 @@ def test_model_log(spacy_model_with_data):
         with TempDir(chdr=True, remove_on_exit=True):
             try:
                 artifact_path = "model"
-                mlflow.set_tracking_uri("test")
                 if should_start_run:
                     mlflow.start_run()
                 mlflow.spacy.log_model(spacy_model=spacy_model, artifact_path=artifact_path)

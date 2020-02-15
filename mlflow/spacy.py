@@ -17,6 +17,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -145,9 +146,13 @@ class _SpacyModelWrapper:
         """
         Only works for predicting using text categorizer.
         Not suitable for other pipeline components (e.g: parser)
-        :param dataframe: dataframe containing texts to be categorized
+        :param dataframe: pandas dataframe containing texts to be categorized
+                          expected shape is (n_rows,1 column)
         :return: dataframe with predictions
         """
+        if len(dataframe.columns) != 1:
+            raise MlflowException('Shape of input dataframe must be (n_rows, 1column)')
+
         return pd.DataFrame({
             'predictions': dataframe.ix[:, 0].apply(lambda text: self.spacy_model(text).cats)
         })
