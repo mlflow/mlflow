@@ -32,25 +32,13 @@ public class DatabricksContext {
   }
 
   public Map<String, String> getTags() {
-    Map<String, String> tags = new HashMap<>();
-    if (!isInDatabricksNotebook()) {
-      return tags;
+    if (isInDatabricksNotebook()) {
+      return getTagsForDatabricksNotebook();
+    } else if (isInDatabricksJob()) {
+      return getTagsForDatabricksJob();
+    } else {
+      return new HashMap<>();
     }
-    String notebookId = getNotebookId();
-    if (notebookId != null) {
-      tags.put(MlflowTagConstants.DATABRICKS_NOTEBOOK_ID, notebookId);
-    }
-    String notebookPath = getNotebookPath();
-    if (notebookPath != null) {
-      tags.put(MlflowTagConstants.SOURCE_NAME, notebookPath);
-      tags.put(MlflowTagConstants.DATABRICKS_NOTEBOOK_PATH, notebookPath);
-      tags.put(MlflowTagConstants.SOURCE_TYPE, "NOTEBOOK");
-    }
-    String webappUrl = getWebappUrl();
-    if (webappUrl != null) {
-      tags.put(MlflowTagConstants.DATABRICKS_WEBAPP_URL, webappUrl);
-    }
-    return tags;
   }
 
   public boolean isInDatabricksNotebook() {
@@ -60,32 +48,64 @@ public class DatabricksContext {
   /**
    * Should only be called if isInDatabricksNotebook() is true.
    */
-  public String getNotebookId() {
-    return configProvider.get("notebookId");
+  private Map<String, String> getTagsForDatabricksNotebook() {
+    Map<String, String> tagsForNotebook = new HashMap<>();
+    String notebookId = getNotebookId();
+    if (notebookId != null) {
+      tagsForNotebook.put(MlflowTagConstants.DATABRICKS_NOTEBOOK_ID, notebookId);
+    }
+    String notebookPath = configProvider.get("notebookPath");
+    if (notebookPath != null) {
+      tagsForNotebook.put(MlflowTagConstants.SOURCE_NAME, notebookPath);
+      tagsForNotebook.put(MlflowTagConstants.DATABRICKS_NOTEBOOK_PATH, notebookPath);
+      tagsForNotebook.put(MlflowTagConstants.SOURCE_TYPE, "NOTEBOOK");
+    }
+    String webappUrl = configProvider.get("host");
+    if (webappUrl != null) {
+      tagsForNotebook.put(MlflowTagConstants.DATABRICKS_WEBAPP_URL, webappUrl);
+    }
+    return tagsForNotebook;
   }
 
   /**
    * Should only be called if isInDatabricksNotebook() is true.
    */
-  private String getNotebookPath() {
+  public String getNotebookId() {
     if (!isInDatabricksNotebook()) {
       throw new IllegalArgumentException(
         "getNotebookPath() should not be called when isInDatabricksNotebook() is false"
       );
-    };
-    return configProvider.get("notebookPath");
+    }
+    return configProvider.get("notebookId");
+  }
+
+  private boolean isInDatabricksJob() {
+    return configProvider.get("jobId") != null;
   }
 
   /**
-   * Should only be called if isInDatabricksNotebook() is true.
+   * Should only be called if isInDatabricksJob() is true.
    */
-  private String getWebappUrl() {
-    if (!isInDatabricksNotebook()) {
-      throw new IllegalArgumentException(
-        "getWebappUrl() should not be called when isInDatabricksNotebook() is false"
-      );
-    };
-    return configProvider.get("host");
+  private Map<String, String> getTagsForDatabricksJob() {
+    Map<String, String> tagsForJob = new HashMap<>();
+    String jobId = configProvider.get("jobId");
+    String jobRunId = configProvider.get("jobRunId");
+    String jobType = configProvider.get("jobType");
+    String webappUrl = configProvider.get("host");
+    if (jobId != null && jobRunId != null) {
+      tagsForJob.put(MlflowTagConstants.DATABRICKS_JOB_ID, jobId);
+      tagsForJob.put(MlflowTagConstants.DATABRICKS_JOB_RUN_ID, jobRunId);
+      tagsForJob.put(MlflowTagConstants.SOURCE_TYPE, "JOB");
+      tagsForJob.put(MlflowTagConstants.SOURCE_NAME,
+                          String.format("jobs/%s/run/%s", jobId, jobRunId));
+    }
+    if (jobType != null) {
+      tagsForJob.put(MlflowTagConstants.DATABRICKS_JOB_TYPE, jobType);
+    }
+    if (webappUrl != null) {
+      tagsForJob.put(MlflowTagConstants.DATABRICKS_WEBAPP_URL, webappUrl);
+    }
+    return tagsForJob;
   }
 
   public static Map<String, String> getConfigProviderIfAvailable(String className) {

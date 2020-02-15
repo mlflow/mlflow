@@ -137,6 +137,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             experiment_id=experiment_id, cluster_spec=backend_config)
 
     elif backend == "local" or backend is None:
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "local")
         command_args = []
         command_separator = " "
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
@@ -144,8 +145,6 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         if project.docker_env:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV,
                                             "docker")
-            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
-                                            "local")
             _validate_docker_env(project)
             _validate_docker_installation()
             image = _build_docker_image(work_dir=work_dir,
@@ -159,7 +158,6 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
         elif use_conda:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
-            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "local")
             command_separator = " && "
             conda_env_name = _get_or_create_conda_env(project.conda_env_path)
             command_args += _get_conda_command(conda_env_name)
@@ -256,7 +254,9 @@ def run(uri, entry_point="main", version=None, parameters=None,
                         Note that if ``synchronous`` is False and ``backend`` is "local", this
                         method will return, but the current process will block when exiting until
                         the local run completes. If the current process is interrupted, any
-                        asynchronous runs launched via this method will be terminated.
+                        asynchronous runs launched via this method will be terminated. If
+                        ``synchronous`` is True and the run fails, the current process will
+                        error out as well.
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.

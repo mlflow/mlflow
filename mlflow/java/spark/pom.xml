@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <artifactId>mlflow-spark</artifactId>
-  <version>1.4.1-SNAPSHOT</version>
+  <version>1.6.1-SNAPSHOT</version>
   <name>${project.artifactId}</name>
   <properties>
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -12,10 +12,18 @@
     <spec2.version>4.2.0</spec2.version>
   </properties>
 
+    <distributionManagement>
+        <repository>
+            <id>bintray</id>
+            <name>mlflow</name>
+            <url>https://api.bintray.com/maven/mlflow/mlflow/mlflow-spark/;publish=1</url>
+        </repository>
+    </distributionManagement>
+
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>1.4.1-SNAPSHOT</version>
+    <version>1.6.1-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -44,12 +52,6 @@
 
     <!-- Test -->
     <dependency>
-      <groupId>io.delta</groupId>
-      <artifactId>delta-core_${scala.compat.version}</artifactId>
-      <version>0.4.0</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.12</version>
@@ -69,18 +71,6 @@
       <groupId>org.scalatest</groupId>
       <artifactId>scalatest_${scala.compat.version}</artifactId>
       <version>3.0.5</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.specs2</groupId>
-      <artifactId>specs2-core_${scala.compat.version}</artifactId>
-      <version>${spec2.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.specs2</groupId>
-      <artifactId>specs2-junit_${scala.compat.version}</artifactId>
-      <version>${spec2.version}</version>
       <scope>test</scope>
     </dependency>
 
@@ -107,6 +97,12 @@
                 <arg>${project.build.directory}/.scala_dependencies</arg>
               </args>
             </configuration>
+          </execution>
+          <execution>
+            <id>attach-javadocs</id>
+              <goals>
+                <goal>doc-jar</goal>
+              </goals>
           </execution>
         </executions>
       </plugin>
@@ -135,6 +131,17 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+            <sourcepath>${project.basedir}/src/main/scala</sourcepath>
+        </configuration>
       </plugin>
     </plugins>
   </build>

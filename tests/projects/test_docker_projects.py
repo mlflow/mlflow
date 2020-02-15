@@ -10,9 +10,9 @@ import mlflow
 from mlflow.entities import ViewType
 from mlflow.projects import ExecutionException, _get_docker_image_uri
 from mlflow.store.tracking import file_store
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
-    MLFLOW_DOCKER_IMAGE_ID
-
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND, MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID,
+)
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
@@ -46,7 +46,10 @@ def test_docker_project_execution(
     run = mlflow_service.get_run(run_id)
     assert run.data.params == expected_params
     assert run.data.metrics == {"some_key": 3}
-    exact_expected_tags = {MLFLOW_PROJECT_ENV: "docker"}
+    exact_expected_tags = {
+        MLFLOW_PROJECT_ENV: "docker",
+        MLFLOW_PROJECT_BACKEND: "local",
+    }
     approx_expected_tags = {
         MLFLOW_DOCKER_IMAGE_URI: "docker-example",
         MLFLOW_DOCKER_IMAGE_ID: "sha256:",
