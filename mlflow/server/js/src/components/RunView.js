@@ -13,7 +13,7 @@ import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import { NOTE_CONTENT_TAG, NoteInfo } from "../utils/NoteUtils";
 import BreadcrumbTitle from "./BreadcrumbTitle";
-import RenameRunModal from "./modals/RenameRunModal";
+import { RenameRunModal } from "./modals/RenameRunModal";
 import EditableTagsTableView from './EditableTagsTableView';
 import { Icon, Descriptions } from 'antd';
 import { CollapsibleSection } from '../common/components/CollapsibleSection';

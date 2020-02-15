@@ -8,7 +8,7 @@ import Utils from '../../utils/Utils';
  * Generic modal that has a title and an input field with a save/submit button.
  * As of now, it is used to display the 'Rename Run' and 'Rename Experiment' modals.
  */
-class GenericInputModal extends Component {
+export class GenericInputModal extends Component {
   state = {
     isSubmitting: false,
   };
@@ -85,6 +85,3 @@ class GenericInputModal extends Component {
     );
   }
 }
-
-export default GenericInputModal;
-

@@ -2,13 +2,13 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 
-import GenericInputModal from './GenericInputModal';
+import { GenericInputModal } from './GenericInputModal';
 import { RenameForm, NEW_NAME_FIELD } from './RenameForm';
 
 import { setTagApi, getUUID } from '../../Actions';
 import Utils from '../../utils/Utils';
 
-class RenameRunModal extends Component {
+class RenameRunModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
     runUuid: PropTypes.string.isRequired,
@@ -52,5 +52,5 @@ const mapDispatchToProps = {
   setTagApi,
 };
 
-export default connect(undefined, mapDispatchToProps)(RenameRunModal);
+export const RenameRunModal = connect(undefined, mapDispatchToProps)(RenameRunModalImpl);
 

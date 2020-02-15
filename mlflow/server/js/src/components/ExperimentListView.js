@@ -7,9 +7,9 @@ import { getExperiments } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../Routes';
 import { Link } from 'react-router-dom';
-import CreateExperimentModal from './modals/CreateExperimentModal';
-import DeleteExperimentModal from './modals/DeleteExperimentModal';
-import RenameExperimentModal from './modals/RenameExperimentModal';
+import { CreateExperimentModal } from './modals/CreateExperimentModal';
+import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
+import { RenameExperimentModal } from './modals/RenameExperimentModal';
 
 
 export class ExperimentListView extends Component {

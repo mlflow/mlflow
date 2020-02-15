@@ -1,9 +1,9 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import debounce from "lodash.debounce";
+import debounce from "lodash/debounce";
 
-import GenericInputModal from './GenericInputModal';
+import { GenericInputModal } from './GenericInputModal';
 import { RenameForm, NEW_NAME_FIELD } from './RenameForm';
 import { getExperimentNameValidator } from './validation';
 
@@ -11,7 +11,7 @@ import { updateExperimentApi } from '../../Actions';
 import { getExperiments } from '../../reducers/Reducers';
 
 
-class RenameExperimentModal extends Component {
+class RenameExperimentModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
     experimentId: PropTypes.number,
@@ -64,5 +64,7 @@ const mapDispatchToProps = {
   updateExperimentApi,
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(RenameExperimentModal);
+export const RenameExperimentModal = connect(
+  mapStateToProps, mapDispatchToProps
+)(RenameExperimentModalImpl);
 

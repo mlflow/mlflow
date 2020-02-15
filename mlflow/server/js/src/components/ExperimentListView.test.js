@@ -2,9 +2,9 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import { ExperimentListView } from './ExperimentListView';
 import Fixtures from '../test-utils/Fixtures';
-import DeleteExperimentModal from './modals/DeleteExperimentModal';
-import RenameExperimentModal from './modals/RenameExperimentModal';
-import CreateExperimentModal from './modals/CreateExperimentModal';
+import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
+import { RenameExperimentModal } from './modals/RenameExperimentModal';
+import { CreateExperimentModal } from './modals/CreateExperimentModal';
 
 test('If activeExperimentId is defined then choose that one', () => {
   const wrapper = shallow(<ExperimentListView

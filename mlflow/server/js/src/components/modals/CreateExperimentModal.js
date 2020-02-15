@@ -2,17 +2,17 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
-import debounce from "lodash.debounce";
+import debounce from "lodash/debounce";
 
 import Routes from '../../Routes';
-import GenericInputModal from './GenericInputModal';
+import { GenericInputModal } from './GenericInputModal';
 import { CreateExperimentForm, EXP_NAME_FIELD, ARTIFACT_LOCATION } from './CreateExperimentForm';
 import { getExperimentNameValidator } from './validation';
 
 import { createExperimentApi, listExperimentsApi, getUUID } from '../../Actions';
 import { getExperiments } from '../../reducers/Reducers';
 
-class CreateExperimentModal extends Component {
+class CreateExperimentModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
     onClose: PropTypes.func.isRequired,
@@ -85,5 +85,7 @@ const mapDispatchToProps = {
   listExperimentsApi,
 };
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(CreateExperimentModal));
+export const CreateExperimentModal = withRouter(
+  connect(mapStateToProps, mapDispatchToProps)(CreateExperimentModalImpl)
+);
 

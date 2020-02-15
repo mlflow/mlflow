@@ -7,7 +7,7 @@ import Utils from '../../utils/Utils';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
 
-class DeleteExperimentModal extends Component {
+class DeleteExperimentModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
@@ -75,4 +75,6 @@ const mapDispatchToProps = {
   listExperimentsApi,
 };
 
-export default withRouter(connect(undefined, mapDispatchToProps)(DeleteExperimentModal));
+export const DeleteExperimentModal = withRouter(
+  connect(undefined, mapDispatchToProps)(DeleteExperimentModalImpl)
+);
