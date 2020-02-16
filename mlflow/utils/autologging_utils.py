@@ -1,6 +1,11 @@
-import inspect
 import mlflow
 import warnings
+
+# Python 2/3 compatibility to avoid deprecated inspect.getargspec
+try:
+    from inspect import getfullargspec as arg_spec
+except ImportError:
+    from inspect import getargspec as arg_spec
 
 
 def try_mlflow_log(fn, *args, **kwargs):
@@ -57,7 +62,7 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     """
     # all_default_values has length n, corresponding to values of the
     # last n elements in all_param_names
-    all_param_names, _, _, all_default_values = inspect.getfullargspec(fn)  # pylint: disable=W1505
+    all_param_names, _, _, all_default_values = arg_spec(fn)  # pylint: disable=W1505
 
     # Checking if default values are present for logging.
     # Are there situations in which getfullargspec() won't return an argspec?
