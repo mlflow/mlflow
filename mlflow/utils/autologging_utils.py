@@ -57,10 +57,10 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     """
     # all_default_values has length n, corresponding to values of the
     # last n elements in all_param_names
-    all_param_names, _, _, all_default_values = inspect.getargspec(fn)  # pylint: disable=W1505
+    all_param_names, _, _, all_default_values = inspect.getfullargspec(fn)  # pylint: disable=W1505
 
-    # Checking if default values are present for logging. Known bug that getargspec will return an
-    # empty argspec for certain functions, despite the functions having an argspec.
+    # Checking if default values are present for logging.
+    # Are there situations in which getfullargspec() won't return an argspec?
     if all_default_values is not None and len(all_default_values) > 0:
         # Logging the default arguments not passed by the user
         defaults = get_unspecified_default_args(args, kwargs, all_param_names, all_default_values)
