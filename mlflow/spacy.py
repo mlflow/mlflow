@@ -1,9 +1,9 @@
 """
-The ``mlflow.spacy`` module provides an API for logging and loading SpaCy models.
+The ``mlflow.spacy`` module provides an API for logging and loading spaCy models.
 This module exports spacy models with the following flavors:
 
 Spacy (native) format
-    This is the main flavor that can be loaded back into Spacy.
+    This is the main flavor that can be loaded back into spaCy.
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """

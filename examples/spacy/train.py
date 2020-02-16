@@ -26,14 +26,14 @@ if __name__ == "__main__":
         for ent in annotations.get("entities"):
             ner.add_label(ent[2])
 
-    metrics = {
+    params = {
         'n_iter':100,
         'drop': 0.5
     }
-    mlflow.log_params(metrics)
+    mlflow.log_params(params)
 
     nlp.begin_training()
-    for itn in range(metrics['n_iter']):
+    for itn in range(params['n_iter']):
         random.shuffle(TRAIN_DATA)
         losses = {}
         # batch up the examples using spaCy's minibatch
@@ -43,13 +43,13 @@ if __name__ == "__main__":
             nlp.update(
                 texts,  # batch of texts
                 annotations,  # batch of annotations
-                drop=metrics['drop'],  # dropout - make it harder to memorise data
+                drop=params['drop'],  # dropout - make it harder to memorise data
                 losses=losses,
             )
         print("Losses", losses)
         mlflow.log_metrics(losses)
 
-    # load it again (just as an example) and log metrics
+    # Log the spaCy model using mlflow
     mlflow.spacy.log_model(spacy_model=nlp, artifact_path='model')
     model_uri = "runs:/{run_id}/{artifact_path}".format(
         run_id=mlflow.active_run().info.run_id,
@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
 
-    # Load model
+    # Load the model using mlflow and use it to predict data
     nlp2 = mlflow.spacy.load_model(model_uri=model_uri)
     for text, _ in TRAIN_DATA:
         doc = nlp2(text)
