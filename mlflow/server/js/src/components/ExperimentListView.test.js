@@ -34,6 +34,7 @@ test('If searchInput is set to "Test" and default experiment is active then no a
   const wrapper = shallow(<ExperimentListView
     onClickListExperiments={() => {}}
     experiments={Fixtures.experiments}
+    activeExperimentId={0}
   />);
 
   wrapper.setState({ searchInput: 'Test' });

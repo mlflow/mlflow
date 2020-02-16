@@ -40,7 +40,6 @@ input.experiment-list-search-input[type="text"]:focus{
 .experiments-header {
   font-weight: normal;
   display: inline-block;
-  /* padding-bottom: 6px; */
   margin-bottom: 8px;
 }
 

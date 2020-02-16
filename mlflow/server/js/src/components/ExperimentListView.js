@@ -41,7 +41,7 @@ export class ExperimentListView extends Component {
     // 100 for the experiments header and some for bottom padding.
     const experimentListHeight = height - 60 - 100;
     // get searchInput from state
-    const {searchInput} = this.state;
+    const { searchInput } = this.state;
     return (
       <div className="experiment-list-outer-container">
         <div>
@@ -61,15 +61,15 @@ export class ExperimentListView extends Component {
           <div className="experiment-list-container" style={{ height: experimentListHeight }}>
             {
             // filter experiments based on searchInput
-            this.props.experiments.filter((e) => {
-              return e.getName().toLowerCase().includes(searchInput.toLowerCase());
-            }).map((e, idx) => {
+            this.props.experiments.filter((e) => e.getName().toLowerCase().includes(
+              searchInput.toLowerCase()
+            )).map((e, idx) => {
               let active;
               const parsedExperimentId = parseInt(e.getExperimentId(), 10);
-              if (this.props.activeExperimentId) {
+              if (this.props.activeExperimentId !== undefined) {
                 active = parsedExperimentId === this.props.activeExperimentId;
               } else {
-                active = parsedExperimentId === 0;
+                active = idx === 0;
               }
               let className = "experiment-list-item";
               if (active) {
