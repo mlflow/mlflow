@@ -45,7 +45,7 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=Model()):
     """
     Save a spacy model to a path on the local file system.
 
-    :param spacy_model: Spacy model to be saved.
+    :param spacy_model: spaCy model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -98,9 +98,9 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=Model()):
 
 def log_model(spacy_model, artifact_path, conda_env=None, registered_model_name=None, **kwargs):
     """
-    Log a spacy model as an MLflow artifact for the current run.
+    Log a spaCy model as an MLflow artifact for the current run.
 
-    :param spacy_model: SpaCy model to be saved.
+    :param spacy_model: spaCy model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decsribes the environment
@@ -184,7 +184,7 @@ def load_model(model_uri):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
 
-    :return: A SpaCy loaded model
+    :return: A spaCy loaded model
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)

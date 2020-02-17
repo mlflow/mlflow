@@ -14,7 +14,7 @@ TRAIN_DATA = [
 ]
 
 if __name__ == "__main__":
-    # Adaptation of spacy example: https://github.com/explosion/spaCy/blob/master/examples/training/train_ner.py
+    # Adaptation of spaCy example: https://github.com/explosion/spaCy/blob/master/examples/training/train_ner.py
 
     # create blank model and add ner to the pipeline
     nlp = spacy.blank("en")

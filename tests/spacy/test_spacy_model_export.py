@@ -25,7 +25,7 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 @pytest.fixture
 def spacy_model_with_data():
-    # Creating blank model and setting up the SpaCy pipeline
+    # Creating blank model and setting up the spaCy pipeline
     nlp = spacy.blank("en")
     textcat = nlp.create_pipe(
         "textcat", config={"exclusive_classes": True, "architecture": "simple_cnn"}
