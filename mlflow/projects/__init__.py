@@ -135,7 +135,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         backend.name)
         return backend.run(active_run=active_run, uri=uri, entry_point=entry_point,
-                           parameters=parameters, cluster_spec=backend_config)
+                           parameters=parameters, backend_config=backend_config)
 
     if backend_name == "local" or backend_name is None:
         tracking.MlflowClient().set_tag(active_run.info.run_id,
