@@ -29,6 +29,6 @@ def load_backend(backend_name):
         available_plugins = [
             entrypoint.name for entrypoint in available_entrypoints]
         __logger__.warning("Backend '%s' is not available. Available plugins are %s",
-                           backend_name, available_plugins + MLFLOW_BACKENDS.keys())
+                           backend_name, available_plugins + list(MLFLOW_BACKENDS.keys()))
 
     return None
