@@ -195,8 +195,11 @@ def test_run_databricks_validations(
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         mlflow_service = mlflow.tracking.MlflowClient()
-        assert (len(mlflow_service.list_run_infos(experiment_id=FileStore.DEFAULT_EXPERIMENT_ID))
-                == 0)
+        # Run is created but status is failed
+        run_infos = list(mlflow_service.list_run_infos(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID))
+        assert len(run_infos) == 1
+        assert run_infos[0].status == 'FAILED'
         tracking_uri_mock.return_value = "http://"
         # Test misspecified parameters
         with pytest.raises(ExecutionException):
@@ -268,8 +271,8 @@ def test_run_databricks_throws_exception_when_spec_uses_existing_cluster(
         }
         with pytest.raises(MlflowException) as exc:
             run_databricks_project(cluster_spec=existing_cluster_spec)
-        assert "execution against existing clusters is not currently supported" in str(exc)
-        assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+            assert "execution against existing clusters is not currently supported" in str(exc)
+            assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_run_databricks_cancel(

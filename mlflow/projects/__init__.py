@@ -128,6 +128,9 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         for tag in [MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_BRANCH_NAME]:
             tracking.MlflowClient().set_tag(active_run.info.run_id, tag, version)
 
+    if not backend_config:
+        backend_config = dict()
+
     if backend_name == "databricks":
         backend_config['local_project_dir'] = work_dir
     backend = load_backend(backend_name=backend_name)

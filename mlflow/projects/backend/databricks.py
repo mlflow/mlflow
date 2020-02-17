@@ -278,6 +278,11 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     return ["bash", "-c", shell_command]
 
 
+def set_run_failed(tracking_uri, active_run):
+    client = tracking.MlflowClient(tracking_uri=tracking_uri)
+    client.set_terminated(active_run.info.run_id, status='FAILED')
+
+
 class DatabricksProjectBackend(AbstractBackend):
 
     def run(self, active_run, uri, entry_point, parameters,
@@ -287,7 +292,12 @@ class DatabricksProjectBackend(AbstractBackend):
         used to query the run's status or wait for the resulting Databricks Job run to terminate.
         """
         tracking_uri = tracking.get_tracking_uri()
-        before_run_validations(tracking_uri, backend_config)
+        try:
+            before_run_validations(tracking_uri, backend_config)
+        except (MlflowException, ExecutionException):
+            set_run_failed(tracking_uri, active_run)
+            raise
+
         work_dir = backend_config['local_project_dir']
 
         profile = get_db_profile_from_uri(tracking_uri)
