@@ -294,7 +294,7 @@ class DatabricksProjectBackend(AbstractBackend):
         run_id = active_run.info.run_id
         db_job_runner = DatabricksJobRunner(databricks_profile=profile)
         db_run_id = db_job_runner.run_databricks(
-            uri, entry_point, work_dir, parameters, active_run.run_info.experiment_id,
+            uri, entry_point, work_dir, parameters, active_run.info.experiment_id,
             backend_config, run_id)
         submitted_run = DatabricksSubmittedRun(
             db_run_id, run_id, db_job_runner)
