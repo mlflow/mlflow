@@ -2,7 +2,7 @@
 The ``mlflow.spacy`` module provides an API for logging and loading spaCy models.
 This module exports spacy models with the following flavors:
 
-Spacy (native) format
+spaCy (native) format
     This is the main flavor that can be loaded back into spaCy.
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
@@ -43,7 +43,7 @@ def get_default_conda_env():
 
 def save_model(spacy_model, path, conda_env=None, mlflow_model=Model()):
     """
-    Save a spacy model to a path on the local file system.
+    Save a spaCy model to a path on the local file system.
 
     :param spacy_model: spaCy model to be saved.
     :param path: Local path where the model is to be saved.
@@ -169,7 +169,7 @@ def _load_pyfunc(path):
 
 def load_model(model_uri):
     """
-    Load a SpaCy model from a local file (if ``run_id`` is ``None``) or a run.
+    Load a spaCy model from a local file (if ``run_id`` is ``None``) or a run.
 
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
