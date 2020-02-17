@@ -23,10 +23,23 @@
   padding-left: 12px;
 }
 
+.experiment-list-search-input {
+  flex: 1;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  width: 220px;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+input.experiment-list-search-input[type="text"]:focus{
+  border-color: #258BD2;
+  outline: none;
+}
+
 .experiments-header {
   font-weight: normal;
   display: inline-block;
-  padding-bottom: 6px;
   margin-bottom: 8px;
 }
 
