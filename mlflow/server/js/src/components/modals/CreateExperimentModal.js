@@ -22,6 +22,9 @@ class CreateExperimentModalImpl extends Component {
     history: PropTypes.object.isRequired,
   };
 
+  createRequestId = getUUID();
+  listRequestId = getUUID();
+
   handleCreateExperiment = (values) => {
     // get values of input fields
     const experimentName = values[EXP_NAME_FIELD];
@@ -32,9 +35,9 @@ class CreateExperimentModalImpl extends Component {
     // At the same time, the result value of the createExperimentPromise is needed
     // to get the experiment id. Thus, the state has to be shared through the promise chain.
     const createExperimentPromise = this.props
-      .createExperimentApi(experimentName, artifactLocation, getUUID())
+      .createExperimentApi(experimentName, artifactLocation, this.createRequestId)
       .then(({ value }) => {
-        const listExperimentsPromise = this.props.listExperimentsApi(getUUID());
+        const listExperimentsPromise = this.props.listExperimentsApi(this.listRequestId);
         return Promise.all([value, listExperimentsPromise]);
       })
       .then(([value, _]) => {
