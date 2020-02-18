@@ -6,7 +6,7 @@ set -ex
 
 # Build Java package
 pushd mlflow/java/spark
-mvn package -DskipTests
+mvn package -DskipTests -q
 popd
 
 # Install PySpark 3.0 preview & run tests. For faster local iteration, you can also simply download
@@ -16,7 +16,7 @@ popd
 TEMPDIR=$(mktemp -d)
 pushd $TEMPDIR
 wget https://archive.apache.org/dist/spark/spark-3.0.0-preview/spark-3.0.0-preview-bin-hadoop2.7.tgz -O /tmp/spark.tgz
-tar -xvf /tmp/spark.tgz
+tar -xf /tmp/spark.tgz
 pip install -e spark-3.0.0-preview-bin-hadoop2.7/python
 popd
 

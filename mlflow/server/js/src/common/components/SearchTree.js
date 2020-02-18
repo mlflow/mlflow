@@ -99,13 +99,15 @@ export class SearchTree extends React.Component {
       const afterStr = item.title.substring(index + searchValue.length);
       const title =
         index > -1 ? (
-          <span style={styles.treeNodeTextStyle}>
+          // We set the span title to display search tree node text on hover
+          <span style={styles.treeNodeTextStyle} title={item.title}>
             {beforeStr}
             <span className='search-highlight' style={styles.searchHighlight}>{matchStr}</span>
             {afterStr}
           </span>
         ) : (
-          <span style={styles.treeNodeTextStyle}>{item.title}</span>
+          // We set the span title to display search tree node text on hover
+          <span style={styles.treeNodeTextStyle} title={item.title}>{item.title}</span>
         );
       if (item.children) {
         return (
@@ -189,9 +191,10 @@ export const getParentKey = (key, treeData) => {
 export const styles = {
   treeNodeTextStyle: {
     display: 'inline-block',
-    maxWidth: 100,
+    maxWidth: 400,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+    marginRight: 20,
   },
   searchHighlight: { color: '#f50' },
 };
