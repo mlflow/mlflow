@@ -24,6 +24,8 @@ implement mutual exclusion manually.
 
 For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
+import sys
+
 from mlflow.version import VERSION as __version__
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 import mlflow.tracking._model_registry.fluent
@@ -37,6 +39,10 @@ warnings.filterwarnings("ignore", message="numpy.dtype size changed")  # noqa: E
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # noqa: E402
 # log a deprecated warning only once per function per module
 warnings.filterwarnings("module", category=DeprecationWarning)
+
+if sys.version == "2":
+    warnings.warn("Usage of Python 2 with MLflow is deprecated. Future versions of MLflow will "
+                  "drop support for Python 2.")
 
 # pylint: disable=wrong-import-position
 import mlflow.projects as projects  # noqa
