@@ -25,16 +25,12 @@ class RenameRunModalImpl extends Component {
     const setTagRequestId = getUUID();
 
     return this.props.setTagApi(this.props.runUuid, tagKey, newRunName, setTagRequestId);
-  }
+  };
 
   render() {
     const { isOpen, runName } = this.props;
 
-    const inputComponent = <RenameForm
-      type='run'
-      name={runName}
-      visible={isOpen}
-    />;
+    const inputComponent = <RenameForm type='run' name={runName} visible={isOpen} />;
 
     return (
       <GenericInputModal
@@ -53,4 +49,3 @@ const mapDispatchToProps = {
 };
 
 export const RenameRunModal = connect(undefined, mapDispatchToProps)(RenameRunModalImpl);
-

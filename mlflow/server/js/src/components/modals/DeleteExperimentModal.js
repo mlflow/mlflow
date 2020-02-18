@@ -20,10 +20,11 @@ class DeleteExperimentModalImpl extends Component {
   };
 
   handleSubmit = () => {
-    const {experimentId, activeExperimentId} = this.props;
+    const { experimentId, activeExperimentId } = this.props;
     const deleteExperimentRequestId = getUUID();
 
-    const deletePromise = this.props.deleteExperimentApi(experimentId, deleteExperimentRequestId)
+    const deletePromise = this.props
+      .deleteExperimentApi(experimentId, deleteExperimentRequestId)
       .then(() => {
         // check whether the deleted experiment is currently selected
         if (experimentId === activeExperimentId) {
@@ -37,7 +38,7 @@ class DeleteExperimentModalImpl extends Component {
       });
 
     return deletePromise;
-  }
+  };
 
   render() {
     return (
@@ -50,21 +51,21 @@ class DeleteExperimentModalImpl extends Component {
           <div>
             <p>
               <b>
-                Experiment "{this.props.experimentName}"
-                (Experiment ID: {this.props.experimentId}) will be deleted.
+                Experiment "{this.props.experimentName}" (Experiment ID: {this.props.experimentId})
+                will be deleted.
               </b>
             </p>
-            {
-              process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ?
+            {process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ?
               <p>
                 Deleted experiments are restorable for 30 days, after which they are purged.
                 <br />
                 Artifacts are not automatically purged and must be manually deleted.
-              </p> : ""
-            }
+              </p>
+            : ''
+          }
           </div>
         }
-        confirmButtonText={"Delete"}
+        confirmButtonText={'Delete'}
       />
     );
   }

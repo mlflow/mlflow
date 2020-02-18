@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
-import debounce from "lodash/debounce";
+import debounce from 'lodash/debounce';
 
 import Routes from '../../Routes';
 import { GenericInputModal } from './GenericInputModal';
@@ -45,21 +45,19 @@ class CreateExperimentModalImpl extends Component {
       });
 
     return createExperimentPromise;
-  }
+  };
 
   debouncedExperimentNameValidator = debounce(
     getExperimentNameValidator(() => this.props.experimentNames),
     400,
   );
 
-
   render() {
     const { isOpen } = this.props;
 
-    const inputComponent = <CreateExperimentForm
-      visible={isOpen}
-      validator={this.debouncedExperimentNameValidator}
-    />;
+    const inputComponent = (
+      <CreateExperimentForm visible={isOpen} validator={this.debouncedExperimentNameValidator} />
+    );
 
     return (
       <GenericInputModal
@@ -87,4 +85,3 @@ const mapDispatchToProps = {
 export const CreateExperimentModal = withRouter(
   connect(mapStateToProps, mapDispatchToProps)(CreateExperimentModalImpl)
 );
-

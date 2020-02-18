@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import debounce from "lodash/debounce";
+import debounce from 'lodash/debounce';
 
 import { GenericInputModal } from './GenericInputModal';
 import { RenameForm, NEW_NAME_FIELD } from './RenameForm';
@@ -9,7 +9,6 @@ import { getExperimentNameValidator } from './validation';
 
 import { updateExperimentApi, getExperimentApi } from '../../Actions';
 import { getExperiments } from '../../reducers/Reducers';
-
 
 class RenameExperimentModalImpl extends Component {
   static propTypes = {
@@ -40,12 +39,14 @@ class RenameExperimentModalImpl extends Component {
   render() {
     const { isOpen, experimentName } = this.props;
 
-    const inputComponent = <RenameForm
-      type='experiment'
-      name={experimentName}
-      visible={isOpen}
-      validator={this.debouncedExperimentNameValidator}
-    />;
+    const inputComponent = (
+      <RenameForm
+        type='experiment'
+        name={experimentName}
+        visible={isOpen}
+        validator={this.debouncedExperimentNameValidator}
+      />
+    );
 
     return (
       <GenericInputModal
@@ -73,4 +74,3 @@ const mapDispatchToProps = {
 export const RenameExperimentModal = connect(
   mapStateToProps, mapDispatchToProps
 )(RenameExperimentModalImpl);
-

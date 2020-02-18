@@ -1,11 +1,11 @@
 import { getExperimentNameValidator } from './validation';
 
-test("ExperimentNameValidator works properly", () => {
+test('ExperimentNameValidator works properly', () => {
   const experimentNames = ['Default', 'Test Experiment'];
   const value = experimentNames[0];
   const experimentNameValidator = getExperimentNameValidator(() => experimentNames);
 
-  const mockCallback = jest.fn(err => err);
+  const mockCallback = jest.fn((err) => err);
 
   // pass one of the existing experiments as input value
   experimentNameValidator(undefined, value, mockCallback);

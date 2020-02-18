@@ -11,7 +11,6 @@ import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 
-
 export class ExperimentListView extends Component {
   static propTypes = {
     onClickListExperiments: PropTypes.func.isRequired,
@@ -52,13 +51,13 @@ export class ExperimentListView extends Component {
       selectedExperimentId: experimentId,
       selectedExperimentName: experimentName,
     });
-  }
+  };
 
   handleCreateExperiment = () => {
     this.setState({
       showCreateExperimentModal: true,
     });
-  }
+  };
 
   handleDeleteExperiment = (ev) => {
     this.setState({
@@ -67,7 +66,7 @@ export class ExperimentListView extends Component {
 
     const data = ev.currentTarget.dataset;
     this.updateSelectedExperiment(parseInt(data.experimentid, 10), data.experimentname);
-  }
+  };
 
   handleRenameExperiment = (ev) => {
     this.setState({
@@ -76,13 +75,13 @@ export class ExperimentListView extends Component {
 
     const data = ev.currentTarget.dataset;
     this.updateSelectedExperiment(parseInt(data.experimentid, 10), data.experimentname);
-  }
+  };
 
   handleCloseCreateExperimentModal = () => {
     this.setState({
       showCreateExperimentModal: false,
     });
-  }
+  };
 
   handleCloseDeleteExperimentModal = () => {
     this.setState({
@@ -90,7 +89,7 @@ export class ExperimentListView extends Component {
     });
     // reset
     this.updateSelectedExperiment(0, '');
-  }
+  };
 
   handleCloseRenameExperimentModal = () => {
     this.setState({
@@ -98,7 +97,7 @@ export class ExperimentListView extends Component {
     });
     // reset
     this.updateSelectedExperiment(0, '');
-  }
+  };
 
   render() {
     const height = this.state.height || window.innerHeight;
@@ -128,10 +127,12 @@ export class ExperimentListView extends Component {
         />
         <div>
           <h1 className='experiments-header'>Experiments</h1>
-          <div className="experiment-list-create-btn-container">
-            <i onClick={this.handleCreateExperiment}
-               title="New Experiment"
-               className="fas fa-plus fa-border experiment-list-create-btn"/>
+          <div className='experiment-list-create-btn-container'>
+            <i
+              onClick={this.handleCreateExperiment}
+              title='New Experiment'
+              className='fas fa-plus fa-border experiment-list-create-btn'
+            />
           </div>
           <div className='collapser-container'>
             <i
@@ -155,40 +156,37 @@ export class ExperimentListView extends Component {
                 const { name, experiment_id } = exp;
                 const parsedExperimentId = parseInt(experiment_id, 10);
                 const active = this.props.activeExperimentId !== undefined
-                  ? parsedExperimentId === this.props.activeExperimentId
-                  : idx === 0;
+                    ? parsedExperimentId === this.props.activeExperimentId
+                    : idx === 0;
                 const className =
                   `experiment-list-item ${active ? 'active-experiment-list-item' : ''}`;
                 return (
-                  <div key={experiment_id} title={name}
-                    className={`header-container ${className}`}>
+                  <div key={experiment_id} title={name} className={`header-container ${className}`}>
                     <Link
-                      style={{ textDecoration: 'none', color: 'unset', width: '80%'}}
+                      style={{ textDecoration: 'none', color: 'unset', width: '80%' }}
                       to={Routes.getExperimentPageRoute(experiment_id)}
                       onClick={active ? ev => ev.preventDefault() : ev => ev}
                     >
-                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {name}
-                    </div>
-                  {/* Edit/Rename Experiment Option */}
-                  </Link>
-                  <a
-                    onClick={this.handleRenameExperiment}
-                    data-experimentid={experiment_id}
-                    data-experimentname={name}
-                    style={{ marginRight: 10 }}
-                  >
-                    <Icon type="edit" />
-                  </a>
-                  {/* Delete Experiment option */}
-                  <a
-                    onClick={this.handleDeleteExperiment}
-                    data-experimentid={experiment_id}
-                    data-experimentname={name}
-                  >
-                    <i className="far fa-trash-alt"/>
-                  </a>
-                </div>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
+                    </Link>
+                    {/* Edit/Rename Experiment Option */}
+                    <a
+                      onClick={this.handleRenameExperiment}
+                      data-experimentid={experiment_id}
+                      data-experimentname={name}
+                      style={{ marginRight: 10 }}
+                    >
+                      <Icon type='edit' />
+                    </a>
+                    {/* Delete Experiment option */}
+                    <a
+                      onClick={this.handleDeleteExperiment}
+                      data-experimentid={experiment_id}
+                      data-experimentname={name}
+                    >
+                      <i className='far fa-trash-alt' />
+                    </a>
+                  </div>
                 );
               })}
           </div>

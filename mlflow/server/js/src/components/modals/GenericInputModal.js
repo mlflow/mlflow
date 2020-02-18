@@ -30,13 +30,14 @@ export class GenericInputModal extends Component {
 
         // call handleSubmit from parent component, pass form values
         // handleSubmit is expected to return a promise
-        this.props.handleSubmit(values)
+        this.props
+          .handleSubmit(values)
           .then(this.resetAndClearModalForm)
           .catch(this.handleSubmitFailure)
           .finally(this.onRequestCloseHandler);
       }
     });
-  }
+  };
 
   resetAndClearModalForm = () => {
     this.setState({ isSubmitting: false });
@@ -53,7 +54,7 @@ export class GenericInputModal extends Component {
       this.resetAndClearModalForm();
       this.props.onClose();
     }
-  }
+  };
 
   saveFormRef = (form) => {
     this.form = form;
@@ -64,10 +65,7 @@ export class GenericInputModal extends Component {
     const { isOpen, childForm } = this.props;
 
     // add props (ref) to passed component
-    const displayForm = React.cloneElement(
-      childForm,
-      {ref: this.saveFormRef}
-    );
+    const displayForm = React.cloneElement(childForm, { ref: this.saveFormRef });
 
     return (
       <Modal

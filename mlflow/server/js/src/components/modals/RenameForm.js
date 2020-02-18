@@ -15,7 +15,7 @@ class RenameFormComponent extends Component {
     name: PropTypes.string.isRequired,
     visible: PropTypes.bool.isRequired,
     validator: PropTypes.func,
-  }
+  };
 
   componentDidUpdate(prevProps) {
     this.autoFocus(prevProps);
@@ -26,7 +26,7 @@ class RenameFormComponent extends Component {
     this.inputToAutoFocus = inputToAutoFocus;
     inputToAutoFocus.focus();
     inputToAutoFocus.select();
-  }
+  };
 
   autoFocus = (prevProps) => {
     if (prevProps.visible === false && this.props.visible === true) {
@@ -35,14 +35,14 @@ class RenameFormComponent extends Component {
       // select text
       this.inputToAutoFocus && this.inputToAutoFocus.select();
     }
-  }
+  };
 
   resetFields = (prevProps) => {
     if (prevProps.name !== this.props.name) {
       // reset input field to reset displayed initialValue
       this.props.form.resetFields([NEW_NAME_FIELD]);
     }
-  }
+  };
 
   render() {
     const { getFieldDecorator } = this.props.form;
@@ -51,15 +51,13 @@ class RenameFormComponent extends Component {
         <Form.Item label={`New ${this.props.type} name`}>
           {getFieldDecorator(NEW_NAME_FIELD, {
             rules: [
-              { required: true, message: `Please input a new name for the ${this.props.type}.`},
+              { required: true, message: `Please input a new name for the ${this.props.type}.` },
               { validator: this.props.validator },
             ],
             initialValue: this.props.name,
-          })(<Input
-              placeholder={`Input a ${this.props.type} name`}
-              ref={this.autoFocusInputRef}
-            />)
-          }
+          })(
+            <Input placeholder={`Input a ${this.props.type} name`} ref={this.autoFocusInputRef} />,
+          )}
         </Form.Item>
       </Form>
     );

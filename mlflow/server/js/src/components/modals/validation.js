@@ -14,11 +14,13 @@ export const getExperimentNameValidator = (getExistingExperimentNames) => {
       callback(`Experiment "${value}" already exists.`);
     } else {
       // on-demand validation whether experiment already exists in deleted state
-      wrapDeferred(MlflowService.getExperimentByName, {experiment_name: value })
-        .then((res) => callback(`Experiment "${value}" already exists in deleted state.
+      wrapDeferred(MlflowService.getExperimentByName, { experiment_name: value })
+        .then((res) =>
+          callback(`Experiment "${value}" already exists in deleted state.
                                  You can restore the experiment, or permanently delete the
                                  experiment from the .trash folder (under tracking server's
-                                 root folder) in order to use this experiment name again.`))
+                                 root folder) in order to use this experiment name again.`),
+        )
         .catch((e) => callback(undefined)); // no experiment returned
     }
   };
