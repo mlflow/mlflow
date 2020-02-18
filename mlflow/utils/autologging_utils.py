@@ -1,12 +1,34 @@
 import mlflow
 import warnings
-
+import sys
 # Python 2/3 compatibility to avoid deprecated inspect.getargspec
-try:
-    from inspect import getfullargspec as arg_spec
-except ImportError:
-    from inspect import getargspec as arg_spec
+import inspect
 
+def arg_spec(fn):
+    """Python 2/3 compatible `getargspec`.
+
+    Calls `getfullargspec` and assigns args, varargs,
+    varkw, and defaults to a python 2/3 compatible `ArgSpec`.
+    The parameter name 'varkw' is changed to 'keywords' to fit the
+    `ArgSpec` struct.
+
+    # Arguments
+        fn: the target function to inspect.
+
+    # Returns
+        An ArgSpec with args, varargs, keywords, and defaults parameters
+        from FullArgSpec.
+    """
+    if sys.version_info < (3,):
+        argspec = inspect.getargspec(fn)
+    else:
+        full_arg_spec = inspect.getfullargspec(fn)
+        argspec = inspect.ArgSpec(
+            args=full_arg_spec.args,
+            varargs=full_arg_spec.varargs,
+            keywords=full_arg_spec.varkw,
+            defaults=full_arg_spec.defaults)
+    return argspec
 
 def try_mlflow_log(fn, *args, **kwargs):
     """
