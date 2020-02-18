@@ -40,9 +40,12 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # noqa: E
 # log a deprecated warning only once per function per module
 warnings.filterwarnings("module", category=DeprecationWarning)
 
-if sys.version == "2":
-    warnings.warn("Usage of Python 2 with MLflow is deprecated. Future versions of MLflow will "
-                  "drop support for Python 2.")
+if sys.version_info.major == 2:
+    warnings.warn("Python 2 support for MLflow is deprecated. A future release of MLflow "
+                  "will drop support for Python 2. At that point, existing Python 2 workflows that"
+                  "use MLflow will continue to work without modification, but Python 2 users will "
+                  "no longer get access to the latest features and bugfixes.", DeprecationWarning)
+
 
 # pylint: disable=wrong-import-position
 import mlflow.projects as projects  # noqa
