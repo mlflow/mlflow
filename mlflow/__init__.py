@@ -48,11 +48,11 @@ _configure_mlflow_loggers(root_module_name=__name__)
 
 if sys.version_info.major == 2:
     warnings.warn("MLflow support for Python 2 is deprecated and will be dropped in a future "
-                  "MLflow release. At that point, existing Python 2 workflows that "
-                  "use MLflow will continue to work without modification, but Python 2 users will "
-                  "no longer get access to the latest features and bugfixes. We recommend you "
-                  "upgrade to Python 3 - see https://docs.python.org/3/howto/pyporting.html for "
-                  "a migration guide.", DeprecationWarning)
+                  "release. At that point, existing Python 2 workflows that use MLflow will "
+                  "continue to work without modification, but Python 2 users will no longer "
+                  "get access to the latest MLflow features and bugfixes. We recommend that "
+                  "you upgrade to Python 3 - see https://docs.python.org/3/howto/pyporting.html "
+                  "for a migration guide.", DeprecationWarning)
 
 ActiveRun = mlflow.tracking.fluent.ActiveRun
 log_param = mlflow.tracking.fluent.log_param
