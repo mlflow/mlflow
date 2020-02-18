@@ -26,26 +26,25 @@ class CreateExperimentModalImpl extends Component {
     // get values of input fields
     const experimentName = values[EXP_NAME_FIELD];
     const artifactLocation = values[ARTIFACT_LOCATION];
-    const createRequestId = getUUID();
-
-    const createExperimentPromise = this.props.createExperimentApi(
-      experimentName, artifactLocation, createRequestId
-    );
-    const listExperimentsPromise = this.props.listExperimentsApi(createRequestId);
 
     // The listExperimentsPromise needs to be fulfilled before redirecting the user
     // to the newly created experiment page (history.push()).
     // At the same time, the result value of the createExperimentPromise is needed
-    // to get the experiment id. Thus, the flat promise chain is broken up.
-    const returnPromise = Promise.all([createExperimentPromise, listExperimentsPromise])
-      .then(([{ value }, _]) => {
+    // to get the experiment id. Thus, the state has to be shared through the promise chain.
+    const createExperimentPromise = this.props
+      .createExperimentApi(experimentName, artifactLocation, getUUID())
+      .then(({ value }) => {
+        const listExperimentsPromise = this.props.listExperimentsApi(getUUID());
+        return Promise.all([value, listExperimentsPromise]);
+      })
+      .then(([value, _]) => {
         if (value && value.experiment_id) {
           // redirect user to newly created experiment page
           this.props.history.push(Routes.getExperimentPageRoute(value.experiment_id));
         }
       });
 
-    return returnPromise;
+    return createExperimentPromise;
   }
 
   debouncedExperimentNameValidator = debounce(
