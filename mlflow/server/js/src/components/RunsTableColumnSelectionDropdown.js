@@ -59,8 +59,6 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
         key: ColumnTypes.METRICS,
         children: metricKeyList.map((key) => ({
           key: `${ColumnTypes.METRICS}-${key}`,
-          // TODO can we pass extra info here to show a hover tooltip or something? I guess
-          // the recommendation for now is to use search to find an individual metric
           title: key,
         })),
       });
