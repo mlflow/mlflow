@@ -46,7 +46,7 @@ export class ExperimentListView extends Component {
   };
 
   preventDefault = (ev) => ev.preventDefault();
-  
+
   updateSelectedExperiment = (experimentId, experimentName) => {
     this.setState({
       selectedExperimentId: experimentId,

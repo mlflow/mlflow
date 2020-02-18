@@ -82,7 +82,7 @@ export const updateExperimentApi = (experimentId, newExperimentName, id = getUUI
         new_name: newExperimentName,
       }),
       meta: { id: getUUID() },
-    }).then(() => dispatch(getExperimentApi(experimentId, id)));
+    });
     return updateResponse;
   };
 };

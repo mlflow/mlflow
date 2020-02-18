@@ -7,7 +7,7 @@ import { GenericInputModal } from './GenericInputModal';
 import { RenameForm, NEW_NAME_FIELD } from './RenameForm';
 import { getExperimentNameValidator } from './validation';
 
-import { updateExperimentApi } from '../../Actions';
+import { updateExperimentApi, getExperimentApi } from '../../Actions';
 import { getExperiments } from '../../reducers/Reducers';
 
 
@@ -19,12 +19,17 @@ class RenameExperimentModalImpl extends Component {
     experimentNames: PropTypes.arrayOf(String).isRequired,
     onClose: PropTypes.func.isRequired,
     updateExperimentApi: PropTypes.func.isRequired,
+    getExperimentApi: PropTypes.func.isRequired,
   };
 
   handleRenameExperiment = (values) => {
     // get value of input field
     const newExperimentName = values[NEW_NAME_FIELD];
-    return this.props.updateExperimentApi(this.props.experimentId, newExperimentName);
+    const updateExperimentPromise = this.props
+      .updateExperimentApi(this.props.experimentId, newExperimentName)
+      .then(() => this.props.getExperimentApi(this.props.experimentId));
+
+    return updateExperimentPromise;
   };
 
   debouncedExperimentNameValidator = debounce(
@@ -62,6 +67,7 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = {
   updateExperimentApi,
+  getExperimentApi,
 };
 
 export const RenameExperimentModal = connect(
