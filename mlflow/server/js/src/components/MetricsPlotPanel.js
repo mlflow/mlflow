@@ -75,7 +75,6 @@ export class MetricsPlotPanel extends React.Component {
     history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys));
   }
 
-
   loadMetricHistory = (runUuids, metricKeys) => {
     const requestIds = [];
     const { latestMetricsByRunUuid } = this.props;
@@ -120,8 +119,8 @@ export class MetricsPlotPanel extends React.Component {
     // If plot previously had no y axis range configured, simply set the axis type to log or
     // linear scale appropriately
     if (!this.state.layout.yaxis || !this.state.layout.yaxis.range) {
-      newLayout.yaxis = {type: newAxisType, autorange: true};
-      this.setState({layout: newLayout});
+      newLayout.yaxis = { type: newAxisType, autorange: true };
+      this.setState({ layout: newLayout });
       return;
     }
 
@@ -209,7 +208,7 @@ export class MetricsPlotPanel extends React.Component {
     if (newLayout["xaxis.autorange"]) {
       mergedLayout = {
         ...mergedLayout,
-        xaxis: {autorange: true},
+        xaxis: { autorange: true },
       };
     }
     if (newLayout["yaxis.autorange"]) {
@@ -217,12 +216,11 @@ export class MetricsPlotPanel extends React.Component {
         this.state.layout.yaxis.type === 'log' ? "log" : "linear";
       mergedLayout = {
         ...mergedLayout,
-        yaxis: {autorange: true, type: axisType},
+        yaxis: { autorange: true, type: axisType },
       };
     }
     this.setState({layout: mergedLayout});
   };
-
 
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
     const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
