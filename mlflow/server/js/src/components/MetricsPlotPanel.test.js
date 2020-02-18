@@ -189,5 +189,12 @@ describe('unit tests', () => {
     instance.handleYAxisLogScaleChange(false);
     expect(instance.state.layout).toEqual(
         {xaxis: {range: [-5, 5]}, yaxis: {range: [-3, 6], type: "linear"}});
+    // Test converting to & from log scale for an empty layout (e.g. a layout without any
+    // user-specified zoom)
+    wrapper.setState({ layout: {} });
+    instance.handleYAxisLogScaleChange(true);
+    expect(instance.state.layout).toEqual({yaxis: {type: "log", autorange: true}});
+    instance.handleYAxisLogScaleChange(false);
+    expect(instance.state.layout).toEqual({yaxis: {type: "linear", autorange: true}});
   });
 });

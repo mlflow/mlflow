@@ -50,13 +50,6 @@ export class MetricsPlotPanel extends React.Component {
     this.loadMetricHistory(this.props.runUuids, this.state.selectedMetricKeys);
   }
 
-  updateUrlWithSelectedMetrics(selectedMetricKeys) {
-    const { runUuids, metricKey, location, history } = this.props;
-    const params = qs.parse(location.search);
-    const experimentId = params['experiment'];
-    history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys));
-  }
-
   static predictChartType(metrics) {
     // Show bar chart when every metric has exactly 1 metric history
     if (
@@ -73,6 +66,13 @@ export class MetricsPlotPanel extends React.Component {
     const params = qs.parse(search);
     const runs = params && params['?runs'];
     return runs ? JSON.parse(runs).length > 1 : false;
+  }
+
+  updateUrlWithSelectedMetrics(selectedMetricKeys) {
+    const { runUuids, metricKey, location, history } = this.props;
+    const params = qs.parse(location.search);
+    const experimentId = params['experiment'];
+    history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys));
   }
 
 
@@ -233,9 +233,7 @@ export class MetricsPlotPanel extends React.Component {
 
   handleShowPointChange = (showPoint) => this.setState({ showPoint });
 
-  handleLineSmoothChange = (lineSmoothness) => {
-    this.setState({ lineSmoothness });
-  };
+  handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
 
   render() {
     const { runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
@@ -260,8 +258,6 @@ export class MetricsPlotPanel extends React.Component {
           handleYAxisLogScaleChange={this.handleYAxisLogScaleChange}
           handleLineSmoothChange={this.handleLineSmoothChange}
           chartType={chartType}
-          initialLineSmoothness={lineSmoothness}
-          showPoint={showPoint}
         />
         <RequestStateWrapper
             requestIds={historyRequestIds}
