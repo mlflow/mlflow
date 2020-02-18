@@ -131,11 +131,13 @@ export class MetricsPlotPanel extends React.Component {
     const oldYRange = oldLayout.yaxis.range;
     if (oldLayout.yaxis.type !== 'log') {
       if (oldYRange[0] < 0) {
-        // When converting to log scale, handle negative values as follows:
-        // If bottom of old Y range is negative, then tell plotly to infer the y-axis scale
+        // When converting to log scale, handle negative values (which have no log-scale
+        // representation as taking the log of a negative number is not possible) as follows:
+        // If bottom of old Y range is negative, then tell plotly to infer the log y-axis scale
         // (set 'autorange' to true), and preserve the old range in the 'range' attribute of
         // the layout so that we can restore it if the user converts back to a linear-scale
-        // y axis.
+        // y axis. We defer to Plotly's autorange here under the assumption that it will produce
+        // a reasonable y-axis log scale for plots containing negative values.
         newLayout.yaxis = {
           type: 'log',
           range: oldYRange,
