@@ -123,21 +123,17 @@ export class MetricsPlotPanel extends React.Component {
     const newLayout = _.cloneDeep(this.state.layout);
     const newAxisType = yAxisLogScale ? "log" : "linear";
 
-    // lastLinearYAxisRange contains the last range used for a linear-scale y-axis
-    // We reset this state attribute each time the y-axis log scale changes, unless we're explicitly
-    // converting from a linear axis with negative bounds to a log scale axis.
-    let lastLinearYAxisRange = [];
-
     // Handle special case of a linear y-axis scale with negative values converted to log scale &
     // now being restored to linear scale, by restoring the old linear-axis range from
-    // this.state.linearYAxisRange
+    // this.state.linearYAxisRange. In particular, we assume that if this.state.linearYAxisRange
+    // is non-empty, it contains a linear y axis range with negative values.
     if (!yAxisLogScale && this.state.lastLinearYAxisRange &&
         this.state.lastLinearYAxisRange.length > 0) {
       newLayout.yaxis = {
         type: "linear",
         range: this.state.lastLinearYAxisRange,
       };
-      this.setState({ layout: newLayout, lastLinearYAxisRange });
+      this.setState({ layout: newLayout, lastLinearYAxisRange: [] });
       return;
     }
 
@@ -145,9 +141,16 @@ export class MetricsPlotPanel extends React.Component {
     // log or linear scale appropriately
     if (!this.state.layout.yaxis || !this.state.layout.yaxis.range) {
       newLayout.yaxis = { type: newAxisType, autorange: true };
-      this.setState({ layout: newLayout, lastLinearYAxisRange });
+      this.setState({ layout: newLayout, lastLinearYAxisRange: [] });
       return;
     }
+
+    // lastLinearYAxisRange contains the last range used for a linear-scale y-axis. We set
+    // this state attribute if and only if we're converting from a linear-scale y-axis with
+    // negative bounds to a log scale axis, so that we can restore the negative bounds if we
+    // subsequently convert back to a linear scale axis. Otherwise, we reset this attribute to an
+    // empty array
+    let lastLinearYAxisRange = [];
 
     // At this point, we know the plot previously had a y axis specified with range bounds
     // Convert the range to/from log scale as appropriate
