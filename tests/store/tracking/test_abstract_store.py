@@ -44,7 +44,7 @@ class AbstractStoreTestImpl(AbstractStore):
         raise NotImplementedError()
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     diff_parameters, page_token):
+                     parameter_diff, page_token):
         raise NotImplementedError()
 
     def log_batch(self, run_id, metrics, params, tags):

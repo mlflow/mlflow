@@ -673,7 +673,7 @@ def test_search_runs_with_parameter_diff():
                    ('lr', 0.01),
                    ('num_layers', 5),
                    ('num_classes', 10)])
-    with mlflow.start_run() as first_run:
+    with mlflow.start_run():
         for key, value in params.items():
             mlflow.log_param(key, value)
 
@@ -682,8 +682,8 @@ def test_search_runs_with_parameter_diff():
     assert all([r.data.params == {} for r in retrieved_runs])
 
     # Create runs without same parameterss
-    for i in range(10):
-        with mlflow.start_run() as active_run:
+    for _ in range(10):
+        with mlflow.start_run():
             for key, value in params.items():
                 mlflow.log_param(key, value)
 
@@ -696,8 +696,8 @@ def test_search_runs_with_parameter_diff():
                       'lr': 0.001,
                       'num_layers': 6,
                       'weight_decay': 0.01}
-    for i in range(5):
-        with mlflow.start_run() as active_run:
+    for _ in range(5):
+        with mlflow.start_run():
             keys = random.sample(changed_params.keys(), random_int(1, 3))
             for key in keys:
                 mlflow.log_param(key, changed_params[key])

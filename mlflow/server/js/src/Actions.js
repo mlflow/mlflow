@@ -79,7 +79,7 @@ export const restoreRunApi = (runUuid, id = getUUID()) => {
 };
 
 export const SEARCH_RUNS_API = 'SEARCH_RUNS_API';
-export const searchRunsApi = (experimentIds, filter, runViewType, orderBy,parameter_diff = false,
+export const searchRunsApi = (experimentIds, filter, runViewType, orderBy, parameter_diff = false,
                               id = getUUID()) => {
   return {
     type: SEARCH_RUNS_API,
