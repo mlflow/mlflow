@@ -138,8 +138,6 @@ export class MetricsPlotPanel extends React.Component {
         type: "linear",
         range: this.state.lastLinearYAxisRange,
       };
-      console.log("Setting layout state to " + JSON.stringify(newLayout) + " last linear axis range " + JSON.stringify(lastLinearYAxisRange));
-      debugger;
       this.setState({layout: newLayout, lastLinearYAxisRange});
       return;
     }
@@ -148,7 +146,6 @@ export class MetricsPlotPanel extends React.Component {
     // log or linear scale appropriately
     if (!this.state.layout.yaxis || !this.state.layout.yaxis.range) {
       newLayout.yaxis = {type: newAxisType, autorange: true};
-      console.log("Setting layout state to " + JSON.stringify(newLayout) + " last linear axis range " + JSON.stringify(lastLinearYAxisRange));
       this.setState({layout: newLayout, lastLinearYAxisRange});
       return;
     }
@@ -184,7 +181,6 @@ export class MetricsPlotPanel extends React.Component {
         range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
       };
     }
-    console.log("Setting layout state to " + JSON.stringify(newLayout) + " last linear axis range " + JSON.stringify(lastLinearYAxisRange));
     this.setState({layout: newLayout, lastLinearYAxisRange});
   };
 
@@ -262,7 +258,6 @@ export class MetricsPlotPanel extends React.Component {
         yaxis: {autorange: true, type: axisType},
       };
     }
-    console.log("In handleLayoutChanged, setting layout to " + JSON.stringify(mergedLayout) + " and last range to " + JSON.stringify(lastLinearYAxisRange));
     this.setState({layout: mergedLayout, lastLinearYAxisRange});
   };
 
