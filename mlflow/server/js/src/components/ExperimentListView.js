@@ -17,11 +17,12 @@ export class ExperimentListView extends Component {
 
   state = {
     height: undefined,
+    searchInput: '',
   };
 
   componentDidMount() {
     this.resizeListener = () => {
-      this.setState({height: window.innerHeight });
+      this.setState({ height: window.innerHeight });
     };
     window.addEventListener('resize', this.resizeListener);
   }
@@ -30,48 +31,60 @@ export class ExperimentListView extends Component {
     window.removeEventListener('resize', this.resizeListener);
   }
 
+  handleSearchInputChange = (event) => {
+    this.setState({ searchInput: event.target.value });
+  };
+
+  preventDefault = (ev) => ev.preventDefault();
+
   render() {
     const height = this.state.height || window.innerHeight;
     // 60 pixels for the height of the top bar.
     // 100 for the experiments header and some for bottom padding.
     const experimentListHeight = height - 60 - 100;
+    // get searchInput from state
+    const { searchInput } = this.state;
     return (
-      <div className="experiment-list-outer-container">
+      <div className='experiment-list-outer-container'>
         <div>
-          <h1 className="experiments-header">Experiments</h1>
-          <div className="collapser-container">
-            <i onClick={this.props.onClickListExperiments}
-               title="Hide experiment list"
-               className="collapser fa fa-chevron-left login-icon"/>
+          <h1 className='experiments-header'>Experiments</h1>
+          <div className='collapser-container'>
+            <i
+              onClick={this.props.onClickListExperiments}
+              title='Hide experiment list'
+              className='collapser fa fa-chevron-left login-icon'
+            />
           </div>
-          <div className="experiment-list-container" style={{ height: experimentListHeight }}>
-            {this.props.experiments.map((e, idx) => {
-              let active;
-              if (this.props.activeExperimentId) {
-                active = parseInt(e.getExperimentId(), 10) === this.props.activeExperimentId;
-              } else {
-                active = idx === 0;
-              }
-              let className = "experiment-list-item";
-              if (active) {
-                className = `${className} active-experiment-list-item`;
-              }
-              return (
-                <Link
-                  style={{ textDecoration: 'none', color: 'unset' }}
-                  key={e.getExperimentId()}
-                  to={Routes.getExperimentPageRoute(e.getExperimentId())}
-                  onClick={active ? ev => ev.preventDefault() : ev => ev}
-                >
-                  <div
-                    className={className}
-                    title={e.getName()}
+          <input
+            className='experiment-list-search-input'
+            type='text'
+            placeholder='Search Experiments'
+            value={searchInput}
+            onChange={this.handleSearchInputChange}
+          />
+          <div className='experiment-list-container' style={{ height: experimentListHeight }}>
+            {this.props.experiments
+              // filter experiments based on searchInput
+              .filter((exp) => exp.getName().toLowerCase().includes(searchInput.toLowerCase()))
+              .map((exp, idx) => {
+                const { name, experiment_id } = exp;
+                const parsedExperimentId = parseInt(experiment_id, 10);
+                const active = this.props.activeExperimentId !== undefined
+                  ? parsedExperimentId === this.props.activeExperimentId
+                  : idx === 0;
+                const className =
+                  `experiment-list-item ${active ? 'active-experiment-list-item' : ''}`;
+                return (
+                  <Link
+                    style={{ textDecoration: 'none', color: 'unset' }}
+                    key={name}
+                    to={Routes.getExperimentPageRoute(experiment_id)}
+                    onClick={active ? this.preventDefault : undefined}
                   >
-                    {e.getName()}
-                  </div>
-                </Link>
-              );
-            })}
+                    <div className={className} title={name}>{name}</div>
+                  </Link>
+                );
+              })}
           </div>
         </div>
       </div>
