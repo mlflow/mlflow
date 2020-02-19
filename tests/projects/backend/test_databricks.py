@@ -195,11 +195,8 @@ def test_run_databricks_validations(
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         mlflow_service = mlflow.tracking.MlflowClient()
-        # Run is created but status is failed
-        run_infos = list(mlflow_service.list_run_infos(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID))
-        assert len(run_infos) == 1
-        assert run_infos[0].status == 'FAILED'
+        assert (len(mlflow_service.list_run_infos(experiment_id=FileStore.DEFAULT_EXPERIMENT_ID))
+                == 0)
         tracking_uri_mock.return_value = "http://"
         # Test misspecified parameters
         with pytest.raises(ExecutionException):

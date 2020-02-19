@@ -279,11 +279,6 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     return ["bash", "-c", shell_command]
 
 
-def set_run_failed(tracking_uri, run_id):
-    client = tracking.MlflowClient(tracking_uri=tracking_uri)
-    client.set_terminated(run_id, status='FAILED')
-
-
 class DatabricksProjectBackend(AbstractBackend):
 
     def run(self, run_id, project_uri, entry_point, params,
@@ -293,12 +288,6 @@ class DatabricksProjectBackend(AbstractBackend):
         used to query the run's status or wait for the resulting Databricks Job run to terminate.
         """
         tracking_uri = tracking.get_tracking_uri()
-        try:
-            before_run_validations(tracking_uri, backend_config)
-        except (MlflowException, ExecutionException):
-            set_run_failed(tracking_uri, run_id)
-            raise
-
         profile = get_db_profile_from_uri(tracking_uri)
         experiment_id = mlflow.get_run(run_id).info.experiment_id
         db_job_runner = DatabricksJobRunner(databricks_profile=profile)
@@ -309,6 +298,10 @@ class DatabricksProjectBackend(AbstractBackend):
             db_run_id, run_id, db_job_runner)
         submitted_run._print_description_and_log_tags()
         return submitted_run
+
+    def validate_backend_config(self, backend_config):
+        tracking_uri = tracking.get_tracking_uri()
+        before_run_validations(tracking_uri, backend_config)
 
     @property
     def name(self):

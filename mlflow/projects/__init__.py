@@ -106,6 +106,14 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     project = _project_spec.load_project(work_dir)
     _validate_execution_environment(project, backend_name)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
+
+    if not backend_config:
+        backend_config = dict()
+
+    backend = load_backend(backend_name=backend_name)
+    if backend:
+        backend.validate_backend_config(backend_config)
+
     if run_id:
         active_run = tracking.MlflowClient().get_run(run_id)
     else:
@@ -128,10 +136,6 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         for tag in [MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_BRANCH_NAME]:
             tracking.MlflowClient().set_tag(active_run.info.run_id, tag, version)
 
-    if not backend_config:
-        backend_config = dict()
-
-    backend = load_backend(backend_name=backend_name)
     if backend:
         run_id = active_run.info.run_id
         tracking.MlflowClient().set_tag(run_id, MLFLOW_PROJECT_BACKEND,

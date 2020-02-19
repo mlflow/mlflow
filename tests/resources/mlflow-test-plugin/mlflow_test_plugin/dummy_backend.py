@@ -30,6 +30,9 @@ class PluginDummyProjectBackend(AbstractBackend):
             backend_config, project_dir):
         return DummySubmittedRun(run_id)
 
+    def validate_backend_config(self, backend_config):
+        pass
+
     @property
     def name(self):
         return "dummy"

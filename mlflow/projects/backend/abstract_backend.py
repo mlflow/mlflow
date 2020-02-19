@@ -28,6 +28,16 @@ class AbstractBackend():
         """
         pass
 
+    @abstractmethod
+    def validate_backend_config(self, backend_config):
+        """
+        Validate a backend config before to create the run. It should raise an exception
+        in case of exception
+
+        :param backend_config: Dict with the config to validate
+        """
+        pass
+
     @abstractproperty
     def name(self):
         """
