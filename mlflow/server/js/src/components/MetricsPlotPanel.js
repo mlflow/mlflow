@@ -80,7 +80,6 @@ export class MetricsPlotPanel extends React.Component {
     history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys));
   }
 
-
   loadMetricHistory = (runUuids, metricKeys) => {
     const requestIds = [];
     const { latestMetricsByRunUuid } = this.props;
@@ -138,15 +137,15 @@ export class MetricsPlotPanel extends React.Component {
         type: "linear",
         range: this.state.lastLinearYAxisRange,
       };
-      this.setState({layout: newLayout, lastLinearYAxisRange});
+      this.setState({ layout: newLayout, lastLinearYAxisRange });
       return;
     }
 
     // Otherwise, if plot previously had no y axis range configured, simply set the axis type to
     // log or linear scale appropriately
     if (!this.state.layout.yaxis || !this.state.layout.yaxis.range) {
-      newLayout.yaxis = {type: newAxisType, autorange: true};
-      this.setState({layout: newLayout, lastLinearYAxisRange});
+      newLayout.yaxis = { type: newAxisType, autorange: true };
+      this.setState({ layout: newLayout, lastLinearYAxisRange });
       return;
     }
 
@@ -181,7 +180,7 @@ export class MetricsPlotPanel extends React.Component {
         range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
       };
     }
-    this.setState({layout: newLayout, lastLinearYAxisRange});
+    this.setState({ layout: newLayout, lastLinearYAxisRange });
   };
 
   /**
@@ -246,7 +245,7 @@ export class MetricsPlotPanel extends React.Component {
     if (newLayout["xaxis.autorange"] === true) {
       mergedLayout = {
         ...mergedLayout,
-        xaxis: {autorange: true},
+        xaxis: { autorange: true },
       };
     }
     if (newLayout["yaxis.autorange"] === true) {
@@ -255,12 +254,11 @@ export class MetricsPlotPanel extends React.Component {
         this.state.layout.yaxis.type === 'log' ? "log" : "linear";
       mergedLayout = {
         ...mergedLayout,
-        yaxis: {autorange: true, type: axisType},
+        yaxis: { autorange: true, type: axisType },
       };
     }
-    this.setState({layout: mergedLayout, lastLinearYAxisRange});
+    this.setState({ layout: mergedLayout, lastLinearYAxisRange });
   };
-
 
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
     const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
