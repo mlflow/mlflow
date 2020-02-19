@@ -9,7 +9,7 @@ import { GenericInputModal } from './GenericInputModal';
 import { CreateExperimentForm, EXP_NAME_FIELD, ARTIFACT_LOCATION } from './CreateExperimentForm';
 import { getExperimentNameValidator } from './validation';
 
-import { createExperimentApi, listExperimentsApi, getUUID } from '../../Actions';
+import { createExperimentApi, listExperimentsApi } from '../../Actions';
 import { getExperiments } from '../../reducers/Reducers';
 
 class CreateExperimentModalImpl extends Component {
@@ -22,32 +22,20 @@ class CreateExperimentModalImpl extends Component {
     history: PropTypes.object.isRequired,
   };
 
-  createRequestId = getUUID();
-  listRequestId = getUUID();
-
-  handleCreateExperiment = (values) => {
+  handleCreateExperiment = async (values) => {
     // get values of input fields
     const experimentName = values[EXP_NAME_FIELD];
     const artifactLocation = values[ARTIFACT_LOCATION];
 
-    // The listExperimentsPromise needs to be fulfilled before redirecting the user
-    // to the newly created experiment page (history.push()).
-    // At the same time, the result value of the createExperimentPromise is needed
-    // to get the experiment id. Thus, the state has to be shared through the promise chain.
-    const createExperimentPromise = this.props
-      .createExperimentApi(experimentName, artifactLocation, this.createRequestId)
-      .then(({ value }) => {
-        const listExperimentsPromise = this.props.listExperimentsApi(this.listRequestId);
-        return Promise.all([value, listExperimentsPromise]);
-      })
-      .then(([value, _]) => {
-        if (value && value.experiment_id) {
-          // redirect user to newly created experiment page
-          this.props.history.push(Routes.getExperimentPageRoute(value.experiment_id));
-        }
-      });
+    // Both createExperimentApi and listExperimentsApi calls need to be fulfilled sequentially
+    // before redirecting the user to the newly created experiment page (history.push())
+    const response = await this.props.createExperimentApi(experimentName, artifactLocation);
+    await this.props.listExperimentsApi();
 
-    return createExperimentPromise;
+    const { value: { experiment_id: newExperimentId } } = response;
+    if (newExperimentId) {
+      this.props.history.push(Routes.getExperimentPageRoute(newExperimentId));
+    }
   };
 
   debouncedExperimentNameValidator = debounce(
