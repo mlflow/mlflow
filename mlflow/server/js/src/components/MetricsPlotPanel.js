@@ -46,6 +46,11 @@ export class MetricsPlotPanel extends React.Component {
       showPoint: false,
       historyRequestIds: [],
       lineSmoothness: 0,
+      // Used to keep track of the most-recent linear y-axis plot range, to handle the specific
+      // case where we toggle a plot with negative y-axis bounds from linear to log scale,
+      // and then back to linear scale (we save the initial negative linear y-axis bounds so
+      // that we can restore them when converting from log back to linear scale)
+      lastLinearYAxisRange: [],
     };
     this.loadMetricHistory(this.props.runUuids, this.state.selectedMetricKeys);
   }
@@ -117,35 +122,53 @@ export class MetricsPlotPanel extends React.Component {
    */
   handleYAxisLogScaleChange = (yAxisLogScale) => {
     const newLayout = _.cloneDeep(this.state.layout);
-    // If yaxis was already explicitly specified, convert range to appropriate coordinates
-    // for log axis (base 10), and vice versa. When converting to log scale, handle negative values
-    // by deferring to plotly autorange
     const newAxisType = yAxisLogScale ? "log" : "linear";
 
-    // If plot previously had no y axis range configured, simply set the axis type to log or
-    // linear scale appropriately
-    if (!this.state.layout.yaxis || !this.state.layout.yaxis.range) {
-      newLayout.yaxis = {type: newAxisType, autorange: true};
-      this.setState({layout: newLayout});
+    // lastLinearYAxisRange contains the last range used for a linear-scale y-axis
+    // We reset this state attribute each time the y-axis log scale changes, unless we're explicitly
+    // converting from a linear axis with negative bounds to a log scale axis.
+    let lastLinearYAxisRange = [];
+
+    // Handle special case of a linear y-axis scale with negative values converted to log scale &
+    // now being restored to linear scale, by restoring the old linear-axis range from
+    // this.state.linearYAxisRange
+    if (!yAxisLogScale && this.state.lastLinearYAxisRange &&
+        this.state.lastLinearYAxisRange.length > 0) {
+      newLayout.yaxis = {
+        type: "linear",
+        range: this.state.lastLinearYAxisRange,
+      };
+      console.log("Setting layout state to " + JSON.stringify(newLayout) + " last linear axis range " + JSON.stringify(lastLinearYAxisRange));
+      debugger;
+      this.setState({layout: newLayout, lastLinearYAxisRange});
       return;
     }
 
-    // At this point, we know the plot previously had a y axis specified with range
+    // Otherwise, if plot previously had no y axis range configured, simply set the axis type to
+    // log or linear scale appropriately
+    if (!this.state.layout.yaxis || !this.state.layout.yaxis.range) {
+      newLayout.yaxis = {type: newAxisType, autorange: true};
+      console.log("Setting layout state to " + JSON.stringify(newLayout) + " last linear axis range " + JSON.stringify(lastLinearYAxisRange));
+      this.setState({layout: newLayout, lastLinearYAxisRange});
+      return;
+    }
+
+    // At this point, we know the plot previously had a y axis specified with range bounds
     // Convert the range to/from log scale as appropriate
     const oldLayout = this.state.layout;
     const oldYRange = oldLayout.yaxis.range;
-    if (oldLayout.yaxis.type !== 'log') {
+    if (yAxisLogScale) {
       if (oldYRange[0] < 0) {
+        lastLinearYAxisRange = oldYRange;
         // When converting to log scale, handle negative values (which have no log-scale
         // representation as taking the log of a negative number is not possible) as follows:
         // If bottom of old Y range is negative, then tell plotly to infer the log y-axis scale
-        // (set 'autorange' to true), and preserve the old range in the 'range' attribute of
-        // the layout so that we can restore it if the user converts back to a linear-scale
+        // (set 'autorange' to true), and preserve the old range in the lastLinearYAxisRange
+        // state attribute so that we can restore it if the user converts back to a linear-scale
         // y axis. We defer to Plotly's autorange here under the assumption that it will produce
         // a reasonable y-axis log scale for plots containing negative values.
         newLayout.yaxis = {
           type: 'log',
-          range: oldYRange,
           autorange: true,
         };
       } else {
@@ -154,15 +177,6 @@ export class MetricsPlotPanel extends React.Component {
           range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
         };
       }
-    // Because of a check above, we know at this point that yaxis.range was provided in the old
-    // layout. Thus if the old Y axis was autoranged (had a range inferred by Plotly), it must be
-    // because there were negative Y values (on a linear scale).
-    // We handle this by removing the 'autorange' value and restoring the old y range
-    } else if (oldLayout.yaxis.autorange) {
-      newLayout.yaxis = {
-        type: 'linear',
-        range: oldYRange,
-      };
     } else {
       // Otherwise, convert from log to linear scale normally
       newLayout.yaxis = {
@@ -170,7 +184,8 @@ export class MetricsPlotPanel extends React.Component {
         range: [Math.pow(10, oldYRange[0]), Math.pow(10, oldYRange[1])],
       };
     }
-    this.setState({layout: newLayout});
+    console.log("Setting layout state to " + JSON.stringify(newLayout) + " last linear axis range " + JSON.stringify(lastLinearYAxisRange));
+    this.setState({layout: newLayout, lastLinearYAxisRange});
   };
 
   /**
@@ -214,6 +229,7 @@ export class MetricsPlotPanel extends React.Component {
     let mergedLayout = {
       ...this.state.layout,
     };
+    let lastLinearYAxisRange = [...this.state.lastLinearYAxisRange];
     if (newXRange0 !== undefined && newXRange1 !== undefined) {
       mergedLayout = {
         ...mergedLayout,
@@ -223,6 +239,7 @@ export class MetricsPlotPanel extends React.Component {
       };
     }
     if (newYRange0 !== undefined && newYRange1 !== undefined) {
+      lastLinearYAxisRange = [];
       mergedLayout = {
         ...mergedLayout,
         yaxis: {
@@ -237,6 +254,7 @@ export class MetricsPlotPanel extends React.Component {
       };
     }
     if (newLayout["yaxis.autorange"] === true) {
+      lastLinearYAxisRange = [];
       const axisType = this.state.layout && this.state.layout.yaxis &&
         this.state.layout.yaxis.type === 'log' ? "log" : "linear";
       mergedLayout = {
@@ -244,7 +262,8 @@ export class MetricsPlotPanel extends React.Component {
         yaxis: {autorange: true, type: axisType},
       };
     }
-    this.setState({layout: mergedLayout});
+    console.log("In handleLayoutChanged, setting layout to " + JSON.stringify(mergedLayout) + " and last range to " + JSON.stringify(lastLinearYAxisRange));
+    this.setState({layout: mergedLayout, lastLinearYAxisRange});
   };
 
 

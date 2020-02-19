@@ -185,7 +185,7 @@ describe('unit tests', () => {
     wrapper.setState({ layout: {xaxis: {range: [-5, 5]}, yaxis: {range: [-3, 6]}} });
     instance.handleYAxisLogScaleChange(true);
     expect(instance.state.layout).toEqual({xaxis: {range: [-5, 5]},
-      yaxis: {autorange: true, range: [-3, 6], type: "log"}});
+      yaxis: {autorange: true, type: "log"}});
     instance.handleYAxisLogScaleChange(false);
     expect(instance.state.layout).toEqual(
         {xaxis: {range: [-5, 5]}, yaxis: {range: [-3, 6], type: "linear"}});
