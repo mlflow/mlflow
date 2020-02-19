@@ -10,6 +10,7 @@ import posixpath
 
 from six.moves import shlex_quote
 
+import mlflow
 from mlflow import tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
@@ -278,15 +279,15 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     return ["bash", "-c", shell_command]
 
 
-def set_run_failed(tracking_uri, active_run):
+def set_run_failed(tracking_uri, run_id):
     client = tracking.MlflowClient(tracking_uri=tracking_uri)
-    client.set_terminated(active_run.info.run_id, status='FAILED')
+    client.set_terminated(run_id, status='FAILED')
 
 
 class DatabricksProjectBackend(AbstractBackend):
 
-    def run(self, active_run, uri, entry_point, parameters,
-            backend_config):
+    def run(self, run_id, project_uri, entry_point, params,
+            backend_config, project_dir):
         """
         Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
         used to query the run's status or wait for the resulting Databricks Job run to terminate.
@@ -295,17 +296,15 @@ class DatabricksProjectBackend(AbstractBackend):
         try:
             before_run_validations(tracking_uri, backend_config)
         except (MlflowException, ExecutionException):
-            set_run_failed(tracking_uri, active_run)
+            set_run_failed(tracking_uri, run_id)
             raise
 
-        work_dir = backend_config['local_project_dir']
-
         profile = get_db_profile_from_uri(tracking_uri)
-        run_id = active_run.info.run_id
+        experiment_id = mlflow.get_run(run_id).info.experiment_id
         db_job_runner = DatabricksJobRunner(databricks_profile=profile)
         db_run_id = db_job_runner.run_databricks(
-            uri, entry_point, work_dir, parameters, active_run.info.experiment_id,
-            backend_config, run_id)
+            project_uri, entry_point, project_dir, params,
+            experiment_id, backend_config, run_id)
         submitted_run = DatabricksSubmittedRun(
             db_run_id, run_id, db_job_runner)
         submitted_run._print_description_and_log_tags()

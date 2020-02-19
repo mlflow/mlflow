@@ -26,9 +26,9 @@ class DummySubmittedRun(SubmittedRun):
 
 
 class PluginDummyProjectBackend(AbstractBackend):
-    def run(self, active_run, uri, entry_point, parameters,
-            backend_config):
-        return DummySubmittedRun(active_run)
+    def run(self, run_id, project_uri, entry_point, params,
+            backend_config, project_dir):
+        return DummySubmittedRun(run_id)
 
     @property
     def name(self):
