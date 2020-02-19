@@ -9,9 +9,9 @@ import { MetricsPlotView } from './MetricsPlotView';
 import { getRunTags } from '../reducers/Reducers';
 import {
   MetricsPlotControls,
+  X_AXIS_WALL,
   X_AXIS_RELATIVE,
   X_AXIS_STEP,
-  X_AXIS_WALL,
 } from './MetricsPlotControls';
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
@@ -192,9 +192,9 @@ export class MetricsPlotPanel extends React.Component {
   handleXAxisChange = (e) => {
     // Set axis value type, & reset axis scaling via autorange
     const axisEnumToPlotlyType = {
-      X_AXIS_WALL: "date",
-      X_AXIS_RELATIVE: "linear",
-      X_AXIS_STEP: "linear",
+      [X_AXIS_WALL]: "date",
+      [X_AXIS_RELATIVE]: "linear",
+      [X_AXIS_STEP]: "linear",
     };
     const axisType = axisEnumToPlotlyType[e.target.value] || "linear";
     const newLayout = {
