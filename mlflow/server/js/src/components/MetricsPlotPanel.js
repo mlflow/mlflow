@@ -110,6 +110,11 @@ export class MetricsPlotPanel extends React.Component {
     return metrics;
   };
 
+  /**
+   * Handle changes in the scale type of the y-axis
+   * @param yAxisLogScale: Boolean - if true, y-axis should be converted to log scale, and if false,
+   * y-axis scale should be converted to a linear scale.
+   */
   handleYAxisLogScaleChange = (yAxisLogScale) => {
     const newLayout = _.cloneDeep(this.state.layout);
     // If yaxis was already explicitly specified, convert range to appropriate coordinates
@@ -149,8 +154,9 @@ export class MetricsPlotPanel extends React.Component {
           range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
         };
       }
-    // Handle conversion from log to linear scale. If old Y axis was autoranged (had a range
-    // inferred by Plotly), this means that there were negative Y values (on a linear scale).
+    // Because of a check above, we know at this point that yaxis.range was provided in the old
+    // layout. Thus if the old Y axis was autoranged (had a range inferred by Plotly), it must be
+    // because there were negative Y values (on a linear scale).
     // We handle this by removing the 'autorange' value and restoring the old y range
     } else if (oldLayout.yaxis.autorange) {
       newLayout.yaxis = {
@@ -167,9 +173,19 @@ export class MetricsPlotPanel extends React.Component {
     this.setState({layout: newLayout});
   };
 
+  /**
+   * Handle changes in the type of the metric plot's X axis (e.g. changes from wall-clock
+   * scale to relative-time scale to step-based scale).
+   * @param e: Selection event such that e.target.value is a string containing the new X axis type
+   */
   handleXAxisChange = (e) => {
     // Set axis value type, & reset axis scaling via autorange
-    const axisType = e.target.value === X_AXIS_WALL ? "date" : "linear";
+    const axisEnumToPlotlyType = {
+      X_AXIS_WALL: "date",
+      X_AXIS_RELATIVE: "linear",
+      X_AXIS_STEP: "linear",
+    };
+    const axisType = axisEnumToPlotlyType[e.target.value] || "linear";
     const newLayout = {
       ...this.state.layout,
       xaxis: {
@@ -180,6 +196,14 @@ export class MetricsPlotPanel extends React.Component {
     this.setState({ selectedXAxis: e.target.value, layout: newLayout });
   };
 
+  /**
+   * Handle changes to metric plot layout (x & y axis ranges), e.g. specifically if the user
+   * zooms in or out on the plot.
+   *
+   * @param newLayout: Object containing the new Plot layout. See
+   * https://plot.ly/javascript/plotlyjs-events/#update-data for details on the object's fields
+   * and schema.
+   */
   handleLayoutChange = (newLayout) => {
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
@@ -190,7 +214,7 @@ export class MetricsPlotPanel extends React.Component {
     let mergedLayout = {
       ...this.state.layout,
     };
-    if (newXRange0) {
+    if (newXRange0 !== undefined && newXRange1 !== undefined) {
       mergedLayout = {
         ...mergedLayout,
         xaxis: {
@@ -198,7 +222,7 @@ export class MetricsPlotPanel extends React.Component {
         },
       };
     }
-    if (newYRange0) {
+    if (newYRange0 !== undefined && newYRange1 !== undefined) {
       mergedLayout = {
         ...mergedLayout,
         yaxis: {
@@ -206,13 +230,13 @@ export class MetricsPlotPanel extends React.Component {
         },
       };
     }
-    if (newLayout["xaxis.autorange"]) {
+    if (newLayout["xaxis.autorange"] === true) {
       mergedLayout = {
         ...mergedLayout,
         xaxis: {autorange: true},
       };
     }
-    if (newLayout["yaxis.autorange"]) {
+    if (newLayout["yaxis.autorange"] === true) {
       const axisType = this.state.layout && this.state.layout.yaxis &&
         this.state.layout.yaxis.type === 'log' ? "log" : "linear";
       mergedLayout = {
