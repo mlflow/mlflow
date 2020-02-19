@@ -155,7 +155,7 @@ export class MetricsPlotPanel extends React.Component {
     const oldLayout = this.state.layout;
     const oldYRange = oldLayout.yaxis.range;
     if (yAxisLogScale) {
-      if (oldYRange[0] < 0) {
+      if (oldYRange[0] <= 0) {
         lastLinearYAxisRange = oldYRange;
         // When converting to log scale, handle negative values (which have no log-scale
         // representation as taking the log of a negative number is not possible) as follows:
