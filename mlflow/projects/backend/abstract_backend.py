@@ -21,7 +21,7 @@ class AbstractBackend():
         :param parameters: Dict of parameters to pass to the entry point
         :param backend_config: Dict to pass parameters to the backend
 
-        :return: A SubmittedRun. This function is asynchronous, it should only trigger the run and
+        :return: A :py:class:`mlflow.projects.SubmittedRun`. This function is expected to run the project asynchronously, i.e. it should trigger project execution and then immediately return a `SubmittedRun` to track execution status.
                  return the SubmittedRun to track the status.
         """
         pass
