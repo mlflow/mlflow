@@ -70,7 +70,6 @@ def is_action(action_string):
     return pattern.match(action_string)
 
 
-
 def download_uri(uri, output_path):
     if DBFS_REGEX.match(uri):
         _fetch_dbfs(uri, output_path)

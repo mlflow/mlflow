@@ -47,7 +47,6 @@ def test_entry_point_compute_command():
         # Test shell escaping
         name_value = "friend; echo 'hi'"
         command = entry_point.compute_command({"name": name_value}, storage_dir)
-        print(command)
         assert command == "python greeter.py %s %s" % (shlex_quote("hi"), shlex_quote(name_value))
 
 
@@ -107,7 +106,6 @@ def test_uri_parameter():
         # Test that we raise an exception if a local path is passed to a parameter of type URI
         with pytest.raises(ExecutionException):
             entry_point.compute_command(user_parameters={"uri": dst_dir}, storage_dir=dst_dir)
-
 
 
 def test_params():
