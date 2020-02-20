@@ -3,12 +3,11 @@ import PropTypes from 'prop-types';
 import ModelVersionTable from './ModelVersionTable';
 import Utils from '../../utils/Utils';
 import { Link } from 'react-router-dom';
-import { modelListPageRoute } from '../routes';
+import { modelListPageRoute, getCompareModelVersionsPageRoute } from '../routes';
 import { Radio, Icon, Descriptions, Menu, Dropdown, Modal } from 'antd';
 import { ACTIVE_STAGES } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
-import Routes from "../../Routes";
 import {Button} from "react-bootstrap";
 
 const Stages = {
@@ -42,22 +41,6 @@ export class ModelView extends React.Component {
     isDeleteModalConfirmLoading: false,
     runsSelected: {},
   };
-
-  // static getDerivedStateFromProps(nextProps, prevState) {
-  //   // Compute the actual runs selected. (A run cannot be selected if it is not passed in as a
-  //   // prop)
-  //   const newRunsSelected = {};
-  //   nextProps.runInfos.forEach((rInfo) => {
-  //     const prevRunSelected = prevState.runsSelected[rInfo.run_uuid];
-  //     if (prevRunSelected) {
-  //       newRunsSelected[rInfo.run_uuid] = prevRunSelected;
-  //     }
-  //   });
-  //   return {
-  //     ...prevState,
-  //     runsSelected: newRunsSelected,
-  //   };
-  // }
 
   handleStageFilterChange = (e) => {
     this.setState({ stageFilter: e.target.value });
@@ -139,7 +122,8 @@ export class ModelView extends React.Component {
         selectedRows.forEach((row) => {
           newState.runsSelected = {
             ...newState.runsSelected,
-            [row.run_id]: true,
+            [row.run_id]: row.version,
+            // {"7cc7125d95d242fb87649ede093a22d6":"2","0e077e345eda44cdab99c1fe802d2253":"3"}
           };
         });
         this.setState(newState);
@@ -149,12 +133,14 @@ export class ModelView extends React.Component {
 
   onCompare() {
     const runsSelectedList = Object.keys(this.state.runsSelected);
-    this.props.history.push(Routes.getCompareRunPageRoute(
-        runsSelectedList, 0));
+    // push model name with this.state.model.registered_model.name
+    this.props.history.push(getCompareModelVersionsPageRoute(
+        this.props.model.registered_model.modelName, runsSelectedList, 0));
   }
 
   render() {
     const { model, modelVersions } = this.props;
+    console.log(this.props);
     const {
       stageFilter,
       showDescriptionEditor,

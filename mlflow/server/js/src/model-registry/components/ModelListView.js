@@ -116,6 +116,7 @@ export class ModelListView extends React.Component {
   }, 200);
 
   render() {
+    console.log(this.props);
     const { nameFilter } = this.state;
     const sortedModels = this.getFilteredModels();
     const emptyText = `No model${nameFilter ? ' found' : ''}.`;

@@ -20,6 +20,7 @@ import {
   modelListPageRoute,
   modelPageRoute,
   modelVersionPageRoute,
+  compareModelVersionsPageRoute
 } from '../model-registry/routes';
 import ModelVersionPage from "../model-registry/components/ModelVersionPage";
 import ModelListPage from '../model-registry/components/ModelListPage';
@@ -65,6 +66,7 @@ class App extends Component {
               <Route exact path={modelListPageRoute} component={ModelListPage}/>
               <Route exact path={modelVersionPageRoute} component={ModelVersionPage}/>
               <Route exact path={modelPageRoute} component={ModelPage}/>
+              <Route exact path={compareModelVersionsPageRoute} component={CompareRunPage}/>
               <Route component={PageNotFoundView}/>
             </Switch>
           </AppErrorBoundary>
