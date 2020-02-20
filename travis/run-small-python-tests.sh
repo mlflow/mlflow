@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -x
+set -ex
 # Set err=1 if any commands exit with non-zero status as described in
 # https://stackoverflow.com/a/42219754
 err=0
