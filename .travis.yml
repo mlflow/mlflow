@@ -8,7 +8,7 @@ services:
 cache:
   directories:
     - $HOME/testmon
-    - $HOME/miniconda
+    - $HOME/miniconda/pkgs
 
 
 matrix:
@@ -86,13 +86,13 @@ matrix:
         - npm test -- --coverage
     - stage: large
       if: type != cron
-    - language: python
-      python: 2.7
-      if: type != cron
-      install:
-        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-      script:
-        - ./travis/run-large-python-tests.sh
+#    - language: python
+#      python: 2.7
+#      if: type != cron
+#      install:
+#        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+#      script:
+#        - ./travis/run-large-python-tests.sh
     # Run Windows tests in the "large" test builder so that we don't spend Travis executor
     # time running Windows tests if Python 3 small tests fail.
 #    - os: windows
