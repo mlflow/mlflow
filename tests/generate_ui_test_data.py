@@ -49,6 +49,20 @@ if __name__ == '__main__':
             log_params(parameters)
             log_metrics(metrics)
 
+    # Runs with multiple values for a single metric so that we can QA the time-series metric
+    # plot
+    for i in range(3):
+        with mlflow.start_run():
+            for j in range(10):
+                sign = random.choice([-1, 1])
+                mlflow.log_metric("myReallyLongTimeSeriesMetricName-abcdefghijklmnopqrstuvwxyz",
+                                  random.random() * sign)
+                mlflow.log_metric("Another Timeseries Metric", rand() * sign)
+                mlflow.log_metric("Yet Another Timeseries Metric", rand() * sign)
+            if i == 0:
+                mlflow.log_metric("Special Timeseries Metric", rand() * sign)
+            mlflow.log_metric("Bar chart metric", rand())
+
     # Big parameter values
     with mlflow.start_run(run_name='ipython'):
         parameters = {

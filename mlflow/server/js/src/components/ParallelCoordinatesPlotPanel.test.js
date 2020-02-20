@@ -14,6 +14,8 @@ describe('unit tests', () => {
       runUuids: ['runUuid_0', 'runUuid_1'],
       sharedParamKeys: ['param_0', 'param_1'],
       sharedMetricKeys: ['metric_0', 'metric_1'],
+      allParamKeys: ['param_0', 'param_1', 'param_2'],
+      allMetricKeys: ['metric_0', 'metric_1', 'metric_2'],
     };
   });
 
