@@ -505,7 +505,6 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
         client = mlflow.tracking.client.MlflowClient()._tracking_client
         creds = client.store.get_host_creds()
         env.update({"DATABRICKS_HOST": creds.host, "DATABRICKS_TOKEN": creds.token})
-        print("@SID updated env with databricks creds")
 
     _logger.info("=== Running command '%s' in run with ID '%s' === ", command, run_id)
     # in case os name is not 'nt', we are not running on windows. It introduces
