@@ -114,6 +114,7 @@ export class ExperimentView extends Component {
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
     setExperimentTagApi: PropTypes.func.isRequired,
+    location: PropTypes.object.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -179,6 +180,14 @@ export class ExperimentView extends Component {
     // in ExperimentPage
     if (!this.filtersDidUpdate(prevState)) {
       this.snapshotComponentState();
+    }
+  }
+
+  componentDidMount() {
+    if (this.props.location.pathname === "/") {
+      document.title = "MLflow Experiments";
+    } else {
+      document.title = `${this.props.experiment.name} - MLflow Experiment`;
     }
   }
 

@@ -42,6 +42,7 @@ const getExperimentViewMock = () => {
     handleLoadMoreRuns={jest.fn()}
     orderByKey={null}
     orderByAsc={false}
+    location={{pathname: "/"}}
   />);
 };
 

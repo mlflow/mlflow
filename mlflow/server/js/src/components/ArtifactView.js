@@ -74,7 +74,7 @@ export class ArtifactView extends Component {
     const { activeNodeId } = this.state;
     return (
       <div className='artifact-info-link'>
-        <a href={getSrc(activeNodeId, runUuid)} target='_blank' title='Download artifact'>
+        <a href={getSrc(activeNodeId, runUuid)} title='Download artifact'>
           <i className='fas fa-download' />
         </a>
       </div>
