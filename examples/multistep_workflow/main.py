@@ -58,14 +58,18 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
 # TODO(aaron): This is not great because it doesn't account for:
 # - changes in code
 # - changes in dependant steps
-def _get_or_run(entrypoint, parameters, git_commit, use_cache=True):
+def _get_or_run(entrypoint, parameters, git_commit, use_cache=True, backend="local", backend_config={}):
     existing_run = _already_ran(entrypoint, parameters, git_commit)
     if use_cache and existing_run:
         print("Found existing run for entrypoint=%s and parameters=%s" % (entrypoint, parameters))
         return existing_run
     print("Launching new run for entrypoint=%s and parameters=%s" % (entrypoint, parameters))
-    submitted_run = mlflow.run(".", entrypoint, parameters=parameters)
+    submitted_run = mlflow.run(".", entrypoint, parameters=parameters, backend=backend, backend_config=backend_config)
     return mlflow.tracking.MlflowClient().get_run(submitted_run.run_id)
+
+
+def _get_or_run_databricks(entrypoint, parameters, git_commit, use_cache=True, cluster_spec=None):
+    _get_or_run(entrypoint, parameters, git_commit, use_cache, backend="databricks", backend_config={"cluster_spec": cluster_spec})
 
 
 @click.command()
