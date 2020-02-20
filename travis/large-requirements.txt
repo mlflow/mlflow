@@ -18,6 +18,7 @@ pytest==5.3.5
 pytest-testmon==1.0.1
 pytest-cov==2.6.0
 scikit-learn==0.20.2
+pytest-custom_exit_code==0.3.0
 scipy==1.2.1
 tensorflow==1.14.0
 tf2onnx==1.5.4; python_version >= "3.0"
