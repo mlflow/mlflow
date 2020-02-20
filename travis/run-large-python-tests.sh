@@ -16,9 +16,9 @@ else
 fi
 
 # Include testmon database file, assuming it exists
-#if [ -e "testmon/.testmondata" ]; then
-#    cp testmon/.testmondata .testmondata
-#fi
+if [ -e "testmon/.testmondata" ]; then
+    cp testmon/.testmondata .testmondata
+fi
 
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
