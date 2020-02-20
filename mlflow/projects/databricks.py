@@ -194,7 +194,7 @@ class DatabricksJobRunner(object):
         }
         _logger.info("=== Running entry point %s of project %s on Databricks ===", entry_point, uri)
         # Launch run on Databricks
-        command = _get_databricks_run_cmd(work_dir, dbfs_fuse_uri, run_id, entry_point, parameters)
+        command = _get_databricks_run_cmd(dbfs_fuse_uri, run_id, entry_point, parameters)
         return self._run_shell_command_job(uri, command, env_vars, cluster_spec)
 
     def _get_status(self, databricks_run_id):
@@ -238,13 +238,10 @@ def _get_tracking_uri_for_run():
     return uri
 
 
-def _get_databricks_run_cmd(work_dir, dbfs_fuse_tar_uri, run_id, entry_point, parameters):
+def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     """
     Generate MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks.
     """
-    import mlflow.projects._project_spec, mlflow.projects
-    project = mlflow.projects._project_spec.load_project(work_dir)
-    conda_env_name = mlflow.projects._get_conda_env_name(project.conda_env_path, env_id=None)
     # Strip ".gz" and ".tar" file extensions from base filename of the tarfile
     tar_hash = posixpath.splitext(posixpath.splitext(posixpath.basename(dbfs_fuse_tar_uri))[0])[0]
     container_tar_path = posixpath.abspath(posixpath.join(DB_TARFILE_BASE,
@@ -271,20 +268,11 @@ def _get_databricks_run_cmd(work_dir, dbfs_fuse_tar_uri, run_id, entry_point, pa
     tar --no-same-owner -xzvf {container_tar_path} &&
     # Atomically move the extracted project into the desired directory
     mv -T {tarfile_archive_name} {work_dir} &&
-    # Copy conda environment into container if it exists on DBFS
-    if [ -e {dbfs_cached_conda_path} ]; then cp -R {dbfs_cached_conda_path} {local_conda_path}; fi &&
-    {mlflow_run};
-    exit_code=$?;
-    mkdir -p /dbfs/mlflow/conda/;
-    if [ -e {local_conda_path} ]; then cp -R {local_conda_path} {dbfs_cached_conda_path}; fi
-    test $exit_code = 0    
+    {mlflow_run}
     """.format(tarfile_base=DB_TARFILE_BASE, projects_base=DB_PROJECTS_BASE,
                dbfs_fuse_tar_path=dbfs_fuse_tar_uri, container_tar_path=container_tar_path,
                tarfile_archive_name=DB_TARFILE_ARCHIVE_NAME, work_dir=project_dir,
-               mlflow_run=mlflow_run_cmd,
-               dbfs_cached_conda_path="/dbfs/mlflow/conda/{conda_env_name}".format(conda_env_name=conda_env_name),
-               local_conda_path="$MLFLOW_CONDA_HOME/envs"))
-    print("@SID generated shell command:\n%s"%shell_command)
+               mlflow_run=mlflow_run_cmd))
     return ["bash", "-c", shell_command]
 
 
