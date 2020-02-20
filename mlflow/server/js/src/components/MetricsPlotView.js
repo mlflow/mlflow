@@ -137,7 +137,7 @@ export class MetricsPlotView extends React.Component {
           onLegendClick={onLegendClick}
           onLegendDoubleClick={onLegendDoubleClick}
           style={{ width: '100%', height: '100%' }}
-          layout={{ ...{ autosize: true }, ...plotProps.layout }}
+          layout={_.cloneDeep(plotProps.layout)}
           config={{
             displaylogo: false,
             scrollZoom: true,

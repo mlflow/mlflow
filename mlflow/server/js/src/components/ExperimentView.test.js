@@ -43,6 +43,7 @@ const getExperimentViewMock = () => {
     orderByKey={null}
     orderByAsc={false}
     setExperimentTagApi={jest.fn()}
+    location={{pathname: "/"}}
   />);
 };
 
