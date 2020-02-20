@@ -22,29 +22,29 @@ fi
 
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
-pytest --testmon tests/pytorch
-pytest --testmon tests/h2o
-pytest --testmon tests/onnx
-pytest --testmon tests/sagemaker
-pytest --testmon tests/sagemaker/mock
-pytest --testmon tests/sklearn
-pytest --testmon tests/tensorflow/test_tensorflow_model_export.py
-pytest --testmon tests/tensorflow_autolog/test_tensorflow_autolog.py
-pytest --testmon tests/azureml
-pytest --testmon tests/models
-pytest --testmon tests/xgboost
-pytest --testmon tests/lightgbm
+pytest --testmon --suppress-no-test-exit-code tests/pytorch
+pytest --testmon --suppress-no-test-exit-code tests/h2o
+pytest --testmon --suppress-no-test-exit-code tests/onnx
+pytest --testmon --suppress-no-test-exit-code tests/sagemaker
+pytest --testmon --suppress-no-test-exit-code tests/sagemaker/mock
+pytest --testmon --suppress-no-test-exit-code tests/sklearn
+pytest --testmon --suppress-no-test-exit-code tests/tensorflow/test_tensorflow_model_export.py
+pytest --testmon --suppress-no-test-exit-code tests/tensorflow_autolog/test_tensorflow_autolog.py
+pytest --testmon --suppress-no-test-exit-code tests/azureml
+pytest --testmon --suppress-no-test-exit-code tests/models
+pytest --testmon --suppress-no-test-exit-code tests/xgboost
+pytest --testmon --suppress-no-test-exit-code tests/lightgbm
 # TODO(smurching) Unpin TensorFlow dependency version once test failures with TF 2.1.0 have been
 # fixed
 pip install 'tensorflow==2.0.0'
-pytest --testmon tests/tensorflow/test_tensorflow2_model_export.py
-pytest --testmon tests/tensorflow_autolog/test_tensorflow2_autolog.py
-pytest --testmon tests/keras
-pytest --testmon tests/keras_autolog
-pytest --testmon tests/gluon
-pytest --testmon tests/gluon_autolog
-pytest --testmon tests/pyfunc --capture=no
-pytest --testmon tests/spark --capture=no
+pytest --testmon --suppress-no-test-exit-code tests/tensorflow/test_tensorflow2_model_export.py
+pytest --testmon --suppress-no-test-exit-code tests/tensorflow_autolog/test_tensorflow2_autolog.py
+pytest --testmon --suppress-no-test-exit-code tests/keras
+pytest --testmon --suppress-no-test-exit-code tests/keras_autolog
+pytest --testmon --suppress-no-test-exit-code tests/gluon
+pytest --testmon --suppress-no-test-exit-code tests/gluon_autolog
+pytest --testmon --suppress-no-test-exit-code tests/pyfunc --capture=no
+pytest --testmon --suppress-no-test-exit-code tests/spark --capture=no
 
 # Run Spark autologging tests
 ./travis/test-spark-autologging.sh

@@ -8,7 +8,6 @@ services:
 cache:
   directories:
     - $HOME/testmon
-    - $HOME/.cache/pip
     - $HOME/miniconda
 
 
