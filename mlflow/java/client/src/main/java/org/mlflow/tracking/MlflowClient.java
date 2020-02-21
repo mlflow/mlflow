@@ -670,9 +670,9 @@ public class MlflowClient {
    *    </pre>
    *
    * @param modelName The name of the model
-   * @return A collection of {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
+   * @return A collection of {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
    */
-  public List<ModelVersionDetailed> getLatestVersions(@Nonnull String modelName) {
+  public List<ModelVersion> getLatestVersions(@Nonnull String modelName) {
       return getLatestVersions(modelName, Collections.emptyList());
   }
 
@@ -700,14 +700,13 @@ public class MlflowClient {
    * @param modelName The name of the model
    * @param stages A list of stages
    * @return The latest model version
-   *         {@link org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed}
+   *         {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
    */
-  public List<ModelVersionDetailed> getLatestVersions(@Nonnull String modelName,
+  public List<ModelVersion> getLatestVersions(@Nonnull String modelName,
                                                       @Nonnull Iterable<String> stages) {
-    String json = sendPost("registered-models/get-latest-versions",
-            mapper.makeGetLatestVersion(modelName, stages));
+    String json = sendGet(mapper.makeGetLatestVersion(modelName, stages));
     GetLatestVersions.Response response =  mapper.toGetLatestVersionsResponse(json);
-    return response.getModelVersionsDetailedList();
+    return response.getModelVersionsList();
   }
 
   /**
@@ -726,9 +725,8 @@ public class MlflowClient {
    * @param version The version number of the model
    * @return The specified model version's URI.
    */
-  public String getModelVersionDownloadUri(@Nonnull String modelName, long version) {
-    String json = sendPost("model-versions/get-download-uri",
-            mapper.makeGetModelVersionDownloadUri(modelName, version));
+  public String getModelVersionDownloadUri(@Nonnull String modelName, String version) {
+    String json = sendGet(mapper.makeGetModelVersionDownloadUri(modelName, version));
     return mapper.toGetModelVersionDownloadUriResponse(json);
   }
 
@@ -748,7 +746,7 @@ public class MlflowClient {
    * @param version The version number of the model
    * @return A local file or directory ({@ java.io.File}) containing model artifacts
    */
-  public File downloadModelVersion(@Nonnull String modelName, long version) {
+  public File downloadModelVersion(@Nonnull String modelName, String version) {
     String downloadUri = getModelVersionDownloadUri(modelName, version);
 
     CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null,
@@ -776,15 +774,15 @@ public class MlflowClient {
    * @return A local file or directory ({@ java.io.File}) containing model artifacts
    */
   public File downloadLatestModelVersion(@Nonnull String modelName, @Nonnull String stage) {
-      List<ModelVersionDetailed> versions = getLatestVersions(modelName, Lists.newArrayList(stage));
+      List<ModelVersion> versions = getLatestVersions(modelName, Lists.newArrayList(stage));
 
       if (versions.size() < 1) {
         throw new MlflowClientException("No model version found for " + modelName +
                 "and stage " + stage);
       }
 
-      ModelVersionDetailed details = versions.get(0);
-      return downloadModelVersion(modelName, details.getModelVersion().getVersion());
+      ModelVersion details = versions.get(0);
+      return downloadModelVersion(modelName, details.getVersion());
   }
 
 }
