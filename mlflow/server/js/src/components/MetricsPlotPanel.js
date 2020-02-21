@@ -11,7 +11,7 @@ import {
   MetricsPlotControls,
   X_AXIS_STEP,
   X_AXIS_WALL,
-  X_AXIS_RELATIVE
+  X_AXIS_RELATIVE,
 } from './MetricsPlotControls';
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';

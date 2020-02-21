@@ -219,7 +219,8 @@ test('getMetricPlotStateFromUrl', () => {
     layout: {
       xaxis: {'a': 'b'},
     },
-    selectedRunIds: ['runUuid1'],
+    deselectedCurves: [],
+    lastLinearYAxisRange: [],
   });
   expect(Utils.getMetricPlotStateFromUrl(url1)).toEqual({
     selectedXAxis: X_AXIS_WALL,
@@ -228,7 +229,8 @@ test('getMetricPlotStateFromUrl', () => {
     yAxisLogScale: true,
     lineSmoothness: 0,
     layout: {},
-    selectedRunIds: ['runUuid1', 'runUuid2'],
+    deselectedCurves: [],
+    lastLinearYAxisRange: [],
   });
   expect(Utils.getMetricPlotStateFromUrl(url2)).toEqual({
     selectedXAxis: X_AXIS_RELATIVE,
@@ -236,8 +238,9 @@ test('getMetricPlotStateFromUrl', () => {
     showPoint: false,
     yAxisLogScale: false,
     lineSmoothness: 0,
-    layout: {},
-    selectedRunIds: ['runUuid1', 'runUuid2'],
+    layout: {autosize: true},
+    deselectedCurves: [],
+    lastLinearYAxisRange: [],
   });
 });
 

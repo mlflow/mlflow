@@ -117,11 +117,13 @@ describe('unit tests', () => {
     expect(instance.getPlotPropsForLineChart()).toEqual({
       data: [
         {
+          metricName: 'metric_0',
           name: 'metric_0',
+          runId: 'runUuid1',
           x: [0, 1],
           y: [100, 200],
           type: 'scatter',
-          visible: "legendonly",
+          visible: true,
           mode: 'lines+markers',
           line: {
             shape: 'spline',
@@ -130,11 +132,13 @@ describe('unit tests', () => {
           "marker": {"opacity": 0},
         },
         {
+          metricName: 'metric_1',
           name: 'metric_1',
+          runId: 'runUuid2',
           x: [0, 1],
           y: [300, 400],
           type: 'scatter',
-          visible: "legendonly",
+          visible: true,
           mode: 'lines+markers',
           line: {
             shape: 'spline',

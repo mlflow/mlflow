@@ -395,7 +395,7 @@ class Utils {
   static getCurveKey(runId, metricName) {
     return `${runId}-${metricName}`;
   }
-  
+
   static getCurveInfoFromKey(curvePair) {
     const splitPair = curvePair.split("-");
     return {runId: splitPair[0], metricName: splitPair.slice(1, splitPair.length).join("-")};
