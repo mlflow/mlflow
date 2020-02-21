@@ -9,7 +9,11 @@ import tempfile
 import textwrap
 import time
 import subprocess
-from urllib.parse import urlparse, unquote
+
+try: # Python 3
+    from urllib.parse import urlparse, unquote
+except ImportError:
+    from urllib import urlparse, unquote
 from urllib.request import url2pathname
 
 from mlflow.cli import run, server, ui
