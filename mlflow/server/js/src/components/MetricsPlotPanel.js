@@ -11,6 +11,7 @@ import {
   MetricsPlotControls,
   X_AXIS_STEP,
   X_AXIS_WALL,
+  X_AXIS_RELATIVE
 } from './MetricsPlotControls';
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
@@ -200,12 +201,21 @@ export class MetricsPlotPanel extends React.Component {
     this.updateUrlState({ layout: newLayout, lastLinearYAxisRange });
   };
 
+  /**
+   * Handle changes in the type of the metric plot's X axis (e.g. changes from wall-clock
+   * scale to relative-time scale to step-based scale).
+   * @param e: Selection event such that e.target.value is a string containing the new X axis type
+   */
   handleXAxisChange = (e) => {
-    const state = this.getUrlState();
     // Set axis value type, & reset axis scaling via autorange
-    const axisType = e.target.value === X_AXIS_WALL ? "date" : "linear";
+    const axisEnumToPlotlyType = {
+      [X_AXIS_WALL]: "date",
+      [X_AXIS_RELATIVE]: "linear",
+      [X_AXIS_STEP]: "linear",
+    };
+    const axisType = axisEnumToPlotlyType[e.target.value] || "linear";
     const newLayout = {
-      ...state.layout,
+      ...this.state.layout,
       xaxis: {
         autorange: true,
         type: axisType,
@@ -213,6 +223,7 @@ export class MetricsPlotPanel extends React.Component {
     };
     this.updateUrlState({ selectedXAxis: e.target.value, layout: newLayout });
   };
+
 
   getAxisType() {
     const state = this.getUrlState();
@@ -314,21 +325,19 @@ export class MetricsPlotPanel extends React.Component {
 
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
     const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
-    this.setState((prevState) => {
-      this.setState({historyRequestIds: [...prevState.historyRequestIds, ...requestIds]}, () => {
-        // Problem seems to be setting this state in a nested way
-        this.updateUrlState({
-          selectedMetricKeys: metricValues,
-        });
+    this.setState((prevState) => ({
+      selectedMetricKeys: metricValues,
+      historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
+    }), () => {
+      this.updateUrlState({
+        selectedMetricKeys: metricValues,
       });
     });
   };
 
   handleShowPointChange = (showPoint) => this.updateUrlState({ showPoint });
 
-  handleLineSmoothChange = (lineSmoothness) => {
-    this.updateUrlState({ lineSmoothness });
-  };
+  handleLineSmoothChange = (lineSmoothness) => this.updateUrlState({ lineSmoothness });
 
   render() {
     const { runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
