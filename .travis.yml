@@ -7,7 +7,7 @@ services:
 
 cache:
   directories:
-    - $HOME/testmon
+    - $HOME/build/mlflow/testmon
 
 
 matrix:

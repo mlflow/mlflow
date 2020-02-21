@@ -6,6 +6,8 @@ err=0
 trap 'err=1' ERR
 export MLFLOW_HOME=$(pwd)
 
+echo "Cache testmon dir $HOME/build/mlflow/testmon"
+
 # Include testmon database file, assuming it exists
 if [ -e "testmon/.testmondata" ]; then
     cp testmon/.testmondata .testmondata
