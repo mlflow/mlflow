@@ -423,7 +423,7 @@ class MlflowClient(object):
     def get_registered_model(self, name):
         """
         :param name: Name of the registered model to update.
-        :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModelDetailed` object.
+        :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         return self._get_registry_client().get_registered_model(name)
 
