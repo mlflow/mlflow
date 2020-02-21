@@ -124,8 +124,6 @@ export class MetricsPlotView extends React.Component {
       this.props.chartType === CHART_TYPE_BAR
         ? this.getPlotPropsForBarChart()
         : this.getPlotPropsForLineChart();
-    // TODO configure plot to use runsToDisplay & update handler props to use appropriate functions
-    // e.g. onLegendClick?
     return (
       <div className='metrics-plot-view-container'>
         <Plot

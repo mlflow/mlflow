@@ -402,9 +402,19 @@ class Utils {
   }
 
 
-  // Get metric plot state from URL, exposed as a static util
-  // The reverse transformation (from metric plot component state to URL) is exposed as a component
-  // method, as it only needs to be called within the metric plot component
+
+  /**
+   * Return metric plot state from the current URL
+   *
+   * The reverse transformation (from metric plot component state to URL) is exposed as a component
+   * method, as it only needs to be called within the MetricsPlotPanel component
+   *
+   * See documentation in Routes.getMetricPageRoute for descriptions of the individual fields
+   * within the returned state object.
+   *
+   * @param search - window.location.search component of the URL - in particular, the query string
+   *   from the URL.
+   */
   static getMetricPlotStateFromUrl(search) {
     const defaultState = Utils.getDefaultMetricPlotState();
     const params = qs.parse(search.slice(1, search.length));

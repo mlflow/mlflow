@@ -286,6 +286,10 @@ export class MetricsPlotPanel extends React.Component {
     this.updateUrlState({ layout: mergedLayout, lastLinearYAxisRange });
   };
 
+  /**
+   * Handle clicking on a single curve within the plot legend in order to toggle its display
+   * on/off.
+   */
   handleLegendClick = ({ curveNumber, data }) => {
     // If two clicks in short succession, trigger double-click event
     const state = this.getUrlState();
@@ -313,6 +317,10 @@ export class MetricsPlotPanel extends React.Component {
     return false;
   };
 
+  /**
+   * Handle double-clicking on a single curve within the plot legend in order to toggle display
+   * of the selected curve on (and disable display of all other curves).
+   */
   handleLegendDoubleClick = ({curveNumber, data}) => {
     window.clearTimeout(this.legendClickTimeout);
     const curveKey = Utils.getCurveKey(data[curveNumber].runId, data[curveNumber].metricName);

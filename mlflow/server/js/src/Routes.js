@@ -16,7 +16,32 @@ class Routes {
   }
 
   static runPageRoute = "/experiments/:experimentId/runs/:runUuid";
-
+  /**
+   * Get route to the metric plot page
+   * @param runUuids - Array of string run IDs to plot
+   * @param metricKey - Primary metric key in plot, shown in page breadcrumb
+   * @param experimentId - ID of experiment to link to from page breadcrumb
+   * @param plotMetricKeys - Array of string metric keys to plot
+   * @param plotLayout - Object containing plot layout information in Plotly format. See
+   *   https://plot.ly/javascript/plotlyjs-events/#update-data for an idea of object structure
+   * @param selectedXAxis - Enum (string) describing type of X axis (wall time, relative time, step)
+   * @param yAxisLogScale - Boolean - if true, y axis should be displayed on a log scale
+   *   (y axis scale is assumed to be linear otherwise)
+   * @param lineSmoothness - Float, coefficient >= 0 describing how much line smoothing to apply
+   * @param showPoint - Boolean, whether or not to show dots at individual data points in the metric
+   *   line plot
+   * @param deselectedCurves - Array of strings where each string describes a curve that was
+   *   deselected / toggled off by the user (a curve that should not be displayed in the metric
+   *   plot). Strings are of the form "<runId>-<metricKey>". We describe the plot in terms
+   *   of deselected curves as we don't know a-priori which runs from
+   *   runUuids contain which of the metric keys in plotMetricKeys
+   * @param lastLinearYAxisRange - Array containing most recent bounds of a linear-scale y axis.
+   *   Used to keep track of the most-recent linear y-axis plot range, to handle the specific
+   *   case where we toggle a plot with negative y-axis bounds from linear to log scale,
+   *   and then back to linear scale (we save the initial negative linear y-axis bounds so
+   *   that we can restore them when converting from log back to linear scale)
+   * @returns {string}
+   */
   static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys = null,
                             plotLayout = {}, selectedXAxis = X_AXIS_RELATIVE, yAxisLogScale = false,
                             lineSmoothness = 0, showPoint = false, deselectedCurves = [],
