@@ -32,6 +32,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
+from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 
 _logger = logging.getLogger(__name__)
 _tracking_store = None
@@ -62,9 +63,7 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
     def __init__(self):
         super(ModelRegistryStoreRegistryWrapper, self).__init__()
-        # Model Registry does not support file based stores
-        self.register('', lambda store_uri: None)
-        self.register('file', lambda store_uri: None)
+        # NB: Model Registry does not support file based stores
         for scheme in DATABASE_ENGINES:
             self.register(scheme, self._get_sqlalchemy_store)
         self.register_entrypoints()
@@ -100,7 +99,10 @@ def _get_model_registry_store(backend_store_uri=None):
 
 def initialize_backend_stores(backend_store_uri=None, default_artifact_root=None):
     _get_tracking_store(backend_store_uri, default_artifact_root)
-    _get_model_registry_store(backend_store_uri)
+    try:
+        _get_model_registry_store(backend_store_uri)
+    except UnsupportedModelRegistryStoreURIException:
+        pass
 
 
 def _get_request_json(flask_request=request):
