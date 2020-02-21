@@ -40,6 +40,10 @@ class RunView extends Component {
     showTags: Utils.getVisibleTagValues(this.props.tags).length > 0,
   };
 
+  componentDidMount() {
+    document.title = `${this.props.runDisplayName} - MLflow Run`;
+  }
+
   handleRenameRunClick = () => {
     this.setState({ showRunRenameModal: true });
   };

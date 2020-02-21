@@ -3,24 +3,28 @@ import json
 import os
 import re
 
+import logging
 from functools import wraps
+
+
 from flask import Response, request, send_file
 from querystring_parser import parser
 
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.exceptions import MlflowException
+from mlflow.models import Model
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
-    DeleteTag, SetExperimentTag, GetExperimentByName
+    DeleteTag, SetExperimentTag, GetExperimentByName, LogModel
 from mlflow.protos.model_registry_pb2 import ModelRegistryService, CreateRegisteredModel, \
     UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModelDetails, \
     GetLatestVersions, CreateModelVersion, UpdateModelVersion, DeleteModelVersion, \
     GetModelVersionDetails, GetModelVersionDownloadUri, SearchModelVersions, GetModelVersionStages
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
@@ -29,6 +33,7 @@ from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
 
+_logger = logging.getLogger(__name__)
 _tracking_store = None
 _model_registry_store = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
@@ -140,6 +145,7 @@ def catch_mlflow_exception(func):
             response.set_data(e.serialize_as_json())
             response.status_code = e.get_http_status_code()
             return response
+
     return wrapper
 
 
@@ -443,6 +449,30 @@ def _log_batch():
     return response
 
 
+@catch_mlflow_exception
+def _log_model():
+    request_message = _get_request_message(LogModel())
+    try:
+        _logger.error(request_message.model_json)
+        model = json.loads(request_message.model_json)
+    except:  # NB: can not be more specific here due to python2 compatibility
+        raise MlflowException("Malformed model info. \n {} \n is not a valid JSON.".format(
+            request_message.model_json),
+            error_code=INVALID_PARAMETER_VALUE)
+
+    missing_fields = set(("artifact_path", "flavors", "utc_time_created", "run_id")) - set(
+        model.keys())
+    if missing_fields:
+        raise MlflowException("Model json is missing mandatory fields: {}".format(missing_fields),
+                              error_code=INVALID_PARAMETER_VALUE)
+    _get_tracking_store().record_logged_model(run_id=request_message.run_id,
+                                              mlflow_model=Model.from_dict(model))
+    response_message = LogModel.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
 def _wrap_response(response_message):
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -613,6 +643,7 @@ def get_endpoints():
     """
     :return: List of tuples (path, handler, methods)
     """
+
     def get_service_endpoints(service):
         ret = []
         for service_method in service.DESCRIPTOR.methods:
@@ -644,6 +675,7 @@ HANDLERS = {
     SetTag: _set_tag,
     DeleteTag: _delete_tag,
     LogBatch: _log_batch,
+    LogModel: _log_model,
     GetRun: _get_run,
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,

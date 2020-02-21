@@ -42,6 +42,8 @@ const getExperimentViewMock = () => {
     handleLoadMoreRuns={jest.fn()}
     orderByKey={null}
     orderByAsc={false}
+    setExperimentTagApi={jest.fn()}
+    location={{pathname: "/"}}
   />);
 };
 

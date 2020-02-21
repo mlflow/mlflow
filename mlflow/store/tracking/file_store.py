@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sys
@@ -10,6 +11,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
+from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -24,6 +26,7 @@ from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, 
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -212,8 +215,8 @@ class FileStore(AbstractStore):
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, experiment_dict)
         return experiment_id
 
-    def create_experiment(self, name, artifact_location=None):
-        self._check_root_dir()
+    def _validate_experiment_name(self, name):
+        """Check the validity of an experiment name."""
         if name is None or name == "":
             raise MlflowException("Invalid experiment name '%s'" % name,
                                   databricks_pb2.INVALID_PARAMETER_VALUE)
@@ -223,12 +226,16 @@ class FileStore(AbstractStore):
                 raise MlflowException(
                     "Experiment '%s' already exists in deleted state. "
                     "You can restore the experiment, or permanently delete the experiment "
-                    "from the .trash folder (under tracking server's root folder) before "
-                    "creating a new one with the same name." % experiment.name,
+                    "from the .trash folder (under tracking server's root folder) in order to "
+                    "use this experiment name again." % experiment.name,
                     databricks_pb2.RESOURCE_ALREADY_EXISTS)
             else:
                 raise MlflowException("Experiment '%s' already exists." % experiment.name,
                                       databricks_pb2.RESOURCE_ALREADY_EXISTS)
+
+    def create_experiment(self, name, artifact_location=None):
+        self._check_root_dir()
+        self._validate_experiment_name(name)
         # Get all existing experiments and find the one with largest ID.
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [int(e.experiment_id) for e in self.list_experiments(ViewType.ALL)]
@@ -301,6 +308,7 @@ class FileStore(AbstractStore):
         if experiment is None:
             raise MlflowException("Experiment '%s' does not exist." % experiment_id,
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
+        self._validate_experiment_name(new_name)
         experiment._set_name(new_name)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception("Cannot rename experiment in non-active lifecycle stage."
@@ -515,13 +523,7 @@ class FileStore(AbstractStore):
     @staticmethod
     def _get_param_from_file(parent_path, param_name):
         _validate_param_name(param_name)
-        param_data = read_file_lines(parent_path, param_name)
-        if len(param_data) > 1:
-            raise Exception("Unexpected data for param '%s'. Param recorded more than once"
-                            % param_name)
-        # The only cause for param_data's length to be zero is the param's
-        # value is an empty string
-        value = '' if len(param_data) == 0 else str(param_data[0].strip())
+        value = read_file(parent_path, param_name)
         return Param(param_name, value)
 
     def get_all_params(self, run_uuid):
@@ -643,8 +645,30 @@ class FileStore(AbstractStore):
 
     def _log_run_param(self, run_info, param):
         param_path = self._get_param_path(run_info.experiment_id, run_info.run_id, param.key)
+        writeable_param_value = self._writeable_value(param.value)
+        if os.path.exists(param_path):
+            self._validate_new_param_value(
+                param_path=param_path, param_key=param.key,
+                run_id=run_info.run_id, new_value=writeable_param_value)
         make_containing_dirs(param_path)
-        write_to(param_path, self._writeable_value(param.value))
+        write_to(param_path, writeable_param_value)
+
+    def _validate_new_param_value(self, param_path, param_key, run_id, new_value):
+        """
+        When logging a parameter with a key that already exists, this function is used to
+        enforce immutability by verifying that the specified parameter value matches the existing
+        value.
+        :raises: py:class:`mlflow.exceptions.MlflowException` if the specified new parameter value
+                 does not match the existing parameter value.
+        """
+        with open(param_path, "r") as param_file:
+            current_value = param_file.read()
+        if current_value != new_value:
+            raise MlflowException(
+                "Changing param values is not allowed. Param with key='{}' was already"
+                " logged with value='{}' for run ID='{}'. Attempted logging new value"
+                " '{}'.".format(param_key, current_value, run_id, new_value),
+                databricks_pb2.INVALID_PARAMETER_VALUE)
 
     def set_experiment_tag(self, experiment_id, tag):
         """
@@ -710,5 +734,27 @@ class FileStore(AbstractStore):
                 self._log_run_metric(run_info, metric)
             for tag in tags:
                 self._set_run_tag(run_info, tag)
+        except Exception as e:
+            raise MlflowException(e, INTERNAL_ERROR)
+
+    def record_logged_model(self, run_id, mlflow_model):
+        if not isinstance(mlflow_model, Model):
+            raise TypeError("Argument 'mlflow_model' should be mlflow.models.Model, got '{}'"
+                            .format(type(mlflow_model)))
+        _validate_run_id(run_id)
+        run_info = self._get_run_info(run_id)
+        check_run_is_active(run_info)
+        model_dict = mlflow_model.to_dict()
+        run_info = self._get_run_info(run_id)
+        path = self._get_tag_path(run_info.experiment_id, run_info.run_id, MLFLOW_LOGGED_MODELS)
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                model_list = json.loads(f.read())
+        else:
+            model_list = []
+        tag = RunTag(MLFLOW_LOGGED_MODELS, json.dumps(model_list + [model_dict]))
+
+        try:
+            self._set_run_tag(run_info, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
