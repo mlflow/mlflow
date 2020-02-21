@@ -9,6 +9,8 @@ import tempfile
 import textwrap
 import time
 import subprocess
+from urllib.parse import urlparse, unquote
+from urllib.request import url2pathname
 
 from mlflow.cli import run, server, ui
 from mlflow.server import handlers
@@ -138,7 +140,8 @@ def sqlite_store():
 @pytest.fixture(scope="function")
 def file_store():
     ROOT_LOCATION = os.path.join(tempfile.gettempdir(), 'test_mlflow_gc')
-    yield (FileStore(ROOT_LOCATION), ROOT_LOCATION)
+    file_store_uri = "file:///%s" % ROOT_LOCATION
+    yield (FileStore(ROOT_LOCATION), file_store_uri)
     shutil.rmtree(ROOT_LOCATION)
 
 
@@ -150,7 +153,9 @@ def _create_run_in_store(store):
         'tags': {}
     }
     run = store.create_run(**config)
-    os.makedirs(run.info.artifact_uri)
+    artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
+    if not os.path.exists(artifact_path):
+        os.makedirs(artifact_path)
     return run
 
 
