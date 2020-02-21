@@ -6,6 +6,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 import logging
 
+from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import utils
 
 _logger = logging.getLogger(__name__)
@@ -59,6 +60,8 @@ class ModelRegistryClient(object):
 
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
+        if new_name.strip() == "":
+            raise MlflowException("The name must not be an empty string.")
         return self.store.rename_registered_model(name, new_name)
 
     def delete_registered_model(self, name):
@@ -133,6 +136,8 @@ class ModelRegistryClient(object):
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
+        if stage.strip() == "":
+            raise MlflowException("The stage must not be an empty string.")
         self.store.transition_model_version_stage(
             name=name, version=version,
             stage=stage, archive_existing_versions=archive_existing_versions)
