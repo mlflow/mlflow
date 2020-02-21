@@ -170,7 +170,8 @@ class MlflowProtobufMapper {
               .addParameter("name", modelName)
               .addParameter("version", modelVersion).build().toString();
     } catch (URISyntaxException e) {
-      throw new MlflowClientException("Failed to construct request URI for get version download uri.",
+      throw new MlflowClientException(
+              "Failed to construct request URI for get version download uri.",
               e);
     }
   }
