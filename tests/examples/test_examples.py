@@ -11,8 +11,6 @@ import pytest
 from tests.projects.utils import tracking_uri_mock
 
 EXAMPLES_DIR = 'examples'
-lightgbm_conda_yaml = os.path.join(EXAMPLES_DIR, 'lightgbm', 'conda.yaml')
-xgboost_conda_yaml = os.path.join(EXAMPLES_DIR, 'xgboost', 'conda.yaml')
 
 
 @pytest.mark.large
@@ -22,16 +20,14 @@ xgboost_conda_yaml = os.path.join(EXAMPLES_DIR, 'xgboost', 'conda.yaml')
     ('hyperparam', ['-e', 'random']),
     ('hyperparam', ['-e', 'gpyopt']),
     ('hyperparam', ['-e', 'hyperopt', '-P', 'epochs=1']),
-    ('lightgbm', ['-P', 'conda-env=' + str(lightgbm_conda_yaml),
-                  '-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9']),
+    ('lightgbm', ['-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9']),
     ('prophet', []),
     ('pytorch', ['-P', 'epochs=2']),
     ('sklearn_logistic_regression', []),
     ('sklearn_elasticnet_wine', ['-P', 'alpha=0.5']),
     (os.path.join('sklearn_elasticnet_diabetes', 'linux'), []),
     (os.path.join('tensorflow', 'tf1'), ['-P', 'steps=10']),
-    ('xgboost', ['-P', 'conda-env=' + str(xgboost_conda_yaml),
-                 '-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9'])
+    ('xgboost', ['-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9'])
 ])
 def test_mlflow_run_example(tracking_uri_mock, directory, params):
     cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params
