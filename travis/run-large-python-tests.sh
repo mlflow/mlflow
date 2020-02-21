@@ -52,6 +52,7 @@ pytest --testmon --suppress-no-test-exit-code tests/spark --capture=no
 # Copy testmon DB file into cache directory. TODO: allow people to run this locally without
 # copying into cache directory
 mkdir -p testmon
+diff .testmondata testmon/.testmondata
 mv .testmondata testmon
 
 test $err = 0
