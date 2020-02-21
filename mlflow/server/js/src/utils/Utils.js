@@ -401,8 +401,6 @@ class Utils {
     return {runId: splitPair[0], metricName: splitPair.slice(1, splitPair.length).join("-")};
   }
 
-
-
   /**
    * Return metric plot state from the current URL
    *
