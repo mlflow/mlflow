@@ -14,8 +14,10 @@ import Utils from '../utils/Utils';
 import { NOTE_CONTENT_TAG, NoteInfo } from "../utils/NoteUtils";
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import RenameRunModal from "./modals/RenameRunModal";
+import DeleteRunModal from "./modals/DeleteRunModal";
+import RestoreRunModal from "./modals/RestoreRunModal";
 import EditableTagsTableView from './EditableTagsTableView';
-import { Icon, Descriptions } from 'antd';
+import { Icon, Descriptions, Alert } from 'antd';
 import { CollapsibleSection } from '../common/components/CollapsibleSection';
 import { EditableNote } from '../common/components/EditableNote';
 
@@ -36,6 +38,8 @@ class RunView extends Component {
 
   state = {
     showRunRenameModal: false,
+    showDeleteRunModal: false,
+    showRestoreRunModal: false,
     showNoteEditor: false,
     showTags: Utils.getVisibleTagValues(this.props.tags).length > 0,
   };
@@ -50,6 +54,22 @@ class RunView extends Component {
 
   hideRenameRunModal = () => {
     this.setState({ showRunRenameModal: false });
+  };
+
+  handleDeleteRunClick = () => {
+    this.setState({ showDeleteRunModal: true });
+  };
+
+  onCloseDeleteRunModal = () => {
+    this.setState({ showDeleteRunModal: false });
+  };
+
+  handleRestoreRun = () => {
+    this.setState({ showRestoreRunModal: true });
+  };
+
+  onCloseRestoreRunModal = () => {
+    this.setState({ showRestoreRunModal: false });
   };
 
   getRunCommand() {
@@ -94,6 +114,10 @@ class RunView extends Component {
     this.setState({ showNoteEditor: true });
   };
 
+  isDeleted = () => {
+    return this.props.run.getLifecycleStage() === 'deleted';
+  };
+
   static getRunStatusDisplayName(status) {
     return status !== "RUNNING" ? status : "UNFINISHED";
   }
@@ -134,12 +158,29 @@ class RunView extends Component {
                <i className="fas fa-caret-down"/>
              </Dropdown.Toggle>
              <Dropdown.Menu className="mlflow-menu header-menu">
-               <MenuItem
+               {this.isDeleted() ?
+                <MenuItem
                  className="mlflow-menu-item"
-                 onClick={this.handleRenameRunClick}
-               >
-                 Rename
-               </MenuItem>
+                 onClick={this.handleRestoreRun}
+                 key={"restore-button"}
+                >
+                 Restore
+                </MenuItem> :
+               [<MenuItem
+                  className="mlflow-menu-item"
+                  onClick={this.handleRenameRunClick}
+                  key={"rename-button"}
+                >
+                  Rename
+                </MenuItem>,
+                 <MenuItem
+                  className="mlflow-menu-item"
+                  onClick={this.handleDeleteRunClick}
+                  key={"delete-button"}
+                 >
+                 Delete
+                </MenuItem>]
+               }
              </Dropdown.Menu>
           </Dropdown>
           <RenameRunModal
@@ -148,8 +189,25 @@ class RunView extends Component {
             onClose={this.hideRenameRunModal}
             runName={this.props.runName}
             open={this.state.showRunRenameModal} />
+          <DeleteRunModal
+            isOpen={this.state.showDeleteRunModal}
+            onClose={this.onCloseDeleteRunModal}
+            selectedRunIds={[runUuid]} />
+          <RestoreRunModal
+            isOpen={this.state.showRestoreRunModal}
+            onClose={this.onCloseRestoreRunModal}
+            selectedRunIds={[runUuid]}
+          />
         </div>
-
+        {this.isDeleted() ?
+          <Alert
+            type={'info'}
+            className={`status-alert status-alert-info`}
+            message={'This run is deleted and ' +
+            'will be automatically purged after 30 days of deletion.'}
+            banner
+          /> : null
+        }
         {/* Metadata List */}
         <Descriptions className='metadata-list'>
           <Descriptions.Item label='Date'>{startTime}</Descriptions.Item>
@@ -200,7 +258,7 @@ class RunView extends Component {
             </CollapsibleSection>
           ) : null}
           <CollapsibleSection
-            title={<span>Notes {showNoteEditor ? null : editIcon}</span>}
+            title={<span>Notes {showNoteEditor || this.isDeleted() ? null : editIcon}</span>}
             forceOpen={showNoteEditor}
           >
             <EditableNote
