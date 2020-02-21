@@ -148,7 +148,7 @@ class HdfsArtifactRepository(ArtifactRepository):
         raise MlflowException('This is not implemented. Should never be called.')
 
     def delete_artifacts(self, artifact_path=None):
-        path = os.path.join(self.path, artifact_path) if artifact_path else self.path
+        path = posixpath.join(self.path, artifact_path) if artifact_path else self.path
         with hdfs_system(host=self.host, port=self.port) as hdfs:
             hdfs.delete(path, recursive=True)
 
