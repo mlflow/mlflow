@@ -9,9 +9,9 @@ import { MetricsPlotView } from './MetricsPlotView';
 import { getRunTags } from '../reducers/Reducers';
 import {
   MetricsPlotControls,
-  X_AXIS_STEP,
   X_AXIS_WALL,
   X_AXIS_RELATIVE,
+  X_AXIS_STEP,
 } from './MetricsPlotControls';
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';

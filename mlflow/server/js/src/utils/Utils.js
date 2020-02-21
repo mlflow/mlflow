@@ -381,17 +381,6 @@ class Utils {
     return requests.find((r) => r.id === requestId);
   }
 
-  static getDefaultMetricPlotState() {
-    return {
-      selectedXAxis: 'relative',
-      selectedMetricKeys: [],
-      showPoint: false,
-      yAxisLogScale: false,
-      lineSmoothness: 0,
-      layout: {},
-    };
-  }
-
   static getCurveKey(runId, metricName) {
     return `${runId}-${metricName}`;
   }
@@ -414,7 +403,14 @@ class Utils {
    *   from the URL.
    */
   static getMetricPlotStateFromUrl(search) {
-    const defaultState = Utils.getDefaultMetricPlotState();
+    const defaultState = {
+      selectedXAxis: 'relative',
+      selectedMetricKeys: [],
+      showPoint: false,
+      yAxisLogScale: false,
+      lineSmoothness: 0,
+      layout: {},
+    };
     const params = qs.parse(search.slice(1, search.length));
     if (!params) {
       return defaultState;
@@ -427,7 +423,7 @@ class Utils {
     const yAxisLogScale = params['y_axis_scale'] === 'log';
     const lineSmoothness = params['line_smoothness'] ? parseFloat(params['line_smoothness']) : 0;
     const layout = params['plot_layout'] ? JSON.parse(params['plot_layout']) : {autosize: true};
-    // Default to displaying all runs
+    // Default to displaying all runs, i.e. to deselectedCurves being empty
     const deselectedCurves = params['deselected_curves'] ?
         JSON.parse(params['deselected_curves']) : [];
     const lastLinearYAxisRange = params['last_linear_y_axis_range'] ?
