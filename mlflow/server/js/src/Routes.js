@@ -19,7 +19,8 @@ class Routes {
 
   static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys = null,
                             plotLayout = {}, selectedXAxis = X_AXIS_RELATIVE, yAxisLogScale = false,
-                            lineSmoothness = 0, showPoint = false, deselectedCurves = []) {
+                            lineSmoothness = 0, showPoint = false, deselectedCurves = [],
+                            lastLinearYAxisRange = []) {
     // If runs to display are specified (e.g. if user filtered to specific runs in a metric
     // comparison plot), embed them in the URL, otherwise default to metricKey
     const finalPlotMetricKeys = plotMetricKeys || [metricKey];
@@ -33,7 +34,8 @@ class Routes {
       `&y_axis_scale=${yAxisScale}` +
       `&line_smoothness=${lineSmoothness}` +
       `&show_point=${showPoint}` +
-      `&deselected_curves=${JSON.stringify(deselectedCurves)}`;
+      `&deselected_curves=${JSON.stringify(deselectedCurves)}` +
+      `&last_linear_y_axis_range=${JSON.stringify(lastLinearYAxisRange)}`;
   }
 
   static metricPageRoute = "/metric/:metricKey";

@@ -422,6 +422,8 @@ class Utils {
     // Default to displaying all runs
     const deselectedCurves = params['deselected_curves'] ?
         JSON.parse(params['deselected_curves']) : [];
+    const lastLinearYAxisRange = params['last_linear_y_axis_range'] ?
+        JSON.parse(params['last_linear_y_axis_range']) : [];
     return {
       selectedXAxis,
       selectedMetricKeys,
@@ -430,6 +432,7 @@ class Utils {
       lineSmoothness,
       layout,
       deselectedCurves,
+      lastLinearYAxisRange,
     };
   }
 
