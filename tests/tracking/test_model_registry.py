@@ -302,19 +302,19 @@ def test_update_model_version_flow(mlflow_client, backend_store_uri):
 
 
 def test_latest_models(mlflow_client, backend_store_uri):
-    version_stage_mapping = {
-        '1': "Archived",
-        '2': "Production",
-        '3': "Archived",
-        '4': "Production",
-        '5': "Staging",
-        '6': "Staging",
-        '7': "None",
-    }
+    version_stage_mapping = (
+        ('1', "Archived"),
+        ('2', "Production"),
+        ('3', "Archived"),
+        ('4', "Production"),
+        ('5', "Staging"),
+        ('6', "Staging"),
+        ('7', "None"),
+    )
     name = 'LatestVersionTest'
     mlflow_client.create_registered_model(name)
 
-    for version, stage in version_stage_mapping.items():
+    for version, stage in version_stage_mapping:
         mv = mlflow_client.create_model_version(name, "path/to/model", "run_id")
         assert mv.version == version
         if stage != "None":
