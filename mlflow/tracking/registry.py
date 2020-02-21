@@ -13,7 +13,7 @@ class UnsupportedModelRegistryStoreURIException(MlflowException):
         message = ("Unsupported URI '{}' for model registry store. Supported schemes are: {}."
                    " See https://www.mlflow.org/docs/latest/tracking.html#storage for how to"
                    " setup a compatible server.").format(
-            unsupported_uri, supported_uri_schemes,)
+            unsupported_uri, supported_uri_schemes)
         super(UnsupportedModelRegistryStoreURIException, self).__init__(
             message, error_code=INVALID_PARAMETER_VALUE)
         self.supported_uri_schemes = supported_uri_schemes
