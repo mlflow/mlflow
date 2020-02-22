@@ -14,7 +14,6 @@ import Utils from "../utils/Utils";
 const StrictJsonBigInt = JsonBigInt({ strict: true, storeAsString: true });
 
 export class MlflowService {
-
   /**
    * @param {CreateExperiment} data: Immutable Record
    * @param {function} success
@@ -23,6 +22,42 @@ export class MlflowService {
    */
   static createExperiment({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/experiments/create'), {
+      type: 'POST',
+      contentType: 'application/json; charset=utf-8',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * @param {DeleteExperiment} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static deleteExperiment({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/experiments/delete'), {
+      type: 'POST',
+      contentType: 'application/json; charset=utf-8',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * @param {UpdateExperiment} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static updateExperiment({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/experiments/update'), {
       type: 'POST',
       contentType: 'application/json; charset=utf-8',
       dataType: 'json',
@@ -61,6 +96,26 @@ export class MlflowService {
    */
   static getExperiment({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/experiments/get'), {
+      type: 'GET',
+      dataType: 'json',
+      converters: {
+        'text json': StrictJsonBigInt.parse,
+      },
+      data: data,
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * @param {GetExperimentByName} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static getExperimentByName({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/mlflow/experiments/get-by-name'), {
       type: 'GET',
       dataType: 'json',
       converters: {
