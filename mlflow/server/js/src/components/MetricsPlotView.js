@@ -20,13 +20,8 @@ export class MetricsPlotView extends React.Component {
     chartType: PropTypes.string.isRequired,
     isComparing: PropTypes.bool.isRequired,
     lineSmoothness: PropTypes.number,
-<<<<<<< HEAD
-    onClick: PropTypes.func,
-    onRelayout: PropTypes.func,
-=======
     extraLayout: PropTypes.object,
     onLayoutChange: PropTypes.func.isRequired,
->>>>>>> master
   };
 
   static getLineLegend = (metricKey, runDisplayName, isComparing) => {
@@ -46,11 +41,7 @@ export class MetricsPlotView extends React.Component {
   };
 
   getPlotPropsForLineChart = () => {
-<<<<<<< HEAD
-    const {metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness, isComparing } = this.props;
-=======
     const { metrics, xAxis, showPoint, lineSmoothness, isComparing } = this.props;
->>>>>>> master
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
       const isSingleHistory = history.length === 0;
@@ -118,11 +109,7 @@ export class MetricsPlotView extends React.Component {
   };
 
   render() {
-<<<<<<< HEAD
-    const { onClick, onRelayout } = this.props;
-=======
     const { onLayoutChange } = this.props;
->>>>>>> master
     const plotProps =
       this.props.chartType === CHART_TYPE_BAR
         ? this.getPlotPropsForBarChart()

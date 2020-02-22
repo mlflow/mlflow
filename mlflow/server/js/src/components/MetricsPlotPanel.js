@@ -54,13 +54,7 @@ export class MetricsPlotPanel extends React.Component {
       // that we can restore them when converting from log back to linear scale)
       lastLinearYAxisRange: [],
     };
-<<<<<<< HEAD
-    this.popoverRef = React.createRef();
-    this.isClicked = false;
-    this.loadMetricHistory(this.props.runUuids, selectedMetricKeys);
-=======
     this.loadMetricHistory(this.props.runUuids, this.state.selectedMetricKeys);
->>>>>>> master
   }
 
   static predictChartType(metrics) {
@@ -354,15 +348,8 @@ export class MetricsPlotPanel extends React.Component {
             chartType={chartType}
             isComparing={MetricsPlotPanel.isComparing(location.search)}
             lineSmoothness={lineSmoothness}
-<<<<<<< HEAD
-            onClick={this.updatePopover}
-            onRelayout={() => {
-              this.isClicked = false;
-            }}
-=======
             extraLayout={this.state.layout}
             onLayoutChange={this.handleLayoutChange}
->>>>>>> master
           />
         </RequestStateWrapper>
       </div>
