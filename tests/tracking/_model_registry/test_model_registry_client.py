@@ -45,13 +45,14 @@ def test_update_and_rename_registered_model(mock_store):
     result = newModelRegistryClient().update_registered_model(
         name=name,
         description=new_description)
-    mock_store.update_registered_model.assert_called_with(name, new_description)
+    mock_store.update_registered_model.assert_called_with(name=name, description=new_description)
 
     assert result.description == new_description
     newModelRegistryClient().update_registered_model(
         name=name,
         description=new_description_2)
-    mock_store.update_registered_model.assert_called_with(name, "New Description 2")
+    mock_store.update_registered_model.assert_called_with(name=name,
+                                                          description="New Description 2")
 
 
 def test_rename_registered_model(mock_store):
@@ -61,14 +62,14 @@ def test_rename_registered_model(mock_store):
     result = newModelRegistryClient().rename_registered_model(
         name=name,
         new_name=new_name)
-    mock_store.rename_registered_model.assert_called_with(name, new_name)
+    mock_store.rename_registered_model.assert_called_with(name=name, new_name=new_name)
     assert result.name == "New Name"
 
     mock_store.update_registered_model.return_value = RegisteredModel("New Name 2")
     newModelRegistryClient().rename_registered_model(
         name=name,
         new_name="New Name 2")
-    mock_store.rename_registered_model.assert_called_with(name, "New Name 2")
+    mock_store.rename_registered_model.assert_called_with(name=name, new_name="New Name 2")
 
 
 def test_update_registered_model_validation_errors_on_empty_new_name(mock_store):
@@ -137,7 +138,8 @@ def test_update_model_version(mock_store):
     expected_result = ModelVersion(name, version, creation_timestamp=123, description=description)
     mock_store.update_model_version.return_value = expected_result
     actal_result = newModelRegistryClient().update_model_version(name, version, "new description")
-    mock_store.update_model_version.assert_called_once_with(name, version, "new description")
+    mock_store.update_model_version.assert_called_once_with(name=name, version=version,
+                                                            description="new description")
     assert expected_result == actal_result
 
 

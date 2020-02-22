@@ -49,7 +49,7 @@ class ModelRegistryClient(object):
         :param description: New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        return self.store.update_registered_model(name, description)
+        return self.store.update_registered_model(name=name, description=description)
 
     def rename_registered_model(self, name, new_name):
         """
@@ -62,7 +62,7 @@ class ModelRegistryClient(object):
         """
         if new_name.strip() == "":
             raise MlflowException("The name must not be an empty string.")
-        return self.store.rename_registered_model(name, new_name)
+        return self.store.rename_registered_model(name=name, new_name=new_name)
 
     def delete_registered_model(self, name):
         """
@@ -122,7 +122,7 @@ class ModelRegistryClient(object):
         :param version: Version number of the model version.
         :param description: New description.
         """
-        return self.store.update_model_version(name, version, description)
+        return self.store.update_model_version(name=name, version=version, description=description)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):
         """

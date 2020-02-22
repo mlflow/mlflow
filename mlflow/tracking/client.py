@@ -357,7 +357,7 @@ class MlflowClient(object):
         return self._get_registry_client().create_registered_model(name)
 
     @experimental
-    def rename_registered_mdoel(self, name, new_name):
+    def rename_registered_model(self, name, new_name):
         """
         Update registered model name.
 
@@ -390,10 +390,11 @@ class MlflowClient(object):
         if new_name is not None:
             _logger.warning("'new_name' argument in update_registered_model is deprecated, "
                             "please use  renamed_registered_model instead.")
-            res = self._get_registry_client().rename_registered_model(name, new_name)
+            res = self._get_registry_client().rename_registered_model(name=name, new_name=new_name)
             name = new_name
         if description is not None:
-            res = self._get_registry_client().update_registered_model(name, description)
+            res = self._get_registry_client().update_registered_model(name=name,
+                                                                      description=description)
         return res
 
     @experimental
@@ -477,9 +478,12 @@ class MlflowClient(object):
         if stage is not None:
             _logger.warning("'stage' field in update_model_version is deprecated. "
                             "Use transition_model_stage instead.")
-            res = self._get_registry_client().transition_model_version_stage(name, version, stage)
+            res = self._get_registry_client().transition_model_version_stage(name=name,
+                                                                             version=version,
+                                                                             stage=stage)
         if description is not None:
-            res = self._get_registry_client().update_model_version(name, version, description)
+            res = self._get_registry_client().update_model_version(name=name, version=version,
+                                                                   description=description)
         return res
 
     @experimental
