@@ -275,7 +275,7 @@ const artifactsByRunUuid = (state = {}, action) => {
       // Make deep copy.
       artifactNode = artifactNode.deepCopy();
 
-      const files = action.payload.files;
+      const { files } = action.payload;
       if (files) {
         files.sort((a, b) => b.is_dir - a.is_dir);
       }
