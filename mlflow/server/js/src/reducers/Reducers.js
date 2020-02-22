@@ -276,7 +276,7 @@ const artifactsByRunUuid = (state = {}, action) => {
       artifactNode = artifactNode.deepCopy();
 
       const { files } = action.payload;
-      if (files) {
+      if (files !== undefined) {
         // Sort files to list directories first in the artifact tree view.
         files.sort((a, b) => b.is_dir - a.is_dir);
       }
