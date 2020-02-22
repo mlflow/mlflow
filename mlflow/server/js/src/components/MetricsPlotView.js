@@ -19,10 +19,14 @@ export class MetricsPlotView extends React.Component {
     showPoint: PropTypes.bool.isRequired,
     chartType: PropTypes.string.isRequired,
     isComparing: PropTypes.bool.isRequired,
-    yAxisLogScale: PropTypes.bool.isRequired,
     lineSmoothness: PropTypes.number,
+<<<<<<< HEAD
     onClick: PropTypes.func,
     onRelayout: PropTypes.func,
+=======
+    extraLayout: PropTypes.object,
+    onLayoutChange: PropTypes.func.isRequired,
+>>>>>>> master
   };
 
   static getLineLegend = (metricKey, runDisplayName, isComparing) => {
@@ -42,7 +46,11 @@ export class MetricsPlotView extends React.Component {
   };
 
   getPlotPropsForLineChart = () => {
+<<<<<<< HEAD
     const {metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness, isComparing } = this.props;
+=======
+    const { metrics, xAxis, showPoint, lineSmoothness, isComparing } = this.props;
+>>>>>>> master
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
       const isSingleHistory = history.length === 0;
@@ -63,17 +71,16 @@ export class MetricsPlotView extends React.Component {
       };
     });
     const props = { data };
-    if (yAxisLogScale) {
-      props.layout = {
-        yaxis: { type: 'log', autorange: true },
-      };
-    }
+    props.layout = {
+      ...props.layout,
+      ...this.props.extraLayout,
+    };
     return props;
   };
 
   getPlotPropsForBarChart = () => {
     /* eslint-disable no-param-reassign */
-    const { runUuids, runDisplayNames, yAxisLogScale } = this.props;
+    const { runUuids, runDisplayNames } = this.props;
 
     // A reverse lookup of `metricKey: { runUuid: value, metricKey }`
     const historyByMetricKey = this.props.metrics.reduce((map, metric) => {
@@ -93,7 +100,6 @@ export class MetricsPlotView extends React.Component {
     );
 
     const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map((history) => history.metricKey);
-
     const data = runUuids.map((runUuid, i) => ({
       name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
       x: sortedMetricKeys,
@@ -104,14 +110,19 @@ export class MetricsPlotView extends React.Component {
 
     const layout = { barmode: 'group' };
     const props = { data, layout };
-    if (yAxisLogScale) {
-      props.layout.yaxis = { type: 'log', autorange: true };
-    }
+    props.layout = {
+      ...props.layout,
+      ...this.props.extraLayout,
+    };
     return props;
   };
 
   render() {
+<<<<<<< HEAD
     const { onClick, onRelayout } = this.props;
+=======
+    const { onLayoutChange } = this.props;
+>>>>>>> master
     const plotProps =
       this.props.chartType === CHART_TYPE_BAR
         ? this.getPlotPropsForBarChart()
@@ -121,8 +132,11 @@ export class MetricsPlotView extends React.Component {
         <Plot
           {...plotProps}
           useResizeHandler
+          onRelayout={(newLayout) => {
+            onLayoutChange(newLayout);
+          }}
           style={{ width: '100%', height: '100%' }}
-          layout={{ ...plotProps.layout, ...{ autosize: true } }}
+          layout={_.cloneDeep(plotProps.layout)}
           config={{
             displaylogo: false,
             scrollZoom: true,

@@ -94,6 +94,9 @@ describe('unit tests', () => {
       isComparing: false,
       yAxisLogScale: false,
       lineSmoothness: 0,
+      onLayoutChange: jest.fn(),
+      onDoubleClick: jest.fn(),
+      onClick: jest.fn(),
     };
     minimalPropsForBarChart = {
       ...minimalPropsForLineChart,
@@ -140,6 +143,7 @@ describe('unit tests', () => {
           runUuid: "runUuid2",
         },
       ],
+      layout: {},
     });
   });
 

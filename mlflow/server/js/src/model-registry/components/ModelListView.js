@@ -34,6 +34,10 @@ export class ModelListView extends React.Component {
     nameFilter: '',
   };
 
+  componentDidMount() {
+    document.title = 'MLflow Models';
+  }
+
   getColumns = () => {
     return [
       {

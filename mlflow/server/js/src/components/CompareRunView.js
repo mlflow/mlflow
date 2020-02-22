@@ -33,6 +33,10 @@ class CompareRunView extends Component {
     runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
 
+  componentDidMount() {
+    document.title = `Comparing ${this.props.runInfos.length} MLflow Runs`;
+  }
+
   render() {
     const experiment = this.props.experiment;
     const experimentId = experiment.getExperimentId();
