@@ -45,6 +45,48 @@ export const getExperimentApi = (experimentId, id = getUUID()) => {
   };
 };
 
+export const CREATE_EXPERIMENT_API = 'CREATE_EXPERIMENT_API';
+export const createExperimentApi = (experimentName, artifactPath = undefined, id = getUUID()) => {
+  return (dispatch) => {
+    const createResponse = dispatch({
+      type: CREATE_EXPERIMENT_API,
+      payload: wrapDeferred(MlflowService.createExperiment, {
+        name: experimentName,
+        artifact_location: artifactPath,
+      }),
+      meta: { id: getUUID() },
+    });
+    return createResponse;
+  };
+};
+
+export const DELETE_EXPERIMENT_API = 'DELETE_EXPERIMENT_API';
+export const deleteExperimentApi = (experimentId, id = getUUID()) => {
+  return (dispatch) => {
+    const deleteResponse = dispatch({
+      type: DELETE_EXPERIMENT_API,
+      payload: wrapDeferred(MlflowService.deleteExperiment, { experiment_id: experimentId }),
+      meta: { id: getUUID() },
+    });
+    return deleteResponse;
+  };
+};
+
+export const UPDATE_EXPERIMENT_API = 'UPDATE_EXPERIMENT_API';
+export const updateExperimentApi = (experimentId, newExperimentName, id = getUUID()) => {
+  return (dispatch) => {
+    const updateResponse = dispatch({
+      type: UPDATE_EXPERIMENT_API,
+      payload: wrapDeferred(MlflowService.updateExperiment, {
+        experiment_id: experimentId,
+        new_name: newExperimentName,
+      }),
+      meta: { id: getUUID() },
+    });
+    return updateResponse;
+  };
+};
+
 export const GET_RUN_API = 'GET_RUN_API';
 export const getRunApi = (runUuid, id = getUUID()) => {
   return {
