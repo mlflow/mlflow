@@ -122,7 +122,7 @@ class ModelRegistryClient(object):
         :param version: Version number of the model version.
         :param description: New description.
         """
-        self.store.update_model_version(name, version, description)
+        return self.store.update_model_version(name, version, description)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):
         """
@@ -138,9 +138,9 @@ class ModelRegistryClient(object):
         """
         if stage.strip() == "":
             raise MlflowException("The stage must not be an empty string.")
-        self.store.transition_model_version_stage(
-            name=name, version=version,
-            stage=stage, archive_existing_versions=archive_existing_versions)
+        return self.store.transition_model_version_stage(
+            name=name, version=version, stage=stage,
+            archive_existing_versions=archive_existing_versions)
 
     def get_model_version(self, name, version):
         """
