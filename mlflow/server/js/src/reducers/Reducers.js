@@ -277,6 +277,7 @@ const artifactsByRunUuid = (state = {}, action) => {
 
       const { files } = action.payload;
       if (files) {
+        // Sort files to list directories first in the artifact tree view.
         files.sort((a, b) => b.is_dir - a.is_dir);
       }
       // Do not coerce these out of JSON because we use JSON.parse(JSON.stringify
