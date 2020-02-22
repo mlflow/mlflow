@@ -306,8 +306,6 @@ export class MetricsPlotPanel extends React.Component {
           runUuid: point.data.runUuid,
         })).reverse();
 
-        // Instead of setting state on MetricPlotPanel (current component),
-        // should call a method on the Popover directly via the ref.
         this.setState({
           popoverVisible: !popoverVisible || !clickedSamePoint,
           popoverX: clientX,
