@@ -260,6 +260,14 @@ export class MetricsPlotPanel extends React.Component {
         yaxis: { autorange: true, type: axisType },
       };
     }
+
+    if (newLayout.dragmode) {
+      mergedLayout = {
+        ...mergedLayout,
+        dragmode: newLayout.dragmode,
+      };
+    }
+
     this.setState({ layout: mergedLayout, lastLinearYAxisRange });
   };
 
