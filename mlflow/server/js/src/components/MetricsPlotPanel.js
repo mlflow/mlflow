@@ -54,7 +54,6 @@ export class MetricsPlotPanel extends React.Component {
       // that we can restore them when converting from log back to linear scale)
       lastLinearYAxisRange: [],
 
-      // Run links popover state
       popoverVisible: false,
       popoverX: 0,
       popoverY: 0,
