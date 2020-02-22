@@ -53,6 +53,12 @@ export class MetricsPlotPanel extends React.Component {
       // and then back to linear scale (we save the initial negative linear y-axis bounds so
       // that we can restore them when converting from log back to linear scale)
       lastLinearYAxisRange: [],
+
+      // Run links popover state
+      popoverVisible: false,
+      popoverX: 0,
+      popoverY: 0,
+      popoverRunItems: [],
     };
     this.loadMetricHistory(this.props.runUuids, this.state.selectedMetricKeys);
   }
@@ -278,6 +284,12 @@ export class MetricsPlotPanel extends React.Component {
 
   handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
 
+  handleKeyDownOnPopover = ({ key }) => {
+    if (key === 'Escape') {
+      this.setState({ popoverVisible: false });
+    }
+  };
+
   updatePopover = (data) => {
     this.isClicked = !this.isClicked;
 
@@ -285,10 +297,9 @@ export class MetricsPlotPanel extends React.Component {
     setTimeout(() => {
       if (this.isClicked) {
         this.isClicked = false;
-        const popover = this.popoverRef.current;
-        const { visible, x, y } = popover.state;
+        const { popoverVisible, popoverX, popoverY } = this.state;
         const { points, event: { clientX, clientY } } = data;
-        const clickedSamePoint = x === clientX && y === clientY;
+        const clickedSamePoint = popoverX === clientX && popoverY === clientY;
 
         const runItems = points.map((point) => ({
           name: point.data.name,
@@ -298,7 +309,12 @@ export class MetricsPlotPanel extends React.Component {
 
         // Instead of setting state on MetricPlotPanel (current component),
         // should call a method on the Popover directly via the ref.
-        popover.updateState(!visible || !clickedSamePoint, clientX, clientY, runItems);
+        this.setState({
+          popoverVisible: !popoverVisible || !clickedSamePoint,
+          popoverX: clientX,
+          popoverY: clientY,
+          popoverRunItems: runItems,
+        });
       }
     }, 300);
   }
@@ -311,6 +327,10 @@ export class MetricsPlotPanel extends React.Component {
       selectedXAxis,
       selectedMetricKeys,
       lineSmoothness,
+      popoverVisible,
+      popoverX,
+      popoverY,
+      popoverRunItems,
     } = this.state;
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
@@ -336,7 +356,13 @@ export class MetricsPlotPanel extends React.Component {
         >
           <RunLinksPopover
             experimentId={experimentId}
-            ref={this.popoverRef}
+            visible={popoverVisible}
+            x={popoverX}
+            y={popoverY}
+            runItems={popoverRunItems}
+            handleKeyDown={this.handleKeyDownOnPopover}
+            handleClose={() => this.setState({ popoverVisible: false })}
+            handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
           />
           <MetricsPlotView
             runUuids={runUuids}
@@ -350,6 +376,7 @@ export class MetricsPlotPanel extends React.Component {
             lineSmoothness={lineSmoothness}
             extraLayout={this.state.layout}
             onLayoutChange={this.handleLayoutChange}
+            onClick={this.updatePopover}
           />
         </RequestStateWrapper>
       </div>

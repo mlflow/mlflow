@@ -7,41 +7,25 @@ import Routes from '../Routes';
 export class RunLinksPopover extends React.Component {
   static propTypes = {
     experimentId: PropTypes.number.isRequired,
+    visible: PropTypes.bool.isRequired,
+    x: PropTypes.number.isRequired,
+    y: PropTypes.number.isRequired,
+    runItems: PropTypes.arrayOf(PropTypes.object).isRequired,
+    handleClose: PropTypes.func.isRequired,
+    handleKeyDown: PropTypes.func.isRequired,
+    handleVisibleChange: PropTypes.func.isRequired,
   };
 
-  constructor(props) {
-    super(props);
-    this.state = {
-      visible: false,
-      x: 0,
-      y: 0,
-      runItems: [],
-    };
-  }
-
   componentDidMount() {
-    document.addEventListener('keydown', this.handleKeyDown);
+    document.addEventListener('keydown', this.props.handleKeyDown);
   }
 
   componentWillUnmount() {
-    document.removeEventListener('keydown', this.handleKeyDown);
+    document.removeEventListener('keydown', this.props.handleKeyDown);
   }
 
-  updateState = (visible, x, y, runItems) => this.setState({visible, x, y, runItems});
-
-  hide = () => this.setState({ visible: false });
-
-  handleVisibleChange = (visible) => this.setState({ visible });
-
-  handleKeyDown = ({ key }) => {
-    if (key === 'Escape') {
-      this.hide();
-    }
-  };
-
   renderContent = () => {
-    const { runItems } = this.state;
-    const { experimentId } = this.props;
+    const { experimentId, runItems } = this.props;
     return (
       <div>
         {runItems.map(({ name, runUuid, color }, index) => {
@@ -61,10 +45,11 @@ export class RunLinksPopover extends React.Component {
   };
 
   renderTitle = () => {
+    const { handleClose } = this.props;
     return (
       <div>
         <span>Jump to the run</span>
-        <a onClick={this.hide} style={{ float: 'right' }}>
+        <a onClick={handleClose} style={{ float: 'right' }}>
           <i className="fas fa-times" />
         </a>
       </div>
@@ -72,14 +57,14 @@ export class RunLinksPopover extends React.Component {
   };
 
   render() {
-    const { visible, x, y } = this.state;
+    const { visible, x, y, handleVisibleChange } = this.props;
     return (
       <Popover
         content={this.renderContent()}
         title={this.renderTitle()}
         placement="top"
         visible={visible}
-        onVisibleChange={this.handleVisibleChange}
+        onVisibleChange={handleVisibleChange}
       >
         <div
           style={{
