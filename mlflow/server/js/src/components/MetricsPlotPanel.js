@@ -300,11 +300,13 @@ export class MetricsPlotPanel extends React.Component {
         const { points, event: { clientX, clientY } } = data;
         const clickedSamePoint = popoverX === clientX && popoverY === clientY;
 
-        const runItems = points.map((point) => ({
-          name: point.data.name,
-          color: point.fullData.marker.color,
-          runUuid: point.data.runUuid,
-        })).reverse();
+        const runItems = points
+          .sort((a, b) => b.y - a.y)
+          .map(point => ({
+            name: point.data.name,
+            color: point.fullData.marker.color,
+            runUuid: point.data.runUuid,
+          }));
 
         this.setState({
           popoverVisible: !popoverVisible || !clickedSamePoint,
