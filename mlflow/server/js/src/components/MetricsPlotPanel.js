@@ -234,7 +234,6 @@ export class MetricsPlotPanel extends React.Component {
       ...this.state.layout,
       ...rest,
     };
-
     let lastLinearYAxisRange = [...this.state.lastLinearYAxisRange];
     if (newXRange0 !== undefined && newXRange1 !== undefined) {
       mergedLayout = {
@@ -268,7 +267,6 @@ export class MetricsPlotPanel extends React.Component {
         yaxis: { autorange: true, type: axisType },
       };
     }
-
     this.setState({ layout: mergedLayout, lastLinearYAxisRange });
   };
 
