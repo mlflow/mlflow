@@ -3,7 +3,7 @@
 set -ex
 sudo mkdir -p /travis-install
 sudo chown travis /travis-install
-sudo echo "et.ipv4.tcp_ecn = 0" >> /etc/sysctl.conf
+echo "et.ipv4.tcp_ecn = 0" | sudo tee /etc/sysctl.conf
 # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
 # We do this conditionally because it saves us some downloading if the
 # version is the same.
