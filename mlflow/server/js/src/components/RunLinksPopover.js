@@ -62,7 +62,7 @@ export class RunLinksPopover extends React.Component {
       <Popover
         content={this.renderContent()}
         title={this.renderTitle()}
-        placement="top"
+        placement="left"
         visible={visible}
         onVisibleChange={handleVisibleChange}
       >
