@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { Popover } from 'antd';
 import Routes from '../Routes';
+import Utils from '../utils/Utils';
 
 export class RunLinksPopover extends React.Component {
   static propTypes = {
@@ -28,14 +29,14 @@ export class RunLinksPopover extends React.Component {
     const { experimentId, runItems } = this.props;
     return (
       <div>
-        {runItems.map(({ name, runUuid, color }, index) => {
+        {runItems.map(({ name, runUuid, color, y }, index) => {
           const key = `${runUuid}-${index}`;
           const to = Routes.getRunPageRoute(experimentId, runUuid);
           return (
             <Link key={key} to={to}>
               <p style={{ color }}>
                 <i className="fas fa-external-link-alt" style={{ marginRight: 5 }} />
-                {name}
+                {`${name}, ${Utils.formatMetric(y)}`}
               </p>
             </Link>
           );
