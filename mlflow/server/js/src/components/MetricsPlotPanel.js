@@ -220,13 +220,21 @@ export class MetricsPlotPanel extends React.Component {
   handleLayoutChange = (newLayout) => {
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
-    const newXRange0 = newLayout["xaxis.range[0]"];
-    const newXRange1 = newLayout["xaxis.range[1]"];
-    const newYRange0 = newLayout["yaxis.range[0]"];
-    const newYRange1 = newLayout["yaxis.range[1]"];
+    const {
+      "xaxis.range[0]": newXRange0,
+      "xaxis.range[1]": newXRange1,
+      "yaxis.range[0]": newYRange0,
+      "yaxis.range[1]": newYRange1,
+      "xaxis.autorange": xAxisAutorange,
+      "yaxis.autorange": yAxisAutorange,
+      ...rest
+    } = newLayout;
+
     let mergedLayout = {
       ...this.state.layout,
+      ...rest,
     };
+
     let lastLinearYAxisRange = [...this.state.lastLinearYAxisRange];
     if (newXRange0 !== undefined && newXRange1 !== undefined) {
       mergedLayout = {
@@ -245,26 +253,19 @@ export class MetricsPlotPanel extends React.Component {
         },
       };
     }
-    if (newLayout["xaxis.autorange"] === true) {
+    if (xAxisAutorange === true) {
       mergedLayout = {
         ...mergedLayout,
         xaxis: { autorange: true },
       };
     }
-    if (newLayout["yaxis.autorange"] === true) {
+    if (yAxisAutorange === true) {
       lastLinearYAxisRange = [];
       const axisType = this.state.layout && this.state.layout.yaxis &&
         this.state.layout.yaxis.type === 'log' ? "log" : "linear";
       mergedLayout = {
         ...mergedLayout,
         yaxis: { autorange: true, type: axisType },
-      };
-    }
-
-    if (newLayout.dragmode) {
-      mergedLayout = {
-        ...mergedLayout,
-        dragmode: newLayout.dragmode,
       };
     }
 
