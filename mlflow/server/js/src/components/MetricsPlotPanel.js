@@ -51,6 +51,7 @@ export class MetricsPlotPanel extends React.Component {
       // and then back to linear scale (we save the initial negative linear y-axis bounds so
       // that we can restore them when converting from log back to linear scale)
       lastLinearYAxisRange: [],
+      layout: {},
     };
     this.loadMetricHistory(this.props.runUuids, this.state.selectedMetricKeys);
   }
