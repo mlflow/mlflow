@@ -49,7 +49,7 @@ export class RunLinksPopover extends React.Component {
     return (
       <div>
         <span>Jump to individual runs</span>
-        <a onClick={handleClose} style={{ float: 'right' }}>
+        <a onClick={handleClose} style={{ float: 'right', marginLeft: '7px' }}>
           <i className="fas fa-times" />
         </a>
       </div>
