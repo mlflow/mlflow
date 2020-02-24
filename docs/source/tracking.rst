@@ -712,3 +712,7 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.docker.image.id``    | ID of the Docker image used to execute this run.                                       |
 +-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.log-model.history``  | (Experimental) Model metadata collected by log-model calls. Includes the serialized    |
+|                               | form of the MLModel model files logged to a run, although the exact format and         |
+|                               | information captured is subject to change.                                             |
++-------------------------------+----------------------------------------------------------------------------------------+
