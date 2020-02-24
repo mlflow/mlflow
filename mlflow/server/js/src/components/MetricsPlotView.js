@@ -118,9 +118,6 @@ export class MetricsPlotView extends React.Component {
           {...plotProps}
           useResizeHandler
           onRelayout={onLayoutChange}
-          onAutoSize={(first, second, third) => {
-          // debugger;
-        }}
           style={{ width: '100%', height: '100%' }}
           layout={_.cloneDeep(plotProps.layout)}
           config={{

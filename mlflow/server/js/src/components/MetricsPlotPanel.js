@@ -221,7 +221,6 @@ export class MetricsPlotPanel extends React.Component {
   handleLayoutChange = (newLayout) => {
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
-    // debugger;
     const {
       "xaxis.range[0]": newXRange0,
       "xaxis.range[1]": newXRange1,
