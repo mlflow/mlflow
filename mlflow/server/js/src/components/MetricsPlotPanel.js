@@ -221,6 +221,7 @@ export class MetricsPlotPanel extends React.Component {
   handleLayoutChange = (newLayout) => {
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
+    // debugger;
     const {
       "xaxis.range[0]": newXRange0,
       "xaxis.range[1]": newXRange1,
@@ -230,6 +231,7 @@ export class MetricsPlotPanel extends React.Component {
       "yaxis.autorange": yAxisAutorange,
       "yaxis.showspikes": yAxisShowSpikes,
       "xaxis.showspikes": xAxisShowSpikes,
+      dragmode,
       ...restFields
     } = newLayout;
 
@@ -264,6 +266,12 @@ export class MetricsPlotPanel extends React.Component {
         this.state.layout.yaxis.type === 'log' ? "log" : "linear";
       newYAxis.autorange = true;
       newYAxis.type = axisType;
+    }
+    // Handle changing dragmode (disable autorange if dragmode is set)
+    if (dragmode) {
+      newXAxis.autorange = false;
+      newYAxis.autorange = false;
+      mergedLayout.dragmode = dragmode;
     }
     // Merge new X & Y axis info into layout
     mergedLayout = {
