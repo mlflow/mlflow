@@ -16,6 +16,7 @@ from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.projects.backend.abstract_backend import AbstractBackend
+from mlflow.projects.utils import fetch_project
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
@@ -281,13 +282,15 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
 
 class DatabricksProjectBackend(AbstractBackend):
 
-    def run(self, run_id, project_uri, entry_point, params,
-            backend_config, project_dir):
+    def run(self, run_id, experiment_id, project_uri, entry_point, params,
+            version, backend_config):
         """
         Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
         used to query the run's status or wait for the resulting Databricks Job run to terminate.
         """
         tracking_uri = tracking.get_tracking_uri()
+        before_run_validations(tracking_uri, backend_config)
+        project_dir = fetch_project(uri=project_uri, force_tempdir=False, version=version)
         profile = get_db_profile_from_uri(tracking_uri)
         experiment_id = mlflow.get_run(run_id).info.experiment_id
         db_job_runner = DatabricksJobRunner(databricks_profile=profile)
@@ -298,10 +301,6 @@ class DatabricksProjectBackend(AbstractBackend):
             db_run_id, run_id, db_job_runner)
         submitted_run._print_description_and_log_tags()
         return submitted_run
-
-    def validate_backend_config(self, backend_config):
-        tracking_uri = tracking.get_tracking_uri()
-        before_run_validations(tracking_uri, backend_config)
 
     @property
     def name(self):

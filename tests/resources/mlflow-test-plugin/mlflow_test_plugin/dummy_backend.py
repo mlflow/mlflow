@@ -1,4 +1,5 @@
 from mlflow.entities import RunStatus
+from mlflow.projects.utils import prepare_project_and_run
 from mlflow.projects.backend.abstract_backend import AbstractBackend
 from mlflow.projects.submitted_run import SubmittedRun
 
@@ -26,12 +27,10 @@ class DummySubmittedRun(SubmittedRun):
 
 
 class PluginDummyProjectBackend(AbstractBackend):
-    def run(self, run_id, project_uri, entry_point, params,
-            backend_config, project_dir):
+    def run(self, run_id, experiment_id, project_uri, entry_point, params,
+            version, backend_config):
+        prepare_project_and_run(project_uri, experiment_id, run_id, entry_point, params, version)
         return DummySubmittedRun(run_id)
-
-    def validate_backend_config(self, backend_config):
-        pass
 
     @property
     def name(self):
