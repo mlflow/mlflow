@@ -6,6 +6,7 @@ and is exposed in the :py:mod:`mlflow.tracking` module.
 import logging
 
 from mlflow.entities import ViewType
+from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -366,7 +367,7 @@ class MlflowClient(object):
 
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        self._get_registry_client().rename_registered_mdoel(name, new_name)
+        self._get_registry_client().rename_registered_model(name, new_name)
 
     @experimental
     def update_registered_model(self, name, new_name=None, description=None):
@@ -553,8 +554,8 @@ class MlflowClient(object):
         return self._get_registry_client().search_model_versions(filter_string)
 
     @experimental
-    def get_model_version_stages(self, name, version):
+    def get_model_version_stages(self, name, version):  # pylint: disable=unused-argument
         """
         :return: A list of valid stages.
         """
-        return self._get_registry_client().get_model_version_stages(name, version)
+        return ALL_STAGES

@@ -81,7 +81,7 @@ class SqlModelVersion(Base):
 
     # entity mappers
     def to_mlflow_entity(self):
-        return ModelVersion(self.registered_model.name, self.version,
+        return ModelVersion(self.name, self.version,
                             self.creation_time, self.last_updated_time, self.description,
                             self.user_id, self.current_stage, self.source, self.run_id,
                             self.status, self.status_message)

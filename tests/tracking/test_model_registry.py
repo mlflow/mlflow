@@ -160,6 +160,18 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_4.creation_timestamp)
     assert_is_between(start_time_4, end_time_4, registered_model_detailed_4.last_updated_timestamp)
 
+    # using rename
+    previous_name = another_new
+    another_new = "UpdateRMTest 5"
+    start_time_5 = now()
+    mlflow_client.rename_registered_model(previous_name, another_new)
+    end_time_5 = now()
+    registered_model_detailed_5 = mlflow_client.get_registered_model(another_new)
+    assert registered_model_detailed_5.name == another_new
+    assert registered_model_detailed_5.description == "4th update"
+    assert_is_between(start_time_1, end_time_1, registered_model_detailed_5.creation_timestamp)
+    assert_is_between(start_time_5, end_time_5, registered_model_detailed_5.last_updated_timestamp)
+
     # old named models are not accessible
     for old_name in [name, new_name]:
         with pytest.raises(MlflowException):

@@ -166,9 +166,9 @@ def test_client_registry_operations_raise_exception_with_unsupported_registry_st
         expected_failure_functions = [
             client._get_registry_client,
             lambda: client.create_registered_model("test"),
-            lambda: client.get_registered_model_details("test"),
+            lambda: client.get_registered_model("test"),
             lambda: client.create_model_version("test", "source", "run_id"),
-            lambda: client.get_model_version_details("test", 1),
+            lambda: client.get_model_version("test", 1),
         ]
         for func in expected_failure_functions:
             with pytest.raises(MlflowException) as exc:
