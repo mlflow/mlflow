@@ -1,5 +1,24 @@
 Changelog
 =========
+1.6.1.dev0 (2020-02-24)
+-----------------------
+MLflow 1.6.1.dev0 includes several major features and improvements:
+
+Features:
+
+- Experiment Searching: Search for experiments by name in the UI (#2324, @ggliem)
+- [ML-9117] Java API - Model Registry API Download Models Implementation (#2308, @andychow-db)
+
+Bug fixes and documentation updates:
+
+- Prevent metrics plots from resetting zoom when line smoothness or other attributes change (#2408, @smurching)
+- Import matplotlib in log_feature_importance_plot (#2423, @harupy)
+- Close figure after auto logging (#2386, @harupy)
+- FileStore: Fix parameter reading logic to support param values with newlines (#2376, @dbczumar)
+- Improve readability of run table column selector nodes (#2388, @dbczumar)
+
+Small bug fixes and doc updates (#2378, #2449, @harupy; #2314, @juntai-zheng; #2366, #2370, #2364, @AveshCSingh; #2373, @smurching)
+
 1.6.0 (2020-01-29)
 -----------------------
 MLflow 1.6.0 includes several new features, including a better runs table interface, a utility for easier parameter tuning, and automatic logging from XGBoost, LightGBM, and Spark. It also implements a long-awaited fix allowing @ symbols in database URLs. A complete list is below:
