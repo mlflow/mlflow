@@ -6,9 +6,6 @@ class ModelVersionStatus(object):
     PENDING_REGISTRATION = ProtoModelVersionStatus.Value('PENDING_REGISTRATION')
     FAILED_REGISTRATION = ProtoModelVersionStatus.Value('FAILED_REGISTRATION')
     READY = ProtoModelVersionStatus.Value('READY')
-    PENDING_DELETION = ProtoModelVersionStatus.Value('PENDING_DELETION')
-    FAILED_DELETION = ProtoModelVersionStatus.Value('FAILED_DELETION')
-
     _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k)
                          for k in ProtoModelVersionStatus.keys()}
     _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}

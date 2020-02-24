@@ -4,8 +4,7 @@ from sqlalchemy import (
     Column, String, ForeignKey, Integer, BigInteger, PrimaryKeyConstraint)
 from sqlalchemy.orm import relationship, backref
 
-from mlflow.entities.model_registry import (RegisteredModel, RegisteredModelDetailed,
-                                            ModelVersion, ModelVersionDetailed)
+from mlflow.entities.model_registry import (RegisteredModel, ModelVersion)
 from mlflow.entities.model_registry.model_version_stages import STAGE_NONE, STAGE_DELETED_INTERNAL
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.store.db.base_sql_model import Base
@@ -31,11 +30,7 @@ class SqlRegisteredModel(Base):
                                                               self.creation_time,
                                                               self.last_updated_time)
 
-    # entity mappers
     def to_mlflow_entity(self):
-        return RegisteredModel(self.name)
-
-    def to_mlflow_detailed_entity(self):
         # SqlRegisteredModel has backref to all "model_versions". Filter latest for each stage.
         latest_versions = {}
         for mv in self.model_versions:
@@ -43,10 +38,10 @@ class SqlRegisteredModel(Base):
             if stage != STAGE_DELETED_INTERNAL and (stage not in latest_versions or
                                                     latest_versions[stage].version < mv.version):
                 latest_versions[stage] = mv
-        return RegisteredModelDetailed(self.name, self.creation_time, self.last_updated_time,
-                                       self.description,
-                                       [mvd.to_mlflow_detailed_entity()
-                                        for mvd in latest_versions.values()])
+        return RegisteredModel(self.name, self.creation_time, self.last_updated_time,
+                               self.description,
+                               [mvd.to_mlflow_entity()
+                                for mvd in latest_versions.values()])
 
 
 class SqlModelVersion(Base):
@@ -86,10 +81,7 @@ class SqlModelVersion(Base):
 
     # entity mappers
     def to_mlflow_entity(self):
-        return ModelVersion(self.registered_model.to_mlflow_entity(), self.version)
-
-    def to_mlflow_detailed_entity(self):
-        return ModelVersionDetailed(self.registered_model.to_mlflow_entity(), self.version,
-                                    self.creation_time, self.last_updated_time, self.description,
-                                    self.user_id, self.current_stage, self.source, self.run_id,
-                                    self.status, self.status_message)
+        return ModelVersion(self.name, self.version,
+                            self.creation_time, self.last_updated_time, self.description,
+                            self.user_id, self.current_stage, self.source, self.run_id,
+                            self.status, self.status_message)

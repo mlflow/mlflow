@@ -37,7 +37,7 @@ def test_register_model_with_runs_uri():
         return_value="s3:/path/to/source")
     create_version_patch = mock.patch.object(
         MlflowClient, "create_model_version",
-        return_value=ModelVersion(RegisteredModel("Model 1"), 1))
+        return_value=ModelVersion("Model 1", "1", creation_timestamp=123))
     with get_uri_patch, create_model_patch, create_version_patch:
         register_model("runs:/run12345/path/to/model", "Model 1")
         MlflowClient.create_registered_model.assert_called_once_with("Model 1")
@@ -50,7 +50,7 @@ def test_register_model_with_non_runs_uri():
                                            return_value=RegisteredModel("Model 1"))
     create_version_patch = mock.patch.object(
         MlflowClient, "create_model_version",
-        return_value=ModelVersion(RegisteredModel("Model 1"), 1))
+        return_value=ModelVersion("Model 1", "1", creation_timestamp=123))
     with create_model_patch, create_version_patch:
         register_model("s3:/some/path/to/model", "Model 1")
         MlflowClient.create_registered_model.assert_called_once_with("Model 1")
@@ -64,7 +64,7 @@ def test_register_model_with_existing_registered_model():
                                                                        RESOURCE_ALREADY_EXISTS))
     create_version_patch = mock.patch.object(
         MlflowClient, "create_model_version",
-        return_value=ModelVersion(RegisteredModel("Model 1"), 1))
+        return_value=ModelVersion("Model 1", "1", creation_timestamp=123))
     with create_model_patch, create_version_patch:
         register_model("s3:/some/path/to/model", "Model 1")
         MlflowClient.create_registered_model.assert_called_once_with("Model 1")

@@ -2,7 +2,8 @@ package org.mlflow.tracking;
 
 import com.google.common.collect.Lists;
 import org.apache.commons.io.FileUtils;
-import org.mlflow.api.proto.ModelRegistry.ModelVersionDetailed;
+import org.mlflow.api.proto.ModelRegistry;
+import org.mlflow.api.proto.ModelRegistry.ModelVersion;
 import org.mlflow.api.proto.Service.RunInfo;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
@@ -68,31 +69,34 @@ public class ModelRegistryMlflowClientTest {
     @Test
     public void testGetLatestModelVersions() throws IOException {
         // a list of stages
-        List<ModelVersionDetailed> versions = client.getLatestVersions(modelName,
+        List<ModelVersion> versions = client.getLatestVersions(modelName,
                 Lists.newArrayList("None"));
         Assert.assertEquals(versions.size(), 1);
 
-        validateDetailedModelVersion(versions.get(0), modelName, "None", 1);
+        validateDetailedModelVersion(versions.get(0), modelName, "None", "1");
 
         client.sendPatch("model-versions/update", mapper.makeUpdateModelVersion(modelName,
-                1, "Staging"));
-
+                "1"));
         // default stages (does not include "None")
-        List<ModelVersionDetailed> modelVersionDetails = client.getLatestVersions(modelName);
-        Assert.assertEquals(modelVersionDetails.size(), 1);
-        validateDetailedModelVersion(modelVersionDetails.get(0),
-                modelName, "Staging", 1);
+        List<ModelVersion> modelVersion = client.getLatestVersions(modelName);
+        Assert.assertEquals(modelVersion.size(), 0);
+        client.sendPost("model-versions/transition-stage",
+                mapper.makeTransitionModelVersionStage(modelName,"1", "Staging"));
+        modelVersion = client.getLatestVersions(modelName);
+        Assert.assertEquals(modelVersion.size(), 1);
+        validateDetailedModelVersion(modelVersion.get(0),
+                modelName, "Staging", "1");
     }
 
     @Test
     public void testGetModelVersionDownloadUri() {
-        String downloadUri = client.getModelVersionDownloadUri(modelName, 1);
+        String downloadUri = client.getModelVersionDownloadUri(modelName, "1");
         Assert.assertEquals(tempFile.getAbsolutePath(), downloadUri);
     }
 
     @Test
     public void testDownloadModelVersion() throws IOException {
-        File tempDownloadFile = client.downloadModelVersion(modelName, 1);
+        File tempDownloadFile = client.downloadModelVersion(modelName, "1");
         String downloadedContent = FileUtils.readFileToString(tempDownloadFile,
                 StandardCharsets.UTF_8);
         Assert.assertEquals(content, downloadedContent);
@@ -110,18 +114,18 @@ public class ModelRegistryMlflowClientTest {
     public void testDownloadLatestModelVersionWhenMoreThanOneVersionIsReturned() {
         MlflowClient mockedClient = Mockito.spy(client);
 
-        List<ModelVersionDetailed> modelVersions = Lists.newArrayList();
-        modelVersions.add(ModelVersionDetailed.newBuilder().build());
-        modelVersions.add(ModelVersionDetailed.newBuilder().build());
+        List<ModelVersion> modelVersions = Lists.newArrayList();
+        modelVersions.add(ModelVersion.newBuilder().build());
+        modelVersions.add(ModelVersion.newBuilder().build());
         doReturn(modelVersions).when(mockedClient).getLatestVersions(any(), any());
 
         mockedClient.downloadLatestModelVersion(modelName, "None");
     }
 
-    private void validateDetailedModelVersion(ModelVersionDetailed details, String modelName,
-                                              String stage, long version) {
+    private void validateDetailedModelVersion(ModelVersion details, String modelName,
+                                              String stage, String version) {
         Assert.assertEquals(details.getCurrentStage(), stage);
-        Assert.assertEquals(details.getModelVersion().getRegisteredModel().getName(), modelName);
-        Assert.assertEquals(details.getModelVersion().getVersion(), version);
+        Assert.assertEquals(details.getName(), modelName);
+        Assert.assertEquals(details.getVersion(), version);
     }
 }

@@ -5,12 +5,11 @@ import mock
 import pytest
 import uuid
 
-from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.protos.model_registry_pb2 import CreateRegisteredModel, \
     UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, \
-    GetRegisteredModelDetails, GetLatestVersions, CreateModelVersion, UpdateModelVersion, \
-    DeleteModelVersion, GetModelVersionDetails, GetModelVersionDownloadUri, SearchModelVersions, \
-    GetModelVersionStages
+    GetRegisteredModel, GetLatestVersions, CreateModelVersion, UpdateModelVersion, \
+    DeleteModelVersion, GetModelVersion, GetModelVersionDownloadUri, SearchModelVersions, \
+    RenameRegisteredModel, TransitionModelVersionStage
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -58,37 +57,26 @@ class TestRestStore(unittest.TestCase):
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_update_registered_model_name(self, mock_http):
-        rm = RegisteredModel("model_1")
-        self.store.update_registered_model(registered_model=rm, new_name="model_2")
-        self._verify_requests(mock_http, "registered-models/update", "PATCH",
-                              UpdateRegisteredModel(registered_model=rm.to_proto(),
-                                                    name="model_2"))
+        name = "model_1"
+        new_name = "model_2"
+        self.store.rename_registered_model(name=name, new_name=new_name)
+        self._verify_requests(mock_http, "registered-models/rename", "POST",
+                              RenameRegisteredModel(name=name, new_name=new_name))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_update_registered_model_description(self, mock_http):
-        rm = RegisteredModel("model_1")
-        self.store.update_registered_model(registered_model=rm, description="test model")
+        name = "model_1"
+        description = "test model"
+        self.store.update_registered_model(name=name, description=description)
         self._verify_requests(mock_http, "registered-models/update", "PATCH",
-                              UpdateRegisteredModel(registered_model=rm.to_proto(),
-                                                    description="test model"))
-
-    @mock.patch('mlflow.utils.rest_utils.http_request')
-    def test_update_registered_model_all(self, mock_http):
-        rm = RegisteredModel("model_1")
-        self.store.update_registered_model(registered_model=rm,
-                                           new_name="model_3",
-                                           description="rename and describe")
-        self._verify_requests(mock_http, "registered-models/update", "PATCH",
-                              UpdateRegisteredModel(registered_model=rm.to_proto(),
-                                                    name="model_3",
-                                                    description="rename and describe"))
+                              UpdateRegisteredModel(name=name, description=description))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_registered_model(self, mock_http):
-        rm = RegisteredModel("model_1")
-        self.store.delete_registered_model(registered_model=rm)
+        name = "model_1"
+        self.store.delete_registered_model(name=name)
         self._verify_requests(mock_http, "registered-models/delete", "DELETE",
-                              DeleteRegisteredModel(registered_model=rm.to_proto()))
+                              DeleteRegisteredModel(name=name))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_list_registered_model(self, mock_http):
@@ -96,25 +84,25 @@ class TestRestStore(unittest.TestCase):
         self._verify_requests(mock_http, "registered-models/list", "GET", ListRegisteredModels())
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
-    def test_get_registered_model_detailed(self, mock_http):
-        rm = RegisteredModel("model_1")
-        self.store.get_registered_model_details(registered_model=rm)
-        self._verify_requests(mock_http, "registered-models/get-details", "POST",
-                              GetRegisteredModelDetails(registered_model=rm.to_proto()))
+    def test_get_registered_model(self, mock_http):
+        name = "model_1"
+        self.store.get_registered_model(name=name)
+        self._verify_requests(mock_http, "registered-models/get", "GET",
+                              GetRegisteredModel(name=name))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_get_latest_versions(self, mock_http):
-        rm = RegisteredModel("model_1")
-        self.store.get_latest_versions(registered_model=rm)
-        self._verify_requests(mock_http, "registered-models/get-latest-versions", "POST",
-                              GetLatestVersions(registered_model=rm.to_proto()))
+        name = "model_1"
+        self.store.get_latest_versions(name=name)
+        self._verify_requests(mock_http, "registered-models/get-latest-versions", "GET",
+                              GetLatestVersions(name=name))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_get_latest_versions_with_stages(self, mock_http):
-        rm = RegisteredModel("model_1")
-        self.store.get_latest_versions(registered_model=rm, stages=["blaah"])
-        self._verify_requests(mock_http, "registered-models/get-latest-versions", "POST",
-                              GetLatestVersions(registered_model=rm.to_proto(), stages=["blaah"]))
+        name = "model_1"
+        self.store.get_latest_versions(name=name, stages=["blaah"])
+        self._verify_requests(mock_http, "registered-models/get-latest-versions", "GET",
+                              GetLatestVersions(name=name, stages=["blaah"]))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_create_model_version(self, mock_http):
@@ -125,65 +113,52 @@ class TestRestStore(unittest.TestCase):
                                                  run_id=run_id))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
-    def test_update_model_version_stage(self, mock_http):
-        rm = RegisteredModel("model_1")
-        mv = ModelVersion(rm, 5)
-        self.store.update_model_version(model_version=mv, stage="prod")
-        self._verify_requests(mock_http, "model-versions/update", "PATCH",
-                              UpdateModelVersion(model_version=mv.to_proto(), stage="prod"))
+    def test_transition_model_version_stage(self, mock_http):
+        name = "model_1"
+        version = "5"
+        self.store.transition_model_version_stage(name=name, version=version, stage="prod",
+                                                  archive_existing_versions=True)
+        self._verify_requests(mock_http, "model-versions/transition-stage", "POST",
+                              TransitionModelVersionStage(name=name, version=version,
+                                                          stage="prod",
+                                                          archive_existing_versions=True))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_update_model_version_decription(self, mock_http):
-        rm = RegisteredModel("model_1")
-        mv = ModelVersion(rm, 5)
-        self.store.update_model_version(model_version=mv, description="test model version")
+        name = "model_1"
+        version = "5"
+        description = "test model version"
+        self.store.update_model_version(name=name, version=version, description=description)
         self._verify_requests(mock_http, "model-versions/update", "PATCH",
-                              UpdateModelVersion(model_version=mv.to_proto(),
+                              UpdateModelVersion(name=name, version=version,
                                                  description="test model version"))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
-    def test_update_model_version_all(self, mock_http):
-        rm = RegisteredModel("model_1")
-        mv = ModelVersion(rm, 5)
-        self.store.update_model_version(model_version=mv, stage="5%", description="A|B test")
-        self._verify_requests(mock_http, "model-versions/update", "PATCH",
-                              UpdateModelVersion(model_version=mv.to_proto(),
-                                                 stage="5%", description="A|B test"))
-
-    @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_model_version(self, mock_http):
-        rm = RegisteredModel("model_1")
-        mv = ModelVersion(rm, 12)
-        self.store.delete_model_version(model_version=mv)
+        name = "model_1"
+        version = "12"
+        self.store.delete_model_version(name=name, version=version)
         self._verify_requests(mock_http, "model-versions/delete", "DELETE",
-                              DeleteModelVersion(model_version=mv.to_proto()))
+                              DeleteModelVersion(name=name, version=version))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_get_model_version_details(self, mock_http):
-        rm = RegisteredModel("model_11")
-        mv = ModelVersion(rm, 8)
-        self.store.get_model_version_details(model_version=mv)
-        self._verify_requests(mock_http, "model-versions/get-details", "POST",
-                              GetModelVersionDetails(model_version=mv.to_proto()))
+        name = "model_11"
+        version = "8"
+        self.store.get_model_version(name=name, version=version)
+        self._verify_requests(mock_http, "model-versions/get", "GET",
+                              GetModelVersion(name=name, version=version))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_get_model_version_download_uri(self, mock_http):
-        rm = RegisteredModel("model_11")
-        mv = ModelVersion(rm, 8)
-        self.store.get_model_version_download_uri(model_version=mv)
-        self._verify_requests(mock_http, "model-versions/get-download-uri", "POST",
-                              GetModelVersionDownloadUri(model_version=mv.to_proto()))
+        name = "model_11"
+        version = "8"
+        self.store.get_model_version_download_uri(name=name, version=version)
+        self._verify_requests(mock_http, "model-versions/get-download-uri", "GET",
+                              GetModelVersionDownloadUri(name=name, version=version))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_search_model_versions(self, mock_http):
         self.store.search_model_versions(filter_string="name='model_12'")
         self._verify_requests(mock_http, "model-versions/search", "GET",
                               SearchModelVersions(filter="name='model_12'"))
-
-    @mock.patch('mlflow.utils.rest_utils.http_request')
-    def test_get_model_version_stages(self, mock_http):
-        rm = RegisteredModel("model_11")
-        mv = ModelVersion(rm, 8)
-        self.store.get_model_version_stages(model_version=mv)
-        self._verify_requests(mock_http, "model-versions/get-stages", "POST",
-                              GetModelVersionStages(model_version=mv.to_proto()))

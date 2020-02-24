@@ -2,7 +2,7 @@ import mock
 import pytest
 from mock import Mock
 
-from mlflow.entities.model_registry import ModelVersionDetailed, RegisteredModel
+from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
@@ -66,9 +66,9 @@ def test_models_artifact_repo_init_with_stage_uri(
         host_creds_mock):  # pylint: disable=unused-argument
     model_uri = "models:/MyModel/Production"
     artifact_location = "dbfs://databricks/mlflow-registry/12345/models/keras-model"
-    model_version_detailed = ModelVersionDetailed(RegisteredModel("MyModel"), 10, "2345671890",
-                                                  "234567890", "some description", "UserID",
-                                                  "Production", "source", "run12345")
+    model_version_detailed = ModelVersion("MyModel", "10", "2345671890", "234567890",
+                                          "some description", "UserID",
+                                          "Production", "source", "run12345")
     get_latest_versions_patch = mock.patch.object(MlflowClient, "get_latest_versions",
                                                   return_value=[model_version_detailed])
     get_model_version_download_uri_patch = mock.patch.object(MlflowClient,

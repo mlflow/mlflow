@@ -4,9 +4,12 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel
+import logging
+
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import utils
+
+_logger = logging.getLogger(__name__)
 
 
 class ModelRegistryClient(object):
@@ -36,21 +39,30 @@ class ModelRegistryClient(object):
         #       Those are constraints applicable to any backend, given the model URI format.
         return self.store.create_registered_model(name)
 
-    def update_registered_model(self, name, new_name=None, description=None):
+    def update_registered_model(self, name, description):
         """
-        Updates metadata for RegisteredModel entity. Either ``new_name`` or ``description`` should
-        be non-None. Backend raises exception if a registered model with given name does not exist.
+        Updates description for RegisteredModel entity.
+
+        Backend raises exception if a registered model with given name does not exist.
 
         :param name: Name of the registered model to update.
-        :param new_name: (Optional) New proposed name for the registered model.
-        :param description: (Optional) New description.
+        :param description: New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        if new_name is None and description is None:
-            raise MlflowException("Attempting to update registered model with no new field values.")
-        if new_name is not None and new_name.strip() == "":
-            raise MlflowException("The new name must not be an empty string.")
-        return self.store.update_registered_model(RegisteredModel(name), new_name, description)
+        return self.store.update_registered_model(name=name, description=description)
+
+    def rename_registered_model(self, name, new_name):
+        """
+        Update registered model name.
+
+        :param name: Name of the registered model to update.
+        :param new_name: New proposed name for the registered model.
+
+        :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        """
+        if new_name.strip() == "":
+            raise MlflowException("The name must not be an empty string.")
+        return self.store.rename_registered_model(name=name, new_name=new_name)
 
     def delete_registered_model(self, name):
         """
@@ -59,7 +71,7 @@ class ModelRegistryClient(object):
 
         :param name: Name of the registered model to update.
         """
-        self.store.delete_registered_model(RegisteredModel(name))
+        self.store.delete_registered_model(name)
 
     def list_registered_models(self):
         """
@@ -69,12 +81,12 @@ class ModelRegistryClient(object):
         """
         return self.store.list_registered_models()
 
-    def get_registered_model_details(self, name):
+    def get_registered_model(self, name):
         """
         :param name: Name of the registered model to update.
-        :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModelDetailed` object.
+        :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        return self.store.get_registered_model_details(RegisteredModel(name))
+        return self.store.get_registered_model(name)
 
     def get_latest_versions(self, name, stages=None):
         """
@@ -86,7 +98,7 @@ class ModelRegistryClient(object):
                        for 'Staging' and 'Production' stages.
         :return: List of `:py:class:`mlflow.entities.model_registry.ModelVersionDetailed` objects.
         """
-        return self.store.get_latest_versions(RegisteredModel(name), stages)
+        return self.store.get_latest_versions(name, stages)
 
     # Model Version Methods
 
@@ -102,21 +114,41 @@ class ModelRegistryClient(object):
         """
         return self.store.create_model_version(name, source, run_id)
 
-    def update_model_version(self, name, version, stage=None, description=None):
+    def update_model_version(self, name, version, description):
         """
         Update metadata associated with a model version in backend.
 
         :param name: Name of the containing registered model.
         :param version: Version number of the model version.
-        :param stage: New desired stage for this model version.
         :param description: New description.
         """
-        if stage is None and description is None:
-            raise MlflowException("Attempting to update model version with no new field values.")
-        if stage is not None and stage.strip() == "":
+        return self.store.update_model_version(name=name, version=version, description=description)
+
+    def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):
+        """
+        Update model version stage.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param new_stage: New desired stage for this model version.
+        :param archive_existing_versions: If this flag is set, all existing model
+               versions in the stage will be atomically moved to the "archived" stage.
+
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        """
+        if stage.strip() == "":
             raise MlflowException("The stage must not be an empty string.")
-        self.store.update_model_version(ModelVersion(RegisteredModel(name), version), stage,
-                                        description)
+        return self.store.transition_model_version_stage(
+            name=name, version=version, stage=stage,
+            archive_existing_versions=archive_existing_versions)
+
+    def get_model_version(self, name, version):
+        """
+        :param name: Name of the containing registered model.
+        :param version: Version number of the model version.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        """
+        return self.store.get_model_version(name, version)
 
     def delete_model_version(self, name, version):
         """
@@ -125,15 +157,7 @@ class ModelRegistryClient(object):
         :param name: Name of the containing registered model.
         :param version: Version number of the model version.
         """
-        self.store.delete_model_version(ModelVersion(RegisteredModel(name), version))
-
-    def get_model_version_details(self, name, version):
-        """
-        :param name: Name of the containing registered model.
-        :param version: Version number of the model version.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersionDetailed` object.
-        """
-        return self.store.get_model_version_details(ModelVersion(RegisteredModel(name), version))
+        self.store.delete_model_version(name, version)
 
     def get_model_version_download_uri(self, name, version):
         """
@@ -143,8 +167,7 @@ class ModelRegistryClient(object):
         :param version: Version number of the model version.
         :return: A single URI location that allows reads for downloading.
         """
-        return self.store.get_model_version_download_uri(
-            ModelVersion(RegisteredModel(name), version))
+        return self.store.get_model_version_download_uri(name, version)
 
     def search_model_versions(self, filter_string):
         """
@@ -161,4 +184,4 @@ class ModelRegistryClient(object):
         """
         :return: A list of valid stages.
         """
-        return self.store.get_model_version_stages(ModelVersion(RegisteredModel(name), version))
+        return self.store.get_model_version_stages(name, version)

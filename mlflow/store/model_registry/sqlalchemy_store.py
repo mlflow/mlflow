@@ -135,29 +135,44 @@ class SqlAlchemyStore(AbstractStore):
                                   'Found {}.'.format(name, len(rms)), INVALID_STATE)
         return rms[0]
 
-    def update_registered_model(self, registered_model, new_name=None, description=None):
+    def update_registered_model(self, name, description):
         """
-        Updates metadata for RegisteredModel entity. Either ``new_name`` or ``description`` should
-        be non-None. Backend raises exception if a registered model with given name does not exist.
+        Updates description for Registered Model entity.
 
-        :param registered_model: :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        :param name: Name of the registered model.
 
-        :param new_name: (Optional) New proposed name for the registered model.
-        :param description: (Optional) New description.
+        :param description: New description.
 
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         with self.ManagedSessionMaker() as session:
-            sql_registered_model = self._get_registered_model(session, registered_model.name)
+            sql_registered_model = self._get_registered_model(session, name)
+            updated_time = now()
+            sql_registered_model.description = description
+            sql_registered_model.last_updated_time = updated_time
+            self._save_to_db(session,
+                             [sql_registered_model])
+            session.flush()
+            return sql_registered_model.to_mlflow_entity()
+
+    def rename_registered_model(self, name, new_name):
+        """
+        Updates name for RegisteredModel entity.
+
+        :param name: Name of the registered model.
+
+        :param new_name: New proposed name.
+
+        :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_registered_model = self._get_registered_model(session, name)
             try:
                 updated_time = now()
-                if new_name is not None:
-                    sql_registered_model.name = new_name
-                    for sql_model_version in sql_registered_model.model_versions:
-                        sql_model_version.name = new_name
-                        sql_model_version.last_updated_time = updated_time
-                if description is not None:
-                    sql_registered_model.description = description
+                sql_registered_model.name = new_name
+                for sql_model_version in sql_registered_model.model_versions:
+                    sql_model_version.name = new_name
+                    sql_model_version.last_updated_time = updated_time
                 sql_registered_model.last_updated_time = updated_time
                 self._save_to_db(session,
                                  [sql_registered_model] + sql_registered_model.model_versions)
@@ -167,17 +182,17 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException('Registered Model (name={}) already exists. '
                                       'Error: {}'.format(new_name, str(e)), RESOURCE_ALREADY_EXISTS)
 
-    def delete_registered_model(self, registered_model):
+    def delete_registered_model(self, name):
         """
         Delete registered model.
         Backend raises exception if a registered model with given name does not exist.
 
-        :param registered_model: :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        :param name: Registered model name.
 
         :return: None
         """
         with self.ManagedSessionMaker() as session:
-            sql_registered_model = self._get_registered_model(session, registered_model.name)
+            sql_registered_model = self._get_registered_model(session, name)
             session.delete(sql_registered_model)
 
     def list_registered_models(self):
@@ -187,34 +202,33 @@ class SqlAlchemyStore(AbstractStore):
         :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
         """
         with self.ManagedSessionMaker() as session:
-            return [sql_registered_model.to_mlflow_detailed_entity()
+            return [sql_registered_model.to_mlflow_entity()
                     for sql_registered_model in session.query(SqlRegisteredModel).all()]
 
-    def get_registered_model_details(self, registered_model):
+    def get_registered_model(self, name):
         """
-        :param registered_model: :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        :param name: Registered model name.
 
-        :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModelDetailed` object.
+        :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         with self.ManagedSessionMaker() as session:
-            return self._get_registered_model(session,
-                                              registered_model.name).to_mlflow_detailed_entity()
+            return self._get_registered_model(session, name).to_mlflow_entity()
 
-    def get_latest_versions(self, registered_model, stages=None):
+    def get_latest_versions(self, name, stages=None):
         """
         Latest version models for each requested stage. If no ``stages`` argument is provided,
         returns the latest version for each stage.
 
-        :param registered_model: :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        :param name: Registered model name.
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for 'Staging' and 'Production' stages.
 
-        :return: List of `:py:class:`mlflow.entities.model_registry.ModelVersionDetailed` objects.
+        :return: List of `:py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         with self.ManagedSessionMaker() as session:
-            sql_registered_model = self._get_registered_model(session, registered_model.name)
-            # Convert to RegisteredModelDetailed entity first and then extract latest_versions
-            latest_versions = sql_registered_model.to_mlflow_detailed_entity().latest_versions
+            sql_registered_model = self._get_registered_model(session, name)
+            # Convert to RegisteredModel entity first and then extract latest_versions
+            latest_versions = sql_registered_model.to_mlflow_entity().latest_versions
             if stages is None or len(stages) == 0:
                 expected_stages = set([get_canonical_stage(stage) for stage
                                        in DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS])
@@ -235,11 +249,13 @@ class SqlAlchemyStore(AbstractStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
         created in the backend.
         """
+
         def next_version(sql_registered_model):
             if sql_registered_model.model_versions:
                 return max([mv.version for mv in sql_registered_model.model_versions]) + 1
             else:
                 return 1
+
         with self.ManagedSessionMaker() as session:
             creation_time = now()
             for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
@@ -262,9 +278,12 @@ class SqlAlchemyStore(AbstractStore):
                               '{} attempts.'.format(name, self.CREATE_MODEL_VERSION_RETRIES))
 
     @classmethod
-    def _get_sql_model_version(cls, session, model_version):
-        name = model_version.get_name()
-        version = model_version.version
+    def _get_sql_model_version(cls, session, name, version):
+        try:
+            version = int(version)
+        except ValueError:
+            raise MlflowException("The version for sql alchemy store must be an integer, got '{}'"
+                                  .format(version))
         conditions = [
             SqlModelVersion.name == name,
             SqlModelVersion.version == version,
@@ -281,41 +300,64 @@ class SqlAlchemyStore(AbstractStore):
                                   INVALID_STATE)
         return versions[0]
 
-    def update_model_version(self, model_version, stage=None, description=None):
+    def update_model_version(self, name, version, description=None):
         """
         Update metadata associated with a model version in backend.
 
-        :param model_version: :py:class:`mlflow.entities.model_registry.ModelVersion` object.
-        :param stage: New desired stage for this model version.
+        :param name: Registered model name.
+        :param version: Registered model version.
         :param description: New description.
 
-        :return: None.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         with self.ManagedSessionMaker() as session:
             updated_time = now()
-            sql_model_version = self._get_sql_model_version(session, model_version)
-            updated_objs = []
-            if stage is not None:
-                sql_model_version.current_stage = get_canonical_stage(stage)
-                sql_registered_model = sql_model_version.registered_model
-                sql_registered_model.last_updated_time = updated_time
-                updated_objs.append(sql_registered_model)
-            if description is not None:
-                sql_model_version.description = description
+            sql_model_version = self._get_sql_model_version(session, name=name, version=version)
+            sql_model_version.description = description
             sql_model_version.last_updated_time = updated_time
-            self._save_to_db(session, updated_objs + [sql_model_version])
+            self._save_to_db(session, [sql_model_version])
+            return sql_model_version.to_mlflow_entity()
 
-    def delete_model_version(self, model_version):
+    def transition_model_version_stage(self, name, version, stage,
+                                       archive_existing_versions):
+        """
+        Update model version stage.
+
+        :param name: :py:string: Registered model name.
+        :param version: :py:string: Registered model version.
+        :param new_stage: New desired stage for this model version.
+        :param archive_existing_versions: :py:boolean: If this flag is set, all existing model
+        versions in the stage will be atomically moved to the "archived" stage.
+
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        """
+        if archive_existing_versions:
+            raise MlflowException("'archive_existing_versions' flag is not supported in "
+                                  "SqlAlchemyStore. Set it to 'False'")
+        with self.ManagedSessionMaker() as session:
+            sql_model_version = self._get_sql_model_version(session=session,
+                                                            name=name,
+                                                            version=version)
+            last_updated_time = now()
+            sql_model_version.current_stage = get_canonical_stage(stage)
+            sql_model_version.last_updated_time = last_updated_time
+            sql_registered_model = sql_model_version.registered_model
+            sql_registered_model.last_updated_time = last_updated_time
+            self._save_to_db(session, [sql_model_version, sql_registered_model])
+            return sql_model_version.to_mlflow_entity()
+
+    def delete_model_version(self, name, version):
         """
         Delete model version in backend.
 
-        :param model_version: :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        :param name: Registered model name.
+        :param version: Registered model version.
 
         :return: None
         """
         with self.ManagedSessionMaker() as session:
             updated_time = now()
-            sql_model_version = self._get_sql_model_version(session, model_version)
+            sql_model_version = self._get_sql_model_version(session, name, version)
             sql_registered_model = sql_model_version.registered_model
             sql_registered_model.last_updated_time = updated_time
             sql_model_version.current_stage = STAGE_DELETED_INTERNAL
@@ -327,28 +369,30 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version.status_message = None
             self._save_to_db(session, [sql_registered_model, sql_model_version])
 
-    def get_model_version_details(self, model_version):
+    def get_model_version(self, name, version):
         """
-        :param model_version: :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        :param name: Registered model name.
+        :param version: Registered model version.
 
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersionDetailed` object.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         with self.ManagedSessionMaker() as session:
-            sql_model_version = self._get_sql_model_version(session, model_version)
-            return sql_model_version.to_mlflow_detailed_entity()
+            sql_model_version = self._get_sql_model_version(session, name, version)
+            return sql_model_version.to_mlflow_entity()
 
-    def get_model_version_download_uri(self, model_version):
+    def get_model_version_download_uri(self, name, version):
         """
         Get the download location in Model Registry for this model version.
         NOTE: For first version of Model Registry, since the models are not copied over to another
               location, download URI points to input source path.
 
-        :param model_version: :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        :param name: Registered model name.
+        :param version: Registered model version.
 
         :return: A single URI location that allows reads for downloading.
         """
         with self.ManagedSessionMaker() as session:
-            sql_model_version = self._get_sql_model_version(session, model_version)
+            sql_model_version = self._get_sql_model_version(session, name, version)
             return sql_model_version.source
 
     def search_model_versions(self, filter_string):
@@ -359,7 +403,7 @@ class SqlAlchemyStore(AbstractStore):
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
 
-        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersionDetailed`
+        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  objects.
         """
         parsed_filter = SearchUtils.parse_filter_for_model_registry(filter_string)
@@ -390,5 +434,5 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             conditions.append(SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
             sql_model_version = session.query(SqlModelVersion).filter(*conditions).all()
-            model_versions_detailed = [mv.to_mlflow_detailed_entity() for mv in sql_model_version]
-            return PagedList(model_versions_detailed, None)
+            model_versions = [mv.to_mlflow_entity() for mv in sql_model_version]
+            return PagedList(model_versions, None)
