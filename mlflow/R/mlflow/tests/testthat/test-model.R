@@ -93,7 +93,7 @@ test_that("mlflow log model records correct metadata with the tracking server", 
     predicted <- predictor(0:10)
     expect_true(5 == predicted)
     mlflow_log_model(predictor, "model")
-    model_spec_expected <- mlflow_save_model(fn,"test")
+    model_spec_expected <- mlflow_save_model(predictor, "test")
     models <- mlflow_get_run()$tags[[1]]$value[which(tags[[1]]$key == "mlflow.models")]
     model_spec_actual <- fromJSON(models, simplifyDataFrame = FALSE)[[1]]
     expect_equal("model", model_spec_actual$artifact_path)
