@@ -228,6 +228,8 @@ export class MetricsPlotPanel extends React.Component {
       "yaxis.range[1]": newYRange1,
       "xaxis.autorange": xAxisAutorange,
       "yaxis.autorange": yAxisAutorange,
+      "yaxis.showspikes": yAxisShowSpikes,
+      "xaxis.showspikes": xAxisShowSpikes,
       ...restFields
     } = newLayout;
 
@@ -236,38 +238,39 @@ export class MetricsPlotPanel extends React.Component {
       ...restFields,
     };
     let lastLinearYAxisRange = [...this.state.lastLinearYAxisRange];
+
+    // Set fields for x axis
+    const newXAxis = mergedLayout.xaxis || {};
     if (newXRange0 !== undefined && newXRange1 !== undefined) {
-      mergedLayout = {
-        ...mergedLayout,
-        xaxis: {
-          range: [newXRange0, newXRange1],
-        },
-      };
+      newXAxis.range = [newXRange0, newXRange1];
     }
-    if (newYRange0 !== undefined && newYRange1 !== undefined) {
-      lastLinearYAxisRange = [];
-      mergedLayout = {
-        ...mergedLayout,
-        yaxis: {
-          range: [newYRange0, newYRange1],
-        },
-      };
+    if (xAxisShowSpikes) {
+      newXAxis.showspikes = true;
     }
     if (xAxisAutorange === true) {
-      mergedLayout = {
-        ...mergedLayout,
-        xaxis: { autorange: true },
-      };
+      newXAxis.autorange = true;
+    }
+    // Set fields for y axis
+    const newYAxis = mergedLayout.yaxis || {};
+    if (newYRange0 !== undefined && newYRange1 !== undefined) {
+      newYAxis.range = [newYRange0, newYRange1];
+    }
+    if (yAxisShowSpikes) {
+      newYAxis.showspikes = true;
     }
     if (yAxisAutorange === true) {
       lastLinearYAxisRange = [];
       const axisType = this.state.layout && this.state.layout.yaxis &&
         this.state.layout.yaxis.type === 'log' ? "log" : "linear";
-      mergedLayout = {
-        ...mergedLayout,
-        yaxis: { autorange: true, type: axisType },
-      };
+      newYAxis.autorange = true;
+      newYAxis.type = axisType;
     }
+    // Merge new X & Y axis info into layout
+    mergedLayout = {
+      ...mergedLayout,
+      xaxis: newXAxis,
+      yaxis: newYAxis,
+    };
     this.setState({ layout: mergedLayout, lastLinearYAxisRange });
   };
 
