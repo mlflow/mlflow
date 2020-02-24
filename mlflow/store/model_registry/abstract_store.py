@@ -1,7 +1,5 @@
 from abc import abstractmethod, ABCMeta
 
-from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-
 
 class AbstractStore:
     """
@@ -33,27 +31,38 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def update_registered_model(self, registered_model, new_name=None, description=None):
+    def update_registered_model(self, name, description):
         """
-        Updates metadata for RegisteredModel entity. Either ``new_name`` or ``description`` should
-        be non-None. Backend raises exception if a registered model with given name does not exist.
+        Update description of the registered model.
 
-        :param registered_model: :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        :param name: Registered model name.
 
-        :param new_name: (Optional) New proposed name for the registered model.
-        :param description: (Optional) New description.
+        :param description: New description.
 
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         pass
 
     @abstractmethod
-    def delete_registered_model(self, registered_model):
+    def rename_registered_model(self, name, new_name):
         """
-        Delete registered model.
+        Rename the registered model.
+
+        :param name: Registered model name.
+
+        :param new_name: New proposed name.
+
+        :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        """
+        pass
+
+    @abstractmethod
+    def delete_registered_model(self, name):
+        """
+        Delete the registered model.
         Backend raises exception if a registered model with given name does not exist.
 
-        :param registered_model: :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        :param name: Registered model name.
 
         :return: None
         """
@@ -69,25 +78,25 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def get_registered_model_details(self, registered_model):
+    def get_registered_model(self, name):
         """
-        :param registered_model: :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        :param name: Registered model name.
 
-        :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModelDetailed` object.
+        :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         pass
 
     @abstractmethod
-    def get_latest_versions(self, registered_model, stages=None):
+    def get_latest_versions(self, name, stages=None):
         """
         Latest version models for each requested stage. If no ``stages`` argument is provided,
         returns the latest version for each stage.
 
-        :param registered_model: :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        :param name: Registered model name.
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for 'Staging' and 'Production' stages.
 
-        :return: List of `:py:class:`mlflow.entities.model_registry.ModelVersionDetailed` objects.
+        :return: List of `:py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         pass
 
@@ -98,7 +107,7 @@ class AbstractStore:
         """
         Create a new model version from given source and run ID.
 
-        :param name: Name ID for containing registered model.
+        :param name: Registered model name.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model
 
@@ -108,44 +117,53 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def update_model_version(self, model_version, stage=None, description=None):
+    def update_model_version(self, name, version, description):
         """
         Update metadata associated with a model version in backend.
 
-        :param model_version: :py:class:`mlflow.entities.model_registry.ModelVersion` object.
-        :param stage: New desired stage for this model version.
-        :param description: New description.
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param description: New model description.
 
-        :return: None.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         pass
 
     @abstractmethod
-    def delete_model_version(self, model_version):
+    def transition_model_version_stage(self, name, version, stage,
+                                       archive_existing_versions):
+        """
+        Update model version stage.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param new_stage: New desired stage for this model version.
+        :param archive_existing_versions: If this flag is set, all existing model
+        versions in the stage will be atomically moved to the "archived" stage.
+
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        """
+        pass
+
+    @abstractmethod
+    def delete_model_version(self, name, version):
         """
         Delete model version in backend.
 
-        :param model_version: :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        :param name: Registered model name.
+        :param version: Registered model version.
 
         :return: None
         """
         pass
 
     @abstractmethod
-    def get_model_version_details(self, model_version):
-        """
-        :param model_version: :py:class:`mlflow.entities.model_registry.ModelVersion` object.
-
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersionDetailed` object.
-        """
-        pass
-
-    @abstractmethod
-    def get_model_version_download_uri(self, model_version):
+    def get_model_version_download_uri(self, name, version):
         """
         Get the download location in Model Registry for this model version.
 
-        :param model_version: :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        :param name: Registered model name.
+        :param version: Registered model version.
 
         :return: A single URI location that allows reads for downloading.
         """
@@ -160,17 +178,7 @@ class AbstractStore:
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
 
-        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersionDetailed`
+        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  objects.
         """
         pass
-
-    def get_model_version_stages(self, model_version):  # pylint: disable=unused-argument
-        """
-        Get all registry stages for the model
-
-        :param model_version: :py:class:`mlflow.entities.model_registry.ModelVersion` object.
-
-        :return: A list of valid stages.
-        """
-        return ALL_STAGES
