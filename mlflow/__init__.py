@@ -24,6 +24,8 @@ implement mutual exclusion manually.
 
 For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
+import sys
+
 from mlflow.version import VERSION as __version__
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 import mlflow.tracking._model_registry.fluent
@@ -43,6 +45,14 @@ import mlflow.projects as projects  # noqa
 import mlflow.tracking as tracking  # noqa
 
 _configure_mlflow_loggers(root_module_name=__name__)
+
+if sys.version_info.major == 2:
+    warnings.warn("MLflow support for Python 2 is deprecated and will be dropped in a future "
+                  "release. At that point, existing Python 2 workflows that use MLflow will "
+                  "continue to work without modification, but Python 2 users will no longer "
+                  "get access to the latest MLflow features and bugfixes. We recommend that "
+                  "you upgrade to Python 3 - see https://docs.python.org/3/howto/pyporting.html "
+                  "for a migration guide.", DeprecationWarning)
 
 ActiveRun = mlflow.tracking.fluent.ActiveRun
 log_param = mlflow.tracking.fluent.log_param
