@@ -6,12 +6,11 @@ import re
 import logging
 from functools import wraps
 
-
 from flask import Response, request, send_file
+from google.protobuf import descriptor
 from querystring_parser import parser
 
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag
-from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
@@ -21,9 +20,10 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
     DeleteTag, SetExperimentTag, GetExperimentByName, LogModel
 from mlflow.protos.model_registry_pb2 import ModelRegistryService, CreateRegisteredModel, \
-    UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModelDetails, \
+    UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModel, \
     GetLatestVersions, CreateModelVersion, UpdateModelVersion, DeleteModelVersion, \
-    GetModelVersionDetails, GetModelVersionDownloadUri, SearchModelVersions, GetModelVersionStages
+    GetModelVersion, GetModelVersionDownloadUri, SearchModelVersions, RenameRegisteredModel, \
+    TransitionModelVersionStage
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -116,6 +116,17 @@ def _get_request_message(request_message, flask_request=request):
         # result.
         query_string = re.sub('%5B%5D', '%5B0%5D', flask_request.query_string.decode("utf-8"))
         request_dict = parser.parse(query_string, normalized=True)
+        # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
+        # Context: We parse the parameter string into a dictionary outside of protobuf since
+        # protobuf does not know how to read the query parameters directly. The query parser above
+        # has no type information and hence any parameter that occurs exactly once is parsed as an
+        # atomic value. Since protobuf requires that the values of repeated fields are lists,
+        # deserialization will fail unless we do the fix below.
+        for field in request_message.DESCRIPTOR.fields:
+            if (field.label == descriptor.FieldDescriptor.LABEL_REPEATED
+                    and field.name in request_dict):
+                if not isinstance(request_dict[field.name], list):
+                    request_dict[field.name] = [request_dict[field.name]]
         parse_dict(request_dict, request_message)
         return request_message
 
@@ -482,35 +493,41 @@ def _wrap_response(response_message):
 @catch_mlflow_exception
 def _create_registered_model():
     request_message = _get_request_message(CreateRegisteredModel())
-    registered_model = _get_model_registry_store().create_registered_model(request_message.name)
+    registered_model = _get_model_registry_store().create_registered_model(
+        name=request_message.name)
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
     return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
-def _get_registered_model_details():
-    request_message = _get_request_message(GetRegisteredModelDetails())
-    registered_model_detailed = _get_model_registry_store().get_registered_model_details(
-        RegisteredModel.from_proto(request_message.registered_model))
-    response_message = GetRegisteredModelDetails.Response(
-        registered_model_detailed=registered_model_detailed.to_proto())
+def _get_registered_model():
+    request_message = _get_request_message(GetRegisteredModel())
+    registered_model = _get_model_registry_store().get_registered_model(
+        name=request_message.name)
+    response_message = GetRegisteredModel.Response(
+        registered_model=registered_model.to_proto())
     return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
 def _update_registered_model():
     request_message = _get_request_message(UpdateRegisteredModel())
-    new_name = None
-    new_description = None
-    if request_message.HasField("name"):
-        new_name = request_message.name
-    if request_message.HasField("description"):
-        new_description = request_message.description
+    name = request_message.name
+    new_description = request_message.description
     registered_model = _get_model_registry_store().update_registered_model(
-        RegisteredModel.from_proto(request_message.registered_model),
-        new_name,
-        new_description)
+        name=name, description=new_description)
     response_message = UpdateRegisteredModel.Response(registered_model=registered_model.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+def _rename_registered_model():
+    request_message = _get_request_message(RenameRegisteredModel())
+    name = request_message.name
+    new_name = request_message.new_name
+    registered_model = _get_model_registry_store().rename_registered_model(
+        name=name, new_name=new_name)
+    response_message = RenameRegisteredModel.Response(registered_model=registered_model.to_proto())
     return _wrap_response(response_message)
 
 
@@ -518,17 +535,17 @@ def _update_registered_model():
 def _delete_registered_model():
     request_message = _get_request_message(DeleteRegisteredModel())
     _get_model_registry_store().delete_registered_model(
-        RegisteredModel.from_proto(request_message.registered_model))
+        name=request_message.name)
     return _wrap_response(DeleteRegisteredModel.Response())
 
 
 @catch_mlflow_exception
 def _list_registered_models():
     _get_request_message(ListRegisteredModels())
-    registered_models_detailed = _get_model_registry_store().list_registered_models()
+    registered_models = _get_model_registry_store().list_registered_models()
     response_message = ListRegisteredModels.Response()
-    response_message.registered_models_detailed.extend([e.to_proto()
-                                                        for e in registered_models_detailed])
+    response_message.registered_models.extend([e.to_proto()
+                                               for e in registered_models])
     return _wrap_response(response_message)
 
 
@@ -536,53 +553,60 @@ def _list_registered_models():
 def _get_latest_versions():
     request_message = _get_request_message(GetLatestVersions())
     latest_versions = _get_model_registry_store().get_latest_versions(
-        RegisteredModel.from_proto(request_message.registered_model), request_message.stages)
+        name=request_message.name, stages=request_message.stages)
     response_message = GetLatestVersions.Response()
-    response_message.model_versions_detailed.extend([e.to_proto() for e in latest_versions])
+    response_message.model_versions.extend([e.to_proto() for e in latest_versions])
     return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
 def _create_model_version():
     request_message = _get_request_message(CreateModelVersion())
-    model_version = _get_model_registry_store().create_model_version(request_message.name,
-                                                                     request_message.source,
-                                                                     request_message.run_id)
+    model_version = _get_model_registry_store().create_model_version(name=request_message.name,
+                                                                     source=request_message.source,
+                                                                     run_id=request_message.run_id)
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
-def _get_model_version_details():
-    request_message = _get_request_message(GetModelVersionDetails())
-    model_version_detailed = _get_model_registry_store().get_model_version_details(
-        ModelVersion.from_proto(request_message.model_version))
-    response_proto = model_version_detailed.to_proto()
-    response_message = GetModelVersionDetails.Response(model_version_detailed=response_proto)
+def _get_model_version():
+    request_message = _get_request_message(GetModelVersion())
+    model_version = _get_model_registry_store().get_model_version(
+        name=request_message.name, version=request_message.version)
+    response_proto = model_version.to_proto()
+    response_message = GetModelVersion.Response(model_version=response_proto)
     return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
 def _update_model_version():
     request_message = _get_request_message(UpdateModelVersion())
-    new_stage = None
     new_description = None
-    if request_message.HasField("stage"):
-        new_stage = request_message.stage
     if request_message.HasField("description"):
         new_description = request_message.description
-    _get_model_registry_store().update_model_version(
-        ModelVersion.from_proto(request_message.model_version),
-        new_stage,
-        new_description)
-    return _wrap_response(UpdateModelVersion.Response())
+    model_version = _get_model_registry_store().update_model_version(
+        name=request_message.name, version=request_message.version,
+        description=new_description)
+    return _wrap_response(UpdateModelVersion.Response(model_version=model_version.to_proto()))
+
+
+@catch_mlflow_exception
+def _transition_stage():
+    request_message = _get_request_message(TransitionModelVersionStage())
+    model_version = _get_model_registry_store().transition_model_version_stage(
+        name=request_message.name, version=request_message.version,
+        stage=request_message.stage,
+        archive_existing_versions=request_message.archive_existing_versions)
+    return _wrap_response(TransitionModelVersionStage.Response(
+        model_version=model_version.to_proto()))
 
 
 @catch_mlflow_exception
 def _delete_model_version():
     request_message = _get_request_message(DeleteModelVersion())
     _get_model_registry_store().delete_model_version(
-        ModelVersion.from_proto(request_message.model_version))
+        name=request_message.name, version=request_message.version)
     return _wrap_response(DeleteModelVersion.Response())
 
 
@@ -590,28 +614,18 @@ def _delete_model_version():
 def _get_model_version_download_uri():
     request_message = _get_request_message(GetModelVersionDownloadUri())
     download_uri = _get_model_registry_store().get_model_version_download_uri(
-        ModelVersion.from_proto(request_message.model_version))
+        name=request_message.name, version=request_message.version)
     response_message = GetModelVersionDownloadUri.Response(artifact_uri=download_uri)
-    return _wrap_response(response_message)
-
-
-@catch_mlflow_exception
-def _get_model_version_stages():
-    request_message = _get_request_message(GetModelVersionStages())
-    stages = _get_model_registry_store().get_model_version_stages(
-        ModelVersion.from_proto(request_message.model_version))
-    response_message = GetModelVersionStages.Response()
-    response_message.stages.extend(stages)
     return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
 def _search_model_versions():
     request_message = _get_request_message(SearchModelVersions())
-    model_versions_detailed = _get_model_registry_store().search_model_versions(
+    model_versions = _get_model_registry_store().search_model_versions(
         request_message.filter)
     response_message = SearchModelVersions.Response()
-    response_message.model_versions_detailed.extend([e.to_proto() for e in model_versions_detailed])
+    response_message.model_versions.extend([e.to_proto() for e in model_versions])
     return _wrap_response(response_message)
 
 
@@ -684,16 +698,17 @@ HANDLERS = {
 
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
-    GetRegisteredModelDetails: _get_registered_model_details,
+    GetRegisteredModel: _get_registered_model,
     DeleteRegisteredModel: _delete_registered_model,
     UpdateRegisteredModel: _update_registered_model,
+    RenameRegisteredModel: _rename_registered_model,
     ListRegisteredModels: _list_registered_models,
     GetLatestVersions: _get_latest_versions,
     CreateModelVersion: _create_model_version,
-    GetModelVersionDetails: _get_model_version_details,
+    GetModelVersion: _get_model_version,
     DeleteModelVersion: _delete_model_version,
     UpdateModelVersion: _update_model_version,
+    TransitionModelVersionStage: _transition_stage,
     GetModelVersionDownloadUri: _get_model_version_download_uri,
-    GetModelVersionStages: _get_model_version_stages,
     SearchModelVersions: _search_model_versions,
 }
