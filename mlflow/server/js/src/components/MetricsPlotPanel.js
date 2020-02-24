@@ -231,7 +231,6 @@ export class MetricsPlotPanel extends React.Component {
       "yaxis.autorange": yAxisAutorange,
       "yaxis.showspikes": yAxisShowSpikes,
       "xaxis.showspikes": xAxisShowSpikes,
-      dragmode,
       ...restFields
     } = newLayout;
 
@@ -245,6 +244,7 @@ export class MetricsPlotPanel extends React.Component {
     const newXAxis = mergedLayout.xaxis || {};
     if (newXRange0 !== undefined && newXRange1 !== undefined) {
       newXAxis.range = [newXRange0, newXRange1];
+      newXAxis.autorange = false;
     }
     if (xAxisShowSpikes) {
       newXAxis.showspikes = true;
@@ -256,6 +256,7 @@ export class MetricsPlotPanel extends React.Component {
     const newYAxis = mergedLayout.yaxis || {};
     if (newYRange0 !== undefined && newYRange1 !== undefined) {
       newYAxis.range = [newYRange0, newYRange1];
+      newYAxis.autorange = false;
     }
     if (yAxisShowSpikes) {
       newYAxis.showspikes = true;
@@ -266,12 +267,6 @@ export class MetricsPlotPanel extends React.Component {
         this.state.layout.yaxis.type === 'log' ? "log" : "linear";
       newYAxis.autorange = true;
       newYAxis.type = axisType;
-    }
-    // Handle changing dragmode (disable autorange if dragmode is set)
-    if (dragmode) {
-      newXAxis.autorange = false;
-      newYAxis.autorange = false;
-      mergedLayout.dragmode = dragmode;
     }
     // Merge new X & Y axis info into layout
     mergedLayout = {
