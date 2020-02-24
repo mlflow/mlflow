@@ -13,7 +13,8 @@ import subprocess
 try:  # Python 3
     from urllib.parse import urlparse, unquote
 except ImportError:
-    from urllib import urlparse, unquote
+    from urllib import unquote
+    from urlparse import urlparse
 from urllib.request import url2pathname
 
 from mlflow.cli import run, server, ui
