@@ -10,7 +10,7 @@ import textwrap
 import time
 import subprocess
 
-try: # Python 3
+try:  # Python 3
     from urllib.parse import urlparse, unquote
 except ImportError:
     from urllib import urlparse, unquote
