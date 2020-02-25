@@ -4,7 +4,8 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
-    UpdateExperiment, LogBatch, LogModel, DeleteTag, SetExperimentTag, GetExperimentByName
+    UpdateExperiment, LogBatch, LogModel, DeleteTag, SetExperimentTag, GetExperimentByName, \
+    UpdateArtifactsLocation
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
@@ -244,6 +245,19 @@ class RestStore(AbstractStore):
             LogModel(run_id=run_id, model_json=mlflow_model.to_json())
         )
         self._call_endpoint(LogModel, req_body)
+
+    def update_artifacts_location(self, run_id, new_artifacts_location):
+        """
+        Update the location of artifacts for the specified run
+
+        :param run_id: String id for the run
+        :param new_artifact_location: String new artifact location
+
+        :return: None
+        """
+        req_body = message_to_json(UpdateArtifactsLocation(
+            run_id=run_id, new_artifacts_location=new_artifacts_location))
+        self._call_endpoint(UpdateArtifactsLocation, req_body)
 
 
 class DatabricksRestStore(RestStore):

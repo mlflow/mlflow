@@ -310,7 +310,7 @@ texinfo_documents = [
 nitpicky = True
 nitpick_ignore = [
     # Ignore "parent class reference not found" errors for subclasses of ``object``
-    ('py:class', 'object'),
+    ('py:class', 'object'), ('py:class', 'json.encoder.JSONEncoder')
 ]
 
 linkcheck_ignore = [

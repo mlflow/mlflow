@@ -50,6 +50,9 @@ class AbstractStoreTestImpl(AbstractStore):
     def log_batch(self, run_id, metrics, params, tags):
         raise NotImplementedError()
 
+    def update_artifacts_location(self, run_id, new_artifacts_location):
+        raise NotImplementedError()
+
     def record_logged_model(self, run_id, mlflow_model):
         raise NotImplementedError()
 

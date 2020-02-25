@@ -1,3 +1,4 @@
+import { setup_mock, teardown_mock } from '../../__mocks__/xhr-mock';
 import Utils from './Utils';
 import React from 'react';
 import { shallow } from 'enzyme';
@@ -235,4 +236,57 @@ test('getSearchUrlFromState', () => {
   expect(Utils.getSearchUrlFromState(st1)).toEqual("a=example");
   expect(Utils.getSearchUrlFromState(st2)).toEqual("b=bbbbbb");
   expect(Utils.getSearchUrlFromState(st3)).toEqual("param=params&metrics=&searchInput=someExpression");
+});
+
+test('getPrivateVcsRegex', () => {
+  setup_mock();
+  // with regex string returned
+  XMLHttpRequest.mockImplementation(() => ({
+    open: jest.fn(),
+    send: jest.fn(),
+    status: 200,
+    responseText: JSON.stringify({"vcs_regex": "some_regex"}),
+  }));
+  expect(Utils.getPrivateVcsRegex()).toEqual(new RegExp('some_regex'));
+
+  // getPrivateVcsRegex with 404
+  XMLHttpRequest.mockImplementation(() => ({
+    open: jest.fn(),
+    send: jest.fn(),
+    status: 404,
+    responseText: JSON.stringify({"vcs_regex": "some_regex"}),
+  }));
+  expect(Utils.getPrivateVcsRegex()).toEqual(null);
+  teardown_mock();
+});
+
+test('getPrivateVcsUrl', () => {
+  setup_mock();
+  // with repo url returned
+  XMLHttpRequest.mockImplementation(() => ({
+    open: jest.fn(),
+    send: jest.fn(),
+    status: 200,
+    responseText: JSON.stringify({"vcs_url": "repo_url"}),
+  }));
+  expect(Utils.getPrivateVcsUrl("repo")).toEqual("repo_url");
+
+  // with commit url returned
+  XMLHttpRequest.mockImplementation(() => ({
+    open: jest.fn(),
+    send: jest.fn(),
+    status: 200,
+    responseText: JSON.stringify({"vcs_url": "commit_url"}),
+  }));
+  expect(Utils.getPrivateVcsUrl("commit")).toEqual("commit_url");
+
+  // with 404
+  XMLHttpRequest.mockImplementation(() => ({
+    open: jest.fn(),
+    send: jest.fn(),
+    status: 404,
+    responseText: JSON.stringify({"vcs_url": "commit_url"}),
+  }));
+  expect(Utils.getPrivateVcsUrl("commit")).toEqual(null);
+  teardown_mock();
 });

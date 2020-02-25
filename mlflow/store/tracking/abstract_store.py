@@ -291,3 +291,15 @@ class AbstractStore:
         :return: None.
         """
         pass
+
+    @abstractmethod
+    def update_artifacts_location(self, run_id, new_artifacts_location):
+        """
+        Update the location of artifacts for the specified run
+
+        :param run_id: String id for the run
+        :param new_artifact_location: String new artifact location
+
+        :return: None
+        """
+        pass
