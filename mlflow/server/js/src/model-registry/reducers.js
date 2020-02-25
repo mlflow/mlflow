@@ -65,12 +65,11 @@ const modelVersionsByModel = (state = {}, action) => {
 
       // Merge all modelVersions into the store
       return modelVersions.reduce((newState, modelVersion) => {
-        const modelName = modelVersion.name;
-        const { version } = modelVersion.version;
+        const { name, version } = modelVersion;
         return {
           ...newState,
-          [modelName]: {
-            ...newState[modelName],
+          [name]: {
+            ...newState[name],
             [version]: modelVersion,
           },
         };
