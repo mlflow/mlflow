@@ -129,9 +129,7 @@ export class MetricsPlotView extends React.Component {
         <Plot
           {...plotProps}
           useResizeHandler
-          onRelayout={(newLayout) => {
-            onLayoutChange(newLayout);
-          }}
+          onRelayout={onLayoutChange}
           onLegendClick={onLegendClick}
           onLegendDoubleClick={onLegendDoubleClick}
           style={{ width: '100%', height: '100%' }}
