@@ -1,34 +1,7 @@
+import inspect
 import mlflow
 import warnings
-import sys
-# Python 2/3 compatibility to avoid deprecated inspect.getargspec
-import inspect
 
-def arg_spec(fn):
-    """Python 2/3 compatible `getargspec`.
-
-    Calls `getfullargspec` and assigns args, varargs,
-    varkw, and defaults to a python 2/3 compatible `ArgSpec`.
-    The parameter name 'varkw' is changed to 'keywords' to fit the
-    `ArgSpec` struct.
-
-    # Arguments
-        fn: the target function to inspect.
-
-    # Returns
-        An ArgSpec with args, varargs, keywords, and defaults parameters
-        from FullArgSpec.
-    """
-    if sys.version_info < (3,):
-        argspec = inspect.getargspec(fn)
-    else:
-        full_arg_spec = inspect.getfullargspec(fn)
-        argspec = inspect.ArgSpec(
-            args=full_arg_spec.args,
-            varargs=full_arg_spec.varargs,
-            keywords=full_arg_spec.varkw,
-            defaults=full_arg_spec.defaults)
-    return argspec
 
 def try_mlflow_log(fn, *args, **kwargs):
     """
@@ -84,10 +57,10 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     """
     # all_default_values has length n, corresponding to values of the
     # last n elements in all_param_names
-    all_param_names, _, _, all_default_values = arg_spec(fn)  # pylint: disable=W1505
+    all_param_names, _, _, all_default_values = inspect.getargspec(fn)  # pylint: disable=W1505
 
-    # Checking if default values are present for logging.
-    # Are there situations in which getfullargspec() won't return an argspec?
+    # Checking if default values are present for logging. Known bug that getargspec will return an
+    # empty argspec for certain functions, despite the functions having an argspec.
     if all_default_values is not None and len(all_default_values) > 0:
         # Logging the default arguments not passed by the user
         defaults = get_unspecified_default_args(args, kwargs, all_param_names, all_default_values)
