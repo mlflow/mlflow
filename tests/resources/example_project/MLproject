@@ -7,7 +7,8 @@ entry_points:
     parameters:
       greeting: {type: string, default: "hi"}
       name: string
-    command: "python greeter.py {greeting} {name}"
+      args: {type: action, default: "--goodbye"}
+    command: "python greeter.py {greeting} {name} {args}"
   line_count:
     parameters:
       path: path
@@ -20,12 +21,6 @@ entry_points:
     parameters:
       duration: int
     command: "sleep {duration}"
-  greeter_compute_params:
-    parameters:
-      greeting: {type: string, default: "hi"}
-      name: string
-      args: {type: action, default: "--goodbye"}
-    command: "python greeter.py {greeting} {name} {args}"
   test_tracking:
     parameters:
       use_start_run: bool

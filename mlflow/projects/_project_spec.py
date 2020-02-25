@@ -2,7 +2,7 @@
 
 import os
 import yaml
-
+import re
 from six.moves import shlex_quote
 
 from mlflow import data
@@ -13,6 +13,7 @@ from mlflow.utils.string_utils import is_string_type
 
 MLPROJECT_FILE_NAME = "mlproject"
 DEFAULT_CONDA_FILE_NAME = "conda.yaml"
+EMPTY_STRING_REGEX = "\s+((\"\")|(\'\'))"
 
 
 def _find_mlproject(directory):
@@ -164,11 +165,17 @@ class EntryPoint(object):
         command_with_params = self.command.format(**params)
         command_arr = [command_with_params]
         command_arr.extend(["--%s %s" % (key, value) for key, value in extra_params.items()])
-        return " ".join(command_arr)
+        command = " ".join(command_arr)
+        return self._sanitize_command(command)
 
     @staticmethod
     def _sanitize_param_dict(param_dict):
         return {str(key): shlex_quote(str(value)) for key, value in param_dict.items()}
+
+    @staticmethod
+    def _sanitize_command(command):
+        # replace '' or "" with empty space, special case for action type parameter
+        return re.sub(EMPTY_STRING_REGEX, "", command).strip()
 
 
 class Parameter(object):
@@ -203,7 +210,7 @@ class Parameter(object):
 
     def _compute_action_value(self, user_param_value):
         if not data.is_action(user_param_value):
-            raise ExecutionException("Expected parameter %s but got "
+            raise ExecutionException("Expected action for parameter %s but got "
                                      "%s" % (self.name, user_param_value))
         return user_param_value
 

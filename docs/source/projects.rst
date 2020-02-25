@@ -307,6 +307,10 @@ uri
     relative paths to absolute paths, as in the ``path`` type. Use this type for programs
     that know how to read from distributed storage (e.g., programs that use Spark).
 
+action
+    An action string. MLflow validates that the parameter is valid. Pass an empty string
+    to skip the argument
+
 .. _running-projects:
 
 Running Projects
