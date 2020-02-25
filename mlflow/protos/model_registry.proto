@@ -31,6 +31,20 @@ service ModelRegistryService {
 
   // .. note::
   //     Experimental: This API may change or be removed in a future release without warning.
+  rpc renameRegisteredModel (RenameRegisteredModel) returns (RenameRegisteredModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/registered-models/rename"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Rename RegisteredModel",
+    };
+  }
+
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
   rpc updateRegisteredModel (UpdateRegisteredModel) returns (UpdateRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [{
@@ -59,16 +73,15 @@ service ModelRegistryService {
 
   // .. note::
   //     Experimental: This API may change or be removed in a future release without warning.
-  rpc getRegisteredModelDetails (GetRegisteredModelDetails) returns (GetRegisteredModelDetails.Response) {
+  rpc getRegisteredModel (GetRegisteredModel) returns (GetRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [{
-        // TODO(mparkhe): Flatten API request arguments to be usable with GET
-        method: "POST",
-        path: "/preview/mlflow/registered-models/get-details"
+        method: "GET",
+        path: "/preview/mlflow/registered-models/get"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
-      rpc_doc_title:"Get RegisteredModel Details",
+      rpc_doc_title:"Get RegisteredModel",
     };
   }
 
@@ -91,8 +104,7 @@ service ModelRegistryService {
   rpc getLatestVersions (GetLatestVersions) returns (GetLatestVersions.Response) {
     option(rpc) = {
       endpoints: [{
-        // TODO(mparkhe): Flatten API request arguments to be usable with GET
-        method: "POST",
+        method: "GET",
         path: "/preview/mlflow/registered-models/get-latest-versions"
         since { major: 2, minor: 0 },
       }],
@@ -131,6 +143,20 @@ service ModelRegistryService {
 
   // .. note::
   //     Experimental: This API may change or be removed in a future release without warning.
+  rpc transitionModelVersionStage (TransitionModelVersionStage) returns (TransitionModelVersionStage.Response) {
+    option (rpc) = {
+    endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/model-versions/transition-stage"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Transition ModelVersion Stage",
+    };
+  }
+
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
   rpc deleteModelVersion (DeleteModelVersion) returns (DeleteModelVersion.Response) {
     option (rpc) = {
       endpoints: [{
@@ -145,16 +171,15 @@ service ModelRegistryService {
 
   // .. note::
   //     Experimental: This API may change or be removed in a future release without warning.
-  rpc getModelVersionDetails (GetModelVersionDetails) returns (GetModelVersionDetails.Response) {
+  rpc getModelVersion (GetModelVersion) returns (GetModelVersion.Response) {
     option (rpc) = {
       endpoints: [{
-        // TODO(mparkhe): Flatten API request arguments to be usable with GET
-        method: "POST",
-        path: "/preview/mlflow/model-versions/get-details"
+        method: "GET",
+        path: "/preview/mlflow/model-versions/get"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
-      rpc_doc_title:"Get ModelVersion Details",
+      rpc_doc_title:"Get ModelVersion",
     };
   }
 
@@ -174,28 +199,10 @@ service ModelRegistryService {
 
   // .. note::
   //     Experimental: This API may change or be removed in a future release without warning.
-  //
-  // Throws ``RESOURCE_DOES_NOT_EXIST`` if model was never created or does not exist in registry.
-  rpc getModelVersionStages (GetModelVersionStages) returns (GetModelVersionStages.Response) {
-    option (rpc) = {
-      endpoints: [{
-        // TODO(mparkhe): Flatten API request arguments to be usable with GET
-        method: "POST",
-        path: "/preview/mlflow/model-versions/get-stages"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get ModelVersion Stages",
-    };
-  }
-
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc getModelVersionDownloadUri (GetModelVersionDownloadUri) returns (GetModelVersionDownloadUri.Response) {
     option (rpc) = {
       endpoints: [{
-        // TODO(mparkhe): Flatten API request arguments to be usable with GET
-        method: "POST",
+        method: "GET",
         path: "/preview/mlflow/model-versions/get-download-uri"
         since { major: 2, minor: 0},
       }],
@@ -210,13 +217,6 @@ service ModelRegistryService {
 message RegisteredModel {
   // Unique name for the model.
   optional string name = 1;
-}
-
-// .. note::
-//     Experimental: This entity may change or be removed in a future release without warning.
-message RegisteredModelDetailed {
-  // Registered model.
-  optional RegisteredModel registered_model = 1;
 
   // Timestamp recorded when this ``registered_model`` was created.
   optional int64 creation_timestamp = 2;
@@ -233,17 +233,7 @@ message RegisteredModelDetailed {
 
   // Collection of latest model versions for each stage.
   // Only contains models with current ``READY`` status.
-  repeated ModelVersionDetailed latest_versions = 6;
-}
-
-// .. note::
-//     Experimental: This entity may change or be removed in a future release without warning.
-message ModelVersion {
-  // Registered model.
-  optional RegisteredModel registered_model = 1;
-
-  // Model's version number.
-  optional int64 version = 2;
+  repeated ModelVersion latest_versions = 6;
 }
 
 // .. note::
@@ -257,47 +247,44 @@ enum ModelVersionStatus {
 
   // Model version is ready for use.
   READY = 3;
-
-  // Request to delete an existing model version is pending as server performs background tasks.
-  PENDING_DELETION = 4;
-
-  // Request to delete an existing model version has failed.
-  FAILED_DELETION = 5;
 }
 
 // .. note::
 //     Experimental: This entity may change or be removed in a future release without warning.
-message ModelVersionDetailed {
-  // Model Version
-  optional ModelVersion model_version = 1;
+message ModelVersion {
+  // Unique name of the model
+  optional string name = 1;
+
+  // Model's version number.
+  optional string version = 2;
 
   // Timestamp recorded when this ``model_version`` was created.
-  optional int64 creation_timestamp = 2;
+  optional int64 creation_timestamp = 3;
 
   // Timestamp recorded when metadata for this ``model_version`` was last updated.
-  optional int64 last_updated_timestamp = 3;
+  optional int64 last_updated_timestamp = 4;
 
   // User that created this ``model_version``.
-  optional string user_id = 4;
+  optional string user_id = 5;
 
   // Current stage for this ``model_version``.
-  optional string current_stage = 5;
+  optional string current_stage = 6;
 
   // Description of this ``model_version``.
-  optional string description = 6;
+  optional string description = 7;
 
   // URI indicating the location of the source model artifacts, used when creating ``model_version``
-  optional string source = 7;
+  optional string source = 8;
 
   // MLflow run ID used when creating ``model_version``, if ``source`` was generated by an
   // experiment run stored in MLflow tracking server.
-  optional string run_id = 8;
+  optional string run_id = 9;
 
   // Current status of ``model_version``
-  optional ModelVersionStatus status = 9;
+  optional ModelVersionStatus status = 10;
 
   // Details on current ``status``, if it is pending or failed.
-  optional string status_message = 10;
+  optional string status_message = 11;
 }
 
 message CreateRegisteredModel {
@@ -311,17 +298,28 @@ message CreateRegisteredModel {
   }
 }
 
+message RenameRegisteredModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Registered model unique name identifier.
+  optional string name = 1 [(validate_required) = true];
+
+  // If provided, updates the name for this ``registered_model``.
+  optional string new_name = 2;
+
+  message Response {
+    optional RegisteredModel registered_model = 1;
+  }
+}
+
 message UpdateRegisteredModel {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Registered model.
-  optional RegisteredModel registered_model = 1 [(validate_required) = true];
-
-  // If provided, updates the name for this ``registered_model``.
-  optional string name = 2;
+  // Registered model unique name identifier.
+  optional string name = 1 [(validate_required) = true];
 
   // If provided, updates the description for this ``registered_model``.
-  optional string description = 3;
+  optional string description = 2;
 
   message Response {
     optional RegisteredModel registered_model = 1;
@@ -331,37 +329,40 @@ message UpdateRegisteredModel {
 message DeleteRegisteredModel {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Registered model.
-  optional RegisteredModel registered_model = 1 [(validate_required) = true];
+  // Registered model unique name identifier.
+  optional string name = 1 [(validate_required) = true];
 
   message Response {
   }
 }
 
-message GetRegisteredModelDetails {
+message GetRegisteredModel {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Registered model.
-  optional RegisteredModel registered_model = 1 [(validate_required) = true];
+  // Registered model unique name identifier.
+  optional string name = 1 [(validate_required) = true];
 
   message Response {
-    optional RegisteredModelDetailed registered_model_detailed = 1;
+    optional RegisteredModel registered_model = 1;
   }
 }
 
 message ListRegisteredModels {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // Maximum number of registered models desired. Max threshold is 50K.
+  optional int64 max_results = 1 [default = 50000];
+
   message Response {
-    repeated RegisteredModelDetailed registered_models_detailed = 1;
+    repeated RegisteredModel registered_models = 1;
   }
 }
 
 message GetLatestVersions {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Registered model.
-  optional RegisteredModel registered_model = 1 [(validate_required) = true];
+  // Registered model unique name identifier.
+  optional string name = 1 [(validate_required) = true];
 
   // List of stages.
   repeated string stages = 2;
@@ -369,7 +370,7 @@ message GetLatestVersions {
   message Response {
     // Latest version models for each requests stage. Only return models with current ``READY`` status.
     // If no ``stages`` provided, returns the latest version for each stage, including ``"None"``.
-    repeated ModelVersionDetailed model_versions_detailed = 1;
+    repeated ModelVersion model_versions = 1;
   }
 }
 
@@ -395,37 +396,72 @@ message CreateModelVersion {
 message UpdateModelVersion {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Model version.
-  optional ModelVersion model_version = 1 [(validate_required) = true];
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Model version number
+  optional string version = 2 [(validate_required) = true];
 
   // If provided, transition ``model_version`` to new stage.
-  optional string stage = 2;
+  optional string stage = 4;
 
   // If provided, updates the description for this ``registered_model``.
   optional string description = 3;
 
   message Response {
+    // Return new version number generated for this model in registry.
+    optional ModelVersion model_version = 1;
+  }
+}
+
+message TransitionModelVersionStage {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Model version number
+  optional string version = 2 [(validate_required) = true];
+
+  // Transition `model_version` to new stage.
+  optional string stage = 3 [(validate_required) = true];
+
+  // When transitioning a model version to a particular stage, this flag dictates whether all
+  // existing model versions in that stage should be atomically moved to the "archived" stage.
+  // This ensures that at-most-one model version exists in the target stage.
+  // This field is *required* when transitioning a model versions's stage
+  optional bool archive_existing_versions = 4 [(validate_required) = true];
+
+  message Response {
+    // Updated model version
+    optional ModelVersion model_version = 1;
   }
 }
 
 message DeleteModelVersion {
    option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-   // Model version.
-   optional ModelVersion model_version = 1 [(validate_required) = true];
+   // Name of the registered model
+   optional string name = 1 [(validate_required) = true];
+
+   // Model version number
+   optional string version = 2 [(validate_required) = true];
 
    message Response {
    }
 }
 
-message GetModelVersionDetails {
+message GetModelVersion {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Model version.
-  optional ModelVersion model_version = 1 [(validate_required) = true];
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Model version number
+  optional string version = 2 [(validate_required) = true];
 
   message Response {
-    optional ModelVersionDetailed model_version_detailed = 1;
+    optional ModelVersion model_version = 1;
   }
 }
 
@@ -436,8 +472,8 @@ message SearchModelVersions {
   // with string values wrapped in single quotes.
   optional string filter = 1;
 
-  // Maximum number of models desired. Max threshold is 1000.
-  optional int64 max_results = 2 [default = 100];
+  // Maximum number of models desired. Max threshold is 200K.
+  optional int64 max_results = 2 [default = 200000];
 
   // List of columns to be ordered by including model name, version, stage with an
   // optional "DESC" or "ASC" annotation, where "ASC" is the default.
@@ -450,31 +486,21 @@ message SearchModelVersions {
 
   message Response {
     // Models that match the search criteria
-    repeated ModelVersionDetailed model_versions_detailed = 1;
+    repeated ModelVersion model_versions = 1;
 
     // Pagination token to request next page of models for the same search query.
     optional string next_page_token = 2;
   }
 }
 
-message GetModelVersionStages {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  // Model (name and version).
-  // If version not provided uses latest registered version.
-  optional ModelVersion model_version = 1 [(validate_required) = true];
-
-  message Response {
-    // All registry stages for the model
-    repeated string stages = 1;
-  }
-}
-
 message GetModelVersionDownloadUri {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Name and version of model
-  optional ModelVersion model_version = 1 [(validate_required) = true];
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Model version number
+  optional string version = 2 [(validate_required) = true];
 
   message Response {
     // URI corresponding to where artifacts for this model version are stored.

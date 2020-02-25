@@ -7,23 +7,23 @@ import pytest
 import os
 import mlflow
 from mlflow.entities import ViewType
-from mlflow.entities.model_registry import RegisteredModel, RegisteredModelDetailed, \
-    ModelVersionDetailed, ModelVersion
+from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.server.handlers import get_endpoints, _create_experiment, _get_request_message, \
     _search_runs, _log_batch, catch_mlflow_exception, _create_registered_model, \
-    _update_registered_model, _delete_registered_model, _get_registered_model_details, \
+    _update_registered_model, _delete_registered_model, _get_registered_model, \
     _list_registered_models, _get_latest_versions, _create_model_version, _update_model_version, \
-    _delete_model_version, _get_model_version_download_uri, _get_model_version_stages, \
-    _search_model_versions, _get_model_version_details
+    _delete_model_version, _get_model_version_download_uri, \
+    _search_model_versions, _get_model_version, _transition_stage, _rename_registered_model
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
 from mlflow.protos.model_registry_pb2 import CreateRegisteredModel, UpdateRegisteredModel, \
-    DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModelDetails, GetLatestVersions, \
-    CreateModelVersion, UpdateModelVersion, DeleteModelVersion, GetModelVersionDetails, \
-    GetModelVersionDownloadUri, SearchModelVersions, GetModelVersionStages
+    DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModel, GetLatestVersions, \
+    CreateModelVersion, UpdateModelVersion, DeleteModelVersion, GetModelVersion, \
+    GetModelVersionDownloadUri, SearchModelVersions, TransitionModelVersionStage, \
+    RenameRegisteredModel
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
@@ -70,12 +70,9 @@ def test_all_model_registry_endpoints_available():
     expected_endpoints = {
         "POST": [
             _create_registered_model,
-            _get_registered_model_details,
-            _get_latest_versions,
             _create_model_version,
-            _get_model_version_details,
-            _get_model_version_stages,
-            _get_model_version_download_uri,
+            _rename_registered_model,
+            _transition_stage
         ],
         "PATCH": [
             _update_registered_model,
@@ -88,6 +85,10 @@ def test_all_model_registry_endpoints_available():
         "GET": [
             _list_registered_models,
             _search_model_versions,
+            _get_latest_versions,
+            _get_registered_model,
+            _get_model_version,
+            _get_model_version_download_uri,
         ]
     }
     # TODO: efficient mechanism to test endpoint path
@@ -189,6 +190,7 @@ def test_mlflow_server_with_installed_plugin(tmpdir):
 def jsonify(obj):
     def _jsonify(obj):
         return json.loads(message_to_json(obj.to_proto()))
+
     if isinstance(obj, list):
         return [_jsonify(o) for o in obj]
     else:
@@ -201,187 +203,201 @@ def test_create_registered_model(mock_get_request_message, mock_model_registry_s
     rm = RegisteredModel("model_1")
     mock_model_registry_store.create_registered_model.return_value = rm
     resp = _create_registered_model()
-    args, _ = mock_model_registry_store.create_registered_model.call_args
-    assert args == ("model_1", )
+    _, args = mock_model_registry_store.create_registered_model.call_args
+    assert args == {"name": "model_1"}
     assert json.loads(resp.get_data()) == {"registered_model": jsonify(rm)}
 
 
-def test_get_registered_model_details(mock_get_request_message, mock_model_registry_store):
-    rm = RegisteredModel("model1")
-    mock_get_request_message.return_value = GetRegisteredModelDetails(
-        registered_model=rm.to_proto())
-    rmd = RegisteredModelDetailed(name="model_1", creation_timestamp=111,
-                                  last_updated_timestamp=222, description="Test model",
-                                  latest_versions=[])
-    mock_model_registry_store.get_registered_model_details.return_value = rmd
-    resp = _get_registered_model_details()
-    args, _ = mock_model_registry_store.get_registered_model_details.call_args
-    assert args == (rm, )
-    assert json.loads(resp.get_data()) == {"registered_model_detailed": jsonify(rmd)}
+def test_get_registered_model(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    mock_get_request_message.return_value = GetRegisteredModel(name=name)
+    rmd = RegisteredModel(name=name, creation_timestamp=111,
+                          last_updated_timestamp=222, description="Test model",
+                          latest_versions=[])
+    mock_model_registry_store.get_registered_model.return_value = rmd
+    resp = _get_registered_model()
+    _, args = mock_model_registry_store.get_registered_model.call_args
+    assert args == {"name": name}
+    assert json.loads(resp.get_data()) == {"registered_model": jsonify(rmd)}
 
 
 def test_update_registered_model(mock_get_request_message, mock_model_registry_store):
-    rm1 = RegisteredModel("model_1")
-    mock_get_request_message.return_value = UpdateRegisteredModel(registered_model=rm1.to_proto(),
-                                                                  name="model_2",
-                                                                  description="Test model")
-    rm2 = RegisteredModel("model_2")
+    name = "model_1"
+    description = "Test model"
+    mock_get_request_message.return_value = UpdateRegisteredModel(name=name,
+                                                                  description=description)
+    rm2 = RegisteredModel(name, description=description)
     mock_model_registry_store.update_registered_model.return_value = rm2
     resp = _update_registered_model()
-    args, _ = mock_model_registry_store.update_registered_model.call_args
-    assert args == (rm1, u"model_2", u"Test model")
+    _, args = mock_model_registry_store.update_registered_model.call_args
+    assert args == {"name": name, "description": u"Test model"}
+    assert json.loads(resp.get_data()) == {"registered_model": jsonify(rm2)}
+
+
+def test_rename_registered_model(mock_get_request_message, mock_model_registry_store):
+    name = "model_1"
+    new_name = "model_2"
+    mock_get_request_message.return_value = RenameRegisteredModel(name=name, new_name=new_name)
+    rm2 = RegisteredModel(new_name)
+    mock_model_registry_store.rename_registered_model.return_value = rm2
+    resp = _rename_registered_model()
+    _, args = mock_model_registry_store.rename_registered_model.call_args
+    assert args == {"name": name, "new_name": new_name}
     assert json.loads(resp.get_data()) == {"registered_model": jsonify(rm2)}
 
 
 def test_delete_registered_model(mock_get_request_message, mock_model_registry_store):
-    rm = RegisteredModel("model_1")
-    mock_get_request_message.return_value = DeleteRegisteredModel(registered_model=rm.to_proto())
+    name = "model_1"
+    mock_get_request_message.return_value = DeleteRegisteredModel(name=name)
     _delete_registered_model()
-    args, _ = mock_model_registry_store.delete_registered_model.call_args
-    assert args == (rm, )
+    _, args = mock_model_registry_store.delete_registered_model.call_args
+    assert args == {"name": name}
 
 
 def test_list_registered_models(mock_get_request_message, mock_model_registry_store):
     mock_get_request_message.return_value = ListRegisteredModels()
     rmds = [
-        RegisteredModelDetailed(name="model_1", creation_timestamp=111,
-                                last_updated_timestamp=222, description="Test model",
-                                latest_versions=[]),
-        RegisteredModelDetailed(name="model_2", creation_timestamp=111,
-                                last_updated_timestamp=333, description="Another model",
-                                latest_versions=[]),
+        RegisteredModel(name="model_1", creation_timestamp=111,
+                        last_updated_timestamp=222, description="Test model",
+                        latest_versions=[]),
+        RegisteredModel(name="model_2", creation_timestamp=111,
+                        last_updated_timestamp=333, description="Another model",
+                        latest_versions=[]),
     ]
     mock_model_registry_store.list_registered_models.return_value = rmds
     resp = _list_registered_models()
     args, _ = mock_model_registry_store.list_registered_models.call_args
     assert args == ()
-    assert json.loads(resp.get_data()) == {"registered_models_detailed": jsonify(rmds)}
+    assert json.loads(resp.get_data()) == {"registered_models": jsonify(rmds)}
 
 
 def test_get_latest_versions(mock_get_request_message, mock_model_registry_store):
-    rm = RegisteredModel("model1")
-    mock_get_request_message.return_value = GetLatestVersions(registered_model=rm.to_proto())
+    name = "model1"
+    mock_get_request_message.return_value = GetLatestVersions(name=name)
     mvds = [
-        ModelVersionDetailed(registered_model=rm, version=5, creation_timestamp=1,
-                             last_updated_timestamp=12, description="v 5", user_id="u1",
-                             current_stage="Production", source="A/B", run_id=uuid.uuid4().hex,
-                             status="READY", status_message=None),
-        ModelVersionDetailed(registered_model=rm, version=1, creation_timestamp=1,
-                             last_updated_timestamp=1200, description="v 1", user_id="u1",
-                             current_stage="Archived", source="A/B2", run_id=uuid.uuid4().hex,
-                             status="READY", status_message=None),
-        ModelVersionDetailed(registered_model=rm, version=12, creation_timestamp=100,
-                             last_updated_timestamp=None, description="v 12", user_id="u2",
-                             current_stage="Staging", source="A/B3", run_id=uuid.uuid4().hex,
-                             status="READY", status_message=None),
+        ModelVersion(name=name, version="5", creation_timestamp=1,
+                     last_updated_timestamp=12, description="v 5", user_id="u1",
+                     current_stage="Production", source="A/B", run_id=uuid.uuid4().hex,
+                     status="READY", status_message=None),
+        ModelVersion(name=name, version="1", creation_timestamp=1,
+                     last_updated_timestamp=1200, description="v 1", user_id="u1",
+                     current_stage="Archived", source="A/B2", run_id=uuid.uuid4().hex,
+                     status="READY", status_message=None),
+        ModelVersion(name=name, version="12", creation_timestamp=100,
+                     last_updated_timestamp=None, description="v 12", user_id="u2",
+                     current_stage="Staging", source="A/B3", run_id=uuid.uuid4().hex,
+                     status="READY", status_message=None),
     ]
     mock_model_registry_store.get_latest_versions.return_value = mvds
     resp = _get_latest_versions()
-    args, _ = mock_model_registry_store.get_latest_versions.call_args
-    assert args == (rm, [])
-    assert json.loads(resp.get_data()) == {"model_versions_detailed": jsonify(mvds)}
+    _, args = mock_model_registry_store.get_latest_versions.call_args
+    assert args == {"name": name, "stages": []}
+    assert json.loads(resp.get_data()) == {"model_versions": jsonify(mvds)}
 
     for stages in [[], ["None"], ["Staging"], ["Staging", "Production"]]:
-        mock_get_request_message.return_value = GetLatestVersions(registered_model=rm.to_proto(),
+        mock_get_request_message.return_value = GetLatestVersions(name=name,
                                                                   stages=stages)
         _get_latest_versions()
-        args, _ = mock_model_registry_store.get_latest_versions.call_args
-        assert args == (rm, stages)
+        _, args = mock_model_registry_store.get_latest_versions.call_args
+        assert args == {"name": name, "stages": stages}
 
 
 def test_create_model_version(mock_get_request_message, mock_model_registry_store):
     run_id = uuid.uuid4().hex
     mock_get_request_message.return_value = CreateModelVersion(name="model_1", source="A/B",
                                                                run_id=run_id)
-    mv = ModelVersion(registered_model=RegisteredModel(name="model_1"), version=12)
+    mv = ModelVersion(name="model_1", version="12", creation_timestamp=123)
     mock_model_registry_store.create_model_version.return_value = mv
     resp = _create_model_version()
-    args, _ = mock_model_registry_store.create_model_version.call_args
-    assert args == ("model_1", "A/B", run_id)
+    _, args = mock_model_registry_store.create_model_version.call_args
+    assert args == {"name": "model_1", "source": "A/B", "run_id": run_id}
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
 
 
 def test_get_model_version_details(mock_get_request_message, mock_model_registry_store):
-    rm = RegisteredModel("model1")
-    mv = ModelVersion(registered_model=rm, version=32)
-    mock_get_request_message.return_value = GetModelVersionDetails(model_version=mv.to_proto())
-    mvd = ModelVersionDetailed(registered_model=rm, version=5, creation_timestamp=1,
-                               last_updated_timestamp=12, description="v 5", user_id="u1",
-                               current_stage="Production", source="A/B", run_id=uuid.uuid4().hex,
-                               status="READY", status_message=None)
-    mock_model_registry_store.get_model_version_details.return_value = mvd
-    resp = _get_model_version_details()
-    args, _ = mock_model_registry_store.get_model_version_details.call_args
-    assert args == (mv, )
-    assert json.loads(resp.get_data()) == {"model_version_detailed": jsonify(mvd)}
+    mock_get_request_message.return_value = GetModelVersion(name="model1", version="32")
+    mvd = ModelVersion(name="model1", version="5", creation_timestamp=1,
+                       last_updated_timestamp=12, description="v 5", user_id="u1",
+                       current_stage="Production", source="A/B", run_id=uuid.uuid4().hex,
+                       status="READY", status_message=None)
+    mock_model_registry_store.get_model_version.return_value = mvd
+    resp = _get_model_version()
+    _, args = mock_model_registry_store.get_model_version.call_args
+    assert args == {"name": "model1", "version": "32"}
+    assert json.loads(resp.get_data()) == {"model_version": jsonify(mvd)}
 
 
 def test_update_model_version(mock_get_request_message, mock_model_registry_store):
-    rm = RegisteredModel("model1")
-    mv = ModelVersion(registered_model=rm, version=32)
-    mock_get_request_message.return_value = UpdateModelVersion(model_version=mv.to_proto(),
-                                                               stage="Production",
-                                                               description="Great model!")
+    name = "model1"
+    version = "32"
+    description = "Great model!"
+    mock_get_request_message.return_value = UpdateModelVersion(name=name, version=version,
+                                                               description=description)
+
+    mv = ModelVersion(name=name, version=version, creation_timestamp=123, description=description)
+    mock_model_registry_store.update_model_version.return_value = mv
     _update_model_version()
-    args, _ = mock_model_registry_store.update_model_version.call_args
-    assert args == (mv, "Production", "Great model!")
+    _, args = mock_model_registry_store.update_model_version.call_args
+    assert args == {"name": name, "version": version, "description": description}
+
+
+def test_transition_model_version_stage(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    version = "32"
+    stage = "Production"
+    mock_get_request_message.return_value = TransitionModelVersionStage(name=name, version=version,
+                                                                        stage=stage)
+    mv = ModelVersion(name=name, version=version, creation_timestamp=123, current_stage=stage)
+    mock_model_registry_store.transition_model_version_stage.return_value = mv
+    _transition_stage()
+    _, args = mock_model_registry_store.transition_model_version_stage.call_args
+    assert args == {"name": name, "version": version, "stage": stage,
+                    "archive_existing_versions": False}
 
 
 def test_delete_model_version(mock_get_request_message, mock_model_registry_store):
-    rm = RegisteredModel("model1")
-    mv = ModelVersion(registered_model=rm, version=32)
-    mock_get_request_message.return_value = DeleteModelVersion(model_version=mv.to_proto())
+    name = "model1"
+    version = "32"
+    mock_get_request_message.return_value = DeleteModelVersion(name=name, version=version)
     _delete_model_version()
-    args, _ = mock_model_registry_store.delete_model_version.call_args
-    assert args == (mv, )
+    _, args = mock_model_registry_store.delete_model_version.call_args
+    assert args == {"name": name, "version": version}
 
 
 def test_get_model_version_download_uri(mock_get_request_message, mock_model_registry_store):
-    rm = RegisteredModel("model1")
-    mv = ModelVersion(registered_model=rm, version=32)
-    mock_get_request_message.return_value = GetModelVersionDownloadUri(model_version=mv.to_proto())
+    name = "model1"
+    version = "32"
+    mock_get_request_message.return_value = GetModelVersionDownloadUri(name=name, version=version)
     mock_model_registry_store.get_model_version_download_uri.return_value = "some/download/path"
     resp = _get_model_version_download_uri()
-    args, _ = mock_model_registry_store.get_model_version_download_uri.call_args
-    assert args == (mv, )
+    _, args = mock_model_registry_store.get_model_version_download_uri.call_args
+    assert args == {"name": name, "version": version}
     assert json.loads(resp.get_data()) == {"artifact_uri": "some/download/path"}
-
-
-def test_model_version_stages(mock_get_request_message, mock_model_registry_store):
-    rm = RegisteredModel("model1")
-    mv = ModelVersion(registered_model=rm, version=32)
-    mock_get_request_message.return_value = GetModelVersionStages(model_version=mv.to_proto())
-    stages = ["Stage1", "Production", "0", "5% traffic", "None"]
-    mock_model_registry_store.get_model_version_stages.return_value = stages
-    resp = _get_model_version_stages()
-    args, _ = mock_model_registry_store.get_model_version_stages.call_args
-    assert args == (mv, )
-    assert json.loads(resp.get_data()) == {"stages": stages}
 
 
 def test_search_model_versions(mock_get_request_message, mock_model_registry_store):
     mock_get_request_message.return_value = SearchModelVersions(filter="source_path = 'A/B/CD'")
     mvds = [
-        ModelVersionDetailed(RegisteredModel(name="model_1"), version=5, creation_timestamp=100,
-                             last_updated_timestamp=1200, description="v 5", user_id="u1",
-                             current_stage="Production", source="A/B/CD", run_id=uuid.uuid4().hex,
-                             status="READY", status_message=None),
-        ModelVersionDetailed(RegisteredModel(name="model_1"), version=12, creation_timestamp=110,
-                             last_updated_timestamp=2000, description="v 12", user_id="u2",
-                             current_stage="Production", source="A/B/CD", run_id=uuid.uuid4().hex,
-                             status="READY", status_message=None),
-        ModelVersionDetailed(RegisteredModel(name="ads_model"), version=8, creation_timestamp=200,
-                             last_updated_timestamp=2000, description="v 8", user_id="u1",
-                             current_stage="Staging", source="A/B/CD", run_id=uuid.uuid4().hex,
-                             status="READY", status_message=None),
-        ModelVersionDetailed(RegisteredModel(name="fraud_detection_model"), version=345,
-                             creation_timestamp=1000, last_updated_timestamp=1001,
-                             description="newest version",  user_id="u12", current_stage="None",
-                             source="A/B/CD",  run_id=uuid.uuid4().hex, status="READY",
-                             status_message=None),
+        ModelVersion(name="model_1", version="5", creation_timestamp=100,
+                     last_updated_timestamp=1200, description="v 5", user_id="u1",
+                     current_stage="Production", source="A/B/CD", run_id=uuid.uuid4().hex,
+                     status="READY", status_message=None),
+        ModelVersion(name="model_1", version="12", creation_timestamp=110,
+                     last_updated_timestamp=2000, description="v 12", user_id="u2",
+                     current_stage="Production", source="A/B/CD", run_id=uuid.uuid4().hex,
+                     status="READY", status_message=None),
+        ModelVersion(name="ads_model", version="8", creation_timestamp=200,
+                     last_updated_timestamp=2000, description="v 8", user_id="u1",
+                     current_stage="Staging", source="A/B/CD", run_id=uuid.uuid4().hex,
+                     status="READY", status_message=None),
+        ModelVersion(name="fraud_detection_model", version="345",
+                     creation_timestamp=1000, last_updated_timestamp=1001,
+                     description="newest version", user_id="u12", current_stage="None",
+                     source="A/B/CD", run_id=uuid.uuid4().hex, status="READY",
+                     status_message=None),
     ]
     mock_model_registry_store.search_model_versions.return_value = mvds
     resp = _search_model_versions()
     args, _ = mock_model_registry_store.search_model_versions.call_args
-    assert args == ("source_path = 'A/B/CD'", )
-    assert json.loads(resp.get_data()) == {"model_versions_detailed": jsonify(mvds)}
+    assert args == ("source_path = 'A/B/CD'",)
+    assert json.loads(resp.get_data()) == {"model_versions": jsonify(mvds)}

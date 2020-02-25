@@ -167,4 +167,42 @@ describe('unit tests', () => {
     metrics[0].history.sort(Utils.compareByStepAndTimestamp); // sort in place before comparison
     expect(instance.getMetrics()).toEqual(metrics);
   });
+
+  test('handleYAxisLogScale properly converts layout between log and linear scales', () => {
+    const props = {
+      ...minimalPropsForLineChart,
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    wrapper.setState({ layout: {xaxis: {range: [2, 4]}, yaxis: {range: [1, 100]}} });
+    instance = wrapper.instance();
+    instance.handleYAxisLogScaleChange(true);
+    expect(instance.state.layout).toEqual({xaxis: {range: [2, 4]},
+      yaxis: {range: [0, 2], type: "log"}});
+    instance.handleYAxisLogScaleChange(false);
+    expect(instance.state.layout).toEqual(
+        {xaxis: {range: [2, 4]}, yaxis: {range: [1, 100], type: "linear"}});
+    // Test converting to & from log scale for a layout with negative Y axis
+    wrapper.setState({ layout: {xaxis: {range: [-5, 5]}, yaxis: {range: [-3, 6]}} });
+    instance.handleYAxisLogScaleChange(true);
+    expect(instance.state.layout).toEqual({xaxis: {range: [-5, 5]},
+      yaxis: {autorange: true, type: "log"}});
+    instance.handleYAxisLogScaleChange(false);
+    expect(instance.state.layout).toEqual(
+        {xaxis: {range: [-5, 5]}, yaxis: {range: [-3, 6], type: "linear"}});
+    // Test converting to & from log scale for a layout with zero-valued Y axis bound
+    wrapper.setState({ layout: {xaxis: {range: [-5, 5]}, yaxis: {range: [0, 6]}} });
+    instance.handleYAxisLogScaleChange(true);
+    expect(instance.state.layout).toEqual({xaxis: {range: [-5, 5]},
+      yaxis: {autorange: true, type: "log"}});
+    instance.handleYAxisLogScaleChange(false);
+    expect(instance.state.layout).toEqual(
+        {xaxis: {range: [-5, 5]}, yaxis: {range: [0, 6], type: "linear"}});
+    // Test converting to & from log scale for an empty layout (e.g. a layout without any
+    // user-specified zoom)
+    wrapper.setState({ layout: {} });
+    instance.handleYAxisLogScaleChange(true);
+    expect(instance.state.layout).toEqual({yaxis: {type: "log", autorange: true}});
+    instance.handleYAxisLogScaleChange(false);
+    expect(instance.state.layout).toEqual({yaxis: {type: "linear", autorange: true}});
+  });
 });
