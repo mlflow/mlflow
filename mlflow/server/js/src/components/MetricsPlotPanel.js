@@ -248,7 +248,7 @@ export class MetricsPlotPanel extends React.Component {
     if (xAxisShowSpikes) {
       newXAxis.showspikes = true;
     }
-    if (xAxisAutorange === true) {
+    if (xAxisAutorange) {
       newXAxis.autorange = true;
     }
     // Set fields for y axis
@@ -260,7 +260,7 @@ export class MetricsPlotPanel extends React.Component {
     if (yAxisShowSpikes) {
       newYAxis.showspikes = true;
     }
-    if (yAxisAutorange === true) {
+    if (yAxisAutorange) {
       lastLinearYAxisRange = [];
       const axisType = this.state.layout && this.state.layout.yaxis &&
         this.state.layout.yaxis.type === 'log' ? "log" : "linear";
