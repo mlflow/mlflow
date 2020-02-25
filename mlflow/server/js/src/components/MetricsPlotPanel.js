@@ -51,6 +51,7 @@ export class MetricsPlotPanel extends React.Component {
       // and then back to linear scale (we save the initial negative linear y-axis bounds so
       // that we can restore them when converting from log back to linear scale)
       lastLinearYAxisRange: [],
+      layout: {},
     };
     this.loadMetricHistory(this.props.runUuids, this.state.selectedMetricKeys);
   }
@@ -220,46 +221,58 @@ export class MetricsPlotPanel extends React.Component {
   handleLayoutChange = (newLayout) => {
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
-    const newXRange0 = newLayout["xaxis.range[0]"];
-    const newXRange1 = newLayout["xaxis.range[1]"];
-    const newYRange0 = newLayout["yaxis.range[0]"];
-    const newYRange1 = newLayout["yaxis.range[1]"];
+    const {
+      "xaxis.range[0]": newXRange0,
+      "xaxis.range[1]": newXRange1,
+      "yaxis.range[0]": newYRange0,
+      "yaxis.range[1]": newYRange1,
+      "xaxis.autorange": xAxisAutorange,
+      "yaxis.autorange": yAxisAutorange,
+      "yaxis.showspikes": yAxisShowSpikes,
+      "xaxis.showspikes": xAxisShowSpikes,
+      ...restFields
+    } = newLayout;
+
     let mergedLayout = {
       ...this.state.layout,
+      ...restFields,
     };
     let lastLinearYAxisRange = [...this.state.lastLinearYAxisRange];
+
+    // Set fields for x axis
+    const newXAxis = mergedLayout.xaxis || {};
     if (newXRange0 !== undefined && newXRange1 !== undefined) {
-      mergedLayout = {
-        ...mergedLayout,
-        xaxis: {
-          range: [newXRange0, newXRange1],
-        },
-      };
+      newXAxis.range = [newXRange0, newXRange1];
+      newXAxis.autorange = false;
     }
+    if (xAxisShowSpikes) {
+      newXAxis.showspikes = true;
+    }
+    if (xAxisAutorange) {
+      newXAxis.autorange = true;
+    }
+    // Set fields for y axis
+    const newYAxis = mergedLayout.yaxis || {};
     if (newYRange0 !== undefined && newYRange1 !== undefined) {
-      lastLinearYAxisRange = [];
-      mergedLayout = {
-        ...mergedLayout,
-        yaxis: {
-          range: [newYRange0, newYRange1],
-        },
-      };
+      newYAxis.range = [newYRange0, newYRange1];
+      newYAxis.autorange = false;
     }
-    if (newLayout["xaxis.autorange"] === true) {
-      mergedLayout = {
-        ...mergedLayout,
-        xaxis: { autorange: true },
-      };
+    if (yAxisShowSpikes) {
+      newYAxis.showspikes = true;
     }
-    if (newLayout["yaxis.autorange"] === true) {
+    if (yAxisAutorange) {
       lastLinearYAxisRange = [];
       const axisType = this.state.layout && this.state.layout.yaxis &&
         this.state.layout.yaxis.type === 'log' ? "log" : "linear";
-      mergedLayout = {
-        ...mergedLayout,
-        yaxis: { autorange: true, type: axisType },
-      };
+      newYAxis.autorange = true;
+      newYAxis.type = axisType;
     }
+    // Merge new X & Y axis info into layout
+    mergedLayout = {
+      ...mergedLayout,
+      xaxis: newXAxis,
+      yaxis: newYAxis,
+    };
     this.setState({ layout: mergedLayout, lastLinearYAxisRange });
   };
 

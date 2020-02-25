@@ -343,7 +343,7 @@ def test_log_model(mlflow_client, backend_store_uri):
                                          loader_module="mlflow.pyfunc")
                 model = Model.load(os.path.join(m, "MLmodel"))
                 run = mlflow.get_run(run.info.run_id)
-                tag = run.data.tags["mlflow.models"]
+                tag = run.data.tags["mlflow.log-model.history"]
                 models = json.loads(tag)
                 model.utc_time_created = models[i]["utc_time_created"]
                 assert models[i] == model.to_dict()
