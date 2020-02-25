@@ -12,8 +12,7 @@ import _ from 'lodash';
 const modelByName = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(LIST_REGISTRED_MODELS): {
-      const detailedModels = action.payload.registered_models;
-      const models = detailedModels && detailedModels.map(inlineModel);
+      const models = action.payload.registered_models;
       const nameToModelMap = {};
       if (models) {
         models.forEach((model) => (nameToModelMap[model.name] = model));
@@ -24,11 +23,10 @@ const modelByName = (state = {}, action) => {
     }
     case fulfilled(GET_REGISTERED_MODEL): {
       const detailedModel = action.payload.registered_model;
-      const inlinedModel = detailedModel && inlineModel(detailedModel);
       const { modelName } = action.meta;
       const modelWithUpdatedMetadata = {
         ...state[modelName],
-        ...inlinedModel,
+        ...detailedModel,
       };
       return {
         ...state,
@@ -49,11 +47,10 @@ const modelVersionsByModel = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(GET_MODEL_VERSION): {
       const modelVersion = action.payload.model_version;
-      const inlinedModelVersion = inlineModelVersion(modelVersion);
       const { modelName } = action.meta;
       const updatedMap = {
         ...state[modelName],
-        [inlinedModelVersion.version]: inlinedModelVersion,
+        [modelVersion.version]: modelVersion,
       };
       return {
         ...state,
@@ -65,10 +62,9 @@ const modelVersionsByModel = (state = {}, action) => {
       if (!modelVersions) {
         return state;
       }
-      const inlinedModelVersions = modelVersions.map(inlineModelVersion);
 
       // Merge all modelVersions into the store
-      return inlinedModelVersions.reduce((newState, modelVersion) => {
+      return modelVersions.reduce((newState, modelVersion) => {
         const modelName = modelVersion.name;
         const { version } = modelVersion.version;
         return {
@@ -113,21 +109,6 @@ export const getAllModelVersions = (state) => {
     (modelVersionByVersion) => Object.values(modelVersionByVersion),
   );
 };
-
-// Inline the `name` field nested inside `registered_model` and `version` in `model_version`
-const inlineModel = (model) => {
-  const { latest_versions } = model;
-  return {
-    ...model,
-    latest_versions: latest_versions && latest_versions.map(inlineModelVersion),
-  };
-};
-
-// Inline the `version` field nested inside `model_version`
-const inlineModelVersion = (modelVersion) => ({
-  ...modelVersion,
-  version: modelVersion.version,
-});
 
 export default {
   modelByName,

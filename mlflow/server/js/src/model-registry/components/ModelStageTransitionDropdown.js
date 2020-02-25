@@ -115,7 +115,7 @@ export const renderActivityDescription = (activity) => {
       &nbsp;&nbsp;&nbsp;
       <i className='fas fa-long-arrow-alt-right' />
       &nbsp;&nbsp;&nbsp;&nbsp;
-      {StageTagComponents[activity.model_registry_data.transition.to_stage]}
+      {StageTagComponents[activity.model_registry_data.to_stage]}
     </div>
   ) : null;
 };

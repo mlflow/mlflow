@@ -46,8 +46,7 @@ export class ModelPage extends React.Component {
     const { model } = this.props;
     return this.props
       .updateRegisteredModelApi(
-        model.registered_model,
-        undefined,
+        model.name,
         description,
         this.updateRegisteredModelApiId,
       )
@@ -57,7 +56,7 @@ export class ModelPage extends React.Component {
   handleDelete = () => {
     const { model } = this.props;
     return this.props.deleteRegisteredModelApi(
-      model.registered_model,
+      model.name,
       this.deleteRegisteredModelApiId
     );
   };
