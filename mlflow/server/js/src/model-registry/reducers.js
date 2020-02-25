@@ -69,8 +69,8 @@ const modelVersionsByModel = (state = {}, action) => {
 
       // Merge all modelVersions into the store
       return inlinedModelVersions.reduce((newState, modelVersion) => {
-        const modelName = modelVersion.model_version.registered_model.name;
-        const { version } = modelVersion.model_version;
+        const modelName = modelVersion.name;
+        const { version } = modelVersion.version;
         return {
           ...newState,
           [modelName]: {
@@ -119,7 +119,6 @@ const inlineModel = (model) => {
   const { registered_model, latest_versions } = model;
   return {
     ...model,
-    name: registered_model.name,
     latest_versions: latest_versions && latest_versions.map(inlineModelVersion),
   };
 };
@@ -127,7 +126,7 @@ const inlineModel = (model) => {
 // Inline the `version` field nested inside `model_version`
 const inlineModelVersion = (modelVersion) => ({
   ...modelVersion,
-  version: modelVersion.model_version.version,
+  version: modelVersion.version,
 });
 
 export default {

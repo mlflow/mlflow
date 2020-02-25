@@ -18,6 +18,7 @@ import { EditableNote } from '../../common/components/EditableNote';
 export class ModelVersionView extends React.Component {
   static propTypes = {
     modelName: PropTypes.string,
+    version: PropTypes.number,
     modelVersion: PropTypes.object,
     runInfo: PropTypes.object,
     runDisplayName: PropTypes.string,
@@ -34,13 +35,12 @@ export class ModelVersionView extends React.Component {
   };
 
   handleDeleteConfirm = () => {
-    const { modelVersion, history } = this.props;
-    const { name } = modelVersion.model_version.registered_model;
+    const { modelName, version, history } = this.props;
     this.showConfirmLoading();
     this.props
-      .deleteModelVersionApi(modelVersion.model_version)
+      .deleteModelVersionApi(modelName, version)
       .then(() => {
-        history.push(getModelPageRoute(name));
+        history.push(getModelPageRoute(modelName));
       })
       .catch((e) => {
         this.hideConfirmLoading();
