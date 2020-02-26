@@ -29,6 +29,9 @@ class S3ArtifactRepository(ArtifactRepository):
         return boto3.client('s3', endpoint_url=s3_endpoint_url)
 
     def _get_s3_extraconfig(self):
+        """Translate enviroment variable MLFLOW_S3_EXTRAARGS_ACL into the S3 ExtraArgs
+        https://boto3.amazonaws.com/v1/documentation/api/latest/guide/s3-uploading-files.html#the-extraargs-parameter
+        """
         ExtraArgs = {}
         s3_upload_extraargs_acl = os.environ.get('MLFLOW_S3_EXTRAARGS_ACL')
         if s3_upload_extraargs_acl is not None:
