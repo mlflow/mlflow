@@ -3,6 +3,7 @@
 #' @export
 mlflow_save_model.keras.engine.training.Model <- function(model,
                                                           path,
+                                                          model_spec = list(),
                                                           conda_env = NULL,
                                                           ...) {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
@@ -39,10 +40,9 @@ mlflow_save_model.keras.engine.training.Model <- function(model,
     loader_module = "mlflow.keras",
     data = "model.h5",
     env = conda_env)
-
-  mlflow_write_model_spec(path, list(
-    flavors = append(keras_conf, pyfunc_conf)
-  ))
+  model_spec$flavors <- append(append(model_spec$flavors, keras_conf), pyfunc_conf)
+  mlflow_write_model_spec(path, model_spec)
+  model_spec
 }
 
 #' @export
