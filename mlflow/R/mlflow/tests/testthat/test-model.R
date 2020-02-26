@@ -81,3 +81,24 @@ test_that("mlflow can log model and load it back with a uri", {
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(5 == prediction)
 })
+
+test_that("mlflow log model records correct metadata with the tracking server", {
+  with(run <- mlflow_start_run(), {
+    print(run$run_uuid[1])
+    model <- structure(
+      list(some = "stuff"),
+      class = "test"
+    )
+    predictor <- crate(~ mean(as.matrix(.x)), model)
+    predicted <- predictor(0:10)
+    expect_true(5 == predicted)
+    mlflow_log_model(predictor, "model")
+    model_spec_expected <- mlflow_save_model(predictor, "test")
+    tags <- mlflow_get_run()$tags[[1]]
+    models <- tags$value[which(tags$key == "mlflow.log-model.history")]
+    model_spec_actual <- fromJSON(models, simplifyDataFrame = FALSE)[[1]]
+    expect_equal("model", model_spec_actual$artifact_path)
+    expect_equal(run$run_uuid[1], model_spec_actual$run_id)
+    expect_equal(model_spec_expected$flavors, model_spec_actual$flavors)
+  })
+})
