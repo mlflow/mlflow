@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 import { getUUID } from '../../Actions';
 import {
   searchModelVersionsApi,
-  getRegisteredModelDetailsApi,
+  getRegisteredModelApi,
   updateRegisteredModelApi,
   deleteRegisteredModelApi,
 } from '../actions';
@@ -23,7 +23,7 @@ export class ModelPage extends React.Component {
     model: PropTypes.object,
     modelVersions: PropTypes.array,
     searchModelVersionsApi: PropTypes.func.isRequired,
-    getRegisteredModelDetailsApi: PropTypes.func.isRequired,
+    getRegisteredModelApi: PropTypes.func.isRequired,
     updateRegisteredModelApi: PropTypes.func.isRequired,
     deleteRegisteredModelApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
@@ -31,23 +31,22 @@ export class ModelPage extends React.Component {
   };
 
   initSearchModelVersionsApiId = getUUID();
-  initGetRegisteredModelDetailsApiId = getUUID();
+  initgetRegisteredModelApiId = getUUID();
   searchModelVersionsApiId = getUUID();
-  getRegisteredModelDetailsApiId = getUUID();
+  getRegisteredModelApiId = getUUID();
   updateRegisteredModelApiId = getUUID();
   deleteRegisteredModelApiId = getUUID();
 
   criticalInitialRequestIds = [
     this.initSearchModelVersionsApiId,
-    this.initGetRegisteredModelDetailsApiId,
+    this.initgetRegisteredModelApiId,
   ];
 
   handleEditDescription = (description) => {
     const { model } = this.props;
     return this.props
       .updateRegisteredModelApi(
-        model.registered_model,
-        undefined,
+        model.name,
         description,
         this.updateRegisteredModelApiId,
       )
@@ -57,7 +56,7 @@ export class ModelPage extends React.Component {
   handleDelete = () => {
     const { model } = this.props;
     return this.props.deleteRegisteredModelApi(
-      model.registered_model,
+      model.name,
       this.deleteRegisteredModelApiId
     );
   };
@@ -65,11 +64,11 @@ export class ModelPage extends React.Component {
   loadData = (isInitialLoading) => {
     const { modelName } = this.props;
     return Promise.all([
-      this.props.getRegisteredModelDetailsApi(
+      this.props.getRegisteredModelApi(
         modelName,
         isInitialLoading === true
-          ? this.initGetRegisteredModelDetailsApiId
-          : this.getRegisteredModelDetailsApiId,
+          ? this.initgetRegisteredModelApiId
+          : this.getRegisteredModelApiId,
       ),
       this.props.searchModelVersionsApi(
         { name: modelName },
@@ -107,7 +106,7 @@ export class ModelPage extends React.Component {
           {(loading, hasError, requests) => {
             if (hasError) {
               clearInterval(this.pollIntervalId);
-              if (shouldRender404(requests, [this.initGetRegisteredModelDetailsApiId])) {
+              if (shouldRender404(requests, [this.initgetRegisteredModelApiId])) {
                 return (
                   <Error404View
                     resourceName={`Model ${modelName}`}
@@ -148,7 +147,7 @@ const mapStateToProps = (state, ownProps) => {
 
 const mapDispatchToProps = {
   searchModelVersionsApi,
-  getRegisteredModelDetailsApi,
+  getRegisteredModelApi,
   updateRegisteredModelApi,
   deleteRegisteredModelApi,
 };

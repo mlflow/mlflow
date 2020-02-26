@@ -34,13 +34,13 @@ export class ModelVersionView extends React.Component {
   };
 
   handleDeleteConfirm = () => {
-    const { modelVersion, history } = this.props;
-    const { name } = modelVersion.model_version.registered_model;
+    const { modelName, modelVersion, history } = this.props;
+    const version = modelVersion.version;
     this.showConfirmLoading();
     this.props
-      .deleteModelVersionApi(modelVersion.model_version)
+      .deleteModelVersionApi(modelName, version)
       .then(() => {
-        history.push(getModelPageRoute(name));
+        history.push(getModelPageRoute(modelName));
       })
       .catch((e) => {
         this.hideConfirmLoading();

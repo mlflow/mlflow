@@ -17,7 +17,7 @@ const Stages = {
 export class ModelView extends React.Component {
   static propTypes = {
     model: PropTypes.shape({
-      registered_model: PropTypes.object.isRequired,
+      name: PropTypes.string.isRequired,
       creation_timestamp: PropTypes.number.isRequired,
       last_updated_timestamp: PropTypes.number.isRequired,
     }),
@@ -41,7 +41,7 @@ export class ModelView extends React.Component {
   };
 
   componentDidMount() {
-    document.title = `${this.props.model.registered_model.name} - MLflow Model`;
+    document.title = `${this.props.model.name} - MLflow Model`;
   }
 
   getActiveVersionsCount() {
@@ -119,7 +119,7 @@ export class ModelView extends React.Component {
       isDeleteModalVisible,
       isDeleteModalConfirmLoading,
     } = this.state;
-    const modelName = model.registered_model.name;
+    const modelName = model.name;
     const chevron = <i className='fas fa-chevron-right breadcrumb-chevron' />;
     const breadcrumbItemClass = 'truncate-text single-line breadcrumb-title';
     const editIcon = <a onClick={this.startEditingDescription}><Icon type='form' /></a>;

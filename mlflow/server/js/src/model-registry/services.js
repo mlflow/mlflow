@@ -167,18 +167,18 @@ class Services {
   }
 
   /**
-   * Get individual registered model details
+   * Get individual registered model
    * @param data
    * @param success
    * @param error
    * @returns {*|jQuery|*|*|*|*}
    */
-  static getRegisteredModelDetails({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/get-details'), {
-      type: 'POST', // TODO(mparkhe): Flatten API request arguments to be usable with GET
+  static getRegisteredModel({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/get'), {
+      type: 'GET',
       dataType: 'json',
       contentType: 'application/json; charset=utf-8',
-      data: JSON.stringify(data),
+      data: data,
       jsonp: false,
       success: success,
       error: error,
@@ -186,18 +186,18 @@ class Services {
   }
 
   /**
-   * Get individual model version details
+   * Get individual model version
    * @param data
    * @param success
    * @param error
    * @returns {*|jQuery|*|*|*|*}
    */
-  static getModelVersionDetails({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/model-versions/get-details'), {
-      type: 'POST', // TODO(mparkhe): Flatten API request arguments to be usable with GET
+  static getModelVersion({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/model-versions/get'), {
+      type: 'GET', // TODO(mparkhe): Flatten API request arguments to be usable with GET
       dataType: 'json',
       contentType: 'application/json; charset=utf-8',
-      data: JSON.stringify(data),
+      data: data,
       jsonp: false,
       success: success,
       error: error,
