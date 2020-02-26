@@ -1,7 +1,7 @@
 import React from 'react';
 import { connect } from 'react-redux';
 import {
-  getModelVersionDetailsApi,
+  getModelVersionApi,
   updateModelVersionApi,
   deleteModelVersionApi,
 } from '../actions';
@@ -26,7 +26,7 @@ class ModelVersionPage extends React.Component {
     modelVersion: PropTypes.object,
     runInfo: PropTypes.object,
     runDisplayName: PropTypes.string,
-    getModelVersionDetailsApi: PropTypes.func.isRequired,
+    getModelVersionApi: PropTypes.func.isRequired,
     updateModelVersionApi: PropTypes.func.isRequired,
     deleteModelVersionApi: PropTypes.func.isRequired,
     getRunApi: PropTypes.func.isRequired,
@@ -51,7 +51,7 @@ class ModelVersionPage extends React.Component {
   getModelVersionDetailAndRunInfo(isInitialLoading) {
     const { modelName, version } = this.props;
     return this.props
-      .getModelVersionDetailsApi(
+      .getModelVersionApi(
         modelName,
         version,
         isInitialLoading === true
@@ -60,18 +60,19 @@ class ModelVersionPage extends React.Component {
       )
       .then(({ value }) => {
         if (value) {
-          this.props.getRunApi(value.model_version_detailed.run_id, this.getRunRequestId);
+          this.props.getRunApi(value.model_version.run_id, this.getRunRequestId);
         }
       });
   }
 
   handleStageTransitionDropdownSelect = (activity) => {
-    const { modelVersion } = this.props;
-    const toStage = activity.model_registry_data.transition.to_stage;
+    const { modelName, version } = this.props;
+    const toStage = activity.model_registry_data.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {
       this.props
         .updateModelVersionApi(
-          modelVersion.model_version,
+          modelName,
+          version,
           toStage,
           undefined,
           this.updateModelVersionRequestId,
@@ -81,12 +82,14 @@ class ModelVersionPage extends React.Component {
   };
 
   handleEditDescription = (description) => {
-    const { modelVersion } = this.props;
+    const { modelName, version } = this.props;
     return this.props
       .updateModelVersionApi(
-        modelVersion.model_version,
+        modelName,
+        version,
         undefined,
         description,
+        undefined,
         this.updateModelVersionRequestId,
       )
       .then(this.loadData);
@@ -97,7 +100,7 @@ class ModelVersionPage extends React.Component {
     const pollRequest = apis[this.getModelVersionDetailsRequestId];
     if (!(pollRequest && pollRequest.active)) {
       this.props
-        .getModelVersionDetailsApi(modelName, version, this.getModelVersionDetailsRequestId)
+        .getModelVersionApi(modelName, version, this.getModelVersionDetailsRequestId)
         .catch(console.error);
     }
   };
@@ -180,7 +183,7 @@ const mapStateToProps = (state, ownProps) => {
 };
 
 const mapDispatchToProps = {
-  getModelVersionDetailsApi,
+  getModelVersionApi,
   updateModelVersionApi,
   deleteModelVersionApi,
   getRunApi,
