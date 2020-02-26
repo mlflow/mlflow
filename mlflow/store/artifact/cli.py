@@ -126,23 +126,26 @@ def download_artifacts(run_id, artifact_path, artifact_uri):
 
 
 @commands.command("archive-hdfs-artifacts")
-@click.option("--run-id", "-r", required=True, help="Run ID to archive the artifacts")
-def archive_hdfs_artifacts(run_id):
+@click.option("--run-ids", "-r", required=True, help="Comma separated list of Run IDs for which "
+                                                     "we will archive the artifacts")
+def archive_hdfs_artifacts(run_ids):
     """
     Pack into an hadoop archive a folder on HDFS. Only HdfsArtifactStore supported
     """
     store = _get_store()
-    artifact_uri = store.get_run(run_id).info.artifact_uri
-    artifact_repo = get_artifact_repository(artifact_uri)
-    if not isinstance(artifact_repo, HdfsArtifactRepository):
-        _logger.error("Artifacts store must be Hdfs")
-        sys.exit(1)
-    parent_dir = os.path.dirname(artifact_uri)
-    new_artifact_path = archive_artifacts(artifact_repo, parent_dir, ARTIFACT_NAME)
-    _logger.debug("Update database: artifact_uri for run (run_id = %s) to %s",
-                  run_id, new_artifact_path)
-    store.update_artifacts_location(run_id, new_artifact_path)
-    remove_folder(artifact_uri)
+    run_ids = run_ids.split(',')
+    for run_id in run_ids:
+        artifact_uri = store.get_run(run_id).info.artifact_uri
+        artifact_repo = get_artifact_repository(artifact_uri)
+        if not isinstance(artifact_repo, HdfsArtifactRepository):
+            _logger.error("Artifacts store must be Hdfs")
+            sys.exit(1)
+        parent_dir = os.path.dirname(artifact_uri)
+        new_artifact_path = archive_artifacts(artifact_repo, parent_dir, ARTIFACT_NAME)
+        _logger.debug("Update database: artifact_uri for run (run_id = %s) to %s",
+                      run_id, new_artifact_path)
+        store.update_artifacts_location(run_id, new_artifact_path)
+        remove_folder(artifact_uri)
 
 
 if __name__ == '__main__':
