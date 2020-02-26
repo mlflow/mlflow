@@ -189,26 +189,26 @@ describe('unit tests', () => {
     instance.handleLayoutChange({"xaxis.range[0]": 2, "xaxis.range[1]": 4, "yaxis.range[0]": 1, "yaxis.range[1]": 100});
     instance.handleYAxisLogScaleChange(true);
     expect(instance.getUrlState().layout).toEqual(
-      {xaxis: {range: [2, 4]}, yaxis: {range: [0, 2], type: "log"}});
+      {xaxis: {range: [2, 4], autorange: false}, yaxis: {range: [0, 2], type: "log"}});
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual(
-        {xaxis: {range: [2, 4]}, yaxis: {range: [1, 100], type: "linear"}});
+        {xaxis: {range: [2, 4], autorange: false}, yaxis: {range: [1, 100], type: "linear"}});
     // Test converting to & from log scale for a layout with negative Y axis
     instance.handleLayoutChange({"xaxis.range[0]": -5, "xaxis.range[1]": 5, "yaxis.range[0]": -3, "yaxis.range[1]": 6});
     instance.handleYAxisLogScaleChange(true);
-    expect(instance.getUrlState().layout).toEqual({xaxis: {range: [-5, 5]},
+    expect(instance.getUrlState().layout).toEqual({xaxis: {range: [-5, 5], autorange: false},
       yaxis: {autorange: true, type: "log"}});
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual(
-        {xaxis: {range: [-5, 5]}, yaxis: {range: [-3, 6], type: "linear"}});
+        {xaxis: {range: [-5, 5], autorange: false}, yaxis: {range: [-3, 6], type: "linear"}});
     // Test converting to & from log scale for a layout with zero-valued Y axis bound
     instance.handleLayoutChange({"yaxis.range[0]": 0, "yaxis.range[1]": 6});
     instance.handleYAxisLogScaleChange(true);
-    expect(instance.getUrlState().layout).toEqual({xaxis: {range: [-5, 5]},
+    expect(instance.getUrlState().layout).toEqual({xaxis: {range: [-5, 5], autorange: false},
       yaxis: {autorange: true, type: "log"}});
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual(
-        {xaxis: {range: [-5, 5]}, yaxis: {range: [0, 6], type: "linear"}});
+        {xaxis: {range: [-5, 5], autorange: false}, yaxis: {range: [0, 6], type: "linear"}});
   });
 
   test('single-click handler in metric comparison plot', (done) => {
