@@ -10,7 +10,7 @@ from mlflow.utils import process
 DBFS_PREFIX = "dbfs:/"
 S3_PREFIX = "s3://"
 GS_PREFIX = "gs://"
-ACTION_REGEX = re.compile("^-{1,2}[^\d\W]\w*\Z")
+ACTION_REGEX = re.compile(r"^-{1,2}[^\d\W]\w*\Z")
 DBFS_REGEX = re.compile("^%s" % re.escape(DBFS_PREFIX))
 S3_REGEX = re.compile("^%s" % re.escape(S3_PREFIX))
 GS_REGEX = re.compile("^%s" % re.escape(GS_PREFIX))

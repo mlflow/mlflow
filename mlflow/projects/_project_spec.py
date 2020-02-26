@@ -13,7 +13,7 @@ from mlflow.utils.string_utils import is_string_type
 
 MLPROJECT_FILE_NAME = "mlproject"
 DEFAULT_CONDA_FILE_NAME = "conda.yaml"
-EMPTY_STRING_REGEX = "\s+((\"\")|(\'\'))"
+EMPTY_STRING_REGEX = r"\s+((\"\")|(\'\'))"
 
 
 def _find_mlproject(directory):
