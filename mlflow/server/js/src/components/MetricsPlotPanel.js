@@ -46,13 +46,26 @@ export class MetricsPlotPanel extends React.Component {
   // succession, we trigger a double-click event & cancel the pending single-click.
   prevLegendClickTime = Math.inf;
 
+  // Last curve ID clicked in the legend, used to determine if we're double-clicking on a specific
+  // legend curve
+  lastClickedLegendCurveId = null;
+
+  // Max time interval (in milliseconds) between two successive clicks on the metric plot legend
+  // that constitutes a double-click
+  MAX_DOUBLE_CLICK_INTERVAL_MS = 300;
+
+  // Delay (in ms) between when a user clicks on the metric plot legend & when event-handler logic
+  // (to toggle display of the selected curve on or off) actually fires. Set to a larger value than
+  // MAX_DOUBLE_CLICK_INTERVAL_MS to allow time for the double-click handler to fire before firing
+  // a single-click event.
+  SINGLE_CLICK_EVENT_DELAY_MS = this.MAX_DOUBLE_CLICK_INTERVAL_MS + 10;
+
   constructor(props) {
     super(props);
     this.state = {
       historyRequestIds: [],
     };
-    const state = this.getUrlState();
-    this.loadMetricHistory(this.props.runUuids, state.selectedMetricKeys);
+    this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
   }
 
   getUrlState() {
@@ -307,7 +320,8 @@ export class MetricsPlotPanel extends React.Component {
     // If two clicks in short succession, trigger double-click event
     const state = this.getUrlState();
     const currentTime = Date.now();
-    if (currentTime - this.prevLegendClickTime < 300) {
+    if (currentTime - this.prevLegendClickTime < this.MAX_DOUBLE_CLICK_INTERVAL_MS &&
+      curveNumber === this.lastClickedLegendCurveId) {
       this.handleLegendDoubleClick({curveNumber, data});
       this.prevLegendClickTime = Math.inf;
     } else {
@@ -323,9 +337,10 @@ export class MetricsPlotPanel extends React.Component {
           existingDeselectedCurves.add(curveKey);
         }
         this.updateUrlState({deselectedCurves: Array.from(existingDeselectedCurves)});
-      }, 310);
+      }, this.SINGLE_CLICK_EVENT_DELAY_MS);
       this.prevLegendClickTime = currentTime;
     }
+    this.lastClickedLegendCurveId = curveNumber;
     // Return false to disable plotly event handler
     return false;
   };
@@ -347,7 +362,6 @@ export class MetricsPlotPanel extends React.Component {
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
     const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
     this.setState((prevState) => ({
-      selectedMetricKeys: metricValues,
       historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
     }), () => {
       this.updateUrlState({
