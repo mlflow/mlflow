@@ -41,11 +41,11 @@ _inf = np.finfo(np.float64).max
 @click.option("--metric", type=click.STRING, default="rmse",
               help="Metric to optimize on.")
 @click.option("--gpy-model", type=click.STRING, default="GP_MCMC",
-              help="Optimizer algorhitm.")
+              help="Optimizer algorithm.")
 @click.option("--gpy-acquisition", type=click.STRING, default="EI_MCMC",
-              help="Optimizer algorhitm.")
+              help="Optimizer algorithm.")
 @click.option("--initial-design", type=click.STRING, default="random",
-              help="Optimizer algorhitm.")
+              help="Optimizer algorithm.")
 @click.option("--seed", type=click.INT, default=97531,
               help="Seed for the random generator")
 @click.argument("training_data")
