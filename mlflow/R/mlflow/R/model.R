@@ -36,7 +36,14 @@ mlflow_log_model <- function(model, artifact_path, ...) {
     flavors = list()
   ), ...)
   res <- mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
-  mlflow_record_logged_model(model_spec)
+  tryCatch({ mlflow_record_logged_model(model_spec) }, error = function(e) {
+    warning(paste("Logging model metadata to the tracking server has failed, possibly due to older",
+                  "server version. The model artifacts have been logged successfully.",
+                  "In addition to exporting model artifacts, MLflow clients 1.7.0 and above",
+                  "attempt to record model metadata to the  tracking store. If logging to a",
+                  "mlflow server via REST, consider  upgrading the server version to MLflow",
+                  "1.7.0 or above.", sep=" "))
+  })
   res
 }
 
