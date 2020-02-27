@@ -80,7 +80,7 @@ export class MetricsPlotView extends React.Component {
 
   getPlotPropsForBarChart = () => {
     /* eslint-disable no-param-reassign */
-    const { runUuids, runDisplayNames, deselectedCurves } = this.props;
+    const { runUuids, runDisplayNames } = this.props;
 
     // A reverse lookup of `metricKey: { runUuid: value, metricKey }`
     const historyByMetricKey = this.props.metrics.reduce((map, metric) => {
@@ -100,13 +100,11 @@ export class MetricsPlotView extends React.Component {
     );
 
     const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map((history) => history.metricKey);
-    const deselectedCurvesSet = new Set(deselectedCurves);
     const data = runUuids.map((runUuid, i) => ({
       name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
       x: sortedMetricKeys,
       y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
       type: 'bar',
-      visible: deselectedCurvesSet.has(runUuid),
     }));
 
     const layout = { barmode: 'group' };
