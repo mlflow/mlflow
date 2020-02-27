@@ -418,17 +418,19 @@ export class MetricsPlotPanel extends React.Component {
 
   render() {
     const { experimentId, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
+    const {
+      popoverVisible,
+      popoverX,
+      popoverY,
+      popoverRunItems,
+    } = this.state;
     const state = this.getUrlState();
     const {
       showPoint,
       selectedXAxis,
       selectedMetricKeys,
       lineSmoothness,
-      popoverVisible,
-      popoverX,
-      popoverY,
-      popoverRunItems,
-    } = this.state;
+    } = state;
     const yAxisLogScale = this.getAxisType() === "log";
     const { historyRequestIds } = this.state;
     const metrics = this.getMetrics();
