@@ -5,7 +5,9 @@ import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.util.JsonFormat;
 
 import java.lang.Iterable;
+import java.net.URISyntaxException;
 
+import org.apache.http.client.utils.URIBuilder;
 import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 
@@ -120,33 +122,28 @@ class MlflowProtobufMapper {
   }
 
   String makeGetLatestVersion(String modelName, Iterable<String> stages) {
-    RegisteredModel model = RegisteredModel.newBuilder()
-            .setName(modelName)
-            .build();
-
-    GetLatestVersions.Builder builder = GetLatestVersions.newBuilder();
-    builder.setRegisteredModel(model);
-
-    if (stages != null) {
-      builder.addAllStages(stages);
+    try {
+      URIBuilder builder = new URIBuilder("registered-models/get-latest-versions")
+              .addParameter("name", modelName);
+      if (stages != null) {
+        for( String stage: stages) {
+          builder.addParameter("stages", stage);
+        }
+      }
+      return builder.build().toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException("Failed to construct request URI for get latest versions.",
+              e);
     }
-
-    return print(builder);
   }
 
-  String makeUpdateModelVersion(String modelName, long version, String stage) {
-    RegisteredModel.Builder modelBuilder = RegisteredModel.newBuilder()
-            .setName(modelName);
+  String makeUpdateModelVersion(String modelName, String version) {
+    return print(UpdateModelVersion.newBuilder().setName(modelName).setVersion(version));
+  }
 
-    ModelVersion.Builder modelVersionBuilder = ModelVersion.newBuilder()
-            .setVersion(version)
-            .setRegisteredModel(modelBuilder);
-
-    UpdateModelVersion.Builder builder = UpdateModelVersion.newBuilder()
-            .setModelVersion(modelVersionBuilder)
-            .setStage(stage);
-
-    return print(builder);
+  String makeTransitionModelVersionStage(String modelName, String version, String stage) {
+    return print(TransitionModelVersionStage.newBuilder()
+            .setName(modelName).setVersion(version).setStage(stage));
   }
 
   String makeCreateModel(String modelName) {
@@ -163,33 +160,20 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
-  String makeGetModelVersionDetails(String modelName, long version) {
-    RegisteredModel.Builder modelBuilder = RegisteredModel.newBuilder()
-            .setName(modelName);
-
-    ModelVersion.Builder modelVerionBuilder = ModelVersion.newBuilder()
-            .setVersion(version)
-            .setRegisteredModel(modelBuilder);
-
-    GetModelVersionDetails.Builder builder = GetModelVersionDetails.newBuilder()
-            .setModelVersion(modelVerionBuilder);
-    return print(builder);
+  String makeGetModelVersionDetails(String modelName, String version) {
+    return print(GetModelVersion.newBuilder().setName(modelName).setVersion(version));
   }
 
-  String makeGetModelVersionDownloadUri(String modelName, long modelVersion) {
-    GetModelVersionDownloadUri.Builder builder = GetModelVersionDownloadUri.newBuilder();
-
-    RegisteredModel model = RegisteredModel.newBuilder()
-            .setName(modelName)
-            .build();
-
-    ModelVersion version = ModelVersion.newBuilder()
-            .setRegisteredModel(model)
-            .setVersion(modelVersion)
-            .build();
-
-    builder.setModelVersion(version);
-    return print(builder);
+  String makeGetModelVersionDownloadUri(String modelName, String modelVersion) {
+    try {
+      return new URIBuilder("model-versions/get-download-uri")
+              .addParameter("name", modelName)
+              .addParameter("version", modelVersion).build().toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException(
+              "Failed to construct request URI for get version download uri.",
+              e);
+    }
   }
 
   String toJson(MessageOrBuilder mb) {

@@ -1,8 +1,8 @@
 import {
   LIST_REGISTRED_MODELS,
   SEARCH_MODEL_VERSIONS,
-  GET_REGISTERED_MODEL_DETAILS,
-  GET_MODEL_VERSION_DETAILS,
+  GET_REGISTERED_MODEL,
+  GET_MODEL_VERSION,
   DELETE_MODEL_VERSION,
   DELETE_REGISTERED_MODEL,
 } from './actions';
@@ -12,8 +12,7 @@ import _ from 'lodash';
 const modelByName = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(LIST_REGISTRED_MODELS): {
-      const detailedModels = action.payload.registered_models_detailed;
-      const models = detailedModels && detailedModels.map(inlineModel);
+      const models = action.payload.registered_models;
       const nameToModelMap = {};
       if (models) {
         models.forEach((model) => (nameToModelMap[model.name] = model));
@@ -22,13 +21,12 @@ const modelByName = (state = {}, action) => {
         ...nameToModelMap,
       };
     }
-    case fulfilled(GET_REGISTERED_MODEL_DETAILS): {
-      const detailedModel = action.payload.registered_model_detailed;
-      const inlinedModel = detailedModel && inlineModel(detailedModel);
+    case fulfilled(GET_REGISTERED_MODEL): {
+      const detailedModel = action.payload.registered_model;
       const { modelName } = action.meta;
       const modelWithUpdatedMetadata = {
         ...state[modelName],
-        ...inlinedModel,
+        ...detailedModel,
       };
       return {
         ...state,
@@ -47,13 +45,12 @@ const modelByName = (state = {}, action) => {
 // 2-levels lookup for model version indexed by (modelName, version)
 const modelVersionsByModel = (state = {}, action) => {
   switch (action.type) {
-    case fulfilled(GET_MODEL_VERSION_DETAILS): {
-      const modelVersion = action.payload.model_version_detailed;
-      const inlinedModelVersion = inlineModelVersion(modelVersion);
+    case fulfilled(GET_MODEL_VERSION): {
+      const modelVersion = action.payload.model_version;
       const { modelName } = action.meta;
       const updatedMap = {
         ...state[modelName],
-        [inlinedModelVersion.version]: inlinedModelVersion,
+        [modelVersion.version]: modelVersion,
       };
       return {
         ...state,
@@ -61,20 +58,18 @@ const modelVersionsByModel = (state = {}, action) => {
       };
     }
     case fulfilled(SEARCH_MODEL_VERSIONS): {
-      const modelVersions = action.payload.model_versions_detailed;
+      const modelVersions = action.payload.model_versions;
       if (!modelVersions) {
         return state;
       }
-      const inlinedModelVersions = modelVersions.map(inlineModelVersion);
 
       // Merge all modelVersions into the store
-      return inlinedModelVersions.reduce((newState, modelVersion) => {
-        const modelName = modelVersion.model_version.registered_model.name;
-        const { version } = modelVersion.model_version;
+      return modelVersions.reduce((newState, modelVersion) => {
+        const { name, version } = modelVersion;
         return {
           ...newState,
-          [modelName]: {
-            ...newState[modelName],
+          [name]: {
+            ...newState[name],
             [version]: modelVersion,
           },
         };
@@ -113,22 +108,6 @@ export const getAllModelVersions = (state) => {
     (modelVersionByVersion) => Object.values(modelVersionByVersion),
   );
 };
-
-// Inline the `name` field nested inside `registered_model` and `version` in `model_version`
-const inlineModel = (model) => {
-  const { registered_model, latest_versions } = model;
-  return {
-    ...model,
-    name: registered_model.name,
-    latest_versions: latest_versions && latest_versions.map(inlineModelVersion),
-  };
-};
-
-// Inline the `version` field nested inside `model_version`
-const inlineModelVersion = (modelVersion) => ({
-  ...modelVersion,
-  version: modelVersion.model_version.version,
-});
 
 export default {
   modelByName,

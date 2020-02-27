@@ -56,7 +56,7 @@ export class ModelStageTransitionDropdown extends React.Component {
               this.handleMenuItemClick({
                 type: ActivityTypes.APPLIED_TRANSITION,
                 model_registry_data: {
-                  transition: { to_stage: stage },
+                  to_stage: stage,
                 },
               })
             }
@@ -115,7 +115,7 @@ export const renderActivityDescription = (activity) => {
       &nbsp;&nbsp;&nbsp;
       <i className='fas fa-long-arrow-alt-right' />
       &nbsp;&nbsp;&nbsp;&nbsp;
-      {StageTagComponents[activity.model_registry_data.transition.to_stage]}
+      {StageTagComponents[activity.model_registry_data.to_stage]}
     </div>
   ) : null;
 };
