@@ -95,8 +95,9 @@ describe('unit tests', () => {
       yAxisLogScale: false,
       lineSmoothness: 0,
       onLayoutChange: jest.fn(),
-      onDoubleClick: jest.fn(),
-      onClick: jest.fn(),
+      onLegendDoubleClick: jest.fn(),
+      onLegendClick: jest.fn(),
+      deselectedCurves: [],
     };
     minimalPropsForBarChart = {
       ...minimalPropsForLineChart,
@@ -161,12 +162,14 @@ describe('unit tests', () => {
           x: ['metric_0'],
           y: [100],
           type: 'bar',
+          runId: 'runUuid1',
         },
         {
           name: 'RunDisplayName2',
           x: ['metric_0'],
           y: [300],
           type: 'bar',
+          runId: 'runUuid2',
         },
       ],
       layout: {

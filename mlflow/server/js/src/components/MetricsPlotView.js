@@ -80,7 +80,7 @@ export class MetricsPlotView extends React.Component {
 
   getPlotPropsForBarChart = () => {
     /* eslint-disable no-param-reassign */
-    const { runUuids, runDisplayNames } = this.props;
+    const { runUuids, runDisplayNames, deselectedCurves } = this.props;
 
     // A reverse lookup of `metricKey: { runUuid: value, metricKey }`
     const historyByMetricKey = this.props.metrics.reduce((map, metric) => {
@@ -100,12 +100,20 @@ export class MetricsPlotView extends React.Component {
     );
 
     const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map((history) => history.metricKey);
-    const data = runUuids.map((runUuid, i) => ({
-      name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
-      x: sortedMetricKeys,
-      y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
-      type: 'bar',
-    }));
+    const deselectedCurvesSet = new Set(deselectedCurves);
+    const data = runUuids.map((runUuid, i) => {
+      const visibility = deselectedCurvesSet.has(runUuid) ?
+        { visible: 'legendonly' } : {};
+      const res = {
+        name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
+        x: sortedMetricKeys,
+        y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
+        type: 'bar',
+        runId: runUuid,
+        ...visibility,
+      };
+      return res;
+    });
 
     const layout = { barmode: 'group' };
     const props = { data, layout };
