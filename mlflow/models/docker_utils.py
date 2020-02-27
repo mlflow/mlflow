@@ -132,7 +132,8 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
     with TempDir() as tmp:
         cwd = tmp.path()
         install_mlflow = _get_mlflow_install_step(cwd, mlflow_home, python_only)
-        custom_setup_steps = custom_setup_steps_hook(cwd, no_conda) if custom_setup_steps_hook else ""
+        custom_setup_steps = custom_setup_steps_hook(cwd, no_conda) \
+            if custom_setup_steps_hook else ""
         if python_only:
             with open(os.path.join(cwd, "Dockerfile"), "w") as f:
                 f.write(_DOCKERFILE_PYTHON_TEMPLATE.format(
