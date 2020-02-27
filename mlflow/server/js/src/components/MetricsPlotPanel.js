@@ -66,13 +66,6 @@ export class MetricsPlotPanel extends React.Component {
     super(props);
     this.state = {
       historyRequestIds: [],
-      lineSmoothness: 0,
-      // Used to keep track of the most-recent linear y-axis plot range, to handle the specific
-      // case where we toggle a plot with negative y-axis bounds from linear to log scale,
-      // and then back to linear scale (we save the initial negative linear y-axis bounds so
-      // that we can restore them when converting from log back to linear scale)
-      lastLinearYAxisRange: [],
-
       popoverVisible: false,
       popoverX: 0,
       popoverY: 0,
