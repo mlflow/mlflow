@@ -22,7 +22,7 @@ Model
     An MLflow Model is created from an experiment or run that is logged with one of the model flavor’s ``mlflow.model_flavor.log_model`` methods. Once logged, this model can then be registered with the Model Registry.
 
 Registered Model
-    An MLflow Model can be registered with the  Model Registry. It has a unique name, contains versions, associated transitional stages, model lineage, and other metadata.
+    An MLflow Model can be registered with the  Model Registry. A registered model has a unique name, contains versions, associated transitional stages, model lineage, and other metadata.
 
 Model Version
     Each registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to the same model name increments the version number.
