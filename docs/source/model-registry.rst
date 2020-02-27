@@ -36,7 +36,7 @@ Annotations and Descriptions
 Model Registry Workflows
 ========================
 
-Before a model can be added to the Model Registry you must log it using the ``log_model`` methods
+Before you can add a model to the Model Registry you must log it using the ``log_model`` methods
 of the corresponding model flavors. Once a model has been logged, you can add, modify, update, transition, or delete model in the Model Registry through the UI or the API.
 
 UI Workflow
