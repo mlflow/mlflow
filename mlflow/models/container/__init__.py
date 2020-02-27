@@ -83,7 +83,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
     """
     # If model is a pyfunc model, create its conda env (even if it also has mleap flavor)
     has_env = False
-    activate_cmd = []
+    model_dependencies = []
     if model_path:
         model_config_path = os.path.join(model_path, "MLmodel")
         model = Model.load(model_config_path)
@@ -120,7 +120,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
 
                     req.close()
                 env_file.close()
-                activate_cmd = ["pip install -r /opt/mlflow/requirements.txt"]
+                model_dependencies = ["pip install -r /opt/mlflow/requirements.txt"]
             else:
                 print("creating and activating custom environment")
                 env = conf[pyfunc.ENV]
@@ -133,19 +133,21 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
                 if Popen(["bash", "-c", conda_create_model_env]).wait() != 0:
                     raise Exception("Failed to create model environment.")
                 has_env = True
-                activate_cmd = ["source /miniconda/bin/activate custom_env"]
-    install_mlflow_cmd = []
+
+    activate_cmd = ["source /miniconda/bin/activate custom_env"] if has_env else []
+    # NB: install gunicorn[gevent] from pip rather than from conda because gunicorn is already
+    # dependency of mlflow on pip and we expect mlflow to be part of the environment.
+    install_server_deps = ["pip install gunicorn[gevent]"]
+    if Popen(["bash", "-c", " && ".join(activate_cmd + install_server_deps + model_dependencies)]).\
+            wait() != 0:
+        raise Exception("Failed to install serving dependencies into the model environment.")
     if has_env and install_mlflow:
         install_mlflow_cmd = [
             "pip install /opt/mlflow/." if _container_includes_mlflow_source()
             else "pip install mlflow=={}".format(MLFLOW_VERSION)
         ]
-    # NB: install gunicorn[gevent] from pip rather than from conda because gunicorn is already
-    # dependency of mlflow on pip and we expect mlflow to be part of the environment.
-    install_server_deps = ["pip install gunicorn[gevent]"]
-    if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd + install_server_deps)])\
-            .wait() != 0:
-        raise Exception("Failed to install required dependencies to setup the model environment.")
+        if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd)]).wait() != 0:
+            raise Exception("Failed to install mlflow into the model environment.")
 
 
 def _serve_pyfunc(model):
