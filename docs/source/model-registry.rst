@@ -186,7 +186,7 @@ You can fetch a list of all registered models in the registry with a simple meth
     ...
     ...
 
-With hundreds of models, this call can be cumbersome to peruse. A more appropriate call would be to search a specific model name and list its version
+With hundreds of models, it can be cumbersome to peruse the results returned from this call. A more efficient approach would be to search for a specific model name and list its version
 details using `search_model_versions(...) <https://www.mlflow.org/docs/latest/python_api/mlflow.tracking.html#mlflow.tracking.MlflowClient.search_model_versions>`_ method
 and provide a filter string such as ``“name=’sk-learn-random-forest-reg-model’”``
 
