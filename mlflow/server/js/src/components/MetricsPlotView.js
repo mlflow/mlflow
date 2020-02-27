@@ -104,7 +104,7 @@ export class MetricsPlotView extends React.Component {
     const data = runUuids.map((runUuid, i) => {
       const visibility = deselectedCurvesSet.has(runUuid) ?
         { visible: 'legendonly' } : {};
-      const res = {
+      return {
         name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
         x: sortedMetricKeys,
         y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
@@ -112,7 +112,6 @@ export class MetricsPlotView extends React.Component {
         runId: runUuid,
         ...visibility,
       };
-      return res;
     });
 
     const layout = { barmode: 'group' };

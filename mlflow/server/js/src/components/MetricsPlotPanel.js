@@ -315,9 +315,13 @@ export class MetricsPlotPanel extends React.Component {
   // Return unique key identifying the curve or bar chart corresponding to the specified
   // Plotly plot data element
   static getCurveKey(plotDataElem) {
+    // In bar charts, each legend item consists of a single run ID (all bars for that run are
+    // associated with & toggled by that legend item)
     if (plotDataElem.type === "bar") {
       return plotDataElem.runId;
     } else {
+      // In line charts, each (run, metricKey) tuple has its own legend item, so construct
+      // a unique legend item identifier by concatenating the run id & metric key
       return Utils.getCurveKey(plotDataElem.runId, plotDataElem.metricName);
     }
   }
