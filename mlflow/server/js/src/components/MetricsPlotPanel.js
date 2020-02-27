@@ -425,7 +425,6 @@ export class MetricsPlotPanel extends React.Component {
 
   render() {
     const { experimentId, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
-    const { runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
     const state = this.getUrlState();
     const {
       showPoint,
