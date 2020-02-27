@@ -249,6 +249,14 @@ def test_archive_artifacts_empty_run(mock_remove_folder):
     mock_remove_folder.assert_called_once()
 
 
+@mock.patch('pyarrow.hdfs.HadoopFileSystem')
+def test_delete_artifacts(hdfs_system_mock):
+    delete_mock = hdfs_system_mock.return_value.delete
+    repo = HdfsArtifactRepository('hdfs:/some_path/maybe/path')
+    repo.delete_artifacts('artifacts')
+    delete_mock.assert_called_once_with('/some_path/maybe/path/artifacts', recursive=True)
+
+
 @mock.patch('pyarrow.hdfs.HadoopFileSystem', spec=HadoopFileSystem)
 def test_download_file(hdfs_system_mock):
     expected_data = b"hello"

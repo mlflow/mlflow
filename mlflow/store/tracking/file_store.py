@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import sys
+import shutil
 
 import uuid
 
@@ -323,6 +324,20 @@ class FileStore(AbstractStore):
         check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
         self._overwrite_run_info(new_info)
+
+    def _hard_delete_run(self, run_id):
+        """
+        Permanently delete a run (metadata and metrics, tags, parameters).
+        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
+        """
+        _, run_dir = self._find_run_root(run_id)
+        shutil.rmtree(run_dir)
+
+    def _get_deleted_runs(self):
+        experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
+        deleted_runs = self.search_runs(experiment_ids=experiment_ids, filter_string='',
+                                        run_view_type=ViewType.DELETED_ONLY)
+        return [deleted_run.info.run_uuid for deleted_run in deleted_runs]
 
     def restore_run(self, run_id):
         run_info = self._get_run_info(run_id)
