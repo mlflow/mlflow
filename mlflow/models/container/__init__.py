@@ -124,7 +124,6 @@ def _install_pyfunc_deps_optimize(model_path=None):
     Get the dependencies from conda.yaml and install only the dependencies required for model serve.
     """
     # If model is a pyfunc model, create its conda env (even if it also has mleap flavor)
-    has_env = False
     if model_path:
         model_config_path = os.path.join(model_path, "MLmodel")
         model = Model.load(model_config_path)
