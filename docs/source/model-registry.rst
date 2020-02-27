@@ -31,7 +31,7 @@ Model Stage
     Each distinct model version can be assigned one stage at any given time. MLflow provides predefined stages for common use-cases such as *Staging*, *Production* or *Archived*. You can transition a model version from one stage to another stage.
 
 Annotations and Descriptions
-    You can annotate the top-level model and each version individually using markdown, including description and any relevant information useful for the team such as algorithm descriptions, dataset employed or methodology.
+    You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm descriptions, dataset employed or methodology.
 
 Model Registry Workflows
 ========================
