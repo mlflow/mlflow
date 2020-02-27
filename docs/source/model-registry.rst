@@ -104,7 +104,7 @@ There are three programmatic ways to add a model to the registry. First, you can
                 artifact_path="sklearn-model",
                 registered_model_name="sk-learn-random-forest-reg-model")
 
-This will log the model as well as register it under the specified name as version 1.
+This logs the model as well as registers it under the specified name as version 1.
 
 The second way is to explicitly register the `mlflow.register_model(...) <https://www.mlflow.org/docs/latest/python_api/mlflow.html#mlflow.register_model>`_,
 after all your experiment runs and when you have ascertained which run within an experiment is most suitable to add to the registry.
