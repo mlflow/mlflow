@@ -16,7 +16,7 @@ staging to production), and annotations.
 Concepts
 ========
 
-As the fourth standalone component of MLflow, the Model Registry introduces few concepts that describe and facilitate the full lifecycle of an MLflow model.
+As the fourth standalone component of MLflow, the Model Registry introduces a few concepts that describe and facilitate the full lifecycle of an MLflow model.
 
 Model
     An MLflow Model is created from an experiment or run that is logged with one of the model flavor’s ``mlflow.model_flavor.log_model`` methods. Once logged, this model can then be registered with the Model Registry.
