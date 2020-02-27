@@ -83,6 +83,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
     """
     # If model is a pyfunc model, create its conda env (even if it also has mleap flavor)
     has_env = False
+    activate_cmd = []
     if model_path:
         model_config_path = os.path.join(model_path, "MLmodel")
         model = Model.load(model_config_path)
@@ -131,27 +132,27 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
                 if Popen(["bash", "-c", conda_create_model_env]).wait() != 0:
                     raise Exception("Failed to create model environment.")
                 has_env = True
-    activate_cmd = ["source /miniconda/bin/activate custom_env"] if has_env \
-        else ["pip install -r /opt/mlflow/requirements.txt"]
-    if install_mlflow and not no_conda:
+                activate_cmd = ["source /miniconda/bin/activate custom_env"]
+    install_mlflow_cmd = []
+    if has_env and install_mlflow:
         install_mlflow_cmd = [
             "pip install /opt/mlflow/." if _container_includes_mlflow_source()
             else "pip install mlflow=={}".format(MLFLOW_VERSION)
         ]
-    else:
-        install_mlflow_cmd = []
+    if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd)]).wait() != 0:
+        raise Exception("Failed to install required dependencies to setup the model environment.")
+    install_model_dep = ["pip install -r /opt/mlflow/requirements.txt"] if no_conda else []
     # NB: install gunicorn[gevent] from pip rather than from conda because gunicorn is already
     # dependency of mlflow on pip and we expect mlflow to be part of the environment.
     install_server_deps = ["pip install gunicorn[gevent]"]
-    if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd + install_server_deps)]) \
-            .wait() != 0:
-        raise Exception("Failed to install mlflow into the model environment.")
+    if Popen(["bash", "-c", " && ".join(install_server_deps + install_model_dep)]).wait() != 0:
+        raise Exception("Failed to install required dependencies to setup the model environment.")
 
 
 def _serve_pyfunc(model):
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
-    if pyfunc.ENV in conf and not os.environ.get('OPTIMIZED_IMAGE'):
+    if pyfunc.ENV in conf and os.environ.get('OPTIMIZED_IMAGE') == "False":
         if not os.environ.get(DISABLE_ENV_CREATION) == "true":
             _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
         bash_cmds += ["source /miniconda/bin/activate custom_env"]
