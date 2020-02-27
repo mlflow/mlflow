@@ -15,6 +15,11 @@ describe('unit tests', () => {
     handleYAxisLogScaleChange: jest.fn(),
     handleLineSmoothChange: jest.fn(),
     chartType: CHART_TYPE_LINE,
+    initialLineSmoothness: 0,
+    yAxisLogScale: true,
+    xAxis: X_AXIS_RELATIVE,
+    onLayoutChange: jest.fn(),
+    showPoint: false,
   };
   const minimalPropsForBarChart = { ...minimalPropsForLineChart, chartType: CHART_TYPE_BAR };
 
