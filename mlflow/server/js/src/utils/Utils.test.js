@@ -1,6 +1,7 @@
 import Utils from './Utils';
 import React from 'react';
 import { shallow } from 'enzyme';
+import {X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL} from "../components/MetricsPlotControls";
 
 test("formatMetric", () => {
   expect(Utils.formatMetric(0)).toEqual("0");
@@ -202,13 +203,45 @@ test("getGitHubRegex", () => {
   });
 });
 
-test('getPlotMetricKeysFromUrl', () => {
-  const url0 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=[]';
-  const url1 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1"]';
+test('getMetricPlotStateFromUrl', () => {
+  const url0 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=[]' +
+      '&plot_layout={"xaxis":{"a": "b"}}&x_axis=step&y_axis_scale=log' +
+      '&line_smoothness=0.53&show_point=true&selected_run_ids=["runUuid1"]';
+  const url1 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1"]&plot_layout={}&x_axis=wall&y_axis_scale=log&show_point=false';
   const url2 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1","metric_2"]';
-  expect(Utils.getPlotMetricKeysFromUrl(url0)).toEqual([]);
-  expect(Utils.getPlotMetricKeysFromUrl(url1)).toEqual(['metric_1']);
-  expect(Utils.getPlotMetricKeysFromUrl(url2)).toEqual(['metric_1', 'metric_2']);
+  // Test extracting plot keys, point info, y axis log scale, line smoothness, layout info
+  expect(Utils.getMetricPlotStateFromUrl(url0)).toEqual({
+    selectedXAxis: X_AXIS_STEP,
+    selectedMetricKeys: [],
+    showPoint: true,
+    yAxisLogScale: true,
+    lineSmoothness: 0.53,
+    layout: {
+      xaxis: {'a': 'b'},
+    },
+    deselectedCurves: [],
+    lastLinearYAxisRange: [],
+  });
+  expect(Utils.getMetricPlotStateFromUrl(url1)).toEqual({
+    selectedXAxis: X_AXIS_WALL,
+    selectedMetricKeys: ['metric_1'],
+    showPoint: false,
+    yAxisLogScale: true,
+    lineSmoothness: 0,
+    layout: {},
+    deselectedCurves: [],
+    lastLinearYAxisRange: [],
+  });
+  expect(Utils.getMetricPlotStateFromUrl(url2)).toEqual({
+    selectedXAxis: X_AXIS_RELATIVE,
+    selectedMetricKeys: ['metric_1', 'metric_2'],
+    showPoint: false,
+    yAxisLogScale: false,
+    lineSmoothness: 0,
+    layout: {autosize: true},
+    deselectedCurves: [],
+    lastLinearYAxisRange: [],
+  });
 });
 
 test('getSearchParamsFromUrl', () => {

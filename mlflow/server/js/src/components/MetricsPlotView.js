@@ -22,6 +22,9 @@ export class MetricsPlotView extends React.Component {
     lineSmoothness: PropTypes.number,
     extraLayout: PropTypes.object,
     onLayoutChange: PropTypes.func.isRequired,
+    onLegendClick: PropTypes.func.isRequired,
+    onLegendDoubleClick: PropTypes.func.isRequired,
+    deselectedCurves: PropTypes.arrayOf(String).isRequired,
   };
 
   static getLineLegend = (metricKey, runDisplayName, isComparing) => {
@@ -41,10 +44,14 @@ export class MetricsPlotView extends React.Component {
   };
 
   getPlotPropsForLineChart = () => {
-    const { metrics, xAxis, showPoint, lineSmoothness, isComparing } = this.props;
+    const { metrics, xAxis, showPoint, lineSmoothness, isComparing,
+      deselectedCurves } = this.props;
+    const deselectedCurvesSet = new Set(deselectedCurves);
     const data = metrics.map((metric) => {
-      const { metricKey, runDisplayName, history } = metric;
+      const { metricKey, runDisplayName, history, runUuid } = metric;
       const isSingleHistory = history.length === 0;
+      const visible = !deselectedCurvesSet.has(Utils.getCurveKey(runUuid, metricKey)) ?
+          true : "legendonly";
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
         x: history.map((entry) => {
@@ -58,6 +65,9 @@ export class MetricsPlotView extends React.Component {
         mode: isSingleHistory ? 'markers' : 'lines+markers',
         line: { shape: 'spline', smoothing: lineSmoothness },
         marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
+        visible: visible,
+        runId: runUuid,
+        metricName: metricKey,
       };
     });
     const props = { data };
@@ -70,7 +80,7 @@ export class MetricsPlotView extends React.Component {
 
   getPlotPropsForBarChart = () => {
     /* eslint-disable no-param-reassign */
-    const { runUuids, runDisplayNames } = this.props;
+    const { runUuids, runDisplayNames, deselectedCurves } = this.props;
 
     // A reverse lookup of `metricKey: { runUuid: value, metricKey }`
     const historyByMetricKey = this.props.metrics.reduce((map, metric) => {
@@ -90,11 +100,13 @@ export class MetricsPlotView extends React.Component {
     );
 
     const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map((history) => history.metricKey);
+    const deselectedCurvesSet = new Set(deselectedCurves);
     const data = runUuids.map((runUuid, i) => ({
       name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
       x: sortedMetricKeys,
       y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
       type: 'bar',
+      visible: deselectedCurvesSet.has(runUuid),
     }));
 
     const layout = { barmode: 'group' };
@@ -107,7 +119,7 @@ export class MetricsPlotView extends React.Component {
   };
 
   render() {
-    const { onLayoutChange } = this.props;
+    const { onLayoutChange, onLegendClick, onLegendDoubleClick } = this.props;
     const plotProps =
       this.props.chartType === CHART_TYPE_BAR
         ? this.getPlotPropsForBarChart()
@@ -118,6 +130,8 @@ export class MetricsPlotView extends React.Component {
           {...plotProps}
           useResizeHandler
           onRelayout={onLayoutChange}
+          onLegendClick={onLegendClick}
+          onLegendDoubleClick={onLegendDoubleClick}
           style={{ width: '100%', height: '100%' }}
           layout={_.cloneDeep(plotProps.layout)}
           config={{
