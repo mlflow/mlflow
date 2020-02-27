@@ -114,7 +114,7 @@ class PyFuncBackend(FlavorBackend):
     def build_image(self, model_uri, image_name, install_mlflow=False, mlflow_home=None,
                     python_only=False, no_conda=False):
 
-        def copy_model_into_container(dockerfile_context_dir):
+        def copy_model_into_container(dockerfile_context_dir, no_conda):
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
             os.mkdir(model_cwd)
             model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
@@ -128,8 +128,7 @@ class PyFuncBackend(FlavorBackend):
                     ENV OPTIMIZED_IMAGE="true"
                     """.format(
                     disable_env=DISABLE_ENV_CREATION,
-                    model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
-                    install_mlflow=repr(install_mlflow)
+                    model_dir=str(posixpath.join("model_dir", os.path.basename(model_path)))
                 )
             else:
                 return """
@@ -140,8 +139,7 @@ class PyFuncBackend(FlavorBackend):
                     ENV {disable_env}="true"
                     """.format(
                     disable_env=DISABLE_ENV_CREATION,
-                    model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
-                    install_mlflow=repr(install_mlflow)
+                    model_dir=str(posixpath.join("model_dir", os.path.basename(model_path)))
                 )
 
         # The pyfunc image runs the same server as the Sagemaker image
