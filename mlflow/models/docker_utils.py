@@ -113,7 +113,7 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home, python_only):
 
 
 def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_hook=None,
-                 python_only=False, no_conda=False):
+                 python_only=False):
     """
     Build an MLflow Docker image that can be used to serve a
     The image is built locally and it requires Docker to run.
@@ -132,7 +132,7 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
     with TempDir() as tmp:
         cwd = tmp.path()
         install_mlflow = _get_mlflow_install_step(cwd, mlflow_home, python_only)
-        custom_setup_steps = custom_setup_steps_hook(cwd, no_conda) \
+        custom_setup_steps = custom_setup_steps_hook(cwd) \
             if custom_setup_steps_hook else ""
         if python_only:
             with open(os.path.join(cwd, "Dockerfile"), "w") as f:
