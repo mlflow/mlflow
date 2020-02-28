@@ -175,7 +175,6 @@ class RestStore(AbstractStore):
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param stage: New desired stage for this model version.
         :param description: New description.
 
         :return: None.

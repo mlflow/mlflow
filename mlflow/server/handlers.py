@@ -589,11 +589,6 @@ def _update_model_version():
     model_version = _get_model_registry_store().update_model_version(
         name=request_message.name, version=request_message.version,
         description=new_description)
-    if request_message.HasField("stage"):
-        model_version = _get_model_registry_store().transition_model_version_stage(
-            name=request_message.name, version=request_message.version,
-            stage=request_message.stage,
-            archive_existing_versions=False)
     return _wrap_response(UpdateModelVersion.Response(model_version=model_version.to_proto()))
 
 
