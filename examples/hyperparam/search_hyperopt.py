@@ -31,7 +31,7 @@ _inf = np.finfo(np.float64).max
 @click.option("--metric", type=click.STRING, default="rmse",
               help="Metric to optimize on.")
 @click.option("--algo", type=click.STRING, default="tpe.suggest",
-              help="Optimizer algorhitm.")
+              help="Optimizer algorithm.")
 @click.option("--seed", type=click.INT, default=97531,
               help="Seed for the random generator")
 @click.argument("training_data")
