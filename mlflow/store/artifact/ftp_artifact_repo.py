@@ -9,6 +9,7 @@ from six.moves import urllib
 from mlflow.entities.file_info import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+from mlflow.exceptions import MlflowException
 
 
 class FTPArtifactRepository(ArtifactRepository):
@@ -128,3 +129,6 @@ class FTPArtifactRepository(ArtifactRepository):
         with self.get_ftp_client() as ftp:
             with open(local_path, 'wb') as f:
                 ftp.retrbinary('RETR ' + remote_full_path, f.write)
+
+    def delete_artifacts(self, artifact_path=None):
+        raise MlflowException('Not implemented yet')
