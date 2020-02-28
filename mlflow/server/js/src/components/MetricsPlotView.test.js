@@ -94,6 +94,7 @@ describe('unit tests', () => {
       isComparing: false,
       yAxisLogScale: false,
       lineSmoothness: 0,
+      onClick: jest.fn(),
       onLayoutChange: jest.fn(),
       onLegendDoubleClick: jest.fn(),
       onLegendClick: jest.fn(),
@@ -131,7 +132,6 @@ describe('unit tests', () => {
             smoothing: 0,
           },
           marker: {"opacity": 0},
-          runUuid: "runUuid1",
         },
         {
           metricName: 'metric_1',
@@ -147,7 +147,6 @@ describe('unit tests', () => {
             smoothing: 0,
           },
           marker: {"opacity": 0},
-          runUuid: "runUuid2",
         },
       ],
       layout: {},
@@ -161,7 +160,6 @@ describe('unit tests', () => {
       data: [
         {
           name: 'RunDisplayName1',
-          runUuid: "runUuid1",
           x: ['metric_0'],
           y: [100],
           type: 'bar',
@@ -169,7 +167,6 @@ describe('unit tests', () => {
         },
         {
           name: 'RunDisplayName2',
-          runUuid: "runUuid2",
           x: ['metric_0'],
           y: [300],
           type: 'bar',
