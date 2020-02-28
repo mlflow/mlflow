@@ -467,7 +467,7 @@ def _log_model():
     request_message = _get_request_message(LogModel())
     try:
         model = json.loads(request_message.model_json)
-    except:  # NB: can not be more specific here due to python2 compatibility
+    except json.decoder.JSONDecodeError:
         raise MlflowException("Malformed model info. \n {} \n is not a valid JSON.".format(
             request_message.model_json),
             error_code=INVALID_PARAMETER_VALUE)
@@ -589,11 +589,6 @@ def _update_model_version():
     model_version = _get_model_registry_store().update_model_version(
         name=request_message.name, version=request_message.version,
         description=new_description)
-    if request_message.HasField("stage"):
-        model_version = _get_model_registry_store().transition_model_version_stage(
-            name=request_message.name, version=request_message.version,
-            stage=request_message.stage,
-            archive_existing_versions=False)
     return _wrap_response(UpdateModelVersion.Response(model_version=model_version.to_proto()))
 
 
