@@ -409,7 +409,7 @@ export class MetricsPlotPanel extends React.Component {
         this.isClicked = false;
         const { popoverVisible, popoverX, popoverY } = this.state;
         const { points, event: { clientX, clientY } } = data;
-        const clickedSamePoint = popoverX === clientX && popoverY === clientY;
+        const samePointClicked = popoverX === clientX && popoverY === clientY;
 
         const runItems = points
           .sort((a, b) => b.y - a.y)
@@ -421,7 +421,7 @@ export class MetricsPlotPanel extends React.Component {
           }));
 
         this.setState({
-          popoverVisible: !popoverVisible || !clickedSamePoint,
+          popoverVisible: !popoverVisible || !samePointClicked,
           popoverX: clientX,
           popoverY: clientY,
           popoverRunItems: runItems,
