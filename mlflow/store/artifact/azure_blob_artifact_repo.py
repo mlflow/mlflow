@@ -117,3 +117,6 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         (container, _, remote_root_path) = self.parse_wasbs_uri(self.artifact_uri)
         remote_full_path = posixpath.join(remote_root_path, remote_file_path)
         self.client.get_blob_to_path(container, remote_full_path, local_path)
+
+    def delete_artifacts(self, artifact_path=None):
+        raise MlflowException('Not implemented yet')

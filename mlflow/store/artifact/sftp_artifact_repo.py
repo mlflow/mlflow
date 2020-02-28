@@ -5,6 +5,7 @@ from six.moves import urllib
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.exceptions import MlflowException
 
 
 class SFTPArtifactRepository(ArtifactRepository):
@@ -95,3 +96,6 @@ class SFTPArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         remote_full_path = posixpath.join(self.path, remote_file_path)
         self.sftp.get(remote_full_path, local_path)
+
+    def delete_artifacts(self, artifact_path=None):
+        raise MlflowException('Not implemented yet')

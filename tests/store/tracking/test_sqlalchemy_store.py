@@ -512,6 +512,38 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             deleted_run = self.store.get_run(run.info.run_id)
             self.assertEqual(actual.run_uuid, deleted_run.info.run_id)
 
+    def test_hard_delete_run(self):
+        run = self._run_factory()
+        metric = entities.Metric('blahmetric', 100.0, int(1000 * time.time()), 0)
+        self.store.log_metric(run.info.run_id, metric)
+        param = entities.Param('blahparam', '100.0')
+        self.store.log_param(run.info.run_id, param)
+        tag = entities.RunTag('test tag', 'a boogie')
+        self.store.set_tag(run.info.run_id, tag)
+
+        self.store._hard_delete_run(run.info.run_id)
+
+        with self.store.ManagedSessionMaker() as session:
+            actual_run = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
+            self.assertEqual(None, actual_run)
+            actual_metric = session.query(models.SqlMetric)\
+                .filter_by(run_uuid=run.info.run_id).first()
+            self.assertEqual(None, actual_metric)
+            actual_param = session.query(models.SqlParam)\
+                .filter_by(run_uuid=run.info.run_id).first()
+            self.assertEqual(None, actual_param)
+            actual_tag = session.query(models.SqlTag).filter_by(run_uuid=run.info.run_id).first()
+            self.assertEqual(None, actual_tag)
+
+    def test_get_deleted_runs(self):
+        run = self._run_factory()
+        deleted_run_ids = self.store._get_deleted_runs()
+        self.assertEqual([], deleted_run_ids)
+
+        self.store.delete_run(run.info.run_uuid)
+        deleted_run_ids = self.store._get_deleted_runs()
+        self.assertEqual([run.info.run_uuid], deleted_run_ids)
+
     def test_log_metric(self):
         run = self._run_factory()
 

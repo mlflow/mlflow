@@ -6,6 +6,7 @@ from six.moves import urllib
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+from mlflow.exceptions import MlflowException
 
 
 class GCSArtifactRepository(ArtifactRepository):
@@ -102,3 +103,6 @@ class GCSArtifactRepository(ArtifactRepository):
         remote_full_path = posixpath.join(remote_root_path, remote_file_path)
         gcs_bucket = self._get_bucket(bucket)
         gcs_bucket.blob(remote_full_path).download_to_filename(local_path)
+
+    def delete_artifacts(self, artifact_path=None):
+        raise MlflowException('Not implemented yet')

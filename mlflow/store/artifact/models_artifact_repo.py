@@ -131,3 +131,6 @@ class ModelsArtifactRepository(ArtifactRepository):
         :param local_path: The path to which to save the downloaded file.
         """
         self.repo._download_file(remote_file_path, local_path)
+
+    def delete_artifacts(self, artifact_path=None):
+        raise MlflowException('Not implemented yet')

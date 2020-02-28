@@ -140,6 +140,9 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         self._dbfs_download(output_path=local_path,
                             endpoint=self._get_dbfs_endpoint(remote_file_path))
 
+    def delete_artifacts(self, artifact_path=None):
+        raise MlflowException('Not implemented yet')
+
 
 def _get_host_creds_from_default_store():
     store = utils._get_store()

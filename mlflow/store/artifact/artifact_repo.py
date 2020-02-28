@@ -4,6 +4,7 @@ import tempfile
 from abc import abstractmethod, ABCMeta
 
 from mlflow.utils.validation import path_not_unique, bad_path_message
+from mlflow.utils import experimental
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -147,6 +148,16 @@ class ArtifactRepository:
         :param remote_file_path: Source path to the remote file, relative to the root
                                  directory of the artifact repository.
         :param local_path: The path to which to save the downloaded file.
+        """
+        pass
+
+    @experimental
+    def delete_artifacts(self, artifact_path=None):
+        """
+        Delete the artifacts at the specified location.
+        Supports the deletion of a single file or of a directory. Deletion of a directory
+        is recursive.
+        :param artifact_path: Path of the artifact to delete
         """
         pass
 
