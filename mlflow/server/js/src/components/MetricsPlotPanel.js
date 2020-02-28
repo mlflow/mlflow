@@ -416,7 +416,7 @@ export class MetricsPlotPanel extends React.Component {
           .map(point => ({
             name: point.data.name,
             color: point.fullData.marker.color,
-            runUuid: point.data.runUuid,
+            runId: point.data.runId,
             y: point.y,
           }));
 

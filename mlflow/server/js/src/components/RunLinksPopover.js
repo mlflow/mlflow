@@ -29,9 +29,9 @@ export class RunLinksPopover extends React.Component {
     const { experimentId, runItems } = this.props;
     return (
       <div>
-        {runItems.map(({ name, runUuid, color, y }, index) => {
-          const key = `${runUuid}-${index}`;
-          const to = Routes.getRunPageRoute(experimentId, runUuid);
+        {runItems.map(({ name, runId, color, y }, index) => {
+          const key = `${runId}-${index}`;
+          const to = Routes.getRunPageRoute(experimentId, runId);
           return (
             <Link key={key} to={to}>
               <p style={{ color }}>
