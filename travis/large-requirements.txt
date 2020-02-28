@@ -36,6 +36,6 @@ sqlalchemy==1.3.13
 kubernetes==10.0.1
 pystan==2.19.1.1
 # TODO (harupy): Unpin fbprophet once https://github.com/facebook/prophet/issues/1339 is fixed.
-fbprophet==0.6
+fbprophet==0.5
 # test plugin
 tests/resources/mlflow-test-plugin/
