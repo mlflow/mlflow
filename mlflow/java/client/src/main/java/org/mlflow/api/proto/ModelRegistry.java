@@ -15878,32 +15878,6 @@ public final class ModelRegistry {
 
     /**
      * <pre>
-     * If provided, transition ``model_version`` to new stage.
-     * </pre>
-     *
-     * <code>optional string stage = 4;</code>
-     */
-    boolean hasStage();
-    /**
-     * <pre>
-     * If provided, transition ``model_version`` to new stage.
-     * </pre>
-     *
-     * <code>optional string stage = 4;</code>
-     */
-    java.lang.String getStage();
-    /**
-     * <pre>
-     * If provided, transition ``model_version`` to new stage.
-     * </pre>
-     *
-     * <code>optional string stage = 4;</code>
-     */
-    com.google.protobuf.ByteString
-        getStageBytes();
-
-    /**
-     * <pre>
      * If provided, updates the description for this ``registered_model``.
      * </pre>
      *
@@ -15943,7 +15917,6 @@ public final class ModelRegistry {
     private UpdateModelVersion() {
       name_ = "";
       version_ = "";
-      stage_ = "";
       description_ = "";
     }
 
@@ -15985,14 +15958,8 @@ public final class ModelRegistry {
             }
             case 26: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000008;
-              description_ = bs;
-              break;
-            }
-            case 34: {
-              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000004;
-              stage_ = bs;
+              description_ = bs;
               break;
             }
             default: {
@@ -16813,60 +16780,6 @@ public final class ModelRegistry {
       }
     }
 
-    public static final int STAGE_FIELD_NUMBER = 4;
-    private volatile java.lang.Object stage_;
-    /**
-     * <pre>
-     * If provided, transition ``model_version`` to new stage.
-     * </pre>
-     *
-     * <code>optional string stage = 4;</code>
-     */
-    public boolean hasStage() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
-    }
-    /**
-     * <pre>
-     * If provided, transition ``model_version`` to new stage.
-     * </pre>
-     *
-     * <code>optional string stage = 4;</code>
-     */
-    public java.lang.String getStage() {
-      java.lang.Object ref = stage_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          stage_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * If provided, transition ``model_version`` to new stage.
-     * </pre>
-     *
-     * <code>optional string stage = 4;</code>
-     */
-    public com.google.protobuf.ByteString
-        getStageBytes() {
-      java.lang.Object ref = stage_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        stage_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     public static final int DESCRIPTION_FIELD_NUMBER = 3;
     private volatile java.lang.Object description_;
     /**
@@ -16877,7 +16790,7 @@ public final class ModelRegistry {
      * <code>optional string description = 3;</code>
      */
     public boolean hasDescription() {
-      return ((bitField0_ & 0x00000008) == 0x00000008);
+      return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     /**
      * <pre>
@@ -16941,11 +16854,8 @@ public final class ModelRegistry {
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, version_);
       }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, description_);
-      }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, stage_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, description_);
       }
       unknownFields.writeTo(output);
     }
@@ -16962,11 +16872,8 @@ public final class ModelRegistry {
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, version_);
       }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, description_);
-      }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, stage_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, description_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -16994,11 +16901,6 @@ public final class ModelRegistry {
         result = result && getVersion()
             .equals(other.getVersion());
       }
-      result = result && (hasStage() == other.hasStage());
-      if (hasStage()) {
-        result = result && getStage()
-            .equals(other.getStage());
-      }
       result = result && (hasDescription() == other.hasDescription());
       if (hasDescription()) {
         result = result && getDescription()
@@ -17022,10 +16924,6 @@ public final class ModelRegistry {
       if (hasVersion()) {
         hash = (37 * hash) + VERSION_FIELD_NUMBER;
         hash = (53 * hash) + getVersion().hashCode();
-      }
-      if (hasStage()) {
-        hash = (37 * hash) + STAGE_FIELD_NUMBER;
-        hash = (53 * hash) + getStage().hashCode();
       }
       if (hasDescription()) {
         hash = (37 * hash) + DESCRIPTION_FIELD_NUMBER;
@@ -17168,10 +17066,8 @@ public final class ModelRegistry {
         bitField0_ = (bitField0_ & ~0x00000001);
         version_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        stage_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
         description_ = "";
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         return this;
       }
 
@@ -17210,10 +17106,6 @@ public final class ModelRegistry {
         result.version_ = version_;
         if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000004;
-        }
-        result.stage_ = stage_;
-        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
-          to_bitField0_ |= 0x00000008;
         }
         result.description_ = description_;
         result.bitField0_ = to_bitField0_;
@@ -17275,13 +17167,8 @@ public final class ModelRegistry {
           version_ = other.version_;
           onChanged();
         }
-        if (other.hasStage()) {
-          bitField0_ |= 0x00000004;
-          stage_ = other.stage_;
-          onChanged();
-        }
         if (other.hasDescription()) {
-          bitField0_ |= 0x00000008;
+          bitField0_ |= 0x00000004;
           description_ = other.description_;
           onChanged();
         }
@@ -17515,106 +17402,6 @@ public final class ModelRegistry {
         return this;
       }
 
-      private java.lang.Object stage_ = "";
-      /**
-       * <pre>
-       * If provided, transition ``model_version`` to new stage.
-       * </pre>
-       *
-       * <code>optional string stage = 4;</code>
-       */
-      public boolean hasStage() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
-      }
-      /**
-       * <pre>
-       * If provided, transition ``model_version`` to new stage.
-       * </pre>
-       *
-       * <code>optional string stage = 4;</code>
-       */
-      public java.lang.String getStage() {
-        java.lang.Object ref = stage_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            stage_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * If provided, transition ``model_version`` to new stage.
-       * </pre>
-       *
-       * <code>optional string stage = 4;</code>
-       */
-      public com.google.protobuf.ByteString
-          getStageBytes() {
-        java.lang.Object ref = stage_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          stage_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * If provided, transition ``model_version`` to new stage.
-       * </pre>
-       *
-       * <code>optional string stage = 4;</code>
-       */
-      public Builder setStage(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        stage_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * If provided, transition ``model_version`` to new stage.
-       * </pre>
-       *
-       * <code>optional string stage = 4;</code>
-       */
-      public Builder clearStage() {
-        bitField0_ = (bitField0_ & ~0x00000004);
-        stage_ = getDefaultInstance().getStage();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * If provided, transition ``model_version`` to new stage.
-       * </pre>
-       *
-       * <code>optional string stage = 4;</code>
-       */
-      public Builder setStageBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        stage_ = value;
-        onChanged();
-        return this;
-      }
-
       private java.lang.Object description_ = "";
       /**
        * <pre>
@@ -17624,7 +17411,7 @@ public final class ModelRegistry {
        * <code>optional string description = 3;</code>
        */
       public boolean hasDescription() {
-        return ((bitField0_ & 0x00000008) == 0x00000008);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <pre>
@@ -17679,7 +17466,7 @@ public final class ModelRegistry {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000004;
         description_ = value;
         onChanged();
         return this;
@@ -17692,7 +17479,7 @@ public final class ModelRegistry {
        * <code>optional string description = 3;</code>
        */
       public Builder clearDescription() {
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         description_ = getDefaultInstance().getDescription();
         onChanged();
         return this;
@@ -17709,7 +17496,7 @@ public final class ModelRegistry {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000004;
         description_ = value;
         onChanged();
         return this;
@@ -26433,103 +26220,102 @@ public final class ModelRegistry {
       "\024\n\006source\030\002 \001(\tB\004\370\206\031\001\022\016\n\006run_id\030\003 \001(\t\0327\n" +
       "\010Response\022+\n\rmodel_version\030\001 \001(\0132\024.mlflo" +
       "w.ModelVersion:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"\311\001\n\022UpdateModelVersi" +
+      "RPC[$this.Response]\"\272\001\n\022UpdateModelVersi" +
       "on\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB" +
-      "\004\370\206\031\001\022\r\n\005stage\030\004 \001(\t\022\023\n\013description\030\003 \001(" +
-      "\t\0327\n\010Response\022+\n\rmodel_version\030\001 \001(\0132\024.m" +
-      "lflow.ModelVersion:+\342?(\n&com.databricks." +
-      "rpc.RPC[$this.Response]\"\354\001\n\033TransitionMo" +
-      "delVersionStage\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007v" +
-      "ersion\030\002 \001(\tB\004\370\206\031\001\022\023\n\005stage\030\003 \001(\tB\004\370\206\031\001\022" +
-      "\'\n\031archive_existing_versions\030\004 \001(\010B\004\370\206\031\001" +
-      "\0327\n\010Response\022+\n\rmodel_version\030\001 \001(\0132\024.ml" +
-      "flow.ModelVersion:+\342?(\n&com.databricks.r" +
-      "pc.RPC[$this.Response]\"x\n\022DeleteModelVer" +
-      "sion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(" +
-      "\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks" +
-      ".rpc.RPC[$this.Response]\"\242\001\n\017GetModelVer" +
-      "sion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(" +
-      "\tB\004\370\206\031\001\0327\n\010Response\022+\n\rmodel_version\030\001 \001" +
-      "(\0132\024.mlflow.ModelVersion:+\342?(\n&com.datab" +
-      "ricks.rpc.RPC[$this.Response]\"\350\001\n\023Search" +
-      "ModelVersions\022\016\n\006filter\030\001 \001(\t\022\033\n\013max_res" +
-      "ults\030\002 \001(\003:\006200000\022\020\n\010order_by\030\003 \003(\t\022\022\n\n" +
-      "page_token\030\004 \001(\t\032Q\n\010Response\022,\n\016model_ve" +
-      "rsions\030\001 \003(\0132\024.mlflow.ModelVersion\022\027\n\017ne" +
-      "xt_page_token\030\002 \001(\t:+\342?(\n&com.databricks" +
-      ".rpc.RPC[$this.Response]\"\226\001\n\032GetModelVer" +
-      "sionDownloadUri\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007v" +
-      "ersion\030\002 \001(\tB\004\370\206\031\001\032 \n\010Response\022\024\n\014artifa" +
-      "ct_uri\030\001 \001(\t:+\342?(\n&com.databricks.rpc.RP" +
-      "C[$this.Response]*R\n\022ModelVersionStatus\022" +
-      "\030\n\024PENDING_REGISTRATION\020\001\022\027\n\023FAILED_REGI" +
-      "STRATION\020\002\022\t\n\005READY\020\0032\227\024\n\024ModelRegistryS" +
-      "ervice\022\266\001\n\025createRegisteredModel\022\035.mlflo" +
-      "w.CreateRegisteredModel\032&.mlflow.CreateR" +
-      "egisteredModel.Response\"V\362\206\031R\n6\n\004POST\022(/" +
-      "preview/mlflow/registered-models/create\032" +
-      "\004\010\002\020\000\020\001*\026Create RegisteredModel\022\266\001\n\025rena" +
-      "meRegisteredModel\022\035.mlflow.RenameRegiste" +
-      "redModel\032&.mlflow.RenameRegisteredModel." +
+      "\004\370\206\031\001\022\023\n\013description\030\003 \001(\t\0327\n\010Response\022+" +
+      "\n\rmodel_version\030\001 \001(\0132\024.mlflow.ModelVers" +
+      "ion:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\"\354\001\n\033TransitionModelVersionStage" +
+      "\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370" +
+      "\206\031\001\022\023\n\005stage\030\003 \001(\tB\004\370\206\031\001\022\'\n\031archive_exis" +
+      "ting_versions\030\004 \001(\010B\004\370\206\031\001\0327\n\010Response\022+\n" +
+      "\rmodel_version\030\001 \001(\0132\024.mlflow.ModelVersi" +
+      "on:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
+      "sponse]\"x\n\022DeleteModelVersion\022\022\n\004name\030\001 " +
+      "\001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Resp" +
+      "onse:+\342?(\n&com.databricks.rpc.RPC[$this." +
+      "Response]\"\242\001\n\017GetModelVersion\022\022\n\004name\030\001 " +
+      "\001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\0327\n\010Resp" +
+      "onse\022+\n\rmodel_version\030\001 \001(\0132\024.mlflow.Mod" +
+      "elVersion:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\350\001\n\023SearchModelVersions\022\016" +
+      "\n\006filter\030\001 \001(\t\022\033\n\013max_results\030\002 \001(\003:\006200" +
+      "000\022\020\n\010order_by\030\003 \003(\t\022\022\n\npage_token\030\004 \001(" +
+      "\t\032Q\n\010Response\022,\n\016model_versions\030\001 \003(\0132\024." +
+      "mlflow.ModelVersion\022\027\n\017next_page_token\030\002" +
+      " \001(\t:+\342?(\n&com.databricks.rpc.RPC[$this." +
+      "Response]\"\226\001\n\032GetModelVersionDownloadUri" +
+      "\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370" +
+      "\206\031\001\032 \n\010Response\022\024\n\014artifact_uri\030\001 \001(\t:+\342" +
+      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
+      "e]*R\n\022ModelVersionStatus\022\030\n\024PENDING_REGI" +
+      "STRATION\020\001\022\027\n\023FAILED_REGISTRATION\020\002\022\t\n\005R" +
+      "EADY\020\0032\227\024\n\024ModelRegistryService\022\266\001\n\025crea" +
+      "teRegisteredModel\022\035.mlflow.CreateRegiste" +
+      "redModel\032&.mlflow.CreateRegisteredModel." +
       "Response\"V\362\206\031R\n6\n\004POST\022(/preview/mlflow/" +
-      "registered-models/rename\032\004\010\002\020\000\020\001*\026Rename" +
-      " RegisteredModel\022\267\001\n\025updateRegisteredMod" +
-      "el\022\035.mlflow.UpdateRegisteredModel\032&.mlfl" +
-      "ow.UpdateRegisteredModel.Response\"W\362\206\031S\n" +
-      "7\n\005PATCH\022(/preview/mlflow/registered-mod" +
-      "els/update\032\004\010\002\020\000\020\001*\026Update RegisteredMod" +
-      "el\022\270\001\n\025deleteRegisteredModel\022\035.mlflow.De" +
-      "leteRegisteredModel\032&.mlflow.DeleteRegis" +
-      "teredModel.Response\"X\362\206\031T\n8\n\006DELETE\022(/pr" +
-      "eview/mlflow/registered-models/delete\032\004\010" +
-      "\002\020\000\020\001*\026Delete RegisteredModel\022\246\001\n\022getReg" +
-      "isteredModel\022\032.mlflow.GetRegisteredModel" +
-      "\032#.mlflow.GetRegisteredModel.Response\"O\362" +
-      "\206\031K\n2\n\003GET\022%/preview/mlflow/registered-m" +
-      "odels/get\032\004\010\002\020\000\020\001*\023Get RegisteredModel\022\257" +
-      "\001\n\024listRegisteredModels\022\034.mlflow.ListReg" +
-      "isteredModels\032%.mlflow.ListRegisteredMod" +
-      "els.Response\"R\362\206\031N\n3\n\003GET\022&/preview/mlfl" +
-      "ow/registered-models/list\032\004\010\002\020\000\020\001*\025List " +
-      "RegisteredModels\022\270\001\n\021getLatestVersions\022\031" +
-      ".mlflow.GetLatestVersions\032\".mlflow.GetLa" +
-      "testVersions.Response\"d\362\206\031`\nB\n\003GET\0225/pre" +
-      "view/mlflow/registered-models/get-latest" +
-      "-versions\032\004\010\002\020\000\020\001*\030Get Latest ModelVersi" +
-      "ons\022\247\001\n\022createModelVersion\022\032.mlflow.Crea" +
-      "teModelVersion\032#.mlflow.CreateModelVersi" +
-      "on.Response\"P\362\206\031L\n3\n\004POST\022%/preview/mlfl" +
-      "ow/model-versions/create\032\004\010\002\020\000\020\001*\023Create" +
-      " ModelVersion\022\250\001\n\022updateModelVersion\022\032.m" +
-      "lflow.UpdateModelVersion\032#.mlflow.Update" +
-      "ModelVersion.Response\"Q\362\206\031M\n4\n\005PATCH\022%/p" +
-      "review/mlflow/model-versions/update\032\004\010\002\020" +
-      "\000\020\001*\023Update ModelVersion\022\326\001\n\033transitionM" +
-      "odelVersionStage\022#.mlflow.TransitionMode" +
-      "lVersionStage\032,.mlflow.TransitionModelVe" +
-      "rsionStage.Response\"d\362\206\031`\n=\n\004POST\022//prev" +
-      "iew/mlflow/model-versions/transition-sta" +
-      "ge\032\004\010\002\020\000\020\001*\035Transition ModelVersion Stag" +
-      "e\022\251\001\n\022deleteModelVersion\022\032.mlflow.Delete" +
-      "ModelVersion\032#.mlflow.DeleteModelVersion" +
-      ".Response\"R\362\206\031N\n5\n\006DELETE\022%/preview/mlfl" +
-      "ow/model-versions/delete\032\004\010\002\020\000\020\001*\023Delete" +
-      " ModelVersion\022\227\001\n\017getModelVersion\022\027.mlfl" +
-      "ow.GetModelVersion\032 .mlflow.GetModelVers" +
-      "ion.Response\"I\362\206\031E\n/\n\003GET\022\"/preview/mlfl" +
-      "ow/model-versions/get\032\004\010\002\020\000\020\001*\020Get Model" +
-      "Version\022\252\001\n\023searchModelVersions\022\033.mlflow" +
-      ".SearchModelVersions\032$.mlflow.SearchMode" +
-      "lVersions.Response\"P\362\206\031L\n2\n\003GET\022%/previe" +
-      "w/mlflow/model-versions/search\032\004\010\002\020\000\020\001*\024" +
-      "Search ModelVersions\022\340\001\n\032getModelVersion" +
-      "DownloadUri\022\".mlflow.GetModelVersionDown" +
-      "loadUri\032+.mlflow.GetModelVersionDownload" +
-      "Uri.Response\"q\362\206\031m\n<\n\003GET\022//preview/mlfl" +
-      "ow/model-versions/get-download-uri\032\004\010\002\020\000" +
-      "\020\001*+Get Download URI For ModelVersion Ar" +
-      "tifactsB!\n\024org.mlflow.api.proto\220\001\001\240\001\001\342?\002" +
-      "\020\001"
+      "registered-models/create\032\004\010\002\020\000\020\001*\026Create" +
+      " RegisteredModel\022\266\001\n\025renameRegisteredMod" +
+      "el\022\035.mlflow.RenameRegisteredModel\032&.mlfl" +
+      "ow.RenameRegisteredModel.Response\"V\362\206\031R\n" +
+      "6\n\004POST\022(/preview/mlflow/registered-mode" +
+      "ls/rename\032\004\010\002\020\000\020\001*\026Rename RegisteredMode" +
+      "l\022\267\001\n\025updateRegisteredModel\022\035.mlflow.Upd" +
+      "ateRegisteredModel\032&.mlflow.UpdateRegist" +
+      "eredModel.Response\"W\362\206\031S\n7\n\005PATCH\022(/prev" +
+      "iew/mlflow/registered-models/update\032\004\010\002\020" +
+      "\000\020\001*\026Update RegisteredModel\022\270\001\n\025deleteRe" +
+      "gisteredModel\022\035.mlflow.DeleteRegisteredM" +
+      "odel\032&.mlflow.DeleteRegisteredModel.Resp" +
+      "onse\"X\362\206\031T\n8\n\006DELETE\022(/preview/mlflow/re" +
+      "gistered-models/delete\032\004\010\002\020\000\020\001*\026Delete R" +
+      "egisteredModel\022\246\001\n\022getRegisteredModel\022\032." +
+      "mlflow.GetRegisteredModel\032#.mlflow.GetRe" +
+      "gisteredModel.Response\"O\362\206\031K\n2\n\003GET\022%/pr" +
+      "eview/mlflow/registered-models/get\032\004\010\002\020\000" +
+      "\020\001*\023Get RegisteredModel\022\257\001\n\024listRegister" +
+      "edModels\022\034.mlflow.ListRegisteredModels\032%" +
+      ".mlflow.ListRegisteredModels.Response\"R\362" +
+      "\206\031N\n3\n\003GET\022&/preview/mlflow/registered-m" +
+      "odels/list\032\004\010\002\020\000\020\001*\025List RegisteredModel" +
+      "s\022\270\001\n\021getLatestVersions\022\031.mlflow.GetLate" +
+      "stVersions\032\".mlflow.GetLatestVersions.Re" +
+      "sponse\"d\362\206\031`\nB\n\003GET\0225/preview/mlflow/reg" +
+      "istered-models/get-latest-versions\032\004\010\002\020\000" +
+      "\020\001*\030Get Latest ModelVersions\022\247\001\n\022createM" +
+      "odelVersion\022\032.mlflow.CreateModelVersion\032" +
+      "#.mlflow.CreateModelVersion.Response\"P\362\206" +
+      "\031L\n3\n\004POST\022%/preview/mlflow/model-versio" +
+      "ns/create\032\004\010\002\020\000\020\001*\023Create ModelVersion\022\250" +
+      "\001\n\022updateModelVersion\022\032.mlflow.UpdateMod" +
+      "elVersion\032#.mlflow.UpdateModelVersion.Re" +
+      "sponse\"Q\362\206\031M\n4\n\005PATCH\022%/preview/mlflow/m" +
+      "odel-versions/update\032\004\010\002\020\000\020\001*\023Update Mod" +
+      "elVersion\022\326\001\n\033transitionModelVersionStag" +
+      "e\022#.mlflow.TransitionModelVersionStage\032," +
+      ".mlflow.TransitionModelVersionStage.Resp" +
+      "onse\"d\362\206\031`\n=\n\004POST\022//preview/mlflow/mode" +
+      "l-versions/transition-stage\032\004\010\002\020\000\020\001*\035Tra" +
+      "nsition ModelVersion Stage\022\251\001\n\022deleteMod" +
+      "elVersion\022\032.mlflow.DeleteModelVersion\032#." +
+      "mlflow.DeleteModelVersion.Response\"R\362\206\031N" +
+      "\n5\n\006DELETE\022%/preview/mlflow/model-versio" +
+      "ns/delete\032\004\010\002\020\000\020\001*\023Delete ModelVersion\022\227" +
+      "\001\n\017getModelVersion\022\027.mlflow.GetModelVers" +
+      "ion\032 .mlflow.GetModelVersion.Response\"I\362" +
+      "\206\031E\n/\n\003GET\022\"/preview/mlflow/model-versio" +
+      "ns/get\032\004\010\002\020\000\020\001*\020Get ModelVersion\022\252\001\n\023sea" +
+      "rchModelVersions\022\033.mlflow.SearchModelVer" +
+      "sions\032$.mlflow.SearchModelVersions.Respo" +
+      "nse\"P\362\206\031L\n2\n\003GET\022%/preview/mlflow/model-" +
+      "versions/search\032\004\010\002\020\000\020\001*\024Search ModelVer" +
+      "sions\022\340\001\n\032getModelVersionDownloadUri\022\".m" +
+      "lflow.GetModelVersionDownloadUri\032+.mlflo" +
+      "w.GetModelVersionDownloadUri.Response\"q\362" +
+      "\206\031m\n<\n\003GET\022//preview/mlflow/model-versio" +
+      "ns/get-download-uri\032\004\010\002\020\000\020\001*+Get Downloa" +
+      "d URI For ModelVersion ArtifactsB!\n\024org." +
+      "mlflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -26658,7 +26444,7 @@ public final class ModelRegistry {
     internal_static_mlflow_UpdateModelVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateModelVersion_descriptor,
-        new java.lang.String[] { "Name", "Version", "Stage", "Description", });
+        new java.lang.String[] { "Name", "Version", "Description", });
     internal_static_mlflow_UpdateModelVersion_Response_descriptor =
       internal_static_mlflow_UpdateModelVersion_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_UpdateModelVersion_Response_fieldAccessorTable = new

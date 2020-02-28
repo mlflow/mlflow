@@ -402,9 +402,6 @@ message UpdateModelVersion {
   // Model version number
   optional string version = 2 [(validate_required) = true];
 
-  // If provided, transition ``model_version`` to new stage.
-  optional string stage = 4;
-
   // If provided, updates the description for this ``registered_model``.
   optional string description = 3;
 
