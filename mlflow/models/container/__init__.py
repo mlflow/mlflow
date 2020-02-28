@@ -153,7 +153,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
 def _serve_pyfunc(model):
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
-    print("OPTIMIZED_IMAGE: ",os.environ.get('OPTIMIZED_IMAGE'))
+    print("OPTIMIZED_IMAGE: ", os.environ.get('OPTIMIZED_IMAGE'))
     if pyfunc.ENV in conf and os.environ.get('OPTIMIZED_IMAGE') == "False":
         if not os.environ.get(DISABLE_ENV_CREATION) == "true":
             _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
