@@ -1,4 +1,4 @@
-prospector[with_pyroma]==1.2.0.dev3
+prospector[with_pyroma]==1.2.0
 pep8==1.7.1
 pyarrow==0.16.0
 pylint==2.4.4
