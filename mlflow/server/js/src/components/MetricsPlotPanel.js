@@ -16,12 +16,14 @@ import {
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
+import { RunLinksPopover } from './RunLinksPopover';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
 
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
+    experimentId: PropTypes.number.isRequired,
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricKey: PropTypes.string.isRequired,
     // A map of { runUuid : { metricKey: value } }
@@ -64,6 +66,10 @@ export class MetricsPlotPanel extends React.Component {
     super(props);
     this.state = {
       historyRequestIds: [],
+      popoverVisible: false,
+      popoverX: 0,
+      popoverY: 0,
+      popoverRunItems: [],
     };
     this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
   }
@@ -388,8 +394,50 @@ export class MetricsPlotPanel extends React.Component {
 
   handleLineSmoothChange = (lineSmoothness) => this.updateUrlState({ lineSmoothness });
 
+  handleKeyDownOnPopover = ({ key }) => {
+    if (key === 'Escape') {
+      this.setState({ popoverVisible: false });
+    }
+  };
+
+  updatePopover = (data) => {
+    this.isClicked = !this.isClicked;
+
+    // Ignore double click.
+    setTimeout(() => {
+      if (this.isClicked) {
+        this.isClicked = false;
+        const { popoverVisible, popoverX, popoverY } = this.state;
+        const { points, event: { clientX, clientY } } = data;
+        const samePointClicked = popoverX === clientX && popoverY === clientY;
+
+        const runItems = points
+          .sort((a, b) => b.y - a.y)
+          .map(point => ({
+            runId: point.data.runId,
+            name: point.data.name,
+            color: point.fullData.marker.color,
+            y: point.y,
+          }));
+
+        this.setState({
+          popoverVisible: !popoverVisible || !samePointClicked,
+          popoverX: clientX,
+          popoverY: clientY,
+          popoverRunItems: runItems,
+        });
+      }
+    }, 300);
+  }
+
   render() {
-    const { runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
+    const { experimentId, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
+    const {
+      popoverVisible,
+      popoverX,
+      popoverY,
+      popoverRunItems,
+    } = this.state;
     const state = this.getUrlState();
     const {
       showPoint,
@@ -424,6 +472,16 @@ export class MetricsPlotPanel extends React.Component {
             // optimistically render the children
             shouldOptimisticallyRender={historyRequestIds.length === 0}
         >
+          <RunLinksPopover
+            experimentId={experimentId}
+            visible={popoverVisible}
+            x={popoverX}
+            y={popoverY}
+            runItems={popoverRunItems}
+            handleKeyDown={this.handleKeyDownOnPopover}
+            handleClose={() => this.setState({ popoverVisible: false })}
+            handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
+          />
           <MetricsPlotView
             runUuids={runUuids}
             runDisplayNames={runDisplayNames}
@@ -437,6 +495,7 @@ export class MetricsPlotPanel extends React.Component {
             extraLayout={state.layout}
             deselectedCurves={state.deselectedCurves}
             onLayoutChange={this.handleLayoutChange}
+            onClick={this.updatePopover}
             onLegendClick={this.handleLegendClick}
             onLegendDoubleClick={this.handleLegendDoubleClick}
           />

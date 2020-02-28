@@ -14,7 +14,11 @@ export class RequestStateWrapper extends Component {
     // This function is called when all requests are complete or some requests failed.
     // It's the function's responsibility to render a ReactNode or an error view depending on the
     // parameters passed in.
-    children: PropTypes.oneOfType([PropTypes.func, PropTypes.element]),
+    children: PropTypes.oneOfType([
+      PropTypes.func,
+      PropTypes.element,
+      PropTypes.arrayOf(PropTypes.element),
+    ]),
   };
 
   static defaultProps = {
