@@ -295,8 +295,8 @@ def server(backend_store_uri, default_artifact_root, host, port,
                    "from the ./mlruns directory.")
 @click.option("--run-ids", default=None,
               help="Optional comma separated list of runs to be permanently deleted. If run ids"
-                    " are not specified, data is removed for all runs in the `deleted`"
-                    " lifecycle stage.")
+                   " are not specified, data is removed for all runs in the `deleted`"
+                   " lifecycle stage.")
 @experimental
 def gc(backend_store_uri, run_ids):
     """
