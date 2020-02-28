@@ -153,7 +153,12 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
 def _serve_pyfunc(model):
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
-    if pyfunc.ENV in conf and os.environ.get('OPTIMIZED_IMAGE') == "False":
+    if os.environ.get('OPTIMIZED_IMAGE'):
+        opt_image = os.environ.get('OPTIMIZED_IMAGE')
+    else:
+        opt_image = False
+    print(opt_image)
+    if pyfunc.ENV in conf and opt_image == False:
         if not os.environ.get(DISABLE_ENV_CREATION) == "true":
             _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
         bash_cmds += ["source /miniconda/bin/activate custom_env"]
