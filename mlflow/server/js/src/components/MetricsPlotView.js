@@ -22,6 +22,7 @@ export class MetricsPlotView extends React.Component {
     lineSmoothness: PropTypes.number,
     extraLayout: PropTypes.object,
     onLayoutChange: PropTypes.func.isRequired,
+    onClick: PropTypes.func.isRequired,
     onLegendClick: PropTypes.func.isRequired,
     onLegendDoubleClick: PropTypes.func.isRequired,
     deselectedCurves: PropTypes.arrayOf(String).isRequired,
@@ -124,7 +125,7 @@ export class MetricsPlotView extends React.Component {
   };
 
   render() {
-    const { onLayoutChange, onLegendClick, onLegendDoubleClick } = this.props;
+    const { onLayoutChange, onClick, onLegendClick, onLegendDoubleClick } = this.props;
     const plotProps =
       this.props.chartType === CHART_TYPE_BAR
         ? this.getPlotPropsForBarChart()
@@ -135,6 +136,7 @@ export class MetricsPlotView extends React.Component {
           {...plotProps}
           useResizeHandler
           onRelayout={onLayoutChange}
+          onClick={onClick}
           onLegendClick={onLegendClick}
           onLegendDoubleClick={onLegendDoubleClick}
           style={{ width: '100%', height: '100%' }}

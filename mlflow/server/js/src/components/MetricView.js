@@ -20,6 +20,7 @@ class MetricView extends Component {
 
   render() {
     const { experiment, runUuids, runNames, metricKey, location } = this.props;
+    const experimentId = parseInt(experiment.experiment_id, 10);
     const { selectedMetricKeys } = Utils.getMetricPlotStateFromUrl(location.search);
     return (
       <div className='MetricView'>
@@ -31,7 +32,7 @@ class MetricView extends Component {
             title={<span>{selectedMetricKeys.length > 1 ? 'Metrics' : selectedMetricKeys[0]}</span>}
           />
         </div>
-        <MetricsPlotPanel {...{ runUuids, metricKey }} />
+        <MetricsPlotPanel {...{ experimentId, runUuids, metricKey }} />
       </div>
     );
   }
