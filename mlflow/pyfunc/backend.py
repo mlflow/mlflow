@@ -118,6 +118,9 @@ class PyFuncBackend(FlavorBackend):
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
             os.mkdir(model_cwd)
             model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
+            optimize_image = False
+            if no_conda:
+                optimize_image = True
             return """
                 COPY {model_dir} /opt/ml/model
                 RUN python -c \
@@ -131,7 +134,7 @@ class PyFuncBackend(FlavorBackend):
                 model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
                 install_mlflow=repr(install_mlflow),
                 no_conda=repr(no_conda),
-                optimize_image=no_conda
+                optimize_image=repr(optimize_image)
             )
 
         # The pyfunc image runs the same server as the Sagemaker image
