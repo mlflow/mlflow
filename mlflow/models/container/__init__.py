@@ -153,6 +153,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
 def _serve_pyfunc(model):
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
+    print(os.environ.get('OPTIMIZED_IMAGE'))
     if pyfunc.ENV in conf and os.environ.get('OPTIMIZED_IMAGE') == "False":
         if not os.environ.get(DISABLE_ENV_CREATION) == "true":
             _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
@@ -177,6 +178,7 @@ def _serve_pyfunc(model):
     cmd = "gunicorn -w {cpu_count} ".format(cpu_count=cpu_count) + \
           "${GUNICORN_CMD_ARGS} mlflow.models.container.scoring_server.wsgi:app"
     bash_cmds.append(cmd)
+    print(bash_cmds)
     gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)])
 
     procs = [p for p in [nginx, gunicorn] if p]
