@@ -414,9 +414,9 @@ export class MetricsPlotPanel extends React.Component {
         const runItems = points
           .sort((a, b) => b.y - a.y)
           .map(point => ({
+            runId: point.data.runId,
             name: point.data.name,
             color: point.fullData.marker.color,
-            runId: point.data.runId,
             y: point.y,
           }));
 

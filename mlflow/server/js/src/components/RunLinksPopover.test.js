@@ -33,14 +33,16 @@ describe('unit tests', () => {
       visible: true,
       runItems: [
         {
+          runId: 'runUuid1',
           name: 'run1',
           color: 'rgb(1, 1, 1)',
-          runUuid: 'runUuid1',
+          y: 0.1,
         },
         {
+          runId: 'runUuid2',
           name: 'run2',
           color: 'rgb(2, 2, 2)',
-          runUuid: 'runUuid2',
+          y: 0.2,
         },
       ],
     };
@@ -56,13 +58,13 @@ describe('unit tests', () => {
     const links = popover.querySelectorAll('a[href]');
     expect(links.length).toBe(2);
 
-    props.runItems.forEach(({ name, runUuid, color }, index) => {
+    props.runItems.forEach(({ runId, name, color, y }, index) => {
       const link = links[index];
-      const hrefExpected = Routes.getRunPageRoute(props.experimentId, runUuid);
+      const hrefExpected = Routes.getRunPageRoute(props.experimentId, runId);
       expect(link.getAttribute('href')).toBe(hrefExpected);
 
       const p = link.querySelector('p');
-      expect(p.textContent).toBe(name);
+      expect(p.textContent).toBe(`${name}, ${y}`);
       expect(p.style.color).toBe(color);
     });
   });
