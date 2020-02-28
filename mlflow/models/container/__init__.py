@@ -158,7 +158,7 @@ def _serve_pyfunc(model):
     else:
         opt_image = False
     print(opt_image)
-    if pyfunc.ENV in conf and opt_image == False:
+    if pyfunc.ENV in conf and opt_image == "False":
         if not os.environ.get(DISABLE_ENV_CREATION) == "true":
             _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
         bash_cmds += ["source /miniconda/bin/activate custom_env"]
