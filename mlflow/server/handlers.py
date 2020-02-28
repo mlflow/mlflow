@@ -467,7 +467,7 @@ def _log_model():
     request_message = _get_request_message(LogModel())
     try:
         model = json.loads(request_message.model_json)
-    except json.decoder.JSONDecodeError:
+    except:  # NB: can not be more specific here due to python2 compatibility
         raise MlflowException("Malformed model info. \n {} \n is not a valid JSON.".format(
             request_message.model_json),
             error_code=INVALID_PARAMETER_VALUE)
