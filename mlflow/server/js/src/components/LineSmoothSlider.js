@@ -7,10 +7,11 @@ export class LineSmoothSlider extends React.Component {
     min: PropTypes.number.isRequired,
     max: PropTypes.number.isRequired,
     handleLineSmoothChange: PropTypes.func.isRequired,
+    defaultValue: PropTypes.number.isRequired,
   };
 
   state = {
-    inputValue: 0,
+    inputValue: this.props.defaultValue,
   };
 
   onChange = (value) => {

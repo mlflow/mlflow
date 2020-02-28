@@ -34,6 +34,10 @@ export class ModelListView extends React.Component {
     nameFilter: '',
   };
 
+  componentDidMount() {
+    document.title = 'MLflow Models';
+  }
+
   getColumns = () => {
     return [
       {
@@ -99,7 +103,7 @@ export class ModelListView extends React.Component {
     const { models } = this.props;
     const { nameFilter } = this.state;
     return models.filter((model) =>
-      model.registered_model.name.toLowerCase().includes(nameFilter.toLowerCase()),
+      model.name.toLowerCase().includes(nameFilter.toLowerCase()),
     );
   }
 
