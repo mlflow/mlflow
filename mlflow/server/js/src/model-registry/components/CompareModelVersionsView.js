@@ -2,18 +2,18 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../../reducers/Reducers';
 import { connect } from 'react-redux';
-import './CompareRunView.css';
+import '../../components/CompareRunView.css';
 import { Experiment, RunInfo } from '../../sdk/MlflowMessages';
 import CompareRunScatter from '../../components/CompareRunScatter';
 import CompareRunContour from '../../components/CompareRunContour';
-import Routes from '../Routes';
+import Routes from '../../Routes';
 import { Link } from 'react-router-dom';
 import { getLatestMetrics } from '../../reducers/MetricReducer';
-import BreadcrumbTitle from "../../components/BreadcrumbTitle";
 import CompareRunUtil from '../../components/CompareRunUtil';
 import Utils from '../../utils/Utils';
 import { Tabs } from 'antd';
 import ParallelCoordinatesPlotPanel from '../../components/ParallelCoordinatesPlotPanel';
+import {modelListPageRoute, getModelPageRoute, getModelVersionPageRoute} from "../routes";
 
 const TabPane = Tabs.TabPane;
 
@@ -31,21 +31,26 @@ class CompareModelVersionsView extends Component {
         // we expect this array to contain user-specified run names, or default display names
         // ("Run <uuid>") for runs without names.
         runDisplayNames: PropTypes.arrayOf(String).isRequired,
+        modelName: PropTypes.string.isRequired,
+        runsToVersions: PropTypes.object.isRequired
     };
 
     render() {
         const experiment = this.props.experiment;
         const experimentId = experiment.getExperimentId();
-        const { runInfos, runNames } = this.props;
-
+        const { runInfos, runNames, modelName} = this.props;
+        const chevron = <i className='fas fa-chevron-right breadcrumb-chevron' />;
+        const breadcrumbItemClass = 'truncate-text single-line breadcrumb-title';
+        debugger;
         return (
             <div className="CompareModelVersionsView">
-                <div className="header-container">
-                    <BreadcrumbTitle
-                        experiment={experiment}
-                        title={"Comparing " + this.props.runInfos.length + " Runs"}
-                    />
-                </div>
+                <h1 className='breadcrumb-header'>
+                    <Link to={modelListPageRoute} className={breadcrumbItemClass}>Registered Models</Link>
+                    {chevron}
+                    <Link to={getModelPageRoute(modelName)} className={breadcrumbItemClass}>{modelName}</Link>
+                    {chevron}
+                    <span className={breadcrumbItemClass}>{"Comparing " + this.props.runInfos.length + " Versions"}</span>
+                </h1>
                 <div className="responsive-table-container">
                     <table className="compare-table table">
                         <thead>
@@ -61,6 +66,18 @@ class CompareModelVersionsView extends Component {
                         </tr>
                         </thead>
                         <tbody>
+                        <tr>
+                            <th scope="row" className="data-value">Model Version:</th>
+                            {Object.keys(this.props.runsToVersions).map((run) => {
+                                    const version = this.props.runsToVersions[run];
+                                    return <td className="meta-info" key={run.run_uuid}>
+                                                <Link to={getModelVersionPageRoute(modelName, version)}>
+                                                    {version}
+                                                </Link>
+                                        </td>;
+                                }
+                            )}
+                        </tr>
                         <tr>
                             <th scope="row" className="data-value">Run Name:</th>
                             {runNames.map((runName, i) => {
@@ -175,17 +192,20 @@ const mapStateToProps = (state, ownProps) => {
     const paramLists = [];
     const runNames = [];
     const runDisplayNames = [];
-    const { experimentId, runUuids } = ownProps;
+    const runUuids = [];
+    const { modelName, experimentId, runsToVersions } = ownProps;
     const experiment = getExperiment(experimentId, state);
-    runUuids.forEach((runUuid) => {
+    for (const runUuid in runsToVersions) {
         runInfos.push(getRunInfo(runUuid, state));
         metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
         paramLists.push(Object.values(getParams(runUuid, state)));
         const runTags = getRunTags(runUuid, state);
         runDisplayNames.push(Utils.getRunDisplayName(runTags, runUuid));
         runNames.push(Utils.getRunName(runTags));
-    });
-    return { experiment, runInfos, metricLists, paramLists, runNames, runDisplayNames };
+        runUuids.push(runUuid)
+    }
+    debugger;
+    return { experiment, runInfos, metricLists, paramLists, runNames, runDisplayNames, runUuids, modelName };
 };
 
 export default connect(mapStateToProps)(CompareModelVersionsView);

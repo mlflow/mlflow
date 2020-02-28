@@ -7,7 +7,7 @@ import { getRegisteredModelDetailsApi, getModelVersionDetailsApi } from "../acti
 import RequestStateWrapper from '../../components/RequestStateWrapper';
 import CompareModelVersionsView from './CompareModelVersionsView';
 
-class CompareRunPage extends Component {
+class CompareModelVersionsPage extends Component {
     static propTypes = {
         modelName: PropTypes.string.isRequired,
         experimentId: PropTypes.number.isRequired,
@@ -23,13 +23,14 @@ class CompareRunPage extends Component {
         const registeredModelRequestId = getUUID();
         this.requestIds.push(registeredModelRequestId);
         this.props.dispatch(getRegisteredModelDetailsApi(this.props.modelName, registeredModelRequestId));
+        console.log(this.props.runsToVersions);
         for (const runUuid in this.props.runsToVersions) {
             const runRequestId = getUUID();
             this.requestIds.push(runRequestId);
             this.props.dispatch(getRunApi(runUuid, runRequestId));
             const versionRequestId = getUUID();
             this.requestIds.push(versionRequestId);
-            this.props.dispatch(getModelVersionDetailsApi(this.props.runsToVersions[runUuid], versionRequestId))
+            this.props.dispatch(getModelVersionDetailsApi(this.props.modelName, this.props.runsToVersions[runUuid], versionRequestId))
         }
     }
 
@@ -47,10 +48,11 @@ class CompareRunPage extends Component {
 const mapStateToProps = (state, ownProps) => {
     const { location } = ownProps;
     const searchValues = qs.parse(location.search);
+    console.log(searchValues);
     const modelName = JSON.parse(searchValues["?name"]);
-    const runsToVersions = JSON.parse(searchValues["?runs"]);
+    const runsToVersions = JSON.parse(searchValues["runs"]);
     const experimentId = parseInt(searchValues["experiment"], 10);
     return { modelName, experimentId, runsToVersions };
 };
 
-export default connect(mapStateToProps)(CompareRunPage);
+export default connect(mapStateToProps)(CompareModelVersionsPage);

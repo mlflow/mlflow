@@ -123,7 +123,6 @@ export class ModelView extends React.Component {
           newState.runsSelected = {
             ...newState.runsSelected,
             [row.run_id]: row.version,
-            // {"7cc7125d95d242fb87649ede093a22d6":"2","0e077e345eda44cdab99c1fe802d2253":"3"}
           };
         });
         this.setState(newState);
@@ -132,15 +131,14 @@ export class ModelView extends React.Component {
   };
 
   onCompare() {
-    const runsSelectedList = Object.keys(this.state.runsSelected);
-    // push model name with this.state.model.registered_model.name
     this.props.history.push(getCompareModelVersionsPageRoute(
-        this.props.model.registered_model.modelName, runsSelectedList, 0));
+        this.props.model.registered_model.name, this.state.runsSelected, 0));
   }
 
   render() {
-    const { model, modelVersions } = this.props;
     console.log(this.props);
+    console.log(this.state);
+    const { model, modelVersions } = this.props;
     const {
       stageFilter,
       showDescriptionEditor,
@@ -197,9 +195,11 @@ export class ModelView extends React.Component {
                 Active({this.getActiveVersionsCount()})
               </Radio.Button>
             </Radio.Group>
+            <div className="ExperimentView-run-buttons">
             <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
               Compare
             </Button>
+            </div>
           </span>
         )}>
           <ModelVersionTable
