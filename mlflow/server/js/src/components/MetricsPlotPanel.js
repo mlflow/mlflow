@@ -312,6 +312,20 @@ export class MetricsPlotPanel extends React.Component {
     this.updateUrlState({ layout: mergedLayout, lastLinearYAxisRange });
   };
 
+  // Return unique key identifying the curve or bar chart corresponding to the specified
+  // Plotly plot data element
+  static getCurveKey(plotDataElem) {
+    // In bar charts, each legend item consists of a single run ID (all bars for that run are
+    // associated with & toggled by that legend item)
+    if (plotDataElem.type === "bar") {
+      return plotDataElem.runId;
+    } else {
+      // In line charts, each (run, metricKey) tuple has its own legend item, so construct
+      // a unique legend item identifier by concatenating the run id & metric key
+      return Utils.getCurveKey(plotDataElem.runId, plotDataElem.metricName);
+    }
+  }
+
   /**
    * Handle clicking on a single curve within the plot legend in order to toggle its display
    * on/off.
@@ -328,7 +342,7 @@ export class MetricsPlotPanel extends React.Component {
       // Otherwise, record time of current click & trigger click event
       // Wait full double-click window to trigger setting state, and only if there was no
       // double-click do we run the single-click logic (we wait a little extra to be safe)
-      const curveKey = Utils.getCurveKey(data[curveNumber].runId, data[curveNumber].metricName);
+      const curveKey = MetricsPlotPanel.getCurveKey(data[curveNumber]);
       this.legendClickTimeout = window.setTimeout(() => {
         const existingDeselectedCurves = new Set(state.deselectedCurves);
         if (existingDeselectedCurves.has(curveKey)) {
@@ -351,9 +365,9 @@ export class MetricsPlotPanel extends React.Component {
    */
   handleLegendDoubleClick = ({curveNumber, data}) => {
     window.clearTimeout(this.legendClickTimeout);
-    const curveKey = Utils.getCurveKey(data[curveNumber].runId, data[curveNumber].metricName);
     // Exclude everything besides the current curve key
-    const allCurveKeys = data.map((elem) => Utils.getCurveKey(elem.runId, elem.metricName));
+    const curveKey = MetricsPlotPanel.getCurveKey(data[curveNumber]);
+    const allCurveKeys = data.map((elem) => MetricsPlotPanel.getCurveKey(elem));
     const newDeselectedCurves = allCurveKeys.filter((curvePair) => curvePair !== curveKey);
     this.updateUrlState({deselectedCurves: newDeselectedCurves});
     return false;
