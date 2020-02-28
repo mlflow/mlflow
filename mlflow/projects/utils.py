@@ -279,5 +279,6 @@ def prepare_project_and_run(project_uri, experiment_id, run_id, entry_point, par
     """
     project, work_dir = fetch_and_validate_project(project_uri, version, entry_point, parameters)
     active_run = get_or_create_run(run_id, project_uri, experiment_id, work_dir, entry_point)
-    log_project_params_and_tags(run_id, project, work_dir, entry_point, parameters, version)
+    log_project_params_and_tags(active_run.info.run_id, project,
+                                work_dir, entry_point, parameters, version)
     return FetchedProject(project, work_dir, active_run)
