@@ -205,13 +205,13 @@ test("getGitHubRegex", () => {
 
 test('getMetricPlotStateFromUrl', () => {
   const url0 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=[]' +
-      '&plot_layout={"xaxis":{"a": "b"}}&x_axis=step&y_axis_scale=log' +
+      '&plot_layout={"xaxis":{"a": "b"}}&x_axis=relative&y_axis_scale=log' +
       '&line_smoothness=0.53&show_point=true&selected_run_ids=["runUuid1"]';
   const url1 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1"]&plot_layout={}&x_axis=wall&y_axis_scale=log&show_point=false';
   const url2 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1","metric_2"]';
   // Test extracting plot keys, point info, y axis log scale, line smoothness, layout info
   expect(Utils.getMetricPlotStateFromUrl(url0)).toEqual({
-    selectedXAxis: X_AXIS_STEP,
+    selectedXAxis: X_AXIS_RELATIVE,
     selectedMetricKeys: [],
     showPoint: true,
     yAxisLogScale: true,
@@ -233,7 +233,7 @@ test('getMetricPlotStateFromUrl', () => {
     lastLinearYAxisRange: [],
   });
   expect(Utils.getMetricPlotStateFromUrl(url2)).toEqual({
-    selectedXAxis: X_AXIS_RELATIVE,
+    selectedXAxis: X_AXIS_STEP,
     selectedMetricKeys: ['metric_1', 'metric_2'],
     showPoint: false,
     yAxisLogScale: false,
