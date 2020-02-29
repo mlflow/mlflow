@@ -260,6 +260,7 @@ export class MetricsPlotPanel extends React.Component {
    * and schema.
    */
   handleLayoutChange = (newLayout) => {
+    this.isClicked = false;
     const state = this.getUrlState();
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
