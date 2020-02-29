@@ -94,14 +94,15 @@ There are three programmatic ways to add a model to the registry. First, you can
     with mlflow.start_run(run_name="YOUR_RUN_NAME") as run:
         params={"n_estimators": 5, "random_state": 42}
         sk_learn_rfr=RandomForestRegressor(params)
+
         # Log parameters and metrics using the MLflow APIs
         mlflow.log_params(params)
         log_param("param_1", randint(0, 100))
         log_metric("metric_1", random())
         log_metric("metric_2", random() + 1)
-       …
-       # Log the sklearn model and register as version 1
-       mlflow.sklearn.log_model(sk_model=sk_learn_rfr,
+
+        # Log the sklearn model and register as version 1
+        mlflow.sklearn.log_model(sk_model=sk_learn_rfr,
                 artifact_path="sklearn-model",
                 registered_model_name="sk-learn-random-forest-reg-model")
 
@@ -160,7 +161,7 @@ As well as adding or updating a description of a specific version of the model, 
 Transitioning an MLflow Model’s Stage
 -------------------------------------
 Over the course of the model’s lifecycle, a model evolves—from development to staging to production.
-You can transition a registered model in the registry to one of the stages: **None**, **Staging**, **Production** or **Archived**.
+You can transition a registered model in the registry to one of the stages: **Staging**, **Production** or **Archived**.
 
 .. code-block:: py
 
@@ -169,8 +170,8 @@ You can transition a registered model in the registry to one of the stages: **No
   	        version=3,
 	        stage="production")
 
-Listing and Searching MLflow Registered Models
-----------------------------------------------
+Listing and Searching Models
+----------------------------
 You can fetch a list of all registered models in the registry with a simple method.
 
 .. code-block:: py
@@ -222,26 +223,35 @@ and provide a filter string such as ``"name='sk-learn-random-forest-reg-model'"`
         'version': 2
     }
 
-Archiving and Deleting Registered Models
-----------------------------------------
-You can either delete a specific version of a registered model or you can delete a registered model and all its versions.
-This operation is irrevocable, so use it judiciously. However, if you are unsure, you may want to archive specific versions of a registered model,
-and at later point delete them.
+Archiving Models
+----------------
+You can move models versions out of a **Production** stage into an **Archived** stage.
+At a later point, if that archived model is not needed, you can delete it.
 
 .. code-block:: py
 
-    # Archive models versions 1,2, and 3
-    versions = [1,2,3]
+    # Archive models version 3 from Production into Archived
     client=MlflowClient()
+    client.transition_model_version_stage(name="sk-learn-random-forest-reg-model",
+        version=3,
+        stage="Archived")
+
+Deleting Models
+---------------
+
+.. note::
+    Deleting registered models or model versions is irrevocable, so use it judiciously.
+
+You can either delete specific versions of a registered model or you can delete a registered model and all its versions.
+
+.. code-block:: py
+
+    # Delete versions 1,2, and 3 of the model
+    versions=[1,2,3]
     for version in versions:
-        client.transition_model_version_stage(name="sk-learn-random-forest-reg-model",
-                version=version,
-                stage="Archived")
+        client=MlflowClient()
+        client.delete_model_version(name="sk-learn-random-forest-reg-model",
+            version=version)
 
-    # Delete a specific version of the model
-    client=MlflowClient()
-    client.delete_model_version(name="sk-learn-random-forest-reg-model",
-            version=1 )
-
-    # Delete the registered model along with all its versions
+    # Delete a registered model along with all its versions
     client.delete_registered_model(name="sk-learn-random-forest-reg-model")
