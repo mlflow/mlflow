@@ -404,7 +404,7 @@ class Utils {
    */
   static getMetricPlotStateFromUrl(search) {
     const defaultState = {
-      selectedXAxis: 'relative',
+      selectedXAxis: 'step',
       selectedMetricKeys: [],
       showPoint: false,
       yAxisLogScale: false,
@@ -416,7 +416,7 @@ class Utils {
       return defaultState;
     }
 
-    const selectedXAxis = params['x_axis'] || 'relative';
+    const selectedXAxis = params['x_axis'] || 'step';
     const selectedMetricKeys = JSON.parse(params['plot_metric_keys']) ||
         defaultState.selectedMetricKeys;
     const showPoint = params['show_point'] === 'true';
