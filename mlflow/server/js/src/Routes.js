@@ -1,4 +1,4 @@
-import {X_AXIS_RELATIVE} from "./components/MetricsPlotControls";
+import { X_AXIS_STEP } from "./components/MetricsPlotControls";
 
 class Routes {
   static rootRoute = "/";
@@ -43,7 +43,7 @@ class Routes {
    * @returns {string}
    */
   static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys = null,
-                            plotLayout = {}, selectedXAxis = X_AXIS_RELATIVE, yAxisLogScale = false,
+                            plotLayout = {}, selectedXAxis = X_AXIS_STEP, yAxisLogScale = false,
                             lineSmoothness = 0, showPoint = false, deselectedCurves = [],
                             lastLinearYAxisRange = []) {
     // If runs to display are specified (e.g. if user filtered to specific runs in a metric
