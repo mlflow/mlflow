@@ -4,35 +4,34 @@ Changelog
 ------------------
 MLflow 1.7.0 includes several major features and improvements:
 
-Features:
+Model Registry APIs: breaking changes
+- REST APIs are no longer in beta and intended to be stable until the next major version. As such, this release includes a number of breaking changes.
+- Model Registry UI has been updated to use new REST APIs (#2456, #2476 @aarondav; #2507, @mparkhe)
+- MLflow Client APIs are backward compatible and internally been updated to use new REST APIs (#2457, @tomasatdatabricks; #2502, @mparkhe)
+- Java Client API to download models artifacts (#2308, @andychow-db)
+- Updated Model Registry documentation page with code snippets and examples (#2493, dmatrix)
 
-- Fixing JS reducer on model version delete (#2507, @mparkhe)
-- API cleanup (#2502, @mparkhe)
+Other Features:
+
 - Fix bar chart bug introduced in #2393 (#2498, @smurching)
 - Save metric plot state in URLs for easier link sharing (#2393, @smurching)
-- Update model registry frontend JS with API changes (#2476, @aarondav)
-- [UI] Better error messages for model registry (#2456, @aarondav)
-- [mlflow/R] Update R client to call record logged model  (#2430, @tomasatdatabricks)
+- Update R client to call record logged model  (#2430, @tomasatdatabricks)
 - Fix handleLayoutChange to update dragmode (#2459, @harupy)
-- Update model registry apis (#2457, @tomasatdatabricks)
 - Announce deprecation of Python 2 support in MLflow (#2438, @smurching)
 - Experiment Searching: Search for experiments by name in the UI (#2324, @ggliem)
 - Make MLflow page titles more descriptive (#2420, @AveshCSingh)
 - Add log model endpoint. (#2369, @tomasatdatabricks)
-- [ML-9117] Java API - Model Registry API Download Models Implementation (#2308, @andychow-db)
 
 Bug fixes and documentation updates:
 
-- [UI] Better error messages for model registry (#2456, @aarondav)
 - Prevent metrics plots from resetting zoom when line smoothness or other attributes change (#2408, @smurching)
 - Import matplotlib in log_feature_importance_plot (#2423, @harupy)
 - Close figure after auto logging (#2386, @harupy)
 - FileStore: Fix parameter reading logic to support param values with newlines (#2376, @dbczumar)
 - Improve readability of run table column selector nodes (#2388, @dbczumar)
 - Update log model details - change tag name and add tag description to docs. (#2468, @tomasatdatabricks)
-- Update model registry apis (#2457, @tomasatdatabricks)
 
-Small bug fixes and doc updates (#2378, #2449, #2402, #2397, @harupy; #2314, @juntai-zheng; #2404, @andychow-db; #2366, #2370, #2364, @AveshCSingh; #2373, @smurching; #2506, @dbczumar)
+Small bug fixes and doc updates (#2378, #2449, #2402, #2397, @harupy; #2314, @juntai-zheng; #2404, @andychow-db; #2366, #2370, #2364, @AveshCSingh; #2373, #2513, @smurching; #2506, @dbczumar)
 
 1.6.0 (2020-01-29)
 -----------------------
