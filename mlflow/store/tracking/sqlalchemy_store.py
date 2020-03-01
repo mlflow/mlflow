@@ -439,6 +439,23 @@ class SqlAlchemyStore(AbstractStore):
             run.lifecycle_stage = LifecycleStage.DELETED
             self._save_to_db(objs=run, session=session)
 
+    def _hard_delete_run(self, run_id):
+        """
+        Permanently delete a run (metadata and metrics, tags, parameters).
+        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
+        """
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            session.delete(run)
+
+    def _get_deleted_runs(self):
+        with self.ManagedSessionMaker() as session:
+            run_ids = session\
+                .query(SqlRun.run_uuid) \
+                .filter(SqlRun.lifecycle_stage == LifecycleStage.DELETED) \
+                .all()
+            return [run_id[0] for run_id in run_ids]
+
     def log_metric(self, run_id, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         is_nan = math.isnan(metric.value)

@@ -93,3 +93,8 @@ class LocalArtifactRepository(ArtifactRepository):
         # Posix paths work fine on windows but just in case we normalize it here.
         remote_file_path = os.path.join(self.artifact_dir, os.path.normpath(remote_file_path))
         shutil.copyfile(remote_file_path, local_path)
+
+    def delete_artifacts(self, artifact_path=None):
+        artifact_path = os.path.join(self._artifact_dir, artifact_path) if artifact_path \
+            else self._artifact_dir
+        shutil.rmtree(local_file_uri_to_path(artifact_path))

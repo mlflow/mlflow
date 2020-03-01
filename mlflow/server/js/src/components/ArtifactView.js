@@ -219,9 +219,7 @@ export class ArtifactView extends Component {
 
 function ModelVersionInfoSection(props) {
   const { modelVersion } = props;
-  const { name } = modelVersion.model_version.registered_model;
-  const { version } = modelVersion.model_version;
-  const { status, status_message } = modelVersion;
+  const { name, version, status, status_message } = modelVersion;
 
   const modelVersionLink = (
     <a
