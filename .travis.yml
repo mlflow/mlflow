@@ -67,8 +67,6 @@ matrix:
       script:
         - cd mlflow/java
         - mvn clean package -q
-        - cd ../../docs
-        - make javadocs
     - language: node_js
       node_js:
         - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
@@ -116,13 +114,19 @@ matrix:
         - ./travis/run-small-python-tests.sh
     - language: python
       python: 3.6
-      name: "Docs (rsthtml)"
+      name: "Docs (rsthtml, javadocs)"
       if: type != cron
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
         - pip install sphinx==2.2.1 sphinx-click==2.3.0
+        # Install Java & Maven
+        - sudo add-apt-repository ppa:webupd8team/java
+        - sudo apt-get update
+        - sudo apt-get install oracle-java8-installer
+        - sudo apt-get install maven
       script:
         - cd docs
+        - make javadocs
         - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
 
 
