@@ -366,7 +366,11 @@ decorators.Header = ({style, node}) => {
     }
   }
   const iconClass = `fa fa-${iconType}`;
-  const iconStyle = {marginRight: '5px'};
+
+  // Add margin-left to the non-directory nodes to align the arrow, icons, and texts.
+  const iconStyle = node.children
+    ? { marginRight: '5px' }
+    : { marginRight: '5px', marginLeft: '19px' };
 
   return (
     <div style={style.base}>
