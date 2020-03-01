@@ -1,5 +1,34 @@
 Changelog
 =========
+1.7.0 (2020-03-01)
+------------------
+MLflow 1.7.0 includes several major features and improvements:
+
+Features:
+
+- Fix bar chart bug introduced in #2393 (#2498, @smurching)
+- Save metric plot state in URLs for easier link sharing (#2393, @smurching)
+- [mlflow/R] Update R client to call record logged model  (#2430, @tomasatdatabricks)
+- Fix handleLayoutChange to update dragmode (#2459, @harupy)
+- Announce deprecation of Python 2 support in MLflow (#2438, @smurching)
+- Experiment Searching: Search for experiments by name in the UI (#2324, @ggliem)
+- Make MLflow page titles more descriptive (#2420, @AveshCSingh)
+- Add log model endpoint. (#2369, @tomasatdatabricks)
+- [ML-9117] Java API - Model Registry API Download Models Implementation (#2308, @andychow-db)
+
+Bug fixes and documentation updates:
+
+- [UI] Better error messages for model registry (#2456, @aarondav)
+- Prevent metrics plots from resetting zoom when line smoothness or other attributes change (#2408, @smurching)
+- Import matplotlib in log_feature_importance_plot (#2423, @harupy)
+- Close figure after auto logging (#2386, @harupy)
+- FileStore: Fix parameter reading logic to support param values with newlines (#2376, @dbczumar)
+- Improve readability of run table column selector nodes (#2388, @dbczumar)
+- Update log model details - change tag name and add tag description to docs. (#2468, @tomasatdatabricks)
+- Update model registry apis (#2457, @tomasatdatabricks)
+
+Small bug fixes and doc updates (#2378, #2449, #2402, #2397, @harupy; #2314, @juntai-zheng; #2373, @smurching; #2366, #2370, #2364, @AveshCSingh; #2404, @andychow-db)
+
 1.6.0 (2020-01-29)
 -----------------------
 MLflow 1.6.0 includes several new features, including a better runs table interface, a utility for easier parameter tuning, and automatic logging from XGBoost, LightGBM, and Spark. It also implements a long-awaited fix allowing @ symbols in database URLs. A complete list is below:
