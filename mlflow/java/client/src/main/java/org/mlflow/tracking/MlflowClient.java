@@ -658,9 +658,10 @@ public class MlflowClient {
    * The current available stages are: [None, Staging, Production, Archived].
    *
    *    <pre>
-   *        List<ModelVersionDetailed> detailsList = getLatestVersions("model");
+   *        import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+   *        List{@code <ModelVersion>} detailsList = getLatestVersions("model");
    *
-   *        for (ModelVersionDetailed details : detailsList) {
+   *        for (ModelVersion details : detailsList) {
    *            System.out.println("Model Name: " + details.getModelVersion()
    *                                                       .getRegisteredModel()
    *                                                       .getName());
@@ -685,10 +686,11 @@ public class MlflowClient {
    * The current available stages are: [None, Staging, Production, Archived].
    *
    *    <pre>
-   *        List<ModelVersionDetailed> detailsList  = getLatestVersions("model",
-   *                                                              Lists.newArrayList<>("Staging"));
+   *        import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+   *        List{@code <ModelVersion>} detailsList =
+   *          getLatestVersions("model", Lists.newArrayList{@code <String>}("Staging"));
    *
-   *        for (ModelVersionDetailed details : detailsList) {
+   *        for (ModelVersion details : detailsList) {
    *            System.out.println("Model Name: " + details.getModelVersion()
    *                                                       .getRegisteredModel()
    *                                                       .getName());
@@ -744,7 +746,7 @@ public class MlflowClient {
    *
    * @param modelName The name of the model
    * @param version The version number of the model
-   * @return A local file or directory ({@ java.io.File}) containing model artifacts
+   * @return A local file or directory ({@link java.io.File}) containing model artifacts
    */
   public File downloadModelVersion(@Nonnull String modelName, String version) {
     String downloadUri = getModelVersionDownloadUri(modelName, version);
@@ -771,7 +773,7 @@ public class MlflowClient {
    *
    * @param modelName The name of the model
    * @param stage The name of the stage
-   * @return A local file or directory ({@ java.io.File}) containing model artifacts
+   * @return A local file or directory ({@link java.io.File}) containing model artifacts
    */
   public File downloadLatestModelVersion(@Nonnull String modelName, @Nonnull String stage) {
       List<ModelVersion> versions = getLatestVersions(modelName, Lists.newArrayList(stage));
