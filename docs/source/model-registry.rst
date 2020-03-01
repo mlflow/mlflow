@@ -120,7 +120,7 @@ For this scheme, you will need the ``run_id`` as part of the ``runs:URI`` argume
 
 As with above ``mlflow.sklearn.log_model(...)``, this method creates version 1 of the specified model and it returns a single `ModelVersion <https://www.mlflow.org/docs/latest/python_api/mlflow.entities.html#mlflow.entities.model_registry.ModelVersion>`_ MLflow object.
 
-And finally, you can use the `MLflow Client Tracking API <https://www.mlflow.org/docs/latest/python_api/mlflow.tracking.html#mlflow.tracking.MlflowClient.create_registered_model>`_ to create a new registered model. If the model name exists, this will throw an ``MLflowException`` since creating a new registered model requires a unique name.
+And finally, you can use the `MLflow Client API <https://www.mlflow.org/docs/latest/python_api/mlflow.tracking.html#mlflow.tracking.MlflowClient.create_registered_model>`_ to create a new registered model. If the model name exists, this will throw an ``MLflowException`` since creating a new registered model requires a unique name.
 
 .. code-block:: py
 
