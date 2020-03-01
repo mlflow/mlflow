@@ -210,6 +210,20 @@ service ModelRegistryService {
       rpc_doc_title: "Get Download URI For ModelVersion Artifacts",
     };
   }
+
+  // .. note::
+  //     Experimental: This APY may change or be removed in a future release without warning.
+  rpc getLatestProdModel (GetLatestProdModel) returns (GetLatestProdModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/preview/mlflow/model-versions/get-latest-prod-version"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Get Latest Prod Version Given a Model Name",
+    };
+  }
 }
 
 // .. note::
@@ -502,5 +516,20 @@ message GetModelVersionDownloadUri {
   message Response {
     // URI corresponding to where artifacts for this model version are stored.
     optional string artifact_uri = 1;
+  }
+}
+
+message GetLatestProdModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the registered model
+  optional string model_name = 1;
+
+  message Response {
+    // Latest prod model version
+    optional ModelVersion latest_model_version = 1;
+
+    // URI corresponding to the latest prod model
+    optional string artifact_uri = 2;
   }
 }
