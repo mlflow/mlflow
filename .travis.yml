@@ -16,9 +16,7 @@ matrix:
       if: type != cron
       install:
         # Install Java & Maven
-        - sudo add-apt-repository ppa:webupd8team/java -y
-        - sudo apt-get update -y
-        - sudo apt-get install oracle-java8-installer -y
+        - sudo apt-get install default-jdk -y
         - sudo apt-get install maven -y
         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
         - pip install sphinx==2.2.1 sphinx-click==2.3.0-
