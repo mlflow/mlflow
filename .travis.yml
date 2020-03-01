@@ -67,6 +67,8 @@ matrix:
       script:
         - cd mlflow/java
         - mvn clean package -q
+        - cd ../../docs
+        - make javadocs
     - language: node_js
       node_js:
         - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
