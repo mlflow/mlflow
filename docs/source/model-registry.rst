@@ -81,7 +81,7 @@ version to one of the other valid stages.
 API Workflow
 ============
 
-An alternative way to interact with Model Registry is using the `MLflow model flavor <https://www.mlflow.org/docs/latest/python_api/index.html>`_ or `MLflow Client Tracking API <https://www.mlflow.org/docs/latest/python_api/mlflow.tracking.html>`_ interface.
+An alternative way to interact with Model Registry is using the :ref:`MLflow model flavor <python-api>` or :ref:`MLflow Client Tracking API <mlflow.tracking>` interface.
 In particular, you can register a model during an MLflow experiment run or after all your experiment runs.
 
 Adding an MLflow Model to the Model Registry
@@ -91,38 +91,43 @@ There are three programmatic ways to add a model to the registry. First, you can
 
 .. code-block:: py
 
+    from random import random, randint
+    from sklearn.ensemble import RandomForestRegressor
+    import mlflow
+
     with mlflow.start_run(run_name="YOUR_RUN_NAME") as run:
-        params={"n_estimators": 5, "random_state": 42}
-        sk_learn_rfr=RandomForestRegressor(params)
+        params = {"n_estimators": 5, "random_state": 42}
+        sk_learn_rfr = RandomForestRegressor(**params)
 
         # Log parameters and metrics using the MLflow APIs
         mlflow.log_params(params)
-        log_param("param_1", randint(0, 100))
-        log_metric("metric_1", random())
-        log_metric("metric_2", random() + 1)
+        mlflow.log_param("param_1", randint(0, 100))
+        mlflow.log_metrics({"metric_1": random(), "metric_2", random() + 1})
 
         # Log the sklearn model and register as version 1
         mlflow.sklearn.log_model(sk_model=sk_learn_rfr,
-                artifact_path="sklearn-model",
-                registered_model_name="sk-learn-random-forest-reg-model")
+                                 artifact_path="sklearn-model",
+                                 registered_model_name="sk-learn-random-forest-reg-model")
 
 This logs the model as well as registers it under the specified name as version 1.
 
-The second way is to explicitly register the `mlflow.register_model(...) <https://www.mlflow.org/docs/latest/python_api/mlflow.html#mlflow.register_model>`_,
+The second way is to explicitly use the :func:`~mlflow.register_model`,
 after all your experiment runs and when you have ascertained which run within an experiment is most suitable to add to the registry.
 For this scheme, you will need the ``run_id`` as part of the ``runs:URI`` argument.
 
 .. code-block:: py
 
-    result=mlflow.register_model("runs:/d16076a3ec534311817565e6527539c0/artifacts/sk-model",
-                    "sk-learn-random-forest-reg")
+    result = mlflow.register_model("runs:/d16076a3ec534311817565e6527539c0/artifacts/sk-model",
+                                   "sk-learn-random-forest-reg")
 
 
-As with above ``mlflow.sklearn.log_model(...)``, this method creates version 1 of the specified model and it returns a single `ModelVersion <https://www.mlflow.org/docs/latest/python_api/mlflow.entities.html#mlflow.entities.model_registry.ModelVersion>`_ MLflow object.
+As with above :func:`mlflow.sklearn.log_model`, this method creates version 1 of the specified model and it returns a single :class:`~mlflow.entities.model_registry.ModelVersion` MLflow object.
 
-And finally, you can use the `MLflow Client API <https://www.mlflow.org/docs/latest/python_api/mlflow.tracking.html#mlflow.tracking.MlflowClient.create_registered_model>`_ to create a new registered model. If the model name exists, this will throw an ``MLflowException`` since creating a new registered model requires a unique name.
+And finally, you can use the :meth:`~mlflow.tracking.MlflowClient.create_registered_model` to create a new registered model. If the model name exists, this will throw an :class:`~mlflow.exceptions.MlflowException` since creating a new registered model requires a unique name.
 
 .. code-block:: py
+
+   from mlflow.tracking import MlflowClient
 
    client = MlflowClient()
    client.create_registered_model("sk-learn-random-forest-reg-model")
@@ -132,11 +137,14 @@ While the method above creates an empty registered model with no version associa
 .. code-block:: py
 
     client = MlflowClient()
-    result = client.create_model_version(name="sk-learn-random-forest-reg-model",
-                source="mlruns/0/d16076a3ec534311817565e6527539c0/artifacts/sk-model",
-                run_id="d16076a3ec534311817565e6527539c0")
+    run_id = "d16076a3ec534311817565e6527539c0"
+    result = client.create_model_version(
+        name="sk-learn-random-forest-reg-model",
+        source="mlruns/0/{}/artifacts/sk-model".format(run_id),
+        run_id=run_id
+    )
 
-In contrast, ``mlflow.register_model()`` and ``mlflow.<model_flavor>.log_model()`` will create a new version in the registry, if it does not already exist.
+In contrast, :func:`~mlflow.register_model` and ``mlflow.<model_flavor>.log_model()`` will create a new version in the registry, if it does not already exist.
 
 Adding or Updating Model Descriptions
 -------------------------------------
@@ -146,17 +154,19 @@ At any point in a model’s lifecycle development, you can update a model versio
 .. code-block:: py
 
     client = MlflowClient()
-    client.update_model_version(name="sk-learn-random-forest-reg-model",
-            version=1,
-            description="This model version is a scikit-learn random forest containing 100 decision trees")
+    client.update_model_version(
+        name="sk-learn-random-forest-reg-model",
+        version=1,
+        description="This model version is a scikit-learn random forest containing 100 decision trees"
+    )
 
 As well as adding or updating a description of a specific version of the model, you can rename an existing registered model.
 
 .. code-block:: py
 
-    client=MlflowClient()
+    client = MlflowClient()
     client.rename_registered_model(name="sk-learn-random-forest-reg-model",
-            new_name="sk-learn-random-forest-reg-model-100")
+                                   new_name="sk-learn-random-forest-reg-model-100")
 
 Transitioning an MLflow Model’s Stage
 -------------------------------------
@@ -166,9 +176,11 @@ You can transition a registered model in the registry to one of the stages: **St
 .. code-block:: py
 
     client = MlflowClient()
-    client.transition_model_version_stage(name="sk-learn-random-forest-reg-model",
-  	        version=3,
-	        stage="production")
+    client.transition_model_version_stage(
+        name="sk-learn-random-forest-reg-model",
+  	    version=3,
+	    stage="production"
+    )
 
 Listing and Searching Models
 ----------------------------
@@ -176,8 +188,13 @@ You can fetch a list of all registered models in the registry with a simple meth
 
 .. code-block:: py
 
+    from pprint import pprint
+
     client=MlflowClient()
-    [pprint.pprint(dict(rm), indent=4) for rm in client.list_registered_models()]
+    for rm in client.list_registered_models():
+        pprint(dict(rm), indent=4)
+
+    # output
 
     {   'creation_timestamp': 1582671933216,
         'description': None,
@@ -189,13 +206,17 @@ You can fetch a list of all registered models in the registry with a simple meth
     ...
 
 With hundreds of models, it can be cumbersome to peruse the results returned from this call. A more efficient approach would be to search for a specific model name and list its version
-details using `search_model_versions(...) <https://www.mlflow.org/docs/latest/python_api/mlflow.tracking.html#mlflow.tracking.MlflowClient.search_model_versions>`_ method
+details using :meth:`~mlflow.tracking.MlflowClient.search_model_versions` method
 and provide a filter string such as ``"name='sk-learn-random-forest-reg-model'"``
 
 .. code-block:: py
 
-    client=MlflowClient()
-    [pprint.pprint(dict(mv), indent=4) for mv in client.search_model_versions("name='sk-learn-random-forest-reg-model'")]
+    client = MlflowClient()
+    filter_string = "name='sk-learn-random-forest-reg-model'"
+    for mv in client.search_model_versions(filter_string):
+        pprint(dict(mv), indent=4)
+
+    # output
 
     {   'creation_timestamp': 1582671933246,
         'current_stage': 'Production',
@@ -220,8 +241,8 @@ and provide a filter string such as ``"name='sk-learn-random-forest-reg-model'"`
         'status': 'READY',
         'status_message': None,
         'user_id': None,
-        'version': 2
-    }
+        'version': 2}
+
 
 Archiving Models
 ----------------
@@ -231,10 +252,12 @@ At a later point, if that archived model is not needed, you can delete it.
 .. code-block:: py
 
     # Archive models version 3 from Production into Archived
-    client=MlflowClient()
-    client.transition_model_version_stage(name="sk-learn-random-forest-reg-model",
+    client = MlflowClient()
+    client.transition_model_version_stage(
+        name="sk-learn-random-forest-reg-model",
         version=3,
-        stage="Archived")
+        stage="Archived"
+    )
 
 Deleting Models
 ---------------
@@ -247,11 +270,10 @@ You can either delete specific versions of a registered model or you can delete 
 .. code-block:: py
 
     # Delete versions 1,2, and 3 of the model
-    versions=[1,2,3]
+    client = MlflowClient()
+    versions=[1, 2, 3]
     for version in versions:
-        client=MlflowClient()
-        client.delete_model_version(name="sk-learn-random-forest-reg-model",
-            version=version)
+        client.delete_model_version(name="sk-learn-random-forest-reg-model", version=version)
 
     # Delete a registered model along with all its versions
     client.delete_registered_model(name="sk-learn-random-forest-reg-model")
