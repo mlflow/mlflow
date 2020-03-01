@@ -14,6 +14,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 * `MLflow Models <https://mlflow.org/docs/latest/models.html>`_: A model packaging format and tools that let
   you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms such as
   Docker, Apache Spark, Azure ML and AWS SageMaker.
+* `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
 |docs| |travis| |pypi| |conda-forge| |cran| |maven| |license| |downloads|
 
