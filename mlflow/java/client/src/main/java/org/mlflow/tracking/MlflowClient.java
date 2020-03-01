@@ -687,7 +687,8 @@ public class MlflowClient {
    *
    *    <pre>
    *        import org.mlflow.api.proto.ModelRegistry.ModelVersion;
-   *        List{@code <ModelVersion>} detailsList  = getLatestVersions("model", Lists.newArrayList{@code <String>}("Staging"));
+   *        List{@code <ModelVersion>} detailsList =
+   *          getLatestVersions("model", Lists.newArrayList{@code <String>}("Staging"));
    *
    *        for (ModelVersion details : detailsList) {
    *            System.out.println("Model Name: " + details.getModelVersion()
