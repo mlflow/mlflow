@@ -196,6 +196,13 @@ def test_download_artifacts():
             assert expected_data == fd.read()
 
 
+@mock.patch('pyarrow.hdfs.HadoopFileSystem')
+def test_delete_artifacts(hdfs_system_mock):
+    delete_mock = hdfs_system_mock.return_value.delete
+    repo = HdfsArtifactRepository('hdfs:/some_path/maybe/path')
+    repo.delete_artifacts('artifacts')
+    delete_mock.assert_called_once_with('/some_path/maybe/path/artifacts', recursive=True)
+    
 @pytest.mark.parametrize("uri,expected_path,expected_uri",
                          [("har://hdfs-root/user/j.doe/myarchive.har/",
                            "har://hdfs-root/user/j.doe/myarchive.har",

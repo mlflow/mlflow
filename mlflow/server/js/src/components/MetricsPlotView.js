@@ -22,6 +22,7 @@ export class MetricsPlotView extends React.Component {
     lineSmoothness: PropTypes.number,
     extraLayout: PropTypes.object,
     onLayoutChange: PropTypes.func.isRequired,
+    onClick: PropTypes.func.isRequired,
     onLegendClick: PropTypes.func.isRequired,
     onLegendDoubleClick: PropTypes.func.isRequired,
     deselectedCurves: PropTypes.arrayOf(String).isRequired,
@@ -101,13 +102,18 @@ export class MetricsPlotView extends React.Component {
 
     const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map((history) => history.metricKey);
     const deselectedCurvesSet = new Set(deselectedCurves);
-    const data = runUuids.map((runUuid, i) => ({
-      name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
-      x: sortedMetricKeys,
-      y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
-      type: 'bar',
-      visible: deselectedCurvesSet.has(runUuid),
-    }));
+    const data = runUuids.map((runUuid, i) => {
+      const visibility = deselectedCurvesSet.has(runUuid) ?
+        { visible: 'legendonly' } : {};
+      return {
+        name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
+        x: sortedMetricKeys,
+        y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
+        type: 'bar',
+        runId: runUuid,
+        ...visibility,
+      };
+    });
 
     const layout = { barmode: 'group' };
     const props = { data, layout };
@@ -119,7 +125,7 @@ export class MetricsPlotView extends React.Component {
   };
 
   render() {
-    const { onLayoutChange, onLegendClick, onLegendDoubleClick } = this.props;
+    const { onLayoutChange, onClick, onLegendClick, onLegendDoubleClick } = this.props;
     const plotProps =
       this.props.chartType === CHART_TYPE_BAR
         ? this.getPlotPropsForBarChart()
@@ -130,6 +136,7 @@ export class MetricsPlotView extends React.Component {
           {...plotProps}
           useResizeHandler
           onRelayout={onLayoutChange}
+          onClick={onClick}
           onLegendClick={onLegendClick}
           onLegendDoubleClick={onLegendDoubleClick}
           style={{ width: '100%', height: '100%' }}
