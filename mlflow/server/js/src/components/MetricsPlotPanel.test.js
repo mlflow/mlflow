@@ -21,6 +21,7 @@ describe('unit tests', () => {
       },
     };
     minimalPropsForLineChart = {
+      experimentId: 1,
       runUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
       latestMetricsByRunUuid: {
@@ -75,6 +76,7 @@ describe('unit tests', () => {
     };
 
     minimalPropsForBarChart = {
+      experimentId: 1,
       runUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
       latestMetricsByRunUuid: {
@@ -110,13 +112,10 @@ describe('unit tests', () => {
         },
       ],
       getMetricHistoryApi: jest.fn(),
-      location: {
-        search:
-          '?runs=["runUuid1","runUuid2"]&experiment=0' +
-          '&plot_metric_keys=["metric_1","metric_2"]',
-      },
-      history: { push: jest.fn() },
+      location: location,
+      history: history,
       runDisplayNames: ['runDisplayName1', 'runDisplayName2'],
+      deselectedCurves: [],
     };
   });
 
@@ -211,7 +210,7 @@ describe('unit tests', () => {
         {xaxis: {range: [-5, 5], autorange: false}, yaxis: {range: [0, 6], type: "linear"}});
   });
 
-  test('single-click handler in metric comparison plot', (done) => {
+  test('single-click handler in metric comparison plot - line chart', (done) => {
     const props = {
       ...minimalPropsForLineChart,
     };
@@ -228,7 +227,24 @@ describe('unit tests', () => {
     }, 1000);
   });
 
-  test('double-click handler in metric comparison plot', (done) => {
+  test('single-click handler in metric comparison plot - bar chart', (done) => {
+    const props = {
+      ...minimalPropsForBarChart,
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    instance = wrapper.instance();
+    // Verify that clicking doesn't immediately update the run state
+    expect(instance.getUrlState().deselectedCurves).toEqual([]);
+    instance.handleLegendClick({curveNumber: 0, data: [{runId: 'runUuid2', type: 'bar'}]});
+    expect(instance.getUrlState().deselectedCurves).toEqual([]);
+    // Wait a second, verify first run was deselected
+    window.setTimeout(() => {
+      expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid2']);
+      done();
+    }, 1000);
+  });
+
+  test('double-click handler in metric comparison plot - line chart', (done) => {
     const props = {
       ...minimalPropsForLineChart,
     };
@@ -246,6 +262,28 @@ describe('unit tests', () => {
     instance.handleLegendClick({curveNumber: 1, data: data});
     window.setTimeout(() => {
       expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid1-metric_1']);
+      done();
+    }, 1000);
+  });
+
+  test('double-click handler in metric comparison plot - bar chart', (done) => {
+    const props = {
+      ...minimalPropsForBarChart,
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    instance = wrapper.instance();
+    const data = [
+      {runId: 'runUuid1', type: 'bar'},
+      {runId: 'runUuid2', type: 'bar'},
+    ];
+    // Verify that clicking doesn't immediately update the run state
+    expect(instance.getUrlState().deselectedCurves).toEqual([]);
+    instance.handleLegendClick({curveNumber: 1, data: data});
+    expect(instance.getUrlState().deselectedCurves).toEqual([]);
+    // Double-click, verify that only the clicked run is selected (that the other one is deselected)
+    instance.handleLegendClick({curveNumber: 1, data: data});
+    window.setTimeout(() => {
+      expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid1']);
       done();
     }, 1000);
   });

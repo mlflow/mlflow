@@ -10,18 +10,15 @@ import textwrap
 import time
 import subprocess
 
-try:  # Python 3
-    from urllib.parse import urlparse, unquote
-    from urllib.request import url2pathname
-except ImportError:
-    from urllib import unquote, url2pathname
-    from urlparse import urlparse
+from six.moves.urllib.request import url2pathname
+from six.moves.urllib.parse import urlparse, unquote
 
 from mlflow.cli import run, server, ui
 from mlflow.server import handlers
 from mlflow import experiments
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.file_store import FileStore
+from mlflow.exceptions import MlflowException
 from mlflow.entities import ViewType
 
 
@@ -170,6 +167,8 @@ def test_mlflow_gc_sqlite(sqlite_store):
     subprocess.check_output(["mlflow", "gc", "--backend-store-uri", sqlite_store[1]])
     runs = store.search_runs(experiment_ids=['0'], filter_string='', run_view_type=ViewType.ALL)
     assert len(runs) == 0
+    with pytest.raises(MlflowException):
+        store.get_run(run.info.run_uuid)
 
 
 def test_mlflow_gc_file_store(file_store):
@@ -179,6 +178,8 @@ def test_mlflow_gc_file_store(file_store):
     subprocess.check_output(["mlflow", "gc", "--backend-store-uri", file_store[1]])
     runs = store.search_runs(experiment_ids=['0'], filter_string='', run_view_type=ViewType.ALL)
     assert len(runs) == 0
+    with pytest.raises(MlflowException):
+        store.get_run(run.info.run_uuid)
 
 
 def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
@@ -189,6 +190,8 @@ def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
                              run.info.run_uuid])
     runs = store.search_runs(experiment_ids=['0'], filter_string='', run_view_type=ViewType.ALL)
     assert len(runs) == 0
+    with pytest.raises(MlflowException):
+        store.get_run(run.info.run_uuid)
 
 
 def test_mlflow_gc_not_deleted_run(file_store):
