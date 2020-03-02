@@ -438,7 +438,7 @@ class MlflowClient(object):
         :param name: Name of the registered model to update.
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for ALL_STAGES.
-        :return: List of `:py:class:`mlflow.entities.model_registry.ModelVersionDetailed` objects.
+        :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         return self._get_registry_client().get_latest_versions(name, stages)
 
