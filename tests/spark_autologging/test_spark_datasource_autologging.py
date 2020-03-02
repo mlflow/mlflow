@@ -7,7 +7,6 @@ import mlflow
 import mlflow.spark
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from tests.tracking.test_rest_tracking import BACKEND_URIS
 from tests.tracking.test_rest_tracking import tracking_server_uri  # pylint: disable=unused-import
 from tests.tracking.test_rest_tracking import mlflow_client  # pylint: disable=unused-import

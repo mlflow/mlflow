@@ -3,8 +3,6 @@ from click.testing import CliRunner
 from mlflow.runs import list_run
 import mlflow
 
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-
 
 def test_list_run():
     with mlflow.start_run(run_name='apple'):
@@ -13,7 +11,6 @@ def test_list_run():
     assert 'apple' in result.output
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
-def test_list_run_experiment_id_required():
+def test_list_run_experiment_id_required(tracking_uri_mock):
     result = CliRunner().invoke(list_run, [])
     assert 'Missing option "--experiment-id"' in result.output

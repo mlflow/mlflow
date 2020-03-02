@@ -6,7 +6,6 @@ import collections
 import shutil
 import pytest
 import tempfile
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611
 
 import numpy as np
 import pandas as pd

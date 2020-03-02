@@ -26,7 +26,6 @@ from tests.models import test_pyfunc
 from tests.helper_functions import pyfunc_build_image, pyfunc_serve_from_docker_image, \
     pyfunc_serve_from_docker_image_with_env_override, \
     RestEndpoint, get_safe_port, pyfunc_serve_and_score_model
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED, \
     CONTENT_TYPE_JSON, CONTENT_TYPE_CSV

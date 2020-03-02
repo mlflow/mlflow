@@ -8,8 +8,6 @@ from mlflow.utils.file_utils import path_to_local_file_uri
 from tests.integration.utils import invoke_cli_runner
 import pytest
 
-from tests.projects.utils import tracking_uri_mock
-
 EXAMPLES_DIR = 'examples'
 
 

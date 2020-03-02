@@ -4,7 +4,6 @@ import mlflow.spark
 from mlflow.exceptions import MlflowException
 
 from tests.spark_autologging.utils import _get_or_create_spark_session
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
 @pytest.mark.large

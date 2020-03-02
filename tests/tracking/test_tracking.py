@@ -21,7 +21,6 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
     MLFLOW_SOURCE_TYPE
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 # pylint: disable=unused-argument
 

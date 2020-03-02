@@ -1,6 +1,5 @@
 import pytest
 import numpy as np
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611
 np.random.seed(1337)
 
 import keras  # noqa

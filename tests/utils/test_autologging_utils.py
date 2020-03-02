@@ -2,7 +2,6 @@ import mlflow
 import pytest
 from mlflow.utils.autologging_utils import get_unspecified_default_args, \
     log_fn_args_as_params
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611
 
 
 # Example function signature we are testing on

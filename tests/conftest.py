@@ -1,5 +1,8 @@
 import pytest
 
+import mlflow
+from mlflow.utils.file_utils import path_to_local_sqlite_uri
+
 
 @pytest.fixture
 def reset_mock():
@@ -14,3 +17,12 @@ def reset_mock():
     for obj, attr, value in cache:
         setattr(obj, attr, value)
     cache[:] = []
+
+
+@pytest.fixture()
+def tracking_uri_mock(tmpdir):
+    try:
+        mlflow.set_tracking_uri(path_to_local_sqlite_uri(os.path.join(tmpdir.strpath, 'mlruns')))
+        yield tmpdir
+    finally:
+        mlflow.set_tracking_uri(None)

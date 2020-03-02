@@ -11,7 +11,6 @@ import mlflow.spark
 import mlflow.keras
 import mlflow.tensorflow
 
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from tests.spark_autologging.utils import _assert_spark_data_logged
 from tests.spark_autologging.utils import spark_session  # pylint: disable=unused-import
 from tests.spark_autologging.utils import format_to_file_path  # pylint: disable=unused-import

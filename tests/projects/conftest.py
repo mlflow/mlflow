@@ -4,9 +4,6 @@ import git
 from distutils import dir_util
 import pytest
 
-import mlflow
-from mlflow.utils.file_utils import path_to_local_sqlite_uri
-
 from tests.projects.utils import TEST_PROJECT_DIR
 
 
@@ -24,12 +21,3 @@ def local_git_repo(tmpdir):
 @pytest.fixture
 def local_git_repo_uri(local_git_repo):
     return "file://%s" % local_git_repo
-
-
-@pytest.fixture()
-def tracking_uri_mock(tmpdir):
-    try:
-        mlflow.set_tracking_uri(path_to_local_sqlite_uri(os.path.join(tmpdir.strpath, 'mlruns')))
-        yield tmpdir
-    finally:
-        mlflow.set_tracking_uri(None)

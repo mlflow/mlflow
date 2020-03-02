@@ -21,7 +21,6 @@ from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 pytestmark = pytest.mark.skipif(
     (sys.version_info < (3, 6)),
