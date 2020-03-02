@@ -12,7 +12,7 @@ guide.
 
 Breaking changes to Model Registry REST APIs:
 
-Model Registry REST APIs are updated to be more consistent with the other MLflow APIs. With this
+Model Registry REST APIs have been updated to be more consistent with the other MLflow APIs. With this
 release Model Registry APIs are no longer beta and intended to be stable until the next major
 version. Python and Java client APIs for Model Registry are backward compatible and have been
 updated to use new REST APIs. However, when using MLflow client with a server using updated REST
@@ -20,7 +20,7 @@ endpoints, you will need to upgrade to new client version without changing any u
 
 Other Features:
 
-- Adds ability to click through to individual runs from metrics plot (#2295, @harupy)
+- Added ability to click through to individual runs from metrics plot (#2295, @harupy)
 - Adds ``mlflow gc`` CLI for permanent deletion of runs (#2265, @t-henri)
 - Metric plot state is now captured in page URLs for easier link sharing (#2393, #2408, #2498 @smurching; #2459, @harupy)
 - Adds experiment management to MLflow UI (create/rename/delete experiments) (#2348, @ggliem)
@@ -36,12 +36,12 @@ Bug fixes and documentation updates:
 - Updated Model Registry documentation page with code snippets and examples (#2493, dmatrix)
 - Better error message for Model Registry, when using incompatible backend server (#2456, @aarondav)
 - matplotlib is no longer required to use XGBoost and LightGBM autologging (#2423, @harupy)
-- Fixes bug where matplotlib figures were not closed in XGBoost and LightGBM autologging (#2386, @harupy)
-- Fix parameter reading logic to support param values with newlines in FileStore (#2376, @dbczumar)
+- Fixed bug where matplotlib figures were not closed in XGBoost and LightGBM autologging (#2386, @harupy)
+- Fixed parameter reading logic to support param values with newlines in FileStore (#2376, @dbczumar)
 - Improve readability of run table column selector nodes (#2388, @dbczumar)
 - Validate experiment name supplied to ``UpdateExperiment`` REST API endpoint (#2357, @ggliem)
-- Fix broken MLflow DB README link in CLI docs (#2377, @dbczumar)
-- Change Copyright year across docs to 2020 (#2349, @ParseThis)
+- Fixed broken MLflow DB README link in CLI docs (#2377, @dbczumar)
+- Change copyright year across docs to 2020 (#2349, @ParseThis)
 
 Small bug fixes and doc updates (#2378, #2449, #2402, #2397, #2391, #2387, @harupy; #2314, @juntai-zheng; #2404, @andychow-db; #2343, @pogil; #2366, #2370, #2364, #2356, @AveshCSingh; #2373, #2365, #2363, @smurching; #2358, @jcuquemelle; #2490, @RensDimmendaal; #2506, @dbczumar, #2234 @Zangr, #2359 @lbernick)
 
