@@ -156,12 +156,15 @@ def _serve_pyfunc(model):
     if os.environ.get('OPTIMIZED_IMAGE'):
         opt_image = os.environ.get('OPTIMIZED_IMAGE')
     else:
-        opt_image = False
+        opt_image = "false"
     print(opt_image)
-    if pyfunc.ENV in conf and opt_image == "False":
+    if pyfunc.ENV in conf and opt_image == "false":
+        print("Not an Optimized Image")
         if not os.environ.get(DISABLE_ENV_CREATION) == "true":
             _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
         bash_cmds += ["source /miniconda/bin/activate custom_env"]
+    else:
+        print("Optimized image")
     nginx_conf = resource_filename(mlflow.models.__name__, "container/scoring_server/nginx.conf")
 
     # option to disable manually nginx. The default behavior is to enable nginx.
