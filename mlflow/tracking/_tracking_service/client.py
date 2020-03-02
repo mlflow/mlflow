@@ -181,6 +181,7 @@ class TrackingServiceClient(object):
     def set_experiment_tag(self, experiment_id, key, value):
         """
         Set a tag on the experiment with the specified ID. Value is converted to a string.
+
         :param experiment_id: String ID of the experiment.
         :param key: Name of the tag.
         :param value: Tag value (converted to a string).
@@ -192,6 +193,7 @@ class TrackingServiceClient(object):
     def set_tag(self, run_id, key, value):
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
+
         :param run_id: String ID of the run.
         :param key: Name of the tag.
         :param value: Tag value (converted to a string)
