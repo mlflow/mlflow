@@ -12,13 +12,12 @@ guide.
 
 Breaking changes to Model Registry REST APIs:
 
-Model Registry REST APIs have been updated to be more consistent with the other MLflow APIs. With this
-release Model Registry APIs are intended to be stable until the next major version. Python and Java
-client APIs for Model Registry are backward compatible and have been updated to use the new REST
-APIs. However, when using an MLflow client with a server using updated REST endpoints, you won't
-need to change any code but will need to upgrade to a new client version.
+Model Registry REST APIs have been updated to be more consistent with the other MLflow APIs. With
+this release Model Registry APIs are intended to be stable until the next major version.
+
+- Python and Java client APIs for Model Registry have been updated to use the new REST APIs. When using an MLflow client with a server using updated REST endpoints, you won't need to change any code but will need to upgrade to a new client version. The client APIs contain deprecated arguments, which for this release are backward compatible, but will be dropped in future releases. (#2457, @tomasatdatabricks; #2502, @mparkhe).
 - The Model Registry UI has been updated to use the new REST APIs (#2476 @aarondav; #2507, @mparkhe)
-- Updated MLflow Python and Java clients to use the new REST APIs. The client APIs have minor changes and deprecated arguments however for this release are backward compatible. These deprecated arguments will be dropped in future releases. (#2457, @tomasatdatabricks; #2502, @mparkhe)
+
 
 Other Features:
 
