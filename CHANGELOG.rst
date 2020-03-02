@@ -21,13 +21,13 @@ this release Model Registry APIs are intended to be stable until the next major 
 
 Other Features:
 
-- Added ability to click through to individual runs from metrics plot (#2295, @harupy)
-- Adds ``mlflow gc`` CLI for permanent deletion of runs (#2265, @t-henri)
+- Ability to click through to individual runs from metrics plot (#2295, @harupy)
+- Added ``mlflow gc`` CLI for permanent deletion of runs (#2265, @t-henri)
 - Metric plot state is now captured in page URLs for easier link sharing (#2393, #2408, #2498 @smurching; #2459, @harupy)
-- Adds experiment management to MLflow UI (create/rename/delete experiments) (#2348, @ggliem)
-- Adds ability to search for experiments by name in the UI (#2324, @ggliem)
+- Added experiment management to MLflow UI (create/rename/delete experiments) (#2348, @ggliem)
+- Ability to search for experiments by name in the UI (#2324, @ggliem)
 - MLflow UI page titles now reflect the content displayed on the page (#2420, @AveshCSingh)
-- Adds a new ``LogModel`` REST API endpoint for capturing model metadata, and call it from the Python and R clients (#2369, #2430, #2468 @tomasatdatabricks)
+- Added a new ``LogModel`` REST API endpoint for capturing model metadata, and call it from the Python and R clients (#2369, #2430, #2468 @tomasatdatabricks)
 - Java Client API to download model artifacts from Model Registry (#2308, @andychow-db)
 
 Bug fixes and documentation updates:
