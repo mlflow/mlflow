@@ -114,7 +114,7 @@ There are three programmatic ways to add a model to the registry. First, you can
 
 This logs the model as well as registers it under the specified name as version 1.
 
-The second way is to explicitly use the :func:`mlflow.register_model`,
+The second way is to explicitly use the :func:`~mlflow.register_model`,
 after all your experiment runs and when you have ascertained which run within an experiment is most suitable to add to the registry.
 For this scheme, you will need the ``run_id`` as part of the ``runs:URI`` argument.
 
@@ -148,12 +148,12 @@ While the method above creates an empty registered model with no version associa
         run_id="d16076a3ec534311817565e6527539c0"
     )
 
-In contrast, :func:`mlflow.register_model` and ``mlflow.<model_flavor>.log_model()`` will create a new version in the registry, if it does not already exist.
+In contrast, :func:`~mlflow.register_model` and ``mlflow.<model_flavor>.log_model()`` will create a new version in the registry, if it does not already exist.
 
 Adding or Updating Model Descriptions
 -------------------------------------
 
-At any point in a model’s lifecycle development, you can update a model version's description using the MLflow Tracking API.
+At any point in a model’s lifecycle development, you can update a model version's description using :meth:`~mlflow.tracking.MlflowClient.update_model_version`.
 
 .. code-block:: py
 
@@ -164,7 +164,7 @@ At any point in a model’s lifecycle development, you can update a model versio
         description="This model version is a scikit-learn random forest containing 100 decision trees"
     )
 
-As well as adding or updating a description of a specific version of the model, you can rename an existing registered model.
+As well as adding or updating a description of a specific version of the model, you can rename an existing registered model using :meth:`~mlflow.tracking.MlflowClient.rename_registered_model`.
 
 .. code-block:: py
 
