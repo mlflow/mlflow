@@ -23,7 +23,6 @@ Other Features:
 - Adds ability to click through to individual runs from metrics plot (#2295, @harupy)
 - Adds 'mlflow gc' CLI for permanent deletion of runs (#2265, @t-henri)
 - Metric plot state is now captured in page URLs for easier link sharing (#2393, #2408, #2498 @smurching; #2459, @harupy)
-- Announce deprecation of Python 2 support in MLflow (#2438, @smurching)
 - Adds experiment management to MLflow UI (create/rename/delete experiments) (#2348, @ggliem)
 - Adds ability to search for experiments by name in the UI (#2324, @ggliem)
 - MLflow UI page titles now reflect the content displayed on the page (#2420, @AveshCSingh)
