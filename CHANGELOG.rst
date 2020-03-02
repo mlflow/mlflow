@@ -1,37 +1,47 @@
 Changelog
 =========
-1.7.0 (2020-03-01)
+1.7.0 (2020-03-02)
 ------------------
-MLflow 1.7.0 includes several major features and improvements:
+MLflow 1.7.0 includes several major features and improvements, and some notable breaking changes:
 
-Model Registry APIs: breaking changes
-- REST APIs are no longer in beta and intended to be stable until the next major version. As such, this release includes a number of breaking changes.
-- Model Registry UI has been updated to use new REST APIs (#2456, #2476 @aarondav; #2507, @mparkhe)
-- MLflow Client APIs are backward compatible and internally been updated to use new REST APIs (#2457, @tomasatdatabricks; #2502, @mparkhe)
+Breaking Changes:
+- Model Registry REST APIs are no longer in beta and intended to be stable until the next major version. As such, this release includes a number of breaking changes.
+- The Model Registry UI has been updated to use new REST APIs (#2456, #2476 @aarondav; #2507, @mparkhe)
+- MLflow Client APIs are backward compatible and have been updated to use new REST APIs (#2457, @tomasatdatabricks; #2502, @mparkhe)
 - Java Client API to download models artifacts (#2308, @andychow-db)
 - Updated Model Registry documentation page with code snippets and examples (#2493, dmatrix)
 
+In addition, MLflow support for Python 2 is now deprecated and will be dropped in a future 
+release. At that point, existing Python 2 workflows that use MLflow will continue to work
+without modification, but Python 2 users will no longer get access to the latest 
+MLflow features and bugfixes. We recommend that you upgrade to Python 3 - see 
+https://docs.python.org/3/howto/pyporting.html for a migration guide.
+
+
 Other Features:
 
-- Fix bar chart bug introduced in #2393 (#2498, @smurching)
-- Save metric plot state in URLs for easier link sharing (#2393, @smurching)
-- Update R client to call record logged model  (#2430, @tomasatdatabricks)
-- Fix handleLayoutChange to update dragmode (#2459, @harupy)
+- Adds ability to click through to individual runs from metrics plot (#2295, @harupy)
+- Adds 'mlflow gc' CLI for permanent deletion of runs (#2265, @t-henri)
+- Metric plot state is now captured in page URLs for easier link sharing (#2393, #2408, #2498 @smurching; #2459, @harupy)
 - Announce deprecation of Python 2 support in MLflow (#2438, @smurching)
-- Experiment Searching: Search for experiments by name in the UI (#2324, @ggliem)
-- Make MLflow page titles more descriptive (#2420, @AveshCSingh)
-- Add log model endpoint. (#2369, @tomasatdatabricks)
+- Adds experiment management to MLflow UI (create/rename/delete experiments) (#2348, @ggliem)
+- Adds ability to search for experiments by name in the UI (#2324, @ggliem)
+- MLflow UI page titles now reflect the content displayed on the page (#2420, @AveshCSingh)
+- Adds a new log-model REST API endpoint for capturing model metadata, and call it from the Python and R clients (#2369, #2430, #2468 @tomasatdatabricks)
+- Adds Java client methods for downloading models from the Model Registry (#2308, @andychow-db)
 
 Bug fixes and documentation updates:
 
-- Prevent metrics plots from resetting zoom when line smoothness or other attributes change (#2408, @smurching)
-- Import matplotlib in log_feature_importance_plot (#2423, @harupy)
-- Close figure after auto logging (#2386, @harupy)
+- Better error messages for model registry (#2456, @aarondav)
+- matplotlib is no longer required to use XGBoost and LightGBM autologging (#2423, @harupy)
+- Fixes bug where matplotlib figures were not closed in XGBoost and LightGBM autologging (#2386, @harupy)
 - FileStore: Fix parameter reading logic to support param values with newlines (#2376, @dbczumar)
 - Improve readability of run table column selector nodes (#2388, @dbczumar)
-- Update log model details - change tag name and add tag description to docs. (#2468, @tomasatdatabricks)
+- Validate experiment name supplied to UpdateExperiment REST API endpoint (#2357, @ggliem)
+- Fix broken MLflow DB README link in CLI docs (#2377, @dbczumar)
+- Change Copyright year across docs to 2020 (#2349, @ParseThis)
 
-Small bug fixes and doc updates (#2378, #2449, #2402, #2397, @harupy; #2314, @juntai-zheng; #2404, @andychow-db; #2366, #2370, #2364, @AveshCSingh; #2373, #2513, @smurching; #2506, @dbczumar)
+Small bug fixes and doc updates (#2378, #2449, #2402, #2397, #2391, #2387, @harupy; #2314, @juntai-zheng; #2404, @andychow-db; #2343, @pogil; #2366, #2370, #2364, #2356, @AveshCSingh; #2373, #2365, #2363, @smurching; #2358, @jcuquemelle; #2490, @RensDimmendaal; #2506, @dbczumar, #2234 @Zangr, #2359 @lbernick)
 
 1.6.0 (2020-01-29)
 -----------------------
