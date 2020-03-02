@@ -19,7 +19,7 @@ Concepts
 The Model Registry introduces a few concepts that describe and facilitate the full lifecycle of an MLflow Model.
 
 Model
-    An MLflow Model is created from an experiment or run that is logged with one of the model flavor’s ``mlflow.<model_flavor>.log_model`` methods. Once logged, this model can then be registered with the Model Registry.
+    An MLflow Model is created from an experiment or run that is logged with one of the model flavor’s ``mlflow.<model_flavor>.log_model()`` methods. Once logged, this model can then be registered with the Model Registry.
 
 Registered Model
     An MLflow Model can be registered with the  Model Registry. A registered model has a unique name, contains versions, associated transitional stages, model lineage, and other metadata.
@@ -87,7 +87,7 @@ In particular, you can register a model during an MLflow experiment run or after
 Adding an MLflow Model to the Model Registry
 --------------------------------------------
 
-There are three programmatic ways to add a model to the registry. First, you can use the ``mlflow.<model_flavor>.log_model(...)`` method. For example, in your code:
+There are three programmatic ways to add a model to the registry. First, you can use the ``mlflow.<model_flavor>.log_model()`` method. For example, in your code:
 
 .. code-block:: py
 
@@ -148,7 +148,7 @@ While the method above creates an empty registered model with no version associa
         run_id="d16076a3ec534311817565e6527539c0"
     )
 
-In contrast, :func:`~mlflow.register_model` and ``mlflow.<model_flavor>.log_model()`` will create a new version in the registry, if it does not already exist.
+In contrast, :func:`mlflow.register_model` and ``mlflow.<model_flavor>.log_model()`` will create a new version in the registry, if it does not already exist.
 
 Adding or Updating Model Descriptions
 -------------------------------------
@@ -196,7 +196,7 @@ You can fetch a list of all registered models in the registry with a simple meth
 
     from pprint import pprint
 
-    client=MlflowClient()
+    client = MlflowClient()
     for rm in client.list_registered_models():
         pprint(dict(rm), indent=4)
 
