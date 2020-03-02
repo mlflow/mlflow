@@ -13,10 +13,12 @@ guide.
 Breaking changes to Model Registry REST APIs:
 
 Model Registry REST APIs have been updated to be more consistent with the other MLflow APIs. With this
-release Model Registry APIs are no longer beta and intended to be stable until the next major
-version. Python and Java client APIs for Model Registry are backward compatible and have been
-updated to use new REST APIs. However, when using MLflow client with a server using updated REST
-endpoints, you will need to upgrade to new client version without changing any user code.
+release Model Registry APIs are intended to be stable until the next major version. Python and Java
+client APIs for Model Registry are backward compatible and have been updated to use the new REST
+APIs. However, when using an MLflow client with a server using updated REST endpoints, you won't
+need to change any code but will need to upgrade to a new client version.
+- The Model Registry UI has been updated to use the new REST APIs (#2476 @aarondav; #2507, @mparkhe)
+- Updated MLflow Python and Java clients to use the new REST APIs. The client APIs have minor changes and deprecated arguments however for this release are backward compatible. These deprecated arguments will be dropped in future releases. (#2457, @tomasatdatabricks; #2502, @mparkhe)
 
 Other Features:
 
@@ -27,13 +29,11 @@ Other Features:
 - Adds ability to search for experiments by name in the UI (#2324, @ggliem)
 - MLflow UI page titles now reflect the content displayed on the page (#2420, @AveshCSingh)
 - Adds a new ``LogModel`` REST API endpoint for capturing model metadata, and call it from the Python and R clients (#2369, #2430, #2468 @tomasatdatabricks)
-- The Model Registry UI has been updated to use new REST APIs (#2476 @aarondav; #2507, @mparkhe)
-- Updated MLflow Python and Java clients to use new REST APIs. The client APIs have minor changes and deprecated arguments however for this release are backward compatible. These deprecated arguments will be dropped in future releases. (#2457, @tomasatdatabricks; #2502, @mparkhe)
-- Java Client API to download model artifacts (#2308, @andychow-db)
+- Java Client API to download model artifacts from Model Registry (#2308, @andychow-db)
 
 Bug fixes and documentation updates:
 
-- Updated Model Registry documentation page with code snippets and examples (#2493, dmatrix)
+- Updated Model Registry documentation page with code snippets and examples (#2493, @dmatrix; #2517, @harupy)
 - Better error message for Model Registry, when using incompatible backend server (#2456, @aarondav)
 - matplotlib is no longer required to use XGBoost and LightGBM autologging (#2423, @harupy)
 - Fixed bug where matplotlib figures were not closed in XGBoost and LightGBM autologging (#2386, @harupy)
@@ -43,7 +43,7 @@ Bug fixes and documentation updates:
 - Fixed broken MLflow DB README link in CLI docs (#2377, @dbczumar)
 - Change copyright year across docs to 2020 (#2349, @ParseThis)
 
-Small bug fixes and doc updates (#2378, #2449, #2402, #2397, #2391, #2387, @harupy; #2314, @juntai-zheng; #2404, @andychow-db; #2343, @pogil; #2366, #2370, #2364, #2356, @AveshCSingh; #2373, #2365, #2363, @smurching; #2358, @jcuquemelle; #2490, @RensDimmendaal; #2506, @dbczumar, #2234 @Zangr, #2359 @lbernick)
+Small bug fixes and doc updates (#2378, #2449, #2402, #2397, #2391, #2387, #2523, #2527 @harupy; #2314, @juntai-zheng; #2404, @andychow-db; #2343, @pogil; #2366, #2370, #2364, #2356, @AveshCSingh; #2373, #2365, #2363, @smurching; #2358, @jcuquemelle; #2490, @RensDimmendaal; #2506, @dbczumar; #2234 @Zangr; #2359 @lbernickm; #2525, @mparkhe)
 
 1.6.0 (2020-01-29)
 -----------------------
