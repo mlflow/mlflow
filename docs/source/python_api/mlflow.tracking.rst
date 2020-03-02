@@ -1,3 +1,5 @@
+.. _mlflow.tracking:
+
 mlflow.tracking
 ===============
 
