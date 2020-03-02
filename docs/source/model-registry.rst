@@ -202,7 +202,7 @@ You can fetch a list of all registered models in the registry with a simple meth
 
 This outputs:
 
-.. code-block:: bash
+.. code-block:: python
 
     {   'creation_timestamp': 1582671933216,
         'description': None,
@@ -225,7 +225,7 @@ and provide a filter string such as ``"name='sk-learn-random-forest-reg-model'"`
 
 This outputs:
 
-.. code-block:: bash
+.. code-block:: python
 
     {   'creation_timestamp': 1582671933246,
         'current_stage': 'Production',
