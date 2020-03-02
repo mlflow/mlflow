@@ -16,7 +16,7 @@ from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.projects.backend.abstract_backend import AbstractBackend
-from mlflow.projects.utils import fetch_project
+from mlflow.projects.utils import prepare_project_and_run
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
@@ -290,15 +290,17 @@ class DatabricksProjectBackend(AbstractBackend):
         """
         tracking_uri = tracking.get_tracking_uri()
         before_run_validations(tracking_uri, backend_config)
-        project_dir = fetch_project(uri=project_uri, force_tempdir=False, version=version)
+        fetched_project = prepare_project_and_run(
+            project_uri, experiment_id, run_id, entry_point, params, version)
         profile = get_db_profile_from_uri(tracking_uri)
-        experiment_id = mlflow.get_run(run_id).info.experiment_id
+        current_run_id = fetched_project.run.info.run_id
+        experiment_id = mlflow.get_run(current_run_id).info.experiment_id
         db_job_runner = DatabricksJobRunner(databricks_profile=profile)
         db_run_id = db_job_runner.run_databricks(
-            project_uri, entry_point, project_dir, params,
-            experiment_id, backend_config, run_id)
+            project_uri, entry_point, fetched_project.work_dir, params,
+            experiment_id, backend_config, current_run_id)
         submitted_run = DatabricksSubmittedRun(
-            db_run_id, run_id, db_job_runner)
+            db_run_id, current_run_id, db_job_runner)
         submitted_run._print_description_and_log_tags()
         return submitted_run
 

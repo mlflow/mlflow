@@ -25,7 +25,6 @@ from mlflow.utils.rest_utils import _DEFAULT_HEADERS
 from tests import helper_functions
 
 from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
 @pytest.fixture()

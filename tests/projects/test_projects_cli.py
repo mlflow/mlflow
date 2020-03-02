@@ -14,7 +14,6 @@ from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI, \
     TEST_NO_SPEC_PROJECT_DIR
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 _logger = logging.getLogger(__name__)
 
