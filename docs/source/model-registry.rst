@@ -114,7 +114,7 @@ There are three programmatic ways to add a model to the registry. First, you can
 
 This logs the model as well as registers it under the specified name as version 1.
 
-The second way is to explicitly use the :func:`~mlflow.register_model`,
+The second way is to explicitly use the :func:`mlflow.register_model`,
 after all your experiment runs and when you have ascertained which run within an experiment is most suitable to add to the registry.
 For this scheme, you will need the ``run_id`` as part of the ``runs:URI`` argument.
 
@@ -142,11 +142,10 @@ While the method above creates an empty registered model with no version associa
 .. code-block:: py
 
     client = MlflowClient()
-    run_id = "d16076a3ec534311817565e6527539c0"
     result = client.create_model_version(
         name="sk-learn-random-forest-reg-model",
-        source="mlruns/0/{}/artifacts/sklearn-model".format(run_id),
-        run_id=run_id
+        source="mlruns/0/d16076a3ec534311817565e6527539c0/artifacts/sklearn-model",
+        run_id="d16076a3ec534311817565e6527539c0"
     )
 
 In contrast, :func:`~mlflow.register_model` and ``mlflow.<model_flavor>.log_model()`` will create a new version in the registry, if it does not already exist.
@@ -221,8 +220,7 @@ and provide a filter string such as ``"name='sk-learn-random-forest-reg-model'"`
 .. code-block:: py
 
     client = MlflowClient()
-    filter_string = "name='sk-learn-random-forest-reg-model'"
-    for mv in client.search_model_versions(filter_string):
+    for mv in client.search_model_versions("name='sk-learn-random-forest-reg-model'"):
         pprint(dict(mv), indent=4)
 
 This outputs:
