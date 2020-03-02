@@ -21,12 +21,12 @@ endpoints, you will need to upgrade to new client version without changing any u
 Other Features:
 
 - Adds ability to click through to individual runs from metrics plot (#2295, @harupy)
-- Adds `mlflow gc` CLI for permanent deletion of runs (#2265, @t-henri)
+- Adds ``mlflow gc`` CLI for permanent deletion of runs (#2265, @t-henri)
 - Metric plot state is now captured in page URLs for easier link sharing (#2393, #2408, #2498 @smurching; #2459, @harupy)
 - Adds experiment management to MLflow UI (create/rename/delete experiments) (#2348, @ggliem)
 - Adds ability to search for experiments by name in the UI (#2324, @ggliem)
 - MLflow UI page titles now reflect the content displayed on the page (#2420, @AveshCSingh)
-- Adds a new `LogModel` REST API endpoint for capturing model metadata, and call it from the Python and R clients (#2369, #2430, #2468 @tomasatdatabricks)
+- Adds a new ``LogModel`` REST API endpoint for capturing model metadata, and call it from the Python and R clients (#2369, #2430, #2468 @tomasatdatabricks)
 - The Model Registry UI has been updated to use new REST APIs (#2476 @aarondav; #2507, @mparkhe)
 - Updated MLflow Python and Java clients to use new REST APIs. The client APIs have minor changes and deprecated arguments however for this release are backward compatible. These deprecated arguments will be dropped in future releases. (#2457, @tomasatdatabricks; #2502, @mparkhe)
 - Java Client API to download model artifacts (#2308, @andychow-db)
@@ -37,9 +37,9 @@ Bug fixes and documentation updates:
 - Better error message for Model Registry, when using incompatible backend server (#2456, @aarondav)
 - matplotlib is no longer required to use XGBoost and LightGBM autologging (#2423, @harupy)
 - Fixes bug where matplotlib figures were not closed in XGBoost and LightGBM autologging (#2386, @harupy)
-- `FileStore`: Fix parameter reading logic to support param values with newlines (#2376, @dbczumar)
+- Fix parameter reading logic to support param values with newlines in FileStore (#2376, @dbczumar)
 - Improve readability of run table column selector nodes (#2388, @dbczumar)
-- Validate experiment name supplied to `UpdateExperiment` REST API endpoint (#2357, @ggliem)
+- Validate experiment name supplied to ``UpdateExperiment`` REST API endpoint (#2357, @ggliem)
 - Fix broken MLflow DB README link in CLI docs (#2377, @dbczumar)
 - Change Copyright year across docs to 2020 (#2349, @ParseThis)
 
