@@ -4,39 +4,42 @@ Changelog
 ------------------
 MLflow 1.7.0 includes several major features and improvements, and some notable breaking changes:
 
-Breaking Changes:
-- Model Registry REST APIs are no longer in beta and intended to be stable until the next major version. As such, this release includes a number of breaking changes.
-- The Model Registry UI has been updated to use new REST APIs (#2456, #2476 @aarondav; #2507, @mparkhe)
-- MLflow Client APIs are backward compatible and have been updated to use new REST APIs (#2457, @tomasatdatabricks; #2502, @mparkhe)
-- Java Client API to download models artifacts (#2308, @andychow-db)
-- Updated Model Registry documentation page with code snippets and examples (#2493, dmatrix)
+MLflow support for Python 2 is now deprecated and will be dropped in a future release. At that
+point, existing Python 2 workflows that use MLflow will continue to work without modification, but
+Python 2 users will no longer get access to the latest MLflow features and bugfixes. We recommend
+that you upgrade to Python 3 - see  https://docs.python.org/3/howto/pyporting.html for a migration
+guide.
 
-In addition, MLflow support for Python 2 is now deprecated and will be dropped in a future 
-release. At that point, existing Python 2 workflows that use MLflow will continue to work
-without modification, but Python 2 users will no longer get access to the latest 
-MLflow features and bugfixes. We recommend that you upgrade to Python 3 - see 
-https://docs.python.org/3/howto/pyporting.html for a migration guide.
+Breaking changes to Model Registry REST APIs:
 
+Model Registry REST APIs are updated to be more consistent with the other MLflow APIs. With this
+release Model Registry APIs are no longer beta and intended to be stable until the next major
+version. Python and Java client APIs for Model Registry are backward compatible and have been
+updated to use new REST APIs. However, when using MLflow client with a server using updated REST
+endpoints, you will need to upgrade to new client version without changing any user code.
 
 Other Features:
 
 - Adds ability to click through to individual runs from metrics plot (#2295, @harupy)
-- Adds 'mlflow gc' CLI for permanent deletion of runs (#2265, @t-henri)
+- Adds `mlflow gc` CLI for permanent deletion of runs (#2265, @t-henri)
 - Metric plot state is now captured in page URLs for easier link sharing (#2393, #2408, #2498 @smurching; #2459, @harupy)
 - Adds experiment management to MLflow UI (create/rename/delete experiments) (#2348, @ggliem)
 - Adds ability to search for experiments by name in the UI (#2324, @ggliem)
 - MLflow UI page titles now reflect the content displayed on the page (#2420, @AveshCSingh)
-- Adds a new log-model REST API endpoint for capturing model metadata, and call it from the Python and R clients (#2369, #2430, #2468 @tomasatdatabricks)
-- Adds Java client methods for downloading models from the Model Registry (#2308, @andychow-db)
+- Adds a new `LogModel` REST API endpoint for capturing model metadata, and call it from the Python and R clients (#2369, #2430, #2468 @tomasatdatabricks)
+- The Model Registry UI has been updated to use new REST APIs (#2476 @aarondav; #2507, @mparkhe)
+- Updated MLflow Python and Java clients to use new REST APIs. The client APIs have minor changes and deprecated arguments however for this release are backward compatible. These deprecated arguments will be dropped in future releases. (#2457, @tomasatdatabricks; #2502, @mparkhe)
+- Java Client API to download model artifacts (#2308, @andychow-db)
 
 Bug fixes and documentation updates:
 
-- Better error messages for model registry (#2456, @aarondav)
+- Updated Model Registry documentation page with code snippets and examples (#2493, dmatrix)
+- Better error message for Model Registry, when using incompatible backend server (#2456, @aarondav)
 - matplotlib is no longer required to use XGBoost and LightGBM autologging (#2423, @harupy)
 - Fixes bug where matplotlib figures were not closed in XGBoost and LightGBM autologging (#2386, @harupy)
-- FileStore: Fix parameter reading logic to support param values with newlines (#2376, @dbczumar)
+- `FileStore`: Fix parameter reading logic to support param values with newlines (#2376, @dbczumar)
 - Improve readability of run table column selector nodes (#2388, @dbczumar)
-- Validate experiment name supplied to UpdateExperiment REST API endpoint (#2357, @ggliem)
+- Validate experiment name supplied to `UpdateExperiment` REST API endpoint (#2357, @ggliem)
 - Fix broken MLflow DB README link in CLI docs (#2377, @dbczumar)
 - Change Copyright year across docs to 2020 (#2349, @ParseThis)
 
