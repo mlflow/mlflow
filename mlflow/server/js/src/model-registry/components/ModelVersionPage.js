@@ -45,7 +45,7 @@ class ModelVersionPage extends React.Component {
     this.getModelVersionDetailAndRunInfo(isInitialLoading).catch(console.error);
   };
 
-  // We need to do this because currently the ModelVersionDetailed we got does not contain
+  // We need to do this because currently the ModelVersion we got does not contain
   // experimentId. We need experimentId to construct a link to the source run. This workaround can
   // be removed after the availability of experimentId.
   getModelVersionDetailAndRunInfo(isInitialLoading) {

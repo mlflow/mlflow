@@ -91,7 +91,7 @@ class ModelVersion(_ModelRegistryEntity):
     # proto mappers
     @classmethod
     def from_proto(cls, proto):
-        # input: mlflow.protos.model_registry_pb2.ModelVersionDetailed
+        # input: mlflow.protos.model_registry_pb2.ModelVersion
         # returns: ModelVersion entity
         return cls(proto.name,
                    proto.version,
@@ -106,8 +106,8 @@ class ModelVersion(_ModelRegistryEntity):
                    proto.status_message)
 
     def to_proto(self):
-        # input: ModelVersionDetailed entity
-        # returns mlflow.protos.model_registry_pb2.ModelVersionDetailed
+        # input: ModelVersion entity
+        # returns mlflow.protos.model_registry_pb2.ModelVersion
         model_version = ProtoModelVersion()
         model_version.name = self.name
         model_version.version = str(self.version)
