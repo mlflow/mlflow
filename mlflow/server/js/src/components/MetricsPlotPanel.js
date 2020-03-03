@@ -521,7 +521,10 @@ const mapStateToProps = (state, ownProps) => {
   // Flat array of all metrics, with history and information of the run it belongs to
   // This is used for underlying MetricsPlotView & predicting chartType for MetricsPlotControls
   const metricsWithRunInfoAndHistory = _.flatMap(runUuids, (runUuid) => {
-    const runDisplayName = Utils.getRunDisplayName(getRunTags(runUuid, state), runUuid);
+    const runDisplayName = Utils.getRunDisplayName(
+      getRunTags(runUuid, state),
+      runUuid.slice(0, 6) + '...'
+    );
     runDisplayNames.push(runDisplayName);
     const metricsHistory = metricsByRunUuid[runUuid];
     return metricsHistory
