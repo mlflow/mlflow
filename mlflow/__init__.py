@@ -89,4 +89,5 @@ __all__ = ["ActiveRun", "log_param", "log_params", "log_metric", "log_metrics", 
            "set_tags", "delete_tag", "log_artifacts", "log_artifact", "active_run", "start_run",
            "end_run", "search_runs", "get_artifact_uri", "get_tracking_uri", "set_tracking_uri",
            "get_experiment", "get_experiment_by_name", "create_experiment", "set_experiment",
-           "delete_experiment", "get_run", "delete_run", "run", "register_model"]
+           "delete_experiment", "get_run", "delete_run", "run", "register_model",
+           "is_tracking_uri_set"]
