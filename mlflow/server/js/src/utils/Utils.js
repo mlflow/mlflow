@@ -290,7 +290,7 @@ class Utils {
    * @param runTags Object of tag name to MlflowMessages.RunTag instance
    */
   static getRunDisplayName(runTags, runUuid) {
-    return Utils.getRunName(runTags) || "Run " + runUuid.slice(0, 6);
+    return Utils.getRunName(runTags) || "Run " + runUuid.slice(0, 6) + "...";
   }
 
   static getRunName(runTags) {
