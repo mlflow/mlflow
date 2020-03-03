@@ -39,6 +39,7 @@ class ModelVersionPage extends React.Component {
   initGetModelVersionDetailsRequestId = getUUID();
   getRunRequestId = getUUID();
   updateModelVersionRequestId = getUUID();
+  transitionModelVersionStageRequestId = getUUID();
   getModelVersionDetailsRequestId = getUUID();
 
   criticalInitialRequestIds = [this.initGetModelVersionDetailsRequestId];
@@ -76,7 +77,7 @@ class ModelVersionPage extends React.Component {
           modelName,
           version,
           toStage,
-            false,  // TODO(andy.chow): once we have a dialog calling this we can pass in this param
+          false,  // TODO(andy.chow): once we have a dialog calling this we can pass in this param
           this.transitionModelVersionStageRequestId,
         )
         .then(this.loadData);
