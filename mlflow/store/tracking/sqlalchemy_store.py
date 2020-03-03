@@ -571,6 +571,7 @@ class SqlAlchemyStore(AbstractStore):
     def set_tag(self, run_id, tag):
         """
         Set a tag on a run.
+
         :param run_id: String ID of the run
         :param tag: RunTag instance to log
         """
@@ -583,6 +584,7 @@ class SqlAlchemyStore(AbstractStore):
     def delete_tag(self, run_id, key):
         """
         Delete a tag from a run. This is irreversible.
+
         :param run_id: String ID of the run
         :param key: Name of the tag
         """
