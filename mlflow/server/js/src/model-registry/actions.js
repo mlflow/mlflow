@@ -69,6 +69,25 @@ export const updateModelVersionApi = (
   meta: { id },
 });
 
+export const TRANSITION_MODEL_VERSION_STAGE = 'TRANSITION_MODEL_VERSION_STAGE';
+export const transitionModelVersionStageApi = (
+    modelName,
+    version,
+    stage,
+    archiveExistingVersions,
+    comment,
+    id = getUUID(),
+) => ({
+  type: TRANSITION_MODEL_VERSION_STAGE,
+  payload: wrapDeferred(Services.transitionModelVersionStage, {
+    name: modelName,
+    version: version.toString(),
+    stage,
+    archive_existing_versions: archiveExistingVersions,
+  }),
+  meta: { id },
+});
+
 export const DELETE_MODEL_VERSION = 'DELETE_MODEL_VERSION';
 export const deleteModelVersionApi = (modelName, version, id = getUUID()) => ({
   type: DELETE_MODEL_VERSION,
