@@ -4,6 +4,7 @@ import {
   getModelVersionApi,
   updateModelVersionApi,
   deleteModelVersionApi,
+  transitionModelVersionStageApi,
 } from '../actions';
 import { getRunApi, getUUID } from '../../Actions';
 import PropTypes from 'prop-types';
@@ -29,6 +30,7 @@ class ModelVersionPage extends React.Component {
     getModelVersionApi: PropTypes.func.isRequired,
     updateModelVersionApi: PropTypes.func.isRequired,
     deleteModelVersionApi: PropTypes.func.isRequired,
+    transitionModelVersionStageApi: PropTypes.func.isRequired,
     getRunApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     apis: PropTypes.object.isRequired,
@@ -37,6 +39,7 @@ class ModelVersionPage extends React.Component {
   initGetModelVersionDetailsRequestId = getUUID();
   getRunRequestId = getUUID();
   updateModelVersionRequestId = getUUID();
+  transitionModelVersionStageRequestId = getUUID();
   getModelVersionDetailsRequestId = getUUID();
 
   criticalInitialRequestIds = [this.initGetModelVersionDetailsRequestId];
@@ -70,12 +73,12 @@ class ModelVersionPage extends React.Component {
     const toStage = activity.model_registry_data.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {
       this.props
-        .updateModelVersionApi(
+        .transitionModelVersionStageApi(
           modelName,
           version,
           toStage,
-          undefined,
-          this.updateModelVersionRequestId,
+          false,  // TODO(andy.chow): once we have a dialog calling this we can pass in this param
+          this.transitionModelVersionStageRequestId,
         )
         .then(this.loadData);
     }
@@ -185,6 +188,7 @@ const mapStateToProps = (state, ownProps) => {
 const mapDispatchToProps = {
   getModelVersionApi,
   updateModelVersionApi,
+  transitionModelVersionStageApi,
   deleteModelVersionApi,
   getRunApi,
 };
