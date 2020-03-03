@@ -6,7 +6,6 @@ import mlflow
 from mlflow.exceptions import MlflowException
 import mlflow.spark
 from mlflow._spark_autologging import _get_current_listener, PythonSubscriber
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from tests.spark_autologging.utils import _get_or_create_spark_session
 
 
