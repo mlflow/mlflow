@@ -19,6 +19,9 @@ describe('unit tests', () => {
       push: (url) => {
         location.search = "?" + url.split("?")[1];
       },
+      replace: (url) => {
+        location.search = "?" + url.split("?")[1];
+      },
     };
     minimalPropsForLineChart = {
       experimentId: 1,
