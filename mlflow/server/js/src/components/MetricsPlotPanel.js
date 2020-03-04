@@ -71,7 +71,7 @@ export class MetricsPlotPanel extends React.Component {
       popoverY: 0,
       popoverRunItems: [],
     };
-    this.isPlotClicked = false;
+    this.displayPopover = false;
     this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
   }
 
@@ -261,7 +261,7 @@ export class MetricsPlotPanel extends React.Component {
    * and schema.
    */
   handleLayoutChange = (newLayout) => {
-    this.isPlotClicked = false;
+    this.displayPopover = false;
     const state = this.getUrlState();
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
@@ -403,12 +403,12 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   updatePopover = (data) => {
-    this.isPlotClicked = !this.isPlotClicked;
+    this.displayPopover = !this.displayPopover;
 
     // Ignore double click.
     setTimeout(() => {
-      if (this.isPlotClicked) {
-        this.isPlotClicked = false;
+      if (this.displayPopover) {
+        this.displayPopover = false;
         const { popoverVisible, popoverX, popoverY } = this.state;
         const { points, event: { clientX, clientY } } = data;
         const samePointClicked = popoverX === clientX && popoverY === clientY;
