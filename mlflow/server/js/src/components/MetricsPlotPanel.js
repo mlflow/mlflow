@@ -107,7 +107,7 @@ export class MetricsPlotPanel extends React.Component {
     };
     const { selectedXAxis, selectedMetricKeys, showPoint, yAxisLogScale, lineSmoothness,
       layout, deselectedCurves, lastLinearYAxisRange } = newState;
-    history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
+    history.replace(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
       layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint, deselectedCurves,
       lastLinearYAxisRange));
   };
