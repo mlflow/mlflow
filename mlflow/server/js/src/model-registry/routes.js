@@ -5,8 +5,8 @@ export const compareModelVersionsPageRoute = "/compare-model-versions";
 export const getModelPageRoute = (modelName) => `/models/${modelName}`;
 export const getModelVersionPageRoute = (modelName, version) =>
   `/models/${modelName}/versions/${version}`;
-export const getCompareModelVersionsPageRoute = (modelName, runsToVersions, experimentId) =>
-  `/compare-model-versions?name=${JSON.stringify(modelName)}&runs=${JSON.stringify(runsToVersions)}&experiment=${experimentId}`;
+export const getCompareModelVersionsPageRoute = (modelName, runsToVersions) =>
+  `/compare-model-versions?name=${JSON.stringify(modelName)}&runs=${JSON.stringify(runsToVersions)}`;
 
 export const getModelVersionPageURL = (modelName, version) => {
   const modelRoute = getModelVersionPageRoute(modelName, version);

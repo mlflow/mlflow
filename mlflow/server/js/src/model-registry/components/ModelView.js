@@ -136,7 +136,7 @@ export class ModelView extends React.Component {
 
   onCompare() {
     this.props.history.push(getCompareModelVersionsPageRoute(
-        this.props.model.registered_model.name, this.state.runsSelected, 0));
+        this.props.model.name, this.state.runsSelected));
   }
 
   render() {
@@ -189,17 +189,17 @@ export class ModelView extends React.Component {
         <CollapsibleSection title={(
           <span>
             Versions{' '}
-            <Radio.Group
-              className='active-toggle'
-              value={stageFilter}
-              onChange={this.handleStageFilterChange}
-            >
-              <Radio.Button value={Stages.ALL}>All</Radio.Button>
-              <Radio.Button value={Stages.ACTIVE}>
-                Active({this.getActiveVersionsCount()})
-              </Radio.Button>
-            </Radio.Group>
             <div className="ExperimentView-run-buttons">
+              <Radio.Group
+                className='active-toggle'
+                value={stageFilter}
+                onChange={this.handleStageFilterChange}
+              >
+                <Radio.Button value={Stages.ALL}>All</Radio.Button>
+                <Radio.Button value={Stages.ACTIVE}>
+                  Active({this.getActiveVersionsCount()})
+                </Radio.Button>
+              </Radio.Group>
             <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
               Compare
             </Button>
