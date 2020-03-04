@@ -121,7 +121,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
         return eval
 
     space = [
-        hp.uniform('lr', 1e-5, 1e-1),
+        hp.uniform('learning_rate', 1e-5, 1e-1),
         hp.uniform('momentum', .0, 1.0),
     ]
 
@@ -159,6 +159,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
                 best_val_valid = r.data.metrics["val_rmse"]
                 best_val_test = r.data.metrics["test_rmse"]
         mlflow.set_tag("best_run", best_run.info.run_id)
+        mlflow.log_params(best)
         mlflow.log_metrics({
             "train_{}".format(metric): best_val_train,
             "val_{}".format(metric): best_val_valid,
