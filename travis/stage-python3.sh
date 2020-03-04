@@ -11,9 +11,7 @@ then
   else
     ./travis/run-large-python-tests.sh
     ./travis/test-anaconda-compatibility.sh "anaconda3:2019.10"
-    ./travis/test-anaconda-compatibility.sh "anaconda:2019.10"
     ./travis/test-anaconda-compatibility.sh "anaconda3:2019.03"
-    ./travis/test-anaconda-compatibility.sh "anaconda:2019.03"
   fi
 fi
 CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true
