@@ -5,6 +5,7 @@ on:
 
 name: Jira Ticket Creation for PRs
 
+
 jobs:
   create_ticket:
     name: Create Jira ticket over API
