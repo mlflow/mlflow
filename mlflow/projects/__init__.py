@@ -652,7 +652,7 @@ def _get_docker_command(image, active_run, volumes=None, user_env_vars=None):
     tracking_uri = tracking.get_tracking_uri()
     tracking_cmds, tracking_envs = _get_docker_tracking_cmd_and_envs(tracking_uri)
     artifact_cmds, artifact_envs = \
-        _get_docker_artifact_storage_cmd_and_envs(active_run.info.artifact_uri)
+        _get_docker_artifact_storage_cmd_and_envs(active_run)
 
     cmd += tracking_cmds + artifact_cmds
     env_vars.update(tracking_envs)
@@ -800,17 +800,19 @@ def _get_docker_image_uri(repository_uri, work_dir):
     return repository_uri + version_string
 
 
-def _get_local_artifact_cmd_and_envs(artifact_repo):
+def _get_local_artifact_cmd_and_envs(active_run):
+    artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
     artifact_dir = artifact_repo.artifact_dir
-    container_path = artifact_dir
-    if not os.path.isabs(container_path):
-        container_path = os.path.join(_MLFLOW_DOCKER_WORKDIR_PATH, container_path)
-        container_path = os.path.normpath(container_path)
+    container_path = os.path.join(_MLFLOW_DOCKER_WORKDIR_PATH, 'mlruns')
+    container_path = os.path.join(container_path, str(active_run.info.experiment_id))
+    container_path = os.path.join(container_path, str(active_run.info.run_id))
+    container_path = os.path.normpath(container_path)
     abs_artifact_dir = os.path.abspath(artifact_dir)
     return ["-v", "%s:%s" % (abs_artifact_dir, container_path)], {}
 
 
-def _get_s3_artifact_cmd_and_envs(artifact_repo):
+def _get_s3_artifact_cmd_and_envs(active_run):
+    artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
     # pylint: disable=unused-argument
     aws_path = posixpath.expanduser("~/.aws")
 
@@ -826,7 +828,8 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
     return volumes, envs
 
 
-def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
+def _get_azure_blob_artifact_cmd_and_envs(active_run):
+    artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
     # pylint: disable=unused-argument
     envs = {
         "AZURE_STORAGE_CONNECTION_STRING": os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
@@ -836,7 +839,8 @@ def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
     return [], envs
 
 
-def _get_gcs_artifact_cmd_and_envs(artifact_repo):
+def _get_gcs_artifact_cmd_and_envs(active_run):
+    artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
     # pylint: disable=unused-argument
     cmds = []
     envs = {}
@@ -848,7 +852,8 @@ def _get_gcs_artifact_cmd_and_envs(artifact_repo):
     return cmds, envs
 
 
-def _get_hdfs_artifact_cmd_and_envs(artifact_repo):
+def _get_hdfs_artifact_cmd_and_envs(active_run):
+    artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
     # pylint: disable=unused-argument
     cmds = []
     envs = {
@@ -874,11 +879,11 @@ _artifact_storages = {
 }
 
 
-def _get_docker_artifact_storage_cmd_and_envs(artifact_uri):
-    artifact_repo = get_artifact_repository(artifact_uri)
+def _get_docker_artifact_storage_cmd_and_envs(active_run):
+    artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
     _get_cmd_and_envs = _artifact_storages.get(type(artifact_repo))
     if _get_cmd_and_envs is not None:
-        return _get_cmd_and_envs(artifact_repo)
+        return _get_cmd_and_envs(active_run)
     else:
         return [], {}
 
