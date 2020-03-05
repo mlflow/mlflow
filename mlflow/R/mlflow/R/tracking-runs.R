@@ -494,7 +494,7 @@ mlflow_record_logged_model <- function(model_spec, run_id = NULL, client = NULL)
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
   mlflow_rest("runs", "log-model", client = client, verb = "POST", data = list(
     run_id = run_id,
-    model_json = toJSON(model_spec, auto_unbox=TRUE)
+    model_json = jsonlite::toJSON(model_spec, auto_unbox=TRUE)
   ))
 }
 
