@@ -12,5 +12,5 @@ export default {
   experiments: [
     createExperiment(),
     createExperiment({ experiment_id: '1', name: 'Test'}),
-  ]
+  ],
 };

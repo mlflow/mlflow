@@ -22,20 +22,19 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  padding-top: 16px;
 }
 
 .run-info {
   min-width: 450px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   margin-right: 12px;
 }
 .metadata-header {
-  font-size: 16px;
+  font-size: 14px;
   color: #888;
 }
 .metadata-info {
-  font-size: 16px;
+  font-size: 14px;
   color: #333;
 }
 
@@ -43,8 +42,8 @@
 
 /* BEGIN table styling stuff */
 .table-name {
+  display: block;
   padding-top: 6px;
-  width: 112px;
   cursor: pointer;
 }
 
@@ -87,8 +86,13 @@ textarea.run-command {
   color: #ffffff;
 }
 
+/** Menus in a header have negative margin-top to account for the header's margin-bottom */
+.mlflow-menu.header-menu {
+  margin-top: -22px;
+}
+
 .mlflow-dropdown {
-  margin-top: 28px;
+  margin-top: -5px;
 }
 
 .rename-run-form {

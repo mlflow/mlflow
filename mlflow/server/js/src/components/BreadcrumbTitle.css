@@ -1,7 +1,3 @@
-.breadcrumb-header {
-  margin-bottom: 0px;
-}
-
 .breadcrumb-title {
   max-width: 500px;
   vertical-align: bottom;
@@ -12,5 +8,5 @@
   font-size: 75%;
   margin-left: 10px;
   margin-right: 8px;
-  vertical-align: 6px;
+  vertical-align: 4px;
 }

@@ -4,7 +4,6 @@ models with a user-defined ``PythonModel`` subclass.
 """
 
 import os
-import tempfile
 import shutil
 import yaml
 from abc import ABCMeta, abstractmethod
@@ -16,27 +15,31 @@ import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
-from mlflow.tracking.utils import _download_artifact_from_uri
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
-
-# `DEFAULT_CONDA_ENV` defines the default Conda environment for models produced by calls to
-# `mlflow.pyfunc.save_model()` and `mlflow.pyfunc.log_model()` when a user-defined subclass of
-# ``PythonModel`` is provided.
-DEFAULT_CONDA_ENV = _mlflow_conda_env(
-    additional_conda_deps=[
-        "cloudpickle=={}".format(cloudpickle.__version__),
-    ],
-    additional_pip_deps=None,
-    additional_conda_channels=None,
-)
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
 CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
+
+
+def get_default_conda_env():
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+             :func:`save_model() <mlflow.pyfunc.save_model>`
+             and :func:`log_model() <mlflow.pyfunc.log_model>` when a user-defined subclass of
+             :class:`PythonModel` is provided.
+    """
+    return _mlflow_conda_env(
+        additional_conda_deps=None,
+        additional_pip_deps=[
+            "cloudpickle=={}".format(cloudpickle.__version__),
+        ],
+        additional_conda_channels=None)
 
 
 class PythonModel(object):
@@ -52,7 +55,7 @@ class PythonModel(object):
         """
         Loads artifacts from the specified :class:`~PythonModelContext` that can be used by
         :func:`~PythonModel.predict` when evaluating inputs. When loading an MLflow model with
-        :func:`~load_pyfunc`, this method will be called as soon as the :class:`~PythonModel` is
+        :func:`~load_pyfunc`, this method is called as soon as the :class:`~PythonModel` is
         constructed.
 
         The same :class:`~PythonModelContext` will also be available during calls to
@@ -94,8 +97,8 @@ class PythonModelContext(object):
     @property
     def artifacts(self):
         """
-        :return: A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path``
-                 is an absolute filesystem path to the artifact.
+        A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path`` is an
+        absolute filesystem path to the artifact.
         """
         return self._artifacts
 
@@ -106,19 +109,20 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
     :param path: The path to which to save the Python model.
     :param python_model: An instance of a subclass of :class:`~PythonModel`. ``python_model``
                         defines how the model loads artifacts and how it performs inference.
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
-                      will be resolved to absolute filesystem paths, producing a dictionary of
+    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries.
+                      Remote artifact URIs
+                      are resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` entries. ``python_model`` can reference these
-                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
-                      If *None*, no artifacts will be added to the model.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If `None`, the default
-                      :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV` environment will be added to the
-                      model.
+                      resolved entries as the ``artifacts`` property of the ``context``
+                      attribute. If ``None``, no artifacts are added to the model.
+    :param conda_env: Either a dictionary representation of a Conda environment or the
+                      path to a Conda environment yaml file. If provided, this decsribes the
+                      environment this model should be run in. At minimum, it should specify
+                      the dependencies
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
+                      :func:`get_default_conda_env()` environment is added to the model.
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files will be *prepended* to the system
+                       containing file dependencies). These files are *prepended* to the system
                        path before the model is loaded.
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
     """
@@ -165,7 +169,7 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = DEFAULT_CONDA_ENV
+        conda_env = get_default_conda_env()
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
@@ -209,20 +213,11 @@ def _load_pyfunc(model_path):
     with open(os.path.join(model_path, python_model_subpath), "rb") as f:
         python_model = cloudpickle.load(f)
 
-    # TODO: If the longevity of the temporary directory prior becomes problematic, consider using
-    # an alternative solution.
-    tmp_artifacts_dir_path = tempfile.mkdtemp(suffix="artifacts")
     artifacts = {}
     for saved_artifact_name, saved_artifact_info in\
             pyfunc_config.get(CONFIG_KEY_ARTIFACTS, {}).items():
-        tmp_artifact_path = os.path.join(
-                tmp_artifacts_dir_path,
-                _copy_file_or_tree(
-                    src=os.path.join(
-                        model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]),
-                    dst=tmp_artifacts_dir_path,
-                    dst_dir=saved_artifact_name))
-        artifacts[saved_artifact_name] = tmp_artifact_path
+        artifacts[saved_artifact_name] = os.path.join(
+            model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH])
 
     context = PythonModelContext(artifacts=artifacts)
     python_model.load_context(context=context)

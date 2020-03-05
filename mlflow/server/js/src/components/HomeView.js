@@ -59,7 +59,6 @@ class HomeView extends Component {
              <NoExperimentView/>
             }
           </div>
-          <div className="experiment-view-right"/>
         </div>
       );
     } else {
@@ -68,6 +67,7 @@ class HomeView extends Component {
           <div className="collapsed-expander-container">
             <i onClick={this.onClickListExperiments}
                title="Show experiment list"
+               style={styles.showExperimentListExpander}
                className="expander fa fa-chevron-right login-icon"/>
           </div>
           <div className="experiment-page-container">
@@ -81,6 +81,12 @@ class HomeView extends Component {
     }
   }
 }
+
+const styles = {
+  showExperimentListExpander: {
+    marginTop: 24,
+  },
+};
 
 const mapStateToProps = (state, ownProps) => {
   if (ownProps.experimentId === undefined) {

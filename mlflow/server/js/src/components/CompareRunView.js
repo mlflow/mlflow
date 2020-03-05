@@ -5,12 +5,17 @@ import { connect } from 'react-redux';
 import './CompareRunView.css';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import CompareRunScatter from './CompareRunScatter';
+import CompareRunContour from './CompareRunContour';
 import Routes from '../Routes';
 import { Link } from 'react-router-dom';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import CompareRunUtil from './CompareRunUtil';
 import Utils from '../utils/Utils';
+import { Tabs } from 'antd';
+import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
+
+const TabPane = Tabs.TabPane;
 
 class CompareRunView extends Component {
   static propTypes = {
@@ -27,6 +32,10 @@ class CompareRunView extends Component {
     // ("Run <uuid>") for runs without names.
     runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
+
+  componentDidMount() {
+    document.title = `Comparing ${this.props.runInfos.length} MLflow Runs`;
+  }
 
   render() {
     const experiment = this.props.experiment;
@@ -112,11 +121,23 @@ class CompareRunView extends Component {
             </tbody>
           </table>
         </div>
-
-        <CompareRunScatter
-          runUuids={this.props.runUuids}
-          runDisplayNames={this.props.runDisplayNames}
-        />
+        <Tabs>
+          <TabPane tab="Scatter Plot" key="1">
+            <CompareRunScatter
+              runUuids={this.props.runUuids}
+              runDisplayNames={this.props.runDisplayNames}
+            />
+          </TabPane>
+          <TabPane tab="Contour Plot" key="2">
+            <CompareRunContour
+              runUuids={this.props.runUuids}
+              runDisplayNames={this.props.runDisplayNames}
+            />
+          </TabPane>
+          <TabPane tab="Parallel Coordinates Plot" key="3">
+            <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids}/>
+          </TabPane>
+        </Tabs>
       </div>
     );
   }

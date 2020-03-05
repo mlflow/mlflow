@@ -13,7 +13,7 @@ from mlflow.utils import file_utils
 from mlflow.utils.file_utils import get_parent_dir, _copy_file_or_tree, TempDir
 from tests.projects.utils import TEST_PROJECT_DIR
 
-from tests.helper_functions import random_int, random_file
+from tests.helper_functions import random_int, random_file, safe_edit_yaml
 
 
 def test_yaml_read_and_write(tmpdir):
@@ -25,13 +25,24 @@ def test_yaml_read_and_write(tmpdir):
     file_utils.write_yaml(temp_dir, yaml_file, data)
     read_data = file_utils.read_yaml(temp_dir, yaml_file)
     assert data == read_data
-    yaml_path = file_utils.build_path(temp_dir, yaml_file)
+    yaml_path = os.path.join(temp_dir, yaml_file)
     with codecs.open(yaml_path, encoding="utf-8") as handle:
         contents = handle.read()
     assert "!!python" not in contents
     # Check that UTF-8 strings are written properly to the file (rather than as ASCII
     # representations of their byte sequences).
     assert u"中文" in contents
+
+    def edit_func(old_dict):
+        old_dict["more_text"] = u"西班牙语"
+        return old_dict
+
+    assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
+    with safe_edit_yaml(temp_dir, yaml_file, edit_func):
+        editted_dict = file_utils.read_yaml(temp_dir, yaml_file)
+        assert "more_text" in editted_dict
+        assert editted_dict["more_text"] == u"西班牙语"
+    assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
 
 
 def test_mkdir(tmpdir):
@@ -42,6 +53,15 @@ def test_mkdir(tmpdir):
 
     with pytest.raises(OSError):
         file_utils.mkdir("/   bad directory @ name ", "ouch")
+
+    # does not raise if directory exists already
+    file_utils.mkdir(temp_dir, new_dir_name)
+
+    # raises if it exists already but is a file
+    dummy_file_path = str(tmpdir.join("dummy_file"))
+    open(dummy_file_path, 'a').close()
+    with pytest.raises(OSError):
+        file_utils.mkdir(dummy_file_path)
 
 
 def test_make_tarfile(tmpdir):

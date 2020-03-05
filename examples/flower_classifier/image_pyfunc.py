@@ -146,8 +146,8 @@ def _load_pyfunc(path):
     keras_model_path = os.path.join(path, "keras_model")
     domain = conf["domain"].split("/")
     image_dims = np.array([int(x) for x in conf["image_dims"].split("/")], dtype=np.int32)
-    # NOTE: Tensorflow based models depend on global state (Graph and Session) given by the context.
-    # To make sure we score the model in the same session as we loaded it int, we create a new
+    # NOTE: TensorFlow based models depend on global state (Graph and Session) given by the context.
+    # To make sure we score the model in the same session as we loaded it in, we create a new
     # session and a new graph here and store them with the model.
     with tf.Graph().as_default() as g:
         with tf.Session().as_default() as sess:
@@ -156,15 +156,15 @@ def _load_pyfunc(path):
     return KerasImageClassifierPyfunc(g, sess, keras_model, image_dims, domain=domain)
 
 
-conda_env_template = """        
+conda_env_template = """
 name: flower_classifier
 channels:
   - defaults
   - anaconda
 dependencies:
   - python=={python_version}
-  - keras=={keras_version}  
-  - {tf_name}=={tf_version} 
-  - pip:    
+  - keras=={keras_version}
+  - {tf_name}=={tf_version}
+  - pip:
     - pillow=={pillow_version}
 """

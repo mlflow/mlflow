@@ -13,9 +13,6 @@ public class MLeapFlavor implements Flavor {
   @JsonProperty("model_data")
   private String modelDataPath;
 
-  @JsonProperty("input_schema")
-  private String inputSchemaPath;
-
   @Override
   public String getName() {
     return FLAVOR_NAME;
@@ -29,13 +26,5 @@ public class MLeapFlavor implements Flavor {
   /** @return The version of MLeap with which the mode data was serialized */
   public String getMleapVersion() {
     return mleapVersion;
-  }
-
-  /**
-   * @return The relative path to the model's serialized input schema. This path is relative to the
-   *     root directory of an MLFlow model
-   */
-  public String getInputSchemaPath() {
-    return inputSchemaPath;
   }
 }

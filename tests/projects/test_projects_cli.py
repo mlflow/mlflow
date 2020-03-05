@@ -2,18 +2,19 @@ import json
 import hashlib
 import mock
 import os
+import shutil
 import logging
 
 from click.testing import CliRunner
 import pytest
 
 from mlflow import cli
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
-from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI,\
+from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI, \
     TEST_NO_SPEC_PROJECT_DIR
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-
 
 _logger = logging.getLogger(__name__)
 
@@ -25,6 +26,43 @@ def test_run_local_params(tracking_uri_mock):  # pylint: disable=unused-argument
     invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "greeter", "-P",
                                 "greeting=hi", "-P", "name=%s" % name,
                                 "-P", "excitement=%s" % excitement_arg])
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("experiment_name", [
+    b'test-experiment'.decode("utf-8"),
+    'test-experiment',
+])
+def test_run_local_experiment_specification(experiment_name,
+                                            tracking_uri_mock):  # pylint: disable=unused-argument
+    invoke_cli_runner(
+        cli.run,
+        [
+            TEST_PROJECT_DIR,
+            "-e", "greeter",
+            "-P", "name=test",
+            "--experiment-name", experiment_name,
+        ])
+
+    client = MlflowClient()
+    experiment_id = client.get_experiment_by_name(experiment_name).experiment_id
+
+    invoke_cli_runner(
+        cli.run,
+        [
+            TEST_PROJECT_DIR,
+            "-e", "greeter",
+            "-P", "name=test",
+            "--experiment-id", experiment_id,
+        ])
+
+
+@pytest.fixture(scope="module", autouse=True)
+def clean_mlruns_dir():
+    yield
+    dir_path = os.path.join(TEST_PROJECT_DIR, "mlruns")
+    if os.path.exists(dir_path):
+        shutil.rmtree(dir_path)
 
 
 @pytest.mark.large
@@ -83,13 +121,15 @@ def test_run_databricks_cluster_spec(tmpdir):
     with mock.patch("mlflow.projects._run") as run_mock:
         for cluster_spec_arg in [json.dumps(cluster_spec), cluster_spec_path]:
             invoke_cli_runner(
-                cli.run, [TEST_PROJECT_DIR, "-m", "databricks", "--cluster-spec",
-                          cluster_spec_arg, "-e", "greeter", "-P", "name=hi"])
+                cli.run, [TEST_PROJECT_DIR, "-b", "databricks", "--backend-config",
+                          cluster_spec_arg, "-e", "greeter", "-P", "name=hi"],
+                env={'MLFLOW_TRACKING_URI': 'databricks://profile'})
             assert run_mock.call_count == 1
             _, run_kwargs = run_mock.call_args_list[0]
-            assert run_kwargs["cluster_spec"] == cluster_spec
+            assert run_kwargs["backend_config"] == cluster_spec
             run_mock.reset_mock()
         res = CliRunner().invoke(
             cli.run, [TEST_PROJECT_DIR, "-m", "databricks", "--cluster-spec",
-                      json.dumps(cluster_spec) + "JUNK", "-e", "greeter", "-P", "name=hi"])
+                      json.dumps(cluster_spec) + "JUNK", "-e", "greeter", "-P", "name=hi"],
+            env={'MLFLOW_TRACKING_URI': 'databricks://profile'})
         assert res.exit_code != 0

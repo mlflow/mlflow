@@ -9,11 +9,11 @@
 
 import $ from 'jquery';
 import JsonBigInt from 'json-bigint';
+import Utils from "../utils/Utils";
 
 const StrictJsonBigInt = JsonBigInt({ strict: true, storeAsString: true });
 
 export class MlflowService {
-
   /**
    * @param {CreateExperiment} data: Immutable Record
    * @param {function} success
@@ -21,8 +21,45 @@ export class MlflowService {
    * @return {Promise}
    */
   static createExperiment({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/experiments/create', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/experiments/create'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * @param {DeleteExperiment} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static deleteExperiment({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/experiments/delete'), {
+      type: 'POST',
+      contentType: 'application/json; charset=utf-8',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * @param {UpdateExperiment} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static updateExperiment({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/experiments/update'), {
+      type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -38,7 +75,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static listExperiments({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/experiments/list', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/experiments/list'), {
       type: 'GET',
       dataType: 'json',
       converters: {
@@ -58,7 +95,27 @@ export class MlflowService {
    * @return {Promise}
    */
   static getExperiment({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/experiments/get', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/experiments/get'), {
+      type: 'GET',
+      dataType: 'json',
+      converters: {
+        'text json': StrictJsonBigInt.parse,
+      },
+      data: data,
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * @param {GetExperimentByName} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static getExperimentByName({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/mlflow/experiments/get-by-name'), {
       type: 'GET',
       dataType: 'json',
       converters: {
@@ -78,8 +135,9 @@ export class MlflowService {
    * @return {Promise}
    */
   static createRun({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/create', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/create'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -95,8 +153,9 @@ export class MlflowService {
    * @return {Promise}
    */
   static deleteRun({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/delete', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/delete'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -112,8 +171,9 @@ export class MlflowService {
    * @return {Promise}
    */
   static restoreRun({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/restore', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/restore'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -129,8 +189,9 @@ export class MlflowService {
    * @return {Promise}
    */
   static updateRun({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/update', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/update'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -146,8 +207,9 @@ export class MlflowService {
    * @return {Promise}
    */
   static logMetric({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/log-metric', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/log-metric'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -163,8 +225,9 @@ export class MlflowService {
    * @return {Promise}
    */
   static logParam({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/log-parameter', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/log-parameter'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -180,47 +243,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static getRun({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/get', {
-      type: 'GET',
-      dataType: 'json',
-      converters: {
-        'text json': StrictJsonBigInt.parse,
-      },
-      data: data,
-      jsonp: false,
-      success: success,
-      error: error,
-    });
-  }
-
-  /**
-   * @param {GetMetric} data: Immutable Record
-   * @param {function} success
-   * @param {function} error
-   * @return {Promise}
-   */
-  static getMetric({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/metrics/get', {
-      type: 'GET',
-      dataType: 'json',
-      converters: {
-        'text json': StrictJsonBigInt.parse,
-      },
-      data: data,
-      jsonp: false,
-      success: success,
-      error: error,
-    });
-  }
-
-  /**
-   * @param {GetParam} data: Immutable Record
-   * @param {function} success
-   * @param {function} error
-   * @return {Promise}
-   */
-  static getParam({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/params/get', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/get'), {
       type: 'GET',
       dataType: 'json',
       converters: {
@@ -240,8 +263,9 @@ export class MlflowService {
    * @return {Promise}
    */
   static searchRuns({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/search', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/search'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -257,7 +281,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static listArtifacts({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/artifacts/list', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/artifacts/list'), {
       type: 'GET',
       dataType: 'json',
       converters: {
@@ -277,7 +301,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static getMetricHistory({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/metrics/get-history', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/metrics/get-history'), {
       type: 'GET',
       dataType: 'json',
       converters: {
@@ -297,7 +321,43 @@ export class MlflowService {
    * @return {Promise}
    */
   static setTag({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/set-tag', {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/set-tag'), {
+      type: 'POST',
+      contentType: 'application/json; charset=utf-8',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+    /**
+   * @param {DeleteTag} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static deleteTag({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/delete-tag'), {
+      type: 'POST',
+      contentType: 'application/json; charset=utf-8',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * @param {SetExperimentTag} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static setExperimentTag({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/experiments/set-experiment-tag'), {
       type: 'POST',
       dataType: 'json',
       data: JSON.stringify(data),

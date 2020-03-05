@@ -17,7 +17,7 @@ Overview
 At the core, MLflow Projects are just a convention for organizing and describing your code to let
 other data scientists (or automated tools) run it. Each project is simply a directory of files, or
 a Git repository, containing your code. MLflow can run some projects based on a convention for
-placing files in this directory (for example, a ``conda.yaml`` file will be treated as a
+placing files in this directory (for example, a ``conda.yaml`` file is treated as a
 `Conda <https://conda.io/docs>`_ environment), but you can describe your project in more detail by
 adding a ``MLproject`` file, which is a `YAML <https://learnxinyminutes.com/docs/yaml/>`_ formatted
 text file. Each project can specify several properties:
@@ -25,57 +25,139 @@ text file. Each project can specify several properties:
 Name
     A human-readable name for the project.
 
-Dependencies
-    Libraries needed to run the project. MLflow supports using `Docker <https://docs.docker.com/>`_ 
-    to run projects inside a container or `Conda <https://conda.io/docs>`_ package manager, 
-    which supports both Python packages and native libraries (for example, CuDNN or Intel MKL), to 
-    specify dependencies. MLflow will use the Conda installation given by the ``MLFLOW_CONDA_HOME`` 
-    environment variable if specified (e.g. running Conda commands by invoking ``$MLFLOW_CONDA_HOME/bin/conda``), 
-    and default to running ``conda`` otherwise.
-
 Entry Points
-    Commands that can be executed within the project, and information about their
-    parameters. Most projects will contain at least one entry point that you want other users to
+    Commands that can be run within the project, and information about their
+    parameters. Most projects contain at least one entry point that you want other users to
     call. Some projects can also contain more than one entry point: for example, you might have a
     single Git repository containing multiple featurization algorithms. You can also call
     any ``.py`` or ``.sh`` file in the project as an entry point. If you list your entry points in
     a ``MLproject`` file, however, you can also specify *parameters* for them, including data
     types and default values.
 
+Environment
+    The software environment that should be used to execute project entry points. This includes all
+    library dependencies required by the project code. See :ref:`project-environments` for more
+    information about the software environments supported by MLflow Projects, including
+    :ref:`Conda environments <project-conda-environments>` and 
+    :ref:`Docker containers <project-docker-container-environments>`.
+
 You can run any project from a Git URI or from a local directory using the ``mlflow run``
 command-line tool, or the :py:func:`mlflow.projects.run` Python API. These APIs also allow submitting the
-project for remote execution on `Databricks <https://databricks.com>`_.
+project for remote execution on :ref:`Databricks <databricks_execution>` and
+:ref:`Kubernetes <kubernetes_execution>`.
 
-.. caution::
+.. important::
 
-    By default, MLflow will use a new, temporary working directory for Git projects.
+    By default, MLflow uses a new, temporary working directory for Git projects.
     This means that you should generally pass any file arguments to MLflow
     project using absolute, not relative, paths. If your project declares its parameters, MLflow
-    will automatically make paths absolute for parameters of type ``path``.
+    automatically makes paths absolute for parameters of type ``path``.
 
 Specifying Projects
 -------------------
 
-By default, any Git repository or local directory is treated as a project, and MLflow uses the
-following conventions to determine its parameters:
+By default, any Git repository or local directory can be treated as an MLflow project; you can
+invoke any bash or Python script contained in the directory as a project entry point. The 
+:ref:`project-directories` section describes how MLflow interprets directories as projects.
+
+To provide additional control over a project's attributes, you can also include an :ref:`MLproject
+file <mlproject-file>` in your project's repository or directory.
+
+Finally, MLflow projects allow you to specify the software :ref:`environment <project-environments>`
+that is used to execute project entry points.
+
+.. _project-environments:
+
+Project Environments
+^^^^^^^^^^^^^^^^^^^^
+MLflow currently supports the following project environments: Conda environment, Docker container environment, and system environment.
+
+.. _project-conda-environments:
+
+Conda environment
+  `Conda <https://conda.io/docs>`_ environments support 
+  both Python packages and native libraries (e.g, CuDNN or Intel MKL). When an MLflow Project 
+  specifies a Conda environment, it is activated before project code is run.
+
+  By default, MLflow uses the system path to find and run the ``conda`` binary. You can use a 
+  different Conda installation by setting the ``MLFLOW_CONDA_HOME`` environment variable; in this 
+  case, MLflow attempts to run the binary at ``$MLFLOW_CONDA_HOME/bin/conda``.
+
+  You can specify a Conda environment for your MLflow project by including a ``conda.yaml``
+  file in the root of the project directory or by including a ``conda_env`` entry in your
+  ``MLproject`` file. For details, see the :ref:`project-directories` and :ref:`mlproject-specify-environment` sections.
+
+.. _project-docker-container-environments:
+
+Docker container environment
+  `Docker containers <https://www.docker.com/resources/what-container>`_ allow you to capture 
+  non-Python dependencies such as Java libraries.
+
+  When you run an MLflow project that specifies a Docker image, MLflow adds a new Docker layer
+  that copies the project's contents into the ``/mlflow/projects/code`` directory. This step produces 
+  a new image. MLflow then runs the new image and invokes the project entrypoint in the resulting
+  container.
+ 
+  Environment variables, such as ``MLFLOW_TRACKING_URI``, are propagated inside the Docker container 
+  during project execution. Additionally, :ref:`runs <concepts>` and 
+  :ref:`experiments <organizing_runs_in_experiments>` created by the project are saved to the 
+  tracking server specified by your :ref:`tracking URI <where_runs_are_recorded>`. When running 
+  against a local tracking URI, MLflow mounts the host system's tracking directory
+  (e.g., a local ``mlruns`` directory) inside the container so that metrics, parameters, and 
+  artifacts logged during project execution are accessible afterwards.
+
+  See `Dockerized Model Training with MLflow 
+  <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ for an example of an MLflow 
+  project with a Docker environment.
+
+  To specify a Docker container environment, you *must* add an 
+  :ref:`MLproject file <mlproject-file>` to your project. For information about specifying
+  a Docker container environment in an ``MLproject`` file, see
+  :ref:`mlproject-specify-environment`.
+    
+System environment
+  You can also run MLflow Projects directly in your current system environment. All of the 
+  project's dependencies must be installed on your system prior to project execution. The system 
+  environment is supplied at runtime. It is not part of the MLflow Project's directory contents 
+  or ``MLproject`` file. For information about using the system environment when running 
+  a project, see the ``Environment`` parameter description in the :ref:`running-projects` section. 
+
+.. _project-directories:
+
+Project Directories
+^^^^^^^^^^^^^^^^^^^
+
+When running an MLflow Project directory or repository that does *not* contain an ``MLproject`` 
+file, MLflow uses the following conventions to determine the project's attributes:
 
 * The project's name is the name of the directory.
+
 * The `Conda environment <https://conda.io/docs/user-guide/tasks/manage-environments.html#create-env-file-manually>`_
   is specified in ``conda.yaml``, if present. If no ``conda.yaml`` file is present, MLflow
-  will use a Conda environment containing only Python (specifically, the latest Python available to
+  uses a Conda environment containing only Python (specifically, the latest Python available to
   Conda) when running the project.
-* Alternatively, you may provide a Docker environment for project execution, which allows for capturing
-  non-Python dependencies such as Java libraries.
- `See here <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ for an example of an
-  MLflow project with a Docker environment.
-* Any ``.py`` and ``.sh`` file in the project can be an entry point, with no parameters explicitly
-  declared. When you execute such a command with a set of parameters, MLflow will pass each
-  parameter on the command line using ``--key value`` syntax.
 
-You can get more control over a project by adding a ``MLproject``, which is simply a text file in
-YAML syntax. The MLproject file looks like this:
+* Any ``.py`` and ``.sh`` file in the project can be an entry point. MLflow uses Python
+  to execute entry points with the ``.py`` extension, and it uses bash to execute entry points with
+  the ``.sh`` extension. For more information about specifying project entrypoints at runtime,
+  see :ref:`running-projects`.
 
-.. code:: yaml
+* By default, entry points do not have any parameters when an ``MLproject`` file is not included.
+  Parameters can be supplied at runtime via the ``mlflow run`` CLI or the 
+  :py:func:`mlflow.projects.run` Python API. Runtime parameters are passed to the entry point on the 
+  command line using ``--key value`` syntax. For more information about running projects and
+  with runtime parameters, see :ref:`running-projects`. 
+
+.. _mlproject-file: 
+
+MLproject File
+^^^^^^^^^^^^^^
+
+You can get more control over an MLflow Project by adding an ``MLproject`` file, which is a text
+file in YAML syntax, to the project's root directory. The following is an example of an 
+``MLproject`` file: 
+
+.. code-block:: yaml
 
     name: My Project
 
@@ -95,12 +177,81 @@ YAML syntax. The MLproject file looks like this:
           data_file: path
         command: "python validate.py {data_file}"
 
-As you can see, the file can specify a name and a conda or docker environment, as well as more
-detailed information about each entry point. Specifically, each entry point has a *command* to
-run and *parameters* (including data types). We describe these two pieces next.
+The file can specify a name and :ref:`a Conda or Docker environment 
+<mlproject-specify-environment>`, as well as more detailed information about each entry point. 
+Specifically, each entry point defines a :ref:`command to run <mlproject-command-syntax>` and 
+:ref:`parameters to pass to the command <project_parameters>` (including data types). 
+
+.. _mlproject-specify-environment:
+
+Specifying an Environment
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This section describes how to specify Conda and Docker container environments in an ``MLproject`` file.
+``MLproject`` files cannot specify *both* a Conda environment and a Docker environment.
+
+Conda environment
+  Include a top-level ``conda_env`` entry in the ``MLproject`` file.
+  The value of this entry must be a *relative* path to a `Conda environment YAML file 
+  <https://conda.io/docs/user-guide/tasks/manage-environments.html#create-env-file-manually>`_
+  within the MLflow project's directory. In the following example: 
+
+  .. code-block:: yaml
+
+    conda_env: files/config/conda_environment.yaml
+
+  ``conda_env`` refers to an environment file located at 
+  ``<MLFLOW_PROJECT_DIRECTORY>/files/config/conda_environment.yaml``, where 
+  ``<MLFLOW_PROJECT_DIRECTORY>`` is the path to the MLflow project's root directory.
+
+Docker container environment
+  Include a top-level ``docker_env`` entry in the ``MLproject`` file. The value of this entry must be the name
+  of a Docker image that is accessible on the system executing the project; this image name
+  may include a registry path and tags. Here are a couple of examples.
+
+  .. rubric:: Example 1: Image without a registry path
+  
+  .. code-block:: yaml
+
+    docker_env:
+      image: mlflow-docker-example-environment
+
+  In this example, ``docker_env`` refers to the Docker image with name 
+  ``mlflow-docker-example-environment`` and default tag ``latest``. Because no registry path is 
+  specified, Docker searches for this image on the system that runs the MLflow project. If the 
+  image is not found, Docker attempts to pull it from `DockerHub <https://hub.docker.com/>`_.
+
+  .. rubric:: Example 2: Mounting volumes and specifying environment variables
+
+  You can also specify local volumes to mount in the docker image (as you normally would with Docker's `-v` option), and additional environment variables (as per Docker's `-e` option). Environment variables can either be copied from the host system's environment variables, or specified as new variables for the Docker environment. The `environment` field should be a list. Elements in this list can either be lists of two strings (for defining a new variable) or single strings (for copying variables from the host system). For example:
+  
+  .. code-block:: yaml
+
+    docker_env:
+      image: mlflow-docker-example-environment
+      volumes: ["/local/path:/container/mount/path"]
+      environment: [["NEW_ENV_VAR", "new_var_value"], "VAR_TO_COPY_FROM_HOST_ENVIRONMENT"]
+
+  In this example our docker container will have one additional local volume mounted, and two additional environment variables: one newly-defined, and one copied from the host system.
+
+  .. rubric:: Example 3: Image in a remote registry
+
+  .. code-block:: yaml
+    
+    docker_env:
+      image: 012345678910.dkr.ecr.us-west-2.amazonaws.com/mlflow-docker-example-environment:7.0
+
+  In this example, ``docker_env`` refers to the Docker image with name 
+  ``mlflow-docker-example-environment`` and tag ``7.0`` in the Docker registry with path
+  ``012345678910.dkr.ecr.us-west-2.amazonaws.com``, which corresponds to an 
+  `Amazon ECR registry <https://docs.aws.amazon.com/AmazonECR/latest/userguide/Registries.html>`_.
+  When the MLflow project is run, Docker attempts to pull the image from the specified registry. 
+  The system executing the MLflow project must have credentials to pull this image from  the specified registry.
+
+.. _mlproject-command-syntax:
 
 Command Syntax
-^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~
 
 When specifying an entry point in an ``MLproject`` file, the command can be any string in Python
 `format string syntax <https://docs.python.org/2/library/string.html#formatstrings>`_.
@@ -109,26 +260,26 @@ string for substitution. If you call the project with additional parameters *not
 ``parameters`` field, MLflow passes them using ``--key value`` syntax, so you can use the
 ``MLproject`` file to declare types and defaults for just a subset of your parameters.
 
-Before substituting parameters in the command, MLflow escapes them using Python's
-`shlex.quote <https://docs.python.org/3/library/shlex.html#shlex.quote>`_ function, so you don't need
-to worry about adding quotes inside your command field.
+Before substituting parameters in the command, MLflow escapes them using the Python
+`shlex.quote <https://docs.python.org/3/library/shlex.html#shlex.quote>`_ function, so you don't 
+need to worry about adding quotes inside your command field.
 
 .. _project_parameters:
 
 Specifying Parameters
-^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~
 
 MLflow allows specifying a data type and default value for each parameter. You can specify just the
 data type by writing:
 
-.. code:: yaml
+.. code-block:: yaml
 
     parameter_name: data_type
 
 in your YAML file, or add a default value as well using one of the following syntaxes (which are
 equivalent in YAML):
 
-.. code:: yaml
+.. code-block:: yaml
 
     parameter_name: {type: data_type, default: value}  # Short syntax
 
@@ -146,20 +297,22 @@ float
     A real number. MLflow validates that the parameter is a number.
 
 path
-    A path on the local file system. MLflow will convert any relative paths passed for
-    parameters of this type to absolute paths, and will also download any paths passed
-    as distributed storage URIs (``s3://`` and ``dbfs://``) to local files. Use this type
-    for programs that can only read local files.
+    A path on the local file system. MLflow converts any relative ``path`` parameters to absolute 
+    paths. MLflow also downloads any paths passed as distributed storage URIs 
+    (``s3://`` and ``dbfs://``) to local files. Use this type for programs that can only read local 
+    files.
 
 uri
     A URI for data either in a local or distributed storage system. MLflow converts
     relative paths to absolute paths, as in the ``path`` type. Use this type for programs
-    that know how to read from distributed storage (for example using Spark).
+    that know how to read from distributed storage (e.g., programs that use Spark).
+
+.. _running-projects:
 
 Running Projects
 ----------------
 
-MLflow provides two simple ways to run projects: the ``mlflow run`` :ref:`command-line tool <cli>`, or
+MLflow provides two ways to run projects: the ``mlflow run`` :ref:`command-line tool <cli>`, or
 the :py:func:`mlflow.projects.run` Python API. Both tools take the following parameters:
 
 Project URI
@@ -179,20 +332,29 @@ Entry Point
 
 Parameters
     Key-value parameters. Any parameters with
-    :ref:`declared types <project_parameters>` will be validated and transformed if needed.
+    :ref:`declared types <project_parameters>` are validated and transformed if needed.
 
 Deployment Mode
-    Both the command-line and API let you :ref:`launch projects remotely <databricks_execution>` on
-    a `Databricks <https://databricks.com>`_ environment if you have a Databricks account. This
-    includes setting cluster parameters such as a VM type. Of course, you can also run projects on
-    any other computing infrastructure of your choice using the local version of the ``mlflow run``
-    command (for example, submit a script that does ``mlflow run`` to a standard job queueing system).
+    - Both the command-line and API let you :ref:`launch projects remotely <databricks_execution>`
+      in a `Databricks <https://databricks.com>`_ environment. This includes setting cluster
+      parameters such as a VM type. Of course, you can also run projects on any other computing
+      infrastructure of your choice using the local version of the ``mlflow run`` command (for
+      example, submit a script that does ``mlflow run`` to a standard job queueing system).
 
-For example, the tutorial creates and publishes an MLflow project that trains a linear model. The
-project is also published on GitHub at https://github.com/mlflow/mlflow-example. To execute
-this project, run:
+    - You can also launch projects remotely on `Kubernetes <https://Kubernetes.io/>`_ clusters
+      using the ``mlflow run`` CLI (see :ref:`kubernetes_execution`).
 
-.. code:: bash
+Environment
+    By default, MLflow Projects are run in the environment specified by the project directory
+    or the ``MLproject`` file (see :ref:`Specifying Project Environments <project-environments>`).
+    You can ignore a project's specified environment and run the project in the current
+    system environment by supplying the ``--no-conda`` flag.
+
+For example, the tutorial creates and publishes an MLflow Project that trains a linear model. The
+project is also published on GitHub at https://github.com/mlflow/mlflow-example. To run
+this project:
+
+.. code-block:: bash
 
     mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.5
 
@@ -201,49 +363,223 @@ useful if you quickly want to test a project in your existing shell environment.
 
 .. _databricks_execution:
 
-Remote Execution on Databricks
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Support for running projects remotely on Databricks is in beta preview and requires a Databricks account. 
-To receive future updates about the feature, `sign up here <http://databricks.com/mlflow>`_.
+Run an MLflow Project on Databricks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can run MLflow Projects remotely on Databricks. To use this feature, you must have an enterprise
+Databricks account (Community Edition is not supported) and you must have set up the
+`Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find more detailed instructions
+in the Databricks docs
+(`Azure Databricks <https://docs.databricks.com/applications/mlflow/index.html>`_,
+`Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview
+of how to use the feature is as follows:
+
+1. Create a JSON file containing the
+`new cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
+for your run. For example:
+
+  .. code-block:: json
+
+    {
+      "spark_version": "5.5.x-scala2.11",
+      "node_type_id": "i3.xlarge",
+      "aws_attributes": {"availability": "ON_DEMAND"},
+      "num_workers": 4
+    }
+
+2. Run your project using the following command:
+
+  .. code-block:: bash
+
+    mlflow run <project_uri> -b databricks --backend-config <json-new-cluster-spec>
+
+  where ``<project_uri>`` is a Git repository URI or a folder.
+
+.. important::
+
+  - Databricks execution for MLflow projects with Docker environments is *not* currently supported.
+
+  - You must use a *new cluster* specification when running an MLflow Project on Databricks. Running
+    Projects against existing clusters is not currently supported.
+
+Databricks Execution Tips
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When running an MLflow Project on Databricks, the following tips may be helpful.
+
+Using SparkR on Databricks
+##########################
+
+In order to use SparkR in an MLflow Project run on Databricks, your project code must first install
+and import SparkR as follows:
+
+.. code-block:: R
+
+  if (file.exists("/databricks/spark/R/pkg")) {
+    install.packages("/databricks/spark/R/pkg", repos = NULL)
+  } else {
+    install.packages("SparkR")
+  }
+
+  library(SparkR)
+
+Your project code can then proceed to initialize a SparkR session and use SparkR as normal:
+
+.. code-block:: R
+
+  sparkR.session()
+  ...
+
+.. _kubernetes_execution:
+
+Run an MLflow Project on Kubernetes (experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. important:: As an experimental feature, the API is subject to change.
+
+You can run MLflow Projects with :ref:`Docker environments <project-docker-container-environments>`
+on Kubernetes. The following sections provide an overview of the feature, including a simple
+Project execution guide with examples. 
 
 
-Launching a Remote Execution on Databricks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To see this feature in action, you can also refer to the
+`Docker example <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_, which includes
+the required Kubernetes backend configuration (``kubernetes_backend.json``) and `Kubernetes Job Spec
+<https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/#writing-a-job-spec>`_
+(``kubernetes_job_template.yaml``) files.
 
-To use this feature, you need to have a Databricks account (Community Edition is not yet supported)
-and you must have set up the `Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find more detailed instructions in the Databricks docs (`Azure Databricks <https://docs.databricks.com/applications/mlflow/index.html>`_, `Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview of how to use the feature is as follows:
+How it works
+~~~~~~~~~~~~
 
-First, create a JSON file containing the 
-`cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
-for your run. Then, run your project using the command
+When you run an MLflow Project on Kubernetes, MLflow constructs a new Docker image
+containing the Project's contents; this image inherits from the Project's
+:ref:`Docker environment <project-docker-container-environments>`. MLflow then pushes the new
+Project image to your specified Docker registry and starts a
+`Kubernetes Job <https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/>`_
+on your specified Kubernetes cluster. This Kubernetes Job downloads the Project image and starts
+a corresponding Docker container. Finally, the container invokes your Project's
+:ref:`entry point <running-projects>`, logging parameters, tags, metrics, and artifacts to your
+:ref:`MLflow tracking server <tracking_server>`.
 
-.. code:: bash
+Execution guide
+~~~~~~~~~~~~~~~
 
-  mlflow run <uri> -m databricks --cluster-spec <json-cluster-spec>
+You can run your MLflow Project on Kubernetes by following these steps:
 
-where ``<uri>`` is a Git repository URI or a folder. You can pass Git credentials with the
-``git-username`` and ``git-password`` arguments or using the ``MLFLOW_GIT_USERNAME`` and
-``MLFLOW_GIT_PASSWORD`` environment variables.
+1. Add a Docker environment to your MLflow Project, if one does not already exist. For
+   reference, see :ref:`mlproject-specify-environment`.
 
+2. Create a backend configuration JSON file with the following entries:
 
-Execution on Docker containers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-You can run projects inside Docker container instead of conda environments. In order to do that 
-you need to specify the ``docker_env`` along with ``image`` attributes in MLProject as described
-below. It simply mounts the local directory of the project as a volume inside container in
-``/mlflow/projects/code`` path.
+   - ``kube-context``
+     The `Kubernetes context
+     <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#context>`_
+     where MLflow will run the job. If not provided, MLflow will use the current context.
+     If no context is available, MLflow will assume it is running in a Kubernetes cluster
+     and it will use the Kubernetes service account running the current pod ('in-cluster' configuration).
+   - ``repository-uri``
+     The URI of the docker repository where the Project execution Docker image will be uploaded
+     (pushed). Your Kubernetes cluster must have access to this repository in order to run your
+     MLflow Project.
+   - ``kube-job-template-path``
+     The path to a YAML configuration file for your Kubernetes Job - a `Kubernetes Job Spec
+     <https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/#writing-a-job-spec>`_.
+     MLflow reads the Job Spec and replaces certain fields to facilitate job execution and
+     monitoring; MLflow does not modify the original template file. For more information about
+     writing Kubernetes Job Spec templates for use with MLflow, see the
+     :ref:`kubernetes_execution_job_templates` section.
 
-.. code::
+  .. rubric:: Example Kubernetes backend configuration
 
-    docker_env:
-        image: mlflow-run-image
+  .. code-block:: json
+
+    {
+      "kube-context": "docker-for-desktop",
+      "repository-uri": "username/mlflow-kubernetes-example",
+      "kube-job-template-path": "/Users/username/path/to/kubernetes_job_template.yaml"
+    }
+
+3. If necessary, obtain credentials to access your Project's Docker and Kubernetes resources, including:
+
+   - The :ref:`Docker environment image <mlproject-specify-environment>` specified in the MLproject
+     file.
+   - The Docker repository referenced by ``repository-uri`` in your backend configuration file.
+   - The `Kubernetes context
+     <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#context>`_
+     referenced by ``kube-context`` in your backend configuration file.
+
+   MLflow expects these resources to be accessible via the
+   `docker <https://docs.docker.com/engine/reference/commandline/cli/>`_ and
+   `kubectl <https://kubernetes.io/docs/reference/kubectl/kubectl/>`_ CLIs before running the
+   Project.
+
+4. Run the Project using the MLflow Projects CLI or :py:func:`Python API <mlflow.projects.run>`,
+   specifying your Project URI and the path to your backend configuration file. For example:
+
+   .. code-block:: bash
+
+    mlflow run <project_uri> --backend kubernetes --backend-config examples/docker/kubernetes_config.json
+
+   where ``<project_uri>`` is a Git repository URI or a folder.
+
+.. _kubernetes_execution_job_templates:
+
+Job Templates
+~~~~~~~~~~~~~
+
+MLflow executes Projects on Kubernetes by creating `Kubernetes Job resources
+<https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/>`_.
+MLflow creates a Kubernetes Job for an MLflow Project by reading a user-specified
+`Job Spec
+<https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/#writing-a-job-spec>`_.
+When MLflow reads a Job Spec, it formats the following fields:
+
+- ``metadata.name`` Replaced with a string containing the name of the MLflow Project and the time
+  of Project execution
+- ``spec.template.spec.container[0].name`` Replaced with the name of the MLflow Project
+- ``spec.template.spec.container[0].image`` Replaced with the URI of the Docker image created during
+  Project execution. This URI includes the Docker image's digest hash.
+- ``spec.template.spec.container[0].command`` Replaced with the Project entry point command
+  specified when executing the MLflow Project.
+
+The following example shows a simple Kubernetes Job Spec that is compatible with MLflow Project
+execution. Replaced fields are indicated using bracketed text.
+
+.. rubric:: Example Kubernetes Job Spec
+
+.. code-block:: yaml
+
+  apiVersion: batch/v1
+  kind: Job
+  metadata:
+    name: "{replaced with MLflow Project name}"
+    namespace: mlflow
+  spec:
+    ttlSecondsAfterFinished: 100
+    backoffLimit: 0
+    template:
+      spec:
+        containers:
+        - name: "{replaced with MLflow Project name}"
+          image: "{replaced with URI of Docker image created during Project execution}"
+          command: ["{replaced with MLflow Project entry point command}"]
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            memory: 256Mi
+        restartPolicy: Never
+
+The ``container.name``, ``container.image``, and ``container.command`` fields are only replaced for
+the *first* container defined in the Job Spec. All subsequent container definitions are applied
+without modification.
 
 Iterating Quickly
 -----------------
 
 If you want to rapidly develop a project, we recommend creating an ``MLproject`` file with your
 main program specified as the ``main`` entry point, and running it with ``mlflow run .``.
-To avoid repeatedly writing them you can add default parameters in your ``MLproject`` file.
+To avoid having to write parameters repeatedly, you can add default parameters in your ``MLproject`` file.
 
 Building Multistep Workflows
 -----------------------------

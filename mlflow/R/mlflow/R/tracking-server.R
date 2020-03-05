@@ -58,7 +58,7 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
   file_store <- fs::path_abs(file_store)
 
   args <- mlflow_cli_param(list(), "--port", port) %>%
-    mlflow_cli_param("--file-store", file_store) %>%
+    mlflow_cli_param("--backend-store-uri", file_store) %>%
     mlflow_cli_param("--default-artifact-root", default_artifact_root) %>%
     mlflow_cli_param("--host", host) %>%
     mlflow_cli_param("--port", port) %>%
@@ -73,7 +73,8 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
       "server",
       args,
       list(
-        background = getOption("mlflow.ui.background", TRUE)
+        background = getOption("mlflow.ui.background", TRUE),
+        client = NULL
       )
     )
   )
@@ -91,14 +92,12 @@ new_mlflow_server <- function(server_url, handle, ...) {
     ),
     class = "mlflow_server"
   )
-
-  mlflow_validate_server(ms)
   ms
 }
 
-mlflow_validate_server <- function(ms) {
+mlflow_validate_server <- function(client) {
   wait_for(
-    function() mlflow_rest(client = ms, "experiments", "list"),
+    function() mlflow_rest("experiments", "list", client = client),
     getOption("mlflow.connect.wait", 10),
     getOption("mlflow.connect.sleep", 1)
   )
