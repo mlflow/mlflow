@@ -31,7 +31,7 @@ public final class Databricks {
    * Visibility defines who is allowed to use the RPC.
    * </pre>
    *
-   * Protobuf enum {@code Visibility}
+   * Protobuf enum {@code mlflow.Visibility}
    */
   public enum Visibility
       implements com.google.protobuf.ProtocolMessageEnum {
@@ -152,11 +152,11 @@ public final class Databricks {
       this.value = value;
     }
 
-    // @@protoc_insertion_point(enum_scope:Visibility)
+    // @@protoc_insertion_point(enum_scope:mlflow.Visibility)
   }
 
   /**
-   * Protobuf enum {@code ErrorCode}
+   * Protobuf enum {@code mlflow.ErrorCode}
    */
   public enum ErrorCode
       implements com.google.protobuf.ProtocolMessageEnum {
@@ -584,33 +584,33 @@ public final class Databricks {
       this.value = value;
     }
 
-    // @@protoc_insertion_point(enum_scope:ErrorCode)
+    // @@protoc_insertion_point(enum_scope:mlflow.ErrorCode)
   }
 
   public interface DatabricksRpcOptionsOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:DatabricksRpcOptions)
+      // @@protoc_insertion_point(interface_extends:mlflow.DatabricksRpcOptions)
       com.google.protobuf.MessageOrBuilder {
 
     /**
-     * <code>repeated .HttpEndpoint endpoints = 1;</code>
+     * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
     java.util.List<com.databricks.api.proto.databricks.Databricks.HttpEndpoint> 
         getEndpointsList();
     /**
-     * <code>repeated .HttpEndpoint endpoints = 1;</code>
+     * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
     com.databricks.api.proto.databricks.Databricks.HttpEndpoint getEndpoints(int index);
     /**
-     * <code>repeated .HttpEndpoint endpoints = 1;</code>
+     * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
     int getEndpointsCount();
     /**
-     * <code>repeated .HttpEndpoint endpoints = 1;</code>
+     * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
     java.util.List<? extends com.databricks.api.proto.databricks.Databricks.HttpEndpointOrBuilder> 
         getEndpointsOrBuilderList();
     /**
-     * <code>repeated .HttpEndpoint endpoints = 1;</code>
+     * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
     com.databricks.api.proto.databricks.Databricks.HttpEndpointOrBuilder getEndpointsOrBuilder(
         int index);
@@ -620,7 +620,7 @@ public final class Databricks {
      * Indicates which users are allowed to initiate this RPC.
      * </pre>
      *
-     * <code>optional .Visibility visibility = 2;</code>
+     * <code>optional .mlflow.Visibility visibility = 2;</code>
      */
     boolean hasVisibility();
     /**
@@ -628,7 +628,7 @@ public final class Databricks {
      * Indicates which users are allowed to initiate this RPC.
      * </pre>
      *
-     * <code>optional .Visibility visibility = 2;</code>
+     * <code>optional .mlflow.Visibility visibility = 2;</code>
      */
     com.databricks.api.proto.databricks.Databricks.Visibility getVisibility();
 
@@ -638,7 +638,7 @@ public final class Databricks {
      * may return.
      * </pre>
      *
-     * <code>repeated .ErrorCode error_codes = 3;</code>
+     * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
      */
     java.util.List<com.databricks.api.proto.databricks.Databricks.ErrorCode> getErrorCodesList();
     /**
@@ -647,7 +647,7 @@ public final class Databricks {
      * may return.
      * </pre>
      *
-     * <code>repeated .ErrorCode error_codes = 3;</code>
+     * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
      */
     int getErrorCodesCount();
     /**
@@ -656,7 +656,7 @@ public final class Databricks {
      * may return.
      * </pre>
      *
-     * <code>repeated .ErrorCode error_codes = 3;</code>
+     * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
      */
     com.databricks.api.proto.databricks.Databricks.ErrorCode getErrorCodes(int index);
 
@@ -665,7 +665,7 @@ public final class Databricks {
      * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
      * </pre>
      *
-     * <code>optional .RateLimit rate_limit = 4;</code>
+     * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
      */
     boolean hasRateLimit();
     /**
@@ -673,7 +673,7 @@ public final class Databricks {
      * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
      * </pre>
      *
-     * <code>optional .RateLimit rate_limit = 4;</code>
+     * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
      */
     com.databricks.api.proto.databricks.Databricks.RateLimit getRateLimit();
     /**
@@ -681,7 +681,7 @@ public final class Databricks {
      * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
      * </pre>
      *
-     * <code>optional .RateLimit rate_limit = 4;</code>
+     * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
      */
     com.databricks.api.proto.databricks.Databricks.RateLimitOrBuilder getRateLimitOrBuilder();
 
@@ -720,11 +720,11 @@ public final class Databricks {
    * direct RPCs to endpoints, as well as other metadata about the RPC.
    * </pre>
    *
-   * Protobuf type {@code DatabricksRpcOptions}
+   * Protobuf type {@code mlflow.DatabricksRpcOptions}
    */
   public  static final class DatabricksRpcOptions extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:DatabricksRpcOptions)
+      // @@protoc_insertion_point(message_implements:mlflow.DatabricksRpcOptions)
       DatabricksRpcOptionsOrBuilder {
   private static final long serialVersionUID = 0L;
     // Use DatabricksRpcOptions.newBuilder() to construct.
@@ -864,13 +864,13 @@ public final class Databricks {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_DatabricksRpcOptions_descriptor;
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksRpcOptions_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_DatabricksRpcOptions_fieldAccessorTable
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksRpcOptions_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
               com.databricks.api.proto.databricks.Databricks.DatabricksRpcOptions.class, com.databricks.api.proto.databricks.Databricks.DatabricksRpcOptions.Builder.class);
     }
@@ -879,32 +879,32 @@ public final class Databricks {
     public static final int ENDPOINTS_FIELD_NUMBER = 1;
     private java.util.List<com.databricks.api.proto.databricks.Databricks.HttpEndpoint> endpoints_;
     /**
-     * <code>repeated .HttpEndpoint endpoints = 1;</code>
+     * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
     public java.util.List<com.databricks.api.proto.databricks.Databricks.HttpEndpoint> getEndpointsList() {
       return endpoints_;
     }
     /**
-     * <code>repeated .HttpEndpoint endpoints = 1;</code>
+     * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
     public java.util.List<? extends com.databricks.api.proto.databricks.Databricks.HttpEndpointOrBuilder> 
         getEndpointsOrBuilderList() {
       return endpoints_;
     }
     /**
-     * <code>repeated .HttpEndpoint endpoints = 1;</code>
+     * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
     public int getEndpointsCount() {
       return endpoints_.size();
     }
     /**
-     * <code>repeated .HttpEndpoint endpoints = 1;</code>
+     * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
     public com.databricks.api.proto.databricks.Databricks.HttpEndpoint getEndpoints(int index) {
       return endpoints_.get(index);
     }
     /**
-     * <code>repeated .HttpEndpoint endpoints = 1;</code>
+     * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
     public com.databricks.api.proto.databricks.Databricks.HttpEndpointOrBuilder getEndpointsOrBuilder(
         int index) {
@@ -918,7 +918,7 @@ public final class Databricks {
      * Indicates which users are allowed to initiate this RPC.
      * </pre>
      *
-     * <code>optional .Visibility visibility = 2;</code>
+     * <code>optional .mlflow.Visibility visibility = 2;</code>
      */
     public boolean hasVisibility() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -928,7 +928,7 @@ public final class Databricks {
      * Indicates which users are allowed to initiate this RPC.
      * </pre>
      *
-     * <code>optional .Visibility visibility = 2;</code>
+     * <code>optional .mlflow.Visibility visibility = 2;</code>
      */
     public com.databricks.api.proto.databricks.Databricks.Visibility getVisibility() {
       @SuppressWarnings("deprecation")
@@ -954,7 +954,7 @@ public final class Databricks {
      * may return.
      * </pre>
      *
-     * <code>repeated .ErrorCode error_codes = 3;</code>
+     * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
      */
     public java.util.List<com.databricks.api.proto.databricks.Databricks.ErrorCode> getErrorCodesList() {
       return new com.google.protobuf.Internal.ListAdapter<
@@ -966,7 +966,7 @@ public final class Databricks {
      * may return.
      * </pre>
      *
-     * <code>repeated .ErrorCode error_codes = 3;</code>
+     * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
      */
     public int getErrorCodesCount() {
       return errorCodes_.size();
@@ -977,7 +977,7 @@ public final class Databricks {
      * may return.
      * </pre>
      *
-     * <code>repeated .ErrorCode error_codes = 3;</code>
+     * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
      */
     public com.databricks.api.proto.databricks.Databricks.ErrorCode getErrorCodes(int index) {
       return errorCodes_converter_.convert(errorCodes_.get(index));
@@ -990,7 +990,7 @@ public final class Databricks {
      * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
      * </pre>
      *
-     * <code>optional .RateLimit rate_limit = 4;</code>
+     * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
      */
     public boolean hasRateLimit() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
@@ -1000,7 +1000,7 @@ public final class Databricks {
      * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
      * </pre>
      *
-     * <code>optional .RateLimit rate_limit = 4;</code>
+     * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
      */
     public com.databricks.api.proto.databricks.Databricks.RateLimit getRateLimit() {
       return rateLimit_ == null ? com.databricks.api.proto.databricks.Databricks.RateLimit.getDefaultInstance() : rateLimit_;
@@ -1010,7 +1010,7 @@ public final class Databricks {
      * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
      * </pre>
      *
-     * <code>optional .RateLimit rate_limit = 4;</code>
+     * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
      */
     public com.databricks.api.proto.databricks.Databricks.RateLimitOrBuilder getRateLimitOrBuilder() {
       return rateLimit_ == null ? com.databricks.api.proto.databricks.Databricks.RateLimit.getDefaultInstance() : rateLimit_;
@@ -1300,21 +1300,21 @@ public final class Databricks {
      * direct RPCs to endpoints, as well as other metadata about the RPC.
      * </pre>
      *
-     * Protobuf type {@code DatabricksRpcOptions}
+     * Protobuf type {@code mlflow.DatabricksRpcOptions}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:DatabricksRpcOptions)
+        // @@protoc_insertion_point(builder_implements:mlflow.DatabricksRpcOptions)
         com.databricks.api.proto.databricks.Databricks.DatabricksRpcOptionsOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_DatabricksRpcOptions_descriptor;
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksRpcOptions_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_DatabricksRpcOptions_fieldAccessorTable
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksRpcOptions_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
                 com.databricks.api.proto.databricks.Databricks.DatabricksRpcOptions.class, com.databricks.api.proto.databricks.Databricks.DatabricksRpcOptions.Builder.class);
       }
@@ -1363,7 +1363,7 @@ public final class Databricks {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_DatabricksRpcOptions_descriptor;
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksRpcOptions_descriptor;
       }
 
       @java.lang.Override
@@ -1554,7 +1554,7 @@ public final class Databricks {
           com.databricks.api.proto.databricks.Databricks.HttpEndpoint, com.databricks.api.proto.databricks.Databricks.HttpEndpoint.Builder, com.databricks.api.proto.databricks.Databricks.HttpEndpointOrBuilder> endpointsBuilder_;
 
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public java.util.List<com.databricks.api.proto.databricks.Databricks.HttpEndpoint> getEndpointsList() {
         if (endpointsBuilder_ == null) {
@@ -1564,7 +1564,7 @@ public final class Databricks {
         }
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public int getEndpointsCount() {
         if (endpointsBuilder_ == null) {
@@ -1574,7 +1574,7 @@ public final class Databricks {
         }
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.HttpEndpoint getEndpoints(int index) {
         if (endpointsBuilder_ == null) {
@@ -1584,7 +1584,7 @@ public final class Databricks {
         }
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public Builder setEndpoints(
           int index, com.databricks.api.proto.databricks.Databricks.HttpEndpoint value) {
@@ -1601,7 +1601,7 @@ public final class Databricks {
         return this;
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public Builder setEndpoints(
           int index, com.databricks.api.proto.databricks.Databricks.HttpEndpoint.Builder builderForValue) {
@@ -1615,7 +1615,7 @@ public final class Databricks {
         return this;
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public Builder addEndpoints(com.databricks.api.proto.databricks.Databricks.HttpEndpoint value) {
         if (endpointsBuilder_ == null) {
@@ -1631,7 +1631,7 @@ public final class Databricks {
         return this;
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public Builder addEndpoints(
           int index, com.databricks.api.proto.databricks.Databricks.HttpEndpoint value) {
@@ -1648,7 +1648,7 @@ public final class Databricks {
         return this;
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public Builder addEndpoints(
           com.databricks.api.proto.databricks.Databricks.HttpEndpoint.Builder builderForValue) {
@@ -1662,7 +1662,7 @@ public final class Databricks {
         return this;
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public Builder addEndpoints(
           int index, com.databricks.api.proto.databricks.Databricks.HttpEndpoint.Builder builderForValue) {
@@ -1676,7 +1676,7 @@ public final class Databricks {
         return this;
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public Builder addAllEndpoints(
           java.lang.Iterable<? extends com.databricks.api.proto.databricks.Databricks.HttpEndpoint> values) {
@@ -1691,7 +1691,7 @@ public final class Databricks {
         return this;
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public Builder clearEndpoints() {
         if (endpointsBuilder_ == null) {
@@ -1704,7 +1704,7 @@ public final class Databricks {
         return this;
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public Builder removeEndpoints(int index) {
         if (endpointsBuilder_ == null) {
@@ -1717,14 +1717,14 @@ public final class Databricks {
         return this;
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.HttpEndpoint.Builder getEndpointsBuilder(
           int index) {
         return getEndpointsFieldBuilder().getBuilder(index);
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.HttpEndpointOrBuilder getEndpointsOrBuilder(
           int index) {
@@ -1734,7 +1734,7 @@ public final class Databricks {
         }
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public java.util.List<? extends com.databricks.api.proto.databricks.Databricks.HttpEndpointOrBuilder> 
            getEndpointsOrBuilderList() {
@@ -1745,14 +1745,14 @@ public final class Databricks {
         }
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.HttpEndpoint.Builder addEndpointsBuilder() {
         return getEndpointsFieldBuilder().addBuilder(
             com.databricks.api.proto.databricks.Databricks.HttpEndpoint.getDefaultInstance());
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.HttpEndpoint.Builder addEndpointsBuilder(
           int index) {
@@ -1760,7 +1760,7 @@ public final class Databricks {
             index, com.databricks.api.proto.databricks.Databricks.HttpEndpoint.getDefaultInstance());
       }
       /**
-       * <code>repeated .HttpEndpoint endpoints = 1;</code>
+       * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
        */
       public java.util.List<com.databricks.api.proto.databricks.Databricks.HttpEndpoint.Builder> 
            getEndpointsBuilderList() {
@@ -1787,7 +1787,7 @@ public final class Databricks {
        * Indicates which users are allowed to initiate this RPC.
        * </pre>
        *
-       * <code>optional .Visibility visibility = 2;</code>
+       * <code>optional .mlflow.Visibility visibility = 2;</code>
        */
       public boolean hasVisibility() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
@@ -1797,7 +1797,7 @@ public final class Databricks {
        * Indicates which users are allowed to initiate this RPC.
        * </pre>
        *
-       * <code>optional .Visibility visibility = 2;</code>
+       * <code>optional .mlflow.Visibility visibility = 2;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.Visibility getVisibility() {
         @SuppressWarnings("deprecation")
@@ -1809,7 +1809,7 @@ public final class Databricks {
        * Indicates which users are allowed to initiate this RPC.
        * </pre>
        *
-       * <code>optional .Visibility visibility = 2;</code>
+       * <code>optional .mlflow.Visibility visibility = 2;</code>
        */
       public Builder setVisibility(com.databricks.api.proto.databricks.Databricks.Visibility value) {
         if (value == null) {
@@ -1825,7 +1825,7 @@ public final class Databricks {
        * Indicates which users are allowed to initiate this RPC.
        * </pre>
        *
-       * <code>optional .Visibility visibility = 2;</code>
+       * <code>optional .mlflow.Visibility visibility = 2;</code>
        */
       public Builder clearVisibility() {
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -1848,7 +1848,7 @@ public final class Databricks {
        * may return.
        * </pre>
        *
-       * <code>repeated .ErrorCode error_codes = 3;</code>
+       * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
        */
       public java.util.List<com.databricks.api.proto.databricks.Databricks.ErrorCode> getErrorCodesList() {
         return new com.google.protobuf.Internal.ListAdapter<
@@ -1860,7 +1860,7 @@ public final class Databricks {
        * may return.
        * </pre>
        *
-       * <code>repeated .ErrorCode error_codes = 3;</code>
+       * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
        */
       public int getErrorCodesCount() {
         return errorCodes_.size();
@@ -1871,7 +1871,7 @@ public final class Databricks {
        * may return.
        * </pre>
        *
-       * <code>repeated .ErrorCode error_codes = 3;</code>
+       * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.ErrorCode getErrorCodes(int index) {
         return errorCodes_converter_.convert(errorCodes_.get(index));
@@ -1882,7 +1882,7 @@ public final class Databricks {
        * may return.
        * </pre>
        *
-       * <code>repeated .ErrorCode error_codes = 3;</code>
+       * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
        */
       public Builder setErrorCodes(
           int index, com.databricks.api.proto.databricks.Databricks.ErrorCode value) {
@@ -1900,7 +1900,7 @@ public final class Databricks {
        * may return.
        * </pre>
        *
-       * <code>repeated .ErrorCode error_codes = 3;</code>
+       * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
        */
       public Builder addErrorCodes(com.databricks.api.proto.databricks.Databricks.ErrorCode value) {
         if (value == null) {
@@ -1917,7 +1917,7 @@ public final class Databricks {
        * may return.
        * </pre>
        *
-       * <code>repeated .ErrorCode error_codes = 3;</code>
+       * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
        */
       public Builder addAllErrorCodes(
           java.lang.Iterable<? extends com.databricks.api.proto.databricks.Databricks.ErrorCode> values) {
@@ -1934,7 +1934,7 @@ public final class Databricks {
        * may return.
        * </pre>
        *
-       * <code>repeated .ErrorCode error_codes = 3;</code>
+       * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
        */
       public Builder clearErrorCodes() {
         errorCodes_ = java.util.Collections.emptyList();
@@ -1951,7 +1951,7 @@ public final class Databricks {
        * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
        * </pre>
        *
-       * <code>optional .RateLimit rate_limit = 4;</code>
+       * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
        */
       public boolean hasRateLimit() {
         return ((bitField0_ & 0x00000008) == 0x00000008);
@@ -1961,7 +1961,7 @@ public final class Databricks {
        * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
        * </pre>
        *
-       * <code>optional .RateLimit rate_limit = 4;</code>
+       * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.RateLimit getRateLimit() {
         if (rateLimitBuilder_ == null) {
@@ -1975,7 +1975,7 @@ public final class Databricks {
        * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
        * </pre>
        *
-       * <code>optional .RateLimit rate_limit = 4;</code>
+       * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
        */
       public Builder setRateLimit(com.databricks.api.proto.databricks.Databricks.RateLimit value) {
         if (rateLimitBuilder_ == null) {
@@ -1995,7 +1995,7 @@ public final class Databricks {
        * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
        * </pre>
        *
-       * <code>optional .RateLimit rate_limit = 4;</code>
+       * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
        */
       public Builder setRateLimit(
           com.databricks.api.proto.databricks.Databricks.RateLimit.Builder builderForValue) {
@@ -2013,7 +2013,7 @@ public final class Databricks {
        * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
        * </pre>
        *
-       * <code>optional .RateLimit rate_limit = 4;</code>
+       * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
        */
       public Builder mergeRateLimit(com.databricks.api.proto.databricks.Databricks.RateLimit value) {
         if (rateLimitBuilder_ == null) {
@@ -2037,7 +2037,7 @@ public final class Databricks {
        * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
        * </pre>
        *
-       * <code>optional .RateLimit rate_limit = 4;</code>
+       * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
        */
       public Builder clearRateLimit() {
         if (rateLimitBuilder_ == null) {
@@ -2054,7 +2054,7 @@ public final class Databricks {
        * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
        * </pre>
        *
-       * <code>optional .RateLimit rate_limit = 4;</code>
+       * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.RateLimit.Builder getRateLimitBuilder() {
         bitField0_ |= 0x00000008;
@@ -2066,7 +2066,7 @@ public final class Databricks {
        * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
        * </pre>
        *
-       * <code>optional .RateLimit rate_limit = 4;</code>
+       * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.RateLimitOrBuilder getRateLimitOrBuilder() {
         if (rateLimitBuilder_ != null) {
@@ -2081,7 +2081,7 @@ public final class Databricks {
        * If defined, a rate limit will be applied to this RPC for all requests from the API proxy.
        * </pre>
        *
-       * <code>optional .RateLimit rate_limit = 4;</code>
+       * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
           com.databricks.api.proto.databricks.Databricks.RateLimit, com.databricks.api.proto.databricks.Databricks.RateLimit.Builder, com.databricks.api.proto.databricks.Databricks.RateLimitOrBuilder> 
@@ -2215,10 +2215,10 @@ public final class Databricks {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:DatabricksRpcOptions)
+      // @@protoc_insertion_point(builder_scope:mlflow.DatabricksRpcOptions)
     }
 
-    // @@protoc_insertion_point(class_scope:DatabricksRpcOptions)
+    // @@protoc_insertion_point(class_scope:mlflow.DatabricksRpcOptions)
     private static final com.databricks.api.proto.databricks.Databricks.DatabricksRpcOptions DEFAULT_INSTANCE;
     static {
       DEFAULT_INSTANCE = new com.databricks.api.proto.databricks.Databricks.DatabricksRpcOptions();
@@ -2256,7 +2256,7 @@ public final class Databricks {
   }
 
   public interface HttpEndpointOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:HttpEndpoint)
+      // @@protoc_insertion_point(interface_extends:mlflow.HttpEndpoint)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -2317,7 +2317,7 @@ public final class Databricks {
      * Breaking changes to an RPC must use a different version number.
      * </pre>
      *
-     * <code>optional .ApiVersion since = 3;</code>
+     * <code>optional .mlflow.ApiVersion since = 3;</code>
      */
     boolean hasSince();
     /**
@@ -2326,7 +2326,7 @@ public final class Databricks {
      * Breaking changes to an RPC must use a different version number.
      * </pre>
      *
-     * <code>optional .ApiVersion since = 3;</code>
+     * <code>optional .mlflow.ApiVersion since = 3;</code>
      */
     com.databricks.api.proto.databricks.Databricks.ApiVersion getSince();
     /**
@@ -2335,16 +2335,16 @@ public final class Databricks {
      * Breaking changes to an RPC must use a different version number.
      * </pre>
      *
-     * <code>optional .ApiVersion since = 3;</code>
+     * <code>optional .mlflow.ApiVersion since = 3;</code>
      */
     com.databricks.api.proto.databricks.Databricks.ApiVersionOrBuilder getSinceOrBuilder();
   }
   /**
-   * Protobuf type {@code HttpEndpoint}
+   * Protobuf type {@code mlflow.HttpEndpoint}
    */
   public  static final class HttpEndpoint extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:HttpEndpoint)
+      // @@protoc_insertion_point(message_implements:mlflow.HttpEndpoint)
       HttpEndpointOrBuilder {
   private static final long serialVersionUID = 0L;
     // Use HttpEndpoint.newBuilder() to construct.
@@ -2426,13 +2426,13 @@ public final class Databricks {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_HttpEndpoint_descriptor;
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_HttpEndpoint_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_HttpEndpoint_fieldAccessorTable
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_HttpEndpoint_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
               com.databricks.api.proto.databricks.Databricks.HttpEndpoint.class, com.databricks.api.proto.databricks.Databricks.HttpEndpoint.Builder.class);
     }
@@ -2554,7 +2554,7 @@ public final class Databricks {
      * Breaking changes to an RPC must use a different version number.
      * </pre>
      *
-     * <code>optional .ApiVersion since = 3;</code>
+     * <code>optional .mlflow.ApiVersion since = 3;</code>
      */
     public boolean hasSince() {
       return ((bitField0_ & 0x00000004) == 0x00000004);
@@ -2565,7 +2565,7 @@ public final class Databricks {
      * Breaking changes to an RPC must use a different version number.
      * </pre>
      *
-     * <code>optional .ApiVersion since = 3;</code>
+     * <code>optional .mlflow.ApiVersion since = 3;</code>
      */
     public com.databricks.api.proto.databricks.Databricks.ApiVersion getSince() {
       return since_ == null ? com.databricks.api.proto.databricks.Databricks.ApiVersion.getDefaultInstance() : since_;
@@ -2576,7 +2576,7 @@ public final class Databricks {
      * Breaking changes to an RPC must use a different version number.
      * </pre>
      *
-     * <code>optional .ApiVersion since = 3;</code>
+     * <code>optional .mlflow.ApiVersion since = 3;</code>
      */
     public com.databricks.api.proto.databricks.Databricks.ApiVersionOrBuilder getSinceOrBuilder() {
       return since_ == null ? com.databricks.api.proto.databricks.Databricks.ApiVersion.getDefaultInstance() : since_;
@@ -2774,21 +2774,21 @@ public final class Databricks {
       return builder;
     }
     /**
-     * Protobuf type {@code HttpEndpoint}
+     * Protobuf type {@code mlflow.HttpEndpoint}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:HttpEndpoint)
+        // @@protoc_insertion_point(builder_implements:mlflow.HttpEndpoint)
         com.databricks.api.proto.databricks.Databricks.HttpEndpointOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_HttpEndpoint_descriptor;
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_HttpEndpoint_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_HttpEndpoint_fieldAccessorTable
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_HttpEndpoint_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
                 com.databricks.api.proto.databricks.Databricks.HttpEndpoint.class, com.databricks.api.proto.databricks.Databricks.HttpEndpoint.Builder.class);
       }
@@ -2828,7 +2828,7 @@ public final class Databricks {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_HttpEndpoint_descriptor;
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_HttpEndpoint_descriptor;
       }
 
       @java.lang.Override
@@ -3167,7 +3167,7 @@ public final class Databricks {
        * Breaking changes to an RPC must use a different version number.
        * </pre>
        *
-       * <code>optional .ApiVersion since = 3;</code>
+       * <code>optional .mlflow.ApiVersion since = 3;</code>
        */
       public boolean hasSince() {
         return ((bitField0_ & 0x00000004) == 0x00000004);
@@ -3178,7 +3178,7 @@ public final class Databricks {
        * Breaking changes to an RPC must use a different version number.
        * </pre>
        *
-       * <code>optional .ApiVersion since = 3;</code>
+       * <code>optional .mlflow.ApiVersion since = 3;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.ApiVersion getSince() {
         if (sinceBuilder_ == null) {
@@ -3193,7 +3193,7 @@ public final class Databricks {
        * Breaking changes to an RPC must use a different version number.
        * </pre>
        *
-       * <code>optional .ApiVersion since = 3;</code>
+       * <code>optional .mlflow.ApiVersion since = 3;</code>
        */
       public Builder setSince(com.databricks.api.proto.databricks.Databricks.ApiVersion value) {
         if (sinceBuilder_ == null) {
@@ -3214,7 +3214,7 @@ public final class Databricks {
        * Breaking changes to an RPC must use a different version number.
        * </pre>
        *
-       * <code>optional .ApiVersion since = 3;</code>
+       * <code>optional .mlflow.ApiVersion since = 3;</code>
        */
       public Builder setSince(
           com.databricks.api.proto.databricks.Databricks.ApiVersion.Builder builderForValue) {
@@ -3233,7 +3233,7 @@ public final class Databricks {
        * Breaking changes to an RPC must use a different version number.
        * </pre>
        *
-       * <code>optional .ApiVersion since = 3;</code>
+       * <code>optional .mlflow.ApiVersion since = 3;</code>
        */
       public Builder mergeSince(com.databricks.api.proto.databricks.Databricks.ApiVersion value) {
         if (sinceBuilder_ == null) {
@@ -3258,7 +3258,7 @@ public final class Databricks {
        * Breaking changes to an RPC must use a different version number.
        * </pre>
        *
-       * <code>optional .ApiVersion since = 3;</code>
+       * <code>optional .mlflow.ApiVersion since = 3;</code>
        */
       public Builder clearSince() {
         if (sinceBuilder_ == null) {
@@ -3276,7 +3276,7 @@ public final class Databricks {
        * Breaking changes to an RPC must use a different version number.
        * </pre>
        *
-       * <code>optional .ApiVersion since = 3;</code>
+       * <code>optional .mlflow.ApiVersion since = 3;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.ApiVersion.Builder getSinceBuilder() {
         bitField0_ |= 0x00000004;
@@ -3289,7 +3289,7 @@ public final class Databricks {
        * Breaking changes to an RPC must use a different version number.
        * </pre>
        *
-       * <code>optional .ApiVersion since = 3;</code>
+       * <code>optional .mlflow.ApiVersion since = 3;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.ApiVersionOrBuilder getSinceOrBuilder() {
         if (sinceBuilder_ != null) {
@@ -3305,7 +3305,7 @@ public final class Databricks {
        * Breaking changes to an RPC must use a different version number.
        * </pre>
        *
-       * <code>optional .ApiVersion since = 3;</code>
+       * <code>optional .mlflow.ApiVersion since = 3;</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
           com.databricks.api.proto.databricks.Databricks.ApiVersion, com.databricks.api.proto.databricks.Databricks.ApiVersion.Builder, com.databricks.api.proto.databricks.Databricks.ApiVersionOrBuilder> 
@@ -3333,10 +3333,10 @@ public final class Databricks {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:HttpEndpoint)
+      // @@protoc_insertion_point(builder_scope:mlflow.HttpEndpoint)
     }
 
-    // @@protoc_insertion_point(class_scope:HttpEndpoint)
+    // @@protoc_insertion_point(class_scope:mlflow.HttpEndpoint)
     private static final com.databricks.api.proto.databricks.Databricks.HttpEndpoint DEFAULT_INSTANCE;
     static {
       DEFAULT_INSTANCE = new com.databricks.api.proto.databricks.Databricks.HttpEndpoint();
@@ -3374,7 +3374,7 @@ public final class Databricks {
   }
 
   public interface ApiVersionOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:ApiVersion)
+      // @@protoc_insertion_point(interface_extends:mlflow.ApiVersion)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -3396,11 +3396,11 @@ public final class Databricks {
     int getMinor();
   }
   /**
-   * Protobuf type {@code ApiVersion}
+   * Protobuf type {@code mlflow.ApiVersion}
    */
   public  static final class ApiVersion extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:ApiVersion)
+      // @@protoc_insertion_point(message_implements:mlflow.ApiVersion)
       ApiVersionOrBuilder {
   private static final long serialVersionUID = 0L;
     // Use ApiVersion.newBuilder() to construct.
@@ -3467,13 +3467,13 @@ public final class Databricks {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_ApiVersion_descriptor;
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_ApiVersion_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_ApiVersion_fieldAccessorTable
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_ApiVersion_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
               com.databricks.api.proto.databricks.Databricks.ApiVersion.class, com.databricks.api.proto.databricks.Databricks.ApiVersion.Builder.class);
     }
@@ -3687,21 +3687,21 @@ public final class Databricks {
       return builder;
     }
     /**
-     * Protobuf type {@code ApiVersion}
+     * Protobuf type {@code mlflow.ApiVersion}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:ApiVersion)
+        // @@protoc_insertion_point(builder_implements:mlflow.ApiVersion)
         com.databricks.api.proto.databricks.Databricks.ApiVersionOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_ApiVersion_descriptor;
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_ApiVersion_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_ApiVersion_fieldAccessorTable
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_ApiVersion_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
                 com.databricks.api.proto.databricks.Databricks.ApiVersion.class, com.databricks.api.proto.databricks.Databricks.ApiVersion.Builder.class);
       }
@@ -3734,7 +3734,7 @@ public final class Databricks {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_ApiVersion_descriptor;
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_ApiVersion_descriptor;
       }
 
       @java.lang.Override
@@ -3925,10 +3925,10 @@ public final class Databricks {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:ApiVersion)
+      // @@protoc_insertion_point(builder_scope:mlflow.ApiVersion)
     }
 
-    // @@protoc_insertion_point(class_scope:ApiVersion)
+    // @@protoc_insertion_point(class_scope:mlflow.ApiVersion)
     private static final com.databricks.api.proto.databricks.Databricks.ApiVersion DEFAULT_INSTANCE;
     static {
       DEFAULT_INSTANCE = new com.databricks.api.proto.databricks.Databricks.ApiVersion();
@@ -3966,7 +3966,7 @@ public final class Databricks {
   }
 
   public interface RateLimitOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:RateLimit)
+      // @@protoc_insertion_point(interface_extends:mlflow.RateLimit)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -4013,11 +4013,11 @@ public final class Databricks {
    * per organization basis.
    * </pre>
    *
-   * Protobuf type {@code RateLimit}
+   * Protobuf type {@code mlflow.RateLimit}
    */
   public  static final class RateLimit extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:RateLimit)
+      // @@protoc_insertion_point(message_implements:mlflow.RateLimit)
       RateLimitOrBuilder {
   private static final long serialVersionUID = 0L;
     // Use RateLimit.newBuilder() to construct.
@@ -4084,13 +4084,13 @@ public final class Databricks {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_RateLimit_descriptor;
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_RateLimit_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_RateLimit_fieldAccessorTable
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_RateLimit_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
               com.databricks.api.proto.databricks.Databricks.RateLimit.class, com.databricks.api.proto.databricks.Databricks.RateLimit.Builder.class);
     }
@@ -4331,21 +4331,21 @@ public final class Databricks {
      * per organization basis.
      * </pre>
      *
-     * Protobuf type {@code RateLimit}
+     * Protobuf type {@code mlflow.RateLimit}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:RateLimit)
+        // @@protoc_insertion_point(builder_implements:mlflow.RateLimit)
         com.databricks.api.proto.databricks.Databricks.RateLimitOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_RateLimit_descriptor;
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_RateLimit_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_RateLimit_fieldAccessorTable
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_RateLimit_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
                 com.databricks.api.proto.databricks.Databricks.RateLimit.class, com.databricks.api.proto.databricks.Databricks.RateLimit.Builder.class);
       }
@@ -4378,7 +4378,7 @@ public final class Databricks {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_RateLimit_descriptor;
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_RateLimit_descriptor;
       }
 
       @java.lang.Override
@@ -4609,10 +4609,10 @@ public final class Databricks {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:RateLimit)
+      // @@protoc_insertion_point(builder_scope:mlflow.RateLimit)
     }
 
-    // @@protoc_insertion_point(class_scope:RateLimit)
+    // @@protoc_insertion_point(class_scope:mlflow.RateLimit)
     private static final com.databricks.api.proto.databricks.Databricks.RateLimit DEFAULT_INSTANCE;
     static {
       DEFAULT_INSTANCE = new com.databricks.api.proto.databricks.Databricks.RateLimit();
@@ -4650,7 +4650,7 @@ public final class Databricks {
   }
 
   public interface DocumentationMetadataOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:DocumentationMetadata)
+      // @@protoc_insertion_point(interface_extends:mlflow.DocumentationMetadata)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -4718,7 +4718,7 @@ public final class Databricks {
      * visibility level. The documentation is then generated for each visibility level.
      * </pre>
      *
-     * <code>optional .Visibility visibility = 3;</code>
+     * <code>optional .mlflow.Visibility visibility = 3;</code>
      */
     boolean hasVisibility();
     /**
@@ -4728,7 +4728,7 @@ public final class Databricks {
      * visibility level. The documentation is then generated for each visibility level.
      * </pre>
      *
-     * <code>optional .Visibility visibility = 3;</code>
+     * <code>optional .mlflow.Visibility visibility = 3;</code>
      */
     com.databricks.api.proto.databricks.Databricks.Visibility getVisibility();
 
@@ -4803,11 +4803,11 @@ public final class Databricks {
    * A block of documentation that is added to the AST after parsing the original protocol buffer.
    * </pre>
    *
-   * Protobuf type {@code DocumentationMetadata}
+   * Protobuf type {@code mlflow.DocumentationMetadata}
    */
   public  static final class DocumentationMetadata extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:DocumentationMetadata)
+      // @@protoc_insertion_point(message_implements:mlflow.DocumentationMetadata)
       DocumentationMetadataOrBuilder {
   private static final long serialVersionUID = 0L;
     // Use DocumentationMetadata.newBuilder() to construct.
@@ -4908,13 +4908,13 @@ public final class Databricks {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_DocumentationMetadata_descriptor;
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DocumentationMetadata_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_DocumentationMetadata_fieldAccessorTable
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DocumentationMetadata_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
               com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.class, com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.Builder.class);
     }
@@ -5043,7 +5043,7 @@ public final class Databricks {
      * visibility level. The documentation is then generated for each visibility level.
      * </pre>
      *
-     * <code>optional .Visibility visibility = 3;</code>
+     * <code>optional .mlflow.Visibility visibility = 3;</code>
      */
     public boolean hasVisibility() {
       return ((bitField0_ & 0x00000004) == 0x00000004);
@@ -5055,7 +5055,7 @@ public final class Databricks {
      * visibility level. The documentation is then generated for each visibility level.
      * </pre>
      *
-     * <code>optional .Visibility visibility = 3;</code>
+     * <code>optional .mlflow.Visibility visibility = 3;</code>
      */
     public com.databricks.api.proto.databricks.Databricks.Visibility getVisibility() {
       @SuppressWarnings("deprecation")
@@ -5373,21 +5373,21 @@ public final class Databricks {
      * A block of documentation that is added to the AST after parsing the original protocol buffer.
      * </pre>
      *
-     * Protobuf type {@code DocumentationMetadata}
+     * Protobuf type {@code mlflow.DocumentationMetadata}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:DocumentationMetadata)
+        // @@protoc_insertion_point(builder_implements:mlflow.DocumentationMetadata)
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadataOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_DocumentationMetadata_descriptor;
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DocumentationMetadata_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_DocumentationMetadata_fieldAccessorTable
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DocumentationMetadata_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
                 com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.class, com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.Builder.class);
       }
@@ -5426,7 +5426,7 @@ public final class Databricks {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_DocumentationMetadata_descriptor;
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DocumentationMetadata_descriptor;
       }
 
       @java.lang.Override
@@ -5794,7 +5794,7 @@ public final class Databricks {
        * visibility level. The documentation is then generated for each visibility level.
        * </pre>
        *
-       * <code>optional .Visibility visibility = 3;</code>
+       * <code>optional .mlflow.Visibility visibility = 3;</code>
        */
       public boolean hasVisibility() {
         return ((bitField0_ & 0x00000004) == 0x00000004);
@@ -5806,7 +5806,7 @@ public final class Databricks {
        * visibility level. The documentation is then generated for each visibility level.
        * </pre>
        *
-       * <code>optional .Visibility visibility = 3;</code>
+       * <code>optional .mlflow.Visibility visibility = 3;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.Visibility getVisibility() {
         @SuppressWarnings("deprecation")
@@ -5820,7 +5820,7 @@ public final class Databricks {
        * visibility level. The documentation is then generated for each visibility level.
        * </pre>
        *
-       * <code>optional .Visibility visibility = 3;</code>
+       * <code>optional .mlflow.Visibility visibility = 3;</code>
        */
       public Builder setVisibility(com.databricks.api.proto.databricks.Databricks.Visibility value) {
         if (value == null) {
@@ -5838,7 +5838,7 @@ public final class Databricks {
        * visibility level. The documentation is then generated for each visibility level.
        * </pre>
        *
-       * <code>optional .Visibility visibility = 3;</code>
+       * <code>optional .mlflow.Visibility visibility = 3;</code>
        */
       public Builder clearVisibility() {
         bitField0_ = (bitField0_ & ~0x00000004);
@@ -6067,10 +6067,10 @@ public final class Databricks {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:DocumentationMetadata)
+      // @@protoc_insertion_point(builder_scope:mlflow.DocumentationMetadata)
     }
 
-    // @@protoc_insertion_point(class_scope:DocumentationMetadata)
+    // @@protoc_insertion_point(class_scope:mlflow.DocumentationMetadata)
     private static final com.databricks.api.proto.databricks.Databricks.DocumentationMetadata DEFAULT_INSTANCE;
     static {
       DEFAULT_INSTANCE = new com.databricks.api.proto.databricks.Databricks.DocumentationMetadata();
@@ -6108,15 +6108,15 @@ public final class Databricks {
   }
 
   public interface DatabricksServiceExceptionProtoOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:DatabricksServiceExceptionProto)
+      // @@protoc_insertion_point(interface_extends:mlflow.DatabricksServiceExceptionProto)
       com.google.protobuf.MessageOrBuilder {
 
     /**
-     * <code>optional .ErrorCode error_code = 1;</code>
+     * <code>optional .mlflow.ErrorCode error_code = 1;</code>
      */
     boolean hasErrorCode();
     /**
-     * <code>optional .ErrorCode error_code = 1;</code>
+     * <code>optional .mlflow.ErrorCode error_code = 1;</code>
      */
     com.databricks.api.proto.databricks.Databricks.ErrorCode getErrorCode();
 
@@ -6153,11 +6153,11 @@ public final class Databricks {
    * Serialization format for DatabricksServiceException.
    * </pre>
    *
-   * Protobuf type {@code DatabricksServiceExceptionProto}
+   * Protobuf type {@code mlflow.DatabricksServiceExceptionProto}
    */
   public  static final class DatabricksServiceExceptionProto extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:DatabricksServiceExceptionProto)
+      // @@protoc_insertion_point(message_implements:mlflow.DatabricksServiceExceptionProto)
       DatabricksServiceExceptionProtoOrBuilder {
   private static final long serialVersionUID = 0L;
     // Use DatabricksServiceExceptionProto.newBuilder() to construct.
@@ -6239,13 +6239,13 @@ public final class Databricks {
     }
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_DatabricksServiceExceptionProto_descriptor;
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksServiceExceptionProto_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_DatabricksServiceExceptionProto_fieldAccessorTable
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksServiceExceptionProto_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
               com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto.class, com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto.Builder.class);
     }
@@ -6254,13 +6254,13 @@ public final class Databricks {
     public static final int ERROR_CODE_FIELD_NUMBER = 1;
     private int errorCode_;
     /**
-     * <code>optional .ErrorCode error_code = 1;</code>
+     * <code>optional .mlflow.ErrorCode error_code = 1;</code>
      */
     public boolean hasErrorCode() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
-     * <code>optional .ErrorCode error_code = 1;</code>
+     * <code>optional .mlflow.ErrorCode error_code = 1;</code>
      */
     public com.databricks.api.proto.databricks.Databricks.ErrorCode getErrorCode() {
       @SuppressWarnings("deprecation")
@@ -6547,21 +6547,21 @@ public final class Databricks {
      * Serialization format for DatabricksServiceException.
      * </pre>
      *
-     * Protobuf type {@code DatabricksServiceExceptionProto}
+     * Protobuf type {@code mlflow.DatabricksServiceExceptionProto}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:DatabricksServiceExceptionProto)
+        // @@protoc_insertion_point(builder_implements:mlflow.DatabricksServiceExceptionProto)
         com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProtoOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_DatabricksServiceExceptionProto_descriptor;
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksServiceExceptionProto_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_DatabricksServiceExceptionProto_fieldAccessorTable
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksServiceExceptionProto_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
                 com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto.class, com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto.Builder.class);
       }
@@ -6596,7 +6596,7 @@ public final class Databricks {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_DatabricksServiceExceptionProto_descriptor;
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksServiceExceptionProto_descriptor;
       }
 
       @java.lang.Override
@@ -6724,13 +6724,13 @@ public final class Databricks {
 
       private int errorCode_ = 1;
       /**
-       * <code>optional .ErrorCode error_code = 1;</code>
+       * <code>optional .mlflow.ErrorCode error_code = 1;</code>
        */
       public boolean hasErrorCode() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
-       * <code>optional .ErrorCode error_code = 1;</code>
+       * <code>optional .mlflow.ErrorCode error_code = 1;</code>
        */
       public com.databricks.api.proto.databricks.Databricks.ErrorCode getErrorCode() {
         @SuppressWarnings("deprecation")
@@ -6738,7 +6738,7 @@ public final class Databricks {
         return result == null ? com.databricks.api.proto.databricks.Databricks.ErrorCode.INTERNAL_ERROR : result;
       }
       /**
-       * <code>optional .ErrorCode error_code = 1;</code>
+       * <code>optional .mlflow.ErrorCode error_code = 1;</code>
        */
       public Builder setErrorCode(com.databricks.api.proto.databricks.Databricks.ErrorCode value) {
         if (value == null) {
@@ -6750,7 +6750,7 @@ public final class Databricks {
         return this;
       }
       /**
-       * <code>optional .ErrorCode error_code = 1;</code>
+       * <code>optional .mlflow.ErrorCode error_code = 1;</code>
        */
       public Builder clearErrorCode() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -6923,10 +6923,10 @@ public final class Databricks {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:DatabricksServiceExceptionProto)
+      // @@protoc_insertion_point(builder_scope:mlflow.DatabricksServiceExceptionProto)
     }
 
-    // @@protoc_insertion_point(class_scope:DatabricksServiceExceptionProto)
+    // @@protoc_insertion_point(class_scope:mlflow.DatabricksServiceExceptionProto)
     private static final com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto DEFAULT_INSTANCE;
     static {
       DEFAULT_INSTANCE = new com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto();
@@ -6963,7 +6963,7 @@ public final class Databricks {
 
   }
 
-  public static final int VISIBILITY_FIELD_NUMBER = 50000;
+  public static final int VISIBILITY_FIELD_NUMBER = 51310;
   /**
    * <pre>
    * Indicates an overriding visibility for this field. This can only reduce the visibility;
@@ -6979,7 +6979,7 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         com.databricks.api.proto.databricks.Databricks.Visibility.class,
         null);
-  public static final int VALIDATE_REQUIRED_FIELD_NUMBER = 50001;
+  public static final int VALIDATE_REQUIRED_FIELD_NUMBER = 51311;
   /**
    * <pre>
    * This annotation indicates that certain fields must be supplied for the request to be carried
@@ -6999,7 +6999,7 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         java.lang.Boolean.class,
         null);
-  public static final int JSON_INLINE_FIELD_NUMBER = 50002;
+  public static final int JSON_INLINE_FIELD_NUMBER = 51312;
   /**
    * <pre>
    * Causes the fields within the tagged Message to be inlined into this Message, for the purposes
@@ -7026,7 +7026,7 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         java.lang.Boolean.class,
         null);
-  public static final int JSON_MAP_FIELD_NUMBER = 50003;
+  public static final int JSON_MAP_FIELD_NUMBER = 51313;
   /**
    * <pre>
    * Causes a field which conceptually represents a Map to be serialized as a JSON Map.
@@ -7047,7 +7047,7 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         java.lang.Boolean.class,
         null);
-  public static final int FIELD_DOC_FIELD_NUMBER = 50004;
+  public static final int FIELD_DOC_FIELD_NUMBER = 51314;
   /**
    * <pre>
    * The documentation meta data for this field. This gets added automatically when the proto is
@@ -7066,7 +7066,7 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.class,
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.getDefaultInstance());
-  public static final int RPC_FIELD_NUMBER = 50000;
+  public static final int RPC_FIELD_NUMBER = 51310;
   /**
    * <code>extend .google.protobuf.MethodOptions { ... }</code>
    */
@@ -7077,7 +7077,7 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         com.databricks.api.proto.databricks.Databricks.DatabricksRpcOptions.class,
         com.databricks.api.proto.databricks.Databricks.DatabricksRpcOptions.getDefaultInstance());
-  public static final int METHOD_DOC_FIELD_NUMBER = 50004;
+  public static final int METHOD_DOC_FIELD_NUMBER = 51314;
   /**
    * <pre>
    * The documentation metadata.
@@ -7094,7 +7094,7 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.class,
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.getDefaultInstance());
-  public static final int MESSAGE_DOC_FIELD_NUMBER = 50004;
+  public static final int MESSAGE_DOC_FIELD_NUMBER = 51314;
   /**
    * <pre>
    * The documentation metadata.
@@ -7111,7 +7111,7 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.class,
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.getDefaultInstance());
-  public static final int SERVICE_DOC_FIELD_NUMBER = 50004;
+  public static final int SERVICE_DOC_FIELD_NUMBER = 51314;
   /**
    * <pre>
    * The documentation metadata.
@@ -7128,7 +7128,7 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.class,
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.getDefaultInstance());
-  public static final int ENUM_DOC_FIELD_NUMBER = 50004;
+  public static final int ENUM_DOC_FIELD_NUMBER = 51314;
   /**
    * <pre>
    * The documentation metadata.
@@ -7145,7 +7145,7 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.class,
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.getDefaultInstance());
-  public static final int ENUM_VALUE_VISIBILITY_FIELD_NUMBER = 50000;
+  public static final int ENUM_VALUE_VISIBILITY_FIELD_NUMBER = 51310;
   /**
    * <pre>
    * Indicates an overriding visibility for this field. This can only reduce the visibility;
@@ -7161,7 +7161,7 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         com.databricks.api.proto.databricks.Databricks.Visibility.class,
         null);
-  public static final int ENUM_VALUE_DOC_FIELD_NUMBER = 50004;
+  public static final int ENUM_VALUE_DOC_FIELD_NUMBER = 51314;
   /**
    * <pre>
    * The documentation metadata.
@@ -7179,35 +7179,35 @@ public final class Databricks {
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.class,
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.getDefaultInstance());
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_DatabricksRpcOptions_descriptor;
+    internal_static_mlflow_DatabricksRpcOptions_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_DatabricksRpcOptions_fieldAccessorTable;
+      internal_static_mlflow_DatabricksRpcOptions_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_HttpEndpoint_descriptor;
+    internal_static_mlflow_HttpEndpoint_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_HttpEndpoint_fieldAccessorTable;
+      internal_static_mlflow_HttpEndpoint_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_ApiVersion_descriptor;
+    internal_static_mlflow_ApiVersion_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_ApiVersion_fieldAccessorTable;
+      internal_static_mlflow_ApiVersion_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_RateLimit_descriptor;
+    internal_static_mlflow_RateLimit_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_RateLimit_fieldAccessorTable;
+      internal_static_mlflow_RateLimit_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_DocumentationMetadata_descriptor;
+    internal_static_mlflow_DocumentationMetadata_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_DocumentationMetadata_fieldAccessorTable;
+      internal_static_mlflow_DocumentationMetadata_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_DatabricksServiceExceptionProto_descriptor;
+    internal_static_mlflow_DatabricksServiceExceptionProto_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_DatabricksServiceExceptionProto_fieldAccessorTable;
+      internal_static_mlflow_DatabricksServiceExceptionProto_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -7217,62 +7217,65 @@ public final class Databricks {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\020databricks.proto\032 google/protobuf/desc" +
-      "riptor.proto\032\025scalapb/scalapb.proto\"\261\001\n\024" +
-      "DatabricksRpcOptions\022 \n\tendpoints\030\001 \003(\0132" +
-      "\r.HttpEndpoint\022\037\n\nvisibility\030\002 \001(\0162\013.Vis" +
-      "ibility\022\037\n\013error_codes\030\003 \003(\0162\n.ErrorCode" +
-      "\022\036\n\nrate_limit\030\004 \001(\0132\n.RateLimit\022\025\n\rrpc_" +
-      "doc_title\030\005 \001(\t\"N\n\014HttpEndpoint\022\024\n\006metho" +
-      "d\030\001 \001(\t:\004POST\022\014\n\004path\030\002 \001(\t\022\032\n\005since\030\003 \001" +
-      "(\0132\013.ApiVersion\"*\n\nApiVersion\022\r\n\005major\030\001" +
-      " \001(\005\022\r\n\005minor\030\002 \001(\005\"@\n\tRateLimit\022\021\n\tmax_" +
-      "burst\030\001 \001(\003\022 \n\030max_sustained_per_second\030" +
-      "\002 \001(\003\"\214\001\n\025DocumentationMetadata\022\021\n\tdocst" +
-      "ring\030\001 \001(\t\022\020\n\010lead_doc\030\002 \001(\t\022\037\n\nvisibili" +
-      "ty\030\003 \001(\0162\013.Visibility\022\033\n\023original_proto_" +
-      "path\030\004 \003(\t\022\020\n\010position\030\005 \001(\005\"g\n\037Databric" +
-      "ksServiceExceptionProto\022\036\n\nerror_code\030\001 " +
-      "\001(\0162\n.ErrorCode\022\017\n\007message\030\002 \001(\t\022\023\n\013stac" +
-      "k_trace\030\003 \001(\t*?\n\nVisibility\022\n\n\006PUBLIC\020\001\022" +
-      "\014\n\010INTERNAL\020\002\022\027\n\023PUBLIC_UNDOCUMENTED\020\003*\366" +
-      "\004\n\tErrorCode\022\022\n\016INTERNAL_ERROR\020\001\022\033\n\027TEMP" +
-      "ORARILY_UNAVAILABLE\020\002\022\014\n\010IO_ERROR\020\003\022\017\n\013B" +
-      "AD_REQUEST\020\004\022\034\n\027INVALID_PARAMETER_VALUE\020" +
-      "\350\007\022\027\n\022ENDPOINT_NOT_FOUND\020\351\007\022\026\n\021MALFORMED" +
-      "_REQUEST\020\352\007\022\022\n\rINVALID_STATE\020\353\007\022\026\n\021PERMI" +
-      "SSION_DENIED\020\354\007\022\025\n\020FEATURE_DISABLED\020\355\007\022\032" +
-      "\n\025CUSTOMER_UNAUTHORIZED\020\356\007\022\033\n\026REQUEST_LI" +
-      "MIT_EXCEEDED\020\357\007\022\035\n\030INVALID_STATE_TRANSIT" +
-      "ION\020\321\017\022\033\n\026COULD_NOT_ACQUIRE_LOCK\020\322\017\022\034\n\027R" +
-      "ESOURCE_ALREADY_EXISTS\020\271\027\022\034\n\027RESOURCE_DO" +
-      "ES_NOT_EXIST\020\272\027\022\023\n\016QUOTA_EXCEEDED\020\241\037\022\034\n\027" +
-      "MAX_BLOCK_SIZE_EXCEEDED\020\242\037\022\033\n\026MAX_READ_S" +
-      "IZE_EXCEEDED\020\243\037\022\023\n\016DRY_RUN_FAILED\020\211\'\022\034\n\027" +
-      "RESOURCE_LIMIT_EXCEEDED\020\212\'\022\030\n\023DIRECTORY_" +
-      "NOT_EMPTY\020\361.\022\030\n\023DIRECTORY_PROTECTED\020\362.\022\037" +
-      "\n\032MAX_NOTEBOOK_SIZE_EXCEEDED\020\363.:@\n\nvisib" +
-      "ility\022\035.google.protobuf.FieldOptions\030\320\206\003" +
-      " \001(\0162\013.Visibility::\n\021validate_required\022\035" +
-      ".google.protobuf.FieldOptions\030\321\206\003 \001(\010:4\n" +
-      "\013json_inline\022\035.google.protobuf.FieldOpti" +
-      "ons\030\322\206\003 \001(\010:1\n\010json_map\022\035.google.protobu" +
-      "f.FieldOptions\030\323\206\003 \001(\010:J\n\tfield_doc\022\035.go" +
-      "ogle.protobuf.FieldOptions\030\324\206\003 \003(\0132\026.Doc" +
-      "umentationMetadata:D\n\003rpc\022\036.google.proto" +
-      "buf.MethodOptions\030\320\206\003 \001(\0132\025.DatabricksRp" +
-      "cOptions:L\n\nmethod_doc\022\036.google.protobuf" +
-      ".MethodOptions\030\324\206\003 \003(\0132\026.DocumentationMe" +
-      "tadata:N\n\013message_doc\022\037.google.protobuf." +
-      "MessageOptions\030\324\206\003 \003(\0132\026.DocumentationMe" +
-      "tadata:N\n\013service_doc\022\037.google.protobuf." +
-      "ServiceOptions\030\324\206\003 \003(\0132\026.DocumentationMe" +
-      "tadata:H\n\010enum_doc\022\034.google.protobuf.Enu" +
-      "mOptions\030\324\206\003 \003(\0132\026.DocumentationMetadata" +
-      ":O\n\025enum_value_visibility\022!.google.proto" +
-      "buf.EnumValueOptions\030\320\206\003 \001(\0162\013.Visibilit" +
-      "y:S\n\016enum_value_doc\022!.google.protobuf.En" +
-      "umValueOptions\030\324\206\003 \003(\0132\026.DocumentationMe" +
+      "\n\020databricks.proto\022\006mlflow\032 google/proto" +
+      "buf/descriptor.proto\032\025scalapb/scalapb.pr" +
+      "oto\"\315\001\n\024DatabricksRpcOptions\022\'\n\tendpoint" +
+      "s\030\001 \003(\0132\024.mlflow.HttpEndpoint\022&\n\nvisibil" +
+      "ity\030\002 \001(\0162\022.mlflow.Visibility\022&\n\013error_c" +
+      "odes\030\003 \003(\0162\021.mlflow.ErrorCode\022%\n\nrate_li" +
+      "mit\030\004 \001(\0132\021.mlflow.RateLimit\022\025\n\rrpc_doc_" +
+      "title\030\005 \001(\t\"U\n\014HttpEndpoint\022\024\n\006method\030\001 " +
+      "\001(\t:\004POST\022\014\n\004path\030\002 \001(\t\022!\n\005since\030\003 \001(\0132\022" +
+      ".mlflow.ApiVersion\"*\n\nApiVersion\022\r\n\005majo" +
+      "r\030\001 \001(\005\022\r\n\005minor\030\002 \001(\005\"@\n\tRateLimit\022\021\n\tm" +
+      "ax_burst\030\001 \001(\003\022 \n\030max_sustained_per_seco" +
+      "nd\030\002 \001(\003\"\223\001\n\025DocumentationMetadata\022\021\n\tdo" +
+      "cstring\030\001 \001(\t\022\020\n\010lead_doc\030\002 \001(\t\022&\n\nvisib" +
+      "ility\030\003 \001(\0162\022.mlflow.Visibility\022\033\n\023origi" +
+      "nal_proto_path\030\004 \003(\t\022\020\n\010position\030\005 \001(\005\"n" +
+      "\n\037DatabricksServiceExceptionProto\022%\n\nerr" +
+      "or_code\030\001 \001(\0162\021.mlflow.ErrorCode\022\017\n\007mess" +
+      "age\030\002 \001(\t\022\023\n\013stack_trace\030\003 \001(\t*?\n\nVisibi" +
+      "lity\022\n\n\006PUBLIC\020\001\022\014\n\010INTERNAL\020\002\022\027\n\023PUBLIC" +
+      "_UNDOCUMENTED\020\003*\366\004\n\tErrorCode\022\022\n\016INTERNA" +
+      "L_ERROR\020\001\022\033\n\027TEMPORARILY_UNAVAILABLE\020\002\022\014" +
+      "\n\010IO_ERROR\020\003\022\017\n\013BAD_REQUEST\020\004\022\034\n\027INVALID" +
+      "_PARAMETER_VALUE\020\350\007\022\027\n\022ENDPOINT_NOT_FOUN" +
+      "D\020\351\007\022\026\n\021MALFORMED_REQUEST\020\352\007\022\022\n\rINVALID_" +
+      "STATE\020\353\007\022\026\n\021PERMISSION_DENIED\020\354\007\022\025\n\020FEAT" +
+      "URE_DISABLED\020\355\007\022\032\n\025CUSTOMER_UNAUTHORIZED" +
+      "\020\356\007\022\033\n\026REQUEST_LIMIT_EXCEEDED\020\357\007\022\035\n\030INVA" +
+      "LID_STATE_TRANSITION\020\321\017\022\033\n\026COULD_NOT_ACQ" +
+      "UIRE_LOCK\020\322\017\022\034\n\027RESOURCE_ALREADY_EXISTS\020" +
+      "\271\027\022\034\n\027RESOURCE_DOES_NOT_EXIST\020\272\027\022\023\n\016QUOT" +
+      "A_EXCEEDED\020\241\037\022\034\n\027MAX_BLOCK_SIZE_EXCEEDED" +
+      "\020\242\037\022\033\n\026MAX_READ_SIZE_EXCEEDED\020\243\037\022\023\n\016DRY_" +
+      "RUN_FAILED\020\211\'\022\034\n\027RESOURCE_LIMIT_EXCEEDED" +
+      "\020\212\'\022\030\n\023DIRECTORY_NOT_EMPTY\020\361.\022\030\n\023DIRECTO" +
+      "RY_PROTECTED\020\362.\022\037\n\032MAX_NOTEBOOK_SIZE_EXC" +
+      "EEDED\020\363.:G\n\nvisibility\022\035.google.protobuf" +
+      ".FieldOptions\030\356\220\003 \001(\0162\022.mlflow.Visibilit" +
+      "y::\n\021validate_required\022\035.google.protobuf" +
+      ".FieldOptions\030\357\220\003 \001(\010:4\n\013json_inline\022\035.g" +
+      "oogle.protobuf.FieldOptions\030\360\220\003 \001(\010:1\n\010j" +
+      "son_map\022\035.google.protobuf.FieldOptions\030\361" +
+      "\220\003 \001(\010:Q\n\tfield_doc\022\035.google.protobuf.Fi" +
+      "eldOptions\030\362\220\003 \003(\0132\035.mlflow.Documentatio" +
+      "nMetadata:K\n\003rpc\022\036.google.protobuf.Metho" +
+      "dOptions\030\356\220\003 \001(\0132\034.mlflow.DatabricksRpcO" +
+      "ptions:S\n\nmethod_doc\022\036.google.protobuf.M" +
+      "ethodOptions\030\362\220\003 \003(\0132\035.mlflow.Documentat" +
+      "ionMetadata:U\n\013message_doc\022\037.google.prot" +
+      "obuf.MessageOptions\030\362\220\003 \003(\0132\035.mlflow.Doc" +
+      "umentationMetadata:U\n\013service_doc\022\037.goog" +
+      "le.protobuf.ServiceOptions\030\362\220\003 \003(\0132\035.mlf" +
+      "low.DocumentationMetadata:O\n\010enum_doc\022\034." +
+      "google.protobuf.EnumOptions\030\362\220\003 \003(\0132\035.ml" +
+      "flow.DocumentationMetadata:V\n\025enum_value" +
+      "_visibility\022!.google.protobuf.EnumValueO" +
+      "ptions\030\356\220\003 \001(\0162\022.mlflow.Visibility:Z\n\016en" +
+      "um_value_doc\022!.google.protobuf.EnumValue" +
+      "Options\030\362\220\003 \003(\0132\035.mlflow.DocumentationMe" +
       "tadataB*\n#com.databricks.api.proto.datab" +
       "ricks\342?\002\020\001"
     };
@@ -7290,41 +7293,41 @@ public final class Databricks {
           com.google.protobuf.DescriptorProtos.getDescriptor(),
           org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
         }, assigner);
-    internal_static_DatabricksRpcOptions_descriptor =
+    internal_static_mlflow_DatabricksRpcOptions_descriptor =
       getDescriptor().getMessageTypes().get(0);
-    internal_static_DatabricksRpcOptions_fieldAccessorTable = new
+    internal_static_mlflow_DatabricksRpcOptions_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_DatabricksRpcOptions_descriptor,
+        internal_static_mlflow_DatabricksRpcOptions_descriptor,
         new java.lang.String[] { "Endpoints", "Visibility", "ErrorCodes", "RateLimit", "RpcDocTitle", });
-    internal_static_HttpEndpoint_descriptor =
+    internal_static_mlflow_HttpEndpoint_descriptor =
       getDescriptor().getMessageTypes().get(1);
-    internal_static_HttpEndpoint_fieldAccessorTable = new
+    internal_static_mlflow_HttpEndpoint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_HttpEndpoint_descriptor,
+        internal_static_mlflow_HttpEndpoint_descriptor,
         new java.lang.String[] { "Method", "Path", "Since", });
-    internal_static_ApiVersion_descriptor =
+    internal_static_mlflow_ApiVersion_descriptor =
       getDescriptor().getMessageTypes().get(2);
-    internal_static_ApiVersion_fieldAccessorTable = new
+    internal_static_mlflow_ApiVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_ApiVersion_descriptor,
+        internal_static_mlflow_ApiVersion_descriptor,
         new java.lang.String[] { "Major", "Minor", });
-    internal_static_RateLimit_descriptor =
+    internal_static_mlflow_RateLimit_descriptor =
       getDescriptor().getMessageTypes().get(3);
-    internal_static_RateLimit_fieldAccessorTable = new
+    internal_static_mlflow_RateLimit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_RateLimit_descriptor,
+        internal_static_mlflow_RateLimit_descriptor,
         new java.lang.String[] { "MaxBurst", "MaxSustainedPerSecond", });
-    internal_static_DocumentationMetadata_descriptor =
+    internal_static_mlflow_DocumentationMetadata_descriptor =
       getDescriptor().getMessageTypes().get(4);
-    internal_static_DocumentationMetadata_fieldAccessorTable = new
+    internal_static_mlflow_DocumentationMetadata_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_DocumentationMetadata_descriptor,
+        internal_static_mlflow_DocumentationMetadata_descriptor,
         new java.lang.String[] { "Docstring", "LeadDoc", "Visibility", "OriginalProtoPath", "Position", });
-    internal_static_DatabricksServiceExceptionProto_descriptor =
+    internal_static_mlflow_DatabricksServiceExceptionProto_descriptor =
       getDescriptor().getMessageTypes().get(5);
-    internal_static_DatabricksServiceExceptionProto_fieldAccessorTable = new
+    internal_static_mlflow_DatabricksServiceExceptionProto_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_DatabricksServiceExceptionProto_descriptor,
+        internal_static_mlflow_DatabricksServiceExceptionProto_descriptor,
         new java.lang.String[] { "ErrorCode", "Message", "StackTrace", });
     visibility.internalInit(descriptor.getExtensions().get(0));
     validateRequired.internalInit(descriptor.getExtensions().get(1));

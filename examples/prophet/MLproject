@@ -1,0 +1,14 @@
+name: tutorial
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      csv_url: {type: uri, default: 'https://raw.githubusercontent.com/facebook/prophet/e21a05f4f9290649255a2a306855e8b4620816d7/examples/example_wp_log_peyton_manning.csv'}
+      rolling_window: {type: float, default: 0.1}
+    command: "python train.py {csv_url} {rolling_window}"
+  predict:
+    parameters:
+      model_uri: {type: uri}
+    command: "python predict.py {model_uri}"

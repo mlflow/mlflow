@@ -21,18 +21,16 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     :maxdepth: 1
 
     quickstart
-    tutorial
+    tutorials-and-examples/index
     concepts
     tracking
     projects
     models
+    model-registry
+    plugins
     cli
+    search-syntax
     python_api/index
     R-api
     java_api/index
     rest-api
-
-.. warning::
-
-    The current version of MLflow is a beta release. This means that APIs and storage formats
-    are subject to breaking change.

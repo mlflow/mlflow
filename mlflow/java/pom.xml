@@ -3,12 +3,28 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.mlflow</groupId>
   <artifactId>mlflow-parent</artifactId>
-  <version>0.9.1</version>
+  <version>1.7.1-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>MLflow Parent POM</name>
   <url>http://mlflow.org</url>
 
   <description>Open source platform for the machine learning lifecycle</description>
+
+  <repositories>
+    <repository>
+      <id>google-maven-central</id>
+      <name>Google Maven Central</name>
+      <url>https://maven-central.storage-download.googleapis.com/repos/central/data</url>
+    </repository>
+  </repositories>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>google-maven-central</id>
+      <name>Google Maven Central</name>
+      <url>https://maven-central.storage-download.googleapis.com/repos/central/data</url>
+    </pluginRepository>
+  </pluginRepositories>
 
   <!-- The following sections (licenses, developers, scm, and distributionManagement) are needed to
        publish pom-only packages to Maven -->
@@ -40,7 +56,7 @@
   </distributionManagement>
 
   <properties>
-    <mlflow-version>0.9.1</mlflow-version>
+    <mlflow-version>1.7.1-SNAPSHOT</mlflow-version>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <scala.version>2.11.12</scala.version>
@@ -57,6 +73,7 @@
   <modules>
     <module>scoring</module>
     <module>client</module>
+    <module>spark</module>
   </modules>
 
   <dependencyManagement>
@@ -68,19 +85,25 @@
         <scope>test</scope>
       </dependency>
       <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-core</artifactId>
+        <version>2.28.2</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
         <groupId>com.fasterxml.jackson.dataformat</groupId>
         <artifactId>jackson-dataformat-yaml</artifactId>
-        <version>2.9.8</version>
+        <version>2.10.0</version>
       </dependency>
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-databind</artifactId>
-        <version>2.9.8</version>
+        <version>2.10.0</version>
       </dependency>
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-annotations</artifactId>
-        <version>2.9.8</version>
+        <version>2.10.0</version>
       </dependency>
       <dependency>
         <groupId>ml.combust.mleap</groupId>
@@ -237,6 +260,11 @@
               </goals>
             </execution>
           </executions>
+        </plugin>
+        <plugin>
+          <groupId>net.alchim31.maven</groupId>
+          <artifactId>scala-maven-plugin</artifactId>
+          <version>4.2.0</version>
         </plugin>
       </plugins>
     </pluginManagement>

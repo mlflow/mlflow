@@ -17,7 +17,7 @@ You install MLflow by running:
     .. code-block:: R
 
         install.packages("mlflow")
-        mlflow::mlflow_install()
+        mlflow::install_mlflow()
 
 .. note::
 
@@ -25,7 +25,7 @@ You install MLflow by running:
     Python 3 through the `Homebrew <https://brew.sh/>`_ package manager using
     ``brew install python``. (In this case, installing MLflow is now ``pip3 install mlflow``).
 
-At this point we recommend you follow the :doc:`tutorial` for a walk-through on how you
+At this point we recommend you follow the :doc:`tutorial<tutorials-and-examples/tutorial>` for a walk-through on how you
 can leverage MLflow in your daily workflow.
 
 
@@ -86,8 +86,8 @@ as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
 Viewing the Tracking UI
 -----------------------
 
-By default, wherever you run your program, the tracking API writes data into files into an ``mlruns`` directory.
-You can then run MLflow's Tracking UI:
+By default, wherever you run your program, the tracking API writes data into files into a local
+``./mlruns`` directory. You can then run MLflow's Tracking UI:
 
 .. code-section::
   
@@ -99,13 +99,11 @@ You can then run MLflow's Tracking UI:
 
         mlflow_ui()
 
-and view it at `<http://localhost:5000>`_.
+and view it at http://localhost:5000.
 
 .. note::
     If you see message ``[CRITICAL] WORKER TIMEOUT`` in the MLflow UI or error logs, try using ``http://localhost:5000`` instead of ``http://127.0.0.1:5000``.
 
-Alternatively, you can configure MLflow to :ref:`log runs to a remote server<tracking>` to manage
-your results centrally or share them across a team.
 
 Running MLflow Projects
 -----------------------
@@ -162,19 +160,19 @@ simple REST server for python-based models:
 
 .. code-block:: bash
 
-    mlflow pyfunc serve -r <RUN_ID> -m model
+    mlflow models serve -m runs:/<RUN_ID>/model
 
 .. note::
 
     By default the server runs on port 5000. If that port is already in use, use the `--port` option to
-    specify a different port. For example: ``mlflow pyfunc serve --port 1234 -r <RUN_ID> -m model``
+    specify a different port. For example: ``mlflow models serve -m runs:/<RUN_ID>/model --port 1234``
 
 Once you have started the server, you can pass it some sample data and see the
 predictions.
 
 The following example uses ``curl`` to send a JSON-serialized pandas DataFrame with the ``split``
-orientation to the pyfunc server. For more information about the input data formats accepted by
-the pyfunc model server, see the :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
+orientation to the model server. For more information about the input data formats accepted by
+the pyfunc model server, see the :ref:`MLflow deployment tools documentation <local_model_deployment>`.
 
 .. code-block:: bash
 
@@ -184,15 +182,70 @@ which returns::
 
     {"predictions": [1, 0]}
 
-.. note::
-
-    The ``sklearn_logistic_regression/train.py`` script must be run with the same Python version as
-    the version of Python that runs ``mlflow pyfunc serve``. If they are not the same version,
-    the stacktrace below may appear::
-
-        File "/usr/local/lib/python3.6/site-packages/mlflow/sklearn.py", line 54, in _load_model_from_local_file
-        return pickle.load(f)
-        UnicodeDecodeError: 'ascii' codec can't decode byte 0xc6 in position 0: ordinal not in range(128)
-
-
 For more information, see :doc:`models`.
+
+
+.. _quickstart_logging_to_remote_server:
+
+Logging to a Remote Tracking Server
+-----------------------------------
+In the examples above, MLflow logs data to the local filesystem of the machine it's running on.
+To manage results centrally or share them across a team, you can configure MLflow to log to a remote
+tracking server. To get access to a remote tracking server:
+
+Launch a Tracking Server on a Remote Machine
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:ref:`Launch a tracking server <tracking_server>` on a remote machine.
+
+You can then :ref:`log to the remote tracking server <logging_to_a_tracking_server>` by
+setting the ``MLFLOW_TRACKING_URI`` environment variable to your server's URI, or
+by adding the following to the start of your program:
+
+  .. code-section::
+
+    .. code-block:: python
+
+        import mlflow
+        mlflow.set_tracking_uri("http://YOUR-SERVER:4040")
+        mlflow.set_experiment("my-experiment")
+
+    .. code-block:: R
+
+        library(mlflow)
+        install_mlflow()
+        mlflow_set_tracking_uri("http://YOUR-SERVER:4040")
+        mlflow_set_experiment("/my-experiment")
+
+
+Log to Databricks Community Edition
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Alternatively, sign up for `Databricks Community Edition <https://databricks.com/try-databricks>`_,
+a free service that includes a hosted tracking server. Note that
+Community Edition is intended for quick experimentation rather than production use cases.
+After signing up, run ``databricks configure`` to create a credentials file for MLflow, specifying
+https://community.cloud.databricks.com as the host.
+
+To log to the Community Edition server, set the ``MLFLOW_TRACKING_URI`` environment variable
+to "databricks", or add the following to the start of your program:
+
+  .. code-section::
+
+    .. code-block:: python
+
+        import mlflow
+        mlflow.set_tracking_uri("databricks")
+        # Note: on Databricks, the experiment name passed to set_experiment must be a valid path
+        # in the workspace, like '/Users/<your-username>/my-experiment'. See
+        # https://docs.databricks.com/user-guide/workspace.html for more info.
+        mlflow.set_experiment("/my-experiment")
+
+    .. code-block:: R
+
+        library(mlflow)
+        install_mlflow()
+        mlflow_set_tracking_uri("databricks")
+        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
+        # valid path in the workspace, like '/Users/<your-username>/my-experiment'.  See
+        # https://docs.databricks.com/user-guide/workspace.html for more info.
+        mlflow_set_experiment("/my-experiment")

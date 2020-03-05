@@ -16,6 +16,7 @@ import pyspark
 
 import mlflow
 import mlflow.pyfunc
+from mlflow.utils import cli_args
 
 from pyspark.sql.types import *
 from pyspark.sql.types import Row
@@ -36,7 +37,7 @@ def read_images(spark, filenames):
                                            image=read_image_bytes_base64(x))).toDF(schema=schema)
 
 
-def score_model(spark, data_path, model_path, model_run_id=None):
+def score_model(spark, data_path, model_uri):
     if os.path.isdir(data_path):
         filenames = [os.path.abspath(os.path.join(data_path, x)) for x in os.listdir(data_path)
                      if os.path.isfile(os.path.join(data_path, x))]
@@ -44,8 +45,7 @@ def score_model(spark, data_path, model_path, model_run_id=None):
         filenames = [data_path]
 
     image_classifier_udf = mlflow.pyfunc.spark_udf(spark=spark,
-                                                   path=model_path,
-                                                   run_id=model_run_id,
+                                                   model_uri=model_uri,
                                                    result_type=ArrayType(StringType()))
 
     image_df = read_images(spark, filenames)
@@ -53,7 +53,7 @@ def score_model(spark, data_path, model_path, model_run_id=None):
     raw_preds = image_df.withColumn("prediction", image_classifier_udf("image")).select(
         ["filename", "prediction"]).toPandas()
     # load the pyfunc model to get our domain
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path, run_id=model_run_id)
+    pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
     preds = pd.DataFrame(raw_preds["filename"], index=raw_preds.index)
     preds[pyfunc_model._column_names] = pd.DataFrame(raw_preds['prediction'].values.tolist(),
                                                      columns=pyfunc_model._column_names,
@@ -68,10 +68,9 @@ def score_model(spark, data_path, model_path, model_run_id=None):
 
 
 @click.command(help="Score images.")
-@click.option("--run-id", type=click.STRING, default=None, help="MLflow run id")
-@click.argument("data_path")
-@click.argument("model_path")
-def run(data_path, model_path, run_id):
+@cli_args.MODEL_URI
+@click.argument("--data-path", "-d")
+def run(model_uri, data_path):
     with pyspark.sql.SparkSession.builder \
             .config(key="spark.python.worker.reuse", value=True) \
             .config(key="spark.ui.enabled", value=False) \
@@ -79,7 +78,7 @@ def run(data_path, model_path, run_id):
             .getOrCreate() as spark:
         # ignore spark log output
         spark.sparkContext.setLogLevel("OFF")
-        print(score_model(spark, data_path, model_path, run_id))
+        print(score_model(spark, data_path, model_uri))
 
 
 if __name__ == '__main__':

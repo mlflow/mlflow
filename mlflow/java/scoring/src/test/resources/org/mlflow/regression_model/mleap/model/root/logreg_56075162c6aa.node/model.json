@@ -1,0 +1,24 @@
+{
+  "op": "logistic_regression",
+  "attributes": {
+    "num_classes": {
+      "long": 2
+    },
+    "coefficients": {
+      "double": [0.02529720751742089, 0.02832921139151439],
+      "shape": {
+        "dimensions": [{
+          "size": 2,
+          "name": ""
+        }]
+      },
+      "type": "tensor"
+    },
+    "intercept": {
+      "double": -3.3295477691468705
+    },
+    "threshold": {
+      "double": 0.5
+    }
+  }
+}

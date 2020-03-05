@@ -1,8 +1,11 @@
+import classNames from 'classnames';
 import React from 'react';
 import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
+import { CollapsibleTagsCell } from './CollapsibleTagsCell';
+import _ from 'lodash';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -32,55 +35,121 @@ export default class ExperimentViewUtil {
       pointer: 'cursor',
     },
     runInfoCell: {
-      maxWidth: 250
+      maxWidth: 250,
     },
   };
+
+  /**
+   * Returns an icon depending on run status.
+   */
+  static getRunStatusIcon(status) {
+    switch (status) {
+      case 'FAILED':
+      case 'KILLED':
+        return (
+          <i className="far fa-times-circle" style={{color: '#DB1905'}}/>
+        );
+      case 'FINISHED':
+        return (
+          <i className="far fa-check-circle" style={{color: '#10B36B'}}/>
+        );
+      case 'SCHEDULED':
+        return (
+          <i className="far fa-clock" style={{color: '#258BD2'}}/>
+        );
+      default:
+        return (
+          <i/>
+        );
+    }
+  }
 
   /**
    * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
    * the display row for a run.
    */
-  static getRunInfoCellsForRow(runInfo, tags, isParent, cellType) {
+  static getRunInfoCellsForRow(runInfo, tags, isParent, cellType, handleCellToggle, excludedKeys) {
     const CellComponent = `${cellType}`;
-    const user = Utils.formatUser(runInfo.user_id);
-    const sourceType = Utils.renderSource(runInfo, tags);
+    const user = Utils.getUser(runInfo, tags);
+    const queryParams = window.location && window.location.search ? window.location.search : '';
+    const sourceType = Utils.renderSource(tags, queryParams);
     const startTime = runInfo.start_time;
+    const status = runInfo.status;
     const runName = Utils.getRunName(tags);
-    const childLeftMargin = isParent ? {} : {paddingLeft: '16px'};
-    return [
-      <CellComponent
-        key="meta-link"
-        className="run-table-container"
-        style={{whiteSpace: "inherit"}}
-      >
-        <div style={childLeftMargin}>
-          <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
-            {Utils.formatTimestamp(startTime)}
-          </Link>
-        </div>
-      </CellComponent>,
-      <CellComponent key="meta-user" className="run-table-container" title={user}>
-        <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
-          {user}
-        </div>
-      </CellComponent>,
-      <CellComponent key="meta-run-name" className="run-table-container" title={runName}>
-        <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
-          {runName}
-        </div>
-      </CellComponent>,
-      <CellComponent className="run-table-container" key="meta-source" title={sourceType}>
-        <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
-          {Utils.renderSourceTypeIcon(runInfo.source_type)}
-          {sourceType}
-        </div>
-      </CellComponent>,
-      <CellComponent className="run-table-container" key="meta-version">
-        <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
-          {Utils.renderVersion(runInfo)}
-        </div>
-      </CellComponent>,
+    const childLeftMargin = isParent ? {} : { paddingLeft: 16 };
+    const columnProps = [
+      {
+        key: 'status',
+        className: 'run-table-container',
+        title: status,
+        children: ExperimentViewUtil.getRunStatusIcon(status),
+      },
+      {
+        key: ExperimentViewUtil.AttributeColumnLabels.DATE,
+        className: 'run-table-container',
+        style: { whiteSpace: 'inherit' },
+        children: (
+          <div style={childLeftMargin}>
+            <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
+              {Utils.formatTimestamp(startTime)}
+            </Link>
+          </div>
+        ),
+      },
+      {
+        key: ExperimentViewUtil.AttributeColumnLabels.USER,
+        className: 'run-table-container',
+        title: user,
+        children: (
+          <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
+            {user}
+          </div>
+        ),
+      },
+      {
+        key: ExperimentViewUtil.AttributeColumnLabels.RUN_NAME,
+        className: 'run-table-container',
+        title: runName,
+        children: (
+          <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
+            {runName}
+          </div>
+        ),
+      },
+      {
+        key: ExperimentViewUtil.AttributeColumnLabels.SOURCE,
+        className: 'run-table-container',
+        title: sourceType,
+        children: (
+          <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
+            {Utils.renderSourceTypeIcon(Utils.getSourceType(tags))}
+            {sourceType}
+          </div>
+        ),
+      },
+      {
+        key: ExperimentViewUtil.AttributeColumnLabels.VERSION,
+        className: 'run-table-container',
+        children: (
+          <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
+            {Utils.renderVersion(tags)}
+          </div>
+        ),
+      },
+      {
+        key: 'Tags',
+        className: 'run-table-container',
+        children: (
+          <div style={ExperimentViewUtil.styles.runInfoCell}>
+            <CollapsibleTagsCell tags={tags} onToggle={handleCellToggle} />
+          </div>
+        ),
+      },
     ];
+    const excludedKeysSet = new Set(excludedKeys);
+    return columnProps
+      .filter((column) => !excludedKeysSet.has(column.key))
+      .map((props) => <CellComponent {...props} />);
   }
 
   /**
@@ -88,12 +157,12 @@ export default class ExperimentViewUtil {
    * is visible if we're currently sorting by the corresponding column. Otherwise, the icon is
    * invisible but takes up space.
    */
-  static getSortIcon(sortState, isMetric, isParam, key) {
-    if (ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key)) {
+  static getSortIcon(curOrderByKey, curOrderByAsc, canonicalKey) {
+    if (curOrderByKey === canonicalKey) {
       return (
         <span>
           <i
-            className={sortState.ascending ? "fas fa-caret-up" : "fas fa-caret-down"}
+            className={curOrderByAsc ? "fas fa-caret-up" : "fas fa-caret-down"}
             style={ExperimentViewUtil.styles.sortIconStyle}
           />
         </span>);
@@ -109,30 +178,78 @@ export default class ExperimentViewUtil {
     </CellComponent>;
   }
 
+  static AttributeColumnLabels = {
+    DATE: 'Date',
+    USER: 'User',
+    RUN_NAME: 'Run Name',
+    SOURCE: 'Source',
+    VERSION: 'Version',
+  };
+
   /**
    * Returns header-row table cells for columns containing run metadata.
    */
-  static getRunMetadataHeaderCells(onSortBy, sortState, cellType) {
+  static getRunMetadataHeaderCells(onSortBy, curOrderByKey, curOrderByAsc, cellType, excludedCols) {
     const CellComponent = `${cellType}`;
-    const getHeaderCell = (key, text) => {
-      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, false, key);
+    const getHeaderCell = (key, text, canonicalSortKey) => {
+      const sortIcon = ExperimentViewUtil.getSortIcon(curOrderByKey, curOrderByAsc,
+        canonicalSortKey);
+      const isSortable = canonicalSortKey !== null;
+      const cellClassName = classNames("bottom-row", "run-table-container",
+        {"sortable": isSortable});
       return (
         <CellComponent
           key={"meta-" + key}
-          className="bottom-row sortable run-table-container"
-          onClick={() => onSortBy(false, false, key)}
+          className={cellClassName}
+          onClick={() => (isSortable ? onSortBy(canonicalSortKey, !curOrderByAsc) : null)}
         >
           <span style={ExperimentViewUtil.styles.headerCellText}>{text}</span>
-          <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
+          {isSortable &&
+            <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>}
         </CellComponent>);
     };
+    const excludedColsSet = new Set(excludedCols);
     return [
-      getHeaderCell("start_time", <span>{"Date"}</span>),
-      getHeaderCell("user_id", <span>{"User"}</span>),
-      getHeaderCell("run_name", <span>{"Run Name"}</span>),
-      getHeaderCell("source", <span>{"Source"}</span>),
-      getHeaderCell("source_version", <span>{"Version"}</span>),
-    ];
+      {
+        key: 'status',
+      },
+      {
+        key: 'start_time',
+        displayName: this.AttributeColumnLabels.DATE,
+        canonicalSortKey: 'attributes.start_time',
+      },
+      {
+        key: 'user_id',
+        displayName: this.AttributeColumnLabels.USER,
+        canonicalSortKey: 'tags.`mlflow.user`',
+      },
+      {
+        key: 'run_name',
+        displayName: this.AttributeColumnLabels.RUN_NAME,
+        canonicalSortKey: 'tags.`mlflow.runName`',
+      },
+      {
+        key: 'source',
+        displayName: this.AttributeColumnLabels.SOURCE,
+        canonicalSortKey: 'tags.`mlflow.source.name`',
+      },
+      {
+        key: 'source_version',
+        displayName: this.AttributeColumnLabels.VERSION,
+        canonicalSortKey: 'tags.`mlflow.source.git.commit`',
+      },
+      {
+        key: 'tags',
+        displayName: 'Tags',
+        canonicalSortKey: null,
+      },
+    ]
+      .filter((column) => !excludedColsSet.has(column.displayName))
+      .map((h) => getHeaderCell(h.key, <span>{h.displayName}</span>, h.canonicalSortKey));
+  }
+
+  static makeCanonicalKey(keyType, keyName) {
+    return keyType + ".`" + keyName + "`";
   }
 
   static getExpanderHeader(cellType) {
@@ -196,11 +313,6 @@ export default class ExperimentViewUtil {
     } else {
       return <CellComponent className={className} key={keyName}/>;
     }
-  }
-
-  static isSortedBy(sortState, isMetric, isParam, key) {
-    return (sortState.isMetric === isMetric && sortState.isParam === isParam
-      && sortState.key === key);
   }
 
   static computeMetricRanges(metricsByRun) {
@@ -278,7 +390,7 @@ export default class ExperimentViewUtil {
       const sortValue = (sortState.isMetric ? metricsMap : paramsMap)[sortState.key];
       return (sortValue === undefined ? undefined : sortValue.value);
     } else if (sortState.key === 'user_id') {
-      return Utils.formatUser(runInfo.user_id);
+      return Utils.getUser(runInfo, tags);
     } else if (sortState.key === 'source') {
       return Utils.formatSource(runInfo, tags);
     } else if (sortState.key === 'run_name') {
@@ -326,8 +438,7 @@ export default class ExperimentViewUtil {
     }
   }
 
-  static getRowRenderMetadata(
-    { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded }) {
+  static getRowRenderMetadata({ runInfos, tagsList, runsExpanded }) {
     const runIdToIdx = {};
     runInfos.forEach((r, idx) => {
       runIdToIdx[r.run_uuid] = idx;
@@ -358,7 +469,8 @@ export default class ExperimentViewUtil {
         parentIdToChildren[root.value] = newList;
       }
     });
-    const parentRows = [...Array(runInfos.length).keys()].flatMap((idx) => {
+
+    const parentRows = _.flatMap([...Array(runInfos.length).keys()], ((idx) => {
       if (treeNodes[idx].isCycle() || !treeNodes[idx].isRoot()) return [];
       const runId = runInfos[idx].run_uuid;
       let hasExpander = false;
@@ -367,9 +479,6 @@ export default class ExperimentViewUtil {
         hasExpander = true;
         childrenIds = parentIdToChildren[runId].map((cIdx => runInfos[cIdx].run_uuid));
       }
-      const sortValue = ExperimentViewUtil.computeSortValue(sortState,
-        ExperimentViewUtil.toMetricsMap(metricsList[idx]),
-        ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx]);
       return [{
         idx,
         isParent: true,
@@ -377,10 +486,8 @@ export default class ExperimentViewUtil {
         expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
         childrenIds,
         runId,
-        sortValue,
       }];
-    });
-    ExperimentViewUtil.sortRows(parentRows, sortState);
+    }));
     const mergedRows = [];
     parentRows.forEach((r) => {
       const runId = r.runId;
@@ -389,22 +496,18 @@ export default class ExperimentViewUtil {
       if (childrenIdxs) {
         if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
           const childrenRows = childrenIdxs.map((idx) => {
-            const sortValue = ExperimentViewUtil.computeSortValue(sortState,
-              ExperimentViewUtil.toMetricsMap(metricsList[idx]),
-              ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx]);
-            return { idx, isParent: false, hasExpander: false, sortValue };
+            return { idx, isParent: false, hasExpander: false };
           });
-          ExperimentViewUtil.sortRows(childrenRows, sortState);
           mergedRows.push(...childrenRows);
         }
       }
     });
-    return mergedRows;
+    return mergedRows.slice(0);
   }
 
-  static getRows({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, getRow }) {
+  static getRows({ runInfos, tagsList, runsExpanded, getRow }) {
     const mergedRows = ExperimentViewUtil.getRowRenderMetadata(
-      { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded });
+      { runInfos, tagsList, runsExpanded });
     return mergedRows.map((rowMetadata) => getRow(rowMetadata));
   }
 

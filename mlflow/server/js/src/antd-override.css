@@ -1,0 +1,38 @@
+.ant-form-item {
+  margin-bottom: 8px;
+}
+
+.ant-table-placeholder {
+  padding: 8px 8px;
+}
+
+/* Disable all antd modal animation for now.
+ * TODO(Zangr) disalble dropdown animation
+ * This approach is suggested by antd team, more info available in the link below:
+ * https://github.com/ant-design/ant-design/issues/951
+ */
+.ant-modal-wrap div, .ant-modal-mask {
+  animation-duration: 0s !important;
+}
+
+/* Ant design overall animation override should not affect fontawesome */
+.fa {
+  animation-duration: 2s !important;
+}
+
+.ant-dropdown-menu-item:hover,
+.ant-select-dropdown .ant-select-dropdown-menu-item:hover,
+.ant-select-dropdown .ant-select-dropdown-menu-item:active,
+.ant-select-dropdown .ant-select-dropdown-menu-item-active {
+  background-image: none;
+  background-color: rgb(1, 147, 225);
+  color: #ffffff;
+}
+
+.ant-dropdown-menu-item, .ant-select-dropdown .ant-select-dropdown-menu-item {
+  transition: all 0s;
+}
+
+.ant-table-placeholder {
+  z-index: 0;
+}

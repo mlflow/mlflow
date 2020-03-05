@@ -1,27 +1,17 @@
 #' Save Model for MLflow
 #'
-#' Saves model in MLflow format that can later be used
-#' for prediction and serving.
+#' Saves model in MLflow format that can later be used for prediction and serving. This method is
+#' generic to allow package authors to save custom model types.
 #'
-#' @param x The serving function or model that will perform a prediction.
+#' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
-#' @param r_dependencies Optional vector of paths to dependency files
-#'   to include in the model, as in \code{r-dependencies.txt}
-#'   or \code{conda.yaml}.
-#' @param conda_env Path to Conda dependencies file.
-#'
+#' @param model_spec MLflow model config this model flavor is being added to.
+#' @param ... Optional additional arguments.
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(x, path = "model", r_dependencies=NULL, conda_env=NULL) {
-
-  if (dir.exists(path)) unlink(path, recursive = TRUE)
-  dir.create(path)
-
-  flavor_spec <- list (
-    flavors = mlflow_save_flavor(x, path, r_dependencies, conda_env)
-  )
-  mlflow_write_model_spec(path, flavor_spec)
+mlflow_save_model <- function(model, path, model_spec = list(), ...) {
+  UseMethod("mlflow_save_model")
 }
 
 #' Log Model
@@ -29,15 +19,39 @@ mlflow_save_model <- function(x, path = "model", r_dependencies=NULL, conda_env=
 #' Logs a model for this run. Similar to `mlflow_save_model()`
 #' but stores model as an artifact within the active run.
 #'
-#' @param fn The serving function that will perform a prediction.
+#' @param model The model that will perform a prediction.
 #' @param artifact_path Destination path where this MLflow compatible model
 #'   will be saved.
+#' @param ... Optional additional arguments passed to `mlflow_save_model()` when persisting the
+#'   model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda
+#'   dependencies file for flavors (e.g. keras) that support conda environments.
 #'
 #' @export
-mlflow_log_model <- function(fn, artifact_path) {
+mlflow_log_model <- function(model, artifact_path, ...) {
   temp_path <- fs::path_temp(artifact_path)
-  mlflow_save_model(fn, path = temp_path)
-  mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
+  model_spec <- mlflow_save_model(model, path = temp_path, model_spec = list(
+    utc_time_created = mlflow_timestamp(),
+    run_id = mlflow_get_active_run_id(),
+    artifact_path = artifact_path,
+    flavors = list()
+  ), ...)
+  res <- mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
+  tryCatch({ mlflow_record_logged_model(model_spec) }, error = function(e) {
+    warning(paste("Logging model metadata to the tracking server has failed, possibly due to older",
+                  "server version. The model artifacts have been logged successfully.",
+                  "In addition to exporting model artifacts, MLflow clients 1.7.0 and above",
+                  "attempt to record model metadata to the  tracking store. If logging to a",
+                  "mlflow server via REST, consider  upgrading the server version to MLflow",
+                  "1.7.0 or above.", sep=" "))
+  })
+  res
+}
+
+mlflow_write_model_spec <- function(path, content) {
+  write_yaml(
+    purrr::compact(content),
+    file.path(path, "MLmodel")
+  )
 }
 
 mlflow_timestamp <- function() {
@@ -50,41 +64,18 @@ mlflow_timestamp <- function() {
   )
 }
 
-mlflow_write_model_spec <- function(path, content) {
-  content$utc_time_created <- mlflow_timestamp()
-  content$run_id <- active_run_id()
-
-  write_yaml(
-    purrr::compact(content),
-    file.path(path, "MLmodel")
-  )
-}
-
-#' Generate Prediction with MLflow Model
-#'
-#' Generates a prediction with an MLflow model.
-#'
-#' @param model MLflow model.
-#' @param data Dataframe to be scored.
-#' @export
-mlflow_predict_model <- function(model, data) {
-   model %>% mlflow_predict_flavor(data)
-}
-
 #' Load MLflow Model
 #'
 #' Loads an MLflow model. MLflow models can have multiple model flavors. Not all flavors / models
 #' can be loaded in R. This method by default searches for a flavor supported by R/MLflow.
 #'
-#' @param model_path Path to the MLflow model. The path is relative to the run with the given
-#'        run-id or local filesystem path without run-id.
-#' @param run_id Optional MLflow run-id. If supplied model will be fetched from MLflow tracking
-#'        server.
-#' @param flavor Optional flavor specification. Can be used to load a particular flavor in case
-#'        there are multiple flavors available.
+#' @template roxlate-model-uri
+#' @template roxlate-client
+#' @param flavor Optional flavor specification (string). Can be used to load a particular flavor in
+#' case there are multiple flavors available.
 #' @export
-mlflow_load_model <- function(model_path, flavor = NULL, run_id = NULL) {
-  model_path <- resolve_model_path(model_path, run_id)
+mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()) {
+  model_path <- mlflow_download_artifacts_from_uri(model_uri, client = client)
   supported_flavors <- supported_model_flavors()
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
   available_flavors <- intersect(names(spec$flavors), supported_flavors)
@@ -114,97 +105,110 @@ mlflow_load_model <- function(model_path, flavor = NULL, run_id = NULL) {
       warning(paste("Multiple model flavors available (", paste(available_flavors, collapse = ", "),
                     " ).  loading flavor '", available_flavors[[1]], "'", ""))
     }
-
     flavor <- available_flavors[[1]]
   }
 
-  flavor_path <- model_path
-  class(flavor_path) <- c(flavor, class(flavor_path))
-  mlflow_load_flavor(flavor_path)
+  flavor <- mlflow_flavor(flavor)
+  mlflow_load_flavor(flavor, model_path)
 }
 
-#' Predict using RFunc MLflow Model
+new_mlflow_flavor <- function(flavor, class = character(0)) {
+  structure(character(0), class = c(class, "mlflow_flavor"))
+}
+
+# Create an MLflow Flavor Object
+#
+# This function creates an `mlflow_flavor` object that can be used to dispatch
+#   the `mlflow_load_flavor()` method.
+#
+# @param flavor The name of the flavor.
+# @keywords internal
+mlflow_flavor <- function(flavor) {
+  new_mlflow_flavor(flavor, paste0("mlflow_flavor_", flavor))
+}
+
+#' Load MLflow Model Flavor
 #'
-#' Performs prediction using an RFunc MLflow model from a file or data frame.
+#' Loads an MLflow model using a specific flavor. This method is called internally by
+#' \link[mlflow]{mlflow_load_model}, but is exposed for package authors to extend the supported
+#' MLflow models. See https://mlflow.org/docs/latest/models.html#storage-format for more
+#' info on MLflow model flavors.
 #'
-#' @param model_path The path to the MLflow model, as a string.
-#' @param run_uuid Run ID of run to grab the model from.
-#' @param input_path Path to 'JSON' or 'CSV' file to be used for prediction.
-#' @param output_path 'JSON' or 'CSV' file where the prediction will be written to.
-#' @param data Data frame to be scored. This can be used for testing purposes and can only
-#'   be specified when `input_path` is not specified.
-#' @param restore Should \code{mlflow_restore_snapshot()} be called before serving?
+#' @param flavor An MLflow flavor object loaded by \link[mlflow]{mlflow_load_model}, with class
+#' loaded from the flavor field in an MLmodel file.
+#' @param model_path The path to the MLflow model wrapped in the correct
+#'   class.
 #'
-#' @examples
-#' \dontrun{
-#' library(mlflow)
-#'
-#' # save simple model which roundtrips data as prediction
-#' mlflow_save_model(function(df) df, "mlflow_roundtrip")
-#'
-#' # save data as json
-#' jsonlite::write_json(iris, "iris.json")
-#'
-#' # predict existing model from json data
-#' mlflow_rfunc_predict("mlflow_roundtrip", "iris.json")
-#' }
-#'
-#' @importFrom utils read.csv
-#' @importFrom utils write.csv
 #' @export
-mlflow_rfunc_predict <- function(
-  model_path,
-  run_uuid = NULL,
-  input_path = NULL,
-  output_path = NULL,
-  data = NULL,
-  restore = FALSE
-) {
-  mlflow_restore_or_warning(restore)
-
-  model_path <- resolve_model_path(model_path, run_uuid)
-
-  if (!xor(is.null(input_path), is.null(data)))
-    stop("One and only one of `input_path` or `data` must be specified.")
-
-  data <- if (!is.null(input_path)) {
-    switch(
-      fs::path_ext(input_path),
-      json = jsonlite::read_json(input_path),
-      csv = read.csv(input_path)
-    )
-  } else {
-    data
-  }
-
-  model <- mlflow_load_model(model_path)
-
-  prediction <- mlflow_predict_flavor(model, data)
-
-  if (is.null(output_path)) {
-    if (!interactive()) message(prediction)
-
-    prediction
-  } else {
-    switch(
-      fs::path_ext(output_path),
-      json = jsonlite::write_json(prediction, output_path),
-      csv = write.csv(prediction, output_path, row.names = FALSE),
-      stop("Unsupported output file format.")
-    )
-  }
+mlflow_load_flavor <- function(flavor, model_path) {
+  UseMethod("mlflow_load_flavor")
 }
 
-resolve_model_path <- function(model_path, run_uuid, client = mlflow_client()) {
-  if (!is.null(run_uuid)) {
-    result <- mlflow_cli("artifacts", "download", "--run-id", run_uuid, "-a", model_path,
-                         echo = FALSE, client = client)
-    gsub("\n", "", result$stdout)
-  } else {
-    model_path
-  }
+#' Generate Prediction with MLflow Model
+#'
+#' Performs prediction over a model loaded using
+#' \code{mlflow_load_model()}, to be used by package authors
+#' to extend the supported MLflow models.
+#'
+#' @param model The loaded MLflow model flavor.
+#' @param data A data frame to perform scoring.
+#' @param ... Optional additional arguments passed to underlying predict
+#'   methods.
+#'
+#' @export
+mlflow_predict <- function(model, data, ...) {
+  UseMethod("mlflow_predict")
+}
+
+
+# Generate predictions using a saved R MLflow model.
+# Input and output are read from and written to a specified input / output file or stdin / stdout.
+#
+# @param input_path Path to 'JSON' or 'CSV' file to be used for prediction. If not specified data is
+#                   read from the stdin.
+# @param output_path 'JSON' file where the prediction will be written to. If not specified,
+#                     data is written out to stdout.
+
+mlflow_rfunc_predict <- function(model_path, input_path = NULL, output_path = NULL,
+                                 content_type = NULL, json_format = NULL) {
+  model <- mlflow_load_model(model_path)
+  input_path <- input_path %||% "stdin"
+  output_path <- output_path %||% stdout()
+
+  data <- switch(
+    content_type %||% "json",
+    json = parse_json(input_path, json_format %||% "split"),
+    csv = utils::read.csv(input_path),
+    stop("Unsupported input file format.")
+  )
+  model <- mlflow_load_model(model_path)
+  prediction <- mlflow_predict(model, data)
+  jsonlite::write_json(prediction, output_path, digits = NA)
+  invisible(NULL)
 }
 
 supported_model_flavors <- function() {
-  purrr::map(utils::methods(generic.function = mlflow_load_flavor), ~ substring(.x, 20))
+  purrr::map(utils::methods(generic.function = mlflow_load_flavor),
+             ~ gsub("mlflow_load_flavor\\.mlflow_flavor_", "", .x))
+}
+
+# Helper function to parse data frame from json based on given the json_fomat.
+# The default behavior is to parse the data in the Pandas "split" orient.
+parse_json <- function(input_path, json_format="split") {
+  switch(json_format,
+    split = {
+      json <- jsonlite::fromJSON(input_path, simplifyVector = TRUE)
+      elms <- names(json)
+      if (length(setdiff(elms, c("columns", "index", "data"))) != 0
+      || length(setdiff(c("columns", "data"), elms) != 0)) {
+        stop(paste("Invalid input. Make sure the input json data is in 'split' format.", elms))
+      }
+      df <- data.frame(json$data, row.names = json$index)
+      names(df) <- json$columns
+      df
+    },
+    records = jsonlite::fromJSON(input_path, simplifyVector = TRUE),
+    stop(paste("Unsupported JSON format", json_format,
+               ". Supported formats are 'split' or 'records'"))
+  )
 }

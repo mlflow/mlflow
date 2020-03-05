@@ -1,6 +1,5 @@
 package org.mlflow.sagemaker;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -27,7 +26,7 @@ public class MLeapPredictorTest {
   public void testMLeapPredictorEvaluatesCompatibleInputCorrectly()
       throws IOException, PredictorEvaluationException {
     String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
-    MLeapPredictor predictor = (MLeapPredictor) (new MLeapLoader()).load(modelPath);
+    MLeapPredictor predictor = (MLeapPredictor) new MLeapLoader().load(modelPath);
 
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
@@ -38,8 +37,22 @@ public class MLeapPredictorTest {
   }
 
   @Test
+  public void testMLeapPredictorEvaluatesMinimalInputCorrectly()
+          throws IOException, PredictorEvaluationException {
+    String modelPath = MLflowRootResourceProvider.getResourcePath("regression_model");
+    MLeapPredictor predictor = (MLeapPredictor) new MLeapLoader().load(modelPath);
+
+    String sampleInputPath =
+            MLflowRootResourceProvider.getResourcePath("regression_model/sample_input.json");
+    String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
+    PredictorDataWrapper inputData =
+            new PredictorDataWrapper(sampleInputJson, PredictorDataWrapper.ContentType.Json);
+    PredictorDataWrapper outputData = predictor.predict(inputData);
+  }
+
+  @Test
   public void testMLeapPredictorThrowsPredictorEvaluationExceptionWhenInputIsMissingField()
-      throws IOException, JsonProcessingException {
+      throws IOException {
     String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
     MLeapPredictor predictor = (MLeapPredictor) (new MLeapLoader()).load(modelPath);
 
