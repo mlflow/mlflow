@@ -37,8 +37,8 @@ def random_one_hot_labels():
     return labels
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.fixture(params=[True, False])
+@pytest.mark.usefixtures("tracking_uri_mock")
 def manual_run(request):
     if request.param:
         mlflow.start_run()

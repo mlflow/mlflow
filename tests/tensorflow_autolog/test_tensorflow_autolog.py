@@ -19,8 +19,8 @@ import mlflow.keras
 import os
 
 SavedModelInfo = collections.namedtuple(
-        "SavedModelInfo",
-        ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
+    "SavedModelInfo",
+    ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
 
 
 @pytest.fixture
@@ -37,8 +37,8 @@ def random_one_hot_labels():
     return labels
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.fixture(params=[True, False])
+@pytest.mark.usefixtures("tracking_uri_mock")
 def manual_run(request):
     if request.param:
         mlflow.start_run()
