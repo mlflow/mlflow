@@ -13,7 +13,7 @@ import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
 import { NOTE_CONTENT_TAG, NoteInfo } from "../utils/NoteUtils";
 import BreadcrumbTitle from "./BreadcrumbTitle";
-import RenameRunModal from "./modals/RenameRunModal";
+import { RenameRunModal } from "./modals/RenameRunModal";
 import EditableTagsTableView from './EditableTagsTableView';
 import { Icon, Descriptions } from 'antd';
 import { CollapsibleSection } from '../common/components/CollapsibleSection';
@@ -40,6 +40,10 @@ class RunView extends Component {
     showTags: Utils.getVisibleTagValues(this.props.tags).length > 0,
   };
 
+  componentDidMount() {
+    document.title = `${this.props.runDisplayName} - MLflow Run`;
+  }
+
   handleRenameRunClick = () => {
     this.setState({ showRunRenameModal: true });
   };
@@ -54,6 +58,7 @@ class RunView extends Component {
     const sourceName = Utils.getSourceName(tags);
     const sourceVersion = Utils.getSourceVersion(tags);
     const entryPointName = Utils.getEntryPointName(tags);
+    const backend = Utils.getBackend(tags);
     if (Utils.getSourceType(tags) === "PROJECT") {
       runCommand = 'mlflow run ' + shellEscape(sourceName);
       if (sourceVersion && sourceVersion !== "latest") {
@@ -61,6 +66,9 @@ class RunView extends Component {
       }
       if (entryPointName && entryPointName !== "main") {
         runCommand += ' -e ' + shellEscape(entryPointName);
+      }
+      if (backend) {
+        runCommand += ' -b ' + shellEscape(backend);
       }
       Object.values(params).sort().forEach(p => {
         runCommand += ' -P ' + shellEscape(p.key + '=' + p.value);
@@ -86,6 +94,10 @@ class RunView extends Component {
     this.setState({ showNoteEditor: true });
   };
 
+  static getRunStatusDisplayName(status) {
+    return status !== "RUNNING" ? status : "UNFINISHED";
+  }
+
   render() {
     const { runUuid, run, params, tags, latestMetrics, getMetricPagePath } = this.props;
     const { showNoteEditor } = this.state;
@@ -93,6 +105,7 @@ class RunView extends Component {
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
       run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
+    const status = RunView.getRunStatusDisplayName(run.getStatus());
     const queryParams = window.location && window.location.search ?
       window.location.search : "";
     const tableStyles = {
@@ -131,10 +144,9 @@ class RunView extends Component {
           </Dropdown>
           <RenameRunModal
             runUuid={runUuid}
-            experimentId={this.props.experimentId}
             onClose={this.hideRenameRunModal}
             runName={this.props.runName}
-            open={this.state.showRunRenameModal} />
+            isOpen={this.state.showRunRenameModal} />
         </div>
 
         {/* Metadata List */}
@@ -158,6 +170,7 @@ class RunView extends Component {
           {duration !== null ? (
             <Descriptions.Item label='Duration'>{Utils.formatDuration(duration)}</Descriptions.Item>
           ) : null}
+          <Descriptions.Item label='Status'>{status}</Descriptions.Item>
           {tags['mlflow.parentRunId'] !== undefined ? (
             <Descriptions.Item label='Parent Run'>
               <Link to={Routes.getRunPageRoute(this.props.experimentId,

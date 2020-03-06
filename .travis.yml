@@ -15,14 +15,12 @@ matrix:
       install:
         # CHANGED_FILES detects whether or not files related to the nightly build are changed.
         # True is so that the command returns a 0 exit code whether or not CHANGED_FILES is empty.
-        - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
+        - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples\|Dockerfile") || true;
         - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
             INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
           fi;
       script:
-        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
-            pytest --verbose tests/examples --large;
-          fi
+        - ./travis/stage-python2-nightly.sh
     - stage: small
       if: type != cron
     - language: python
@@ -44,7 +42,7 @@ matrix:
         - export NOT_CRAN=true
         - cd mlflow/R/mlflow
         - Rscript -e 'install.packages("devtools")'
-        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = "always")'
+        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = FALSE)'
         - cd ../../..
       install:
         - source ./travis/install-common-deps.sh
@@ -103,7 +101,7 @@ matrix:
         - pip install -r travis/small-requirements.txt
         - pip install -e .
       script:
-        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects --ignore=tests/xgboost --ignore=tests/lightgbm tests
+        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects --ignore=tests/xgboost --ignore=tests/lightgbm --ignore=tests/spark_autologging tests
     # Run small Python 2.7 tests in the "large" test builder so that we don't spend Travis executor
     # time running Python 2.7 tests if Python 3 small tests fail.
     - language: python
@@ -116,14 +114,21 @@ matrix:
         - ./travis/run-small-python-tests.sh
     - language: python
       python: 3.6
-      name: "Docs (rsthtml)"
+      name: "Docs (rsthtml, javadocs)"
       if: type != cron
       install:
+        # Install Java & Maven
+        - sudo apt-get update
+        - sudo apt-get install default-jdk -y
+        - sudo apt-get install maven -y
+        - java -version
+        # Install Python doc deps
         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
         - pip install sphinx==2.2.1 sphinx-click==2.3.0
       script:
         - cd docs
         - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
+        - make javadocs
 
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
@@ -144,20 +149,7 @@ install:
     fi;
 
 script:
-    if ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
-      if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
-         echo "skipping this step on windows.";
-      elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-        ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
-      else
-        ./travis/run-large-python-tests.sh;
-        ./travis/test-anaconda-compatibility.sh;
-      fi
-    fi;
-    CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
-    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
-      pytest --verbose tests/examples --large;
-    fi;
+  - ./travis/stage-python3.sh;
 
 notifications:
   # Send Slack notifications on build being broken or fixed, and email (Pagerduty) notifications

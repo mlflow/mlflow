@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>1.4.1-SNAPSHOT</version>
+    <version>1.7.1-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -49,6 +49,11 @@
     <dependency>
       <groupId>org.ini4j</groupId>
       <artifactId>ini4j</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
+      <version>3.0.2</version>
     </dependency>
 
     <!-- Test dependencies -->

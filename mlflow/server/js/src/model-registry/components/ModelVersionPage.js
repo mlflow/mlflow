@@ -1,9 +1,10 @@
 import React from 'react';
 import { connect } from 'react-redux';
 import {
-  getModelVersionDetailsApi,
+  getModelVersionApi,
   updateModelVersionApi,
   deleteModelVersionApi,
+  transitionModelVersionStageApi,
 } from '../actions';
 import { getRunApi, getUUID } from '../../Actions';
 import PropTypes from 'prop-types';
@@ -26,9 +27,10 @@ class ModelVersionPage extends React.Component {
     modelVersion: PropTypes.object,
     runInfo: PropTypes.object,
     runDisplayName: PropTypes.string,
-    getModelVersionDetailsApi: PropTypes.func.isRequired,
+    getModelVersionApi: PropTypes.func.isRequired,
     updateModelVersionApi: PropTypes.func.isRequired,
     deleteModelVersionApi: PropTypes.func.isRequired,
+    transitionModelVersionStageApi: PropTypes.func.isRequired,
     getRunApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     apis: PropTypes.object.isRequired,
@@ -37,6 +39,7 @@ class ModelVersionPage extends React.Component {
   initGetModelVersionDetailsRequestId = getUUID();
   getRunRequestId = getUUID();
   updateModelVersionRequestId = getUUID();
+  transitionModelVersionStageRequestId = getUUID();
   getModelVersionDetailsRequestId = getUUID();
 
   criticalInitialRequestIds = [this.initGetModelVersionDetailsRequestId];
@@ -45,13 +48,13 @@ class ModelVersionPage extends React.Component {
     this.getModelVersionDetailAndRunInfo(isInitialLoading).catch(console.error);
   };
 
-  // We need to do this because currently the ModelVersionDetailed we got does not contain
+  // We need to do this because currently the ModelVersion we got does not contain
   // experimentId. We need experimentId to construct a link to the source run. This workaround can
   // be removed after the availability of experimentId.
   getModelVersionDetailAndRunInfo(isInitialLoading) {
     const { modelName, version } = this.props;
     return this.props
-      .getModelVersionDetailsApi(
+      .getModelVersionApi(
         modelName,
         version,
         isInitialLoading === true
@@ -60,33 +63,36 @@ class ModelVersionPage extends React.Component {
       )
       .then(({ value }) => {
         if (value) {
-          this.props.getRunApi(value.model_version_detailed.run_id, this.getRunRequestId);
+          this.props.getRunApi(value.model_version.run_id, this.getRunRequestId);
         }
       });
   }
 
   handleStageTransitionDropdownSelect = (activity) => {
-    const { modelVersion } = this.props;
-    const toStage = activity.model_registry_data.transition.to_stage;
+    const { modelName, version } = this.props;
+    const toStage = activity.model_registry_data.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {
       this.props
-        .updateModelVersionApi(
-          modelVersion.model_version,
+        .transitionModelVersionStageApi(
+          modelName,
+          version,
           toStage,
-          undefined,
-          this.updateModelVersionRequestId,
+          false,  // TODO(andy.chow): once we have a dialog calling this we can pass in this param
+          this.transitionModelVersionStageRequestId,
         )
         .then(this.loadData);
     }
   };
 
   handleEditDescription = (description) => {
-    const { modelVersion } = this.props;
+    const { modelName, version } = this.props;
     return this.props
       .updateModelVersionApi(
-        modelVersion.model_version,
+        modelName,
+        version,
         undefined,
         description,
+        undefined,
         this.updateModelVersionRequestId,
       )
       .then(this.loadData);
@@ -97,7 +103,7 @@ class ModelVersionPage extends React.Component {
     const pollRequest = apis[this.getModelVersionDetailsRequestId];
     if (!(pollRequest && pollRequest.active)) {
       this.props
-        .getModelVersionDetailsApi(modelName, version, this.getModelVersionDetailsRequestId)
+        .getModelVersionApi(modelName, version, this.getModelVersionDetailsRequestId)
         .catch(console.error);
     }
   };
@@ -180,8 +186,9 @@ const mapStateToProps = (state, ownProps) => {
 };
 
 const mapDispatchToProps = {
-  getModelVersionDetailsApi,
+  getModelVersionApi,
   updateModelVersionApi,
+  transitionModelVersionStageApi,
   deleteModelVersionApi,
   getRunApi,
 };

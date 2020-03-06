@@ -7,6 +7,7 @@ import projectSvg from '../static/project.svg';
 import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import { message } from 'antd';
+import _ from 'lodash';
 
 class Utils {
   /**
@@ -35,6 +36,7 @@ class Utils {
   static sourceTypeTag = 'mlflow.source.type';
   static gitCommitTag = 'mlflow.source.git.commit';
   static entryPointTag = 'mlflow.project.entryPoint';
+  static backendTag = 'mlflow.project.backend';
   static userTag = 'mlflow.user';
 
   static formatMetric(value) {
@@ -252,8 +254,8 @@ class Utils {
     const imageStyle = {
       height: '20px',
       position: 'relative',
-      top: '-1px',
-      marginRight: '2px',
+      top: '-3px',
+      marginRight: '4px',
     };
     if (sourceType === "NOTEBOOK") {
       return <img alt="" title="Notebook" style={imageStyle} src={notebookSvg} />;
@@ -331,6 +333,14 @@ class Utils {
     return "";
   }
 
+  static getBackend(runTags) {
+    const backendTag = runTags[Utils.backendTag];
+    if (backendTag) {
+      return backendTag.value;
+    }
+    return "";
+  }
+
   // TODO(aaron) Remove runInfo when user_id deprecation is complete.
   static getUser(runInfo, runTags) {
     const userTag = runTags[Utils.userTag];
@@ -371,10 +381,69 @@ class Utils {
     return requests.find((r) => r.id === requestId);
   }
 
-  static getPlotMetricKeysFromUrl(search) {
+  static getCurveKey(runId, metricName) {
+    return `${runId}-${metricName}`;
+  }
+
+  static getCurveInfoFromKey(curvePair) {
+    const splitPair = curvePair.split("-");
+    return {runId: splitPair[0], metricName: splitPair.slice(1, splitPair.length).join("-")};
+  }
+
+  /**
+   * Return metric plot state from the current URL
+   *
+   * The reverse transformation (from metric plot component state to URL) is exposed as a component
+   * method, as it only needs to be called within the MetricsPlotPanel component
+   *
+   * See documentation in Routes.getMetricPageRoute for descriptions of the individual fields
+   * within the returned state object.
+   *
+   * @param search - window.location.search component of the URL - in particular, the query string
+   *   from the URL.
+   */
+  static getMetricPlotStateFromUrl(search) {
+    const defaultState = {
+      selectedXAxis: 'relative',
+      selectedMetricKeys: [],
+      showPoint: false,
+      yAxisLogScale: false,
+      lineSmoothness: 0,
+      layout: {},
+    };
+    const params = qs.parse(search.slice(1, search.length));
+    if (!params) {
+      return defaultState;
+    }
+
+    const selectedXAxis = params['x_axis'] || 'relative';
+    const selectedMetricKeys = JSON.parse(params['plot_metric_keys']) ||
+        defaultState.selectedMetricKeys;
+    const showPoint = params['show_point'] === 'true';
+    const yAxisLogScale = params['y_axis_scale'] === 'log';
+    const lineSmoothness = params['line_smoothness'] ? parseFloat(params['line_smoothness']) : 0;
+    const layout = params['plot_layout'] ? JSON.parse(params['plot_layout']) : {autosize: true};
+    // Default to displaying all runs, i.e. to deselectedCurves being empty
+    const deselectedCurves = params['deselected_curves'] ?
+        JSON.parse(params['deselected_curves']) : [];
+    const lastLinearYAxisRange = params['last_linear_y_axis_range'] ?
+        JSON.parse(params['last_linear_y_axis_range']) : [];
+    return {
+      selectedXAxis,
+      selectedMetricKeys,
+      showPoint,
+      yAxisLogScale,
+      lineSmoothness,
+      layout,
+      deselectedCurves,
+      lastLinearYAxisRange,
+    };
+  }
+
+  static getPlotLayoutFromUrl(search) {
     const params = qs.parse(search);
-    const plotMetricKeysStr = params && params['plot_metric_keys'];
-    return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
+    const layout = params["plot_layout"];
+    return layout ? JSON.parse(layout) : {};
   }
 
   static getSearchParamsFromUrl(search) {
@@ -414,6 +483,12 @@ class Utils {
       [t.getKey(), t.getValue()]
     ).filter(t =>
       !t[0].startsWith(MLFLOW_INTERNAL_PREFIX)
+    );
+  }
+
+  static getVisibleTagKeyList(tagsList) {
+    return _.uniq(
+      _.flatMap(tagsList, (tags) => Utils.getVisibleTagValues(tags).map(([key]) => key)),
     );
   }
 

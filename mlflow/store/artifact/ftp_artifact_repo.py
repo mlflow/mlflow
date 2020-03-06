@@ -9,6 +9,7 @@ from six.moves import urllib
 from mlflow.entities.file_info import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+from mlflow.exceptions import MlflowException
 
 
 class FTPArtifactRepository(ArtifactRepository):
@@ -97,6 +98,12 @@ class FTPArtifactRepository(ArtifactRepository):
                 if os.path.isfile(os.path.join(root, f)):
                     self.log_artifact(os.path.join(root, f), upload_path)
 
+    def _is_directory(self, artifact_path):
+        artifact_dir = self.path
+        list_dir = posixpath.join(artifact_dir, artifact_path) if artifact_path else artifact_dir
+        with self.get_ftp_client() as ftp:
+            return self._is_dir(ftp, list_dir)
+
     def list_artifacts(self, path=None):
         with self.get_ftp_client() as ftp:
             artifact_dir = self.path
@@ -123,3 +130,6 @@ class FTPArtifactRepository(ArtifactRepository):
         with self.get_ftp_client() as ftp:
             with open(local_path, 'wb') as f:
                 ftp.retrbinary('RETR ' + remote_full_path, f.write)
+
+    def delete_artifacts(self, artifact_path=None):
+        raise MlflowException('Not implemented yet')

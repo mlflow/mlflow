@@ -1,0 +1,11 @@
+name: lightgbm-example
+conda_env: conda.yaml
+entry_points:
+  main:
+    parameters:
+      colsample-bytree: {type: float, default: 1.0}
+      subsample: {type: float, default: 1.0}
+    command: |
+        python train.py \
+          --colsample-bytree={colsample-bytree} \
+          --subsample={subsample}

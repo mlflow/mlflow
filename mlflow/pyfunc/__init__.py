@@ -560,6 +560,9 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     mlflow_model = kwargs.pop('model', mlflow_model)
     if len(kwargs) > 0:
         raise TypeError("save_model() got unexpected keyword arguments: {}".format(kwargs))
+    if code_path is not None:
+        if not isinstance(code_path, list):
+            raise TypeError('Argument code_path should be a list, not {}'.format(type(code_path)))
     first_argument_set = {
         "loader_module": loader_module,
         "data_path": data_path,
@@ -582,8 +585,10 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
                     second_set_entries=second_argument_set)),
             error_code=INVALID_PARAMETER_VALUE)
     elif (loader_module is None) and (python_model is None):
+        msg = "Either `loader_module` or `python_model` must be specified. A `loader_module` " \
+              "should be a python module. A `python_model` should be a subclass of PythonModel"
         raise MlflowException(
-            message="Either `loader_module` or `python_model` must be specified!",
+            message=msg,
             error_code=INVALID_PARAMETER_VALUE)
 
     if first_argument_set_specified:
