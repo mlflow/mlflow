@@ -34,7 +34,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import score_model_in_sagemaker_docker_container
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
