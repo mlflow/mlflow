@@ -1,6 +1,5 @@
 import pytest
 import numpy as np
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611
 np.random.seed(1337)
 
 import keras  # noqa
@@ -24,8 +23,9 @@ def random_one_hot_labels():
     return labels
 
 
+@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.fixture(params=[True, False])
-def manual_run(request, tracking_uri_mock):
+def manual_run(request):
     if request.param:
         mlflow.start_run()
     yield

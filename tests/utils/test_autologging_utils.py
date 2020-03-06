@@ -2,7 +2,6 @@ import mlflow
 import pytest
 from mlflow.utils.autologging_utils import get_unspecified_default_args, \
     log_fn_args_as_params
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611
 
 
 # Example function signature we are testing on
@@ -69,7 +68,8 @@ def test_get_three_unspecified_default_args(user_args, user_kwargs, all_param_na
 
 
 @pytest.fixture
-def start_run(tracking_uri_mock):  # pylint: disable=W0613
+@pytest.mark.usefixtures("tracking_uri_mock")
+def start_run():
     mlflow.start_run()
     yield
     mlflow.end_run()

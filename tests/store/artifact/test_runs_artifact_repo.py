@@ -6,8 +6,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-
 
 @pytest.mark.parametrize("uri, expected_run_id, expected_artifact_path", [
     ('runs:/1234abcdf1394asdfwer33/path/to/model', '1234abcdf1394asdfwer33', 'path/to/model'),

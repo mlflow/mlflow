@@ -6,12 +6,10 @@ from docker.errors import BuildError, APIError
 
 import pytest
 
-import mlflow
 from mlflow.utils.file_utils import TempDir, _copy_project
 
 from mlflow.entities import RunStatus
 from mlflow.projects import _project_spec
-from mlflow.utils.file_utils import path_to_local_sqlite_uri
 
 
 TEST_DIR = "tests"
@@ -68,12 +66,3 @@ def docker_example_base_image():
         except APIError as api_error:
             print(api_error.explanation)
             raise api_error
-
-
-@pytest.fixture()
-def tracking_uri_mock(tmpdir):
-    try:
-        mlflow.set_tracking_uri(path_to_local_sqlite_uri(os.path.join(tmpdir.strpath, 'mlruns')))
-        yield tmpdir
-    finally:
-        mlflow.set_tracking_uri(None)

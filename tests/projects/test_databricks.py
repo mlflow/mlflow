@@ -258,8 +258,8 @@ def test_run_databricks_cluster_spec_json(
         assert req_body["new_cluster"] == cluster_spec
 
 
-def test_run_databricks_throws_exception_when_spec_uses_existing_cluster(
-        tracking_uri_mock):  # pylint: disable=unused-argument
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_run_databricks_throws_exception_when_spec_uses_existing_cluster():
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         existing_cluster_spec = {
             "existing_cluster_id": "1000-123456-clust1",
@@ -270,8 +270,9 @@ def test_run_databricks_throws_exception_when_spec_uses_existing_cluster(
         assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@pytest.mark.usefixtures("tracking_uri_mock")
 def test_run_databricks_cancel(
-        before_run_validations_mock, tracking_uri_mock,  # pylint: disable=unused-argument
+        before_run_validations_mock,  # pylint: disable=unused-argument
         runs_submit_mock, dbfs_mocks, set_tag_mock,  # pylint: disable=unused-argument
         runs_cancel_mock, runs_get_mock, cluster_spec_mock):
     # Test that MLflow properly handles Databricks run cancellation. We mock the result of

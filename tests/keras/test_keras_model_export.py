@@ -32,7 +32,6 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
 @pytest.fixture(scope='module')
@@ -282,7 +281,8 @@ def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, 
 
 
 @pytest.mark.large
-def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disable=unused-argument
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_model_log(model, data, predicted):
     x, _ = data
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
@@ -306,7 +306,8 @@ def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disabl
             mlflow.end_run()
 
 
-def test_log_model_calls_register_model(tracking_uri_mock, model):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_log_model_calls_register_model(model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
@@ -317,7 +318,8 @@ def test_log_model_calls_register_model(tracking_uri_mock, model):
         mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
 
 
-def test_log_model_no_registered_model_name(tracking_uri_mock, model):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_log_model_no_registered_model_name(model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:

@@ -21,12 +21,10 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
     MLFLOW_SOURCE_TYPE
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-
-# pylint: disable=unused-argument
 
 
-def test_create_experiment(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_create_experiment():
     with pytest.raises(TypeError):
         mlflow.create_experiment()  # pylint: disable=no-value-for-parameter
 
@@ -41,7 +39,8 @@ def test_create_experiment(tracking_uri_mock):
     assert exp_id is not None
 
 
-def test_create_experiment_with_duplicate_name(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_create_experiment_with_duplicate_name():
     name = "popular_name"
     exp_id = mlflow.create_experiment(name)
 
@@ -72,7 +71,8 @@ def test_create_experiments_with_bad_name_types(name):
         assert e.message.contains("Invalid experiment name: %s. Expects a string." % name)
 
 
-def test_set_experiment(tracking_uri_mock, reset_active_experiment):
+@pytest.mark.usefixtures("tracking_uri_mock", "reset_active_experiment")
+def test_set_experiment():
     with pytest.raises(TypeError):
         mlflow.set_experiment()  # pylint: disable=no-value-for-parameter
 
@@ -95,7 +95,8 @@ def test_set_experiment(tracking_uri_mock, reset_active_experiment):
         assert another_run.info.experiment_id == exp_id2.experiment_id
 
 
-def test_set_experiment_with_deleted_experiment_name(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_set_experiment_with_deleted_experiment_name():
     name = "dead_exp"
     mlflow.set_experiment(name)
     with start_run() as run:
@@ -107,7 +108,8 @@ def test_set_experiment_with_deleted_experiment_name(tracking_uri_mock):
         mlflow.set_experiment(name)
 
 
-def test_list_experiments(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_list_experiments():
     def _assert_exps(ids_to_lifecycle_stage, view_type_arg):
         result = set([(exp.experiment_id, exp.lifecycle_stage)
                       for exp in client.list_experiments(view_type=view_type_arg)])
@@ -124,7 +126,8 @@ def test_list_experiments(tracking_uri_mock):
     _assert_exps({'1': LifecycleStage.DELETED}, ViewType.DELETED_ONLY)
 
 
-def test_set_experiment_with_zero_id(reset_mock, reset_active_experiment):
+@pytest.mark.usefixtures("reset_active_experiment")
+def test_set_experiment_with_zero_id(reset_mock):
     reset_mock(MlflowClient, "get_experiment_by_name",
                mock.Mock(return_value=attrdict.AttrDict(
                    experiment_id=0,
@@ -137,7 +140,8 @@ def test_set_experiment_with_zero_id(reset_mock, reset_active_experiment):
     MlflowClient.create_experiment.assert_not_called()
 
 
-def test_start_run_context_manager(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_start_run_context_manager():
     with start_run() as first_run:
         first_uuid = first_run.info.run_id
         # Check that start_run() causes the run information to be persisted in the store
@@ -157,7 +161,8 @@ def test_start_run_context_manager(tracking_uri_mock):
     assert finished_run2.info.status == RunStatus.to_string(RunStatus.FAILED)
 
 
-def test_start_and_end_run(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_start_and_end_run():
     # Use the start_run() and end_run() APIs without a `with` block, verify they work.
 
     with start_run() as active_run:
@@ -168,7 +173,8 @@ def test_start_and_end_run(tracking_uri_mock):
     assert finished_run.data.metrics["name_1"] == 25
 
 
-def test_metric_timestamp(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_metric_timestamp():
     with mlflow.start_run() as active_run:
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_1", 30)
@@ -184,7 +190,8 @@ def test_metric_timestamp(tracking_uri_mock):
     ])
 
 
-def test_log_batch(tracking_uri_mock, tmpdir):
+@pytest.mark.usefixtures("tracking_uri_mock", "tmpdir")
+def test_log_batch():
     expected_metrics = {"metric-key0": 1.0, "metric-key1": 4.0}
     expected_params = {"param-key0": "param-val0", "param-key1": "param-val1"}
     exact_expected_tags = {"tag-key0": "tag-val0", "tag-key1": "tag-val1"}
@@ -237,7 +244,8 @@ def test_log_batch(tracking_uri_mock, tmpdir):
             assert new_tags[tag_key] == tag_value
 
 
-def test_log_metric(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_log_metric():
     with start_run() as active_run, mock.patch("time.time") as time_mock:
         time_mock.side_effect = [123 for _ in range(100)]
         run_id = active_run.info.run_id
@@ -265,7 +273,8 @@ def test_log_metric(tracking_uri_mock):
     ])
 
 
-def test_log_metrics_uses_millisecond_timestamp_resolution_fluent(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_log_metrics_uses_millisecond_timestamp_resolution_fluent():
     with start_run() as active_run, mock.patch("time.time") as time_mock:
         time_mock.side_effect = lambda: 123
         mlflow.log_metrics({
@@ -293,7 +302,8 @@ def test_log_metrics_uses_millisecond_timestamp_resolution_fluent(tracking_uri_m
     ])
 
 
-def test_log_metrics_uses_millisecond_timestamp_resolution_client(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_log_metrics_uses_millisecond_timestamp_resolution_client():
     with start_run() as active_run, mock.patch("time.time") as time_mock:
         time_mock.side_effect = lambda: 123
         mlflow_client = tracking.MlflowClient()
@@ -316,8 +326,9 @@ def test_log_metrics_uses_millisecond_timestamp_resolution_client(tracking_uri_m
     ])
 
 
+@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.mark.parametrize("step_kwarg", [None, -10, 5])
-def test_log_metrics_uses_common_timestamp_and_step_per_invocation(tracking_uri_mock, step_kwarg):
+def test_log_metrics_uses_common_timestamp_and_step_per_invocation(step_kwarg):
     expected_metrics = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
     with start_run() as active_run:
         run_id = active_run.info.run_id
@@ -335,12 +346,14 @@ def test_log_metrics_uses_common_timestamp_and_step_per_invocation(tracking_uri_
 
 
 @pytest.fixture
-def get_store_mock(tmpdir):
+@pytest.mark.usefixtures("tmpdir")
+def get_store_mock():
     with mock.patch("mlflow.store.file_store.FileStore.log_batch") as _get_store_mock:
         yield _get_store_mock
 
 
-def test_set_tags(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_set_tags():
     exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
     approx_expected_tags = set([MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
     with start_run() as active_run:
@@ -356,7 +369,8 @@ def test_set_tags(tracking_uri_mock):
             assert str(exact_expected_tags[tag_key]) == tag_val
 
 
-def test_log_metric_validation(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_log_metric_validation():
     with start_run() as active_run:
         run_id = active_run.info.run_id
         with pytest.raises(MlflowException) as e:
@@ -366,7 +380,8 @@ def test_log_metric_validation(tracking_uri_mock):
     assert len(finished_run.data.metrics) == 0
 
 
-def test_log_param(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_log_param():
     with start_run() as active_run:
         run_id = active_run.info.run_id
         mlflow.log_param("name_1", "a")
@@ -377,7 +392,8 @@ def test_log_param(tracking_uri_mock):
     assert finished_run.data.params == {"name_1": "a", "name_2": "b", "nested/nested/name": "5"}
 
 
-def test_log_params(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_log_params():
     expected_params = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
     with start_run() as active_run:
         run_id = active_run.info.run_id
@@ -387,7 +403,8 @@ def test_log_params(tracking_uri_mock):
     assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
 
 
-def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_log_batch_validates_entity_names_and_values():
     bad_kwargs = {
         "metrics": [
             [Metric(key="../bad/metric/name", value=0.3, timestamp=3, step=0)],
@@ -409,7 +426,8 @@ def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
                 assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_log_artifact_with_dirs(tracking_uri_mock, tmpdir):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_log_artifact_with_dirs(tmpdir):
     # Test log artifact with a directory
     art_dir = tmpdir.mkdir("parent")
     file0 = art_dir.join("file0")
@@ -449,7 +467,8 @@ def test_log_artifact_with_dirs(tracking_uri_mock, tmpdir):
             [os.path.basename(str(sub_dir))]
 
 
-def test_log_artifact(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_log_artifact():
     artifact_src_dir = tempfile.mkdtemp()
     # Create artifacts
     _, path0 = tempfile.mkstemp(dir=artifact_src_dir)
@@ -500,8 +519,8 @@ def test_with_startrun():
     assert mlflow.active_run() is None
 
 
-def test_parent_create_run(tracking_uri_mock):
-
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_parent_create_run():
     with mlflow.start_run() as parent_run:
         parent_run_id = parent_run.info.run_id
     os.environ[_RUN_ID_ENV_VAR] = parent_run_id
@@ -534,7 +553,8 @@ def test_start_deleted_run():
     assert mlflow.active_run() is None
 
 
-def test_start_run_exp_id_0(tracking_uri_mock, reset_active_experiment):
+@pytest.mark.usefixtures("tracking_uri_mock", "reset_active_experiment")
+def test_start_run_exp_id_0():
     mlflow.set_experiment("some-experiment")
     # Create a run and verify that the current active experiment is the one we just set
     with mlflow.start_run() as active_run:
@@ -555,30 +575,31 @@ def test_get_artifact_uri_uses_currently_active_run_id():
     artifact_path = "artifact"
     with mlflow.start_run() as active_run:
         assert mlflow.get_artifact_uri(artifact_path=artifact_path) == \
-               tracking.artifact_utils.get_artifact_uri(
-                run_id=active_run.info.run_id, artifact_path=artifact_path)
+            tracking.artifact_utils.get_artifact_uri(
+            run_id=active_run.info.run_id, artifact_path=artifact_path)
 
 
+@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.mark.parametrize("artifact_location, expected_uri_format", [
     (
-     "mysql://user:password@host:port/dbname?driver=mydriver",
-     "mysql://user:password@host:port/dbname/{run_id}/artifacts/{path}?driver=mydriver",
+        "mysql://user:password@host:port/dbname?driver=mydriver",
+        "mysql://user:password@host:port/dbname/{run_id}/artifacts/{path}?driver=mydriver",
     ),
     (
-     "mysql+driver://user:password@host:port/dbname/subpath/#fragment",
-     "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",
+        "mysql+driver://user:password@host:port/dbname/subpath/#fragment",
+        "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",
     ),
     (
-     "s3://bucketname/rootpath",
-     "s3://bucketname/rootpath/{run_id}/artifacts/{path}",
+        "s3://bucketname/rootpath",
+        "s3://bucketname/rootpath/{run_id}/artifacts/{path}",
     ),
     (
-     "/dirname/rootpa#th?",
-     "/dirname/rootpa#th?/{run_id}/artifacts/{path}",
+        "/dirname/rootpa#th?",
+        "/dirname/rootpa#th?/{run_id}/artifacts/{path}",
     ),
 ])
 def test_get_artifact_uri_appends_to_uri_path_component_correctly(
-        tracking_uri_mock, artifact_location, expected_uri_format):
+        artifact_location, expected_uri_format):
     client = MlflowClient()
     client.create_experiment("get-artifact-uri-test", artifact_location=artifact_location)
     mlflow.set_experiment("get-artifact-uri-test")
@@ -591,7 +612,8 @@ def test_get_artifact_uri_appends_to_uri_path_component_correctly(
                 run_id=run_id, path=artifact_path.lstrip("/"))
 
 
-def test_search_runs(tracking_uri_mock, reset_active_experiment):
+@pytest.mark.usefixtures("tracking_uri_mock", "reset_active_experiment")
+def test_search_runs():
     mlflow.set_experiment("exp-for-search")
     # Create a run and verify that the current active experiment is the one we just set
     logged_runs = {}
@@ -660,7 +682,8 @@ def test_search_runs(tracking_uri_mock, reset_active_experiment):
     verify_runs(runs, [])
 
 
-def test_search_runs_multiple_experiments(tracking_uri_mock, reset_active_experiment):
+@pytest.mark.usefixtures("tracking_uri_mock", "reset_active_experiment")
+def test_search_runs_multiple_experiments():
     experiment_ids = [mlflow.create_experiment("exp__{}".format(exp_id)) for exp_id in range(1, 4)]
     for eid in experiment_ids:
         with mlflow.start_run(experiment_id=eid):
