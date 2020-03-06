@@ -40,12 +40,12 @@ def download_input():
                     " folder named by the category."
                     "The model and its metrics are logged with mlflow.")
 @click.option("--epochs", type=click.INT, default=1, help="Maximum number of epochs to evaluate.")
-@click.option("--batch-size", type=click.INT, default=1,
+@click.option("--batch-size", type=click.INT, default=16,
               help="Batch size passed to the learning algo.")
 @click.option("--image-width", type=click.INT, default=224, help="Input image width in pixels.")
 @click.option("--image-height", type=click.INT, default=224, help="Input image height in pixels.")
 @click.option("--seed", type=click.INT, default=97531, help="Seed for the random generator.")
-@click.option("--training-data")
+@click.option("--training-data", type=click.STRING, default="./flower_photos")
 @click.option("--test-ratio", type=click.FLOAT, default=0.2)
 def run(training_data, test_ratio, epochs, batch_size, image_width, image_height, seed):
     image_files = []
