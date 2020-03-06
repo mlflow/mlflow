@@ -7,7 +7,6 @@ import mlflow
 import mlflow.spark
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from tests.tracking.test_rest_tracking import BACKEND_URIS
 from tests.tracking.test_rest_tracking import tracking_server_uri  # pylint: disable=unused-import
 from tests.tracking.test_rest_tracking import mlflow_client  # pylint: disable=unused-import
@@ -43,9 +42,9 @@ def _get_expected_table_info_row(path, data_format, version=None):
 
 
 @pytest.mark.large
+@pytest.mark.usefixtures("tracking_uri_mock")
 def test_autologging_of_datasources_with_different_formats(
-        spark_session, tracking_uri_mock, format_to_file_path):
-    # pylint: disable=unused-argument
+        spark_session, format_to_file_path):
     mlflow.spark.autolog()
     for data_format, file_path in format_to_file_path.items():
         base_df = spark_session.read.format(data_format).option("header", "true").\
@@ -94,9 +93,9 @@ def test_autologging_does_not_throw_on_api_failures(
 
 
 @pytest.mark.large
+@pytest.mark.usefixtures("tracking_uri_mock")
 def test_autologging_dedups_multiple_reads_of_same_datasource(
-        spark_session, format_to_file_path, tracking_uri_mock):
-    # pylint: disable=unused-argument
+        spark_session, format_to_file_path):
     mlflow.spark.autolog()
     data_format = list(format_to_file_path.keys())[0]
     file_path = format_to_file_path[data_format]
