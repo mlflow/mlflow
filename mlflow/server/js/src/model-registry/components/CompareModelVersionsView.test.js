@@ -1,33 +1,42 @@
 import { shallow } from 'enzyme';
 import { CompareModelVersionsView } from './CompareModelVersionsView';
 import ConnectedCompareModelVersionsView from './CompareModelVersionsView';
-import React from "react";
-import {getModelPageRoute, modelListPageRoute} from "../routes";
-import {Link} from "react-router-dom";
+import React from 'react';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import configureStore from 'redux-mock-store';
 import { Provider } from 'react-redux';
 import { mount } from 'enzyme';
 import { BrowserRouter } from 'react-router-dom';
-import Routes from "../../Routes";
+import { RunInfo } from '../../sdk/MlflowMessages';
 
 
 describe('unconnected tests', () => {
   let wrapper;
   let minimumProps;
+  let commonProps;
 
   beforeEach(() => {
     minimumProps = {
       modelName: 'test',
-      runsToVersions: {},
-      runUuids: ['runUuid_0', 'runUuid_1'],
+      runsToVersions: {'123':'dummy_version'},
+      runUuids: ['123'],
       runInfos: [],
       metricLists: [],
       paramLists: [],
       runNames: [],
       runDisplayNames: [],
     };
+
+    commonProps = {
+      ...minimumProps,
+      runInfos:
+        [RunInfo.fromJs({'run_uuid':'123','experiment_id':'0','user_id':'test.user','status':'FINISHED','start_time':'0','end_time':'21','artifact_uri':'./mlruns','lifecycle_stage':'active'})],
+      metricLists:
+        [['test_metric', 0.0, '321', '42']],
+      paramLists:
+        [['test_param', '0.0']],
+    }
 
   });
 
@@ -36,25 +45,24 @@ describe('unconnected tests', () => {
     expect(wrapper.length).toBe(1);
   });
 
-  test('check that the breadcrumb renders correctly', () => {
-    wrapper = shallow(<CompareModelVersionsView {...minimumProps}/>);
-    const breadcrumbItemClass = 'truncate-text single-line breadcrumb-title';
-    const modelName = 'test';
+  test('check that the component renders correctly with common props', () => {
+    wrapper = shallow(<CompareModelVersionsView {...commonProps}/>);
+
+    // Checking the breadcrumb renders correctly
     expect(wrapper.containsAllMatchingElements([
-      <Link to={modelListPageRoute} className={breadcrumbItemClass}>Registered Models</Link>,
-      <Link to={getModelPageRoute(modelName)} className={breadcrumbItemClass}>{modelName}</Link>,
-      <span className={breadcrumbItemClass}>{"Comparing 0 Versions"}</span>
+      'Registered Models',
+      'test',
+      'Comparing 1 Versions'
+    ])).toEqual(true);
+
+    // Checking the model version shows up
+    expect(wrapper.containsAllMatchingElements([
+      'Model Version:',
+      'dummy_version'
     ])).toEqual(true)
   });
-
-  test('check that the version row has rendered', () => {
-    wrapper = shallow(<CompareModelVersionsView {...minimumProps}/>);
-    expect(wrapper.contains(
-      <th scope="row" className="data-value">Model Version:</th>
-    )).toEqual(true)
-  });
-
 });
+
 
 describe('connected tests', () => {
   let wrapper;
@@ -63,31 +71,40 @@ describe('connected tests', () => {
   let commonStore;
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
-
   beforeEach(() => {
     minimumProps = {
       modelName: 'test',
-      runsToVersions: {}
+      runsToVersions: {'123': 'dummy_version'}
     };
+
     minimalStore = mockStore({
-      entities: {},
+      entities: {
+        runInfosByUuid:
+          {'123':RunInfo.fromJs({'dummy_key': 'dummy_value'})},
+        latestMetricsByRunUuid:
+          {'123':'dummy'},
+        paramsByRunUuid:
+          {'123':'dummy'},
+        tagsByRunUuid:
+          {'123':'dummy'}
+      },
       apis: {},
     });
+
     commonStore = mockStore({
       entities: {
         runInfosByUuid:
-          {"123":{"run_uuid":"123","experiment_id":"0","user_id":"test.user","status":"FINISHED","start_time":"0","end_time":"21","artifact_uri":"./mlruns","lifecycle_stage":"active"}},
+          {'123':RunInfo.fromJs({'run_uuid':'123','experiment_id':'0','user_id':'test.user','status':'FINISHED','start_time':'0','end_time':'21','artifact_uri':'./mlruns','lifecycle_stage':'active'})},
         latestMetricsByRunUuid:
-          {"123":{"test_metric":{"key":"test_metric","value":0.0,"timestamp":"321","step":"42"}}},
+          {'123':{'key':'test_metric','value':0.0,'timestamp':'321','step':'42'}},
         paramsByRunUuid:
-          {"123":{"test_param":{"key":"test_param","value":"0.0"}}},
+          {'123':{'key':'test_param','value':'0.0'}},
         tagsByRunUuid:
-          {"123":{"test_tag":{"key":"test_tag","value":"test.user"}}}
+          {'123':{'key':'test_tag','value':'test.user'}}
       },
       apis: {},
     })
   });
-
 
   test('connected should render with minimal props and minimal store without exploding', () => {
     wrapper = mount(
@@ -98,7 +115,6 @@ describe('connected tests', () => {
       </Provider>
     );
     expect(wrapper.find(ConnectedCompareModelVersionsView).length).toBe(1);
-    console.log(wrapper.debug())
   });
 
   test('connected should render with minimal props and common store correctly', () => {
@@ -109,8 +125,20 @@ describe('connected tests', () => {
         </BrowserRouter>
       </Provider>
     );
+
     expect(wrapper.find(ConnectedCompareModelVersionsView).length).toBe(1);
-    console.log(wrapper.debug());
-    // TODO: find out why commonStore isn't passing its values correctly
+
+    // Checking the breadcrumb renders correctly
+    expect(wrapper.containsAllMatchingElements([
+      'Registered Models',
+      'test',
+      'Comparing 1 Versions'
+    ])).toEqual(true);
+
+    // Checking the model version shows up
+    expect(wrapper.containsAllMatchingElements([
+      'Model Version:',
+      'dummy_version'
+    ])).toEqual(true)
   });
 });

@@ -53,7 +53,7 @@ export class CompareModelVersionsView extends Component {
             <tr>
               <th scope="row" className="row-header">Run ID:</th>
               {this.props.runInfos.map(r =>
-                <th scope="column" className="data-value" key={r.run_uuid}>
+                <th scope="column" className="data-value" key={r.getRunUuid()}>
                   <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
                     {r.getRunUuid()}
                   </Link>
@@ -66,11 +66,11 @@ export class CompareModelVersionsView extends Component {
               <th scope="row" className="data-value">Model Version:</th>
               {Object.keys(this.props.runsToVersions).map((run) => {
                   const version = this.props.runsToVersions[run];
-                  return <td className="meta-info" key={run.run_uuid}>
+                  return (<td className="meta-info" key={run}>
                     <Link to={getModelVersionPageRoute(modelName, version)}>
                       {version}
                     </Link>
-                  </td>;
+                  </td>);
                 }
               )}
             </tr>
@@ -79,7 +79,7 @@ export class CompareModelVersionsView extends Component {
               {runNames.map((runName, i) => {
                   return (<td
                     className="meta-info"
-                    key={runInfos[i].run_uuid}
+                    key={runInfos[i].getRunUuid()}
                   >
                     <div
                       className="truncate-text single-line"
@@ -90,13 +90,14 @@ export class CompareModelVersionsView extends Component {
                   </td>);
                 }
               )}
+
             </tr>
             <tr>
               <th scope="row" className="data-value">Start Time:</th>
               {this.props.runInfos.map((run) => {
                   const startTime =
                     run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-                  return <td className="meta-info" key={run.run_uuid}>{startTime}</td>;
+                  return <td className="meta-info" key={run.getRunUuid()}>{startTime}</td>;
                 }
               )}
             </tr>
@@ -166,7 +167,7 @@ export class CompareModelVersionsView extends Component {
       return <tr key={k}>
         <th scope="row" className="rowHeader">{headerMap(k, data[k])}</th>
         {data[k].map((value, i) =>
-          <td className="data-value" key={this.props.runInfos[i].run_uuid}>
+          <td className="data-value" key={this.props.runInfos[i].getRunUuid()}>
             <span className="truncate-text single-line" style={styles.compareRunTableCellContents}>
               {value === undefined ? "" : formatter(value)}
             </span>
