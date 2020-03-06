@@ -213,6 +213,7 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
 
 
 @pytest.mark.large
+@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.mark.parametrize('restore_weights', [True])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [11])
