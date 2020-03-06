@@ -180,6 +180,7 @@ def tf_keras_random_data_run_with_callback(random_train_data, random_one_hot_lab
 
 
 @pytest.mark.large
+@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.mark.parametrize('restore_weights', [True])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [0, 1, 5])
