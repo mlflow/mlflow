@@ -21,7 +21,6 @@ class CompareModelVersionsPage extends Component {
     const registeredModelRequestId = getUUID();
     this.requestIds.push(registeredModelRequestId);
     this.props.dispatch(getRegisteredModelApi(this.props.modelName, registeredModelRequestId));
-    console.log(this.props.runsToVersions);
     for (const runUuid in this.props.runsToVersions) {
       const runRequestId = getUUID();
       this.requestIds.push(runRequestId);
@@ -46,7 +45,6 @@ class CompareModelVersionsPage extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { location } = ownProps;
   const searchValues = qs.parse(location.search);
-  console.log(searchValues);
   const modelName = JSON.parse(searchValues["?name"]);
   const runsToVersions = JSON.parse(searchValues["runs"]);
   return { modelName, runsToVersions };

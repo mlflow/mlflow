@@ -140,8 +140,6 @@ export class ModelView extends React.Component {
   }
 
   render() {
-    console.log(this.props);
-    console.log(this.state);
     const { model, modelVersions } = this.props;
     const {
       stageFilter,
@@ -188,8 +186,8 @@ export class ModelView extends React.Component {
         </CollapsibleSection>
         <CollapsibleSection title={(
           <span>
+            <div className="ModelView-run-buttons">
             Versions{' '}
-            <div className="ExperimentView-run-buttons">
               <Radio.Group
                 className='active-toggle'
                 value={stageFilter}
@@ -200,12 +198,13 @@ export class ModelView extends React.Component {
                   Active({this.getActiveVersionsCount()})
                 </Radio.Button>
               </Radio.Group>
-            <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
-              Compare
-            </Button>
+              <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
+                Compare
+              </Button>
             </div>
           </span>
         )}>
+
           <ModelVersionTable
             activeStageOnly={stageFilter === Stages.ACTIVE}
             modelName={modelName}
