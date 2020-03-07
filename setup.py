@@ -28,15 +28,11 @@ setup(
     packages=find_packages(exclude=['tests', 'tests.*']),
     package_data={"mlflow": js_files + models_container_server_files + alembic_files},
     install_requires=[
-        'alembic',
         'click>=7.0',
         'cloudpickle',
         'databricks-cli>=0.8.7',
         'requests>=2.17.3',
         'six>=1.10.0',
-        'waitress; platform_system == "Windows"',
-        'gunicorn; platform_system != "Windows"',
-        'Flask',
         'numpy',
         'pandas',
         'python-dateutil',
@@ -50,7 +46,6 @@ setup(
         'sqlparse',
         'sqlalchemy',
         'gorilla',
-        'prometheus-flask-exporter',
     ],
     extras_require={
         'extras':[
