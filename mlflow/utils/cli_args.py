@@ -26,10 +26,6 @@ NO_CONDA = click.option("--no-conda", is_flag=True,
                              "the current project instead of attempting to create a new "
                              "conda environment.")
 
-PYTHON_ONLY = click.option("--python-only", is_flag=True,
-                           help="If specified, docker image will be created only for "
-                                "python flavor and java maven builds are omited.")
-
 INSTALL_MLFLOW = click.option("--install-mlflow", is_flag=True, default=False,
                               help="If specified and there is a conda environment to be activated "
                                    "mlflow will be installed into the environment after it has been"
