@@ -2,12 +2,11 @@ module.exports = {
   'extends': [
     'airbnb-base',
     'react-app',
-    'plugin:prettier/recommended',
+    'prettier',
   ],
   'parser': 'babel-eslint',
   'plugins': [
     'react',
-    'prettier',
   ],
   'parserOptions': {
     'sourceType': 'module',
