@@ -2,10 +2,12 @@ module.exports = {
   'extends': [
     'airbnb-base',
     'react-app',
+    'plugin:prettier/recommended',
   ],
   'parser': 'babel-eslint',
   'plugins': [
     'react',
+    'prettier',
   ],
   'parserOptions': {
     'sourceType': 'module',
@@ -41,6 +43,7 @@ module.exports = {
     },
   },
   'rules': {
+    'prettier/prettier': 'error',
     'accessor-pairs': 2,
     'array-bracket-spacing': 2,
     'array-callback-return': 2,
