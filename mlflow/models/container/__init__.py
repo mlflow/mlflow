@@ -82,7 +82,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
     dependencies into the environment - MLflow is not installed as it's not available via conda.
     """
     # If model is a pyfunc model, create its conda env (even if it also has mleap flavor)
-    def install_dependency_from_condafile(conda_yaml):
+    def install_dependency_from_condafile(env_path_dst):
         import yaml
 
         # Generate requirements.txt file with the dependencies from the conda.yaml file.

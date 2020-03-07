@@ -54,6 +54,7 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
                                                       no_conda=no_conda,
                                                       workers=workers,
                                                       install_mlflow=install_mlflow)
+    _logger.info("Serving model for flavor '%s'", flavor_name)
     return flavor_backend.serve(model_uri=model_uri, port=port,
                                 host=host)
 
@@ -87,6 +88,7 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
         raise Exception("Unsupported json format '{}'.".format(json_format))
     flavor_name, flavor_backend = _get_flavor_backend(model_uri, no_conda=no_conda,
                                                       install_mlflow=install_mlflow)
+    _logger.info("Predict for '%s'", flavor_name)
     return flavor_backend.predict(model_uri=model_uri,
                                   input_path=input_path,
                                   output_path=output_path,
@@ -108,6 +110,7 @@ def prepare_env(model_uri, no_conda, install_mlflow):
     """
     flavor_name, flavor_backend = _get_flavor_backend(model_uri, no_conda=no_conda,
                                                       install_mlflow=install_mlflow)
+    _logger.info("Preparing Environment for flavor '%s'", flavor_name)
     return flavor_backend.prepare_env(model_uri=model_uri)
 
 
