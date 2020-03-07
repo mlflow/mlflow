@@ -126,18 +126,21 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     return [
       ...[
         {
-          headerName: 'Date',
+          checkboxSelection: true,
+          headerCheckboxSelection: true,
+          pinned: 'left',
+          width: 50,
+        },
+        {
+          headerName: 'Start Time',
           field: 'startTime',
           pinned: 'left',
           width: 216,
           cellRenderer: 'dateCellRenderer',
           sortable: true,
-          checkboxSelection: true,
-          headerCheckboxSelection: true,
           headerComponentParams: {
             ...commonSortOrderProps,
             canonicalSortKey: 'attributes.start_time',
-            style: JSON.stringify({ marginLeft: 18 }), // using object will cause ag-grid error
           },
         },
         {
