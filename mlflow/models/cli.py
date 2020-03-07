@@ -50,11 +50,12 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
             "data": [[1, 2, 3], [4, 5, 6]]
         }'
     """
-    return _get_flavor_backend(model_uri,
-                               no_conda=no_conda,
-                               workers=workers,
-                               install_mlflow=install_mlflow).serve(model_uri=model_uri, port=port,
-                                                                    host=host)
+    flavor_name, flavor_backend = _get_flavor_backend(model_uri,
+                                                      no_conda=no_conda,
+                                                      workers=workers,
+                                                      install_mlflow=install_mlflow)
+    return flavor_backend.serve(model_uri=model_uri, port=port,
+                                host=host)
 
 
 @commands.command("predict")
@@ -84,12 +85,13 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
     """
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
-    return _get_flavor_backend(model_uri, no_conda=no_conda,
-                               install_mlflow=install_mlflow).predict(model_uri=model_uri,
-                                                                      input_path=input_path,
-                                                                      output_path=output_path,
-                                                                      content_type=content_type,
-                                                                      json_format=json_format)
+    flavor_name, flavor_backend = _get_flavor_backend(model_uri, no_conda=no_conda,
+                                                      install_mlflow=install_mlflow)
+    return flavor_backend.predict(model_uri=model_uri,
+                                  input_path=input_path,
+                                  output_path=output_path,
+                                  content_type=content_type,
+                                  json_format=json_format)
 
 
 @commands.command("prepare-env")
@@ -104,8 +106,9 @@ def prepare_env(model_uri, no_conda, install_mlflow):
 
     This method is experimental and may be removed in a future release without warning.
     """
-    return _get_flavor_backend(model_uri, no_conda=no_conda,
-                               install_mlflow=install_mlflow).prepare_env(model_uri=model_uri)
+    flavor_name, flavor_backend = _get_flavor_backend(model_uri, no_conda=no_conda,
+                                                      install_mlflow=install_mlflow)
+    return flavor_backend.prepare_env(model_uri=model_uri)
 
 
 @commands.command("build-docker")
@@ -113,9 +116,8 @@ def prepare_env(model_uri, no_conda, install_mlflow):
 @click.option("--name", "-n", default="mlflow-pyfunc-servable",
               help="Name to use for built image")
 @cli_args.INSTALL_MLFLOW
-@cli_args.PYTHON_ONLY
 @cli_args.NO_CONDA
-def build_docker(model_uri, name, install_mlflow, python_only, no_conda):
+def build_docker(model_uri, name, install_mlflow, no_conda):
     """
     **EXPERIMENTAL**: Builds a Docker image whose default entrypoint serves the specified MLflow
     model at port 8080 within the container, using the 'python_function' flavor.
@@ -150,11 +152,13 @@ def build_docker(model_uri, name, install_mlflow, python_only, no_conda):
     same.
     """
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
-    _get_flavor_backend(model_uri, docker_build=True).build_image(model_uri, name,
-                                                                  mlflow_home=mlflow_home,
-                                                                  install_mlflow=install_mlflow,
-                                                                  python_only=python_only,
-                                                                  no_conda=no_conda)
+    flavor_name, flavor_backend = _get_flavor_backend(model_uri, docker_build=True)
+    python_only = True if (flavor_name == "python_function") else False
+    flavor_backend.build_image(model_uri, name,
+                               mlflow_home=mlflow_home,
+                               install_mlflow=install_mlflow,
+                               python_only=python_only,
+                               no_conda=no_conda)
 
 
 def _get_flavor_backend(model_uri, **kwargs):
@@ -170,4 +174,4 @@ def _get_flavor_backend(model_uri, **kwargs):
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
     _logger.info("Selected backend for flavor '%s'", flavor_name)
-    return flavor_backend
+    return flavor_name, flavor_backend

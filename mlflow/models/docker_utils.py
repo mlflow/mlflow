@@ -10,11 +10,27 @@ from mlflow.utils.logging_utils import eprint
 _logger = logging.getLogger(__name__)
 
 DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
-
 _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve mlflow models.
 FROM ubuntu:18.04
 
+{install_os_dependencies}
+
+# Download and setup miniconda
+RUN curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
+RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
+ENV PATH="/miniconda/bin:$PATH"
+
+ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
+# Set up the program in the image
+WORKDIR /opt/mlflow
+
+{install_mlflow}
+
+{custom_setup_steps}
+{entrypoint}
+"""
+JAVA_DEP = """
 RUN apt-get -y update && apt-get install -y --no-install-recommends \
          wget \
          curl \
@@ -27,43 +43,13 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          git-core \
          maven \
     && rm -rf /var/lib/apt/lists/*
-
-# Download and setup miniconda
-RUN curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
-RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
-ENV PATH="/miniconda/bin:$PATH"
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
-# Set up the program in the image
-WORKDIR /opt/mlflow
-
-{install_mlflow}
-
-{custom_setup_steps}
-{entrypoint}
 """
-
-_DOCKERFILE_PYTHON_TEMPLATE = """
-# Build an image that can serve mlflow models.
-FROM ubuntu:18.04
-
+PYTHON_DEP = """
 RUN apt-get -y update && apt-get install -y --no-install-recommends \
          curl \
          nginx \
     && rm -rf /var/lib/apt/lists/*
-
-# Download and setup miniconda
-RUN curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
-RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
-ENV PATH="/miniconda/bin:$PATH"
-ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
-# Set up the program in the image
-WORKDIR /opt/mlflow
-
-{install_mlflow}
-
-{custom_setup_steps}
-{entrypoint}
 """
 
 
@@ -75,28 +61,24 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home, python_only):
     if mlflow_home:
         mlflow_dir = _copy_project(
             src_path=mlflow_home, dst_path=dockerfile_context_dir)
-        if python_only:
-            return (
+        install_string = (
                 "COPY {mlflow_dir} /opt/mlflow\n"
                 "RUN pip install /opt/mlflow\n"
-                ).format(mlflow_dir=mlflow_dir)
-        else:
-            return (
-                "COPY {mlflow_dir} /opt/mlflow\n"
-                "RUN pip install /opt/mlflow\n"
+                )
+        if not python_only:
+            install_string += (
                 "RUN cd /opt/mlflow/mlflow/java/scoring && "
                 "mvn --batch-mode package -DskipTests && "
                 "mkdir -p /opt/java/jars && "
                 "mv /opt/mlflow/mlflow/java/scoring/target/"
                 "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
-                ).format(mlflow_dir=mlflow_dir)
+                )
+        return install_string.format(mlflow_dir=mlflow_dir)
     else:
-        if python_only:
-            return (
-                "RUN pip install mlflow=={version}\n"
-                ).format(version=mlflow.version.VERSION)
-        else:
-            return (
+        install_string = "RUN pip install mlflow=={version}\n"
+
+        if not python_only:
+            install_string += (
                 "RUN pip install mlflow=={version}\n"
                 "RUN mvn "
                 " --batch-mode dependency:copy"
@@ -109,7 +91,8 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home, python_only):
                 "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
                 "RUN cd /opt/java && mvn "
                 "--batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
-            ).format(version=mlflow.version.VERSION)
+            )
+        return install_string.format(version=mlflow.version.VERSION)
 
 
 def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_hook=None,
@@ -134,16 +117,11 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
         install_mlflow = _get_mlflow_install_step(cwd, mlflow_home, python_only)
         custom_setup_steps = custom_setup_steps_hook(cwd) \
             if custom_setup_steps_hook else ""
-        if python_only:
-            with open(os.path.join(cwd, "Dockerfile"), "w") as f:
-                f.write(_DOCKERFILE_PYTHON_TEMPLATE.format(
-                    install_mlflow=install_mlflow, custom_setup_steps=custom_setup_steps,
-                    entrypoint=entrypoint))
-        else:
-            with open(os.path.join(cwd, "Dockerfile"), "w") as f:
-                f.write(_DOCKERFILE_TEMPLATE.format(
-                    install_mlflow=install_mlflow, custom_setup_steps=custom_setup_steps,
-                    entrypoint=entrypoint))
+        os_deps = PYTHON_DEP if python_only else JAVA_DEP
+        with open(os.path.join(cwd, "Dockerfile"), "w") as f:
+            f.write(_DOCKERFILE_TEMPLATE.format(
+                install_os_dependencies=os_deps, install_mlflow=install_mlflow,
+                custom_setup_steps=custom_setup_steps, entrypoint=entrypoint))
         _logger.info("Building docker image with name %s", image_name)
         os.system('find {cwd}/'.format(cwd=cwd))
         proc = Popen(["docker", "build", "-t", image_name, "-f", "Dockerfile", "."],
