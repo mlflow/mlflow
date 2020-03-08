@@ -16,9 +16,6 @@ describe('unit tests', () => {
         '&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
     };
     const history = {
-      push: (url) => {
-        location.search = "?" + url.split("?")[1];
-      },
       replace: (url) => {
         location.search = "?" + url.split("?")[1];
       },
