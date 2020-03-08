@@ -307,6 +307,8 @@ def test_build_docker(iris_data, sk_model):
 
 @pytest.mark.large
 def test_build_docker_optimize(iris_data, sk_model):
+    if (sys.version_info < (3, 6)):
+        pytest.skip("This test uses default conda environment with python3.")
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
