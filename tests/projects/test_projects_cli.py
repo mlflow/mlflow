@@ -19,7 +19,6 @@ _logger = logging.getLogger(__name__)
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_run_local_params():
     excitement_arg = 2
     name = "friend"
@@ -29,7 +28,6 @@ def test_run_local_params():
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.mark.parametrize("experiment_name", [
     b'test-experiment'.decode("utf-8"),
     'test-experiment',
@@ -66,7 +64,6 @@ def clean_mlruns_dir():
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_run_local_conda_env():
     with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml"), "r") as handle:
         conda_env_contents = handle.read()
@@ -82,7 +79,6 @@ def test_run_local_conda_env():
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_run_local_no_spec():
     # Run an example project that doesn't contain an MLproject file
     expected_env_name = "mlflow-%s" % hashlib.sha1("".encode("utf-8")).hexdigest()
@@ -91,7 +87,6 @@ def test_run_local_no_spec():
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_run_git_https():
     # Invoke command twice to ensure we set Git state in an isolated manner (e.g. don't attempt to
     # create a git repo in the same directory twice, etc)
@@ -102,7 +97,6 @@ def test_run_git_https():
 
 @pytest.mark.large
 @pytest.mark.requires_ssh
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_run_git_ssh():
     # Note: this test requires SSH authentication to GitHub, and so is disabled in Travis, where SSH
     # keys are unavailable. However it should be run locally whenever logic related to running
@@ -112,6 +106,7 @@ def test_run_git_ssh():
     invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
 
 
+@pytest.mark.notrackingurimock
 def test_run_databricks_cluster_spec(tmpdir):
     cluster_spec = {
         "spark_version": "5.0.x-scala2.11",

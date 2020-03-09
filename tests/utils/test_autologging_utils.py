@@ -68,7 +68,6 @@ def test_get_three_unspecified_default_args(user_args, user_kwargs, all_param_na
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("tracking_uri_mock")
 def start_run():
     mlflow.start_run()
     yield

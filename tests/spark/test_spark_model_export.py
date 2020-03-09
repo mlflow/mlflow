@@ -350,7 +350,6 @@ def test_sparkml_model_log_invalid_args(spark_model_transformer, model_path):
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_log_model_calls_register_model(tmpdir, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(str(tmpdir), "test")
@@ -368,7 +367,6 @@ def test_log_model_calls_register_model(tmpdir, spark_model_iris):
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_log_model_no_registered_model_name(tmpdir, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(str(tmpdir), "test")
