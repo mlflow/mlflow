@@ -155,7 +155,8 @@ def test_autologging_does_not_start_run(spark_session, format_to_file_path):
 
 
 @pytest.mark.large
-def test_autologging_slow_api_requests(spark_session, format_to_file_path, mlflow_client):
+@pytest.mark.usefixtures("mlflow_client")
+def test_autologging_slow_api_requests(spark_session, format_to_file_path):
     import mlflow.utils.rest_utils
     orig = mlflow.utils.rest_utils.http_request
 
