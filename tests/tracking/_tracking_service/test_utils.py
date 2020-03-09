@@ -16,6 +16,8 @@ from mlflow.tracking._tracking_service.utils import _get_store, _TRACKING_URI_EN
 
 # pylint: disable=unused-argument
 
+pytestmark = pytest.mark.notrackingurimock
+
 
 def test_get_store_file_store(tmp_wkdir):
     env = {}

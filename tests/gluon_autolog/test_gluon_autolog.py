@@ -15,6 +15,7 @@ from mxnet.metric import Accuracy
 import mlflow
 import mlflow.gluon
 
+pytestmark = pytest.mark.notrackingurimock
 client = mlflow.tracking.MlflowClient()
 
 

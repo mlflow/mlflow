@@ -10,6 +10,8 @@ from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.tracking._model_registry.utils import _get_store
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 
+pytestmark = pytest.mark.notrackingurimock
+
 
 def test_get_store_rest_store_from_arg():
     env = {
