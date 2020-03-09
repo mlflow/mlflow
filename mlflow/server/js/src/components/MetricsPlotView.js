@@ -19,8 +19,13 @@ export class MetricsPlotView extends React.Component {
     showPoint: PropTypes.bool.isRequired,
     chartType: PropTypes.string.isRequired,
     isComparing: PropTypes.bool.isRequired,
-    yAxisLogScale: PropTypes.bool.isRequired,
     lineSmoothness: PropTypes.number,
+    extraLayout: PropTypes.object,
+    onLayoutChange: PropTypes.func.isRequired,
+    onClick: PropTypes.func.isRequired,
+    onLegendClick: PropTypes.func.isRequired,
+    onLegendDoubleClick: PropTypes.func.isRequired,
+    deselectedCurves: PropTypes.arrayOf(String).isRequired,
   };
 
   static getLineLegend = (metricKey, runDisplayName, isComparing) => {
@@ -40,10 +45,14 @@ export class MetricsPlotView extends React.Component {
   };
 
   getPlotPropsForLineChart = () => {
-    const { metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness, isComparing } = this.props;
+    const { metrics, xAxis, showPoint, lineSmoothness, isComparing,
+      deselectedCurves } = this.props;
+    const deselectedCurvesSet = new Set(deselectedCurves);
     const data = metrics.map((metric) => {
-      const { metricKey, runDisplayName, history } = metric;
+      const { metricKey, runDisplayName, history, runUuid } = metric;
       const isSingleHistory = history.length === 0;
+      const visible = !deselectedCurvesSet.has(Utils.getCurveKey(runUuid, metricKey)) ?
+          true : "legendonly";
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
         x: history.map((entry) => {
@@ -57,20 +66,22 @@ export class MetricsPlotView extends React.Component {
         mode: isSingleHistory ? 'markers' : 'lines+markers',
         line: { shape: 'spline', smoothing: lineSmoothness },
         marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
+        visible: visible,
+        runId: runUuid,
+        metricName: metricKey,
       };
     });
     const props = { data };
-    if (yAxisLogScale) {
-      props.layout = {
-        yaxis: { type: 'log', autorange: true },
-      };
-    }
+    props.layout = {
+      ...props.layout,
+      ...this.props.extraLayout,
+    };
     return props;
   };
 
   getPlotPropsForBarChart = () => {
     /* eslint-disable no-param-reassign */
-    const { runUuids, runDisplayNames, yAxisLogScale } = this.props;
+    const { runUuids, runDisplayNames, deselectedCurves } = this.props;
 
     // A reverse lookup of `metricKey: { runUuid: value, metricKey }`
     const historyByMetricKey = this.props.metrics.reduce((map, metric) => {
@@ -90,23 +101,31 @@ export class MetricsPlotView extends React.Component {
     );
 
     const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map((history) => history.metricKey);
-
-    const data = runUuids.map((runUuid, i) => ({
-      name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
-      x: sortedMetricKeys,
-      y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
-      type: 'bar',
-    }));
+    const deselectedCurvesSet = new Set(deselectedCurves);
+    const data = runUuids.map((runUuid, i) => {
+      const visibility = deselectedCurvesSet.has(runUuid) ?
+        { visible: 'legendonly' } : {};
+      return {
+        name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
+        x: sortedMetricKeys,
+        y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
+        type: 'bar',
+        runId: runUuid,
+        ...visibility,
+      };
+    });
 
     const layout = { barmode: 'group' };
     const props = { data, layout };
-    if (yAxisLogScale) {
-      props.layout.yaxis = { type: 'log', autorange: true };
-    }
+    props.layout = {
+      ...props.layout,
+      ...this.props.extraLayout,
+    };
     return props;
   };
 
   render() {
+    const { onLayoutChange, onClick, onLegendClick, onLegendDoubleClick } = this.props;
     const plotProps =
       this.props.chartType === CHART_TYPE_BAR
         ? this.getPlotPropsForBarChart()
@@ -116,8 +135,12 @@ export class MetricsPlotView extends React.Component {
         <Plot
           {...plotProps}
           useResizeHandler
+          onRelayout={onLayoutChange}
+          onClick={onClick}
+          onLegendClick={onLegendClick}
+          onLegendDoubleClick={onLegendDoubleClick}
           style={{ width: '100%', height: '100%' }}
-          layout={{ ...plotProps.layout, ...{ autosize: true } }}
+          layout={_.cloneDeep(plotProps.layout)}
           config={{
             displaylogo: false,
             scrollZoom: true,

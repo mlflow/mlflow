@@ -87,4 +87,10 @@ setup(
         'Documentation': 'https://mlflow.org/docs/latest/index.html',
         'Source Code': 'https://github.com/mlflow/mlflow'
     },
+    # Support Python >= 2.7. TODO: update this version bound to >= 3.5 in order to drop
+    # Python 2 e.g. in MLflow 1.8.0), as described in
+    # https://packaging.python.org/guides/dropping-older-python-versions/#dropping-a-python-release.
+    # The recommendation to use 3.5 stems from 3.4 being EOL, see
+    # https://devguide.python.org/#status-of-python-branches
+    python_requires='>=2.7',
 )
