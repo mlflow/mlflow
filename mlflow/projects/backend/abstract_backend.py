@@ -1,4 +1,4 @@
-from abc import abstractproperty, abstractmethod, ABCMeta
+from abc import abstractproperty, ABCMeta
 
 
 class AbstractBackend():
