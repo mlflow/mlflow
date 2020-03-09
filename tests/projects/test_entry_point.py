@@ -53,7 +53,8 @@ def test_entry_point_compute_command():
         command = entry_point.compute_command({"name": "friend", "excitement": 10, "args": ''},
                                               storage_dir)
         assert command == "python greeter.py hi friend --excitement 10"
-        command = entry_point.compute_command({"name": "friend", "excitement": 10, "args": '--goodbye'},
+        command = entry_point.compute_command({"name": "friend", "excitement": 10,
+                                               "args": '--goodbye'},
                                               storage_dir)
         assert command == "python greeter.py hi friend --goodbye --excitement 10"
         with pytest.raises(ExecutionException):
