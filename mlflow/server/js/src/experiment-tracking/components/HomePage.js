@@ -10,7 +10,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 export class HomePageImpl extends Component {
   static propTypes = {
     dispatchListExperimentsApi: PropTypes.func.isRequired,
-    experimentId: PropTypes.number,
+    experimentId: PropTypes.string,
   };
 
   state = {
@@ -38,7 +38,7 @@ const mapStateToProps = (state, ownProps) => {
   if (match.url === "/") {
     return {};
   }
-  return { experimentId: parseInt(match.params.experimentId, 10) };
+  return { experimentId: match.params.experimentId };
 };
 
 const mapDispatchToProps = (dispatch) => {

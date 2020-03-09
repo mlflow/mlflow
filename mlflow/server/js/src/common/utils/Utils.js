@@ -563,6 +563,28 @@ class Utils {
       return error && error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST;
     });
   }
+
+  static compareExperiments(a, b) {
+    const aId = typeof (a.getExperimentId) === "function" ? a.getExperimentId() : a.experiment_id;
+    const bId = typeof (b.getExperimentId) === "function" ? b.getExperimentId() : b.experiment_id;
+
+    const aIntId = parseInt(aId, 10);
+    const bIntId = parseInt(bId, 10);
+
+    if (Number.isNaN(aIntId)) {
+      if (!Number.isNaN(bIntId)) {
+        // Int IDs before anything else
+        return 1;
+      }
+    } else if (Number.isNaN(bIntId)) {
+      // Int IDs before anything else
+      return -1;
+    } else {
+      return aIntId - bIntId;
+    }
+
+    return aId.localeCompare(bId);
+  }
 }
 
 export default Utils;
