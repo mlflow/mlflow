@@ -24,7 +24,6 @@ def mock_get_current_listener():
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock", "spark_session")
 def test_autolog_call_idempotent():
     mlflow.spark.autolog()
     listener = _get_current_listener()
@@ -44,7 +43,6 @@ def test_subscriber_methods():
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_enabling_autologging_throws_for_wrong_spark_version(
         spark_session, mock_get_current_listener):
     # pylint: disable=unused-argument
@@ -56,7 +54,6 @@ def test_enabling_autologging_throws_for_wrong_spark_version(
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_enabling_autologging_throws_when_spark_hasnt_been_started(
         spark_session, mock_get_current_listener):
     # pylint: disable=unused-argument

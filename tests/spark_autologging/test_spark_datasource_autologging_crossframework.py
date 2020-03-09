@@ -66,7 +66,6 @@ def _fit_keras_model(pandas_df, epochs):
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_spark_autologging_with_keras_autologging(
         spark_session, data_format, file_path):
     assert mlflow.active_run() is None
@@ -81,7 +80,6 @@ def test_spark_autologging_with_keras_autologging(
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_spark_keras_autologging_context_provider(
         spark_session, data_format, file_path):
     mlflow.spark.autolog()
@@ -107,7 +105,6 @@ def test_spark_keras_autologging_context_provider(
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_spark_and_keras_autologging_all_runs_managed(
         spark_session, data_format, file_path):
     mlflow.spark.autolog()
