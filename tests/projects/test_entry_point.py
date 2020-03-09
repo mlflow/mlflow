@@ -53,6 +53,9 @@ def test_entry_point_compute_command():
         command = entry_point.compute_command({"name": "friend", "excitement": 10, "args": ''},
                                               storage_dir)
         assert command == "python greeter.py hi friend --excitement 10"
+        command = entry_point.compute_command({"name": "friend", "excitement": 10, "args": '--goodbye'},
+                                              storage_dir)
+        assert command == "python greeter.py hi friend --goodbye --excitement 10"
         with pytest.raises(ExecutionException):
             entry_point.compute_command({}, storage_dir)
         # Test shell escaping
@@ -181,7 +184,7 @@ def test_params():
     with pytest.raises(ExecutionException):
         entry_point.compute_parameters(user_8, None)
 
-    user_9 = {"alpha": 0.004, "gamma": 0.89, "args": "early-stopping"}
+    user_9 = {"alpha": 0.004, "gamma": 0.89, "args": "earlystopping"}
     with pytest.raises(ExecutionException):
         entry_point.compute_parameters(user_9, None)
 

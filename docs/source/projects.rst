@@ -171,7 +171,8 @@ file in YAML syntax, to the project's root directory. The following is an exampl
         parameters:
           data_file: path
           regularization: {type: float, default: 0.1}
-        command: "python train.py -r {regularization} {data_file}"
+          args: {type: action, default: '--earlystopping'}
+        command: "python train.py -r {regularization} {data_file} {args}"
       validate:
         parameters:
           data_file: path
@@ -308,8 +309,12 @@ uri
     that know how to read from distributed storage (e.g., programs that use Spark).
 
 action
-    An action string. MLflow validates that the parameter is valid. Pass an empty string
-    to skip the argument
+    An action string. Pass an empty string to skip the argument.
+    More information on usage of action parameter can be found
+    `here https://docs.python.org/dev/library/argparse.html#action`_.
+    MLflow validates that the action parameter value is a
+    `valid identifier <https://docs.python.org/3/reference/lexical_analysis.html#identifiers>`_
+    that is prefixed either with single/double hyphen.
 
 .. _running-projects:
 

@@ -31,6 +31,11 @@ def test_run_local_params(tracking_uri_mock):  # pylint: disable=unused-argument
                                 "greeting=hi", "-P", "name=%s" % name,
                                 "-P", "excitement=%s" % excitement_arg, "-P",
                                 "args=%s" % action_args])
+    action_args = ""
+    invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "greeter", "-P",
+                                "greeting=hi", "-P", "name=%s" % name,
+                                "-P", "excitement=%s" % excitement_arg, "-P",
+                                "args=%s" % action_args])
 
 
 @pytest.mark.large
