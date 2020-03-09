@@ -143,7 +143,10 @@ class CompareRunView extends Component {
   }
 
   // eslint-disable-next-line no-unused-vars
-  renderDataRows(list, highlightChanges = false, headerMap = (key, data) => key, formatter = (value) => value) {
+  renderDataRows(list,
+                 highlightChanges = false,
+                 headerMap = (key, data) => key,
+                 formatter = (value) => value) {
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
     keys.forEach(k => data[k] = []);
@@ -161,7 +164,7 @@ class CompareRunView extends Component {
           } else {
             return false;
           }
-        }, true)
+        }, true);
         if (! all_equal) {
           row_class = "row-changed";
         }
