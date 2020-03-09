@@ -196,13 +196,11 @@ uses ``pytest==3.2.1`` for testing. Your tests should be added to the relevant f
 if there is no appropriate file, in a new file prefixed with ``test_`` so that ``pytest`` includes that
 file for testing.
 
-If your tests require usage of a tracking URI, you can use the
+If your tests require usage of a tracking URI, the
 `pytest fixture <https://docs.pytest.org/en/3.2.1/fixture.html>`_
-`tracking_uri_mock <https://github.com/mlflow/mlflow/blob/master/tests/conftest.py#L74>`_
-to set up a mock tracking URI that will set itself up before your test runs and tear itself down after.
-To use pytest fixture, just add the name of the fixture as a parameter of your test. If you don't refer
-to the mock in your test, decore your test with ``@pytest.mark.usefixtures("tracking_uri_mock")`` to avoid
-unused argument warnings by the linter.
+`tracking_uri_mock <https://github.com/mlflow/mlflow/blob/master/tests/conftest.py#L74>`_ is automatically set up
+for every tests. It sets up a mock tracking URI that will set itself up before your test runs and tear itself down after.
+If you want to deactivate the mock for your test, mark the test with `@pytest.mark.notrackingurimock` operator.
 
 Adding New Model Flavor Support
 -------------------------------
