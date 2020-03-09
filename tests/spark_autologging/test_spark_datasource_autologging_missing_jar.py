@@ -7,7 +7,6 @@ from tests.spark_autologging.utils import _get_or_create_spark_session
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_enabling_autologging_throws_for_missing_jar():
     # pylint: disable=unused-argument
     spark_session = _get_or_create_spark_session(jars="")

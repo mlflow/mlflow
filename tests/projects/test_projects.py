@@ -140,7 +140,6 @@ def test_fetch_project_validations(local_git_repo_uri):
         mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, force_tempdir=False, version="version")
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.mark.parametrize('experiment_name,experiment_id,expected', [
     ('Default', None, '0'),
     ('add an experiment', None, '1'),
@@ -184,14 +183,12 @@ def test_parse_subdirectory():
         mlflow.projects._parse_subdirectory(period_fail_uri)
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_invalid_run_mode():
     """ Verify that we raise an exception given an invalid run mode """
     with pytest.raises(ExecutionException):
         mlflow.projects.run(uri=TEST_PROJECT_DIR, backend="some unsupported mode")
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_use_conda():
     """ Verify that we correctly handle the `use_conda` argument."""
     # Verify we throw an exception when conda is unavailable
@@ -210,7 +207,6 @@ def test_use_conda():
             os.environ["CONDA_EXE"] = conda_exe_path
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_expected_tags_logged_when_using_conda():
     with mock.patch.object(mlflow.tracking.MlflowClient, "set_tag") as tag_mock:
         try:
@@ -230,7 +226,6 @@ def test_is_valid_branch_name(local_git_repo):
     assert not mlflow.projects._is_valid_branch_name(local_git_repo, "dev")
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 @pytest.mark.parametrize("version", [None, "master", "git-commit"])
 def test_run_local_git_repo(patch_user,  # pylint: disable=unused-argument
@@ -283,7 +278,6 @@ def test_run_local_git_repo(patch_user,  # pylint: disable=unused-argument
         assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_invalid_version_local_git_repo(local_git_repo_uri):
     # Run project with invalid commit hash
     with pytest.raises(ExecutionException,
@@ -293,7 +287,6 @@ def test_invalid_version_local_git_repo(local_git_repo_uri):
                             use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 def test_run(tmpdir,  # pylint: disable=unused-argument
              patch_user,  # pylint: disable=unused-argument
@@ -332,7 +325,6 @@ def test_run(tmpdir,  # pylint: disable=unused-argument
     assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_run_with_parent(tmpdir):  # pylint: disable=unused-argument
     """Verify that if we are in a nested run, mlflow.projects.run() will have a parent_run_id."""
     with mlflow.start_run():
@@ -348,7 +340,6 @@ def test_run_with_parent(tmpdir):  # pylint: disable=unused-argument
     assert run.data.tags[MLFLOW_PARENT_RUN_ID] == parent_run_id
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_run_async():
     submitted_run0 = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
@@ -378,7 +369,6 @@ def test_conda_path(mock_env, expected_conda, expected_activate):
         assert mlflow.projects._get_conda_bin_executable("activate") == expected_activate
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_cancel_run():
     submitted_run0, submitted_run1 = [mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},

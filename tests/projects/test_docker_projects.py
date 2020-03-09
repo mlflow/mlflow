@@ -25,7 +25,6 @@ def _build_uri(base_uri, subdirectory):
     return base_uri
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 def test_docker_project_execution(
         use_start_run,
@@ -91,7 +90,6 @@ def test_docker_project_tracking_uri_propagation(
         mlflow.set_tracking_uri(old_uri)
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_docker_uri_mode_validation(docker_example_base_image):  # pylint: disable=unused-argument
     with pytest.raises(ExecutionException):
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks")

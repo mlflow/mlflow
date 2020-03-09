@@ -213,7 +213,7 @@ def test_run_databricks_validations(
         databricks.before_run_validations("databricks", cluster_spec_mock)
 
 
-@pytest.mark.usefixtures("before_run_validations_mock", "tracking_uri_mock", "runs_cancel_mock",
+@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
                          "dbfs_mocks")
 def test_run_databricks(runs_submit_mock, runs_get_mock, cluster_spec_mock, set_tag_mock):
     """Test running on Databricks with mocks."""
@@ -236,7 +236,7 @@ def test_run_databricks(runs_submit_mock, runs_get_mock, cluster_spec_mock, set_
             validate_exit_status(submitted_run.get_status(), expect_status)
 
 
-@pytest.mark.usefixtures("before_run_validations_mock", "tracking_uri_mock", "runs_cancel_mock",
+@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
                          "dbfs_mocks", "cluster_spec_mock", "set_tag_mock")
 def test_run_databricks_cluster_spec_json(
         runs_submit_mock, runs_get_mock):
@@ -255,7 +255,6 @@ def test_run_databricks_cluster_spec_json(
         assert req_body["new_cluster"] == cluster_spec
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_run_databricks_throws_exception_when_spec_uses_existing_cluster():
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         existing_cluster_spec = {
@@ -267,7 +266,6 @@ def test_run_databricks_throws_exception_when_spec_uses_existing_cluster():
         assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_run_databricks_cancel(
         before_run_validations_mock,  # pylint: disable=unused-argument
         runs_submit_mock, dbfs_mocks, set_tag_mock,  # pylint: disable=unused-argument

@@ -263,7 +263,6 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
 # TODO: Use the default conda environment once MLflow's Travis build supports the onnxruntime
 # library
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_model_log(onnx_model, onnx_custom_env):
     # pylint: disable=unused-argument
 
@@ -290,7 +289,6 @@ def test_model_log(onnx_model, onnx_custom_env):
             mlflow.end_run()
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_log_model_calls_register_model(onnx_model, onnx_custom_env):
     import mlflow.onnx
     artifact_path = "model"
@@ -303,7 +301,6 @@ def test_log_model_calls_register_model(onnx_model, onnx_custom_env):
         mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_log_model_no_registered_model_name(onnx_model, onnx_custom_env):
     import mlflow.onnx
     artifact_path = "model"
@@ -316,7 +313,6 @@ def test_log_model_no_registered_model_name(onnx_model, onnx_custom_env):
 
 # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
 @pytest.mark.release
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
     import onnx
     import mlflow.onnx

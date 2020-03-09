@@ -38,7 +38,6 @@ def random_one_hot_labels():
 
 
 @pytest.fixture(params=[True, False])
-@pytest.mark.usefixtures("tracking_uri_mock")
 def manual_run(request):
     if request.param:
         mlflow.start_run()
@@ -180,7 +179,6 @@ def tf_keras_random_data_run_with_callback(random_train_data, random_one_hot_lab
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.mark.parametrize('restore_weights', [True])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [0, 1, 5])
@@ -213,7 +211,6 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.mark.parametrize('restore_weights', [True])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [11])

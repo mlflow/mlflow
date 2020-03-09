@@ -281,7 +281,6 @@ def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, 
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_model_log(model, data, predicted):
     x, _ = data
     # should_start_run tests whether or not calling log_model() automatically starts a run.
@@ -306,7 +305,6 @@ def test_model_log(model, data, predicted):
             mlflow.end_run()
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_log_model_calls_register_model(model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
@@ -318,7 +316,6 @@ def test_log_model_calls_register_model(model):
         mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
 
 
-@pytest.mark.usefixtures("tracking_uri_mock")
 def test_log_model_no_registered_model_name(model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")

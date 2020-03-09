@@ -12,7 +12,6 @@ EXAMPLES_DIR = 'examples'
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("tracking_uri_mock")
 @pytest.mark.parametrize("directory, params", [
     ('h2o', []),
     ('hyperparam', ['-e', 'train']),

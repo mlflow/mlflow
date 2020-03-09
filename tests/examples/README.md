@@ -11,7 +11,7 @@ For purpose of discussion, `new_example_dir` designates the
 directory the example code is found, i.e., it is located in `examples/new_example_dir`.
 
 ## Examples that utilize `mlflow run` construct
-The `@pytest.mark.mark.parametrize` decorator for `def test_mlflow_run_example(tracking_uri_mock, directory, params):` 
+The `@pytest.mark.mark.parametrize` decorator for `def test_mlflow_run_example(directory, params):` 
 is updated.
 
 If the example is executed by `cd examples/new_example_dir && mflow run . -P parm1=99 -P parm2=3`, then
@@ -28,7 +28,7 @@ as shown below
     (os.path.join("sklearn_elasticnet_diabetes", "linux"), []),
     ("new_example_dir", ["-P", "parm1=123", "-P", "parm2=99"]),
 ])
-def test_mlflow_run_example(tracking_uri_mock, directory, params):
+def test_mlflow_run_example(directory, params):
 ```
 
 The `tuple` for an example requiring no parameters is simply:
