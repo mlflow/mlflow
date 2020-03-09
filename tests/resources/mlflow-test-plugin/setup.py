@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 
 setup(
-    name="mflow-test-plugin",
+    name="mlflow-test-plugin",
     version="0.0.1",
     description="Test plugin for MLflow",
     packages=find_packages(),

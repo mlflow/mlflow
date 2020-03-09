@@ -19,7 +19,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_S
     MLFLOW_PROJECT_ENV
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
-    validate_exit_status, assert_dirs_equal
+    validate_exit_status
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
