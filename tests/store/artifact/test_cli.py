@@ -3,6 +3,7 @@ import os
 import posixpath
 
 from mock import mock
+import pytest
 
 import mlflow
 import mlflow.pyfunc
@@ -74,6 +75,7 @@ def test_download_from_uri():
             assert expected_result == actual_result
 
 
+@pytest.mark.notrackingurimock
 def test_download_artifacts_from_uri():
     with mlflow.start_run() as run:
         with TempDir() as tmp:

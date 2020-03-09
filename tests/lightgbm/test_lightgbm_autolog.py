@@ -13,6 +13,8 @@ import mlflow.lightgbm
 mpl.use('Agg')
 client = mlflow.tracking.MlflowClient()
 
+pytestmark = pytest.mark.notrackingurimock
+
 
 def get_latest_run():
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)

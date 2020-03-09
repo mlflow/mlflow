@@ -10,6 +10,8 @@ import matplotlib as mpl
 import mlflow
 import mlflow.xgboost
 
+pytestmark = pytest.mark.notrackingurimock
+
 mpl.use('Agg')
 client = mlflow.tracking.MlflowClient()
 

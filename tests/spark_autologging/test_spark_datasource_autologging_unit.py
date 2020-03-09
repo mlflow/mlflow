@@ -24,6 +24,7 @@ def mock_get_current_listener():
 
 
 @pytest.mark.large
+@pytest.mark.notrackingurimock
 def test_autolog_call_idempotent():
     mlflow.spark.autolog()
     listener = _get_current_listener()
