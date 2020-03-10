@@ -1,5 +1,5 @@
 import { shallow, mount } from 'enzyme';
-import { ModelView } from './ModelView.js'
+import { ModelView } from './ModelView';
 import React from "react";
 import {BrowserRouter} from "react-router-dom";
 import {getCompareModelVersionsPageRoute} from "../routes";
@@ -16,9 +16,9 @@ describe('unconnected tests', () => {
       model: {
         name: 'test_name',
         creation_timestamp: 123456789,
-        last_updated_timestamp: 132456789
+        last_updated_timestamp: 132456789,
       },
-      modelVersions: [ {'current_stage': 'None'} ],
+      modelVersions: [{'current_stage': 'None'}],
       handleEditDescription: jest.fn(),
       handleDelete: jest.fn(),
       history: { push: historyMock },
@@ -41,20 +41,20 @@ describe('unconnected tests', () => {
     expect(wrapper.find('.btn').props().disabled).toEqual(true);
 
     wrapper.find(ModelView).instance().setState({
-      runsSelected: {'run_id_1': 'version_1'}
+      runsSelected: {'run_id_1': 'version_1'},
     });
     wrapper.update();
     expect(wrapper.find('.btn').props().disabled).toEqual(true);
 
-    let twoRunsSelected = {'run_id_1': 'version_1',
-                           'run_id_2': 'version_2'};
+    const twoRunsSelected = {'run_id_1': 'version_1', 'run_id_2': 'version_2'};
     wrapper.find(ModelView).instance().setState({
-      runsSelected: twoRunsSelected
+      runsSelected: twoRunsSelected,
     });
     wrapper.update();
     expect(wrapper.find('.btn').props().disabled).toEqual(false);
 
     wrapper.find('.btn').simulate('click');
-    expect(historyMock).toHaveBeenCalledWith(getCompareModelVersionsPageRoute(minimumProps['model']['name'], twoRunsSelected))
+    expect(historyMock).toHaveBeenCalledWith(
+      getCompareModelVersionsPageRoute(minimumProps['model']['name'], twoRunsSelected));
   });
 });

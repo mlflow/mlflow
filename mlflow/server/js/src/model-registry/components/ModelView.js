@@ -130,7 +130,7 @@ export class ModelView extends React.Component {
           };
         });
         this.setState(newState);
-      }
+      },
     };
   };
 

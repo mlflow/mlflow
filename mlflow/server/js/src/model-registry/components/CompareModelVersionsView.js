@@ -31,7 +31,7 @@ export class CompareModelVersionsView extends Component {
     // ("Run <uuid>") for runs without names.
     runDisplayNames: PropTypes.arrayOf(String).isRequired,
     modelName: PropTypes.string.isRequired,
-    runsToVersions: PropTypes.object.isRequired
+    runsToVersions: PropTypes.object.isRequired,
   };
 
   render() {
@@ -45,7 +45,8 @@ export class CompareModelVersionsView extends Component {
           {chevron}
           <Link to={getModelPageRoute(modelName)} className={breadcrumbItemClass}>{modelName}</Link>
           {chevron}
-          <span className={breadcrumbItemClass}>{"Comparing " + this.props.runInfos.length + " Versions"}</span>
+          <span className={breadcrumbItemClass}>
+            {"Comparing " + this.props.runInfos.length + " Versions"}</span>
         </h1>
         <div className="responsive-table-container">
           <table className="compare-table table">
@@ -65,21 +66,21 @@ export class CompareModelVersionsView extends Component {
             <tr>
               <th scope="row" className="data-value">Model Version:</th>
               {Object.keys(this.props.runsToVersions).map((run) => {
-                  const version = this.props.runsToVersions[run];
-                  return (<td className="meta-info" key={run}>
-                    <Link to={getModelVersionPageRoute(modelName, version)}>
-                      {version}
-                    </Link>
-                  </td>);
-                }
+                const version = this.props.runsToVersions[run];
+                return (<td className="meta-info" key={run}>
+                  <Link to={getModelVersionPageRoute(modelName, version)}>
+                    {version}
+                  </Link>
+                </td>);
+              }
               )}
             </tr>
             <tr>
               <th scope="row" className="data-value">Run Name:</th>
               {runNames.map((runName, i) => {
-                  return (<td
-                    className="meta-info"
-                    key={runInfos[i].getRunUuid()}
+                return (<td
+                  className="meta-info"
+                  key={runInfos[i].getRunUuid()}
                   >
                     <div
                       className="truncate-text single-line"
@@ -88,17 +89,17 @@ export class CompareModelVersionsView extends Component {
                       {runName}
                     </div>
                   </td>);
-                }
+              }
               )}
 
             </tr>
             <tr>
               <th scope="row" className="data-value">Start Time:</th>
               {this.props.runInfos.map((run) => {
-                  const startTime =
-                    run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-                  return <td className="meta-info" key={run.getRunUuid()}>{startTime}</td>;
-                }
+                const startTime =
+                  run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
+                return <td className="meta-info" key={run.getRunUuid()}>{startTime}</td>;
+              }
               )}
             </tr>
             <tr>
@@ -193,13 +194,15 @@ const mapStateToProps = (state, ownProps) => {
   const runUuids = [];
   const { modelName, runsToVersions } = ownProps;
   for (const runUuid in runsToVersions) {
-    runInfos.push(getRunInfo(runUuid, state));
-    metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
-    paramLists.push(Object.values(getParams(runUuid, state)));
-    const runTags = getRunTags(runUuid, state);
-    runDisplayNames.push(Utils.getRunDisplayName(runTags, runUuid));
-    runNames.push(Utils.getRunName(runTags));
-    runUuids.push(runUuid)
+    if ({}.hasOwnProperty.call(runsToVersions, runUuid)) {
+      runInfos.push(getRunInfo(runUuid, state));
+      metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
+      paramLists.push(Object.values(getParams(runUuid, state)));
+      const runTags = getRunTags(runUuid, state);
+      runDisplayNames.push(Utils.getRunDisplayName(runTags, runUuid));
+      runNames.push(Utils.getRunName(runTags));
+      runUuids.push(runUuid);
+    }
   }
 
   return { runInfos, metricLists, paramLists, runNames, runDisplayNames, runUuids, modelName };

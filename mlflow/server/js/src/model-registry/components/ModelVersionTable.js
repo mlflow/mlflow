@@ -22,7 +22,7 @@ export class ModelVersionTable extends React.Component {
     modelName: PropTypes.string.isRequired,
     modelVersions: PropTypes.array.isRequired,
     activeStageOnly: PropTypes.bool,
-    rowSelection: PropTypes.object.isRequired
+    rowSelection: PropTypes.object.isRequired,
   };
 
   static defaultProps = {
