@@ -13,3 +13,7 @@
 .ModelView-run-buttons{
   margin-top: 16px;
 }
+
+.ModelView-run-buttons .btn {
+  margin-left: 16px;
+}
