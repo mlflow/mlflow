@@ -831,7 +831,7 @@ def _get_s3_artifact_cmd_and_envs(active_run):
 
 
 def _get_azure_blob_artifact_cmd_and_envs(active_run):
-    # artifact_repo = get_artifact_repository(active_run.info.artifact_uri) 
+    # artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
     # pylint: disable=unused-argument
     envs = {
         "AZURE_STORAGE_CONNECTION_STRING": os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
