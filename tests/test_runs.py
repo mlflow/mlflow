@@ -12,4 +12,4 @@ def test_list_run():
 
 def test_list_run_experiment_id_required():
     result = CliRunner().invoke(list_run, [])
-    assert 'Missing option "--experiment-id"' in result.output
+    assert "Missing option '--experiment-id'" in result.output
