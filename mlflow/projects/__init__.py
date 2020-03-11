@@ -651,6 +651,8 @@ def _get_docker_command(image, active_run, volumes=None, user_env_vars=None):
                                  experiment_id=active_run.info.experiment_id)
     tracking_uri = tracking.get_tracking_uri()
     tracking_cmds, tracking_envs = _get_docker_tracking_cmd_and_envs(tracking_uri)
+    # Propagate active_run Object so that subsequent methods have more information about
+    # the current state/run of the Execution.
     artifact_cmds, artifact_envs = \
         _get_docker_artifact_storage_cmd_and_envs(active_run)
 
@@ -829,7 +831,7 @@ def _get_s3_artifact_cmd_and_envs(active_run):
 
 
 def _get_azure_blob_artifact_cmd_and_envs(active_run):
-    # artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
+    # artifact_repo = get_artifact_repository(active_run.info.artifact_uri) 
     # pylint: disable=unused-argument
     envs = {
         "AZURE_STORAGE_CONNECTION_STRING": os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
