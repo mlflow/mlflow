@@ -1,31 +1,24 @@
-import sys
-import abc
+from mlflow.deployments.base_plugin import BasePlugin
+from mlflow.deployments import interface
 
 
-if sys.version_info >= (3, 4):
-    ABC = abc.ABC
-else:
-    ABC = abc.ABCMeta('ABC', (), {})
+# TODO: It's a good practise to avoid using ``list`` here. Looking for a better alternative
+
+__all__ = ['BasePlugin', 'create', 'delete', 'update', 'list', 'describe']
 
 
-class BasePlugin(ABC):
+def __dir__():
+    return list(globals().keys()) + __all__
 
-    @abc.abstractmethod
-    def create(self, *args, **kwargs):
-        pass
 
-    @abc.abstractmethod
-    def delete(self, *args, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def update(self, *args, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def list(self, *args, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def describe(self, *args, **kwargs):
-        pass
+def __getattr__(name):
+    """
+    Lazy loader to avoid loading the plugins until a request
+    to use functions from this file
+    """
+    if not interface.plugin_store.has_plugins_loaded:
+        interface.plugin_store.register_entrypoints()
+    try:
+        return interface.__dict__[name]
+    except KeyError:
+        raise AttributeError(f"module {__name__} has no attribute {name}")

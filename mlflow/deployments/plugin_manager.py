@@ -3,7 +3,7 @@ import sys
 import abc
 
 import entrypoints
-from mlflow.deployments import BasePlugin
+from mlflow.deployments.base_plugin import BasePlugin
 
 
 if sys.version_info >= (3, 4):
@@ -28,7 +28,7 @@ class PluginManager(ABC):
     def __init__(self, group_name):
         self._registry = {}
         self.group_name = group_name
-        self._has_registered = None
+        self._has_plugins_loaded = None
 
     @abc.abstractmethod
     def __getitem__(self, item):
@@ -41,8 +41,8 @@ class PluginManager(ABC):
         return self._registry
 
     @property
-    def has_registered(self):
-        return self._has_registered
+    def has_plugins_loaded(self):
+        return self._has_plugins_loaded
 
     def register(self, scheme, store_builder):
         self._registry[scheme] = store_builder
@@ -59,7 +59,7 @@ class PluginManager(ABC):
                     ),
                     stacklevel=2
                 )
-        self._has_registered = True
+        self._has_plugins_loaded = True
 
 
 class DeploymentPlugins(PluginManager):

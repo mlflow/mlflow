@@ -5,7 +5,7 @@ from mlflow.deployments.utils import parse_custom_arguments
 
 
 deployment_target = click.option("--target", "-t", required=True, help="Deployment target")
-deployment_id = click.option("--id", "_deployment_id",required=True,
+deployment_id = click.option("--id", "_deployment_id", required=True,
                              help="Deployment ID for the deployment that needs to be deleted")
 context_settings = dict(allow_extra_args=True, ignore_unknown_options=True,)
 
@@ -22,7 +22,8 @@ def commands():
 
 @commands.command("create", context_settings=context_settings)
 @parse_custom_arguments
-@click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto inferred if it's not mentioned")
+@click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
+                                     "inferred if it's not given")
 @deployment_target
 @cli_args.MODEL_URI
 def create_cli(model_uri, target, flavor, **kwargs):
