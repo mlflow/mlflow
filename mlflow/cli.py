@@ -304,6 +304,9 @@ def gc(backend_store_uri, run_ids):
     This command deletes all artifacts and metadata associated with the specified runs.
     """
     backend_store = _get_store(backend_store_uri, None)
+    if not hasattr(backend_store, '_hard_delete_run'):
+        raise MlflowException(
+            "This cli can only be used with a backend that allows hard-deleting runs")
     if not run_ids:
         run_ids = backend_store._get_deleted_runs()
     else:
