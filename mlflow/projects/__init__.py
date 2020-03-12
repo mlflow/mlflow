@@ -803,7 +803,9 @@ def _get_docker_image_uri(repository_uri, work_dir):
 
 
 def _get_local_artifact_cmd_and_envs(active_run):
-    artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
+    artifact_repo = active_run
+    if type(active_run) is not str:
+        artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
     artifact_dir = artifact_repo.artifact_dir
     container_path = os.path.join(_MLFLOW_DOCKER_WORKDIR_PATH, 'mlruns')
     container_path = os.path.join(container_path, str(active_run.info.experiment_id))
@@ -882,7 +884,10 @@ _artifact_storages = {
 
 
 def _get_docker_artifact_storage_cmd_and_envs(active_run):
-    artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
+    artifact_uri = active_run
+    if type(active_run) is not str:
+        artifact_uri = active_run.info.artifact_uri
+    artifact_repo = get_artifact_repository(artifact_uri)
     _get_cmd_and_envs = _artifact_storages.get(type(artifact_repo))
     if _get_cmd_and_envs is not None:
         return _get_cmd_and_envs(active_run)
