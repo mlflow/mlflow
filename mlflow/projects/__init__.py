@@ -803,10 +803,10 @@ def _get_docker_image_uri(repository_uri, work_dir):
 
 
 def _get_local_artifact_cmd_and_envs(active_run):
-    artifact_repo = active_run
+    artifact_dir = active_run
     if type(active_run) is not str:
         artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
-    artifact_dir = artifact_repo.artifact_dir
+        artifact_dir = artifact_repo.artifact_dir
     container_path = os.path.join(_MLFLOW_DOCKER_WORKDIR_PATH, 'mlruns')
     container_path = os.path.join(container_path, str(active_run.info.experiment_id))
     container_path = os.path.join(container_path, str(active_run.info.run_id))
