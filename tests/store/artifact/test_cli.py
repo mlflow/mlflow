@@ -75,7 +75,6 @@ def test_download_from_uri():
             assert expected_result == actual_result
 
 
-@pytest.mark.notrackingurimock
 def test_download_artifacts_from_uri():
     with mlflow.start_run() as run:
         with TempDir() as tmp:

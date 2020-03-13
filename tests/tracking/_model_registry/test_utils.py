@@ -10,6 +10,11 @@ from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.tracking._model_registry.utils import _get_store
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 
+# Disable mocking tracking URI here, as we want to test setting the tracking URI via
+# environment variable. See
+# http://doc.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
+# and https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#writing-python-tests
+# for more information.
 pytestmark = pytest.mark.notrackingurimock
 
 
