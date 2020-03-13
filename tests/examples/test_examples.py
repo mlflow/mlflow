@@ -42,13 +42,7 @@ def test_mlflow_run_example(directory, params):
     ('remote_store', ['python', 'remote_server.py']),
     ('xgboost', ['python', 'train.py', '--colsample-bytree', '0.8', '--subsample', '0.9'])
 ])
-def test_command_example(tmpdir, directory, command):
-    os.environ['MLFLOW_TRACKING_URI'] = path_to_local_file_uri(str(tmpdir.join("mlruns")))
+def test_command_example(directory, command):
     cwd_dir = os.path.join(EXAMPLES_DIR, directory)
-
-    try:
-        process.exec_cmd(command,
-                         cwd=cwd_dir)
-    finally:
-        shutil.rmtree(str(tmpdir))
-        del os.environ['MLFLOW_TRACKING_URI']
+    process.exec_cmd(command,
+                     cwd=cwd_dir)
