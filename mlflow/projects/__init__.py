@@ -815,7 +815,7 @@ def _get_local_artifact_cmd_and_envs(active_run):
         container_path = _MLFLOW_DOCKER_ARTIFACTS_PATH
         container_path = os.path.normpath(container_path)
     if not os.path.isabs(artifact_dir):
-        artifact_dir = os.path.abspath(artifact_dir)  
+        artifact_dir = os.path.abspath(artifact_dir)
     return ["-v", "%s:%s" % (artifact_dir, container_path)], {}
 
 
