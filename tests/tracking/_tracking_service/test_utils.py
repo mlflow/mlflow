@@ -16,6 +16,11 @@ from mlflow.tracking._tracking_service.utils import _get_store, _TRACKING_URI_EN
 
 # pylint: disable=unused-argument
 
+# Disable mocking tracking URI here, as we want to test setting the tracking URI via
+# environment variable. See
+# http://doc.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
+# and https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#writing-python-tests
+# for more information.
 pytestmark = pytest.mark.notrackingurimock
 
 
