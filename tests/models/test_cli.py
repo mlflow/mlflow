@@ -245,7 +245,6 @@ def test_predict(iris_data, sk_model):
         assert all(expected == actual)
 
 
-@pytest.mark.notrackingurimock
 def test_prepare_env_passes(sk_model):
     if no_conda:
         pytest.skip("This test requires conda.")
@@ -271,7 +270,6 @@ def test_prepare_env_passes(sk_model):
         assert p.wait() == 0
 
 
-@pytest.mark.notrackingurimock
 def test_prepare_env_fails(sk_model):
     if no_conda:
         pytest.skip("This test requires conda.")
@@ -293,7 +291,6 @@ def test_prepare_env_fails(sk_model):
 
 
 @pytest.mark.large
-@pytest.mark.notrackingurimock
 def test_build_docker(iris_data, sk_model):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
@@ -307,7 +304,6 @@ def test_build_docker(iris_data, sk_model):
 
 
 @pytest.mark.large
-@pytest.mark.notrackingurimock
 def test_build_docker_with_env_override(iris_data, sk_model):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
