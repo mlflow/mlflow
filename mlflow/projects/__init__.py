@@ -803,14 +803,18 @@ def _get_docker_image_uri(repository_uri, work_dir):
 
 
 def _get_local_artifact_cmd_and_envs(active_run):
+    # if type str was passed (e.g. "s3://my_bucket") instead of active run
+    # currently happening only while testing.
+    # TODO: remove ifs when tests/projects/test_docker_projects has been updated
     artifact_dir = active_run
+    # for the standard case then active_run = Active_Run Object
     if type(active_run) is not str:
         artifact_repo = get_artifact_repository(active_run.info.artifact_uri)
         artifact_dir = artifact_repo.artifact_dir
-    container_path = os.path.join(_MLFLOW_DOCKER_WORKDIR_PATH, 'mlruns')
-    container_path = os.path.join(container_path, str(active_run.info.experiment_id))
-    container_path = os.path.join(container_path, str(active_run.info.run_id))
-    container_path = os.path.normpath(container_path)
+        container_path = os.path.join(_MLFLOW_DOCKER_TRACKING_DIR_PATH, 'mlruns')
+        container_path = os.path.join(container_path, str(active_run.info.experiment_id))
+        container_path = os.path.join(container_path, str(active_run.info.run_id))
+        container_path = os.path.normpath(container_path)
     abs_artifact_dir = os.path.abspath(artifact_dir)
     return ["-v", "%s:%s" % (abs_artifact_dir, container_path)], {}
 
