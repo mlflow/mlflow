@@ -3,7 +3,6 @@ import os
 import posixpath
 
 from mock import mock
-import pytest
 
 import mlflow
 import mlflow.pyfunc
