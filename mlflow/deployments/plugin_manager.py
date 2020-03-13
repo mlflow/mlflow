@@ -44,8 +44,8 @@ class PluginManager(ABC):
     def has_plugins_loaded(self):
         return self._has_plugins_loaded
 
-    def register(self, scheme, store_builder):
-        self._registry[scheme] = store_builder
+    def register(self, scheme, plugin_object):
+        self._registry[scheme] = plugin_object
 
     def register_entrypoints(self):
         for entrypoint in entrypoints.get_group_all(self.group_name):
