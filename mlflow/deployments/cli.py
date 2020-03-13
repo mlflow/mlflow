@@ -13,7 +13,15 @@ context_settings = dict(allow_extra_args=True, ignore_unknown_options=True,)
 @click.group("deployments")
 def commands():
     """
-    Deploy MLflow models using deployment plugin. It requires user to install the plugin
+    """
+    Deploy MLflow models. 
+    
+    MLflow provides builtin support for deployment to supported_targets. 
+    Support for other targets is available via MLflow plugins - see
+    https://mlflow.org/docs/latest/plugins.html#community-plugins for a list of supported plugins, and
+    https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins for instructions on
+    writing and distributing your own plugin.
+    """.format(targets=", ".join(supported_targets))
     before invoking this command. This function also inititate the plugin registeration
     which helps in defering the plugin initialization
     """
