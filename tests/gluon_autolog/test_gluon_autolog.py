@@ -15,9 +15,6 @@ from mxnet.metric import Accuracy
 import mlflow
 import mlflow.gluon
 
-pytestmark = pytest.mark.notrackingurimock
-client = mlflow.tracking.MlflowClient()
-
 
 class LogsDataset(Dataset):
     def __init__(self):
@@ -52,7 +49,7 @@ def gluon_random_data_run():
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             est.fit(data, epochs=3, val_data=validation)
-
+    client = mlflow.tracking.MlflowClient()
     return client.get_run(run.info.run_id)
 
 
@@ -71,6 +68,7 @@ def test_gluon_autolog_logs_expected_data(gluon_random_data_run):
 
 @pytest.mark.large
 def test_gluon_autolog_model_can_load_from_artifact(gluon_random_data_run):
+    client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(gluon_random_data_run.info.run_id)
     artifacts = list(map(lambda x: x.path, artifacts))
     assert "model" in artifacts
