@@ -72,8 +72,8 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=Model()):
 
     path = os.path.abspath(path)
     if os.path.exists(path):
-        raise MlflowException("Unable to save MLflow model to {path} - path '{path}' "
-                              "already exists".format(path))
+        raise MlflowException(f"Unable to save MLflow model to {path} - path '{path}' "
+                              "already exists")
 
     model_data_subpath = "model.spacy"
     model_data_path = os.path.join(path, model_data_subpath)
