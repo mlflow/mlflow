@@ -209,7 +209,7 @@ export class ModelView extends React.Component {
             activeStageOnly={stageFilter === Stages.ACTIVE}
             modelName={modelName}
             modelVersions={modelVersions}
-            rowSelection={this.createRowSelection()}
+            rowSelection={this.createRowSelection}
           />
         </CollapsibleSection>
 
