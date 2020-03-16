@@ -18,7 +18,8 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
-    DeleteTag, SetExperimentTag, GetExperimentByName, LogModel
+    DeleteTag, SetExperimentTag, GetExperimentByName, UpdateArtifactsLocation, GetVcsRegex, \
+    GetVcsUrl, LogModel
 from mlflow.protos.model_registry_pb2 import ModelRegistryService, CreateRegisteredModel, \
     UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModel, \
     GetLatestVersions, CreateModelVersion, UpdateModelVersion, DeleteModelVersion, \
@@ -448,6 +449,17 @@ def _get_artifact_repo(run):
 
 
 @catch_mlflow_exception
+def _updateArtifactsLocation():
+    request_message = _get_request_message(UpdateArtifactsLocation())
+    _get_tracking_store().update_artifacts_location(
+        request_message.run_id, request_message.new_artifacts_location)
+    response_message = UpdateArtifactsLocation.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _log_batch():
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(LogBatch())
@@ -630,6 +642,23 @@ def _search_model_versions():
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+def _get_vcs_regex():
+    response_message = GetVcsRegex.Response(vcs_regex=os.getenv("MLFLOW_PRIVATE_VCS_REGEX"))
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+def _get_vcs_url():
+    request_message = _get_request_message(GetVcsUrl())
+    url = None
+    if request_message.HasField("type"):
+        url = os.getenv("MLFLOW_PRIVATE_VCS_{}_URL".format(request_message.type.upper()))
+
+    response_message = GetVcsUrl.Response(vcs_url=url)
+    return _wrap_response(response_message)
+
+
 def _add_static_prefix(route):
     prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
     if prefix:
@@ -696,6 +725,9 @@ HANDLERS = {
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
     ListExperiments: _list_experiments,
+    UpdateArtifactsLocation: _updateArtifactsLocation,
+    GetVcsRegex: _get_vcs_regex,
+    GetVcsUrl: _get_vcs_url,
 
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,

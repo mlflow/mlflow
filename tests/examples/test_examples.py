@@ -27,9 +27,13 @@ EXAMPLES_DIR = 'examples'
     (os.path.join('tensorflow', 'tf1'), ['-P', 'steps=10']),
     ('xgboost', ['-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9'])
 ])
-def test_mlflow_run_example(directory, params):
-    cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params
-    invoke_cli_runner(cli.run, cli_run_list)
+def test_mlflow_run_example(tmpdir, directory, params):
+    os.environ['MLFLOW_TRACKING_URI'] = path_to_local_file_uri(str(tmpdir.join("mlruns")))
+    try:
+        cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params
+        invoke_cli_runner(cli.run, cli_run_list)
+    finally:
+        del os.environ['MLFLOW_TRACKING_URI']
 
 
 @pytest.mark.large

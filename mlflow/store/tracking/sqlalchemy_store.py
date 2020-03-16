@@ -634,6 +634,7 @@ class SqlAlchemyStore(AbstractStore):
             query = session.query(SqlRun)
             for j in _get_sqlalchemy_filter_clauses(parsed_filters, session):
                 query = query.join(j)
+
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
             # do not have a value for this column (which is what inner join would do)
@@ -690,6 +691,19 @@ class SqlAlchemyStore(AbstractStore):
             _validate_tag(MLFLOW_LOGGED_MODELS, value)
             session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
 
+    def update_artifacts_location(self, run_id, new_artifacts_location):
+        """
+        Update the location of artifacts for the specified run
+
+        :param run_id: String id for the run
+        :param new_artifact_location: String new artifact location
+
+        :return: None
+        """
+        with self.ManagedSessionMaker() as session:
+            run = session.query(SqlRun).filter_by(run_uuid=run_id).first()
+            run.artifact_uri = new_artifacts_location
+
 
 def _get_attributes_filtering_clauses(parsed):
     clauses = []
@@ -697,14 +711,16 @@ def _get_attributes_filtering_clauses(parsed):
         key_type = sql_statement.get('type')
         key_name = sql_statement.get('key')
         value = sql_statement.get('value')
-        comparator = sql_statement.get('comparator')
+        comparator = sql_statement.get('comparator').lower()
         if SearchUtils.is_attribute(key_type, comparator):
-            # validity of the comparator is checked in SearchUtils.parse_search_filter()
-            op = SearchUtils.filter_ops.get(comparator)
-            if op:
-                # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
-                # by the call to parse_search_filter
-                attribute_name = SqlRun.get_attribute_name(key_name)
+            # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
+            # by the call to parse_search_filter
+            attribute_name = SqlRun.get_attribute_name(key_name)
+            if comparator in ['like', 'ilike']:
+                op = SearchUtils.get_sql_filter_ops(getattr(SqlRun, attribute_name), comparator)
+                clauses.append(op(value))
+            elif comparator in SearchUtils.filter_ops:
+                op = SearchUtils.filter_ops.get(comparator)
                 clauses.append(op(getattr(SqlRun, attribute_name), value))
     return clauses
 
@@ -713,7 +729,7 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
     key_type = sql_statement.get('type')
     key_name = sql_statement.get('key')
     value = sql_statement.get('value')
-    comparator = sql_statement.get('comparator')
+    comparator = sql_statement.get('comparator').lower()
 
     if SearchUtils.is_metric(key_type, comparator):
         entity = SqlLatestMetric
@@ -728,9 +744,16 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         raise MlflowException("Invalid search expression type '%s'" % key_type,
                               error_code=INVALID_PARAMETER_VALUE)
 
-    # validity of the comparator is checked in SearchUtils.parse_search_filter()
-    op = SearchUtils.filter_ops.get(comparator)
-    if op:
+    if comparator in ['like', 'ilike']:
+        op = SearchUtils.get_sql_filter_ops(entity.value, comparator)
+        return (
+            session
+            .query(entity)
+            .filter(entity.key == key_name, op(value))
+            .subquery()
+        )
+    elif comparator in SearchUtils.filter_ops:
+        op = SearchUtils.filter_ops.get(comparator)
         return (
             session
             .query(entity)
