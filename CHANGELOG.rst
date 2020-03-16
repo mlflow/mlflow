@@ -1,5 +1,55 @@
 Changelog
 =========
+1.7.0.post0 (2020-03-12)
+------------------------
+MLflow 1.7.0.post0 is identical to MLflow 1.7.0, but republished using twine as recommended by
+`official Python documentation <https://packaging.python.org/guides/dropping-older-python-versions/>`_,
+in order to facilitate dropping Python 2 support in MLflow 1.8.0.
+
+1.7.0 (2020-03-02)
+------------------
+MLflow 1.7.0 includes several major features and improvements, and some notable breaking changes:
+
+MLflow support for Python 2 is now deprecated and will be dropped in a future release. At that
+point, existing Python 2 workflows that use MLflow will continue to work without modification, but
+Python 2 users will no longer get access to the latest MLflow features and bugfixes. We recommend
+that you upgrade to Python 3 - see  https://docs.python.org/3/howto/pyporting.html for a migration
+guide.
+
+Breaking changes to Model Registry REST APIs:
+
+Model Registry REST APIs have been updated to be more consistent with the other MLflow APIs. With
+this release Model Registry APIs are intended to be stable until the next major version.
+
+- Python and Java client APIs for Model Registry have been updated to use the new REST APIs. When using an MLflow client with a server using updated REST endpoints, you won't need to change any code but will need to upgrade to a new client version. The client APIs contain deprecated arguments, which for this release are backward compatible, but will be dropped in future releases. (#2457, @tomasatdatabricks; #2502, @mparkhe).
+- The Model Registry UI has been updated to use the new REST APIs (#2476 @aarondav; #2507, @mparkhe)
+
+
+Other Features:
+
+- Ability to click through to individual runs from metrics plot (#2295, @harupy)
+- Added ``mlflow gc`` CLI for permanent deletion of runs (#2265, @t-henri)
+- Metric plot state is now captured in page URLs for easier link sharing (#2393, #2408, #2498 @smurching; #2459, @harupy)
+- Added experiment management to MLflow UI (create/rename/delete experiments) (#2348, @ggliem)
+- Ability to search for experiments by name in the UI (#2324, @ggliem)
+- MLflow UI page titles now reflect the content displayed on the page (#2420, @AveshCSingh)
+- Added a new ``LogModel`` REST API endpoint for capturing model metadata, and call it from the Python and R clients (#2369, #2430, #2468 @tomasatdatabricks)
+- Java Client API to download model artifacts from Model Registry (#2308, @andychow-db)
+
+Bug fixes and documentation updates:
+
+- Updated Model Registry documentation page with code snippets and examples (#2493, @dmatrix; #2517, @harupy)
+- Better error message for Model Registry, when using incompatible backend server (#2456, @aarondav)
+- matplotlib is no longer required to use XGBoost and LightGBM autologging (#2423, @harupy)
+- Fixed bug where matplotlib figures were not closed in XGBoost and LightGBM autologging (#2386, @harupy)
+- Fixed parameter reading logic to support param values with newlines in FileStore (#2376, @dbczumar)
+- Improve readability of run table column selector nodes (#2388, @dbczumar)
+- Validate experiment name supplied to ``UpdateExperiment`` REST API endpoint (#2357, @ggliem)
+- Fixed broken MLflow DB README link in CLI docs (#2377, @dbczumar)
+- Change copyright year across docs to 2020 (#2349, @ParseThis)
+
+Small bug fixes and doc updates (#2378, #2449, #2402, #2397, #2391, #2387, #2523, #2527 @harupy; #2314, @juntai-zheng; #2404, @andychow-db; #2343, @pogil; #2366, #2370, #2364, #2356, @AveshCSingh; #2373, #2365, #2363, @smurching; #2358, @jcuquemelle; #2490, @RensDimmendaal; #2506, @dbczumar; #2234 @Zangr; #2359 @lbernickm; #2525, @mparkhe)
+
 1.6.0 (2020-01-29)
 -----------------------
 MLflow 1.6.0 includes several new features, including a better runs table interface, a utility for easier parameter tuning, and automatic logging from XGBoost, LightGBM, and Spark. It also implements a long-awaited fix allowing @ symbols in database URLs. A complete list is below:
@@ -240,7 +290,7 @@ Major features, improvements, and breaking changes
 - Windows support for MLflow Tracking. The Tracking portion of the MLflow client is now supported on Windows. (#1171, @eedeleon, @tomasatdatabricks)
 - HDFS support for artifacts. Hadoop artifact repository with Kerberos authorization support was added, so you can use HDFS to log and retrieve models and other artifacts. (#1011, @jaroslawk)
 - CLI command to build Docker images for serving. Added an ``mlflow models build-docker`` CLI command for building a Docker image capable of serving an MLflow model. The model is served at port 8080 within the container by default. Note that this API is experimental and does not guarantee that the arguments nor format of the Docker container will remain the same. (#1329, @smurching, @tomasatdatabricks)
-- New ``onnx`` model flavor for saving, loading, and evaluating ONNX models with MLflow. ONNX flavor APIs are available in the ``mlflow.onnx`` module. (#1127, @avflor, @dbczumar; #1388, @dbczumar)
+- New ``onnx`` model flavor for saving, loading, and evaluating ONNX models with MLflow. ONNX flavor APIs are available in the ``mlflow.onnx`` module. (#1127, @avflor, @dbczumar; #1388, #1389, @dbczumar)
 - Major breaking changes:
 
   - Some of the breaking changes involve database schema changes in the SQLAlchemy tracking store. If your database instance's schema is not up-to-date, MLflow will issue an error at the start-up of ``mlflow server`` or ``mlflow ui``. To migrate an existing database to the newest schema, you can use the ``mlflow db upgrade`` CLI command. (#1155, #1371, @smurching; #1360, @aarondav)
@@ -322,8 +372,8 @@ More features and improvements
 - [Artifacts] To avoid having many copies of large model files in serving, ``ArtifactRepository.download_artifacts`` no longer copies local artifacts (#1307, @andrewmchen; #1383, @dbczumar)
 - [Artifacts][Projects] Support GCS in download utilities. ``gs://bucket/path`` files are now supported by the ``mlflow artifacts download`` CLI command and as parameters of type ``path`` in MLProject files. (#1168, @drewmcdonald)
 - [Models] All Python models exported by MLflow now declare ``mlflow`` as a dependency by default. In addition, we introduce a flag ``--install-mlflow`` users can pass to ``mlflow models serve`` and ``mlflow models predict`` methods to force installation of the latest version of MLflow into the model's environment. (#1308, @tomasatdatabricks)
-- [Models] Update model flavors to lazily import dependencies in Python. Modules that define Model flavors now import extra dependencies such as ``tensorflow``, ``scikit-learn``, and ``pytorch`` inside individual _methods_, ensuring that these modules can be imported and explored even if the dependencies have not been installed on your system. Also, the ``DEFAULT_CONDA_ENVIRONMENT`` module variable has been replaced with a ``get_default_conda_env()`` function for each flavor.
-- [Models] It is now possible to pass extra arguments to ``mlflow.keras.load_model`` that will be passed through to ``keras.load_model``. (#1330, @@yorickvP)
+- [Models] Update model flavors to lazily import dependencies in Python. Modules that define Model flavors now import extra dependencies such as ``tensorflow``, ``scikit-learn``, and ``pytorch`` inside individual _methods_, ensuring that these modules can be imported and explored even if the dependencies have not been installed on your system. Also, the ``DEFAULT_CONDA_ENVIRONMENT`` module variable has been replaced with a ``get_default_conda_env()`` function for each flavor.  (#1238, @dbczumar)
+- [Models] It is now possible to pass extra arguments to ``mlflow.keras.load_model`` that will be passed through to ``keras.load_model``. (#1330, @yorickvP)
 - [Serving] For better performance, switch to ``gunicorn`` for serving Python models. This does not change the user interface. (#1322, @tomasatdatabricks)
 - [Deployment] For SageMaker, use the uniquely-generated model name as the S3 bucket prefix instead of requiring one. (#1183, @dbczumar)
 - [REST API] Add support for API paths without the ``preview`` component. The ``preview`` paths will be deprecated in a future version of MLflow. (#1236, @mparkhe)

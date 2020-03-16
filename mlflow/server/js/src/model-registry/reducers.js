@@ -76,11 +76,10 @@ const modelVersionsByModel = (state = {}, action) => {
       }, { ...state });
     }
     case fulfilled(DELETE_MODEL_VERSION): {
-      const { modelVersion } = action.meta;
-      const { name } = modelVersion.registered_model;
-      const modelVersionByVersion = state[name];
+      const { modelName, version } = action.meta;
+      const modelVersionByVersion = state[modelName];
       return {
-        [name]: _.omit(modelVersionByVersion, modelVersion.version),
+        [modelName]: _.omit(modelVersionByVersion, version),
       };
     }
     case fulfilled(DELETE_REGISTERED_MODEL): {
