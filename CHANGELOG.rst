@@ -1,5 +1,11 @@
 Changelog
 =========
+1.7.0.post0 (2020-03-12)
+------------------------
+MLflow 1.7.0.post0 is identical to MLflow 1.7.0, but republished using twine as recommended by
+`official Python documentation <https://packaging.python.org/guides/dropping-older-python-versions/>`_,
+in order to facilitate dropping Python 2 support in MLflow 1.8.0.
+
 1.7.0 (2020-03-02)
 ------------------
 MLflow 1.7.0 includes several major features and improvements, and some notable breaking changes:
