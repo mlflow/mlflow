@@ -2,22 +2,24 @@
 The ``mlflow.fastai`` module provides an API for logging and loading fast.ai models. This module
 exports fast.ai models with the following flavors:
 
-Keras (native) format
-    This is the main flavor that can be loaded back into Keras.
+fastai (native) format
+    This is the main flavor that can be loaded back into fastai.
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
+
+.. _fastai.Learner:
+    https://docs.fast.ai/basic_train.html#Learner
+.. _fastai.Learner.export:
+    https://docs.fast.ai/basic_train.html#Learner.export
 """
 
 from __future__ import absolute_import
 
-import importlib
 import os
 import yaml
 import gorilla
 import tempfile
 import shutil
-
-import pandas as pd
 
 from distutils.version import LooseVersion
 from mlflow import pyfunc
@@ -32,9 +34,6 @@ from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
 
 FLAVOR_NAME = "fastai"
-_MODEL_SAVE_PATH = "model.h5"
-# Conda env subpath when saving/loading model
-_CONDA_ENV_SUBPATH = "conda.yaml"
 
 
 def get_default_conda_env(include_cloudpickle=False):
@@ -153,8 +152,9 @@ class _FastaiModelWrapper:
         self.learner = learner
 
     def predict(self, dataframe):
+        # TODO
         from fastai.basic_train import Learner
-        return self.xgb_model.predict(xgb.DMatrix(dataframe))
+        return dataframe
 
 
 def _load_pyfunc(path):
@@ -192,12 +192,12 @@ def load_model(model_uri):
 @experimental
 def autolog():
     """
-    Enable automatic logging from Keras to MLflow.
+    Enable automatic logging from Fastai to MLflow.
     Logs loss and any other metrics specified in the fit
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
 
-    EarlyStopping Integration with Keras Automatic Logging
+    EarlyStopping Integration with Fastai Automatic Logging
 
     MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()``/``fit_generator()``
     call, and if the ``restore_best_weights`` parameter is set to be ``True``, then MLflow will
@@ -217,31 +217,47 @@ def autolog():
     MLflow will also log the parameters of the EarlyStopping callback,
     excluding ``mode`` and ``verbose``.
     """
-    import keras
+    from fastai.basic_train import LearnerCallback, Learner
+    from fastai.callbacks.hooks import model_summary, layers_info
+    from fastai.callbacks import EarlyStoppingCallback, OneCycleScheduler
 
-    class __MLflowKerasCallback(keras.callbacks.Callback):
+    class __MLflowFastaiCallback(LearnerCallback):
         """
         Callback for auto-logging metrics and parameters.
         Records available logs after each epoch.
         Records model structural information as params when training begins
         """
-        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-            try_mlflow_log(mlflow.log_param, 'num_layers', len(self.model.layers))
-            try_mlflow_log(mlflow.log_param, 'optimizer_name', type(self.model.optimizer).__name__)
-            if hasattr(self.model.optimizer, 'lr'):
-                lr = self.model.optimizer.lr if \
-                    type(self.model.optimizer.lr) is float \
-                    else keras.backend.eval(self.model.optimizer.lr)
-                try_mlflow_log(mlflow.log_param, 'learning_rate', lr)
-            if hasattr(self.model.optimizer, 'epsilon'):
-                epsilon = self.model.optimizer.epsilon if \
-                    type(self.model.optimizer.epsilon) is float \
-                    else keras.backend.eval(self.model.optimizer.epsilon)
-                try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
+        def __init__(self, learner):
+            super().__init__(learner)
+            self.learner = learner
+            self.opt = self.learn.opt
+            self.metrics_names = ['train_loss', 'valid_loss'] + [o.__name__ for o in learner.metrics]
 
-            sum_list = []
-            self.model.summary(print_fn=sum_list.append)
-            summary = '\n'.join(sum_list)
+        def on_epoch_end(self, epoch, **kwargs):
+            """
+            Log loss and other metrics values after each epoch
+            """
+            if kwargs['smooth_loss'] is None or kwargs["last_metrics"] is None:
+                return
+            metrics = [kwargs['smooth_loss']] + kwargs["last_metrics"]
+            metrics = map(float, metrics)
+            metrics = dict(zip(self.metrics_names, metrics))
+            try_mlflow_log(mlflow.log_metrics, metrics, step=epoch)
+
+        def on_train_begin(self):
+            info = layers_info(self.learner)
+            try_mlflow_log(mlflow.log_param, 'num_layers', len(info))
+            try_mlflow_log(mlflow.log_param, 'optimizer_name', type(self.opt).__name__)
+
+            # TODO: Log all opt params
+
+            if hasattr(self.opt, 'lr'):
+                try_mlflow_log(mlflow.log_param, 'learning_rate', self.opt.lr)
+
+            if hasattr(self.opt, 'mom'):
+                try_mlflow_log(mlflow.log_param, 'momentum', self.opt.mom)
+
+            summary = model_summary(self.learner)
             try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
 
             tempdir = tempfile.mkdtemp()
@@ -253,60 +269,38 @@ def autolog():
             finally:
                 shutil.rmtree(tempdir)
 
-        def on_epoch_end(self, epoch, logs=None):
-            if not logs:
-                return
-            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
-
         def on_train_end(self, logs=None):
             try_mlflow_log(log_model, self.model, artifact_path='model')
 
-    def _early_stop_check(callbacks):
-        if LooseVersion(keras.__version__) < LooseVersion('2.3.0'):
-            es_callback = keras.callbacks.EarlyStopping
-        else:
-            es_callback = keras.callbacks.callbacks.EarlyStopping
+    def _find_callback_of_type(callback_type, callbacks):
         for callback in callbacks:
-            if isinstance(callback, es_callback):
+            if isinstance(callback, callback_type):
                 return callback
         return None
 
     def _log_early_stop_callback_params(callback):
         if callback:
             try:
-                earlystopping_params = {'monitor': callback.monitor,
-                                        'min_delta': callback.min_delta,
-                                        'patience': callback.patience,
-                                        'baseline': callback.baseline,
-                                        'restore_best_weights': callback.restore_best_weights}
+                earlystopping_params = {'early_stop_monitor': callback.monitor,
+                                        'early_stop_min_delta': callback.min_delta,
+                                        'early_stop_patience': callback.patience,
+                                        'early_stop_mode': callback.mode}
                 try_mlflow_log(mlflow.log_params, earlystopping_params)
             except Exception:  # pylint: disable=W0703
                 return
 
-    def _get_early_stop_callback_attrs(callback):
-        try:
-            return callback.stopped_epoch, callback.restore_best_weights, callback.patience
-        except Exception:  # pylint: disable=W0703
-            return None
-
-    def _log_early_stop_callback_metrics(callback, history):
+    def _log_one_cycle_callback_params(callback):
         if callback:
-            callback_attrs = _get_early_stop_callback_attrs(callback)
-            if callback_attrs is None:
+            try:
+                params = {
+                    'one_cycle_l_max': callback.lr_max,
+                    'one_cycle_div_factor': callback.div_factor,
+                    'one_cycle_pct_start': callback.pct_start,
+                    'one_cycle_final_div': callback.final_div
+                }
+                try_mlflow_log(mlflow.log_params, params)
+            except Exception:  # pylint: disable=W0703
                 return
-            stopped_epoch, restore_best_weights, patience = callback_attrs
-            try_mlflow_log(mlflow.log_metric, 'stopped_epoch', stopped_epoch)
-            # Weights are restored only if early stopping occurs
-            if stopped_epoch != 0 and restore_best_weights:
-                restored_epoch = stopped_epoch - max(1, patience)
-                try_mlflow_log(mlflow.log_metric, 'restored_epoch', restored_epoch)
-                restored_metrics = {key: history.history[key][restored_epoch]
-                                    for key in history.history.keys()}
-                # Checking that a metric history exists
-                metric_key = next(iter(history.history), None)
-                if metric_key is not None:
-                    last_epoch = len(history.history[metric_key])
-                    try_mlflow_log(mlflow.log_metrics, restored_metrics, step=last_epoch)
 
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, callback_arg_index):
         if not mlflow.active_run():
@@ -316,43 +310,46 @@ def autolog():
             auto_end_run = False
 
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
-        early_stop_callback = None
+
+        callbacks = []
 
         # Checking if the 'callback' argument of the function is set
         if len(args) > callback_arg_index:
             tmp_list = list(args)
-            early_stop_callback = _early_stop_check(tmp_list[callback_arg_index])
-            tmp_list[callback_arg_index] += [__MLflowKerasCallback()]
+            callbacks = [cb(self) for cb in self.callback_fns] + list(args[callback_arg_index])
+            tmp_list[callback_arg_index] += [__MLflowFastaiCallback(self)]
             args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
-            early_stop_callback = _early_stop_check(kwargs['callbacks'])
-            kwargs['callbacks'] += [__MLflowKerasCallback()]
+            callbacks = [cb(self) for cb in self.callback_fns] + list(kwargs['callbacks'])
+            kwargs['callbacks'] += [__MLflowFastaiCallback(self)]
         else:
-            kwargs['callbacks'] = [__MLflowKerasCallback()]
+            kwargs['callbacks'] = [__MLflowFastaiCallback(self)]
 
+        early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, callbacks)
+        one_cycle_callback = _find_callback_of_type(OneCycleScheduler, callbacks)
+
+        _log_one_cycle_callback_params(one_cycle_callback)
         _log_early_stop_callback_params(early_stop_callback)
 
-        history = original(self, *args, **kwargs)
-
-        _log_early_stop_callback_metrics(early_stop_callback, history)
+        result = original(self, *args, **kwargs)
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
 
-        return history
+        return result
 
-    @gorilla.patch(keras.Model)
+    @gorilla.patch(Learner)
     def fit(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(keras.Model, 'fit')
-        unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data', 'verbose']
-        return _run_and_log_function(self, original, args, kwargs, unlogged_params, 5)
+        original = gorilla.get_original_attribute(Learner, 'fit')
+        unlogged_params = ['self', 'callbacks']
+        return _run_and_log_function(self, original, args, kwargs, unlogged_params, 3)
 
-    @gorilla.patch(keras.Model)
-    def fit_generator(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
-        unlogged_params = ['self', 'generator', 'callbacks', 'validation_data', 'verbose']
-        return _run_and_log_function(self, original, args, kwargs, unlogged_params, 4)
+    @gorilla.patch(Learner)
+    def fit_one_cycle(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(Learner, 'fit_one_cycle')
+        unlogged_params = ['self', 'callbacks']
+        return _run_and_log_function(self, original, args, kwargs, unlogged_params, 7)
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    gorilla.apply(gorilla.Patch(keras.Model, 'fit', fit, settings=settings))
-    gorilla.apply(gorilla.Patch(keras.Model, 'fit_generator', fit_generator, settings=settings))
+    gorilla.apply(gorilla.Patch(Learner, 'fit', fit, settings=settings))
+    gorilla.apply(gorilla.Patch(Learner, 'fit_one_cycle', fit_one_cycle, settings=settings))
