@@ -124,6 +124,7 @@ For this method, you will need the ``run_id`` as part of the ``runs:URI`` argume
         "runs:/d16076a3ec534311817565e6527539c0/artifacts/sklearn-model",
         "sk-learn-random-forest-reg"
     )
+
 If a registered model with the name doesn’t exist, the method registers a new model, creates Version 1, and returns a ModelVersion MLflow object.
 If a registered model with the name exists already, the method creates a new model version and returns the version object.
 
