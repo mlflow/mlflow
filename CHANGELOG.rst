@@ -1,10 +1,12 @@
 Changelog
 =========
-1.7.0.post0 (2020-03-12)
+1.7.1 (2020-03-17)
 ------------------------
-MLflow 1.7.0.post0 is identical to MLflow 1.7.0, but republished using twine as recommended by
-`official Python documentation <https://packaging.python.org/guides/dropping-older-python-versions/>`_,
-in order to facilitate dropping Python 2 support in MLflow 1.8.0.
+MLflow 1.7.1 is a patch release containing bug fixes and documentation updates:
+
+- Remove usage of Nonnull annotations and findbugs dependency in Java package (#2583, @mparkhe)
+- 
+
 
 1.7.0 (2020-03-02)
 ------------------
