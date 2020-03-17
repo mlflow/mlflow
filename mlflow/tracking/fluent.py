@@ -12,6 +12,7 @@ import time
 import logging
 import numpy as np
 import pandas as pd
+import uuid
 
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -21,7 +22,7 @@ from mlflow.tracking import artifact_utils
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME, MLFLOW_ROOT_RUN_ID
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -145,6 +146,13 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if run_name is not None:
             user_specified_tags[MLFLOW_RUN_NAME] = run_name
+
+        if _active_run_stack:
+            user_specified_tags[MLFLOW_ROOT_RUN_ID] = _active_run_stack[0].data.tags[MLFLOW_ROOT_RUN_ID]
+        else:
+            user_specified_tags[MLFLOW_ROOT_RUN_ID] = uuid.uuid4().hex
+
+
 
         tags = context_registry.resolve_tags(user_specified_tags)
 
