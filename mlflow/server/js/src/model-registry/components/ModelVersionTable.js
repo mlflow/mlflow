@@ -22,7 +22,7 @@ export class ModelVersionTable extends React.Component {
     modelName: PropTypes.string.isRequired,
     modelVersions: PropTypes.array.isRequired,
     activeStageOnly: PropTypes.bool,
-    rowSelection: PropTypes.func.isRequired,
+    onChange: PropTypes.func.isRequired,
   };
 
   static defaultProps = {
@@ -87,7 +87,7 @@ export class ModelVersionTable extends React.Component {
         dataSource={versions}
         columns={this.getColumns()}
         locale={{ emptyText: 'No model version.' }}
-        rowSelection={this.props.rowSelection()}
+        rowSelection={{onChange: this.props.onChange}}
       />
     );
   }

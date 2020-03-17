@@ -117,21 +117,16 @@ export class ModelView extends React.Component {
       });
   };
 
-  // rowSelection object indicates the need for row selection
-  createRowSelection = () => {
-    return {
-      onChange: (selectedRowKeys, selectedRows) => {
-        const newState = Object.assign({}, this.state);
-        newState.runsSelected = {};
-        selectedRows.forEach((row) => {
-          newState.runsSelected = {
-            ...newState.runsSelected,
-            [row.run_id]: row.version,
-          };
-        });
-        this.setState(newState);
-      },
-    };
+  onChange = (selectedRowKeys, selectedRows) => {
+    const newState = Object.assign({}, this.state);
+    newState.runsSelected = {};
+    selectedRows.forEach((row) => {
+      newState.runsSelected = {
+        ...newState.runsSelected,
+        [row.run_id]: row.version,
+      };
+    });
+    this.setState(newState);
   };
 
   onCompare() {
@@ -209,7 +204,7 @@ export class ModelView extends React.Component {
             activeStageOnly={stageFilter === Stages.ACTIVE}
             modelName={modelName}
             modelVersions={modelVersions}
-            rowSelection={this.createRowSelection}
+            onChange={this.onChange}
           />
         </CollapsibleSection>
 
