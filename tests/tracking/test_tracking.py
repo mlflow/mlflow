@@ -19,7 +19,7 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
-    MLFLOW_SOURCE_TYPE
+    MLFLOW_SOURCE_TYPE, MLFLOW_ROOT_RUN_ID
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
 
@@ -521,6 +521,23 @@ def test_parent_create_run():
     verify_has_parent_id_tag(child_run.info.run_id, parent_run.info.run_id)
     verify_has_parent_id_tag(grand_child_run.info.run_id, child_run.info.run_id)
     assert mlflow.active_run() is None
+
+def test_rootID_is_passed_to_all_descandants():
+    with mlflow.start_run() as parent_run:
+        with mlflow.start_run(nested=True) as child_run:
+            with mlflow.start_run(nested=True) as grand_child_run:
+                pass
+
+    def verify_root_id_tag_is_passed_to_descendants(descendants_id, root_id):
+        root_tags = tracking.MlflowClient().get_run(root_id).data.tags
+        descendants_tags = tracking.MlflowClient().get_run(descendants_id).data.tags
+        assert descendants_tags[MLFLOW_ROOT_RUN_ID] == root_tags[MLFLOW_ROOT_RUN_ID]
+
+    verify_root_id_tag_is_passed_to_descendants(child_run.info.run_id, parent_run.info.run_id)
+    verify_root_id_tag_is_passed_to_descendants(grand_child_run.info.run_id, parent_run.info.run_id)
+    verify_root_id_tag_is_passed_to_descendants(grand_child_run.info.run_id, child_run.info.run_id)
+    assert mlflow.active_run() is None
+
 
 
 def test_start_deleted_run():
