@@ -529,13 +529,17 @@ def test_rootID_is_passed_to_all_descandants():
                 pass
 
     def verify_root_id_tag_is_passed_to_descendants(descendants_id, root_id):
-        root_tags = tracking.MlflowClient().get_run(root_id).data.tags
         descendants_tags = tracking.MlflowClient().get_run(descendants_id).data.tags
-        assert descendants_tags[MLFLOW_ROOT_RUN_ID] == root_tags[MLFLOW_ROOT_RUN_ID]
+        assert descendants_tags[MLFLOW_ROOT_RUN_ID] == root_id
+
+    def verify_descendants_have_the_same_root_id(descendant1_id, descendant2_id):
+        descendant1_tags = tracking.MlflowClient().get_run(descendant1_id).data.tags
+        descendant2_tags = tracking.MlflowClient().get_run(descendant2_id).data.tags
+        assert descendant1_tags[MLFLOW_ROOT_RUN_ID] == descendant2_tags[MLFLOW_ROOT_RUN_ID]
 
     verify_root_id_tag_is_passed_to_descendants(child_run.info.run_id, parent_run.info.run_id)
     verify_root_id_tag_is_passed_to_descendants(grand_child_run.info.run_id, parent_run.info.run_id)
-    verify_root_id_tag_is_passed_to_descendants(grand_child_run.info.run_id, child_run.info.run_id)
+    verify_descendants_have_the_same_root_id(child_run.info.run_id, grand_child_run.info.run_id)
     assert mlflow.active_run() is None
 
 
