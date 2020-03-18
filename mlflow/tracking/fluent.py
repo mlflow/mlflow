@@ -135,15 +135,17 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     else:
         if len(_active_run_stack) > 0:
             parent_run_id = _active_run_stack[-1].info.run_id
+            root_run_id = _active_run_stack[0].info.run_id
         else:
             parent_run_id = None
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
         user_specified_tags = {}
+
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
-            user_specified_tags[MLFLOW_ROOT_RUN_ID] = _active_run_stack[0].info.run_id
+            user_specified_tags[MLFLOW_ROOT_RUN_ID] = root_run_id
         else:
             user_specified_tags[MLFLOW_ROOT_RUN_ID] = None
 
@@ -451,7 +453,7 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
                 params[key].append(PARAM_NULL)
         new_params = set(run.data.params.keys()) - param_keys
         for p in new_params:
-            params[p] = [PARAM_NULL]*i  # Fill in null values for all previous runs
+            params[p] = [PARAM_NULL] * i  # Fill in null values for all previous runs
             params[p].append(run.data.params[p])
 
         # Metrics
@@ -463,7 +465,7 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
                 metrics[key].append(METRIC_NULL)
         new_metrics = set(run.data.metrics.keys()) - metric_keys
         for m in new_metrics:
-            metrics[m] = [METRIC_NULL]*i
+            metrics[m] = [METRIC_NULL] * i
             metrics[m].append(run.data.metrics[m])
 
         # Tags
@@ -475,7 +477,7 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
                 tags[key].append(TAG_NULL)
         new_tags = set(run.data.tags.keys()) - tag_keys
         for t in new_tags:
-            tags[t] = [TAG_NULL]*i
+            tags[t] = [TAG_NULL] * i
             tags[t].append(run.data.tags[t])
 
     data = {}
@@ -493,8 +495,8 @@ def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_result
                         order_by):
     all_runs = []
     next_page_token = None
-    while(len(all_runs) < max_results):
-        runs_to_get = max_results-len(all_runs)
+    while (len(all_runs) < max_results):
+        runs_to_get = max_results - len(all_runs)
         if runs_to_get < NUM_RUNS_PER_PAGE_PANDAS:
             runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
                                               runs_to_get, order_by, next_page_token)

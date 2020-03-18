@@ -522,26 +522,29 @@ def test_parent_create_run():
     verify_has_parent_id_tag(grand_child_run.info.run_id, child_run.info.run_id)
     assert mlflow.active_run() is None
 
-def test_rootID_is_passed_to_all_descandants():
+
+def test_setting_root_run_id_in_start_run():
     with mlflow.start_run() as parent_run:
+        parent_run_id = parent_run.info.run_id
         with mlflow.start_run(nested=True) as child_run:
             with mlflow.start_run(nested=True) as grand_child_run:
                 pass
 
-    def verify_root_id_tag_is_passed_to_descendants(descendants_id, root_id):
-        descendants_tags = tracking.MlflowClient().get_run(descendants_id).data.tags
-        assert descendants_tags[MLFLOW_ROOT_RUN_ID] == root_id
+    def verify_root_id_tag_is_passed_to_descendants(descendant_id, root_id):
+        descendant_tags = tracking.MlflowClient().get_run(descendant_id).data.tags
+        assert descendant_tags[MLFLOW_ROOT_RUN_ID] == root_id
 
     def verify_descendants_have_the_same_root_id(descendant1_id, descendant2_id):
         descendant1_tags = tracking.MlflowClient().get_run(descendant1_id).data.tags
         descendant2_tags = tracking.MlflowClient().get_run(descendant2_id).data.tags
         assert descendant1_tags[MLFLOW_ROOT_RUN_ID] == descendant2_tags[MLFLOW_ROOT_RUN_ID]
 
+    assert (tracking.MlflowClient().get_run(parent_run_id).data.tags[MLFLOW_ROOT_RUN_ID] is None)
+
     verify_root_id_tag_is_passed_to_descendants(child_run.info.run_id, parent_run.info.run_id)
     verify_root_id_tag_is_passed_to_descendants(grand_child_run.info.run_id, parent_run.info.run_id)
     verify_descendants_have_the_same_root_id(child_run.info.run_id, grand_child_run.info.run_id)
     assert mlflow.active_run() is None
-
 
 
 def test_start_deleted_run():
