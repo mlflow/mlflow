@@ -153,8 +153,8 @@ test("params, metrics and tags computation in mapStateToProps", () => {
     lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
     searchRunsRequestId: searchRunsId,
     experimentId: experiment.experiment_id,
-    metricKeyList: ['metric2'],
-    paramKeyList: ['param1'],
+    metricKeysList: ['metric2'],
+    paramKeysList: ['param1'],
     tagKeysList: ['tag1'],
   });
   expect(newProps.runInfos).toEqual([RunInfo.fromJs(run_info)]);
