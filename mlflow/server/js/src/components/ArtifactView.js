@@ -193,7 +193,6 @@ export class ArtifactView extends Component {
   }
 
   render() {
-    debugger;
     if (ArtifactUtils.isEmpty(this.props.artifactNode)) {
       return <NoArtifactView />;
     }
