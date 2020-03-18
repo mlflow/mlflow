@@ -409,6 +409,7 @@ def _list_artifacts():
     else:
         path = None
     run_id = request_message.run_id or request_message.run_uuid
+    raise MlflowException("UH OH FROM SID YO")
     run = _get_tracking_store().get_run(run_id)
     artifact_entities = _get_artifact_repo(run).list_artifacts(path)
     response_message.files.extend([a.to_proto() for a in artifact_entities])

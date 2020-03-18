@@ -18,6 +18,7 @@ import EditableTagsTableView from './EditableTagsTableView';
 import { Icon, Descriptions } from 'antd';
 import { CollapsibleSection } from '../common/components/CollapsibleSection';
 import { EditableNote } from '../common/components/EditableNote';
+import {getUUID, listArtifactsApi} from "../Actions";
 
 class RunView extends Component {
   static propTypes = {
@@ -32,13 +33,20 @@ class RunView extends Component {
     runDisplayName: PropTypes.string.isRequired,
     runName: PropTypes.string.isRequired,
     handleSetRunTag: PropTypes.func.isRequired,
+    listArtifactsApi: PropTypes.func.isRequired,
   };
+
+  listArtifactRequestId = getUUID();
 
   state = {
     showRunRenameModal: false,
     showNoteEditor: false,
     showTags: Utils.getVisibleTagValues(this.props.tags).length > 0,
   };
+
+  componentWillMount() {
+    const { runUuid } = this.props;
+  }
 
   componentDidMount() {
     document.title = `${this.props.runDisplayName} - MLflow Run`;
@@ -256,7 +264,11 @@ const mapStateToProps = (state, ownProps) => {
   return { run, experiment, params, tags, latestMetrics, runDisplayName, runName};
 };
 
-export default connect(mapStateToProps)(RunView);
+const mapDispatchToProps = {
+  listArtifactsApi,
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(RunView);
 
 // Private helper functions.
 

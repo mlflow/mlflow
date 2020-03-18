@@ -24,8 +24,6 @@ class RunPage extends Component {
 
   getRunRequestId = getUUID();
 
-  listArtifactRequestId = getUUID();
-
   getExperimentRequestId = getUUID();
 
   searchModelVersionsRequestId = getUUID();
@@ -35,7 +33,6 @@ class RunPage extends Component {
   componentWillMount() {
     const { experimentId, runUuid } = this.props;
     this.props.getRunApi(runUuid, this.getRunRequestId);
-    this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestId);
     this.props.getExperimentApi(experimentId, this.getExperimentRequestId);
     this.props.searchModelVersionsApi({ run_id: runUuid }, this.searchModelVersionsRequestId);
   }
@@ -53,7 +50,6 @@ class RunPage extends Component {
         <RequestStateWrapper
           requestIds={[
             this.getRunRequestId,
-            this.listArtifactRequestId,
             this.getExperimentRequestId,
           ]}
         >
