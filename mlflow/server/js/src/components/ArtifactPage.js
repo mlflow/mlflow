@@ -10,6 +10,7 @@ import { ArtifactNode } from '../utils/ArtifactUtils';
 import { MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../model-registry/constants';
 import _ from 'lodash';
 import Utils from '../utils/Utils';
+import RequestStateWrapper from "./RequestStateWrapper";
 
 class ArtifactPage extends Component {
   static propTypes = {
@@ -23,9 +24,18 @@ class ArtifactPage extends Component {
     searchModelVersionsApi: PropTypes.func.isRequired,
   };
 
+  getFailedtoListArtifactsMsg = () => {
+    return "Unable to list artifacts stored under " + this.props.artifactRootUri + " for the " +
+      "current run. Please contact your tracking server administrator to notify them of this " +
+      "error, which can happen when the tracking server lacks permission to list artifacts " +
+      "under the current run's root artifact directory";
+  }
+
   state = { activeNodeIsDirectory: false };
 
   searchRequestId = getUUID();
+
+  listArtifactRequestId = getUUID();
 
   pollModelVersionsForCurrentRun = () => {
     const { apis, runUuid } = this.props;
@@ -42,6 +52,11 @@ class ArtifactPage extends Component {
     this.setState({ activeNodeIsDirectory });
   };
 
+  componentWillMount() {
+    const { runUuid } = this.props;
+    this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestId);
+  }
+
   componentDidMount() {
     if (Utils.isModelRegistryEnabled()) {
       this.pollModelVersionsForCurrentRun();
@@ -56,7 +71,19 @@ class ArtifactPage extends Component {
   }
 
   render() {
-    return <ArtifactView {...this.props} handleActiveNodeChange={this.handleActiveNodeChange}/>;
+    return <RequestStateWrapper requestIds={[this.listArtifactRequestId]}>
+      {(isLoading, shouldRenderError, requests) => {
+        if (!shouldRenderError) {
+          return <ArtifactView {...this.props}
+                               handleActiveNodeChange={this.handleActiveNodeChange}/>
+        }
+        const failedReq = requests[0];
+        if (failedReq && failedReq.error) {
+          Utils.logErrorAndNotifyUser(failedReq.error);
+        }
+        return <div>{this.getFailedtoListArtifactsMsg()}</div>;
+      }}
+    </RequestStateWrapper>;
   }
 }
 
