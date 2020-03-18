@@ -1,5 +1,15 @@
 Changelog
 =========
+
+1.7.1 (2020-03-17)
+------------------------
+MLflow 1.7.1 is a patch release containing bug fixes and small changes:
+
+- Remove usage of Nonnull annotations and findbugs dependency in Java package (#2583, @mparkhe)
+- Add version upper bound (<=1.3.13) to sqlalchemy dependency in Python package (#2587, @smurching)
+
+Other bugfixes and doc updates (#2595, @mparkhe; #2567, @jdlesage)
+
 1.7.0 (2020-03-02)
 ------------------
 MLflow 1.7.0 includes several major features and improvements, and some notable breaking changes:
