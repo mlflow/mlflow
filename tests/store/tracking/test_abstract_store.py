@@ -53,6 +53,9 @@ class AbstractStoreTestImpl(AbstractStore):
     def record_logged_model(self, run_id, mlflow_model):
         raise NotImplementedError()
 
+    def list_all_columns(self, experiment_id, run_view_type):
+        raise NotImplementedError()
+
 
 def test_get_experiment_by_name():
     experiments = [mock.Mock(), mock.Mock(), mock.Mock()]

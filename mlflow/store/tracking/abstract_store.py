@@ -206,6 +206,18 @@ class AbstractStore:
         """
         pass
 
+    @abstractmethod
+    def list_all_columns(self, experiment_id, run_view_type):
+        """
+        Return the list of all metrics, params and tags from an experiment id
+
+        :param experiment_id: string of the experiment id
+        :param run_view_type: type of runs to select (activated, deactivated or all)
+
+        :return: A Columns object that returns the list of tags, metrics and params
+        """
+        pass
+
     def search_runs(self, experiment_ids, filter_string, run_view_type,
                     max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
         """

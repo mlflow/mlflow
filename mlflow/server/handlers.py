@@ -18,7 +18,7 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
-    DeleteTag, SetExperimentTag, GetExperimentByName, LogModel
+    DeleteTag, SetExperimentTag, GetExperimentByName, LogModel, ListAllColumns
 from mlflow.protos.model_registry_pb2 import ModelRegistryService, CreateRegisteredModel, \
     UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModel, \
     GetLatestVersions, CreateModelVersion, UpdateModelVersion, DeleteModelVersion, \
@@ -379,6 +379,18 @@ def _get_run():
 
 
 @catch_mlflow_exception
+def _list_all_columns():
+    request_message = _get_request_message(ListAllColumns())
+    experiment_id = request_message.experiment_id
+    view_type = request_message.run_view_type
+    columns = _get_tracking_store().list_all_columns(experiment_id, view_type)
+    response_message = columns.to_proto()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _search_runs():
     request_message = _get_request_message(SearchRuns())
     response_message = SearchRuns.Response()
@@ -693,6 +705,7 @@ HANDLERS = {
     LogModel: _log_model,
     GetRun: _get_run,
     SearchRuns: _search_runs,
+    ListAllColumns: _list_all_columns,
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
     ListExperiments: _list_experiments,
