@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import tempfile
 import logging
+import uuid
 
 from distutils.version import StrictVersion
 
@@ -22,7 +23,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import PYTHON_VERSION, experimental, get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.version import VERSION as mlflow_version
-from pathlib import Path
+from pathlib import Path    
 
 _logger = logging.getLogger(__name__)
 
@@ -295,8 +296,13 @@ def deploy(model_uri, workspace, deployment_config = None, service_name=None, mo
 
     absolute_model_path = _download_artifact_from_uri(model_uri)
 
-    model_pyfunc_conf, run_id = _load_pyfunc_conf(model_path=absolute_model_path)
+    model_pyfunc_conf, model = _load_pyfunc_conf_with_model(model_path=absolute_model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
+    run_id = None
+    try:
+        run_id = model.run_id
+    except AttributeError:
+        run_id = str(uuid.uuid4())
     if model_python_version is not None and\
             StrictVersion(model_python_version) < StrictVersion("3.0.0"):
         raise MlflowException(
@@ -337,15 +343,18 @@ def deploy(model_uri, workspace, deployment_config = None, service_name=None, mo
         if pyfunc.ENV in model_pyfunc_conf:
             environment = AzureEnvironment.from_conda_specification(_get_mlflow_azure_name_from_run(run_id), os.path.join(tmp_model_path, model_pyfunc_conf[pyfunc.ENV]))
         else:
-            raise MlflowException("Cannot deploy pyfunc model without an environment to Azure ML.")
+            environment = AzureEnvironment("MLFlow{}".format(_get_mlflow_azure_name_from_run(run_id)))
 
         if mlflow_home is not None:
-            wheel = _create_mlflow_wheel(mlflow_home, tmp.path("dist"))
+            path = tmp.path("dist")
+            _logger.info("Bulding temporary MLFlow wheel in {}".format(path))
+            wheel = _create_mlflow_wheel(mlflow_home, path)
             whl_url = AzureEnvironment.add_private_pip_wheel(workspace=workspace, file_path = wheel, exist_ok=True)
             environment.python.conda_dependencies.add_pip_package(whl_url)
         else:
             environment.python.conda_dependencies.add_pip_package("mlflow~={}".format(mlflow_version))
 
+        # AzureML requires azureml-defaults to be installed to include flask for the inference server.
         environment.python.conda_dependencies.add_pip_package("azureml-defaults~={}".format(AZUREML_VERSION))
 
         inference_config = InferenceConfig(entry_script=execution_script_path, environment=environment)
@@ -448,6 +457,17 @@ def _load_pyfunc_conf(model_path):
     :param model_path: The absolute path to the model.
     :return: The model's `python_function` flavor configuration.
     """
+    (name, run_id) = _load_pyfunc_conf_with_model(model_path)
+    return name
+
+def _load_pyfunc_conf_with_model(model_path):
+    """
+    Loads the `python_function` flavor configuration for the specified model or throws an exception
+    if the model does not contain the `python_function` flavor.
+
+    :param model_path: The absolute path to the model.
+    :return: The model's `python_function` flavor configuration and the model.
+    """
     model_path = os.path.abspath(model_path)
     model = Model.load(os.path.join(model_path, "MLmodel"))
     if pyfunc.FLAVOR_NAME not in model.flavors:
@@ -455,8 +475,7 @@ def _load_pyfunc_conf(model_path):
                 message=("The specified model does not contain the `python_function` flavor. This "
                          " flavor is required for model deployment required for model deployment."),
                 error_code=INVALID_PARAMETER_VALUE)
-    return model.flavors[pyfunc.FLAVOR_NAME], model.run_id
-
+    return model.flavors[pyfunc.FLAVOR_NAME], model
 
 def _get_mlflow_azure_resource_name():
     """
@@ -488,11 +507,16 @@ def _create_mlflow_wheel(mlflow_dir, out_dir):
     :param out_dir: The absolute path to the outdir.
     :return: The absolute path to the wheel.
     """
-    out_path = Path(out_dir).resolve()
+    unresolved = Path(out_dir)
+    unresolved.mkdir(parents=True, exist_ok=True)
+    out_path = unresolved.resolve()
     process = subprocess.run([sys.executable, "setup.py", "bdist_wheel", "-d", out_path], cwd=mlflow_dir, check=True)
     files = list(out_path.glob("./*.whl"))
-    if len(files) != 1:
+    if len(files) < 1:
         raise MlflowException("Error creating MLFlow Wheel - couldn't find it in dir {} - found {}".format(out_path, files))
+    if len(files) > 1:
+        raise MlflowException(
+            "Error creating MLFlow Wheel - couldn't find it in dir {} - found several wheels {}".format(out_path, files))
     return files[0]
 
 
