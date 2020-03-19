@@ -252,7 +252,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.lightgbm.get_default_conda_env()
+    assert conda_env == mlflow.fastai.get_default_conda_env()
 
 
 @pytest.mark.release

@@ -89,7 +89,7 @@ def save_model(fastai_learner, path, conda_env=None, mlflow_model=Model(), **kwa
     os.makedirs(path)
 
     # Save an Learner
-    fastai_learner.export(model_data_path)
+    fastai_learner.export(model_data_path, **kwargs)
 
     conda_env_subpath = "conda.yaml"
 
@@ -247,7 +247,7 @@ def autolog():
         def on_train_begin(self):
             info = layers_info(self.learner)
             try_mlflow_log(mlflow.log_param, 'num_layers', len(info))
-            try_mlflow_log(mlflow.log_param, 'optimizer_name', type(self.opt).__name__)
+            try_mlflow_log(mlflow.log_param, 'optimizer_name', self.opt.__name__)
 
             # TODO: Log all opt params
 

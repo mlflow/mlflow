@@ -1,27 +1,18 @@
 import pytest
 import numpy as np
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611
+
+import pandas as pd
+import sklearn.datasets as datasets
+from fastai.tabular import tabular_learner, TabularList
+from fastai.metrics import accuracy
+import mlflow  # noqa
+import mlflow.fastai  # noqa
+from fastai.callbacks import EarlyStoppingCallback, SaveModelCallback
+
 np.random.seed(1337)
 
-import keras  # noqa
-import keras.layers as layers  # noqa
-
-import mlflow  # noqa
-import mlflow.keras  # noqa
-
-
-@pytest.fixture
-def random_train_data():
-    return np.random.random((1000, 32))
-
-
-@pytest.fixture
-def random_one_hot_labels():
-    n, n_class = (1000, 10)
-    classes = np.random.randint(0, n_class, n)
-    labels = np.zeros((n, n_class))
-    labels[np.arange(n), classes] = 1
-    return labels
+LARGE_EPOCHS = 5
 
 
 @pytest.fixture(params=[True, False])
@@ -32,182 +23,156 @@ def manual_run(request, tracking_uri_mock):
     mlflow.end_run()
 
 
-def create_model():
-    model = keras.Sequential()
+@pytest.fixture(scope="session")
+def iris_data():
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = pd.Series(iris.target, name='label')
+    return (TabularList.from_df(pd.concat([X, y], axis=1), cont_names=X.columns)
+            .random_split_by_pct(valid_pct=0.1, seed=42)
+            .label_from_df(cols='label')
+            .databunch())
 
-    model.add(layers.Dense(64, activation='relu', input_shape=(32,)))
-    model.add(layers.Dense(64, activation='relu'))
-    model.add(layers.Dense(10, activation='softmax'))
 
-    model.compile(optimizer=keras.optimizers.Adam(lr=0.001, epsilon=1e-07),
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
-    return model
+def fastai_model(data, **kwargs):
+    return tabular_learner(data, metrics=accuracy, layers=[5, 3, 2], **kwargs)
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels, fit_variant):
-    mlflow.keras.autolog()
-
-    data = random_train_data
-    labels = random_one_hot_labels
-
-    model = create_model()
-
-    if fit_variant == 'fit_generator':
-        def generator():
-            while True:
-                yield data, labels
-        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
+def test_fastai_autolog_ends_auto_created_run(iris_data, fit_variant):
+    mlflow.fastai.autolog()
+    model = fastai_model(iris_data)
+    if fit_variant == 'fit_one_cycle':
+        model.fit_one_cycle(1)
     else:
-        model.fit(data, labels, epochs=10)
-
+        model.fit(1)
     assert mlflow.active_run() is None
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_keras_autolog_persists_manually_created_run(random_train_data,
-                                                     random_one_hot_labels, fit_variant):
-    mlflow.keras.autolog()
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
+def test_fastai_autolog_persists_manually_created_run(iris_data, fit_variant):
+    mlflow.fastai.autolog()
 
     with mlflow.start_run() as run:
-        data = random_train_data
-        labels = random_one_hot_labels
+        model = fastai_model(iris_data)
 
-        model = create_model()
-
-        if fit_variant == 'fit_generator':
-            def generator():
-                while True:
-                    yield data, labels
-            model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
+        if fit_variant == 'fit_one_cycle':
+            model.fit_one_cycle(LARGE_EPOCHS)
         else:
-            model.fit(data, labels, epochs=10)
+            model.fit(LARGE_EPOCHS)
 
         assert mlflow.active_run()
         assert mlflow.active_run().info.run_id == run.info.run_id
 
 
 @pytest.fixture
-def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels, manual_run):
+def fastai_random_data_run(iris_data, fit_variant, manual_run):
+    mlflow.fastai.autolog()
 
-    mlflow.keras.autolog()
+    model = fastai_model(iris_data)
 
-    data = random_train_data
-    labels = random_one_hot_labels
-
-    model = create_model()
-
-    if fit_variant == 'fit_generator':
-        def generator():
-            while True:
-                yield data, labels
-        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
+    if fit_variant == 'fit_one_cycle':
+        model.fit_one_cycle(LARGE_EPOCHS)
     else:
-        model.fit(data, labels, epochs=10, steps_per_epoch=1)
+        model.fit(LARGE_EPOCHS)
+
+    client = mlflow.tracking.MlflowClient()
+    return model, client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
+def test_fastai_autolog_logs_expected_data(fastai_random_data_run, fit_variant):
+    model, run = fastai_random_data_run
+    data = run.data
+
+    # Testing metrics are logged
+    assert 'train_loss' in data.metrics
+    assert 'valid_loss' in data.metrics
+    for o in model.metrics:
+        assert o.__name__ in data.metrics
+
+    # Testing explicitly passed parameters are logged correctly
+    assert 'epochs' in data.params
+    assert data.params['epochs'] == str(LARGE_EPOCHS)
+
+    if fit_variant == 'fit_one_cycle':
+        assert 'cyc_len' in data.params
+        assert data.params['cyc_len'] == str(LARGE_EPOCHS)
+
+    # Testing unwanted parameters are not logged
+    assert 'callbacks' not in data.params
+
+    # Testing optimizer parameters are logged
+    assert 'optimizer_name' in data.params
+    assert data.params['optimizer_name'] == model.opt.__name__
+    assert 'model_summary' in data.tags
+
+    # Testing model_summary.txt is saved
+    client = mlflow.tracking.MlflowClient()
+    artifacts = client.list_artifacts(run.info.run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert 'model_summary.txt' in artifacts
+
+
+@pytest.mark.large
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
+def test_fastai_autolog_logs_default_params(fastai_random_data_run, fit_variant):
+    _, run = fastai_random_data_run
+    if fit_variant == 'fit':
+        assert 'lr' in run.data.params
+        assert run.data.params['lr'] == 'slice(None, 0.003, None)'
+    else:
+        assert 'pct_start' in run.data.params
+        assert run.data.params['pct_start'] == '0.3'
+
+
+@pytest.mark.large
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
+def test_fastai_autolog_model_can_load_from_artifact(fastai_random_data_run, random_train_data):
+    run_id = fastai_random_data_run[1].info.run_id
+    client = mlflow.tracking.MlflowClient()
+    artifacts = client.list_artifacts(run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert 'model' in artifacts
+    model = mlflow.fastai.load_model("runs:/" + run_id + "/model")
+    model.predict(random_train_data)
+
+
+@pytest.fixture
+def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, callback, patience):
+    mlflow.fastai.autolog()
+    callbacks = []
+
+    if callback == 'early':
+        # min_delta is set as such to guarantee early stopping
+        callbacks.append(lambda learn: EarlyStoppingCallback(learn, patience=patience, min_delta=99999999))
+
+    model = fastai_model(iris_data, callback_fns=[callback])
+
+    if fit_variant == 'fit_one_cycle':
+        model.fit_one_cycle(1)
+    else:
+        model.fit(1)
 
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_keras_autolog_logs_expected_data(keras_random_data_run):
-    data = keras_random_data_run.data
-    assert 'accuracy' in data.metrics
-    assert 'loss' in data.metrics
-    # Testing explicitly passed parameters are logged correctly
-    assert 'epochs' in data.params
-    assert data.params['epochs'] == '10'
-    assert 'steps_per_epoch' in data.params
-    assert data.params['steps_per_epoch'] == '1'
-    # Testing unwanted parameters are not logged
-    assert 'callbacks' not in data.params
-    assert 'validation_data' not in data.params
-    # Testing optimizer parameters are logged
-    assert 'optimizer_name' in data.params
-    assert data.params['optimizer_name'] == 'Adam'
-    assert 'epsilon' in data.params
-    assert data.params['epsilon'] == '1e-07'
-    assert 'model_summary' in data.tags
-    assert 'Total params: 6,922' in data.tags['model_summary']
-    client = mlflow.tracking.MlflowClient()
-    artifacts = client.list_artifacts(keras_random_data_run.info.run_id)
-    artifacts = map(lambda x: x.path, artifacts)
-    assert 'model_summary.txt' in artifacts
-
-
-@pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit'])
-def test_keras_autolog_logs_default_params(keras_random_data_run):
-    # Logging default parameters does not work with keras.Model.fit_generator
-    data = keras_random_data_run.data
-    assert 'initial_epoch' in data.params
-    assert data.params['initial_epoch'] == '0'
-
-
-@pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, random_train_data):
-    run_id = keras_random_data_run.info.run_id
-    client = mlflow.tracking.MlflowClient()
-    artifacts = client.list_artifacts(run_id)
-    artifacts = map(lambda x: x.path, artifacts)
-    assert 'model' in artifacts
-    model = mlflow.keras.load_model("runs:/" + run_id + "/model")
-    model.predict(random_train_data)
-
-
-@pytest.fixture
-def keras_random_data_run_with_callback(random_train_data, fit_variant,
-                                        random_one_hot_labels, manual_run,
-                                        callback, restore_weights, patience):
-    mlflow.keras.autolog()
-
-    data = random_train_data
-    labels = random_one_hot_labels
-
-    model = create_model()
-    if callback == 'early':
-        # min_delta is set as such to guarantee early stopping
-        callback = keras.callbacks.callbacks.EarlyStopping(monitor='loss', patience=patience,
-                                                           min_delta=99999999,
-                                                           restore_best_weights=restore_weights)
-    else:
-        if fit_variant == 'fit_generator':
-            count_mode = 'steps'
-        else:
-            count_mode = 'samples'
-        callback = keras.callbacks.callbacks.ProgbarLogger(count_mode=count_mode)
-
-    if fit_variant == 'fit_generator':
-        def generator():
-            while True:
-                yield data, labels
-        history = model.fit_generator(generator(), epochs=10, callbacks=[callback],
-                                      steps_per_epoch=1, shuffle=False)
-    else:
-        history = model.fit(data, labels, epochs=10, callbacks=[callback])
-
-    client = mlflow.tracking.MlflowClient()
-    return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id), history, callback
-
-
-@pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-@pytest.mark.parametrize('restore_weights', [True])
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [0, 1, 5])
-def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
-    run, history, callback = keras_random_data_run_with_callback
+def test_fastai_autolog_early_stop_logs(fastai_random_data_run_with_callback, patience):
+    run = fastai_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
     assert 'patience' in params
-    assert params['patience'] == str(callback.patience)
+    assert params['patience'] == str(patience)
     assert 'monitor' in params
-    assert params['monitor'] == 'loss'
+    assert params['monitor'] == 'valid_loss'
     assert 'verbose' not in params
     assert 'mode' not in params
     assert 'stopped_epoch' in metrics
@@ -227,12 +192,11 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-@pytest.mark.parametrize('restore_weights', [True])
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [11])
-def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_with_callback):
-    run, history, callback = keras_random_data_run_with_callback
+def test_fastai_autolog_early_stop_no_stop_does_not_log(fastai_random_data_run_with_callback):
+    run, history, callback = fastai_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
     assert 'patience' in params
@@ -254,12 +218,11 @@ def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_wit
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-@pytest.mark.parametrize('restore_weights', [False])
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [5])
-def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_with_callback):
-    run, history, callback = keras_random_data_run_with_callback
+def test_fastai_autolog_early_stop_no_restore_does_not_log(fastai_random_data_run_with_callback):
+    run, history, callback = fastai_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
     assert 'patience' in params
@@ -280,8 +243,7 @@ def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-@pytest.mark.parametrize('restore_weights', [False])
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
 @pytest.mark.parametrize('callback', ['not-early'])
 @pytest.mark.parametrize('patience', [5])
 def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_run_with_callback):
