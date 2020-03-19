@@ -21,7 +21,6 @@ import gorilla
 import tempfile
 import shutil
 
-from distutils.version import LooseVersion
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
@@ -90,7 +89,7 @@ def save_model(fastai_learner, path, conda_env=None, mlflow_model=Model(), **kwa
     os.makedirs(path)
 
     # Save an Learner
-    fastai_learner.save(model_data_path)
+    fastai_learner.export(model_data_path)
 
     conda_env_subpath = "conda.yaml"
 
@@ -138,13 +137,14 @@ def log_model(fastai_learner, artifact_path, conda_env=None, registered_model_na
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.fastai,
               registered_model_name=registered_model_name,
-              lgb_model=fastai_learner, conda_env=conda_env, **kwargs)
+              fastai_learner=fastai_learner, conda_env=conda_env, **kwargs)
 
 
 def _load_model(path):
-    from fastai.basic_train import Learner
-    model = Learner()
-    return model.load(os.path.abspath(path))
+    from fastai.basic_train import load_learner
+    abspath = os.path.abspath(path)
+    path, file = os.path.split(abspath)
+    return load_learner(path, file)
 
 
 class _FastaiModelWrapper:
@@ -185,8 +185,8 @@ def load_model(model_uri):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    lgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.fastai"))
-    return _load_model(path=lgb_model_file_path)
+    model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.fastai"))
+    return _load_model(path=model_file_path)
 
 
 @experimental
@@ -311,16 +311,16 @@ def autolog():
 
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-        callbacks = []
+        callbacks = [cb(self) for cb in self.callback_fns]
 
         # Checking if the 'callback' argument of the function is set
         if len(args) > callback_arg_index:
             tmp_list = list(args)
-            callbacks = [cb(self) for cb in self.callback_fns] + list(args[callback_arg_index])
+            callbacks += list(args[callback_arg_index])
             tmp_list[callback_arg_index] += [__MLflowFastaiCallback(self)]
             args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
-            callbacks = [cb(self) for cb in self.callback_fns] + list(kwargs['callbacks'])
+            callbacks += list(kwargs['callbacks'])
             kwargs['callbacks'] += [__MLflowFastaiCallback(self)]
         else:
             kwargs['callbacks'] = [__MLflowFastaiCallback(self)]
