@@ -1,6 +1,14 @@
 Changelog
 =========
 
+1.7.2 (2020-03-20)
+------------------------
+MLflow 1.7.2 is a patch release containing a minor change:
+
+- Pin alembic version to 1.4.1 or below to prevent pep517-related installation errors
+  (#2612, @smurching)
+
+
 1.7.1 (2020-03-17)
 ------------------------
 MLflow 1.7.1 is a patch release containing bug fixes and small changes:
