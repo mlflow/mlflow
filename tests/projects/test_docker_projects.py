@@ -175,7 +175,7 @@ def test_docker_s3_artifact_cmd_and_envs_from_home():
 
 def test_docker_wasbs_artifact_cmd_and_envs_from_home():
     # pylint: disable=unused-import, unused-variable
-    from azure.storage.blob import BlockBlobService
+    from azure.storage.blob import BlobServiceClient
 
     mock_env = {
         "AZURE_STORAGE_CONNECTION_STRING": "mock_connection_string",
@@ -183,7 +183,7 @@ def test_docker_wasbs_artifact_cmd_and_envs_from_home():
     }
     wasbs_uri = "wasbs://container@account.blob.core.windows.net/some/path"
     with mock.patch.dict("os.environ", mock_env), \
-            mock.patch("azure.storage.blob.BlockBlobService"):
+            mock.patch("azure.storage.blob.BlobServiceClient"):
         cmds, envs = mlflow.projects._get_docker_artifact_storage_cmd_and_envs(wasbs_uri)
         assert cmds == []
         assert envs == mock_env
