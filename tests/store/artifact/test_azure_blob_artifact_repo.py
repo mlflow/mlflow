@@ -3,7 +3,8 @@ import posixpath
 import mock
 import pytest
 
-from azure.storage.blob import Blob, BlobPrefix, BlobProperties, BlockBlobService
+from azure.storage.blob import BlobServiceClient
+from azure.storage.blob._models import BlobPrefix, BlobProperties
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -34,7 +35,7 @@ def mock_client():
     if old_conn_string is not None:
         del os.environ['AZURE_STORAGE_CONNECTION_STRING']
 
-    yield mock.MagicMock(autospec=BlockBlobService)
+    yield mock.MagicMock(autospec=BlobServiceClient)
 
     if old_access_key is not None:
         os.environ['AZURE_STORAGE_ACCESS_KEY'] = old_access_key
@@ -81,7 +82,7 @@ def test_parse_wasbs_uri():
 
 def test_list_artifacts_empty(mock_client):
     repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
-    mock_client.list_blobs.return_value = MockBlobList([])
+    mock_client.get_container_client().walk_blobs.return_value = MockBlobList([])
     assert repo.list_artifacts() == []
 
 
@@ -90,13 +91,14 @@ def test_list_artifacts(mock_client):
 
     # Create some files to return
     dir_prefix = BlobPrefix()
-    dir_prefix.name = TEST_ROOT_PATH + "/dir"
+    dir_prefix.name = posixpath.join(TEST_ROOT_PATH, "dir")
 
     blob_props = BlobProperties()
-    blob_props.content_length = 42
-    blob = Blob(TEST_ROOT_PATH + "/file", props=blob_props)
+    blob_props.size = 42
+    blob_props.name = posixpath.join(TEST_ROOT_PATH, "file")
 
-    mock_client.list_blobs.return_value = MockBlobList([dir_prefix, blob])
+    mock_client.get_container_client().walk_blobs.return_value = MockBlobList(
+        [dir_prefix, blob_props])
 
     artifacts = repo.list_artifacts()
     assert artifacts[0].path == "dir"
@@ -113,12 +115,15 @@ def test_log_artifact(mock_client, tmpdir):
     d = tmpdir.mkdir("data")
     f = d.join("test.txt")
     f.write("hello world!")
-    fpath = d + '/test.txt'
-    fpath = fpath.strpath
+    fpath = posixpath.join(d.strpath, "test.txt")
 
     repo.log_artifact(fpath)
-    mock_client.create_blob_from_path.assert_called_with(
-        "container", TEST_ROOT_PATH + "/test.txt", fpath)
+
+    mock_client.get_container_client.assert_called_with("container")
+    arg1, arg2 = mock_client.get_container_client().upload_blob.call_args[0]
+    assert arg1 == posixpath.join(TEST_ROOT_PATH, "test.txt")
+    # arg2 should be a filebuffer
+    assert arg2.name == fpath
 
 
 def test_log_artifacts(mock_client, tmpdir):
@@ -132,33 +137,42 @@ def test_log_artifacts(mock_client, tmpdir):
 
     repo.log_artifacts(parentd.strpath)
 
-    mock_client.create_blob_from_path.assert_has_calls([
-        mock.call("container", TEST_ROOT_PATH + "/a.txt",
-                  os.path.normpath(parentd.strpath + "/a.txt")),
-        mock.call("container", TEST_ROOT_PATH + "/subdir/b.txt",
-                  os.path.normpath(subd.strpath + "/b.txt")),
-        mock.call("container", TEST_ROOT_PATH + "/subdir/c.txt",
-                  os.path.normpath(subd.strpath + "/c.txt")),
-    ], any_order=True)
+    mock_client.get_container_client.assert_called_with("container")
+    call_list = mock_client.get_container_client().upload_blob.call_args_list
+
+    # Ensure that the order of the calls do not matter
+    for call in call_list:
+        arg1, arg2 = call[0]
+        assert arg1 in [posixpath.join(TEST_ROOT_PATH, x)
+                        for x in ["a.txt", "subdir/b.txt", "subdir/c.txt"]]
+        # arg2 should be a filebuffer
+        if arg1.endswith("/a.txt"):
+            assert arg2.name == os.path.normpath(parentd.strpath + "/a.txt")
+        elif arg1.endswith("/b.txt"):
+            assert arg2.name == os.path.normpath(subd.strpath + "/b.txt")
+        elif arg1.endswith("/c.txt"):
+            assert arg2.name == os.path.normpath(subd.strpath + "/c.txt")
+        else:
+            # This should be unreachable
+            assert False
 
 
 def test_download_file_artifact(mock_client, tmpdir):
     repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
 
-    mock_client.list_blobs.return_value = MockBlobList([])
+    mock_client.get_container_client().walk_blobs.return_value = MockBlobList([])
 
-    def create_file(container, cloud_path, local_path):
-        # pylint: disable=unused-argument
-        local_path = os.path.basename(local_path)
+    def create_file(buffer):
+        local_path = os.path.basename(buffer.name)
         f = tmpdir.join(local_path)
         f.write("hello world!")
 
-    mock_client.get_blob_to_path.side_effect = create_file
+    mock_client.get_container_client().download_blob().readinto.side_effect = create_file
 
     repo.download_artifacts("test.txt")
     assert os.path.exists(os.path.join(tmpdir.strpath, "test.txt"))
-    mock_client.get_blob_to_path.assert_called_with(
-        "container", TEST_ROOT_PATH + "/test.txt", mock.ANY)
+    mock_client.get_container_client().download_blob.assert_called_with(
+        posixpath.join(TEST_ROOT_PATH, "test.txt"))
 
 
 def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_container_root(
@@ -170,12 +184,12 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_con
     file_path_2 = "file_2"
 
     blob_props_1 = BlobProperties()
-    blob_props_1.content_length = 42
-    blob_1 = Blob(posixpath.join(TEST_ROOT_PATH, file_path_1), props=blob_props_1)
+    blob_props_1.size = 42
+    blob_props_1.name = posixpath.join(TEST_ROOT_PATH, file_path_1)
 
     blob_props_2 = BlobProperties()
-    blob_props_2.content_length = 42
-    blob_2 = Blob(posixpath.join(TEST_ROOT_PATH, file_path_2), props=blob_props_2)
+    blob_props_2.size = 42
+    blob_props_2.name = posixpath.join(TEST_ROOT_PATH, file_path_2)
 
     def get_mock_listing(*args, **kwargs):
         """
@@ -186,19 +200,18 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_con
         directory traversal.
         """
         # pylint: disable=unused-argument
-        if posixpath.abspath(kwargs["prefix"]) == posixpath.abspath(TEST_ROOT_PATH):
-            return MockBlobList([blob_1, blob_2])
+        if posixpath.abspath(kwargs["name_starts_with"]) == posixpath.abspath(TEST_ROOT_PATH):
+            return MockBlobList([blob_props_1, blob_props_2])
         else:
             return MockBlobList([])
 
-    def create_file(container, cloud_path, local_path):
-        # pylint: disable=unused-argument
-        fname = os.path.basename(local_path)
+    def create_file(buffer):
+        fname = os.path.basename(buffer.name)
         f = tmpdir.join(fname)
         f.write("hello world!")
 
-    mock_client.list_blobs.side_effect = get_mock_listing
-    mock_client.get_blob_to_path.side_effect = create_file
+    mock_client.get_container_client().walk_blobs.side_effect = get_mock_listing
+    mock_client.get_container_client().download_blob().readinto.side_effect = create_file
 
     # Ensure that the root directory can be downloaded successfully
     repo.download_artifacts("")
@@ -220,12 +233,12 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
     file_path_2 = "file_2"
 
     blob_props_1 = BlobProperties()
-    blob_props_1.content_length = 42
-    blob_1 = Blob(os.path.join(subdir_path, file_path_1), props=blob_props_1)
+    blob_props_1.size = 42
+    blob_props_1.name = posixpath.join(subdir_path, file_path_1)
 
     blob_props_2 = BlobProperties()
-    blob_props_2.content_length = 42
-    blob_2 = Blob(os.path.join(subdir_path, file_path_2), props=blob_props_2)
+    blob_props_2.size = 42
+    blob_props_2.name = posixpath.join(subdir_path, file_path_2)
 
     def get_mock_listing(*args, **kwargs):
         """
@@ -235,21 +248,20 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
         every level of the directory traversal.
         """
         # pylint: disable=unused-argument
-        if posixpath.abspath(kwargs["prefix"]) == "/":
+        if posixpath.abspath(kwargs["name_starts_with"]) == "/":
             return MockBlobList([dir_prefix])
-        if posixpath.abspath(kwargs["prefix"]) == posixpath.abspath(subdir_path):
-            return MockBlobList([blob_1, blob_2])
+        if posixpath.abspath(kwargs["name_starts_with"]) == posixpath.abspath(subdir_path):
+            return MockBlobList([blob_props_1, blob_props_2])
         else:
             return MockBlobList([])
 
-    def create_file(container, cloud_path, local_path):
-        # pylint: disable=unused-argument
-        fname = os.path.basename(local_path)
+    def create_file(buffer):
+        fname = os.path.basename(buffer.name)
         f = tmpdir.join(fname)
         f.write("hello world!")
 
-    mock_client.list_blobs.side_effect = get_mock_listing
-    mock_client.get_blob_to_path.side_effect = create_file
+    mock_client.get_container_client().walk_blobs.side_effect = get_mock_listing
+    mock_client.get_container_client().download_blob().readinto.side_effect = create_file
 
     # Ensure that the root directory can be downloaded successfully
     repo.download_artifacts("")
@@ -265,8 +277,8 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
 
     # Create a "bad blob" with a name that is not prefixed by the root path of the artifact store
     bad_blob_props = BlobProperties()
-    bad_blob_props.content_length = 42
-    bad_blob = Blob("file_path", props=bad_blob_props)
+    bad_blob_props.size = 42
+    bad_blob_props.name = "file_path"
 
     def get_mock_listing(*args, **kwargs):
         """
@@ -277,14 +289,14 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
         directory traversal.
         """
         # pylint: disable=unused-argument
-        if posixpath.abspath(kwargs["prefix"]) == posixpath.abspath(TEST_ROOT_PATH):
+        if posixpath.abspath(kwargs["name_starts_with"]) == posixpath.abspath(TEST_ROOT_PATH):
             # Return a blob that is not prefixed by the root path of the artifact store. This
             # should result in an exception being raised
-            return MockBlobList([bad_blob])
+            return MockBlobList([bad_blob_props])
         else:
             return MockBlobList([])
 
-    mock_client.list_blobs.side_effect = get_mock_listing
+    mock_client.get_container_client().walk_blobs.side_effect = get_mock_listing
 
     with pytest.raises(MlflowException) as exc:
         repo.download_artifacts("")
