@@ -59,9 +59,6 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     # last n elements in all_param_names
     pos_params, _, _, pos_defaults, kw_params, kw_defaults, _ = inspect.getfullargspec(fn)
 
-    if pos_params and pos_params[0] == 'self':
-        pos_params = pos_params[1:]
-
     kw_params = list(kw_params) if kw_params else []
     pos_defaults = list(pos_defaults) if pos_defaults else []
     all_param_names = pos_params + kw_params
@@ -79,9 +76,10 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
 
     # Logging the arguments passed by the user
     args_dict = dict((param_name, param_val) for param_name, param_val
-                     in zip(all_param_names[:len(args)], args)
+                     in zip(all_param_names, args)
                      if param_name not in unlogged)
-    if len(args_dict.keys()) > 0:
+
+    if args_dict:
         try_mlflow_log(mlflow.log_params, args_dict)
 
     # Logging the kwargs passed by the user
