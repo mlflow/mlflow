@@ -37,6 +37,12 @@ def serve_artifacts():
     return get_artifact_handler()
 
 
+# Add health endpoint
+@app.route('/health')
+def health():
+    return 'Healthy', 200
+
+
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
 # CSS/JS resources will be made to e.g. /static-files/main.css and we can handle them here.
 @app.route(_add_static_prefix('/static-files/<path:path>'))
