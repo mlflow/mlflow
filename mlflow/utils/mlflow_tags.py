@@ -34,6 +34,7 @@ MLFLOW_DATABRICKS_JOB_TYPE = "mlflow.databricks.jobType"
 
 
 MLFLOW_PROJECT_BACKEND = "mlflow.project.backend"
+MLFLOW_PROJECT_BACKEND_CONFIG = "mlflow.project.backendConfig"
 
 # The following legacy tags are deprecated and will be removed by MLflow 1.0.
 LEGACY_MLFLOW_GIT_BRANCH_NAME = "mlflow.gitBranchName"  # Replaced with mlflow.source.git.branch
