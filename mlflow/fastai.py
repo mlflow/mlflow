@@ -229,7 +229,6 @@ def autolog():
     class __MLflowFastaiCallback(LearnerCallback):
         """
         Callback for auto-logging metrics and parameters.
-        Records available logs after each epoch.
         Records model structural information as params when training begins
         """
         def __init__(self, learner):
@@ -250,18 +249,22 @@ def autolog():
             metrics = dict(zip(self.metrics_names, metrics))
             try_mlflow_log(mlflow.log_metrics, metrics, step=epoch)
 
-        def on_train_begin(self):
+        def on_train_begin(self, **kwargs):
             info = layers_info(self.learner)
             try_mlflow_log(mlflow.log_param, 'num_layers', len(info))
-            try_mlflow_log(mlflow.log_param, 'optimizer_name', self.opt.__name__)
-
-            # TODO: Log all opt params
+            try_mlflow_log(mlflow.log_param, 'optimizer_name', self.opt_func.func.__name__)
 
             if hasattr(self.opt, 'lr'):
                 try_mlflow_log(mlflow.log_param, 'learning_rate', self.opt.lr)
 
             if hasattr(self.opt, 'mom'):
                 try_mlflow_log(mlflow.log_param, 'momentum', self.opt.mom)
+
+            if hasattr(self.opt, 'true_wd'):
+                try_mlflow_log(mlflow.log_param, 'true_wd', self.opt.true_wd)
+
+            if hasattr(self.opt, 'bn_wd'):
+                try_mlflow_log(mlflow.log_param, 'batch_layers_weight_decay', self.opt.bn_wd)
 
             summary = model_summary(self.learner)
             try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
@@ -275,8 +278,8 @@ def autolog():
             finally:
                 shutil.rmtree(tempdir)
 
-        def on_train_end(self, logs=None):
-            try_mlflow_log(log_model, self.model, artifact_path='model')
+        def on_train_end(self, **kwargs):
+            try_mlflow_log(log_model, self.learner, artifact_path='model')
 
     def _find_callback_of_type(callback_type, callbacks):
         for callback in callbacks:
@@ -295,19 +298,6 @@ def autolog():
             except Exception:  # pylint: disable=W0703
                 return
 
-    def _log_one_cycle_callback_params(callback):
-        if callback:
-            try:
-                params = {
-                    'one_cycle_l_max': callback.lr_max,
-                    'one_cycle_div_factor': callback.div_factor,
-                    'one_cycle_pct_start': callback.pct_start,
-                    'one_cycle_final_div': callback.final_div
-                }
-                try_mlflow_log(mlflow.log_params, params)
-            except Exception:  # pylint: disable=W0703
-                return
-
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, callback_arg_index):
         if not mlflow.active_run():
             try_mlflow_log(mlflow.start_run)
@@ -317,7 +307,7 @@ def autolog():
 
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-        callbacks = [cb(self) for cb in self.callback_fns]
+        callbacks = [cb(self) for cb in self.callback_fns] + (self.callbacks or [])
 
         # Checking if the 'callback' argument of the function is set
         if len(args) > callback_arg_index:
@@ -332,9 +322,7 @@ def autolog():
             kwargs['callbacks'] = [__MLflowFastaiCallback(self)]
 
         early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, callbacks)
-        one_cycle_callback = _find_callback_of_type(OneCycleScheduler, callbacks)
 
-        _log_one_cycle_callback_params(one_cycle_callback)
         _log_early_stop_callback_params(early_stop_callback)
 
         result = original(self, *args, **kwargs)

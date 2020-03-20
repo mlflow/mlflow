@@ -23,12 +23,17 @@ def manual_run(request, tracking_uri_mock):
     mlflow.end_run()
 
 
+def iris_dataframe():
+    iris = datasets.load_iris()
+    return pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+
+
 @pytest.fixture(scope="session")
 def iris_data():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = pd.Series(iris.target, name='label')
-    return (TabularList.from_df(pd.concat([X, y], axis=1), cont_names=X.columns)
+    return (TabularList.from_df(pd.concat([X, y], axis=1), cont_names=list(X.columns))
             .split_by_rand_pct(valid_pct=0.1, seed=42)
             .label_from_df(cols='label')
             .databunch())
@@ -88,6 +93,8 @@ def test_fastai_autolog_logs_expected_data(fastai_random_data_run, fit_variant):
     model, run = fastai_random_data_run
     data = run.data
 
+    print(data.params)
+
     # Testing metrics are logged
     assert 'train_loss' in data.metrics
     assert 'valid_loss' in data.metrics
@@ -97,10 +104,6 @@ def test_fastai_autolog_logs_expected_data(fastai_random_data_run, fit_variant):
     # Testing explicitly passed parameters are logged correctly
     assert 'epochs' in data.params
     assert data.params['epochs'] == str(LARGE_EPOCHS)
-
-    if fit_variant == 'fit_one_cycle':
-        assert 'cyc_len' in data.params
-        assert data.params['cyc_len'] == str(LARGE_EPOCHS)
 
     # Testing unwanted parameters are not logged
     assert 'callbacks' not in data.params
@@ -131,14 +134,15 @@ def test_fastai_autolog_logs_default_params(fastai_random_data_run, fit_variant)
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
-def test_fastai_autolog_model_can_load_from_artifact(fastai_random_data_run, random_train_data):
+def test_fastai_autolog_model_can_load_from_artifact(fastai_random_data_run):
     run_id = fastai_random_data_run[1].info.run_id
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert 'model' in artifacts
     model = mlflow.fastai.load_model("runs:/" + run_id + "/model")
-    model.predict(random_train_data)
+    model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
+    model_wrapper.predict(iris_dataframe())
 
 
 @pytest.fixture
@@ -151,7 +155,7 @@ def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, cal
         callbacks.append(lambda learn: EarlyStoppingCallback(
             learn, patience=patience, min_delta=99999999))
 
-    model = fastai_model(iris_data, callback_fns=[callback])
+    model = fastai_model(iris_data, callback_fns=callbacks)
 
     if fit_variant == 'fit_one_cycle':
         model.fit_one_cycle(1)
