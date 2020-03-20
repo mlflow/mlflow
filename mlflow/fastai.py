@@ -31,6 +31,9 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
+from fastai.tabular import TabularList
+from fastai.basic_data import DatasetType
+
 
 FLAVOR_NAME = "fastai"
 
@@ -80,12 +83,14 @@ def save_model(fastai_learner, path, conda_env=None, mlflow_model=Model(), **kwa
     :param kwargs: kwargs to pass to ``Learner.save`` method.
     """
     import fastai
+    from pathlib import Path
 
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
     model_data_subpath = "model.fastai"
     model_data_path = os.path.join(path, model_data_subpath)
+    model_data_path = Path(model_data_path)
     os.makedirs(path)
 
     # Save an Learner
@@ -103,7 +108,7 @@ def save_model(fastai_learner, path, conda_env=None, mlflow_model=Model(), **kwa
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.fastai",
                         data=model_data_subpath, env=conda_env_subpath)
-    mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=fastai.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME, fastai_version=fastai.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -152,9 +157,9 @@ class _FastaiModelWrapper:
         self.learner = learner
 
     def predict(self, dataframe):
-        # TODO
-        from fastai.basic_train import Learner
-        return dataframe
+        test_data = TabularList.from_df(dataframe, cont_names=self.learner.data.cont_names)
+        self.learner.data.add_test(test_data)
+        return self.learner.get_preds(DatasetType.Test)[0].numpy()
 
 
 def _load_pyfunc(path):
@@ -231,7 +236,8 @@ def autolog():
             super().__init__(learner)
             self.learner = learner
             self.opt = self.learn.opt
-            self.metrics_names = ['train_loss', 'valid_loss'] + [o.__name__ for o in learner.metrics]
+            self.metrics_names = ['train_loss', 'valid_loss'] + \
+                                 [o.__name__ for o in learner.metrics]
 
         def on_epoch_end(self, epoch, **kwargs):
             """
