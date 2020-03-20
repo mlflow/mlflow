@@ -557,7 +557,7 @@ To store artifacts in Azure Blob Storage, specify a URI of the form
 MLflow expects Azure Storage access credentials in the
 ``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
 a connection string if one is set), so you must set one of these variables on both your client
-application and your MLflow tracking server. Finally, you must run ``pip install azure-storage``
+application and your MLflow tracking server. Finally, you must run ``pip install azure-storage-blob``
 separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
 a dependency on this package by default.
 
