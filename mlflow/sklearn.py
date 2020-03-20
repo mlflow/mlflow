@@ -87,24 +87,29 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                                  provides better cross-system compatibility by identifying and
                                  packaging code dependencies with the serialized model.
 
-    >>> import mlflow.sklearn
-    >>> from sklearn.datasets import load_iris
-    >>> from sklearn import tree
-    >>> iris = load_iris()
-    >>> sk_model = tree.DecisionTreeClassifier()
-    >>> sk_model = sk_model.fit(iris.data, iris.target)
-    >>> #Save the model in cloudpickle format
-    >>> #set path to location for persistence
-    >>> sk_path_dir_1 = ...
-    >>> mlflow.sklearn.save_model(
-    >>>         sk_model, sk_path_dir_1,
-    >>>         serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
-    >>>
-    >>> #Save the model in pickle format
-    >>> #set path to location for persistence
-    >>> sk_path_dir_2 = ...
-    >>> mlflow.sklearn.save_model(sk_model, sk_path_dir_2,
-    >>>                           serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.sklearn
+        from sklearn.datasets import load_iris
+        from sklearn import tree
+
+        iris = load_iris()
+        sk_model = tree.DecisionTreeClassifier()
+        sk_model = sk_model.fit(iris.data, iris.target)
+
+        # Save the model in cloudpickle format
+        # set path to location for persistence
+        sk_path_dir_1 = ...
+        mlflow.sklearn.save_model(
+                sk_model, sk_path_dir_1,
+                serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
+
+        # save the model in pickle format
+        # set path to location for persistence
+        sk_path_dir_2 = ...
+        mlflow.sklearn.save_model(sk_model, sk_path_dir_2,
+                                  serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
     """
     import sklearn
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
@@ -178,19 +183,25 @@ def log_model(sk_model, artifact_path, conda_env=None,
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
 
-    >>> import mlflow
-    >>> import mlflow.sklearn
-    >>> from sklearn.datasets import load_iris
-    >>> from sklearn import tree
-    >>> iris = load_iris()
-    >>> sk_model = tree.DecisionTreeClassifier()
-    >>> sk_model = sk_model.fit(iris.data, iris.target)
-    >>> #set the artifact_path to location where experiment artifacts will be saved
-    >>> #log model params
-    >>> mlflow.log_param("criterion", sk_model.criterion)
-    >>> mlflow.log_param("splitter", sk_model.splitter)
-    >>> #log model
-    >>> mlflow.sklearn.log_model(sk_model, "sk_models")
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        import mlflow.sklearn
+        from sklearn.datasets import load_iris
+        from sklearn import tree
+
+        iris = load_iris()
+        sk_model = tree.DecisionTreeClassifier()
+        sk_model = sk_model.fit(iris.data, iris.target)
+        # set the artifact_path to location where experiment artifacts will be saved
+
+        #log model params
+        mlflow.log_param("criterion", sk_model.criterion)
+        mlflow.log_param("splitter", sk_model.splitter)
+
+        # log model
+        mlflow.sklearn.log_model(sk_model, "sk_models")
     """
     return Model.log(artifact_path=artifact_path,
                      flavor=mlflow.sklearn,
@@ -259,11 +270,15 @@ def load_model(model_uri):
 
     :return: A scikit-learn model.
 
-    >>> import mlflow.sklearn
-    >>> sk_model = mlflow.sklearn.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2/"sk_models")
-    >>> #use Pandas DataFrame to make predictions
-    >>> pandas_df = ...
-    >>> predictions = sk_model.predict(pandas_df)
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.sklearn
+        sk_model = mlflow.sklearn.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2/sk_models")
+
+        # use Pandas DataFrame to make predictions
+        pandas_df = ...
+        predictions = sk_model.predict(pandas_df)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
