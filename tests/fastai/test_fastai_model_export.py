@@ -38,8 +38,8 @@ def fastai_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = pd.Series(iris.target, name='label')
-    data = (TabularList.from_df(pd.concat([X, y], axis=1), cont_names=X.columns)
-            .random_split_by_pct(valid_pct=0.1, seed=42)
+    data = (TabularList.from_df(pd.concat([X, y], axis=1), cont_names=list(X.columns))
+            .split_by_rand_pct(valid_pct=0.1, seed=42)
             .label_from_df(cols='label')
             .databunch())
     model = tabular_learner(data, metrics=accuracy, layers=[3])
@@ -67,21 +67,25 @@ def test_model_save_load(fastai_model, model_path):
 
     mlflow.fastai.save_model(fastai_learner=model, path=model_path)
     reloaded_model = mlflow.fastai.load_model(model_uri=model_path)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
+    reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
 
     np.testing.assert_array_almost_equal(
-            model.predict(fastai_model.inference_dataframe),
-            reloaded_model.predict(fastai_model.inference_dataframe))
+            model_wrapper.predict(fastai_model.inference_dataframe),
+            reloaded_model_wrapper.predict(fastai_model.inference_dataframe))
 
     np.testing.assert_array_almost_equal(
-            reloaded_model.predict(fastai_model.inference_dataframe),
+            reloaded_model_wrapper.predict(fastai_model.inference_dataframe),
             reloaded_pyfunc.predict(fastai_model.inference_dataframe))
 
 
 @pytest.mark.large
 def test_model_load_from_remote_uri_succeeds(fastai_model, model_path, mock_s3_bucket):
-    mlflow.fastai.save_model(fastai_learner=fastai_model.model, path=model_path)
+    model = fastai_model.model
 
+    mlflow.fastai.save_model(fastai_learner=fastai_model.model, path=model_path)
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
     artifact_repo = S3ArtifactRepository(artifact_root)
@@ -89,9 +93,13 @@ def test_model_load_from_remote_uri_succeeds(fastai_model, model_path, mock_s3_b
 
     model_uri = artifact_root + "/" + artifact_path
     reloaded_model = mlflow.fastai.load_model(model_uri=model_uri)
+
+    model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
+    reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
+
     np.testing.assert_array_almost_equal(
-            fastai_model.model.predict(fastai_model.inference_dataframe),
-            reloaded_model.predict(fastai_model.inference_dataframe))
+            model_wrapper.predict(fastai_model.inference_dataframe),
+            reloaded_model_wrapper.predict(fastai_model.inference_dataframe))
 
 
 @pytest.mark.large
@@ -113,14 +121,19 @@ def test_model_log(fastai_model, model_path):
                         fastai_learner=model,
                         artifact_path=artifact_path,
                         conda_env=conda_env)
+
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id,
                     artifact_path=artifact_path)
 
                 reloaded_model = mlflow.fastai.load_model(model_uri=model_uri)
+
+                model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
+                reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
+
                 np.testing.assert_array_almost_equal(
-                        model.predict(fastai_model.inference_dataframe),
-                        reloaded_model.predict(fastai_model.inference_dataframe))
+                        model_wrapper.predict(fastai_model.inference_dataframe),
+                        reloaded_model_wrapper.predict(fastai_model.inference_dataframe))
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
                 model_config = Model.load(os.path.join(model_path, "MLmodel"))
@@ -258,7 +271,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 @pytest.mark.release
 def test_sagemaker_docker_model_scoring_with_default_conda_env(fastai_model, model_path):
     mlflow.fastai.save_model(fastai_learner=fastai_model.model, path=model_path, conda_env=None)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     scoring_response = score_model_in_sagemaker_docker_container(
             model_uri=model_path,
