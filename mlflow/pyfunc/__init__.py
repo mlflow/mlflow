@@ -718,7 +718,6 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
 
     code = None
     data = None
-    env = None
 
     if data_path is not None:
         model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
