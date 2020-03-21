@@ -202,25 +202,7 @@ def autolog():
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
 
-    EarlyStopping Integration with Fastai Automatic Logging
-
-    MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()``/``fit_generator()``
-    call, and if the ``restore_best_weights`` parameter is set to be ``True``, then MLflow will
-    log the metrics associated with the restored model as a final, extra step. The epoch of the
-    restored model will also be logged as the metric ``restored_epoch``.
-    This allows for easy comparison between the actual metrics of the restored model and
-    the metrics of other models.
-
-    If ``restore_best_weights`` is set to be ``False``,
-    then MLflow will not log an additional step.
-
-    Regardless of ``restore_best_weights``, MLflow will also log ``stopped_epoch``,
-    which indicates the epoch at which training stopped due to early stopping.
-
-    If training does not end due to early stopping, then ``stopped_epoch`` will be logged as ``0``.
-
-    MLflow will also log the parameters of the EarlyStopping callback,
-    excluding ``mode`` and ``verbose``.
+    MLflow will also log the parameters of the EarlyStopping and OneCycleScheduler callbacks
     """
     from fastai.basic_train import LearnerCallback, Learner
     from fastai.callbacks.hooks import model_summary, layers_info
