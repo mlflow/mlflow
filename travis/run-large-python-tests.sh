@@ -21,7 +21,7 @@ pytest tests --large --ignore=tests/examples --ignore=tests/h2o --ignore=tests/k
   --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/azureml --ignore=tests/onnx \
   --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore=tests/gluon \
   --ignore=tests/gluon_autolog --ignore=tests/xgboost --ignore=tests/lightgbm \
-  --ignore tests/spark_autologging --ignore=tests/models
+  --ignore tests/spark_autologging --ignore=tests/models --ignore=tests/fastai
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
 pytest --verbose tests/pytorch --large
@@ -38,6 +38,7 @@ pytest --verbose tests/azureml --large
 pytest --verbose tests/models --large
 pytest --verbose tests/xgboost --large
 pytest --verbose tests/lightgbm --large
+pytest --verbose tests/fastai --large
 # TODO(smurching) Unpin TensorFlow dependency version once test failures with TF 2.1.0 have been
 # fixed
 pip install 'tensorflow==2.0.0'
