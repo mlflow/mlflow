@@ -21,6 +21,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 
+
 def _load_pyfunc(path):
     with open(path, "rb") as f:
         if six.PY2:
