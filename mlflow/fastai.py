@@ -231,7 +231,7 @@ def autolog():
         Callback for auto-logging metrics and parameters.
         Records model structural information as params when training begins
         """
-        def __init__(self, learner):
+        def __init__(self, learner, ):
             super().__init__(learner)
             self.learner = learner
             self.opt = self.learn.opt
@@ -252,19 +252,16 @@ def autolog():
         def on_train_begin(self, **kwargs):
             info = layers_info(self.learner)
             try_mlflow_log(mlflow.log_param, 'num_layers', len(info))
-            try_mlflow_log(mlflow.log_param, 'optimizer_name', self.opt_func.func.__name__)
-
-            if hasattr(self.opt, 'lr'):
-                try_mlflow_log(mlflow.log_param, 'learning_rate', self.opt.lr)
-
-            if hasattr(self.opt, 'mom'):
-                try_mlflow_log(mlflow.log_param, 'momentum', self.opt.mom)
+            try_mlflow_log(mlflow.log_param, 'opt_func', self.opt_func.func.__name__)
 
             if hasattr(self.opt, 'true_wd'):
                 try_mlflow_log(mlflow.log_param, 'true_wd', self.opt.true_wd)
 
             if hasattr(self.opt, 'bn_wd'):
-                try_mlflow_log(mlflow.log_param, 'batch_layers_weight_decay', self.opt.bn_wd)
+                try_mlflow_log(mlflow.log_param, 'bn_wd', self.opt.bn_wd)
+
+            if hasattr(self.opt, 'train_bn'):
+                try_mlflow_log(mlflow.log_param, 'train_bn', self.train_bn)
 
             summary = model_summary(self.learner)
             try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
@@ -298,6 +295,22 @@ def autolog():
             except Exception:  # pylint: disable=W0703
                 return
 
+    def _log_one_cycle_callback_params(callback):
+        if callback:
+            try:
+                params = {
+                    'lr_max': callback.lr_max,
+                    'div_factor': callback.div_factor,
+                    'pct_start': callback.pct_start,
+                    'final_div': callback.final_div,
+                    'tot_epochs': callback.tot_epochs,
+                    'start_epoch': callback.start_epoch,
+                    'moms': callback.moms,
+                }
+                try_mlflow_log(mlflow.log_params, params)
+            except Exception:  # pylint: disable=W0703
+                return
+
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, callback_arg_index):
         if not mlflow.active_run():
             try_mlflow_log(mlflow.start_run)
@@ -305,7 +318,7 @@ def autolog():
         else:
             auto_end_run = False
 
-        log_fn_args_as_params(original, args, kwargs, unlogged_params)
+        log_fn_args_as_params(original, [self] + list(args), kwargs, unlogged_params)
 
         callbacks = [cb(self) for cb in self.callback_fns] + (self.callbacks or [])
 
@@ -322,8 +335,10 @@ def autolog():
             kwargs['callbacks'] = [__MLflowFastaiCallback(self)]
 
         early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, callbacks)
+        one_cycle_callback = _find_callback_of_type(OneCycleScheduler, callbacks)
 
         _log_early_stop_callback_params(early_stop_callback)
+        _log_one_cycle_callback_params(one_cycle_callback)
 
         result = original(self, *args, **kwargs)
 
@@ -335,15 +350,8 @@ def autolog():
     @gorilla.patch(Learner)
     def fit(self, *args, **kwargs):
         original = gorilla.get_original_attribute(Learner, 'fit')
-        unlogged_params = ['self', 'callbacks']
+        unlogged_params = ['self', 'callbacks', 'learner']
         return _run_and_log_function(self, original, args, kwargs, unlogged_params, 3)
-
-    @gorilla.patch(Learner)
-    def fit_one_cycle(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(Learner, 'fit_one_cycle')
-        unlogged_params = ['self', 'callbacks']
-        return _run_and_log_function(self, original, args, kwargs, unlogged_params, 7)
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     gorilla.apply(gorilla.Patch(Learner, 'fit', fit, settings=settings))
-    gorilla.apply(gorilla.Patch(Learner, 'fit_one_cycle', fit_one_cycle, settings=settings))

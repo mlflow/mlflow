@@ -12,7 +12,7 @@ from fastai.callbacks import EarlyStoppingCallback, SaveModelCallback
 
 np.random.seed(1337)
 
-LARGE_EPOCHS = 5
+LARGE_EPOCHS = 10
 
 
 @pytest.fixture(params=[True, False])
@@ -93,24 +93,31 @@ def test_fastai_autolog_logs_expected_data(fastai_random_data_run, fit_variant):
     model, run = fastai_random_data_run
     data = run.data
 
-    print(data.params)
-
     # Testing metrics are logged
     assert 'train_loss' in data.metrics
     assert 'valid_loss' in data.metrics
+
     for o in model.metrics:
         assert o.__name__ in data.metrics
+
+    client = mlflow.tracking.MlflowClient()
+    metric_history = client.get_metric_history(run.info.run_id, 'valid_loss')
+    assert np.array_equal([m.value for m in metric_history], model.recorder.val_losses)
 
     # Testing explicitly passed parameters are logged correctly
     assert 'epochs' in data.params
     assert data.params['epochs'] == str(LARGE_EPOCHS)
 
+    # Testing implicitly passed parameters are logged correctly
+    assert 'wd' in data.params
+
     # Testing unwanted parameters are not logged
     assert 'callbacks' not in data.params
+    assert 'learn' not in data.params
 
     # Testing optimizer parameters are logged
-    assert 'optimizer_name' in data.params
-    assert data.params['optimizer_name'] == model.opt.__name__
+    assert 'opt_func' in data.params
+    assert data.params['opt_func'] == 'Adam'
     assert 'model_summary' in data.tags
 
     # Testing model_summary.txt is saved
@@ -158,12 +165,12 @@ def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, cal
     model = fastai_model(iris_data, callback_fns=callbacks)
 
     if fit_variant == 'fit_one_cycle':
-        model.fit_one_cycle(1)
+        model.fit_one_cycle(LARGE_EPOCHS)
     else:
-        model.fit(1)
+        model.fit(LARGE_EPOCHS)
 
     client = mlflow.tracking.MlflowClient()
-    return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
+    return model, client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
 
 @pytest.mark.large
@@ -171,82 +178,60 @@ def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, cal
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [0, 1, 5])
 def test_fastai_autolog_early_stop_logs(fastai_random_data_run_with_callback, patience):
-    return
-    run = fastai_random_data_run_with_callback
+    model, run = fastai_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
-    assert 'patience' in params
-    assert params['patience'] == str(patience)
-    assert 'monitor' in params
-    assert params['monitor'] == 'valid_loss'
-    assert 'verbose' not in params
-    assert 'mode' not in params
+    assert 'early_stop_patience' in params
+    assert params['early_stop_patience'] == str(patience)
+    assert 'early_stop_monitor' in params
+    assert params['early_stop_monitor'] == 'valid_loss'
+    assert 'early_stop_mode' in params
+    assert params['early_stop_mode'] == 'auto'
+    assert 'early_stop_min_delta' in params
+    assert params['early_stop_min_delta'] == f'-{99999999}'
+
+    """
     assert 'stopped_epoch' in metrics
     assert 'restored_epoch' in metrics
     restored_epoch = int(metrics['restored_epoch'])
     assert int(metrics['stopped_epoch']) - max(1, callback.patience) == restored_epoch
-    assert 'loss' in history.history
-    num_of_epochs = len(history.history['loss'])
+    """
+
     client = mlflow.tracking.MlflowClient()
-    metric_history = client.get_metric_history(run.info.run_id, 'loss')
+    metric_history = client.get_metric_history(run.info.run_id, 'valid_loss')
+    num_of_epochs = len(model.recorder.val_losses)
     # Check the test epoch numbers are correct
-    assert num_of_epochs == max(1, callback.patience) + 1
     # Check that MLflow has logged the metrics of the "best" model
-    assert len(metric_history) == num_of_epochs + 1
+    assert len(metric_history) == num_of_epochs
     # Check that MLflow has logged the correct data
-    assert history.history['loss'][restored_epoch] == metric_history[-1].value
+    # assert history.history['loss'][restored_epoch] == metric_history[-1].value
 
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [11])
-def test_fastai_autolog_early_stop_no_stop_does_not_log(fastai_random_data_run_with_callback):
-    return
-    run, history, callback = fastai_random_data_run_with_callback
+def test_fastai_autolog_early_stop_no_stop_does_not_log(fastai_random_data_run_with_callback, patience):
+    model, run, = fastai_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
-    assert 'patience' in params
-    assert params['patience'] == str(callback.patience)
-    assert 'monitor' in params
-    assert params['monitor'] == 'loss'
-    assert 'verbose' not in params
-    assert 'mode' not in params
+    assert 'early_stop_patience' in params
+    assert params['early_stop_patience'] == str(patience)
+    assert 'early_stop_monitor' in params
+    assert params['early_stop_monitor'] == 'valid_loss'
+    assert 'early_stop_mode' in params
+    assert 'early_stop_min_delta' in params
+    assert params['early_stop_min_delta'] == f'-{99999999}'
+    """
     assert 'stopped_epoch' in metrics
     assert metrics['stopped_epoch'] == 0
     assert 'restored_epoch' not in metrics
-    assert 'loss' in history.history
-    num_of_epochs = len(history.history['loss'])
+    """
+    num_of_epochs = len(model.recorder.val_losses)
     client = mlflow.tracking.MlflowClient()
-    metric_history = client.get_metric_history(run.info.run_id, 'loss')
+    metric_history = client.get_metric_history(run.info.run_id, 'valid_loss')
     # Check the test epoch numbers are correct
-    assert num_of_epochs == 10
-    assert len(metric_history) == num_of_epochs
-
-
-@pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
-@pytest.mark.parametrize('callback', ['early'])
-@pytest.mark.parametrize('patience', [5])
-def test_fastai_autolog_early_stop_no_restore_does_not_log(fastai_random_data_run_with_callback):
-    return
-    run, history, callback = fastai_random_data_run_with_callback
-    metrics = run.data.metrics
-    params = run.data.params
-    assert 'patience' in params
-    assert params['patience'] == str(callback.patience)
-    assert 'monitor' in params
-    assert params['monitor'] == 'loss'
-    assert 'verbose' not in params
-    assert 'mode' not in params
-    assert 'stopped_epoch' in metrics
-    assert 'restored_epoch' not in metrics
-    assert 'loss' in history.history
-    num_of_epochs = len(history.history['loss'])
-    client = mlflow.tracking.MlflowClient()
-    metric_history = client.get_metric_history(run.info.run_id, 'loss')
-    # Check the test epoch numbers are correct
-    assert num_of_epochs == callback.patience + 1
+    assert num_of_epochs == LARGE_EPOCHS
     assert len(metric_history) == num_of_epochs
 
 
@@ -255,20 +240,18 @@ def test_fastai_autolog_early_stop_no_restore_does_not_log(fastai_random_data_ru
 @pytest.mark.parametrize('callback', ['not-early'])
 @pytest.mark.parametrize('patience', [5])
 def test_fastai_autolog_non_early_stop_callback_does_not_log(fastai_random_data_run_with_callback):
-    return
-    run = fastai_random_data_run_with_callback
+    model, run, = fastai_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
-    assert 'patience' not in params
-    assert 'monitor' not in params
-    assert 'verbose' not in params
-    assert 'mode' not in params
+    assert 'early_stop_patience' not in params
+    assert 'early_stop_monitor' not in params
+    assert 'early_stop_mode' not in params
     assert 'stopped_epoch' not in metrics
     assert 'restored_epoch' not in metrics
-    assert 'loss' in history.history
-    num_of_epochs = len(history.history['loss'])
+    assert 'early_stop_min_delta' not in params
+    num_of_epochs = len(model.recorder.val_losses)
     client = mlflow.tracking.MlflowClient()
-    metric_history = client.get_metric_history(run.info.run_id, 'loss')
+    metric_history = client.get_metric_history(run.info.run_id, 'valid_loss')
     # Check the test epoch numbers are correct
-    assert num_of_epochs == 10
+    assert num_of_epochs == LARGE_EPOCHS
     assert len(metric_history) == num_of_epochs
