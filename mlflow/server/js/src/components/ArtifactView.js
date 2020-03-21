@@ -74,7 +74,7 @@ export class ArtifactView extends Component {
     const { activeNodeId } = this.state;
     return (
       <div className='artifact-info-link'>
-        <a href={getSrc(activeNodeId, runUuid)} target='_blank' title='Download artifact'>
+        <a href={getSrc(activeNodeId, runUuid)} title='Download artifact'>
           <i className='fas fa-download' />
         </a>
       </div>
@@ -219,9 +219,7 @@ export class ArtifactView extends Component {
 
 function ModelVersionInfoSection(props) {
   const { modelVersion } = props;
-  const { name } = modelVersion.model_version.registered_model;
-  const { version } = modelVersion.model_version;
-  const { status, status_message } = modelVersion;
+  const { name, version, status, status_message } = modelVersion;
 
   const modelVersionLink = (
     <a
@@ -368,7 +366,11 @@ decorators.Header = ({style, node}) => {
     }
   }
   const iconClass = `fa fa-${iconType}`;
-  const iconStyle = {marginRight: '5px'};
+
+  // Add margin-left to the non-directory nodes to align the arrow, icons, and texts.
+  const iconStyle = node.children
+    ? { marginRight: '5px' }
+    : { marginRight: '5px', marginLeft: '19px' };
 
   return (
     <div style={style.base}>

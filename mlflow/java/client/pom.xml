@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>1.6.1-SNAPSHOT</version>
+    <version>1.7.2-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -50,11 +50,6 @@
       <groupId>org.ini4j</groupId>
       <artifactId>ini4j</artifactId>
     </dependency>
-    <dependency>
-      <groupId>com.google.code.findbugs</groupId>
-      <artifactId>jsr305</artifactId>
-      <version>3.0.2</version>
-    </dependency>
 
     <!-- Test dependencies -->
     <dependency>
@@ -85,7 +80,7 @@
         <artifactId>maven-javadoc-plugin</artifactId>
         <configuration>
           <sourcepath>${project.basedir}/src/main/java</sourcepath>
-          <excludePackageNames>com.databricks.api.proto.databricks:org.mlflow.scalapb_interface:org.mlflow.tracking:org.mlflow.artifacts:org.mlflow.api</excludePackageNames>
+          <excludePackageNames>com.databricks.api.proto.databricks:org.mlflow.scalapb_interface:org.mlflow.tracking.samples:org.mlflow.artifacts</excludePackageNames>
           <groups>
             <group>
               <title>Tracking API</title>

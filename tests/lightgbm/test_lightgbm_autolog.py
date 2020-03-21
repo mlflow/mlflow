@@ -5,16 +5,16 @@ import numpy as np
 import pandas as pd
 from sklearn import datasets
 import lightgbm as lgb
-import matplotlib
+import matplotlib as mpl
 
 import mlflow
 import mlflow.lightgbm
 
-matplotlib.use('Agg')
-client = mlflow.tracking.MlflowClient()
+mpl.use('Agg')
 
 
 def get_latest_run():
+    client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
 
@@ -111,7 +111,7 @@ def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
               valid_names=['train'], evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-
+    client = mlflow.tracking.MlflowClient()
     metric_key = 'train-multi_logloss'
     metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
     assert metric_key in data.metrics
@@ -131,7 +131,7 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_s
               valid_names=valid_names, evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-
+    client = mlflow.tracking.MlflowClient()
     for valid_name in valid_names:
         metric_key = '{}-multi_logloss'.format(valid_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
@@ -152,7 +152,7 @@ def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
               valid_names=valid_names, evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-
+    client = mlflow.tracking.MlflowClient()
     for metric_name in params['metric']:
         metric_key = '{}-{}'.format(valid_names[0], metric_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
@@ -173,7 +173,7 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
               valid_names=valid_names, evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-
+    client = mlflow.tracking.MlflowClient()
     for valid_name in valid_names:
         for metric_name in params['metric']:
             metric_key = '{}-{}'.format(valid_name, metric_name)
@@ -196,7 +196,7 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
                       valid_sets=valid_sets, valid_names=valid_names, evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-
+    client = mlflow.tracking.MlflowClient()
     assert 'best_iteration' in data.metrics
     assert int(data.metrics['best_iteration']) == model.best_iteration
     assert 'stopped_iteration' in data.metrics
@@ -220,6 +220,7 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace('file://', '')
+    client = mlflow.tracking.MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     for imp_type in ['split', 'gain']:
@@ -238,6 +239,13 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
         imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
 
         assert loaded_imp == imp
+
+
+@pytest.mark.large
+def test_no_figure_is_opened_after_logging(bst_params, train_set):
+    mlflow.lightgbm.autolog()
+    lgb.train(bst_params, train_set, num_boost_round=10)
+    assert mpl.pyplot.get_fignums() == []
 
 
 @pytest.mark.large

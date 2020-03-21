@@ -19,7 +19,9 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
-from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import (
+    ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+)
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 from tests.store.tracking import AbstractStoreTest
@@ -75,6 +77,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                             }
                 write_yaml(run_folder, FileStore.META_DATA_FILE_NAME, run_info)
                 self.run_data[run_id] = run_info
+                # tags
+                os.makedirs(os.path.join(run_folder, FileStore.TAGS_FOLDER_NAME))
                 # params
                 params_folder = os.path.join(run_folder, FileStore.PARAMS_FOLDER_NAME)
                 os.makedirs(params_folder)
@@ -327,6 +331,29 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert fs.get_run(run_id).info.lifecycle_stage == 'deleted'
         fs.restore_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == 'active'
+
+    def test_hard_delete_run(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        run_id = self.exp_data[exp_id]['runs'][0]
+        fs._hard_delete_run(run_id)
+        with self.assertRaises(MlflowException):
+            fs.get_run(run_id)
+        with self.assertRaises(MlflowException):
+            fs.get_all_tags(run_id)
+        with self.assertRaises(MlflowException):
+            fs.get_all_metrics(run_id)
+        with self.assertRaises(MlflowException):
+            fs.get_all_params(run_id)
+
+    def test_get_deleted_runs(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[0]
+        run_id = self.exp_data[exp_id]['runs'][0]
+        fs.delete_run(run_id)
+        deleted_runs = fs._get_deleted_runs()
+        assert len(deleted_runs) == 1
+        assert deleted_runs[0] == run_id
 
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [
@@ -615,13 +642,35 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run = fs.get_run(run_id)
         assert run.data.params[WEIRD_PARAM_NAME] == "Value"
 
-    def test_log_empty_str(self):
+    def test_log_param_empty_str(self):
         PARAM_NAME = "new param"
         fs = FileStore(self.test_root)
         run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.log_param(run_id, Param(PARAM_NAME, ""))
         run = fs.get_run(run_id)
         assert run.data.params[PARAM_NAME] == ""
+
+    def test_log_param_with_newline(self):
+        param_name = "new param"
+        param_value = "a string\nwith multiple\nlines"
+        fs = FileStore(self.test_root)
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        fs.log_param(run_id, Param(param_name, param_value))
+        run = fs.get_run(run_id)
+        assert run.data.params[param_name] == param_value
+
+    def test_log_param_enforces_value_immutability(self):
+        param_name = "new param"
+        fs = FileStore(self.test_root)
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        fs.log_param(run_id, Param(param_name, "value1"))
+        # Duplicate calls to `log_param` with the same key and value should succeed
+        fs.log_param(run_id, Param(param_name, "value1"))
+        with pytest.raises(MlflowException) as exc:
+            fs.log_param(run_id, Param(param_name, "value2"))
+        assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        run = fs.get_run(run_id)
+        assert run.data.params[param_name] == "value1"
 
     def test_weird_metric_names(self):
         WEIRD_METRIC_NAME = "this is/a weird/but valid metric"

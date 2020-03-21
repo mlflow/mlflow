@@ -6,10 +6,11 @@
 #' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
+#' @param model_spec MLflow model config this model flavor is being added to.
 #' @param ... Optional additional arguments.
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(model, path, ...) {
+mlflow_save_model <- function(model, path, model_spec = list(), ...) {
   UseMethod("mlflow_save_model")
 }
 
@@ -28,8 +29,29 @@ mlflow_save_model <- function(model, path, ...) {
 #' @export
 mlflow_log_model <- function(model, artifact_path, ...) {
   temp_path <- fs::path_temp(artifact_path)
-  mlflow_save_model(model, path = temp_path, ...)
-  mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
+  model_spec <- mlflow_save_model(model, path = temp_path, model_spec = list(
+    utc_time_created = mlflow_timestamp(),
+    run_id = mlflow_get_active_run_id(),
+    artifact_path = artifact_path,
+    flavors = list()
+  ), ...)
+  res <- mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
+  tryCatch({ mlflow_record_logged_model(model_spec) }, error = function(e) {
+    warning(paste("Logging model metadata to the tracking server has failed, possibly due to older",
+                  "server version. The model artifacts have been logged successfully.",
+                  "In addition to exporting model artifacts, MLflow clients 1.7.0 and above",
+                  "attempt to record model metadata to the  tracking store. If logging to a",
+                  "mlflow server via REST, consider  upgrading the server version to MLflow",
+                  "1.7.0 or above.", sep=" "))
+  })
+  res
+}
+
+mlflow_write_model_spec <- function(path, content) {
+  write_yaml(
+    purrr::compact(content),
+    file.path(path, "MLmodel")
+  )
 }
 
 mlflow_timestamp <- function() {
@@ -39,16 +61,6 @@ mlflow_timestamp <- function() {
       as.POSIXlt(Sys.time(), tz = "GMT"),
       "%y-%m-%dT%H:%M:%S.%OS"
     )
-  )
-}
-
-mlflow_write_model_spec <- function(path, content) {
-  content$utc_time_created <- mlflow_timestamp()
-  content$run_id <- mlflow_get_active_run_id()
-
-  write_yaml(
-    purrr::compact(content),
-    file.path(path, "MLmodel")
   )
 }
 

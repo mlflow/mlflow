@@ -1301,9 +1301,9 @@ model types.
 
 .. code:: r
 
-   list(list("mlflow_save_model"), list("crate"))(model, path, ...)
-   list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path, conda_env = NULL, ...)
-   mlflow_save_model(model, path, ...)
+   list(list("mlflow_save_model"), list("crate"))(model, path, model_spec = list(), ...)
+   list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path, model_spec = list(), conda_env = NULL, ...)
+   mlflow_save_model(model, path, model_spec = list(), ...)
 
 .. _arguments-29:
 
@@ -1319,6 +1319,9 @@ Arguments
 | ``path``                          | Destination path where this       |
 |                                   | MLflow compatible model will be   |
 |                                   | saved.                            |
++-----------------------------------+-----------------------------------+
+| ``model_spec``                    | MLflow model config this model    |
+|                                   | flavor is being added to.         |
 +-----------------------------------+-----------------------------------+
 | ``...``                           | Optional additional arguments.    |
 +-----------------------------------+-----------------------------------+
