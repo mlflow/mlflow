@@ -220,12 +220,13 @@ def autolog():
             self.metrics_names = ['train_loss', 'valid_loss'] + \
                                  [o.__name__ for o in learner.metrics]
 
-        def on_epoch_end(self, epoch, **kwargs):
+        def on_epoch_end(self, **kwargs):
             """
             Log loss and other metrics values after each epoch
             """
             if kwargs['smooth_loss'] is None or kwargs["last_metrics"] is None:
                 return
+            epoch = kwargs['epoch']
             metrics = [kwargs['smooth_loss']] + kwargs["last_metrics"]
             metrics = map(float, metrics)
             metrics = dict(zip(self.metrics_names, metrics))
