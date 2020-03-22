@@ -18,7 +18,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import, E0611
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
