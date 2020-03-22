@@ -1,12 +1,24 @@
 import React from 'react';
 import Utils from '../utils/Utils';
 import _ from 'lodash';
-import PropTypes from 'prop-types';
+import PropTypes, {array} from 'prop-types';
 import { X_AXIS_STEP, X_AXIS_RELATIVE } from './MetricsPlotControls';
 import { CHART_TYPE_BAR } from './MetricsPlotPanel';
 import Plot from 'react-plotly.js';
 
 const MAX_RUN_NAME_DISPLAY_LENGTH = 36;
+
+function EMA(mArray, mRange) {
+  const k = 2 / (mRange + 1);
+  // first item is just the same as the first item in the input
+  const emaArray = [mArray[0]];
+  // for the rest of the items, they are computed with the previous one
+  for (let i = 1; i < mArray.length; i++) {
+    // eslint-disable-next-line no-mixed-operators
+    emaArray.push(mArray[i] * k + emaArray[i - 1] * (1 - k));
+  }
+  return emaArray;
+}
 
 export class MetricsPlotView extends React.Component {
   static propTypes = {
@@ -61,10 +73,10 @@ export class MetricsPlotView extends React.Component {
           }
           return MetricsPlotView.parseTimestamp(entry.timestamp, history, xAxis);
         }),
-        y: history.map((entry) => entry.value),
+        y: EMA(history.map((entry) => entry.value), lineSmoothness),
         type: 'scatter',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
-        line: { shape: 'spline', smoothing: lineSmoothness },
+        // line: { shape: 'spline', smoothing: lineSmoothness },
         marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
         visible: visible,
         runId: runUuid,
