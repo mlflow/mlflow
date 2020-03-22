@@ -504,6 +504,12 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
   is a path inside the file store. Typically this is not an appropriate location, as the client and
   server probably refer to different physical locations (that is, the same path on different disks).
 
+Deletion Behavior
+~~~~~~~~~~~~~~~~~
+In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
+from the backend store or artifact store when a Run is deleted. The :ref:`mlflow gc <cli>` CLI is provided
+for permanently removing Run metadata and artifacts for deleted runs.
+
 SQLAlchemy Options
 ~~~~~~~~~~~~~~~~~~
 
@@ -537,11 +543,19 @@ these are available. For more information on how to set credentials, see
 `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_.
 
 To store artifacts in a custom endpoint, set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL.
-For example, if you have a Minio server at 1.2.3.4 on port 9000:
+For example, if you have a MinIO server at 1.2.3.4 on port 9000:
 
 .. code-block:: bash
 
   export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
+
+Additionally, if MinIO server is configured with non-default region, you should set ``AWS_DEFAULT_REGION`` variable:
+
+.. code-block:: bash
+
+  export AWS_DEFAULT_REGION=my_region
+
+Complete list of configurable values for an S3 client is available in `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
 
 Azure Blob Storage
 ^^^^^^^^^^^^^^^^^^
@@ -551,7 +565,7 @@ To store artifacts in Azure Blob Storage, specify a URI of the form
 MLflow expects Azure Storage access credentials in the
 ``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
 a connection string if one is set), so you must set one of these variables on both your client
-application and your MLflow tracking server. Finally, you must run ``pip install azure-storage``
+application and your MLflow tracking server. Finally, you must run ``pip install azure-storage-blob``
 separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
 a dependency on this package by default.
 
@@ -711,4 +725,8 @@ internal use. The following tags are set automatically by MLflow, when appropria
 | ``mlflow.docker.image.name``  | Name of the Docker image used to execute this run.                                     |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.docker.image.id``    | ID of the Docker image used to execute this run.                                       |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.log-model.history``  | (Experimental) Model metadata collected by log-model calls. Includes the serialized    |
+|                               | form of the MLModel model files logged to a run, although the exact format and         |
+|                               | information captured is subject to change.                                             |
 +-------------------------------+----------------------------------------------------------------------------------------+
