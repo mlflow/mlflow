@@ -211,7 +211,8 @@ def test_fastai_autolog_early_stop_logs(fastai_random_data_run_with_callback, pa
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [11])
-def test_fastai_autolog_early_stop_no_stop_does_not_log(fastai_random_data_run_with_callback, patience):
+def test_fastai_autolog_early_stop_no_stop_does_not_log(
+        fastai_random_data_run_with_callback, patience):
     model, run, = fastai_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
