@@ -91,19 +91,21 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
+    if backend_name:
+        backend = loader.load_backend(backend_name)
+        if backend:
+            submitted_run = backend.run(run_id, experiment_id, uri, entry_point, parameters,
+                                        version, backend_config)
+            tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_PROJECT_BACKEND,
+                                            backend_name)
+            return submitted_run
+
     project, work_dir = fetch_and_validate_project(uri, version, entry_point, parameters)
     _validate_execution_environment(project, backend_name)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     active_run = get_or_create_run(run_id, uri, experiment_id, work_dir, entry_point)
     log_project_params_and_tags(active_run, project, work_dir, entry_point, parameters, version)
 
-    if backend_name:
-        backend = loader.load_backend(backend_name)
-        if backend:
-            tracking.MlflowClient().set_tag(active_run.run_id, MLFLOW_PROJECT_BACKEND,
-                                            backend_name)
-            return backend.run(run_id, experiment_id, uri, entry_point, parameters,
-                               version, backend_config)
     if backend_name == "databricks":
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         "databricks")
