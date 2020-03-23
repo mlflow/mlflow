@@ -15,7 +15,6 @@ from mlflow.utils.mlflow_tags import (
 )
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from mlflow.projects import _project_spec
 from mlflow.exceptions import MlflowException
 
@@ -29,7 +28,7 @@ def _build_uri(base_uri, subdirectory):
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 def test_docker_project_execution(
         use_start_run,
-        tmpdir, tracking_uri_mock, docker_example_base_image):  # pylint: disable=unused-argument
+        tmpdir, docker_example_base_image):  # pylint: disable=unused-argument
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR, experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
@@ -91,8 +90,7 @@ def test_docker_project_tracking_uri_propagation(
         mlflow.set_tracking_uri(old_uri)
 
 
-def test_docker_uri_mode_validation(
-        tracking_uri_mock, docker_example_base_image):  # pylint: disable=unused-argument
+def test_docker_uri_mode_validation(docker_example_base_image):  # pylint: disable=unused-argument
     with pytest.raises(ExecutionException):
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks")
 
@@ -177,7 +175,7 @@ def test_docker_s3_artifact_cmd_and_envs_from_home():
 
 def test_docker_wasbs_artifact_cmd_and_envs_from_home():
     # pylint: disable=unused-import, unused-variable
-    from azure.storage.blob import BlockBlobService
+    from azure.storage.blob import BlobServiceClient
 
     mock_env = {
         "AZURE_STORAGE_CONNECTION_STRING": "mock_connection_string",
@@ -185,7 +183,7 @@ def test_docker_wasbs_artifact_cmd_and_envs_from_home():
     }
     wasbs_uri = "wasbs://container@account.blob.core.windows.net/some/path"
     with mock.patch.dict("os.environ", mock_env), \
-            mock.patch("azure.storage.blob.BlockBlobService"):
+            mock.patch("azure.storage.blob.BlobServiceClient"):
         cmds, envs = mlflow.projects._get_docker_artifact_storage_cmd_and_envs(wasbs_uri)
         assert cmds == []
         assert envs == mock_env
