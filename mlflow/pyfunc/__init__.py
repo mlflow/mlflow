@@ -194,6 +194,7 @@ import numpy as np
 import os
 import pandas
 import shutil
+import yaml
 from copy import deepcopy
 
 import mlflow
@@ -717,7 +718,6 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
 
     code = None
     data = None
-    env = None
 
     if data_path is not None:
         model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
@@ -728,12 +728,17 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
             _copy_file_or_tree(src=code_path, dst=path, dst_dir="code")
         code = "code"
 
-    if conda_env is not None:
-        shutil.copy(src=conda_env, dst=os.path.join(path, "mlflow_env.yml"))
-        env = "mlflow_env.yml"
+    conda_env_subpath = "mlflow_env.yml"
+    if conda_env is None:
+        conda_env = get_default_conda_env()
+    elif not isinstance(conda_env, dict):
+        with open(conda_env, "r") as f:
+            conda_env = yaml.safe_load(f)
+    with open(os.path.join(path, conda_env_subpath), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     mlflow.pyfunc.add_to_model(
-        mlflow_model, loader_module=loader_module, code=code, data=data, env=env)
+        mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, 'MLmodel'))
     return mlflow_model
 

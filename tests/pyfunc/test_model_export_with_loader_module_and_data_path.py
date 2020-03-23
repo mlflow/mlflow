@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import os
 import pickle
+import yaml
 
 import numpy as np
 import pytest
@@ -17,6 +18,8 @@ import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 
 def _load_pyfunc(path):
@@ -25,6 +28,23 @@ def _load_pyfunc(path):
             return pickle.load(f)
         else:
             return pickle.load(f, encoding='latin1')  # pylint: disable=unexpected-keyword-arg
+
+
+@pytest.fixture
+def pyfunc_custom_env_file(tmpdir):
+    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+    _mlflow_conda_env(
+        conda_env,
+        additional_conda_deps=["scikit-learn", "pytest", "cloudpickle"],
+        additional_pip_deps=["-e " + os.path.dirname(mlflow.__path__[0])])
+    return conda_env
+
+
+@pytest.fixture
+def pyfunc_custom_env_dict():
+    return _mlflow_conda_env(
+        additional_conda_deps=["scikit-learn", "pytest", "cloudpickle"],
+        additional_pip_deps=["-e " + os.path.dirname(mlflow.__path__[0])])
 
 
 @pytest.fixture(scope="module")
@@ -131,3 +151,91 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model",
                                 data_path="/path/to/data")
     assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
+
+
+@pytest.mark.large
+def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
+        sklearn_knn_model, tmpdir, pyfunc_custom_env_file):
+    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+    with open(sk_model_path, "wb") as f:
+        pickle.dump(sklearn_knn_model, f)
+
+    pyfunc_artifact_path = "pyfunc_model"
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
+                                data_path=sk_model_path,
+                                loader_module=os.path.basename(__file__)[:-3],
+                                code_path=[__file__],
+                                conda_env=pyfunc_custom_env_file)
+        run_id = mlflow.active_run().info.run_id
+
+    pyfunc_model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+        run_id=run_id, artifact_path=pyfunc_artifact_path))
+
+    pyfunc_conf = _get_flavor_configuration(
+        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+    assert saved_conda_env_path != pyfunc_custom_env_file
+
+    with open(pyfunc_custom_env_file, "r") as f:
+        pyfunc_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == pyfunc_custom_env_parsed
+
+
+@pytest.mark.large
+def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
+        sklearn_knn_model, tmpdir, pyfunc_custom_env_dict):
+    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+    with open(sk_model_path, "wb") as f:
+        pickle.dump(sklearn_knn_model, f)
+
+    pyfunc_artifact_path = "pyfunc_model"
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
+                                data_path=sk_model_path,
+                                loader_module=os.path.basename(__file__)[:-3],
+                                code_path=[__file__],
+                                conda_env=pyfunc_custom_env_dict)
+        run_id = mlflow.active_run().info.run_id
+
+    pyfunc_model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+        run_id=run_id, artifact_path=pyfunc_artifact_path))
+
+    pyfunc_conf = _get_flavor_configuration(
+        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
+    assert os.path.exists(saved_conda_env_path)
+
+    with open(saved_conda_env_path, "r") as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert saved_conda_env_parsed == pyfunc_custom_env_dict
+
+
+@pytest.mark.large
+def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+        sklearn_knn_model, tmpdir):
+    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+    with open(sk_model_path, "wb") as f:
+        pickle.dump(sklearn_knn_model, f)
+
+    pyfunc_artifact_path = "pyfunc_model"
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
+                                data_path=sk_model_path,
+                                loader_module=os.path.basename(__file__)[:-3],
+                                code_path=[__file__])
+        run_id = mlflow.active_run().info.run_id
+
+    pyfunc_model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+        run_id=run_id, artifact_path=pyfunc_artifact_path))
+
+    pyfunc_conf = _get_flavor_configuration(
+        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+
+    assert conda_env == mlflow.pyfunc.model.get_default_conda_env()
