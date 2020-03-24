@@ -163,14 +163,8 @@ def test_invalid_version_local_git_repo(local_git_repo_uri):
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-<< << << < HEAD
 @pytest.mark.usefixtures("tmpdir", "patch_user")
-def test_run(tracking_uri_mock,  # pylint: disable=unused-argument
-== == == =
-def test_run(tmpdir,  # pylint: disable=unused-argument
-             patch_user,  # pylint: disable=unused-argument
->>>>>> > mlflow/master
-             use_start_run):
+def test_run(use_start_run):
     submitted_run = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="test_tracking",
         parameters={"use_start_run": use_start_run},
@@ -250,7 +244,7 @@ def test_conda_path(mock_env, expected_conda, expected_activate):
 
 
 def test_cancel_run():
-    submitted_run0, submitted_run1=[mlflow.projects.run(
+    submitted_run0, submitted_run1 = [mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
         use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
         synchronous=False) for _ in range(2)]
