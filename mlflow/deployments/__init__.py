@@ -2,9 +2,7 @@ from mlflow.deployments.base_plugin import BasePlugin
 from mlflow.deployments import interface
 
 
-# TODO: It's a good practise to avoid using ``list`` here
-
-__all__ = ['BasePlugin', 'create', 'delete', 'update', 'list', 'describe']
+__all__ = ['create', 'delete', 'update', 'list', 'describe']
 
 
 def __dir__():

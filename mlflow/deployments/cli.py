@@ -13,7 +13,10 @@ context_settings = dict(allow_extra_args=True, ignore_unknown_options=True,)
 @click.group("deployments")
 def commands():
     """
-    Deploy MLflow models. 
+    Deploy MLflow models.  Downstream functions calls the plugin registered for the
+    given target and pass the given arguments to it. Each of these functions also
+    allows users to pass plugin specific arguments which will be processed by
+    ``parse_custom_arguments`` function.
     
     MLflow will provide builtin support for some deployment targets eventually.
     However, Support for ANY targets is only available via MLflow plugins right now - see
@@ -32,6 +35,9 @@ def commands():
 @deployment_target
 @cli_args.MODEL_URI
 def create_cli(model_uri, target, flavor, **kwargs):
+    """
+    Create the deployment on the given target with the model from ``model_uri``.
+    """
     deployment = interface.create(target, model_uri, flavor, **kwargs)
     # TODO: Support async here and everywhere requires
     click.echo("\n{} deployment {} is created".format(deployment.flavor, deployment.id))
@@ -42,6 +48,9 @@ def create_cli(model_uri, target, flavor, **kwargs):
 @deployment_id
 @deployment_target
 def delete_cli(target, _deployment_id, **kwargs):
+    """
+    Delete the deployment on the given target associated with the deployment id.
+    """
     interface.delete(target, _deployment_id, **kwargs)
     click.echo("Deployment {} is deleted".format(_deployment_id))
 
@@ -61,6 +70,11 @@ def delete_cli(target, _deployment_id, **kwargs):
 @deployment_id
 @deployment_target
 def update_cli(target, _deployment_id, rollback, model_uri, **kwargs):
+    """
+    Update the deployment associated with the deployment id at the given target with the new
+    model. If rollback is True, it triggers rollback to previous version instead of updating
+    with a new model
+    """
     interface.update(target, _deployment_id, rollback=rollback, model_uri=model_uri, **kwargs)
     click.echo("Deployment {} is updated".format(_deployment_id))
 
@@ -69,6 +83,10 @@ def update_cli(target, _deployment_id, rollback, model_uri, **kwargs):
 @parse_custom_arguments
 @deployment_target
 def list_cli(target, **kwargs):
+    """
+    List the all the deployment IDs from the target. These IDs can be used in delete, update,
+    and describe APIs
+    """
     ids = interface.list(target, **kwargs)
     click.echo("List of all deployments:\n{}".format(ids))
 
@@ -78,5 +96,8 @@ def list_cli(target, **kwargs):
 @deployment_id
 @deployment_target
 def describe_cli(target, _deployment_id, **kwargs):
+    """
+    Fetch more details about the deployment associated with the given ID
+    """
     desc = interface.describe(target, _deployment_id, **kwargs)
     click.echo(desc)
