@@ -13,6 +13,7 @@ import tempfile
 
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import path_to_local_file_uri
 from tests.tracking.integration_test_utils import _await_server_down_or_die, _init_server
@@ -244,6 +245,19 @@ def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
     assert [mvd1, mvd2] == mlflow_client.search_model_versions("run_id = 'run_id_1'")
 
     assert "path/to/model" == mlflow_client.get_model_version_download_uri(name, '1')
+
+
+def test_get_model_version(mlflow_client, backend_store_uri):
+    name = 'GetModelVersionTest'
+    mlflow_client.create_registered_model(name)
+    mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
+    model_version = mlflow_client.get_model_version(name, '1')
+    assert model_version.name == name
+    assert model_version.version == '1'
+
+    with pytest.raises(MlflowException) as ex:
+        mlflow_client.get_model_version(name=name, version="something not correct")
+    assert "INVALID_PARAMETER_VALUE: Model Version's version must be an integer" in str(ex.value)
 
 
 def test_update_model_version_flow(mlflow_client, backend_store_uri):
