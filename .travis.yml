@@ -5,6 +5,103 @@ dist: trusty
 services:
   - docker
 
+# matrix:
+#   include:
+#     # Nightly builds run the tests/examples end-to-end test suite.
+#     # Does not include Windows since Projects/Models are mostly not compatible with Windows as of now.
+#     - stage: Nightly
+#     - stage: small
+#       if: type != cron
+#     - language: python
+#       name: "Lint (Python 3.6)"
+#       if: type != cron
+#       python: 3.6
+#       install:
+#         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+#         - pip install -r ./travis/lint-requirements.txt
+#       script:
+#         - ./lint.sh
+#     - language: r
+#       name: "R"
+#       if: type != cron
+#       cache: packages
+#       before_install:
+#         # cache packages dramatically decreases build time, but it must not include mlflow
+#         - rm -rf /home/travis/R/Library/mlflow
+#         - export NOT_CRAN=true
+#         - cd mlflow/R/mlflow
+#         - Rscript -e 'install.packages("devtools")'
+#         - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = FALSE)'
+#         - cd ../../..
+#       install:
+#         - source ./travis/install-common-deps.sh
+#       script:
+#         - cd mlflow/R/mlflow
+#         # Building the package here populates the /home/travis/R/Library cache,
+#         # and is also used when python forks into R (e.g., rfunc via models CLI).
+#         - R CMD build .
+#         - export LINTR_COMMENT_BOT=false
+#         - cd tests
+#         - Rscript ../.travis.R
+#       after_success:
+#         - export COVR_RUNNING=true
+#         - Rscript -e 'covr::codecov()'
+#       after_failure:
+#         - "[ -r /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log ] && cat /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
+#     - language: java
+#       name: "Java"
+#       if: type != cron
+#       install:
+#         - source ./travis/install-common-deps.sh
+#       script:
+#         - cd mlflow/java
+#         - mvn clean package -q
+#     - language: node_js
+#       node_js:
+#         - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
+#       install:
+#       name: "Node.js"
+#       if: type != cron
+#       script:
+#         - cd mlflow/server/js
+#         - npm i
+#         - npm run lint
+#         - npm test -- --coverage
+#     - stage: large
+#       if: type != cron
+#     # Run Windows tests in the "large" test builder so that we don't spend Travis executor
+#     # time running Windows tests if Python 3 small tests fail.
+#     - os: windows
+#       name: "Windows"
+#       if: type != cron
+#       language: sh
+#       before_install:
+#         - choco install python3 --version=3.7.4
+#       install:
+#         - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
+#         - pip install -r dev-requirements.txt
+#         - pip install -r travis/small-requirements.txt
+#         - pip install -e .
+#       script:
+#         - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects --ignore=tests/xgboost --ignore=tests/lightgbm --ignore=tests/spark_autologging tests
+#     - language: python
+#       python: 3.6
+#       name: "Docs (rsthtml, javadocs)"
+#       if: type != cron
+#       install:
+#         # Install Java & Maven
+#         - sudo apt-get update
+#         - sudo apt-get install default-jdk -y
+#         - sudo apt-get install maven -y
+#         - java -version
+#         # Install Python doc deps
+#         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+#         - pip install sphinx==2.2.1 sphinx-click==2.3.0
+#       script:
+#         - cd docs
+#         - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
+#         - make javadocs
+
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
 install:
