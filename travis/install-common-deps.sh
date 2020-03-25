@@ -32,10 +32,10 @@ if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
 fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   pip install -r ./travis/large-requirements.txt
-  echo "spark home = "$SPARK_HOME"
-  echo "looking for spark submit
+  echo "spark home = $SPARK_HOME"
+  echo "looking for spark submit"
   find /home/travis/miniconda/envs/test-environment/ -name "spark-submit"
-  ls -lha /anaconda3/envs/mlflow-dev/lib/python3.6/site-packages/pyspark/./bin/spark-submit
+  ls -lha `/home/travis/miniconda/envs/test-environment/ -name "spark-submit"`
 fi
 pip install .
 export MLFLOW_HOME=$(pwd)
