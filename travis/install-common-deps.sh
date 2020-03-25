@@ -35,7 +35,7 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   echo "spark home = $SPARK_HOME"
   echo "looking for spark submit"
   find /home/travis/miniconda/envs/test-environment/ -name "spark-submit"
-  ls -lha `/home/travis/miniconda/envs/test-environment/ -name "spark-submit"`
+  ls -lha `find /home/travis/miniconda/envs/test-environment/ -name "spark-submit"`
 fi
 pip install .
 export MLFLOW_HOME=$(pwd)
