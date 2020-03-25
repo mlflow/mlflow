@@ -332,12 +332,12 @@ export class MlflowService {
     });
   }
 
-    /**
-   * @param {DeleteTag} data: Immutable Record
-   * @param {function} success
-   * @param {function} error
-   * @return {Promise}
-   */
+  /**
+ * @param {DeleteTag} data: Immutable Record
+ * @param {function} success
+ * @param {function} error
+ * @return {Promise}
+ */
   static deleteTag({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/delete-tag'), {
       type: 'POST',
@@ -374,7 +374,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static ListAllColumns({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview//mlflow/columns/list'), {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/columns/list'), {
       type: 'GET',
       dataType: 'json',
       converters: {
