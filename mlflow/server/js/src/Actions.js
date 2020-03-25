@@ -212,6 +212,18 @@ export const setExperimentTagApi = (experimentId, tagName, tagValue, id = getUUI
   };
 };
 
+export const LIST_ALL_COLUMNS_API = 'LIST_ALL_COLUMNS_API';
+export const listAllColumnsApi = (experimentId, runViewType, id = getUUID()) => {
+  return {
+    type: LIST_ALL_COLUMNS_API,
+    payload: wrapDeferred(MlflowService.ListAllColumns, {
+      experiment_id: experimentId,
+      run_view_type: runViewType,
+    }),
+    meta: { id: id },
+  };
+};
+
 export const CLOSE_ERROR_MODAL = 'CLOSE_ERROR_MODAL';
 export const closeErrorModal = () => {
   return {
@@ -258,9 +270,9 @@ export const wrapDeferred = (deferred, data, timeLeftMs = 60000, sleepMs = 1000)
         if (xhr.status === 429) {
           if (timeLeftMs > 0) {
             console.warn("Request failed with status code 429, message " +
-                new ErrorWrapper(xhr).getUserVisibleError() + ". Retrying after " +
-                sleepMs + " ms. On additional 429 errors, will continue to retry for up " +
-                "to " + timeLeftMs + " ms.");
+              new ErrorWrapper(xhr).getUserVisibleError() + ". Retrying after " +
+              sleepMs + " ms. On additional 429 errors, will continue to retry for up " +
+              "to " + timeLeftMs + " ms.");
             // Retry the request, subtracting the current sleep duration from the remaining time
             // and doubling the sleep duration
             const newTimeLeft = timeLeftMs - sleepMs;
@@ -268,8 +280,8 @@ export const wrapDeferred = (deferred, data, timeLeftMs = 60000, sleepMs = 1000)
             return new Promise(resolveRetry => setTimeout(resolveRetry, sleepMs)).then(() => {
               return wrapDeferred(deferred, data, newTimeLeft, newSleepMs);
             }).then(
-                (successResponse) => resolve(successResponse),
-                (failureResponse) => reject(failureResponse)
+              (successResponse) => resolve(successResponse),
+              (failureResponse) => reject(failureResponse)
             );
           }
         }

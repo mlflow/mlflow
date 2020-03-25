@@ -2,17 +2,20 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import { ExperimentView, mapStateToProps } from './ExperimentView';
 import Fixtures from "../test-utils/Fixtures";
-import {LIFECYCLE_FILTER} from "./ExperimentPage";
+import { LIFECYCLE_FILTER } from "./ExperimentPage";
 import KeyFilter from "../utils/KeyFilter";
 import {
   addApiToState,
   addExperimentToState,
   addExperimentTagsToState,
+  addRunToState,
   createPendingApi,
-  emptyState} from "../test-utils/ReduxStoreFixtures";
-import {getUUID} from "../Actions";
-import {Spinner} from "./Spinner";
+  emptyState,
+} from "../test-utils/ReduxStoreFixtures";
+import { getUUID } from "../Actions";
+import { Spinner } from "./Spinner";
 import { ExperimentViewPersistedState } from '../sdk/MlflowLocalStorageMessages';
+import { RunInfo } from '../sdk/MlflowMessages';
 
 let onSearchSpy;
 
@@ -43,7 +46,8 @@ const getExperimentViewMock = () => {
     orderByKey={null}
     orderByAsc={false}
     setExperimentTagApi={jest.fn()}
-    location={{pathname: "/"}}
+    location={{ pathname: "/" }}
+    tagKeyList={[]}
   />);
 };
 
@@ -64,8 +68,8 @@ test('Entering search input updates component state', () => {
   wrapper.instance().setState = jest.fn();
   // Test entering search input
   wrapper.find('.ExperimentView-search-input input').first().simulate(
-    'change', {target: {value: 'search input string'}});
-  expect(wrapper.instance().setState).toBeCalledWith({searchInput: 'search input string'});
+    'change', { target: { value: 'search input string' } });
+  expect(wrapper.instance().setState).toBeCalledWith({ searchInput: 'search input string' });
 });
 
 test("ExperimentView will show spinner if isLoading prop is true", () => {
@@ -98,7 +102,63 @@ test("mapStateToProps doesn't blow up if the searchRunsApi is pending", () => {
     paramKeyList: [],
     metricsList: [],
     paramsList: [],
+    tagKeyList: [],
     tagsList: [],
     experimentTags: {},
   });
+});
+
+test("params, metrics and tags computation in mapStateToProps", () => {
+  const searchRunsId = getUUID();
+  let state = emptyState;
+  const experiment = Fixtures.createExperiment();
+  const run_info = {
+    run_uuid: "0",
+    experiment_id: experiment.experiment_id.toString(),
+    lifecycle_stage: "active",
+  };
+  const run_data = {
+    metrics: [
+      {
+        key: "metric0",
+        step: 0,
+        value: 0.0,
+        timestamp: 0,
+      },
+      {
+        key: "metric1",
+        step: 0,
+        value: 1.0,
+        timestamp: 0,
+      },
+    ],
+    params: [
+      {
+        key: "param0",
+        value: "val0",
+      },
+    ],
+    tags: [
+      {
+        key: "tag0",
+        value: "val1",
+      },
+    ],
+  };
+
+  state = addRunToState(state, run_info, run_data);
+  state = addExperimentToState(state, experiment);
+  state = addExperimentTagsToState(state, experiment.experiment_id, []);
+  const newProps = mapStateToProps(state, {
+    lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
+    searchRunsRequestId: searchRunsId,
+    experimentId: experiment.experiment_id,
+    metricKeysList: ['metric2'],
+    paramKeysList: ['param1'],
+    tagKeysList: ['tag1'],
+  });
+  expect(newProps.runInfos).toEqual([RunInfo.fromJs(run_info)]);
+  expect(newProps.metricKeyList).toEqual(['metric0', 'metric1', 'metric2']);
+  expect(newProps.paramKeyList).toEqual(['param0', 'param1']);
+  expect(newProps.tagKeyList).toEqual(['tag0', 'tag1']);
 });

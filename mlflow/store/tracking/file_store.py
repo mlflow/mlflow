@@ -7,7 +7,7 @@ import shutil
 import uuid
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
-    ViewType, SourceType, ExperimentTag
+    ViewType, SourceType, ExperimentTag, Columns
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
@@ -614,6 +614,24 @@ class FileStore(AbstractStore):
                 logging.warning("Malformed run '%s'. Detailed error %s", r_id, str(rnfe),
                                 exc_info=True)
         return run_infos
+
+    def list_all_columns(self, experiment_id, run_view_type):
+        self._check_root_dir()
+        metric_columns = set()
+        tag_columns = set()
+        param_columns = set()
+        if not self._has_experiment(experiment_id):
+            raise MlflowException("Experiment id {} does not exist".format(experiment_id))
+        run_infos = self._list_run_infos(experiment_id, run_view_type)
+        for run_info in run_infos:
+            run = self._get_run_from_info(run_info)
+            metric_columns.update(run.data.metrics.keys())
+            tag_columns.update(run.data.tags.keys())
+            param_columns.update(run.data.params.keys())
+
+        return Columns(metrics=list(metric_columns),
+                       params=list(param_columns),
+                       tags=list(tag_columns))
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
