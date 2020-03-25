@@ -374,7 +374,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static ListAllColumns({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview//mlflow/columns/list'), {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/columns/list'), {
       type: 'GET',
       dataType: 'json',
       converters: {
