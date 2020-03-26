@@ -1,13 +1,16 @@
 import React from 'react';
 import { Form, Select, Input } from 'antd';
 import PropTypes from 'prop-types';
-import { REGISTER_DIALOG_DESCRIPTION } from '../constants';
 
 import './RegisterModelForm.css';
 
 const { Option, OptGroup } = Select;
 const { TextArea } = Input;
-export const CREATE_NEW_MODEL_OPTION_VALUE = '$$new$$';
+
+const CREATE_NEW_MODEL_LABEL = 'Create New Model';
+// Include 'CREATE_NEW_MODEL_LABEL' as part of the value for filtering to work properly. Also added
+// prefix and postfix to avoid value conflict with actual model names.
+export const CREATE_NEW_MODEL_OPTION_VALUE = `$$$__${CREATE_NEW_MODEL_LABEL}__$$$`;
 export const SELECTED_MODEL_FIELD = 'selectedModel';
 export const MODEL_NAME_FIELD = 'modelName';
 export const DESCRIPTION_FIELD = 'description';
@@ -34,6 +37,18 @@ class RegisterModelFormComponent extends React.Component {
     callback(modelByName[value] ? `Model "${value}" already exists.` : undefined);
   };
 
+  handleFilterOption = (input, option) => {
+    const value = option.props.value || '';
+    return value.toLowerCase().indexOf(input.toLowerCase()) !== -1;
+  };
+
+  renderModel(model) {
+    return (
+      <Option value={model.name} key={model.name}>
+        {model.name}
+      </Option>
+    );
+  }
   render() {
     const { getFieldDecorator } = this.props.form;
     const { modelByName } = this.props;
@@ -41,8 +56,6 @@ class RegisterModelFormComponent extends React.Component {
     const creatingNewModel = selectedModel === CREATE_NEW_MODEL_OPTION_VALUE;
     return (
       <Form layout='vertical' className='register-model-form'>
-        <p className='modal-explanatory-text'>{REGISTER_DIALOG_DESCRIPTION}</p>
-
         {/* "+ Create new model" OR "Select existing model" */}
         <Form.Item label='Model'>
           {getFieldDecorator(SELECTED_MODEL_FIELD, {
@@ -54,16 +67,14 @@ class RegisterModelFormComponent extends React.Component {
               dropdownClassName='model-select-dropdown'
               onChange={this.handleModelSelectChange}
               placeholder='Select a model'
+              filterOption={this.handleFilterOption}
+              showSearch
             >
               <Option value={CREATE_NEW_MODEL_OPTION_VALUE} className='create-new-model-option'>
-                <i className='fa fa-plus fa-fw' style={{ fontSize: 13 }} /> Create New Model
+                <i className='fa fa-plus fa-fw' style={{ fontSize: 13 }} /> {CREATE_NEW_MODEL_LABEL}
               </Option>
               <OptGroup label='Models'>
-                {Object.values(modelByName).map((model) => (
-                  <Option value={model.name} key={model.name}>
-                    {model.name}
-                  </Option>
-                ))}
+                {Object.values(modelByName).map((model) => this.renderModel(model))}
               </OptGroup>
             </Select>,
           )}

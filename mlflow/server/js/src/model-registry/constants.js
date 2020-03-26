@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tag } from 'antd';
-import { ConstantOverrides } from './overrides/constant-overrides';
+// eslint-disable-next-line
+import * as overrides from './constant-overrides'; // eslint-disable-line import/no-namespace
 
 export const Stages = {
   NONE: 'None',
@@ -30,43 +31,43 @@ export const StageTagComponents = {
   ),
 };
 
-export const ActivityTypes = ConstantOverrides.ActivityTypes || {
+export const ActivityTypes = {
   APPLIED_TRANSITION: 'APPLIED_TRANSITION',
+  REQUESTED_TRANSITION: 'REQUESTED_TRANSITION',
+  SYSTEM_TRANSITION: 'SYSTEM_TRANSITION',
+  CANCELLED_REQUEST: 'CANCELLED_REQUEST',
+  APPROVED_REQUEST: 'APPROVED_REQUEST',
+  REJECTED_REQUEST: 'REJECTED_REQUEST',
+  NEW_COMMENT: 'NEW_COMMENT',
 };
-
-// TODO(Zangr) Apply a more general override for all configs
-export const IconByActivityType = ConstantOverrides.IconByActivityType || {};
 
 export const EMPTY_CELL_PLACEHOLDER = <div style={{ marginTop: -12 }}>_</div>;
 
 export const ModelVersionStatus = {
   READY: 'READY',
-  PENDING_REGISTRATION: 'PENDING_REGISTRATION',
-  FAILED_REGISTRATION: 'FAILED_REGISTRATION',
 };
 
 export const DefaultModelVersionStatusMessages = {
   [ModelVersionStatus.READY]: 'Ready.',
-  [ModelVersionStatus.PENDING_REGISTRATION]: 'Registration pending...',
-  [ModelVersionStatus.FAILED_REGISTRATION]: 'Registration failed.',
 };
 
 export const modelVersionStatusIconTooltips = {
   [ModelVersionStatus.READY]: 'Ready',
-  [ModelVersionStatus.PENDING_REGISTRATION]: 'Registration pending',
-  [ModelVersionStatus.FAILED_REGISTRATION]: 'Registration failed',
 };
 
 export const ModelVersionStatusIcons = {
   [ModelVersionStatus.READY]:
     <i className='far fa-check-circle icon-ready model-version-status-icon' />,
-  [ModelVersionStatus.PENDING_REGISTRATION]:
-    <i className='fa fa-spinner fa-spin icon-pending model-version-status-icon' />,
-  [ModelVersionStatus.FAILED_REGISTRATION]:
-    <i className='fa fa-exclamation-triangle icon-fail model-version-status-icon' />,
 };
 
-export const MODEL_VERSION_STATUS_POLL_INTERVAL = 5000;
+export const MODEL_VERSION_STATUS_POLL_INTERVAL = 10000;
 
-export const REGISTER_DIALOG_DESCRIPTION = ConstantOverrides.REGISTER_DIALOG_DESCRIPTION ||
-  'Once registered, the model will be available in the model registry and become public.';
+export const MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT = `You cannot delete a model 
+version in an active stage. To delete this model version, transition it to the 'Archived' stage.`;
+
+export const REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT = `You cannot delete a 
+registered model with versions in active stages ('Staging' or 'Production'). To delete this 
+registered model, transition versions in active stages to the 'Archived' stage.`;
+
+export const archiveExistingVersionToolTipText = (currentStage) => `Model versions in the 
+'${currentStage}' stage will be moved to the 'Archived' stage.`;

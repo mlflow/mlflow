@@ -6,7 +6,6 @@ import {
   SELECTED_MODEL_FIELD,
   MODEL_NAME_FIELD,
 } from './RegisterModelForm';
-import { getUUID } from '../../Actions';
 import {
   createRegisteredModelApi,
   createModelVersionApi,
@@ -15,13 +14,16 @@ import {
 } from '../actions';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import Utils from '../../utils/Utils';
+import Utils from '../../common/utils/Utils';
+import { getUUID } from '../../common/utils/ActionUtils';
 
 class RegisterModelButton extends React.Component {
   static propTypes = {
+    // own props
     disabled: PropTypes.bool.isRequired,
     runUuid: PropTypes.string.isRequired,
     modelPath: PropTypes.string,
+    // connected props
     modelByName: PropTypes.object.isRequired,
     createRegisteredModelApi: PropTypes.func.isRequired,
     createModelVersionApi: PropTypes.func.isRequired,

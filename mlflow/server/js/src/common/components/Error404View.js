@@ -1,8 +1,8 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import error404Img from '../../static/404-overflow.svg';
-import Colors from '../../styles/Colors';
-import Routes from '../../Routes';
+import error404Img from '../static/404-overflow.svg';
+import Colors from '../../experiment-tracking/styles/Colors';
+import Routes from '../../experiment-tracking/routes';
 import { Link } from 'react-router-dom';
 
 
