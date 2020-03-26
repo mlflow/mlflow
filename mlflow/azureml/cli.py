@@ -68,3 +68,48 @@ def build_image(model_uri, workspace_name, subscription_id, image_name, model_na
     mlflow.azureml.build_image(
             model_uri=model_uri, workspace=workspace, image_name=image_name, model_name=model_name,
             mlflow_home=mlflow_home, description=description, tags=tags, synchronous=True)
+
+
+@commands.command("deploy")
+@cli_args.MODEL_URI
+@click.option("--workspace-name", "-w", required=True,
+              help="The name of the Azure Workspace in which to build the image.")
+@click.option("--subscription-id", "-s", default=None,
+              help=("The subscription id associated with the Azure Workspace in which to build"
+                    " the service"))
+@click.option("--service-name", "-s", default=None,
+              help=("The name to assign the Azure Container Image that is created. If unspecified,"
+                    " a unique service name will be generated."))
+@click.option("--model-name", "-n", default=None,
+              help=("The name to assign the Azure Model that is created. If unspecified,"
+                    " a unique image name will be generated."))
+@cli_args.MLFLOW_HOME
+@click.option("--deployment-config", "-d", default=None,
+              help=("A path to a JSON formatted deployment config to for the"
+                    " Azure ML Webservice that is created."))
+@experimental
+def deploy(model_uri, workspace_name, subscription_id, service_name, model_name,
+           mlflow_home, deployment_config):
+    """
+    Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
+    The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
+    Azure Kubernetes Service (AKS).
+
+    The resulting Azure ML ContainerImage will contain a webserver that processes model queries.
+    For information about the input data formats accepted by this webserver, see the following
+    documentation: https://www.mlflow.org/docs/latest/models.html#azureml-deployment.
+    """
+    # The Azure ML SDK is only compatible with Python 3. However, this CLI should still be
+    # accessible for inspection rom Python 2. Therefore, we will only import from the SDK
+    # upon command invocation.
+    # pylint: disable=import-error
+    from azureml.core import Workspace
+
+    workspace = Workspace.get(name=workspace_name, subscription_id=subscription_id)
+    if deployment_config is not None:
+        deployment_dict = json.loads(deployment_config)
+        deployment_config = mlflow.azureml.parse_deploy_config(deployment_dict)
+    mlflow.azureml.deploy(
+            model_uri=model_uri, workspace=workspace,
+            service_name=service_name, model_name=model_name,
+            mlflow_home=mlflow_home, deployment_config=deployment_config, synchronous=True)

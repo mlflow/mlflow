@@ -538,18 +538,30 @@ def _create_mlflow_wheel(mlflow_dir, out_dir):
     return files[0]
 
 
+def parse_deploy_config(json_dict_input):
+    from azureml.core.webservice import AciWebservice, AksWebservice
+    computes = {"aks": AksWebservice, "aci": AciWebservice}
+    try:
+        compute_target_type = json_dict_input["computeType"].lower()
+        del json_dict_input["computeType"]
+        return computes[compute_target_type].deploy_configuration(**compute_target_type)
+    except KeyError:
+        raise MlflowException("Error, tried to use a deployment configuration without"
+                              " specifying a valid computeType (Valid types are aci, aks).")
+
+
 SCORE_SRC = """
 import pandas as pd
 
 from azureml.core.model import Model
-from mlflow.pyfunc import load_pyfunc
+from mlflow.pyfunc import load_model
 from mlflow.pyfunc.scoring_server import parse_json_input, _get_jsonable_obj
 
 
 def init():
     global model
     model_path = Model.get_model_path(model_name="{model_name}", version={model_version})
-    model = load_pyfunc(model_path)
+    model = load_model(model_path)
 
 
 def run(json_input):
