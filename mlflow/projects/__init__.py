@@ -86,7 +86,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
          backend_name=None, backend_config=None, use_conda=True,
-         storage_dir=None, synchronous=True, run_id=None):
+         storage_dir=None, synchronous=True, run_id=None, tracking_store_uri=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
@@ -95,7 +95,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         backend = loader.load_backend(backend_name)
         if backend:
             submitted_run = backend.run(run_id, experiment_id, uri, entry_point, parameters,
-                                        version, backend_config)
+                                        version, backend_config, tracking_store_uri)
             tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_PROJECT_BACKEND,
                                             backend_name)
             return submitted_run
@@ -104,7 +104,8 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     _validate_execution_environment(project, backend_name)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     active_run = get_or_create_run(run_id, uri, experiment_id, work_dir, entry_point)
-    log_project_params_and_tags(active_run, project, work_dir, entry_point, parameters, version)
+    log_project_params_and_tags(active_run, project, work_dir, entry_point,
+                                parameters, version)
 
     if backend_name == "databricks":
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
@@ -189,7 +190,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
 def run(uri, entry_point="main", version=None, parameters=None,
         experiment_name=None, experiment_id=None,
         backend=None, backend_config=None, use_conda=True,
-        storage_dir=None, synchronous=True, run_id=None):
+        storage_dir=None, synchronous=True, run_id=None, tracking_store_uri=None):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
 
@@ -239,10 +240,14 @@ def run(uri, entry_point="main", version=None, parameters=None,
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
+    :param tracking_store_uri: Path to the tracking store uri. If not provided, it uses the result of
+                                get_tracking_uri method
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
     """
 
+    if not tracking_store_uri:
+        tracking_store_uri = tracking.get_tracking_uri()
     cluster_spec_dict = backend_config
     if (backend_config and type(backend_config) != dict
             and os.path.splitext(backend_config)[-1] == ".json"):
@@ -264,7 +269,8 @@ def run(uri, entry_point="main", version=None, parameters=None,
     submitted_run_obj = _run(
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
         parameters=parameters, backend_name=backend, backend_config=cluster_spec_dict,
-        use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id)
+        use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id,
+        tracking_store_uri=tracking_store_uri)
     if synchronous:
         _wait_for(submitted_run_obj)
     return submitted_run_obj

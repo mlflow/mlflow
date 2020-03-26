@@ -28,6 +28,6 @@ class DummySubmittedRun(SubmittedRun):
 
 class PluginDummyProjectBackend(AbstractBackend):
     def run(self, run_id, experiment_id, project_uri, entry_point, params,
-            version, backend_config):
+            version, backend_config, tracking_store_uri):
         prepare_project_and_run(project_uri, experiment_id, run_id, entry_point, params, version)
         return DummySubmittedRun(run_id)

@@ -10,7 +10,7 @@ class AbstractBackend():
 
     @abstractmethod
     def run(self, run_id, experiment_id, project_uri, entry_point, params,
-            version, backend_config):
+            version, backend_config, tracking_store_uri):
         """
         Submit an entrypoint. It must returns a SubmittedRun object to track the execution
 
@@ -20,8 +20,9 @@ class AbstractBackend():
                     This is the parameter given to mlflow run command.
         :param entry_point: name of the entry point to execute.
         :param params: Dict of parameters to pass to the entry point
-        :param backend_config: Dict to pass parameters to the backend
         :param version: for Git-based projects, either a commit hash or a branch name.
+        :param backend_config: Dict to pass parameters to the backend
+        :param tracking_store_uri: Uri to the tracking store
 
         :return: A :py:class:`mlflow.projects.SubmittedRun`. This function is expected to run
                  the project asynchronously, i.e. it should trigger project execution and then
