@@ -83,8 +83,8 @@ register_model = mlflow.tracking._model_registry.fluent.register_model
 
 run = projects.run
 
-
 __all__ = ["ActiveRun", "log_param", "log_params", "log_metric", "log_metrics", "set_tag",
            "set_tags", "delete_tag", "log_artifacts", "log_artifact", "active_run", "start_run",
-           "end_run", "search_runs", "get_artifact_uri", "set_tracking_uri", "create_experiment",
-           "set_experiment", "delete_experiment", "delete_run", "run", "register_model"]
+           "end_run", "search_runs", "get_artifact_uri", "get_tracking_uri", "set_tracking_uri",
+           "get_experiment", "get_experiment_by_name", "create_experiment", "set_experiment",
+           "delete_experiment", "get_run", "delete_run", "run", "register_model"]

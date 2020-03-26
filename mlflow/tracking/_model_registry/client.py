@@ -96,7 +96,7 @@ class ModelRegistryClient(object):
         :param name: Name of the registered model to update.
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for 'Staging' and 'Production' stages.
-        :return: List of `:py:class:`mlflow.entities.model_registry.ModelVersionDetailed` objects.
+        :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         return self.store.get_latest_versions(name, stages)
 
@@ -130,7 +130,7 @@ class ModelRegistryClient(object):
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param new_stage: New desired stage for this model version.
+        :param stage: New desired stage for this model version.
         :param archive_existing_versions: If this flag is set, all existing model
                versions in the stage will be atomically moved to the "archived" stage.
 
