@@ -74,10 +74,13 @@ class PluginManager(abc.ABC):
 
 
 class DeploymentPlugins(PluginManager):
-    def __init__(self):
+    def __init__(self, auto_register=False):
         super(DeploymentPlugins, self).__init__('mlflow.deployments')
+        self.auto_register = auto_register
 
     def __getitem__(self, item):
+        if not self.has_plugins_loaded and self.auto_register:
+            self.register_entrypoints()
         try:
             return self.registry[item]
         except KeyError:

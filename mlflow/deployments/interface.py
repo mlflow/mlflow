@@ -3,7 +3,7 @@ from mlflow.utils import experimental
 
 
 listType = list
-plugin_store = DeploymentPlugins()
+plugin_store = DeploymentPlugins(auto_register=True)
 
 
 @experimental
@@ -65,7 +65,7 @@ def update(target, deployment_id, model_uri=None, flavor=None, **kwargs):
 
 
 @experimental
-def list(target, **kwargs):
+def list(target, **kwargs):  # pylint: disable=W0622
     """
     List the deployment IDs of the deployments. These IDs can be used to do other operations
     such as delete, update or get more description about the deployments

@@ -27,7 +27,9 @@ class FakePlugin(BasePlugin):
         return {'key1': 'val1', 'key2': 'val2'}
 
 
-def custom_getitem_for_plugin_store(self, name):
+def custom_getitem_for_plugin_store(self, name):  # pylint: disable=W0613
+    if not self.has_plugins_loaded and self.auto_register:
+        self.register_entrypoints()
     return FakePlugin()
 
 
