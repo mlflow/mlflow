@@ -34,9 +34,9 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   pip install -r ./travis/large-requirements.txt
   # Hack: make sure all spark-submit scripts are executable. 
   # For some reason conda installs 2 spark submits and only one of them is executable
-  ls -lha `find /home/travis/miniconda/envs/test-environment/ -name "spark-submit"`
-  chmod 777 `find /home/travis/miniconda/envs/test-environment/ -name "spark-submit"`
-  ls -lha `find /home/travis/miniconda/envs/test-environment/ -name "spark-submit"`
+  ls -lha `find /home/travis/miniconda/envs/test-environment/ -path "*bin/spark-*"`
+  chmod 777 `find /home/travis/miniconda/envs/test-environment/ -path "*bin/spark-*"`
+  ls -lha `find /home/travis/miniconda/envs/test-environment/ -path "*bin/spark-*"`
 fi
 pip install .
 export MLFLOW_HOME=$(pwd)
