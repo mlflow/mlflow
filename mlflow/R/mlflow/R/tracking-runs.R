@@ -355,6 +355,12 @@ mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
   message(glue::glue("Root URI: {uri}", uri = response$root_uri))
 
   files_list <- if (!is.null(response$files)) response$files else list()
+  files_list <- purrr::map(files_list, function(file_info) {
+    if (is.null(file_info$file_size)) {
+      file_info$file_size <- NA
+    }
+    file_info
+  })
   files_list %>%
     purrr::transpose() %>%
     purrr::map(unlist) %>%
@@ -481,6 +487,15 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
   )
 
   invisible(mlflow_list_artifacts(run_id = run_id, path = artifact_path, client = client))
+}
+
+# Record logged model metadata with the tracking server.
+mlflow_record_logged_model <- function(model_spec, run_id = NULL, client = NULL) {
+  c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
+  mlflow_rest("runs", "log-model", client = client, verb = "POST", data = list(
+    run_id = run_id,
+    model_json = jsonlite::toJSON(model_spec, auto_unbox=TRUE)
+  ))
 }
 
 #' Start Run

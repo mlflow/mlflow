@@ -194,6 +194,7 @@ import numpy as np
 import os
 import pandas
 import shutil
+import yaml
 from copy import deepcopy
 
 import mlflow
@@ -560,6 +561,9 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     mlflow_model = kwargs.pop('model', mlflow_model)
     if len(kwargs) > 0:
         raise TypeError("save_model() got unexpected keyword arguments: {}".format(kwargs))
+    if code_path is not None:
+        if not isinstance(code_path, list):
+            raise TypeError('Argument code_path should be a list, not {}'.format(type(code_path)))
     first_argument_set = {
         "loader_module": loader_module,
         "data_path": data_path,
@@ -582,8 +586,10 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
                     second_set_entries=second_argument_set)),
             error_code=INVALID_PARAMETER_VALUE)
     elif (loader_module is None) and (python_model is None):
+        msg = "Either `loader_module` or `python_model` must be specified. A `loader_module` " \
+              "should be a python module. A `python_model` should be a subclass of PythonModel"
         raise MlflowException(
-            message="Either `loader_module` or `python_model` must be specified!",
+            message=msg,
             error_code=INVALID_PARAMETER_VALUE)
 
     if first_argument_set_specified:
@@ -712,7 +718,6 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
 
     code = None
     data = None
-    env = None
 
     if data_path is not None:
         model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
@@ -723,12 +728,17 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
             _copy_file_or_tree(src=code_path, dst=path, dst_dir="code")
         code = "code"
 
-    if conda_env is not None:
-        shutil.copy(src=conda_env, dst=os.path.join(path, "mlflow_env.yml"))
-        env = "mlflow_env.yml"
+    conda_env_subpath = "mlflow_env.yml"
+    if conda_env is None:
+        conda_env = get_default_conda_env()
+    elif not isinstance(conda_env, dict):
+        with open(conda_env, "r") as f:
+            conda_env = yaml.safe_load(f)
+    with open(os.path.join(path, conda_env_subpath), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     mlflow.pyfunc.add_to_model(
-        mlflow_model, loader_module=loader_module, code=code, data=data, env=env)
+        mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, 'MLmodel'))
     return mlflow_model
 

@@ -52,6 +52,13 @@ class DbfsRestArtifactRepository(ArtifactRepository):
             finally:
                 response.close()
 
+    def _is_directory(self, artifact_path):
+        if artifact_path:
+            dbfs_path = self._get_dbfs_path(artifact_path)
+        else:
+            dbfs_path = self._get_dbfs_path('')
+        return self._dbfs_is_dir(dbfs_path)
+
     def _dbfs_is_dir(self, dbfs_path):
         response = self._databricks_api_request(
             endpoint=GET_STATUS_ENDPOINT, method='GET', json={'path': dbfs_path})
@@ -132,6 +139,9 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         self._dbfs_download(output_path=local_path,
                             endpoint=self._get_dbfs_endpoint(remote_file_path))
+
+    def delete_artifacts(self, artifact_path=None):
+        raise MlflowException('Not implemented yet')
 
 
 def _get_host_creds_from_default_store():

@@ -21,10 +21,14 @@ from mlflow import tracking
 from mlflow.server import _run_server
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-from mlflow.utils import cli_args
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.tracking import _get_store
+from mlflow.utils import cli_args, experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.uri import is_local_uri
+from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.exceptions import MlflowException
 
 _logger = logging.getLogger(__name__)
 
@@ -163,14 +167,17 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
               help="Path to local directory to store artifacts, for new experiments. "
                    "Note that this flag does not impact already-created experiments. "
                    "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
-@click.option("--port", "-p", default=5000,
-              help="The port to listen on (default: 5000).")
-def ui(backend_store_uri, default_artifact_root, port):
+@cli_args.PORT
+@cli_args.HOST
+def ui(backend_store_uri, default_artifact_root, port, host):
     """
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
     server, use the "mlflow server" command instead.
 
-    The UI will be visible at ``http://localhost:5000`` by default.
+    The UI will be visible at http://localhost:5000 by default, and only accept connections
+    from the local machine. To let the UI server accept connections from other machines, you will
+    need to pass ``--host 0.0.0.0`` to listen on all network interfaces (or a specific interface
+    address).
     """
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
@@ -192,7 +199,7 @@ def ui(backend_store_uri, default_artifact_root, port):
 
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        _run_server(backend_store_uri, default_artifact_root, "127.0.0.1", port, None, 1)
+        _run_server(backend_store_uri, default_artifact_root, host, port, None, 1)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
@@ -234,8 +241,12 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="Additional command line options forwarded to gunicorn processes.")
 @click.option("--waitress-opts", default=None,
               help="Additional command line options for waitress-serve.")
+@click.option("--expose-prometheus", default=None,
+              help="Path to the directory where metrics will be stored. If the directory"
+                   "doesn't exist, it will be created."
+                   "Activate prometheus exporter to expose metrics on /metrics endpoint.")
 def server(backend_store_uri, default_artifact_root, host, port,
-           workers, static_prefix, gunicorn_opts, waitress_opts):
+           workers, static_prefix, gunicorn_opts, waitress_opts, expose_prometheus):
     """
     Run the MLflow tracking server.
 
@@ -268,10 +279,48 @@ def server(backend_store_uri, default_artifact_root, host, port,
 
     try:
         _run_server(backend_store_uri, default_artifact_root, host, port,
-                    static_prefix, workers, gunicorn_opts, waitress_opts)
+                    static_prefix, workers, gunicorn_opts, waitress_opts, expose_prometheus)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
+
+
+@cli.command()
+@click.option("--backend-store-uri", metavar="PATH",
+              default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+              help="URI of the backend store from which to delete runs. Acceptable URIs are "
+                   "SQLAlchemy-compatible database connection strings "
+                   "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
+                   "(e.g. 'file:///absolute/path/to/directory'). By default, data will be deleted "
+                   "from the ./mlruns directory.")
+@click.option("--run-ids", default=None,
+              help="Optional comma separated list of runs to be permanently deleted. If run ids"
+                   " are not specified, data is removed for all runs in the `deleted`"
+                   " lifecycle stage.")
+@experimental
+def gc(backend_store_uri, run_ids):
+    """
+    Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
+    This command deletes all artifacts and metadata associated with the specified runs.
+    """
+    backend_store = _get_store(backend_store_uri, None)
+    if not hasattr(backend_store, '_hard_delete_run'):
+        raise MlflowException(
+            "This cli can only be used with a backend that allows hard-deleting runs")
+    if not run_ids:
+        run_ids = backend_store._get_deleted_runs()
+    else:
+        run_ids = run_ids.split(',')
+
+    for run_id in run_ids:
+        run = backend_store.get_run(run_id)
+        if run.info.lifecycle_stage != LifecycleStage.DELETED:
+            raise MlflowException('Run {} is not in `deleted` lifecycle stage. Only runs in '
+                                  '`deleted` lifecycle stage can be deleted.'.format(run_id))
+        artifact_repo = get_artifact_repository(run.info.artifact_uri)
+        artifact_repo.delete_artifacts()
+        backend_store._hard_delete_run(run_id)
+        print("Run with ID %s has been permanently deleted." % str(run_id))
 
 
 cli.add_command(mlflow.models.cli.commands)

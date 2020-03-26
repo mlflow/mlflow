@@ -84,6 +84,9 @@ class RunsArtifactRepository(ArtifactRepository):
         """
         self.repo.log_artifacts(local_dir, artifact_path)
 
+    def _is_directory(self, artifact_path):
+        return self.repo._is_directory(artifact_path)
+
     def list_artifacts(self, path):
         """
         Return all the artifacts for this run_id directly under path. If path is a file, returns
@@ -122,3 +125,6 @@ class RunsArtifactRepository(ArtifactRepository):
         :param local_path: The path to which to save the downloaded file.
         """
         self.repo._download_file(remote_file_path, local_path)
+
+    def delete_artifacts(self, artifact_path=None):
+        self.repo.delete_artifacts(artifact_path)

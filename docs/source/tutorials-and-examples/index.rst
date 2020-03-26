@@ -1,0 +1,49 @@
+.. _tutorials-and-examples:
+
+Tutorials and Examples
+======================
+
+Below, you can find a number of tutorials and examples for various MLflow use cases.
+
+* :doc:`Train, Serve, and Score an Image-Classification Model <tutorial>`
+* `Hyperparameter Tuning <https://github.com/mlflow/mlflow/tree/master/examples/hyperparam>`_
+* `Orchestrating Multistep Workflows <https://github.com/mlflow/mlflow/tree/master/examples/multistep_workflow>`_
+* `Using the MLflow REST API Directly <https://github.com/mlflow/mlflow/tree/master/examples/rest_api>`_
+* Reproducibly run & share ML code
+
+  - `Packaging Training Code in a Docker Environment <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_
+
+  - :ref:`conda-example`
+* `Write & Use MLflow Plugins <https://github.com/mlflow/mlflow/tree/master/examples/plugins>`_
+* Instrument ML training code with MLflow
+
+  - `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_
+
+  - `H2O <https://github.com/mlflow/mlflow/tree/master/examples/h2o>`_
+
+  - `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_
+
+  - `Prophet <https://github.com/mlflow/mlflow/tree/master/examples/prophet>`_
+
+  - `PyTorch <https://github.com/mlflow/mlflow/tree/master/examples/pytorch>`_
+
+  - `XGBoost <https://github.com/mlflow/mlflow/tree/master/examples/xgboost>`_
+
+  - `LightGBM <https://github.com/mlflow/mlflow/tree/master/examples/lightgbm>`_
+
+  - `Glmnet (R) <https://github.com/mlflow/mlflow/tree/master/examples/r_wine>`_
+
+  - scikit-learn
+
+    + `Diabetes example <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_diabetes>`_
+
+    + `Elastic Net example <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine>`_
+
+    + `Logistic Regression example <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_logistic_regression>`_
+
+  - TensorFlow
+
+    + `TensorFlow 1.X <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow/tf1>`_
+
+    + `TensorFlow 2.X <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow/tf2>`_
+

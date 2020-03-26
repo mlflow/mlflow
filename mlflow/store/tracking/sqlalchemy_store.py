@@ -1,12 +1,13 @@
+import json
 import logging
 import uuid
 
 import math
-import posixpath
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
 import mlflow.store.db.utils
@@ -23,9 +24,10 @@ from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
     _validate_run_id, _validate_metric, _validate_experiment_tag, _validate_tag
-
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
 _logger = logging.getLogger(__name__)
 
@@ -182,7 +184,7 @@ class SqlAlchemyStore(AbstractStore):
         return instance, created
 
     def _get_artifact_location(self, experiment_id):
-        return posixpath.join(self.artifact_root_uri, str(experiment_id))
+        return append_to_uri_path(self.artifact_root_uri, str(experiment_id))
 
     def create_experiment(self, name, artifact_location=None):
         if name is None or name == '':
@@ -318,8 +320,8 @@ class SqlAlchemyStore(AbstractStore):
             self._check_experiment_is_active(experiment)
 
             run_id = uuid.uuid4().hex
-            artifact_location = posixpath.join(experiment.artifact_location, run_id,
-                                               SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
+            artifact_location = append_to_uri_path(experiment.artifact_location, run_id,
+                                                   SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
             run = SqlRun(name="", artifact_uri=artifact_location, run_uuid=run_id,
                          experiment_id=experiment_id,
                          source_type=SourceType.to_string(SourceType.UNKNOWN),
@@ -406,6 +408,14 @@ class SqlAlchemyStore(AbstractStore):
 
             return run.info
 
+    def _try_get_run_tag(self,  session, run_id, tagKey, eager=False):
+        query_options = self._get_eager_run_query_options() if eager else []
+        tags = session \
+            .query(SqlTag) \
+            .options(*query_options) \
+            .filter(SqlTag.run_uuid == run_id and SqlTag.key == tagKey).all()
+        return None if not tags else tags[0]
+
     def get_run(self, run_id):
         with self.ManagedSessionMaker() as session:
             # Load the run with the specified id and eagerly load its summary metrics, params, and
@@ -428,6 +438,23 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             run.lifecycle_stage = LifecycleStage.DELETED
             self._save_to_db(objs=run, session=session)
+
+    def _hard_delete_run(self, run_id):
+        """
+        Permanently delete a run (metadata and metrics, tags, parameters).
+        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
+        """
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            session.delete(run)
+
+    def _get_deleted_runs(self):
+        with self.ManagedSessionMaker() as session:
+            run_ids = session\
+                .query(SqlRun.run_uuid) \
+                .filter(SqlRun.lifecycle_stage == LifecycleStage.DELETED) \
+                .all()
+            return [run_id[0] for run_id in run_ids]
 
     def log_metric(self, run_id, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
@@ -517,8 +544,8 @@ class SqlAlchemyStore(AbstractStore):
                 if len(existing_params) > 0:
                     old_value = existing_params[0]
                     raise MlflowException(
-                        "Changing param value is not allowed. Param with key='{}' was already"
-                        " logged with value='{}' for run ID='{}. Attempted logging new value"
+                        "Changing param values is not allowed. Param with key='{}' was already"
+                        " logged with value='{}' for run ID='{}'. Attempted logging new value"
                         " '{}'.".format(
                             param.key, old_value, run_id, param.value), INVALID_PARAMETER_VALUE)
                 else:
@@ -544,6 +571,7 @@ class SqlAlchemyStore(AbstractStore):
     def set_tag(self, run_id, tag):
         """
         Set a tag on a run.
+
         :param run_id: String ID of the run
         :param tag: RunTag instance to log
         """
@@ -556,6 +584,7 @@ class SqlAlchemyStore(AbstractStore):
     def delete_tag(self, run_id, key):
         """
         Delete a tag from a run. This is irreversible.
+
         :param run_id: String ID of the run
         :param key: Name of the tag
         """
@@ -603,8 +632,13 @@ class SqlAlchemyStore(AbstractStore):
             parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
 
             query = session.query(SqlRun)
-            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session) + sorting_joins:
+            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session):
                 query = query.join(j)
+            # using an outer join is necessary here because we want to be able to sort
+            # on a column (tag, metric or param) without removing the lines that
+            # do not have a value for this column (which is what inner join would do)
+            for j in sorting_joins:
+                query = query.outerjoin(j)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
             queried_runs = query.distinct() \
@@ -639,6 +673,22 @@ class SqlAlchemyStore(AbstractStore):
             raise e
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
+
+    def record_logged_model(self, run_id, mlflow_model):
+        if not isinstance(mlflow_model, Model):
+            raise TypeError("Argument 'mlflow_model' should be mlflow.models.Model, got '{}'"
+                            .format(type(mlflow_model)))
+        model_dict = mlflow_model.to_dict()
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+            previous_tag = [t for t in run.tags if t.key == MLFLOW_LOGGED_MODELS]
+            if previous_tag:
+                value = json.dumps(json.loads(previous_tag[0].value) + [model_dict])
+            else:
+                value = json.dumps([model_dict])
+            _validate_tag(MLFLOW_LOGGED_MODELS, value)
+            session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
 
 
 def _get_attributes_filtering_clauses(parsed):
