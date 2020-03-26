@@ -240,8 +240,8 @@ def run(uri, entry_point="main", version=None, parameters=None,
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
-    :param tracking_store_uri: Path to the tracking store uri. If not provided, it uses the result of
-                                get_tracking_uri method
+    :param tracking_store_uri: Path to the tracking store uri. If not provided, it uses the result
+                               of get_tracking_uri method
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
     """
