@@ -102,18 +102,6 @@ def _is_valid_branch_name(work_dir, version):
     return False
 
 
-def generate_env_vars_to_attach_to_run(run):
-    """
-    Returns a dictionary of environment variable key-value pairs to set in subprocess launched
-    to run MLflow projects.
-    """
-    return {
-        tracking._RUN_ID_ENV_VAR: run.info.run_id,
-        tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
-        tracking._EXPERIMENT_ID_ENV_VAR: str(run.info.experiment_id),
-    }
-
-
 def fetch_and_validate_project(uri, version, entry_point, parameters):
     parameters = parameters or {}
     work_dir = fetch_project(uri=uri, force_tempdir=False, version=version)
