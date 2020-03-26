@@ -5,6 +5,7 @@ import {
   getExperimentApi,
   searchRunsApi,
   loadMoreRunsApi,
+  listAllColumnsApi,
 } from '../actions';
 import { connect } from 'react-redux';
 import ExperimentView from './ExperimentView';
@@ -36,6 +37,9 @@ export class ExperimentPage extends Component {
       },
       nextPageToken: null,
       loadingMore: false,
+      metricsList: [],
+      tagsList: [],
+      paramsList: [],
     };
   }
 
@@ -61,6 +65,19 @@ export class ExperimentPage extends Component {
       .catch((e) => {
         Utils.logErrorAndNotifyUser(e);
         this.setState({ nextPageToken: null, loadingMore: false });
+      });
+    this.props
+      .listAllColumnsApi(experimentId, viewType)
+      .then((response = {}) => {
+        this.setState({
+          metricsList: response.value.metrics,
+          tagsList: response.value.tags,
+          paramsList: response.value.params,
+        });
+      }
+      )
+      .catch((e) => {
+        Utils.logErrorAndNotifyUser(e);
       });
   }
 
@@ -101,6 +118,7 @@ export class ExperimentPage extends Component {
     getExperimentApi: PropTypes.func.isRequired,
     searchRunsApi: PropTypes.func.isRequired,
     loadMoreRunsApi: PropTypes.func.isRequired,
+    listAllColumnsApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     location: PropTypes.object,
   };
@@ -175,6 +193,20 @@ export class ExperimentPage extends Component {
         Utils.logErrorAndNotifyUser(e);
         this.setState({ nextPageToken: null, loadingMore: false });
       });
+    this.props
+      .listAllColumnsApi(this.props.experimentId,
+        lifecycleFilterToRunViewType(lifecycleFilterInput))
+      .then((response = {}) => {
+        this.setState({
+          metricsList: response.value.metrics,
+          tagsList: response.value.tags,
+          paramsList: response.value.params,
+        });
+      }
+      )
+      .catch((e) => {
+        Utils.logErrorAndNotifyUser(e);
+      });
 
     this.updateUrlWithSearchFilter({
       paramKeyFilterString,
@@ -244,7 +276,7 @@ export class ExperimentPage extends Component {
       }
     }
     if (!getExperimentRequest || getExperimentRequest.active) {
-      return <Spinner/>;
+      return <Spinner />;
     }
 
     return <ExperimentView
@@ -262,6 +294,9 @@ export class ExperimentPage extends Component {
       nextPageToken={this.state.nextPageToken}
       handleLoadMoreRuns={this.handleLoadMoreRuns}
       loadingMore={this.state.loadingMore}
+      metricKeysList={this.state.metricsList}
+      paramKeysList={this.state.paramsList}
+      tagKeysList={this.state.tagsList}
     />;
   }
 
@@ -284,6 +319,7 @@ const mapDispatchToProps = {
   getExperimentApi,
   searchRunsApi,
   loadMoreRunsApi,
+  listAllColumnsApi,
 };
 
 const lifecycleFilterToRunViewType = (lifecycleFilter) => {

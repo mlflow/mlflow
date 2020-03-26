@@ -548,6 +548,41 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert len(self._search(fs, self.experiments[0])) == 2
         assert len(self._search(fs, self.experiments[0], run_view_type=ViewType.DELETED_ONLY)) == 0
 
+    def test_list_columns(self):
+        fs = FileStore(self.test_root)
+        experiment_id = fs.create_experiment("test_list_columns", None)
+        r1 = fs.create_run(experiment_id, 'user', 0, []).info.run_id
+        r2 = fs.create_run(experiment_id, 'user', 0, []).info.run_id
+        r3 = fs.create_run(experiment_id, 'user', 0, []).info.run_id
+        fs.log_metric(r1, Metric("metric1", 10, 1232, 0))
+        fs.log_metric(r2, Metric("metric2", 10, 1231, 0))
+        fs.log_metric(r3, Metric("metric3", 10, 1230, 0))
+        fs.set_tag(r1, RunTag("tag1", "value1!"))
+        fs.set_tag(r2, RunTag("tag2", "value2!"))
+        fs.set_tag(r3, RunTag("tag3", "value3!"))
+        fs.log_param(r1, Param("param1", "Value"))
+        fs.log_param(r2, Param("param2", "Value"))
+        fs.log_param(r3, Param("param3", "Value"))
+        fs.delete_run(r3)
+
+        columns_active = fs.list_all_columns(experiment_id=experiment_id,
+                                             run_view_type=ViewType.ACTIVE_ONLY)
+        assert set(columns_active.tags) == {"tag1", "tag2"}
+        assert set(columns_active.params) == {"param1", "param2"}
+        assert set(columns_active.metrics) == {"metric1", "metric2"}
+
+        columns_deleted = fs.list_all_columns(experiment_id=experiment_id,
+                                              run_view_type=ViewType.DELETED_ONLY)
+        assert set(columns_deleted.tags) == {"tag3"}
+        assert set(columns_deleted.params) == {"param3"}
+        assert set(columns_deleted.metrics) == {"metric3"}
+
+        columns_all = fs.list_all_columns(experiment_id=experiment_id,
+                                          run_view_type=ViewType.ALL)
+        assert set(columns_all.tags) == {"tag1", "tag2", "tag3"}
+        assert set(columns_all.params) == {"param1", "param2", "param3"}
+        assert set(columns_all.metrics) == {"metric1", "metric2", "metric3"}
+
     def test_search_tags(self):
         fs = FileStore(self.test_root)
         experiment_id = self.experiments[0]
@@ -586,6 +621,15 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                                                       filter_str="tags.p_a = 'abc'"))
         six.assertCountEqual(self, [r2], self._search(fs, experiment_id,
                                                       filter_str="tags.p_b = 'ABC'"))
+
+        six.assertCountEqual(self, [r2], self._search(fs, experiment_id,
+                                                      filter_str="tags.generic_2 LIKE '%other%'"))
+        six.assertCountEqual(self, [], self._search(fs, experiment_id,
+                                                    filter_str="tags.generic_2 LIKE 'other%'"))
+        six.assertCountEqual(self, [], self._search(fs, experiment_id,
+                                                    filter_str="tags.generic_2 LIKE '%other'"))
+        six.assertCountEqual(self, [r2], self._search(fs, experiment_id,
+                                                      filter_str="tags.generic_2 ILIKE '%OTHER%'"))
 
     def test_search_with_max_results(self):
         fs = FileStore(self.test_root)
