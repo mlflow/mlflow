@@ -31,7 +31,7 @@ pytest --verbose tests/pyfunc --large
 pytest --verbose tests/sagemaker --large
 pytest --verbose tests/sagemaker/mock --large
 pytest --verbose tests/sklearn --large
-pytest --verbose tests/spark --large
+SPARK_HOME=/home/travis/miniconda/envs/test-environment/ pytest --verbose tests/spark --large
 pytest --verbose tests/tensorflow/test_tensorflow_model_export.py --large
 pytest --verbose tests/tensorflow_autolog/test_tensorflow_autolog.py --large
 pytest --verbose tests/azureml --large
