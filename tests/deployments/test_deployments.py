@@ -1,6 +1,7 @@
 import pytest
 from mlflow import deployments
 from mlflow.deployments.plugin_manager import DeploymentPlugins
+from mlflow.exceptions import MlflowException
 
 
 f_model_uri = 'fake_model_uri'
@@ -26,13 +27,18 @@ def test_delete_success(patched_plugin_store):
 
 
 def test_update_success(patched_plugin_store):
-    ret = deployments.update(f_target, f_deployment_id)
+    ret = deployments.update(f_target, f_deployment_id, f_model_uri)
     assert ret is None
 
 
-def test_update_both_rollback_and_model_uri(patched_plugin_store):
+def test_update_flavor_without_model_uri():
     with pytest.raises(RuntimeError):
-        deployments.update(f_target, f_deployment_id, f_model_uri, rollback=True)
+        deployments.update(f_target, f_deployment_id, flavor='pytorch')
+
+
+def test_update_without_any_arguments():
+    with pytest.raises(RuntimeError):
+        deployments.update(f_target, f_deployment_id)
 
 
 def test_missing_arguments(patched_plugin_store):
@@ -55,6 +61,11 @@ def test_invalid_interface(patched_plugin_store):
         deployments.wrong_interface(f_target)
 
 
+def test_wrong_target_name():
+    with pytest.raises(MlflowException):
+        deployments.create('wrong_target', f_model_uri, f_flavor)
+
+
 def test_plugin_not_inherited_from_BasePlugin():
     class DummyPlugin:
         ...
@@ -62,7 +73,7 @@ def test_plugin_not_inherited_from_BasePlugin():
     dummy_plugin = DummyPlugin()
     plugin_manager = DeploymentPlugins()
     plugin_manager.register('dummy',  dummy_plugin)
-    with pytest.raises(RuntimeError):
+    with pytest.raises(MlflowException):
         plugin_manager.register_entrypoints()
 
 
@@ -81,5 +92,3 @@ def test_entrypoints_not_reloading(patched_plugin_store):
 def test_plugin_raising_error(patched_plugin_store):
     with pytest.raises(RuntimeError):
         ret = deployments.list(f_target, raiseError=True)  # special case to raise error
-
-

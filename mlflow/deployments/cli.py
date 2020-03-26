@@ -6,18 +6,20 @@ from mlflow.deployments.utils import parse_custom_arguments
 
 deployment_target = click.option("--target", "-t", required=True, help="Deployment target")
 deployment_id = click.option("--id", "_deployment_id", required=True,
-                             help="Deployment ID for the deployment that needs to be deleted")
+                             help="ID of the deployment to delete")
 context_settings = dict(allow_extra_args=True, ignore_unknown_options=True,)
 
 
 @click.group("deployments")
 def commands():
     """
-    Deploy MLflow models.  Downstream functions calls the plugin registered for the
+    [experimental] Deploy MLflow models to custom targets.
+
+    Downstream functions calls the plugin registered for the...
     given target and pass the given arguments to it. Each of these functions also
     allows users to pass plugin specific arguments which will be processed by
     ``parse_custom_arguments`` function.
-    
+
     MLflow will provide builtin support for some deployment targets eventually.
     However, Support for ANY targets is only available via MLflow plugins right now - see
     `community-plugins <https://mlflow.org/docs/latest/plugins.html#community-plugins>`_
@@ -32,9 +34,9 @@ def commands():
 @parse_custom_arguments
 @click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
                                      "inferred if it's not given")
-@deployment_target
 @cli_args.MODEL_URI
-def create_cli(model_uri, target, flavor, **kwargs):
+@deployment_target
+def create_cli(target, model_uri, flavor, **kwargs):
     """
     Create the deployment on the given target with the model from ``model_uri``.
     """
@@ -57,10 +59,8 @@ def delete_cli(target, _deployment_id, **kwargs):
 
 @commands.command("update", context_settings=context_settings)
 @parse_custom_arguments
-@click.option("--rollback", help="Should the deployment be rolled back. Rollback is an "
-                                 "option for some of the deployment targets but not for "
-                                 "all. Make sure your deployment target supports rolling"
-                                 " back", is_flag=True,)
+@click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
+                                     "inferred if it's not given")
 @click.option("--model-uri", "-m", default=None, metavar="URI",
               help="URI to the model. A local path, a 'runs:/' URI, or a"
               " remote storage URI (e.g., an 's3://' URI). For more information"
@@ -69,13 +69,12 @@ def delete_cli(target, _deployment_id, **kwargs):
               "#artifact-stores")  # optional model_uri
 @deployment_id
 @deployment_target
-def update_cli(target, _deployment_id, rollback, model_uri, **kwargs):
+def update_cli(target, _deployment_id, model_uri, flavor, **kwargs):
     """
     Update the deployment associated with the deployment id at the given target with the new
-    model. If rollback is True, it triggers rollback to previous version instead of updating
-    with a new model
+    model
     """
-    interface.update(target, _deployment_id, rollback=rollback, model_uri=model_uri, **kwargs)
+    interface.update(target, _deployment_id, model_uri=model_uri, flavor=flavor, **kwargs)
     click.echo("Deployment {} is updated".format(_deployment_id))
 
 

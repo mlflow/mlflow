@@ -48,4 +48,3 @@ def patched_plugin_store(monkeypatch):
                         custom_register_entrypoints_for_plugin_store(
                             DeploymentPlugins.register_entrypoints))
     yield None
-

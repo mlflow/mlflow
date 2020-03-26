@@ -1,5 +1,4 @@
 import warnings
-import sys
 import abc
 
 import entrypoints
@@ -8,18 +7,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 
 
-if sys.version_info >= (3, 4):
-    ABC = abc.ABC
-else:
-    ABC = abc.ABCMeta('ABC', (), {})
-
 # TODO: refactor to have a common base class for all the plugin implementation in MLFlow
 #   mlflow/tracking/context/registry.py
 #   mlflow/tracking/registry
 #   mlflow/store/artifact/artifact_repository_registry.py
 
 
-class PluginManager(ABC):
+class PluginManager(abc.ABC):
     """
     Abstract class defining a entrypoint based plugin registration.
 

@@ -519,7 +519,8 @@ Built-In Deployment Tools
 -------------------------
 
 MLflow provides tools for deploying MLflow models on a local machine and to several production environments.
-Not all deployment methods are available for all model flavors.
+Not all deployment methods are available for all model flavors. MLflow also allows users to write plugins
+to use any deployment targets. For more details checkout `Deployment using plugin <models.html#deployment-plugin>`_
 
 .. contents:: In this section:
   :local:
@@ -828,3 +829,40 @@ argument. The following values are supported:
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>, result_type=ArrayType(FloatType()))
     # The prediction column will contain all the numeric columns returned by the model as floats
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
+
+
+.. _deployment_plugin:
+
+Deployment using plugins
+------------------------
+MLflow allows users to build plugins for different deployment targets. The list of plugins developed by the community
+for different deployment targets can be found `here <plugins.html#deployment-plugins>`_.
+
+.. Note::
+    Deployment using plugin is experimental in the current release. The API might change in a future release without any notice
+
+The deployment plugin API currently exposes five interface functions which are available under the namespace ``mlflow.deployments``.
+The same is accessible from the CLI under ``mlflow deployments``.
+
+
+Commands
+^^^^^^^^
+Here is the list of commands. For accessing them programmatically, check out the `python API documentation <python_api/mlflow.deployments.html#mlflow.deployments>`_.
+
+* `Create <cli.html#mlflow-deployments-create>`_: Create the deployment on the target tool using the model fetched from provided ``model URI``
+* `Delete <cli.html#mlflow-deployments-delete>`_: Delete the deployment, pointed by the deployment ID
+* `Update <cli.html#mlflow-deployments-update>`_: Update an existing deployment like adding resources or upgrade the model to new version
+* `List <cli.html#mlflow-deployments-list>`_: List the deployment ID of all deployments
+* `Describe <cli.html#mlflow-deployments-describe>`_: Fetch more details about a particular deployment
+
+
+Also, see:
+
+.. code-block:: bash
+
+    mlflow deployments --help
+    mlflow deployments create --help
+    mlflow deployments delete --help
+    mlflow deployments update --help
+    mlflow deployments list --help
+    mlflow deployments describe --help

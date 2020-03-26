@@ -83,7 +83,7 @@ Defining a Plugin
 ~~~~~~~~~~~~~~~~~
 You define an MLflow plugin as a standalone Python package that can be distributed for
 installation via PyPI or conda. See https://github.com/mlflow/mlflow/tree/branch-1.5/tests/resources/mlflow-test-plugin for an
-example package that implements all available plugin types.
+example package that implements all available plugin types. For deployment plugin example, checkout the `RedisAI plugin <https://github.com/RedisAI/mlflow-redisai>`_
 
 The example package contains a ``setup.py`` that declares a number of
 `entry points <https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_:
@@ -111,6 +111,8 @@ The example package contains a ``setup.py`` that declares a number of
             # Define a MLflow Project Backend plugin called 'dummy-backend'
             "mlflow.project_backend":
                 "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",
+            # Define a deployment plugin
+            "mlflow.deployments": "target_name=plugin_name:PluginClass"
         },
     )
 
@@ -188,6 +190,52 @@ plugin:
      - The entry point value (e.g. ``mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend``) specifies a custom subclass of
        ``mlflow.project.backend.AbstractBackend``)
      - N/A (will be added soon)
+   * - Plugins for custom deployment runtime and deploy the model using ``mlflow deployments create``. For more details about the allowed interfaces,
+       checkout `deployment plugin <models.html#deployment-plugin>`_
+     - mlflow.deployments
+     - The entry point name should represent the target name and the value must be the PluginClass. The entry point name is what user will be using to refer
+       a target. For example, if the target is RedisAI, then the entry point name value pair must be ``redisai:RedisAIPluginClass``. And CLI command will look like
+       ``mlflow deployments <interface function> --target redisai --arguments ...``
+     - `RedisAI plugin <https://github.com/RedisAI/mlflow-redisai>`_
+
+
+Deployment Plugin
+^^^^^^^^^^^^^^^^^
+Building a plugin for deployment has it's own implementation details apart from the ``setup.py`` configurations. For starters, as given in the above table,
+entrypoint value for the deployment plugin must be a class, we'll call it ``PluginClass`` now onwards, for the convenience. A ``PluginClass`` must be inherited from the
+base class defined `here <python_api/mlflow.deployments.html#mlflow.deployments.BasePlugin>`_. This base class is an abstract class that defines five abstract methods for
+five interface functions `create`, `delete`, `update`, `list` & `describe`. Each of these functions should take few predefined arguments. Any plugin specific arguments
+can be accessed as keyword arguments through ``kwargs``. Plugin specific options will also reach plugins through the kwargs.
+
+For example, passing host, username and password to the RedisAI plugin is possible by
+
+.. code-block:: python
+
+    from mlflow import deployments
+    deployments.create('redisai', model_uri, host='localhost', username='me', password='pswd')
+
+The CLI command for this will be (note that the optional argument are long options - prefixed with ``--`` and has more than one character)
+
+.. code-block:: bash
+
+    mlflow deployments create --redisai --host localhost --username me --password pswd
+
+
+And the corresponding RedisAI PluginClass implementation could look like this
+
+.. code-block:: python
+
+    from mlflow.deployments import BasePlugin
+
+    class RedisAIPlugin(BasePlugin):
+        ...
+
+        def create(self, model_uri, **kwargs):
+            host = kwargs['host']
+            username = kwargs['username']
+            password = kwargs['password']
+            ...
+
 
 Testing Your Plugin
 ~~~~~~~~~~~~~~~~~~~
@@ -282,3 +330,19 @@ To use Aliyun OSS as an artifact store, an OSS URI of the form ``oss://<bucket>/
 
 In the example provided above, the ``log_model`` operation creates three entries in the OSS storage ``oss://mlflow-test/$RUN_ID/artifacts/model_test/``, the MLmodel file
 and the conda.yaml file associated with the model.
+
+
+Deployment Plugins
+~~~~~~~~~~~~~~~~~~
+
+Here is a list of plugins built for different deployment targets using with MLflow's `deployment plugin <models.html#deployment-plugin>`_ API. This
+list is not by means exhaustive or probably not even complete since this list is manually curated and we might have missed some. In case you find
+some plugins that's not in the list or if you are a plugin developer building/maintaining a plugin which is not listed here, go ahead and raise a
+PR to include it in this list. If you are a plugin developer or planning to build a plugin, the documentation on `how to build a plugin <plugins.html#writing-your-own-mlflow-plugins>`_
+is a good place to start. But if you are user for an existing plugin or exploring how does the plugin system work for deployment use cases in general,
+you should checkout the documentation for `model deployment using plugins <models.html#deployment-plugin>`_. It might also be helpful if you refer the
+`CLI docs <cli.html#mlflow-deployments>`_ and the corresponding `python API docs <python_api/mlflow.deployments.html>`_ when you start building tools that would
+use these plugins. You must also check the plugin's documentation for plugin specific arguments and the functionality of each API interface
+
+
+- `mlflow-redisai <https://github.com/RedisAI/mlflow-redisai>`_
