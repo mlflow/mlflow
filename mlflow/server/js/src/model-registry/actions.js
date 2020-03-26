@@ -1,5 +1,5 @@
-import Services from './services';
-import { getUUID, wrapDeferred } from '../Actions';
+import { Services } from './services';
+import { getUUID, wrapDeferred } from '../common/utils/ActionUtils';
 
 export const CREATE_REGISTERED_MODEL = 'CREATE_REGISTERED_MODEL';
 export const createRegisteredModelApi = (name, id = getUUID()) => ({
@@ -26,11 +26,13 @@ export const updateRegisteredModelApi = (name, description, id = getUUID()) => (
 });
 
 export const DELETE_REGISTERED_MODEL = 'DELETE_REGISTERED_MODEL';
-export const deleteRegisteredModelApi = (model, id = getUUID()) => ({
+export const deleteRegisteredModelApi = (model, id = getUUID(), localUpdateOnly) => ({
   type: DELETE_REGISTERED_MODEL,
-  payload: wrapDeferred(Services.deleteRegisteredModel, {
-    name: model,
-  }),
+  payload: localUpdateOnly
+    ? Promise.resolve()
+    : wrapDeferred(Services.deleteRegisteredModel, {
+      name: model,
+    }),
   meta: { id, model },
 });
 
@@ -43,7 +45,7 @@ export const createModelVersionApi = (name, source, runId, id = getUUID()) => ({
 
 export const SEARCH_MODEL_VERSIONS = 'SEARCH_MODEL_VERSIONS';
 export const searchModelVersionsApi = (filterObj, id = getUUID()) => {
-  const filter = Object.keys(filterObj).map((key) => `${key}='${filterObj[key]}'`).join('&');
+  const filter = Object.keys(filterObj).map((key) => `${key}="${filterObj[key]}"`).join('&');
   return {
     type: SEARCH_MODEL_VERSIONS,
     payload: wrapDeferred(Services.searchModelVersions, { filter }),
@@ -55,15 +57,13 @@ export const UPDATE_MODEL_VERSION = 'UPDATE_MODEL_VERSION';
 export const updateModelVersionApi = (
   modelName,
   version,
-  stage,
   description,
   id = getUUID(),
 ) => ({
   type: UPDATE_MODEL_VERSION,
   payload: wrapDeferred(Services.updateModelVersion, {
     name: modelName,
-    version: version.toString(),
-    stage,
+    version: version,
     description,
   }),
   meta: { id },
@@ -71,30 +71,33 @@ export const updateModelVersionApi = (
 
 export const TRANSITION_MODEL_VERSION_STAGE = 'TRANSITION_MODEL_VERSION_STAGE';
 export const transitionModelVersionStageApi = (
-    modelName,
-    version,
-    stage,
-    archiveExistingVersions,
-    comment,
-    id = getUUID(),
+  modelName,
+  version,
+  stage,
+  archiveExistingVersions,
+  comment,
+  id = getUUID(),
 ) => ({
   type: TRANSITION_MODEL_VERSION_STAGE,
   payload: wrapDeferred(Services.transitionModelVersionStage, {
     name: modelName,
-    version: version.toString(),
+    version,
     stage,
     archive_existing_versions: archiveExistingVersions,
+    comment,
   }),
   meta: { id },
 });
 
 export const DELETE_MODEL_VERSION = 'DELETE_MODEL_VERSION';
-export const deleteModelVersionApi = (modelName, version, id = getUUID()) => ({
+export const deleteModelVersionApi = (modelName, version, id = getUUID(), localUpdateOnly) => ({
   type: DELETE_MODEL_VERSION,
-  payload: wrapDeferred(Services.deleteModelVersion, {
-    name: modelName,
-    version: version.toString(),
-  }),
+  payload: localUpdateOnly
+    ? Promise.resolve()
+    : wrapDeferred(Services.deleteModelVersion, {
+      name: modelName,
+      version: version,
+    }),
   meta: { id, modelName, version },
 });
 
@@ -112,7 +115,8 @@ export const getModelVersionApi = (modelName, version, id = getUUID()) => ({
   type: GET_MODEL_VERSION,
   payload: wrapDeferred(Services.getModelVersion, {
     name: modelName,
-    version: version.toString(),
+    version: version,
   }),
   meta: { id, modelName, version },
 });
+
