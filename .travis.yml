@@ -10,7 +10,7 @@ matrix:
     # Nightly builds run the tests/examples end-to-end test suite.
     # Does not include Windows since Projects/Models are mostly not compatible with Windows as of now.
     - stage: Nightly
-    - stage: small
+    - stage: Small
       if: type != cron
     - language: python
       name: "Lint (Python 3.6)"
