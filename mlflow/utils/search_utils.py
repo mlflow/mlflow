@@ -4,7 +4,7 @@ import operator
 import re
 
 import sqlparse
-from sqlparse.sql import Identifier, Token, Comparison, Statement, TokenList
+from sqlparse.sql import Identifier, Token, Comparison, Statement
 from sqlparse.tokens import Token as TokenType
 
 from mlflow.entities import RunInfo
