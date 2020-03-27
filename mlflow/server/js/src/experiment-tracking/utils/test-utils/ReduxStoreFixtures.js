@@ -1,4 +1,4 @@
-import {RunTag, Experiment, RunInfo, Metric, Param} from "../../sdk/MlflowMessages";
+import {RunTag, Experiment, RunInfo, Metric, Param, ExperimentTag} from "../../sdk/MlflowMessages";
 
 
 export const emptyState = {

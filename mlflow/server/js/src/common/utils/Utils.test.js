@@ -1,4 +1,4 @@
-import { setup_mock, teardown_mock } from '../../__mocks__/xhr-mock';
+import { setup_mock, teardown_mock } from '../../../__mocks__/xhr-mock';
 import Utils from './Utils';
 import React from 'react';
 import { shallow } from 'enzyme';
