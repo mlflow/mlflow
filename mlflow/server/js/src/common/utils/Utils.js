@@ -573,7 +573,7 @@ class Utils {
       const { error } = request;
       return error && error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST;
     });
-   }
+  }
 
   /**
    * Fetch private vcs regex

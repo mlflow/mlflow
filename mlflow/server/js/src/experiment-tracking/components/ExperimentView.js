@@ -8,7 +8,7 @@ import {
   getRunInfo,
   getRunTags,
   getExperimentTags } from '../reducers/Reducers';
-import { setExperimentTagApi, getUUID } from '../actions';
+import { setExperimentTagApi } from '../actions';
 import { withRouter } from 'react-router-dom';
 import Routes from '../routes';
 import { Button, ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
