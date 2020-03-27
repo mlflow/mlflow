@@ -19,7 +19,8 @@ def _mlflow_conda_env(path=None, additional_conda_deps=None, additional_pip_deps
                  in dictionary format.
     :param additional_conda_deps: List of additional conda dependencies passed as strings.
     :param additional_pip_deps: List of additional pip dependencies passed as strings.
-    :param additional_conda_channels: List of additional conda channels to search when resolving packages.
+    :param additional_conda_channels: List of additional conda channels to search when resolving
+                                      packages.
     :return: ``None`` if ``path`` is specified. Otherwise, the a dictionary representation of the
              Conda environment.
     """
