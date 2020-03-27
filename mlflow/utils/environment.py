@@ -19,16 +19,22 @@ def _mlflow_conda_env(path=None, additional_conda_deps=None, additional_pip_deps
                  in dictionary format.
     :param additional_conda_deps: List of additional conda dependencies passed as strings.
     :param additional_pip_deps: List of additional pip dependencies passed as strings.
-    :param additional_channels: List of additional conda channels to search when resolving packages.
+    :param additional_conda_channels: List of additional conda channels to search when resolving packages.
     :return: ``None`` if ``path`` is specified. Otherwise, the a dictionary representation of the
              Conda environment.
     """
-    env = yaml.safe_load(_conda_header)
-    env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
     pip_deps = (["mlflow"] if install_mlflow else []) + (
         additional_pip_deps if additional_pip_deps else [])
-    if additional_conda_deps is not None:
-        env["dependencies"] += additional_conda_deps
+
+    pip_not_specified = (additional_conda_deps is None
+                         or not [i for i in additional_conda_deps if "pip==" in i or "pip" == i])
+    conda_deps = (additional_conda_deps if additional_conda_deps else []) + (
+        ["pip"] if pip_deps and pip_not_specified else [])
+
+    env = yaml.safe_load(_conda_header)
+    env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
+    if conda_deps is not None:
+        env["dependencies"] += conda_deps
     env["dependencies"].append({"pip": pip_deps})
     if additional_conda_channels is not None:
         env["channels"] += additional_conda_channels
