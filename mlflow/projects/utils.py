@@ -1,4 +1,3 @@
-import collections
 import logging
 import os
 import re
@@ -247,27 +246,3 @@ def log_project_params_and_tags(run, project, work_dir, entry_point, parameters,
     if _is_valid_branch_name(work_dir, version):
         for tag in [MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_BRANCH_NAME]:
             tracking.MlflowClient().set_tag(run.info.run_id, tag, version)
-
-
-FetchedProject = collections.namedtuple("FetchedProject", ["project", "work_dir", "run"])
-
-
-def prepare_project_and_run(project_uri, experiment_id, run_id, entry_point, parameters, version):
-    """
-    Fetch project, read MLProject, create run  and set all needed information in the run
-
-    :param project_uri: URI to the project (could be a local or git URI).
-                    This is the parameter given to mlflow run command.
-    :param experiment_id: experiment id
-    :param run_id: if not None, run_id to use
-    :param entry_point: entry point name in MLProject file
-    :param parameters: parameters to pass to the command
-    :param version: for Git-based projects, either a commit hash or a branch name.
-
-    :return: A NamedTuple FetchedProject that contains an object describing the MLProject file,
-             path where the project has been fetched and a mlflow run object
-    """
-    project, work_dir = fetch_and_validate_project(project_uri, version, entry_point, parameters)
-    active_run = get_or_create_run(run_id, project_uri, experiment_id, work_dir, entry_point)
-    log_project_params_and_tags(active_run, project, work_dir, entry_point, parameters, version)
-    return FetchedProject(project, work_dir, active_run)

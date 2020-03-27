@@ -1,11 +1,16 @@
 import os
 import tempfile
 
+import mock
 import pytest
 
+import mlflow
 from mlflow.exceptions import ExecutionException
+from mlflow.projects import _project_spec
 from mlflow.projects.utils import (
-    _get_storage_dir, _is_valid_branch_name, _is_zip_uri, fetch_project, _parse_subdirectory)
+    _get_storage_dir, _is_valid_branch_name, _is_zip_uri, fetch_project, _parse_subdirectory,
+    get_or_create_run, log_project_params_and_tags, fetch_and_validate_project)
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
 from tests.projects.utils import (
     assert_dirs_equal, GIT_PROJECT_URI, TEST_PROJECT_DIR, TEST_PROJECT_NAME)
 
@@ -121,3 +126,39 @@ def test_storage_dir(tmpdir):
 def test_is_valid_branch_name(local_git_repo):
     assert _is_valid_branch_name(local_git_repo, "master")
     assert not _is_valid_branch_name(local_git_repo, "dev")
+
+
+def test_fetch_create_and_log(tmpdir):
+    entry_point_name = "entry_point"
+    parameters = {
+        "method_name": "string",
+    }
+    entry_point = _project_spec.EntryPoint(entry_point_name, parameters, "run_model.sh")
+    mock_fetched_project = _project_spec.Project(None,
+                                                 {entry_point_name: entry_point},
+                                                 None, "my_project")
+    experiment_id = mlflow.create_experiment("test_fetch_project")
+    expected_dir = tmpdir
+    project_uri = "http://someuri/myproject.git"
+    user_param = {"method_name": "newton"}
+    with mock.patch("mlflow.projects.utils.fetch_project", return_value=expected_dir):
+        with mock.patch("mlflow.projects._project_spec.load_project",
+                        return_value=mock_fetched_project):
+            project, work_dir = fetch_and_validate_project(
+                "", "", entry_point_name, user_param)
+            assert mock_fetched_project == project
+            assert expected_dir == work_dir
+            # Create a run
+            active_run = get_or_create_run(
+                None, project_uri, experiment_id, work_dir, entry_point_name)
+
+            # check tags
+            run = mlflow.get_run(active_run.info.run_id)
+            assert MLFLOW_PROJECT_ENTRY_POINT in run.data.tags
+            assert MLFLOW_SOURCE_NAME in run.data.tags
+            assert entry_point_name == run.data.tags[MLFLOW_PROJECT_ENTRY_POINT]
+            assert project_uri == run.data.tags[MLFLOW_SOURCE_NAME]
+            log_project_params_and_tags(active_run, project, work_dir, entry_point_name,
+                                        user_param, None)
+            run = mlflow.get_run(active_run.info.run_id)
+            assert user_param == run.data.params
