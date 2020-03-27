@@ -1,15 +1,26 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import ModelVersionTable from './ModelVersionTable';
-import Utils from '../../utils/Utils';
+import { ModelVersionTable } from './ModelVersionTable';
+import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import { modelListPageRoute } from '../routes';
-import { Radio, Icon, Descriptions, Menu, Dropdown, Modal } from 'antd';
-import { ACTIVE_STAGES } from '../constants';
+import {
+  Radio,
+  Icon,
+  Descriptions,
+  Menu,
+  Dropdown,
+  Modal,
+  Tooltip,
+} from 'antd';
+import {
+  ACTIVE_STAGES,
+  REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT,
+} from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 
-const Stages = {
+export const StageFilters = {
   ALL: 'ALL',
   ACTIVE: 'ACTIVE',
 };
@@ -30,19 +41,20 @@ export class ModelView extends React.Component {
   };
 
   state = {
-    stageFilter: Stages.ALL,
+    stageFilter: StageFilters.ALL,
     showDescriptionEditor: false,
     isDeleteModalVisible: false,
     isDeleteModalConfirmLoading: false,
   };
 
+  componentDidMount() {
+    const pageTitle = `${this.props.model.name} - MLflow Model`;
+    Utils.updatePageTitle(pageTitle);
+  }
+
   handleStageFilterChange = (e) => {
     this.setState({ stageFilter: e.target.value });
   };
-
-  componentDidMount() {
-    document.title = `${this.props.model.name} - MLflow Model`;
-  }
 
   getActiveVersionsCount() {
     const { modelVersions } = this.props;
@@ -71,11 +83,20 @@ export class ModelView extends React.Component {
   renderBreadCrumbDropdown() {
     const menu = (
       <Menu>
-        <Menu.Item onClick={this.showDeleteModal}>Delete</Menu.Item>
+        {this.getActiveVersionsCount() > 0 ?
+          (
+            <Menu.Item disabled className='delete'>
+              <Tooltip title={REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>
+                Delete
+              </Tooltip>
+            </Menu.Item>
+          ) : (
+            <Menu.Item onClick={this.showDeleteModal} className='delete'>Delete</Menu.Item>
+          )}
       </Menu>
     );
     return (
-      <Dropdown overlay={menu} trigger={['click']}>
+      <Dropdown overlay={menu} trigger={['click']} className='breadcrumb-dropdown'>
         <Icon type='caret-down' className='breadcrumb-caret'/>
       </Dropdown>
     );
@@ -111,7 +132,11 @@ export class ModelView extends React.Component {
       });
   };
 
-  render() {
+  renderDescriptionEditIcon() {
+    return <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
+  }
+
+  renderDetails = () => {
     const { model, modelVersions } = this.props;
     const {
       stageFilter,
@@ -120,19 +145,8 @@ export class ModelView extends React.Component {
       isDeleteModalConfirmLoading,
     } = this.state;
     const modelName = model.name;
-    const chevron = <i className='fas fa-chevron-right breadcrumb-chevron' />;
-    const breadcrumbItemClass = 'truncate-text single-line breadcrumb-title';
-    const editIcon = <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
     return (
       <div className='model-view-content'>
-        {/* Breadcrumbs */}
-        <h1 className='breadcrumb-header'>
-          <Link to={modelListPageRoute} className={breadcrumbItemClass}>Registered Models</Link>
-          {chevron}
-          <span className={breadcrumbItemClass}>{modelName}</span>
-          {this.renderBreadCrumbDropdown()}
-        </h1>
-
         {/* Metadata List */}
         <Descriptions className='metadata-list'>
           <Descriptions.Item label='Created Time'>
@@ -145,7 +159,8 @@ export class ModelView extends React.Component {
 
         {/* Page Sections */}
         <CollapsibleSection
-          title={<span>Description {showDescriptionEditor ? null : editIcon}</span>}
+          title={<span>Description
+            {!showDescriptionEditor ? this.renderDescriptionEditIcon() : null}</span>}
           forceOpen={showDescriptionEditor}
         >
           <EditableNote
@@ -163,15 +178,15 @@ export class ModelView extends React.Component {
               value={stageFilter}
               onChange={this.handleStageFilterChange}
             >
-              <Radio.Button value={Stages.ALL}>All</Radio.Button>
-              <Radio.Button value={Stages.ACTIVE}>
+              <Radio.Button value={StageFilters.ALL}>All</Radio.Button>
+              <Radio.Button value={StageFilters.ACTIVE}>
                 Active({this.getActiveVersionsCount()})
               </Radio.Button>
             </Radio.Group>
           </span>
         )}>
           <ModelVersionTable
-            activeStageOnly={stageFilter === Stages.ACTIVE}
+            activeStageOnly={stageFilter === StageFilters.ACTIVE}
             modelName={modelName}
             modelVersions={modelVersions}
           />
@@ -190,6 +205,28 @@ export class ModelView extends React.Component {
           <span>Are you sure you want to delete {modelName}? </span>
           <span>This cannot be undone.</span>
         </Modal>
+      </div>
+    );
+  };
+
+  renderMainPanel() {
+    return this.renderDetails();
+  }
+
+  render() {
+    const { model } = this.props;
+    const modelName = model.name;
+    const chevron = <i className='fas fa-chevron-right breadcrumb-chevron' />;
+    const breadcrumbItemClass = 'truncate-text single-line breadcrumb-title';
+    return (
+      <div className='model-view-content'>
+        <h1 className='breadcrumb-header'>
+          <Link to={modelListPageRoute} className={breadcrumbItemClass}>Registered Models</Link>
+          {chevron}
+          <span className={breadcrumbItemClass}>{modelName}</span>
+          {this.renderBreadCrumbDropdown()}
+        </h1>
+        {this.renderMainPanel()}
       </div>
     );
   }
