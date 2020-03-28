@@ -650,8 +650,9 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
     docker_path = "docker"
     cmd = [docker_path, "run", "--rm"]
 
-    for key, value in docker_args.items():
-        cmd += ['--'+key, value]
+    if docker_args:
+        for key, value in docker_args.items():
+            cmd += ['--' + key, value]
 
     env_vars = _get_run_env_vars(run_id=active_run.info.run_id,
                                  experiment_id=active_run.info.experiment_id)
