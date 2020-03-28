@@ -290,7 +290,7 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
 
 
 @pytest.mark.parametrize("docker_args", [
-    {}, {"ARG":"VAL"}, {"ARG1":"VAL1", "ARG2":"VAL2"}
+    {}, {"ARG": "VAL"}, {"ARG1": "VAL1", "ARG2": "VAL2"}
 ])
 def test_docker_run_args(docker_args):
     active_run = mock.MagicMock()

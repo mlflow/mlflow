@@ -51,7 +51,7 @@ def cli():
 @click.option("--param-list", "-P", metavar="NAME=VALUE", multiple=True,
               help="A parameter for the run, of the form -P name=value. Provided parameters that "
                    "are not in the list of parameters for an entry point will be passed to the "
-                   "corresponding entry point as command-line arguments in the form `--name value`.")
+                   "corresponding entry point as command-line arguments in the form `--name value`")
 @click.option("--docker-args", "-A", metavar="NAME=VALUE", multiple=True,
               help="A `docker run` flag or argument, of the form -A name=value. Where `name` "
               "will then be propagated as `docker run --name value`.")
