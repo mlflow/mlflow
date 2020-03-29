@@ -32,49 +32,50 @@ def commands():
 
 @commands.command("create", context_settings=context_settings)
 @parse_custom_arguments
+@deployment_target
+@cli_args.MODEL_URI
 @click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
                                      "inferred if it's not given")
-@cli_args.MODEL_URI
-@deployment_target
-def create_cli(target, model_uri, flavor, **kwargs):
+def create_cli(flavor, model_uri, target, **kwargs):
     """
     Create the deployment on the given target with the model from ``model_uri``.
     """
-    deployment = interface.create(target, model_uri, flavor, **kwargs)
+    deployment = interface.create_deployment(target, model_uri, flavor, **kwargs)
     # TODO: Support async here and everywhere requires
     click.echo("\n{} deployment {} is created".format(deployment.flavor, deployment.id))
 
 
 @commands.command("delete", context_settings=context_settings)
 @parse_custom_arguments
-@deployment_id
 @deployment_target
-def delete_cli(target, _deployment_id, **kwargs):
+@deployment_id
+def delete_cli(_deployment_id, target, **kwargs):
     """
     Delete the deployment on the given target associated with the deployment id.
     """
-    interface.delete(target, _deployment_id, **kwargs)
+    interface.delete_deployment(target, _deployment_id, **kwargs)
     click.echo("Deployment {} is deleted".format(_deployment_id))
 
 
 @commands.command("update", context_settings=context_settings)
 @parse_custom_arguments
-@click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
-                                     "inferred if it's not given")
+@deployment_target
+@deployment_id
 @click.option("--model-uri", "-m", default=None, metavar="URI",
               help="URI to the model. A local path, a 'runs:/' URI, or a"
               " remote storage URI (e.g., an 's3://' URI). For more information"
               " about supported remote URIs for model artifacts, see"
               " https://mlflow.org/docs/latest/tracking.html"
               "#artifact-stores")  # optional model_uri
-@deployment_id
-@deployment_target
-def update_cli(target, _deployment_id, model_uri, flavor, **kwargs):
+@click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
+                                     "inferred if it's not given")
+def update_cli(flavor, model_uri, _deployment_id, target, **kwargs):
     """
     Update the deployment associated with the deployment id at the given target with the new
     model
     """
-    interface.update(target, _deployment_id, model_uri=model_uri, flavor=flavor, **kwargs)
+    interface.update_deployment(target, _deployment_id,
+                                model_uri=model_uri, flavor=flavor, **kwargs)
     click.echo("Deployment {} is updated".format(_deployment_id))
 
 
@@ -86,17 +87,17 @@ def list_cli(target, **kwargs):
     List the all the deployment IDs from the target. These IDs can be used in delete, update,
     and describe APIs
     """
-    ids = interface.list(target, **kwargs)
+    ids = interface.list_deployments(target, **kwargs)
     click.echo("List of all deployments:\n{}".format(ids))
 
 
 @commands.command("describe", context_settings=context_settings)
 @parse_custom_arguments
-@deployment_id
 @deployment_target
-def describe_cli(target, _deployment_id, **kwargs):
+@deployment_id
+def describe_cli(_deployment_id, target, **kwargs):
     """
     Fetch more details about the deployment associated with the given ID
     """
-    desc = interface.describe(target, _deployment_id, **kwargs)
+    desc = interface.describe_deployment(target, _deployment_id, **kwargs)
     click.echo(desc)

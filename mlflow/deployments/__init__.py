@@ -1,5 +1,7 @@
 from mlflow.deployments.base_plugin import BasePlugin
-from mlflow.deployments.interface import create, delete, update, list, describe
+from mlflow.deployments.interface import (create_deployment, delete_deployment, update_deployment,
+                                          list_deployments, describe_deployment)
 
 
-__all__ = ['create', 'delete', 'update', 'list', 'describe', 'BasePlugin']
+__all__ = ['create_deployment', 'delete_deployment', 'update_deployment',
+           'list_deployments', 'describe_deployment', 'BasePlugin']

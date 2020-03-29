@@ -212,7 +212,8 @@ For example, passing host, username and password to the RedisAI plugin is possib
 .. code-block:: python
 
     from mlflow import deployments
-    deployments.create('redisai', model_uri, host='localhost', username='me', password='pswd')
+    # ``create_deployment`` calls ``create`` method of the plugin
+    deployments.create_deployment('redisai', model_uri, host='localhost', username='me', password='pswd')
 
 The CLI command for this will be (note that the optional argument are long options - prefixed with ``--`` and has more than one character)
 

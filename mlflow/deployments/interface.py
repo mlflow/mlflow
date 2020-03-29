@@ -7,7 +7,7 @@ plugin_store = DeploymentPlugins(auto_register=True)
 
 
 @experimental
-def create(target, model_uri, flavor=None, **kwargs):
+def create_deployment(target, model_uri, flavor=None, **kwargs):
     """
     Create the deployment using target function's create method
 
@@ -29,7 +29,7 @@ def create(target, model_uri, flavor=None, **kwargs):
 
 
 @experimental
-def delete(target, deployment_id, **kwargs):
+def delete_deployment(target, deployment_id, **kwargs):
     """
     Delete the deployment associated with the deployment ID
 
@@ -43,7 +43,7 @@ def delete(target, deployment_id, **kwargs):
 
 
 @experimental
-def update(target, deployment_id, model_uri=None, flavor=None, **kwargs):
+def update_deployment(target, deployment_id, model_uri=None, flavor=None, **kwargs):
     """
     Update the existing deployment with a new model
 
@@ -65,7 +65,7 @@ def update(target, deployment_id, model_uri=None, flavor=None, **kwargs):
 
 
 @experimental
-def list(target, **kwargs):  # pylint: disable=W0622
+def list_deployments(target, **kwargs):  # pylint: disable=W0622
     """
     List the deployment IDs of the deployments. These IDs can be used to do other operations
     such as delete, update or get more description about the deployments
@@ -82,7 +82,7 @@ def list(target, **kwargs):  # pylint: disable=W0622
 
 
 @experimental
-def describe(target, deployment_id, **kwargs):
+def describe_deployment(target, deployment_id, **kwargs):
     """
     Get more description about the deployments. MLFlow does not control what information
     should be part of the return value here and it is solely depends on the plugin
