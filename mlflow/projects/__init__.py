@@ -815,7 +815,7 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
     # pylint: disable=unused-argument
     if platform.system() == "Windows":
         win_user_dir = os.environ["userprofile"]
-        aws_path = os.path.join(win_user_dir,".aws")
+        aws_path = os.path.join(win_user_dir, ".aws")
     else:
         aws_path = posixpath.expanduser("~/.aws")
 
