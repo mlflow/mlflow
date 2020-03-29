@@ -68,7 +68,7 @@ matrix:
         - npm run lint
         - set -e
         - for file in $(find src | grep test.js | sort) ; do npm run test -- $file; done
-    - stage: large
+    - stage: Large
       if: type != cron
     # Run Windows tests in the "large" test builder so that we don't spend Travis executor
     # time running Windows tests if Python 3 small tests fail.
