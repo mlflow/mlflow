@@ -257,7 +257,7 @@ def test_get_model_version(mlflow_client, backend_store_uri):
 
     with pytest.raises(MlflowException) as ex:
         mlflow_client.get_model_version(name=name, version="something not correct")
-    assert "INVALID_PARAMETER_VALUE: Model Version's version must be an integer" in str(ex.value)
+    assert "INVALID_PARAMETER_VALUE: Model version must be an integer" in str(ex.value)
 
 
 def test_update_model_version_flow(mlflow_client, backend_store_uri):
