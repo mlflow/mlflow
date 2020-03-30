@@ -52,4 +52,4 @@ def test_mlflow_conda_env_includes_pip_dependencies_and_pip_is_specified(pip_spe
     for conda_dep in conda_deps:
         assert conda_dep in env["dependencies"]
     assert pip_specification in env["dependencies"]
-    assert env["dependencies"].count("pip") == (1 if pip_specification == "pip" else 0)
+    assert env["dependencies"].count("pip") == (2 if pip_specification == "pip" else 1)
