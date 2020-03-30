@@ -136,13 +136,14 @@ def run(uri, entry_point, version, param_list, docker_args, experiment_name, exp
         _logger.error("=== %s ===", e)
         sys.exit(1)
 
+
 def _user_args_to_dict(user_list, flag_name='P'):
     user_dict = {}
     for s in user_list:
         index = s.find("=")
         if index == -1:
             eprint("Invalid format for -%s parameter: '%s'. "
-                "Use -%s name=value." % (flag_name, flag_name, s))
+                   "Use -%s name=value." % (flag_name, flag_name, s))
             sys.exit(1)
         name = s[:index]
         value = s[index + 1:]
@@ -151,6 +152,7 @@ def _user_args_to_dict(user_list, flag_name='P'):
             sys.exit(1)
         user_dict[name] = value
     return user_dict
+
 
 def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     if sys.platform == "win32":
