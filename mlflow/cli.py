@@ -52,6 +52,9 @@ def cli():
               help="A parameter for the run, of the form -P name=value. Provided parameters that "
                    "are not in the list of parameters for an entry point will be passed to the "
                    "corresponding entry point as command-line arguments in the form `--name value`")
+@click.option("--docker-args", "-A", metavar="NAME=VALUE", multiple=True,
+              help="A `docker run` flag or argument, of the form -A name=value. Where `name` "
+              "will then be propagated as `docker run --name value`.")
 @click.option("--experiment-name", envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
               help="Name of the experiment under which to launch the run. If not "
                    "specified, 'experiment-id' option will be used to launch run.")
@@ -82,7 +85,7 @@ def cli():
               help="If specified, the given run ID will be used instead of creating a new run. "
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
-def run(uri, entry_point, version, param_list, experiment_name, experiment_id, backend,
+def run(uri, entry_point, version, param_list, docker_args, experiment_name, experiment_id, backend,
         backend_config, no_conda, storage_dir, run_id):
     """
     Run an MLflow project from the given URI.
@@ -100,18 +103,9 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
         eprint("Specify only one of 'experiment-name' or 'experiment-id' options.")
         sys.exit(1)
 
-    param_dict = {}
-    for s in param_list:
-        index = s.find("=")
-        if index == -1:
-            eprint("Invalid format for -P parameter: '%s'. Use -P name=value." % s)
-            sys.exit(1)
-        name = s[:index]
-        value = s[index + 1:]
-        if name in param_dict:
-            eprint("Repeated parameter: '%s'" % name)
-            sys.exit(1)
-        param_dict[name] = value
+    param_dict = _user_args_to_dict(param_list)
+    args_dict = _user_args_to_dict(docker_args, flag_name='A')
+
     if backend_config is not None and os.path.splitext(backend_config)[-1] != ".json":
         try:
             backend_config = json.loads(backend_config)
@@ -130,6 +124,7 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             experiment_name=experiment_name,
             experiment_id=experiment_id,
             parameters=param_dict,
+            docker_args=args_dict,
             backend=backend,
             backend_config=backend_config,
             use_conda=(not no_conda),
@@ -140,6 +135,23 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)
         sys.exit(1)
+
+
+def _user_args_to_dict(user_list, flag_name='P'):
+    user_dict = {}
+    for s in user_list:
+        index = s.find("=")
+        if index == -1:
+            eprint("Invalid format for -%s parameter: '%s'. "
+                   "Use -%s name=value." % (flag_name, s, flag_name))
+            sys.exit(1)
+        name = s[:index]
+        value = s[index + 1:]
+        if name in user_dict:
+            eprint("Repeated parameter: '%s'" % name)
+            sys.exit(1)
+        user_dict[name] = value
+    return user_dict
 
 
 def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):

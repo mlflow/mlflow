@@ -279,11 +279,31 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
         with pytest.raises(MlflowException):
             with mock.patch.dict("os.environ", os_environ):
                 mlflow.projects._get_docker_command(
-                    image, active_run, volumes, environment)
+                    image, active_run, None, volumes, environment)
     else:
         with mock.patch.dict("os.environ", os_environ):
             docker_command = mlflow.projects._get_docker_command(
-                image, active_run, volumes, environment)
+                image, active_run, None, volumes, environment)
         for exp_type, expected in expected:
             assert expected in docker_command
             assert docker_command[docker_command.index(expected) - 1] == exp_type
+
+
+@pytest.mark.parametrize("docker_args", [
+    {}, {"ARG": "VAL"}, {"ARG1": "VAL1", "ARG2": "VAL2"}
+])
+def test_docker_run_args(docker_args):
+    active_run = mock.MagicMock()
+    run_info = mock.MagicMock()
+    run_info.run_id = "fake_run_id"
+    run_info.experiment_id = "fake_experiment_id"
+    run_info.artifact_uri = "/tmp/mlruns/artifacts"
+    active_run.info = run_info
+    image = mock.MagicMock()
+    image.tags = ["image:tag"]
+
+    docker_command = mlflow.projects._get_docker_command(
+                    image, active_run, docker_args, None, None)
+
+    for flag, value in docker_args.items():
+        assert docker_command[docker_command.index(value) - 1] == "--{}".format(flag)
