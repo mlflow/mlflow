@@ -282,8 +282,8 @@ class SqlAlchemyStore(AbstractStore):
         try:
             version = int(version)
         except ValueError:
-            raise MlflowException("The version for sql alchemy store must be an integer, got '{}'"
-                                  .format(version))
+            raise MlflowException("Model version must be an integer, got '{}'"
+                                  .format(version), error_code=INVALID_PARAMETER_VALUE)
         conditions = [
             SqlModelVersion.name == name,
             SqlModelVersion.version == version,
