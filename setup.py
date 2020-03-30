@@ -48,7 +48,7 @@ setup(
         'docker>=4.0.0',
         'entrypoints',
         'sqlparse',
-        'sqlalchemy',
+        'sqlalchemy<=1.3.13',
         'gorilla',
         'prometheus-flask-exporter',
     ],
@@ -59,7 +59,7 @@ setup(
             "scikit-learn==0.20; python_version < '3.5'",
             'boto3>=1.7.12',
             'mleap>=0.8.1',
-            'azure-storage',
+            'azure-storage-blob>=12.0',
             'google-cloud-storage',
         ],
          'sqlserver':[
@@ -77,15 +77,9 @@ setup(
     license='Apache License 2.0',
     classifiers=[
         'Intended Audience :: Developers',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.6',
     ],
     keywords='ml ai databricks',
     url='https://mlflow.org/',
-    # Support Python >= 2.7. TODO: update this version bound to >= 3.5 in order to drop
-    # Python 2 e.g. in MLflow 1.8.0), as described in
-    # https://packaging.python.org/guides/dropping-older-python-versions/#dropping-a-python-release.
-    # The recommendation to use 3.5 stems from 3.4 being EOL, see
-    # https://devguide.python.org/#status-of-python-branches
-    python_requires='>=2.7',
+    python_requires='>=3.5',
 )

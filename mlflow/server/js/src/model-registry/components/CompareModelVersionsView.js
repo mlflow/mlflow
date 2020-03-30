@@ -1,18 +1,18 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { getParams, getRunInfo, getRunTags } from '../../reducers/Reducers';
+import { getParams, getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
 import { connect } from 'react-redux';
-import '../../components/CompareRunView.css';
-import { RunInfo } from '../../sdk/MlflowMessages';
-import CompareRunScatter from '../../components/CompareRunScatter';
-import CompareRunContour from '../../components/CompareRunContour';
-import Routes from '../../Routes';
+import '../../experiment-tracking/components/CompareRunView.css';
+import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
+import CompareRunScatter from '../../experiment-tracking/components/CompareRunScatter';
+import CompareRunContour from '../../experiment-tracking/components/CompareRunContour';
+import Routes from '../../experiment-tracking/routes';
 import { Link } from 'react-router-dom';
-import { getLatestMetrics } from '../../reducers/MetricReducer';
-import CompareRunUtil from '../../components/CompareRunUtil';
-import Utils from '../../utils/Utils';
+import { getLatestMetrics } from '../../experiment-tracking/reducers/MetricReducer';
+import CompareRunUtil from '../../experiment-tracking/components/CompareRunUtil';
+import Utils from '../../common/utils/Utils';
 import { Tabs } from 'antd';
-import ParallelCoordinatesPlotPanel from '../../components/ParallelCoordinatesPlotPanel';
+import ParallelCoordinatesPlotPanel from '../../experiment-tracking/components/ParallelCoordinatesPlotPanel';
 import {modelListPageRoute, getModelPageRoute, getModelVersionPageRoute} from "../routes";
 
 const TabPane = Tabs.TabPane;

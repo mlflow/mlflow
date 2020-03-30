@@ -6,7 +6,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import configureStore from 'redux-mock-store';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
-import { RunInfo } from '../../sdk/MlflowMessages';
+import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
 
 
 describe('unconnected tests', () => {

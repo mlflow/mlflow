@@ -2,9 +2,10 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import qs from 'qs';
 import { connect } from 'react-redux';
-import { getRunApi, getUUID } from '../../Actions';
+import { getRunApi } from '../../experiment-tracking/actions';
+import { getUUID } from '../../common/utils/ActionUtils';
 import { getRegisteredModelApi, getModelVersionApi } from "../actions";
-import RequestStateWrapper from '../../components/RequestStateWrapper';
+import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import CompareModelVersionsView from './CompareModelVersionsView';
 
 
