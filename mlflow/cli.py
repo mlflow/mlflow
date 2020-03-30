@@ -143,7 +143,7 @@ def _user_args_to_dict(user_list, flag_name='P'):
         index = s.find("=")
         if index == -1:
             eprint("Invalid format for -%s parameter: '%s'. "
-                   "Use -%s name=value." % (flag_name, flag_name, s))
+                   "Use -%s name=value." % (flag_name, s, flag_name))
             sys.exit(1)
         name = s[:index]
         value = s[index + 1:]
