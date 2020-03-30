@@ -22,13 +22,12 @@ def test_create_success(patched_plugin_store):  # pylint: disable=W0613
 
 
 def test_delete_success(patched_plugin_store):  # pylint: disable=W0613
-    ret = deployments.delete_deployment(f_target, f_deployment_id)
-    assert ret is None
+    assert deployments.delete_deployment(f_target, f_deployment_id) is None
 
 
 def test_update_success(patched_plugin_store):  # pylint: disable=W0613
-    ret = deployments.update_deployment(f_target, f_deployment_id, f_model_uri)
-    assert ret is None
+    res = deployments.update_deployment(f_target, f_deployment_id, f_model_uri, f_flavor)
+    assert res['flavor'] == f_flavor
 
 
 def test_update_flavor_without_model_uri():
@@ -43,7 +42,7 @@ def test_update_without_any_arguments():
 
 def test_missing_arguments(patched_plugin_store):  # pylint: disable=W0613
     with pytest.raises(TypeError):
-        deployments.create_deployment(f_target)
+        deployments.create_deployment(f_target)  # pylint: disable=no-value-for-parameter
 
 
 def test_list_success(patched_plugin_store):  # pylint: disable=W0613
@@ -54,11 +53,6 @@ def test_list_success(patched_plugin_store):  # pylint: disable=W0613
 def test_describe_success(patched_plugin_store):  # pylint: disable=W0613
     ret = deployments.describe_deployment(f_target, f_deployment_id)
     assert ret['key1'] == 'val1'
-
-
-def test_invalid_interface(patched_plugin_store):  # pylint: disable=W0613
-    with pytest.raises(AttributeError):
-        deployments.wrong_interface(f_target)
 
 
 def test_wrong_target_name():

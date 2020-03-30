@@ -61,7 +61,7 @@ def update_deployment(target, deployment_id, model_uri=None, flavor=None, **kwar
         raise RuntimeError("``update`` has got ``flavor`` but not ``model_uri``")
     if not any([flavor, model_uri, kwargs]):
         raise RuntimeError("``update`` did not get any arguments")
-    plugin_store[target].update(deployment_id, model_uri, flavor, **kwargs)
+    return plugin_store[target].update(deployment_id, model_uri, flavor, **kwargs)
 
 
 @experimental

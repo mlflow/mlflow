@@ -15,8 +15,8 @@ class FakePlugin(BasePlugin):
     def delete(self, deployment_id, **kwargs):
         return None
 
-    def update(self, deployment_id, model_uri=None, rollback=False, **kwargs):
-        return None
+    def update(self, deployment_id, model_uri=None, flavor=False, **kwargs):
+        return {'flavor': flavor}
 
     def list(self, **kwargs):
         if kwargs.get('raiseError'):

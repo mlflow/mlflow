@@ -42,7 +42,8 @@ def create_cli(flavor, model_uri, target, **kwargs):
     """
     deployment = interface.create_deployment(target, model_uri, flavor, **kwargs)
     # TODO: Support async here and everywhere requires
-    click.echo("\n{} deployment {} is created".format(deployment.flavor, deployment.id))
+    click.echo("\n{} deployment {} is created".format(deployment['flavor'],
+                                                      deployment['deployment_id']))
 
 
 @commands.command("delete", context_settings=context_settings)
@@ -74,9 +75,10 @@ def update_cli(flavor, model_uri, _deployment_id, target, **kwargs):
     Update the deployment associated with the deployment id at the given target with the new
     model
     """
-    interface.update_deployment(target, _deployment_id,
-                                model_uri=model_uri, flavor=flavor, **kwargs)
-    click.echo("Deployment {} is updated".format(_deployment_id))
+    ret = interface.update_deployment(target, _deployment_id,
+                                      model_uri=model_uri, flavor=flavor, **kwargs)
+    click.echo("Deployment {} is updated (with flavor {})".format(_deployment_id,
+                                                                  ret['flavor']))
 
 
 @commands.command("list", context_settings=context_settings)
@@ -100,4 +102,6 @@ def describe_cli(_deployment_id, target, **kwargs):
     Fetch more details about the deployment associated with the given ID
     """
     desc = interface.describe_deployment(target, _deployment_id, **kwargs)
-    click.echo(desc)
+    for key, val in desc.items():
+        click.echo("{}: {}".format(key, val))
+    click.echo('\n')
