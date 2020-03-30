@@ -12,7 +12,8 @@ import { getLatestMetrics } from '../../experiment-tracking/reducers/MetricReduc
 import CompareRunUtil from '../../experiment-tracking/components/CompareRunUtil';
 import Utils from '../../common/utils/Utils';
 import { Tabs } from 'antd';
-import ParallelCoordinatesPlotPanel from '../../experiment-tracking/components/ParallelCoordinatesPlotPanel';
+import ParallelCoordinatesPlotPanel from
+    '../../experiment-tracking/components/ParallelCoordinatesPlotPanel';
 import {modelListPageRoute, getModelPageRoute, getModelVersionPageRoute} from "../routes";
 
 const TabPane = Tabs.TabPane;
