@@ -103,31 +103,8 @@ def run(uri, entry_point, version, param_list, docker_args, experiment_name, exp
         eprint("Specify only one of 'experiment-name' or 'experiment-id' options.")
         sys.exit(1)
 
-    param_dict = {}
-    for s in param_list:
-        index = s.find("=")
-        if index == -1:
-            eprint("Invalid format for -P parameter: '%s'. Use -P name=value." % s)
-            sys.exit(1)
-        name = s[:index]
-        value = s[index + 1:]
-        if name in param_dict:
-            eprint("Repeated parameter: '%s'" % name)
-            sys.exit(1)
-        param_dict[name] = value
-
-    args_dict = {}
-    for s in docker_args:
-        index = s.find("=")
-        if index == -1:
-            eprint("Invalid format for -A parameter: '%s'. Use -A name=value." % s)
-            sys.exit(1)
-        name = s[:index]
-        value = s[index + 1:]
-        if name in args_dict:
-            eprint("Repeated parameter: '%s'" % name)
-            sys.exit(1)
-        args_dict[name] = value
+    param_dict = _user_args_to_dict(param_list)
+    args_dict = _user_args_to_dict(docker_args, flag_name='A')
 
     if backend_config is not None and os.path.splitext(backend_config)[-1] != ".json":
         try:
@@ -159,6 +136,21 @@ def run(uri, entry_point, version, param_list, docker_args, experiment_name, exp
         _logger.error("=== %s ===", e)
         sys.exit(1)
 
+def _user_args_to_dict(user_list, flag_name='P'):
+    user_dict = {}
+    for s in user_list:
+        index = s.find("=")
+        if index == -1:
+            eprint("Invalid format for -%s parameter: '%s'. "
+                "Use -%s name=value." % (flag_name, flag_name, s))
+            sys.exit(1)
+        name = s[:index]
+        value = s[index + 1:]
+        if name in user_dict:
+            eprint("Repeated parameter: '%s'" % name)
+            sys.exit(1)
+        user_dict[name] = value
+    return user_dict
 
 def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     if sys.platform == "win32":
