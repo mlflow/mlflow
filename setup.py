@@ -1,11 +1,10 @@
-import imp
 import os
-import sys
 import time
+from importlib.machinery import SourceFileLoader
 from setuptools import setup, find_packages
 
-version = imp.load_source(
-    'mlflow.version', os.path.join('mlflow', 'version.py')).VERSION
+version = SourceFileLoader(
+    'mlflow.version', os.path.join('mlflow', 'version.py')).load_module().VERSION
 
 
 # Get a list of all files in the JS directory to include in our module
@@ -21,7 +20,8 @@ def package_files(directory):
 # to include in the wheel, e.g. "../mlflow/server/js/build/index.html"
 js_files = package_files('mlflow/server/js/build')
 models_container_server_files = package_files("mlflow/models/container")
-alembic_files = ["../mlflow/store/db_migrations/alembic.ini", "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini"]
+alembic_files = ["../mlflow/store/db_migrations/alembic.ini",
+                 "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini"]
 
 
 def _check_add_criteo_environment(package_name):
@@ -66,7 +66,7 @@ setup(
         'conda-pack',
     ],
     extras_require={
-        'extras':[
+        'extras': [
             "scikit-learn; python_version >= '3.5'",
             # scikit-learn 0.20 is the last version to support Python 2.x  & Python 3.4.
             "scikit-learn==0.20; python_version < '3.5'",
@@ -75,7 +75,7 @@ setup(
             'azure-storage-blob>=12.0',
             'google-cloud-storage',
         ],
-         'sqlserver':[
+        'sqlserver': [
             "mlflow-dbstore",
         ],
     },
