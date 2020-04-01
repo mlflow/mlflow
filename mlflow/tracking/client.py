@@ -194,7 +194,8 @@ class MlflowClient(object):
                       as +/- Infinity may be replaced by other values depending on the store. For
                       example, the SQLAlchemy store replaces +/- Inf with max / min float values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
-        :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
+        :param step: Integer training step (iteration) at which was the metric calculated.
+                     Defaults to 0.
         """
         self._tracking_client.log_metric(run_id, key, value, timestamp, step)
 
