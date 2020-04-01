@@ -51,6 +51,9 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          nginx \
          ca-certificates \
          bzip2 \
+         git-core \
+         build-essential \
+         cmake \
     && rm -rf /var/lib/apt/lists/*
 """
 
