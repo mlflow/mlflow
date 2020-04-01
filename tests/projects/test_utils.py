@@ -8,8 +8,8 @@ import mlflow
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
 from mlflow.projects.utils import (
-    _get_storage_dir, _is_valid_branch_name, _is_zip_uri, fetch_project, _parse_subdirectory,
-    get_or_create_run, log_project_params_and_tags, fetch_and_validate_project)
+    _get_storage_dir, _is_valid_branch_name, _is_zip_uri, _fetch_project, _parse_subdirectory,
+    get_or_create_run, fetch_and_validate_project, load_project)
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
 from tests.projects.utils import (
     assert_dirs_equal, GIT_PROJECT_URI, TEST_PROJECT_DIR, TEST_PROJECT_NAME)
@@ -48,7 +48,7 @@ def test_is_zip_uri():
     assert not _is_zip_uri('C:/moo')
 
 
-def test_fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpserver):
+def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpserver):
     httpserver.serve_content(open(zipped_repo, 'rb').read())
     # The tests are as follows:
     # 1. Fetching a locally saved project.
@@ -68,27 +68,26 @@ def test_fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpserv
         ('file://%s' % zipped_repo, '', TEST_PROJECT_DIR),
     ]
     for base_uri, subdirectory, expected in test_list:
-        work_dir = fetch_project(uri=_build_uri(base_uri, subdirectory), force_tempdir=False)
+        work_dir = _fetch_project(uri=_build_uri(base_uri, subdirectory))
         assert_dirs_equal(expected=expected, actual=work_dir)
     # Test that we correctly determine the dest directory to use when fetching a project.
-    for force_tempdir, uri in [(True, TEST_PROJECT_DIR), (False, GIT_PROJECT_URI)]:
-        dest_dir = fetch_project(uri=uri, force_tempdir=force_tempdir)
-        assert os.path.commonprefix([dest_dir, tempfile.gettempdir()]) == tempfile.gettempdir()
-        assert os.path.exists(dest_dir)
-    for force_tempdir, uri in [(None, TEST_PROJECT_DIR), (False, TEST_PROJECT_DIR)]:
-        assert fetch_project(
-            uri=uri, force_tempdir=force_tempdir) == os.path.abspath(TEST_PROJECT_DIR)
+    fetched_local_project = _fetch_project(uri=TEST_PROJECT_DIR)
+    assert os.path.abspath(fetched_local_project) == os.path.abspath(TEST_PROJECT_DIR)
+    fetched_git_project = _fetch_project(GIT_PROJECT_URI)
+    assert os.path.commonprefix(
+        [fetched_git_project, tempfile.gettempdir()]) == tempfile.gettempdir()
+    assert(os.path.exists(fetched_git_project))
 
 
 def test_fetch_project_validations(local_git_repo_uri):
     # Verify that runs fail if given incorrect subdirectories via the `#` character.
     for base_uri in [TEST_PROJECT_DIR, local_git_repo_uri]:
         with pytest.raises(ExecutionException):
-            fetch_project(uri=_build_uri(base_uri, "fake"), force_tempdir=False)
+            _fetch_project(uri=_build_uri(base_uri, "fake"))
 
     # Passing `version` raises an exception for local projects
     with pytest.raises(ExecutionException):
-        fetch_project(uri=TEST_PROJECT_DIR, force_tempdir=False, version="version")
+        _fetch_project(uri=TEST_PROJECT_DIR, version="version")
 
 
 def test_dont_remove_mlruns(tmpdir):
@@ -96,8 +95,7 @@ def test_dont_remove_mlruns(tmpdir):
     src_dir = tmpdir.mkdir("mlruns-src-dir")
     src_dir.mkdir("mlruns").join("some-file.txt").write("hi")
     src_dir.join("MLproject").write("dummy MLproject contents")
-    dst_dir = fetch_project(uri=src_dir.strpath, version=None,
-                            force_tempdir=False)
+    dst_dir = _fetch_project(uri=src_dir.strpath, version=None)
     assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir)
 
 
@@ -141,16 +139,18 @@ def test_fetch_create_and_log(tmpdir):
     expected_dir = tmpdir
     project_uri = "http://someuri/myproject.git"
     user_param = {"method_name": "newton"}
-    with mock.patch("mlflow.projects.utils.fetch_project", return_value=expected_dir):
+    with mock.patch("mlflow.projects.utils._fetch_project", return_value=expected_dir):
         with mock.patch("mlflow.projects._project_spec.load_project",
                         return_value=mock_fetched_project):
-            project, work_dir = fetch_and_validate_project(
+            work_dir = fetch_and_validate_project(
                 "", "", entry_point_name, user_param)
+            project = load_project(work_dir)
             assert mock_fetched_project == project
             assert expected_dir == work_dir
             # Create a run
             active_run = get_or_create_run(
-                None, project_uri, experiment_id, work_dir, entry_point_name)
+                run_id=None, uri=project_uri, experiment_id=experiment_id, work_dir=work_dir,
+                version=None, entry_point=entry_point_name, parameters=user_param)
 
             # check tags
             run = mlflow.get_run(active_run.info.run_id)
@@ -158,7 +158,4 @@ def test_fetch_create_and_log(tmpdir):
             assert MLFLOW_SOURCE_NAME in run.data.tags
             assert entry_point_name == run.data.tags[MLFLOW_PROJECT_ENTRY_POINT]
             assert project_uri == run.data.tags[MLFLOW_SOURCE_NAME]
-            log_project_params_and_tags(active_run, project, work_dir, entry_point_name,
-                                        user_param, None)
-            run = mlflow.get_run(active_run.info.run_id)
             assert user_param == run.data.params

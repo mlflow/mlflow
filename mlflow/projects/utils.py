@@ -7,7 +7,7 @@ import tempfile
 from distutils import dir_util
 from six.moves import urllib
 
-from mlflow.entities import SourceType
+from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
 from mlflow import tracking
@@ -103,22 +103,22 @@ def _is_valid_branch_name(work_dir, version):
 
 def fetch_and_validate_project(uri, version, entry_point, parameters):
     parameters = parameters or {}
-    work_dir = fetch_project(uri=uri, force_tempdir=False, version=version)
+    work_dir = _fetch_project(uri=uri, version=version)
     project = _project_spec.load_project(work_dir)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
-    return project, work_dir
+    return work_dir
 
 
-def fetch_project(uri, force_tempdir, version=None):
+def load_project(work_dir):
+    return _project_spec.load_project(work_dir)
+
+
+def _fetch_project(uri, version=None):
     """
     Fetch a project into a local directory, returning the path to the local project directory.
-    :param force_tempdir: If True, will fetch the project into a temporary directory. Otherwise,
-                          will fetch ZIP or Git projects into a temporary directory but simply
-                          return the path of local projects (i.e. perform a no-op for local
-                          projects).
     """
     parsed_uri, subdirectory = _parse_subdirectory(uri)
-    use_temp_dst_dir = force_tempdir or _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)
+    use_temp_dst_dir = _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)
     dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
     if use_temp_dst_dir:
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
@@ -190,14 +190,14 @@ def _fetch_zip_repo(uri):
     return BytesIO(response.content)
 
 
-def get_or_create_run(run_id, uri, experiment_id, work_dir, entry_point):
+def get_or_create_run(run_id, uri, experiment_id, work_dir, version, entry_point, parameters):
     if run_id:
         return tracking.MlflowClient().get_run(run_id)
     else:
-        return _create_run(uri, experiment_id, work_dir, entry_point)
+        return _create_run(uri, experiment_id, work_dir, version, entry_point, parameters)
 
 
-def _create_run(uri, experiment_id, work_dir, entry_point):
+def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     """
     Create a ``Run`` against the current MLflow tracking server, logging metadata (e.g. the URI,
     entry point, and parameters of the project) about the run. Return an ``ActiveRun`` that can be
@@ -225,24 +225,23 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
     if parent_run_id is not None:
         tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
 
+    repo_url = _get_git_repo_url(work_dir)
+    if repo_url is not None:
+        tags[MLFLOW_GIT_REPO_URL] = repo_url
+        tags[LEGACY_MLFLOW_GIT_REPO_URL] = repo_url
+
+    # Add branch name tag if a branch is specified through -version
+    if _is_valid_branch_name(work_dir, version):
+        tags[MLFLOW_GIT_BRANCH] = version
+        tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] = version
     active_run = tracking.MlflowClient().create_run(experiment_id=experiment_id, tags=tags)
-    return active_run
 
-
-def log_project_params_and_tags(run, project, work_dir, entry_point, parameters, version):
+    project = _project_spec.load_project(work_dir)
     # Consolidate parameters for logging.
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
     entry_point_obj = project.get_entry_point(entry_point)
     final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
-    for key, value in (list(final_params.items()) + list(extra_params.items())):
-        tracking.MlflowClient().log_param(run.info.run_id, key, value)
-
-    repo_url = _get_git_repo_url(work_dir)
-    if repo_url is not None:
-        for tag in [MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_REPO_URL]:
-            tracking.MlflowClient().set_tag(run.info.run_id, tag, repo_url)
-
-    # Add branch name tag if a branch is specified through -version
-    if _is_valid_branch_name(work_dir, version):
-        for tag in [MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_BRANCH_NAME]:
-            tracking.MlflowClient().set_tag(run.info.run_id, tag, version)
+    params_list = [Param(key, value) for key, value in
+                   list(final_params.items()) + list(extra_params.items())]
+    tracking.MlflowClient().log_batch(active_run.info.run_id, params=params_list)
+    return active_run

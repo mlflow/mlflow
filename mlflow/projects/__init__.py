@@ -23,7 +23,7 @@ from mlflow.entities import RunStatus
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects.utils import (
-    _get_storage_dir, fetch_and_validate_project, get_or_create_run, log_project_params_and_tags
+    _get_storage_dir, fetch_and_validate_project, get_or_create_run, load_project
 )
 from mlflow.projects.backend import loader
 from mlflow.tracking.context.git_context import _get_git_commit
@@ -100,12 +100,11 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                             backend_name)
             return submitted_run
 
-    project, work_dir = fetch_and_validate_project(uri, version, entry_point, parameters)
+    work_dir = fetch_and_validate_project(uri, version, entry_point, parameters)
+    project = load_project(work_dir)
     _validate_execution_environment(project, backend_name)
-    project.get_entry_point(entry_point)._validate_parameters(parameters)
-    active_run = get_or_create_run(run_id, uri, experiment_id, work_dir, entry_point)
-    log_project_params_and_tags(active_run, project, work_dir, entry_point,
-                                parameters, version)
+    active_run = get_or_create_run(run_id, uri, experiment_id, work_dir, version,
+                                   entry_point, parameters)
 
     if backend_name == "databricks":
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,

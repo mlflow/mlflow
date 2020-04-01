@@ -30,8 +30,7 @@ class DummySubmittedRun(SubmittedRun):
 class PluginDummyProjectBackend(AbstractBackend):
     def run(self, run_id, experiment_id, project_uri, entry_point, params,
             version, backend_config, tracking_store_uri):
-        project, work_dir = fetch_and_validate_project(
-            project_uri, version, entry_point, params)
-        active_run = get_or_create_run(run_id, project_uri, experiment_id, work_dir, entry_point)
-        log_project_params_and_tags(active_run, project, work_dir, entry_point, params, version)
+        work_dir = fetch_and_validate_project(project_uri, version, entry_point, params)
+        active_run = get_or_create_run(run_id, project_uri, experiment_id, work_dir, version,
+                                       entry_point, params)
         return DummySubmittedRun(active_run.run_id)
