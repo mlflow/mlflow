@@ -254,8 +254,8 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @click.option("--waitress-opts", default=None,
               help="Additional command line options for waitress-serve.")
 @click.option("--expose-prometheus", default=None,
-              help="Path to the directory where metrics will be stored. If the directory"
-                   "doesn't exist, it will be created."
+              help="Path to the directory where metrics will be stored. If the directory "
+                   "doesn't exist, it will be created. "
                    "Activate prometheus exporter to expose metrics on /metrics endpoint.")
 def server(backend_store_uri, default_artifact_root, host, port,
            workers, static_prefix, gunicorn_opts, waitress_opts, expose_prometheus):
