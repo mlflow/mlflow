@@ -40,6 +40,35 @@ def test_log_artifact(hdfs_system_mock):
 
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
+@pytest.mark.parametrize("driver,expected_host",
+                         [("libhdfs",
+                           "viewfs://host_name"),
+                          ("libhdfs3",
+                           "host_name")])
+def test_log_artifact_viewfs(hdfs_system_mock, driver, expected_host):
+    os.environ['MLFLOW_HDFS_DRIVER'] = driver
+    repo = HdfsArtifactRepository('viewfs://host_name/mypath')
+
+    with TempDir() as tmp_dir:
+        local_file = tmp_dir.path('sample_file')
+        with open(local_file, "w") as f:
+            f.write('PyArrow Works')
+
+        repo.log_artifact(local_file, 'more_path/some')
+
+        hdfs_system_mock.assert_called_once_with(driver=driver, extra_conf=None,
+                                                 host=expected_host,
+                                                 kerb_ticket=None, port=0,
+                                                 user=None)
+
+        open_mock = hdfs_system_mock.return_value.open
+        open_mock.assert_called_once_with('/mypath/more_path/some/sample_file', 'wb')
+
+        write_mock = open_mock.return_value.__enter__.return_value.write
+        write_mock.assert_called_once_with(b'PyArrow Works')
+
+
+@mock.patch('pyarrow.hdfs.HadoopFileSystem')
 def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
     if sys.platform == 'win32':
         pytest.skip()
