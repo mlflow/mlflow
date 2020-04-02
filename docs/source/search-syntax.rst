@@ -185,6 +185,19 @@ To search all known experiments for any MLflow runs created using the Inception 
   all_experiments = [exp.experiment_id for exp in MlflowClient().list_experiments()]
   runs = MlflowClient().search_runs(experiment_ids=all_experiments, filter_string="params.model = 'Inception'", run_view_type=ViewType.ALL)
 
+R
+^^^^^^
+The R API is similar to the Python API.
+
+.. code-block:: r
+
+  library(mlflow)
+  mlflow_search_runs(
+    'tags.experiment_iteration = "1"',
+    experiment_ids = as.character(2:3),
+    order_by = "tags.start_time DESCR"
+  )
+
 Java
 ^^^^
 The Java API is similar to Python API.
