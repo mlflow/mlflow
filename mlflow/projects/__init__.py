@@ -17,6 +17,7 @@ import tempfile
 import logging
 import posixpath
 import docker
+import platform
 
 import mlflow.projects.databricks
 import mlflow.tracking as tracking
@@ -819,7 +820,11 @@ def _get_local_artifact_cmd_and_envs(artifact_repo):
 
 def _get_s3_artifact_cmd_and_envs(artifact_repo):
     # pylint: disable=unused-argument
-    aws_path = posixpath.expanduser("~/.aws")
+    if platform.system() == "Windows":
+        win_user_dir = os.environ["USERPROFILE"]
+        aws_path = os.path.join(win_user_dir, ".aws")
+    else:
+        aws_path = posixpath.expanduser("~/.aws")
 
     volumes = []
     if posixpath.exists(aws_path):
