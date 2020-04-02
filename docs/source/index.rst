@@ -2,13 +2,16 @@ MLflow Documentation
 ====================
 
 MLflow is an open source platform for managing the end-to-end machine learning lifecycle.
-It tackles three primary functions:
+It tackles four primary functions:
 
 * Tracking experiments to record and compare parameters and results (:ref:`tracking`).
 * Packaging ML code in a reusable, reproducible form in order to share with other data
   scientists or transfer to production (:ref:`projects`).
 * Managing and deploying models from a variety of ML libraries to a variety of model serving and
   inference platforms (:ref:`models`).
+* Providing a central model store to collaboratively manage the full lifecycle of an MLflow Model,
+  including model versioning, stage transitions, and annotations (:ref:`registry`).
+
 
 MLflow is library-agnostic. You can use it with any machine learning library, and in any
 programming language, since all functions are accessible through a :ref:`rest-api`
