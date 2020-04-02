@@ -394,7 +394,7 @@ class MlflowClient(object):
         res = None
         if new_name is not None:
             _logger.warning("The `new_name` argument in update_registered_model is deprecated."
-                            " Please use the `rename_registered_model` method instead.")
+                            " Use the `rename_registered_model` method instead.")
             res = self._get_registry_client().rename_registered_model(name=name, new_name=new_name)
             name = new_name
         if description is not None:
