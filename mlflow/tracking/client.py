@@ -380,7 +380,9 @@ class MlflowClient(object):
 
         :param name: Name of the registered model to update.
         :param new_name: (Deprecated) New proposed name for the registered model.
-                         This argument is deprecated, use rename_registered_model instead..
+                         This argument is deprecated. Use the
+                         :py:func:`rename_registered_model <MlflowClient.rename_registered_model>`
+                         method to rename registered models instead.
         :param description: (Optional) New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
@@ -392,8 +394,8 @@ class MlflowClient(object):
 
         res = None
         if new_name is not None:
-            _logger.warning("'new_name' argument in update_registered_model is deprecated, "
-                            "please use  renamed_registered_model instead.")
+            _logger.warning("The `new_name` argument in update_registered_model is deprecated."
+                            " Use the `rename_registered_model` method instead.")
             res = self._get_registry_client().rename_registered_model(name=name, new_name=new_name)
             name = new_name
         if description is not None:
