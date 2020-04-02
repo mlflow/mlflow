@@ -32,7 +32,7 @@ test_that("mlflow_get_experiment() not found error", {
   expect_error(
     mlflow_get_experiment(experiment_id = "42"),
     "Could not find experiment with ID 42"
-    )
+  )
 })
 
 test_that("mlflow_list_experiments() works properly", {
@@ -117,7 +117,7 @@ test_that("mlflow_get_experiment_by_name() works properly", {
   client <- mlflow_client()
   expect_error(
     mlflow_get_experiment(client = client, name = "exp"),
-    "Experiment `exp` not found\\."
+    "Could not find experiment with name 'exp'"
   )
   experiment_id <- mlflow_create_experiment(client = client, "exp", "art")
   experiment <- mlflow_get_experiment(client = client, name = "exp")
