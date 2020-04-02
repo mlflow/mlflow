@@ -36,7 +36,7 @@ BASE_IMAGE = click.option("--base-image", "-b", default=None,
                           help="Name of the base image.")
 
 NO_JAVA = click.option("--no_java", is_flag=True, default=False,
-                       help="Do not install Java libraries and or start Java-based servers.")
+                       help="Do not install Java libraries or start Java-based servers.")
 
 HOST = click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
                     help="The network address to listen on (default: 127.0.0.1). "

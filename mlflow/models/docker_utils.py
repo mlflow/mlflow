@@ -62,18 +62,21 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home, no_java=False)
             "{java_setup}"
         ).format(mlflow_dir=mlflow_dir, java_setup=java_setup)
     else:
-        java_setup = "" if no_java else ("RUN mvn "
-                                         " --batch-mode dependency:copy"
-                                         " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
-                                         " -DoutputDirectory=/opt/java\n"
-                                         "RUN mvn "
-                                         " --batch-mode dependency:copy"
-                                         " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
-                                         " -DoutputDirectory=/opt/java/jars\n"
-                                         "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
-                                         "RUN cd /opt/java && mvn "
-                                         "--batch-mode dependency:copy-dependencies"
-                                         " -DoutputDirectory=/opt/java/jars\n")
+        if no_java:
+            java_setup = ""
+        else:
+            java_setup = ("RUN mvn "
+                          " --batch-mode dependency:copy"
+                          " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
+                          " -DoutputDirectory=/opt/java\n"
+                          "RUN mvn "
+                          " --batch-mode dependency:copy"
+                          " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
+                          " -DoutputDirectory=/opt/java/jars\n"
+                          "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
+                          "RUN cd /opt/java && mvn "
+                          "--batch-mode dependency:copy-dependencies"
+                          " -DoutputDirectory=/opt/java/jars\n")
         return (
             "RUN pip install mlflow=={version}\n"
             "{java_setup}"
