@@ -104,7 +104,7 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
         install_mlflow = _get_mlflow_install_step(cwd, mlflow_home, no_java=no_java)
         custom_setup_steps = custom_setup_steps_hook(cwd) if custom_setup_steps_hook else ""
         if base_image is None:
-            base_image = "ubuntu:16.04"
+            base_image = "ubuntu:18.04"
         java_libraries = """
                             RUN apt-get install -y --no-install-recommends \
                                  build-essential \
