@@ -46,3 +46,18 @@ test_that("mlflow run uses active experiment if not specified", {
       })
   })
 })
+
+
+test_that("mlflow_run passes all numbers as non-scientific", {
+  # we can only be sure conversion is actively avoided
+  # if default formatting turns into scientific.
+  expect_equal(as.character(10e4), "1e+05")
+  with_mock(.env = "mlflow", mlflow_cli = function(...){
+    args <- c(...)
+    expect_equal(sum("scientific=100000" == args), 1)
+    expect_equal(sum("non_scientific=30000" == args), 1)
+    list(stderr = "=== Run (ID '48734e7e2e8f44228a11c0c2cbcdc8b0') succeeded ===")
+  }, {
+    mlflow_run("project", parameters = c(scientific = 10e4, non_scientific = 30000))
+  })
+})
