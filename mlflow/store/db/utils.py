@@ -123,6 +123,11 @@ def _upgrade_db(engine):
     db_url = str(engine.url)
     _logger.info("Updating database tables at %s", db_url)
     config = _get_alembic_config(db_url)
+    # Initialize a shared connection to be used for the database upgrade, ensuring that
+    # any connection-dependent state (e.g., the state of an in-memory database) is preserved
+    # for reference by the upgrade routine. For more information, see
+    # https://alembic.sqlalchemy.org/en/latest/cookbook.html#sharing-a-
+    # connection-with-a-series-of-migration-commands-and-environments
     with engine.begin() as connection:
         config.attributes['connection'] = connection
         command.upgrade(config, 'heads')

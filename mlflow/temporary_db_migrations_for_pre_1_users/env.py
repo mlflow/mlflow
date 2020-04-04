@@ -57,6 +57,11 @@ def run_migrations_online():
     and associate a connection with the context.
 
     """
+    # If available, use a shared connection for the database upgrade, ensuring that any
+    # connection-dependent state (e.g., the state of an in-memory database) is preserved
+    # for reference by the upgrade routine. For more information, see
+    # https://alembic.sqlalchemy.org/en/latest/cookbook.html#sharing-a-
+    # connection-with-a-series-of-migration-commands-and-environments
     connectable = config.attributes.get('connection', None)
     if connectable is None:
         connectable = engine_from_config(
