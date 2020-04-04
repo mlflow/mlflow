@@ -129,7 +129,7 @@ def _upgrade_db(engine):
     # https://alembic.sqlalchemy.org/en/latest/cookbook.html#sharing-a-
     # connection-with-a-series-of-migration-commands-and-environments
     with engine.begin() as connection:
-        config.attributes['connection'] = connection # pylint: disable=E1137
+        config.attributes['connection'] = connection  # pylint: disable=E1137
         command.upgrade(config, 'heads')
 
 
