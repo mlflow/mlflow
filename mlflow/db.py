@@ -24,6 +24,7 @@ def upgrade(url):
     large migrations and includes information about how to estimate their performance and
     recover from failures.
     """
-    if mlflow.store.db.utils._is_initialized_before_mlflow_1(url):
-        mlflow.store.db.utils._upgrade_db_initialized_before_mlflow_1(url)
-    mlflow.store.db.utils._upgrade_db(url)
+    engine = mlflow.store.db.utils.create_sqlalchemy_engine(url)
+    if mlflow.store.db.utils._is_initialized_before_mlflow_1(engine):
+        mlflow.store.db.utils._upgrade_db_initialized_before_mlflow_1(engine)
+    mlflow.store.db.utils._upgrade_db(engine)
