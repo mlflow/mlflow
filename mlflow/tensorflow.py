@@ -258,9 +258,9 @@ def load_model(model_uri, tf_sess=None):
     >>>     signature_definition = mlflow.tensorflow.load_model(model_uri="model_uri",
     >>>                            tf_sess=tf_sess)
     >>>     input_tensors = [tf_graph.get_tensor_by_name(input_signature.name)
-    >>>                      for _, input_signature in signature_def.inputs.items()]
+    >>>                      for _, input_signature in signature_definition.inputs.items()]
     >>>     output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
-    >>>                       for _, output_signature in signature_def.outputs.items()]
+    >>>                       for _, output_signature in signature_definition.outputs.items()]
     """
 
     if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
