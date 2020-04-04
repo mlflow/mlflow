@@ -20,6 +20,7 @@ import warnings
 import atexit
 import time
 import tempfile
+from collections import namedtuple
 
 import pandas
 
@@ -607,7 +608,6 @@ def _get_tensorboard_callback(lst):
     return None
 
 
-from collections import namedtuple
 # A representation of a TensorBoard event logging directory with two attributes:
 # :location - string: The filesystem location of the logging directory
 # :is_temp - boolean: `True` if the logging directory was created for temporary use by MLflow,
