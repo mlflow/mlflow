@@ -474,7 +474,7 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
 
     mock_log_dir_inst = _TensorBoardLogDir(location=str(tmpdir), is_temp=True)
     with mock.patch("mlflow.tensorflow._TensorBoardLogDir", autospec=True) as mock_log_dir_class:
-        mock_log_dir_class.return_value = mock_log_dir_inst 
+        mock_log_dir_class.return_value = mock_log_dir_inst
 
         mlflow.tensorflow.autolog()
 
