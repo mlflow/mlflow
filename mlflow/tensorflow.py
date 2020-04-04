@@ -612,7 +612,7 @@ from collections import namedtuple
 # :location - string: The filesystem location of the logging directory
 # :is_temp - boolean: `True` if the logging directory was created for temporary use by MLflow,
 #                     `False` otherwise
-TensorBoardLogDir = namedtuple("TensorBoardLogDir", ["location", "is_temp"])
+_TensorBoardLogDir = namedtuple("_TensorBoardLogDir", ["location", "is_temp"])
 
 
 def _setup_callbacks(lst):
@@ -622,10 +622,10 @@ def _setup_callbacks(lst):
     """
     tb = _get_tensorboard_callback(lst)
     if tb is None:
-        log_dir = TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
+        log_dir = _TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
         out_list = lst + [TensorBoard(log_dir.location)]
     else:
-        log_dir = TensorBoardLogDir(location=tb.log_dir, is_temp=False)
+        log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
     if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
         out_list += [__MLflowTfKerasCallback()]
