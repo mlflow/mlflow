@@ -412,3 +412,30 @@ def test_duplicate_autolog_second_overrides(duplicate_autolog_tf_estimator_run):
     client = mlflow.tracking.MlflowClient()
     metrics = client.get_metric_history(duplicate_autolog_tf_estimator_run.info.run_id, 'loss')
     assert all((x.step - 1) % 4 == 0 for x in metrics)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_callback(
+        tmpdir, random_train_data, random_one_hot_labels, fit_variant):
+    tensorboard_callback_logging_dir_path = str(tmpdir.mkdir("tb_logs"))
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(
+        tensorboard_callback_logging_dir_path, histogram_freq=0)
+
+    mlflow.tensorflow.autolog()
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_tf_keras_model()
+
+    if fit_variant == 'fit_generator':
+        def generator():
+            while True:
+                yield data, labels
+        model.fit_generator(
+            generator(), epochs=10, steps_per_epoch=1, callbacks=[tensorboard_callback])
+    else:
+        model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
+
+    assert os.path.exists(tensorboard_callback_logging_dir_path)
