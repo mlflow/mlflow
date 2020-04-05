@@ -75,6 +75,8 @@ def delete_cli(_deployment_id, target, **kwargs):
 def update_cli(flavor, model_uri, _deployment_id, target, **kwargs):
     """
     Update the deployment with ID `deployment_id` in the specified target.
+    You can update the URI of the model and/or the flavor of the deployed model (in which case the
+    model URI must also be specified).
 
     Additional plugin-specific arguments may also be passed to this command, via syntax like
     `--param-name value`.
