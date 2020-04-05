@@ -84,11 +84,11 @@ class DeploymentPlugins(PluginManager):
         try:
             return self.registry[item]
         except KeyError:
-            msg = 'No registered plugin found for the target "{}". For activating/registering ' \
-                  'a new plugin, find the required plugin from `community-plugins ' \
-                  '<https://mlflow.org/docs/latest/plugins.html#community-plugins>`_ and ' \
-                  'install it using your package manager (pip, conda etc). MlFlow will ' \
-                  'autoregister the plugin on the launch'.format(item)
+            msg = 'No plugin found for managing model deployments to "{target}". ' \
+                  'In order to deploy models to "{target}", find and install an appropriate ' \
+                  'plugin from ' \
+                  'https://mlflow.org/docs/latest/plugins.html#community-plugins using ' \
+                  'your package manager (pip, conda etc).'.format(target=item)
             raise MlflowException(msg, error_code=RESOURCE_DOES_NOT_EXIST)
 
     def register_entrypoints(self):

@@ -15,17 +15,13 @@ def commands():
     """
     [experimental] Deploy MLflow models to custom targets.
 
-    Downstream functions calls the plugin registered for the...
-    given target and pass the given arguments to it. Each of these functions also
-    allows users to pass plugin specific arguments which will be processed by
-    ``parse_custom_arguments`` function.
+    To deploy to a custom target, you must first install an
+    appropriate third-party Python plugin. See the list of known community-maintained plugins
+    at <https://mlflow.org/docs/latest/plugins.html#community-plugins>`_.
 
-    MLflow will provide builtin support for some deployment targets eventually.
-    However, Support for ANY targets is only available via MLflow plugins right now - see
-    `community-plugins <https://mlflow.org/docs/latest/plugins.html#community-plugins>`_
-    for a list of supported plugins. MLFlow also enables you to write custom plugins for
-    deployment. For instructions on how to write and distribute your own plugin, checkout
-    `here <https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins>`_.
+    MLflow also enables you to write plugins for deployment to custom targets. For instructions on
+    writing and distributing your own plugin, see
+    `<https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins>`_.
     """
     pass
 
@@ -38,7 +34,10 @@ def commands():
                                      "inferred if it's not given")
 def create_cli(flavor, model_uri, target, **kwargs):
     """
-    Create the deployment on the given target with the model from ``model_uri``.
+    Deploy the model at ``model_uri`` to the specified target.
+
+    Additional plugin-specific arguments may also be passed to this command, via syntax like
+    `--param-name value`
     """
     deployment = interface.create_deployment(target, model_uri, flavor, **kwargs)
     # TODO: Support async here and everywhere requires
@@ -52,7 +51,10 @@ def create_cli(flavor, model_uri, target, **kwargs):
 @deployment_id
 def delete_cli(_deployment_id, target, **kwargs):
     """
-    Delete the deployment on the given target associated with the deployment id.
+    Delete the deployment with ID `deployment_id` from the specified target.
+
+    Additional plugin-specific arguments may also be passed to this command, via syntax like
+    `--param-name value`.
     """
     interface.delete_deployment(target, _deployment_id, **kwargs)
     click.echo("Deployment {} is deleted".format(_deployment_id))
@@ -72,8 +74,10 @@ def delete_cli(_deployment_id, target, **kwargs):
                                      "inferred if it's not given")
 def update_cli(flavor, model_uri, _deployment_id, target, **kwargs):
     """
-    Update the deployment associated with the deployment id at the given target with the new
-    model
+    Update the deployment with ID `deployment_id` in the specified target.
+
+    Additional plugin-specific arguments may also be passed to this command, via syntax like
+    `--param-name value`.
     """
     ret = interface.update_deployment(target, _deployment_id,
                                       model_uri=model_uri, flavor=flavor, **kwargs)
@@ -86,8 +90,11 @@ def update_cli(flavor, model_uri, _deployment_id, target, **kwargs):
 @deployment_target
 def list_cli(target, **kwargs):
     """
-    List the all the deployment IDs from the target. These IDs can be used in delete, update,
-    and describe APIs
+    List the IDs of all model deployments in the specified target. These IDs can be used with
+    the `delete`, `update`, and `describe` commands.
+
+    Additional plugin-specific arguments may also be passed to this command, via syntax like
+    `--param-name value`.
     """
     ids = interface.list_deployments(target, **kwargs)
     click.echo("List of all deployments:\n{}".format(ids))
@@ -99,7 +106,11 @@ def list_cli(target, **kwargs):
 @deployment_id
 def describe_cli(_deployment_id, target, **kwargs):
     """
-    Fetch more details about the deployment associated with the given ID
+    Print a detailed description of the deployment with ID ``deployment_id`` in the specified
+    target.
+
+    Additional plugin-specific arguments may also be passed to this command, via syntax like
+    `--param-name value`.
     """
     desc = interface.describe_deployment(target, _deployment_id, **kwargs)
     for key, val in desc.items():

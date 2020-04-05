@@ -519,8 +519,7 @@ Built-In Deployment Tools
 -------------------------
 
 MLflow provides tools for deploying MLflow models on a local machine and to several production environments.
-Not all deployment methods are available for all model flavors. MLflow also allows users to write plugins
-to use any deployment targets. For more details checkout `Deployment using plugin <models.html#deployment-plugin>`_
+Not all deployment methods are available for all model flavors.
 
 .. contents:: In this section:
   :local:
@@ -833,21 +832,24 @@ argument. The following values are supported:
 
 .. _deployment_plugin:
 
-Deployment using plugins
-------------------------
-MLflow allows users to build plugins for different deployment targets. The list of plugins developed by the community
-for different deployment targets can be found `here <plugins.html#deployment-plugins>`_.
+Deployment to Custom Targets
+----------------------------
+In addition to the built-in deployment tools, MLflow provides a pluggable
+`mlflow.deployments Python API <python_api/mlflow.deployments.html#mlflow.deployments>`_ and
+`mlflow deployments CLI <cli.html#mlflow-deployments>`_ for deploying
+models to custom targets and environments. To deploy to a custom target, you must first install an
+appropriate third-party Python plugin. See the list of known community-maintained plugins
+`here <plugins.html#deployment-plugins>`_.
+
 
 .. Note::
-    Deployment using plugin is experimental in the current release. The API might change in a future release without any notice
-
-The deployment plugin API currently exposes five interface functions which are available under the namespace ``mlflow.deployments``.
-The same is accessible from the CLI under ``mlflow deployments``.
+    APIs for deployment to custom targets are experimental, and may be altered in a future release.
 
 
 Commands
 ^^^^^^^^
-Here is the list of commands. For accessing them programmatically, check out the `python API documentation <python_api/mlflow.deployments.html#mlflow.deployments>`_.
+The `mlflow deployments` CLI contains the following commands, which can also be invoked programmatically
+using the `mlflow.deployments Python API <python_api/mlflow.deployments.html#mlflow.deployments>`_:
 
 * `Create <cli.html#mlflow-deployments-create>`_: Create the deployment on the target tool using the model fetched from provided ``model URI``
 * `Delete <cli.html#mlflow-deployments-delete>`_: Delete the deployment, pointed by the deployment ID
