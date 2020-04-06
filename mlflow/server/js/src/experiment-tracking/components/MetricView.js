@@ -20,7 +20,7 @@ export class MetricViewImpl extends Component {
 
   render() {
     const { experiment, runUuids, runNames, metricKey, location } = this.props;
-    const experimentId = parseInt(experiment.experiment_id, 10);
+    const experimentId = experiment.experiment_id;
     const { selectedMetricKeys } = Utils.getMetricPlotStateFromUrl(location.search);
     return (
       <div className='MetricView'>

@@ -11,7 +11,7 @@ describe('unit tests', () => {
 
   beforeEach(() => {
     minimalProps = {
-      experimentId: 0,
+      experimentId: '0',
       visible: false,
       x: 0,
       y: 0,
