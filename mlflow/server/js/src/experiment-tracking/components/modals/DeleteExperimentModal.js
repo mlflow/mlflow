@@ -12,8 +12,8 @@ export class DeleteExperimentModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
-    activeExperimentId: PropTypes.number,
-    experimentId: PropTypes.number.isRequired,
+    activeExperimentId: PropTypes.string,
+    experimentId: PropTypes.string.isRequired,
     experimentName: PropTypes.string.isRequired,
     deleteExperimentApi: PropTypes.func.isRequired,
     listExperimentsApi: PropTypes.func.isRequired,

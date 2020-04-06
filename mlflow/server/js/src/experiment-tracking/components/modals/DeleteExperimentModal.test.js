@@ -21,8 +21,8 @@ describe('DeleteExperimentModal', () => {
     minimalProps = {
       isOpen: false,
       onClose: jest.fn(),
-      activeExperimentId: 0,
-      experimentId: 0,
+      activeExperimentId: '0',
+      experimentId: '0',
       experimentName: 'myFirstExperiment',
       deleteExperimentApi: (experimentId, deleteExperimentRequestId) => {
         const response = { value: { experiment_id: fakeExperimentId } };
@@ -65,7 +65,7 @@ describe('DeleteExperimentModal', () => {
   test('handleSubmit does not perform redirection if deleted experiment is not active ' +
     'experiment', (done) => {
     wrapper = shallow(<DeleteExperimentModalImpl
-      {...{...minimalProps, activeExperimentId: -1}}
+      {...{...minimalProps, activeExperimentId: undefined}}
     />);
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {

@@ -7,7 +7,7 @@ import Utils from '../../common/utils/Utils';
 
 export class RunLinksPopover extends React.Component {
   static propTypes = {
-    experimentId: PropTypes.number.isRequired,
+    experimentId: PropTypes.string.isRequired,
     visible: PropTypes.bool.isRequired,
     x: PropTypes.number.isRequired,
     y: PropTypes.number.isRequired,

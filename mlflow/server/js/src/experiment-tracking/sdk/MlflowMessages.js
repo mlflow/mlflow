@@ -115,7 +115,7 @@ export const RunInfo = Immutable.Record({
   // optional STRING
   run_uuid: undefined,
 
-  // optional INT64
+  // optional STRING
   experiment_id: undefined,
 
   // optional STRING
@@ -155,7 +155,7 @@ const extended_RunInfo = ModelBuilder.extend(RunInfo, {
     return this.run_uuid !== undefined ? this.run_uuid : '';
   },
   getExperimentId() {
-    return this.experiment_id !== undefined ? this.experiment_id : 0;
+    return this.experiment_id !== undefined ? this.experiment_id : '0';
   },
   getStatus() {
     return this.status !== undefined ? this.status : 'RUNNING';
@@ -287,7 +287,7 @@ Run.fromJs = function fromJs(pojo) {
 };
 
 export const Experiment = Immutable.Record({
-  // optional INT64
+  // optional STRING
   experiment_id: undefined,
 
   // optional STRING
@@ -328,7 +328,7 @@ Experiment.fromJsReviver = function fromJsReviver(key, value) {
 const extended_Experiment = ModelBuilder.extend(Experiment, {
 
   getExperimentId() {
-    return this.experiment_id !== undefined ? this.experiment_id : 0;
+    return this.experiment_id !== undefined ? this.experiment_id : '0';
   },
   getName() {
     return this.name !== undefined ? this.name : '';
@@ -441,7 +441,7 @@ ListExperiments.fromJs = function fromJs(pojo) {
 };
 
 export const GetExperiment = Immutable.Record({
-  // required INT64
+  // required STRING
   experiment_id: undefined,
 }, 'GetExperiment');
 
@@ -460,7 +460,7 @@ GetExperiment.fromJsReviver = function fromJsReviver(key, value) {
 const extended_GetExperiment = ModelBuilder.extend(GetExperiment, {
 
   getExperimentId() {
-    return this.experiment_id !== undefined ? this.experiment_id : 0;
+    return this.experiment_id !== undefined ? this.experiment_id : '0';
   },
 });
 
@@ -732,7 +732,7 @@ StringClause.fromJs = function fromJs(pojo) {
 };
 
 export const SearchRuns = Immutable.Record({
-  // repeated INT64
+  // repeated STRING
   experiment_ids: Immutable.List(),
 
   // optional ViewType

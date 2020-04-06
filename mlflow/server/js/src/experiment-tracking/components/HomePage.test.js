@@ -50,7 +50,7 @@ describe('HomePage', () => {
   test('should render HomeView', () => {
     const props = {
       ...minimalProps,
-      experimentId: 0,
+      experimentId: '0',
     };
 
     wrapper = shallow(<HomePageImpl {...props}/>,

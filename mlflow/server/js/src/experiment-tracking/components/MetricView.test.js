@@ -58,7 +58,7 @@ describe('MetricView', () => {
 
     const metricsPlotPanel = wrapper.find(MetricsPlotPanel);
     expect(metricsPlotPanel.length).toBe(1);
-    expect(metricsPlotPanel.props().experimentId).toBe(2);
+    expect(metricsPlotPanel.props().experimentId).toBe('2');
     expect(metricsPlotPanel.props().runUuids).toEqual(['a', 'b', 'c']);
     expect(metricsPlotPanel.props().metricKey).toBe('metricKey');
   });

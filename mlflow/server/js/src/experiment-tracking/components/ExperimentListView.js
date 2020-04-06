@@ -10,12 +10,13 @@ import { Link } from 'react-router-dom';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
+import Utils from '../../common/utils/Utils';
 
 export class ExperimentListView extends Component {
   static propTypes = {
     onClickListExperiments: PropTypes.func.isRequired,
     // If activeExperimentId is undefined, then the active experiment is the first one.
-    activeExperimentId: PropTypes.number,
+    activeExperimentId: PropTypes.string,
     experiments: PropTypes.arrayOf(Experiment).isRequired,
   };
 
@@ -25,7 +26,7 @@ export class ExperimentListView extends Component {
     showCreateExperimentModal: false,
     showDeleteExperimentModal: false,
     showRenameExperimentModal: false,
-    selectedExperimentId: 0,
+    selectedExperimentId: '0',
     selectedExperimentName: '',
   };
 
@@ -65,7 +66,7 @@ export class ExperimentListView extends Component {
     });
 
     const data = ev.currentTarget.dataset;
-    this.updateSelectedExperiment(parseInt(data.experimentid, 10), data.experimentname);
+    this.updateSelectedExperiment(data.experimentid, data.experimentname);
   };
 
   handleRenameExperiment = (ev) => {
@@ -74,7 +75,7 @@ export class ExperimentListView extends Component {
     });
 
     const data = ev.currentTarget.dataset;
-    this.updateSelectedExperiment(parseInt(data.experimentid, 10), data.experimentname);
+    this.updateSelectedExperiment(data.experimentid, data.experimentname);
   };
 
   handleCloseCreateExperimentModal = () => {
@@ -88,7 +89,7 @@ export class ExperimentListView extends Component {
       showDeleteExperimentModal: false,
     });
     // reset
-    this.updateSelectedExperiment(0, '');
+    this.updateSelectedExperiment('0', '');
   };
 
   handleCloseRenameExperimentModal = () => {
@@ -96,7 +97,7 @@ export class ExperimentListView extends Component {
       showRenameExperimentModal: false,
     });
     // reset
-    this.updateSelectedExperiment(0, '');
+    this.updateSelectedExperiment('0', '');
   };
 
   render() {
@@ -154,9 +155,8 @@ export class ExperimentListView extends Component {
               .filter((exp) => exp.getName().toLowerCase().includes(searchInput.toLowerCase()))
               .map((exp, idx) => {
                 const { name, experiment_id } = exp;
-                const parsedExperimentId = parseInt(experiment_id, 10);
                 const active = this.props.activeExperimentId !== undefined
-                    ? parsedExperimentId === this.props.activeExperimentId
+                    ? experiment_id === this.props.activeExperimentId
                     : idx === 0;
                 const className =
                   `experiment-list-item ${active ? 'active-experiment-list-item' : ''}`;
@@ -198,9 +198,7 @@ export class ExperimentListView extends Component {
 
 const mapStateToProps = (state) => {
   const experiments = getExperiments(state);
-  experiments.sort((a, b) => {
-    return parseInt(a.getExperimentId(), 10) - parseInt(b.getExperimentId(), 10);
-  });
+  experiments.sort(Utils.compareExperiments);
   return { experiments };
 };
 

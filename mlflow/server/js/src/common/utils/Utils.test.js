@@ -282,3 +282,18 @@ test('getSearchUrlFromState', () => {
   expect(Utils.getSearchUrlFromState(st2)).toEqual("b=bbbbbb");
   expect(Utils.getSearchUrlFromState(st3)).toEqual("param=params&metrics=&searchInput=someExpression");
 });
+
+
+test('compareExperiments', () => {
+  const exp0 = { experiment_id: '0' };
+  const exp1 = { experiment_id: '1' };
+  const expA = { experiment_id: 'A' };
+  const expB = { experiment_id: 'B' };
+
+  expect(Utils.compareExperiments(exp0, exp1)).toEqual(-1);
+  expect(Utils.compareExperiments(exp1, exp0)).toEqual(1);
+  expect(Utils.compareExperiments(exp1, expA)).toEqual(-1);
+  expect(Utils.compareExperiments(expA, expB)).toEqual(-1);
+
+  expect([expB, exp1, expA, exp0].sort(Utils.compareExperiments)).toEqual([exp0, exp1, expA, expB]);
+});

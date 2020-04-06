@@ -97,7 +97,7 @@ export class ExperimentPage extends Component {
   };
 
   static propTypes = {
-    experimentId: PropTypes.number.isRequired,
+    experimentId: PropTypes.string.isRequired,
     getExperimentApi: PropTypes.func.isRequired,
     searchRunsApi: PropTypes.func.isRequired,
     loadMoreRunsApi: PropTypes.func.isRequired,
