@@ -67,8 +67,9 @@
     "eslint-plugin-react": "7.4.0",
     "eslint-plugin-standard": "3.0.1",
     "jest-localstorage-mock": "^2.3.0",
+    "react-app-rewire-define-plugin": "1.0.0",
     "react-app-rewired": "^1.5.2",
-    "react-app-rewire-define-plugin": "1.0.0"
+    "redux-mock-store": "^1.5.4"
   },
   "scripts": {
     "start": "react-app-rewired start",

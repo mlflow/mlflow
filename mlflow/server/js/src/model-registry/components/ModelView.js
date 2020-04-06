@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
-import { modelListPageRoute } from '../routes';
+import { modelListPageRoute, getCompareModelVersionsPageRoute } from '../routes';
 import {
   Radio,
   Icon,
@@ -19,6 +19,7 @@ import {
 } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
+import { Button } from "react-bootstrap";
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -26,6 +27,10 @@ export const StageFilters = {
 };
 
 export class ModelView extends React.Component {
+  constructor(props) {
+    super(props);
+    this.onCompare = this.onCompare.bind(this);
+  }
   static propTypes = {
     model: PropTypes.shape({
       name: PropTypes.string.isRequired,
@@ -45,6 +50,7 @@ export class ModelView extends React.Component {
     showDescriptionEditor: false,
     isDeleteModalVisible: false,
     isDeleteModalConfirmLoading: false,
+    runsSelected: {},
   };
 
   componentDidMount() {
@@ -132,6 +138,23 @@ export class ModelView extends React.Component {
       });
   };
 
+  onChange = (selectedRowKeys, selectedRows) => {
+    const newState = Object.assign({}, this.state);
+    newState.runsSelected = {};
+    selectedRows.forEach((row) => {
+      newState.runsSelected = {
+        ...newState.runsSelected,
+        [row.run_id]: row.version,
+      };
+    });
+    this.setState(newState);
+  };
+
+  onCompare() {
+    this.props.history.push(getCompareModelVersionsPageRoute(
+        this.props.model.name, this.state.runsSelected));
+  }
+
   renderDescriptionEditIcon() {
     return <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
   }
@@ -145,6 +168,7 @@ export class ModelView extends React.Component {
       isDeleteModalConfirmLoading,
     } = this.state;
     const modelName = model.name;
+    const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     return (
       <div className='model-view-content'>
         {/* Metadata List */}
@@ -172,23 +196,30 @@ export class ModelView extends React.Component {
         </CollapsibleSection>
         <CollapsibleSection title={(
           <span>
+            <div className="ModelView-run-buttons">
             Versions{' '}
-            <Radio.Group
-              className='active-toggle'
-              value={stageFilter}
-              onChange={this.handleStageFilterChange}
-            >
-              <Radio.Button value={StageFilters.ALL}>All</Radio.Button>
-              <Radio.Button value={StageFilters.ACTIVE}>
-                Active({this.getActiveVersionsCount()})
-              </Radio.Button>
-            </Radio.Group>
+              <Radio.Group
+                className='active-toggle'
+                value={stageFilter}
+                onChange={this.handleStageFilterChange}
+              >
+                <Radio.Button value={StageFilters.ALL}>All</Radio.Button>
+                <Radio.Button value={StageFilters.ACTIVE}>
+                  Active({this.getActiveVersionsCount()})
+                </Radio.Button>
+              </Radio.Group>
+              <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
+                Compare
+              </Button>
+            </div>
           </span>
         )}>
+
           <ModelVersionTable
             activeStageOnly={stageFilter === StageFilters.ACTIVE}
             modelName={modelName}
             modelVersions={modelVersions}
+            onChange={this.onChange}
           />
         </CollapsibleSection>
 
