@@ -851,11 +851,12 @@ Commands
 The `mlflow deployments` CLI contains the following commands, which can also be invoked programmatically
 using the `mlflow.deployments Python API <python_api/mlflow.deployments.html#mlflow.deployments>`_:
 
-* `Create <cli.html#mlflow-deployments-create>`_: Create the deployment on the target tool using the model fetched from provided ``model URI``
-* `Delete <cli.html#mlflow-deployments-delete>`_: Delete the deployment, pointed by the deployment ID
-* `Update <cli.html#mlflow-deployments-update>`_: Update an existing deployment like adding resources or upgrade the model to new version
-* `List <cli.html#mlflow-deployments-list>`_: List the deployment ID of all deployments
-* `Describe <cli.html#mlflow-deployments-describe>`_: Fetch more details about a particular deployment
+* `Create <cli.html#mlflow-deployments-create>`_: Deploy an MLflow model to a specified custom target
+* `Delete <cli.html#mlflow-deployments-delete>`_: Delete a deployment
+* `Update <cli.html#mlflow-deployments-update>`_: Update an existing deployment, for example to
+  deploy a new model version or change the deployment's configuration (e.g. increase replica count)
+* `List <cli.html#mlflow-deployments-list>`_: List IDs of all deployments
+* `Describe <cli.html#mlflow-deployments-describe>`_: Print a detailed description of a particular deployment
 
 
 Also, see:
