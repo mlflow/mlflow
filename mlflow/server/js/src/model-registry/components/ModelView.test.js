@@ -12,11 +12,13 @@ import {
 import { BrowserRouter } from 'react-router-dom';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
+import {getCompareModelVersionsPageRoute} from "../routes";
 
 describe('ModelView', () => {
   let wrapper;
   let instance;
   let minimalProps;
+  let historyMock;
   const mockModel = {
     name: 'Model A',
     latestVersions: [
@@ -44,6 +46,7 @@ describe('ModelView', () => {
   };
 
   beforeEach(() => {
+    historyMock = jest.fn();
     minimalProps = {
       model: mockRegisteredModelDetailed(
         mockModel.name,
@@ -54,7 +57,7 @@ describe('ModelView', () => {
       handleEditDescription: jest.fn(),
       handleDelete: jest.fn(),
       showEditPermissionModal: jest.fn(),
-      history: { push: jest.fn() },
+      history: { push: historyMock },
     };
   });
 
@@ -121,4 +124,31 @@ describe('ModelView', () => {
     expect(wrapper.find(ModelView).instance().state.isDeleteModalVisible).toBe(false);
   });
 
+  test('compare button is disabled when no/1 run selected, active when 2+ runs selected', () => {
+    wrapper = mount(
+      <BrowserRouter>
+        <ModelView {...minimalProps}/>
+      </BrowserRouter>
+    );
+
+    expect(wrapper.find('.btn').length).toBe(1);
+    expect(wrapper.find('.btn').props().disabled).toEqual(true);
+
+    wrapper.find(ModelView).instance().setState({
+      runsSelected: {'run_id_1': 'version_1'},
+    });
+    wrapper.update();
+    expect(wrapper.find('.btn').props().disabled).toEqual(true);
+
+    const twoRunsSelected = {'run_id_1': 'version_1', 'run_id_2': 'version_2'};
+    wrapper.find(ModelView).instance().setState({
+      runsSelected: twoRunsSelected,
+    });
+    wrapper.update();
+    expect(wrapper.find('.btn').props().disabled).toEqual(false);
+
+    wrapper.find('.btn').simulate('click');
+    expect(historyMock).toHaveBeenCalledWith(
+      getCompareModelVersionsPageRoute(minimalProps['model']['name'], twoRunsSelected));
+  });
 });
