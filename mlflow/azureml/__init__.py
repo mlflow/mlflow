@@ -214,11 +214,10 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
 def deploy(model_uri, workspace, deployment_config=None, service_name=None, model_name=None,
            mlflow_home=None, synchronous=True):
     """
-    Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
-    The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
+    Register an MLflow model with Azure ML and deploy a websevice to Azure Container Instances (ACI) or
     Azure Kubernetes Service (AKS).
 
-    The resulting Azure ML ContainerImage will contain a webserver that processes model queries.
+    The deployed service will contain a webserver that processes model queries.
     For information about the input data formats accepted by this webserver, see the
     :ref:`MLflow deployment tools documentation <azureml_deployment>`.
 
@@ -245,7 +244,7 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
     :param deployment_config: The configuration for the Azure web service. This configuration
                               allows you to specify the resources the webservice will use and
                               the compute cluster it will be deployed in. If unspecified, the web
-                              service will be deployed into an Azure Container Instance. This is a
+                              service will be deployed into a new Azure Container Instance. This is a
                               `azureml.core.DeploymentConfig` object. For more information, see
                               `<https://docs.microsoft.com/python/api/azureml-core/
                               azureml.core.webservice.aks.aksservicedeploymentconfiguration>` and
