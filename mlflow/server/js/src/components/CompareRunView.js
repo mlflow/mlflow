@@ -158,13 +158,7 @@ class CompareRunView extends Component {
     return keys.map(k => {
       let row_class = undefined;
       if (highlightChanges) {
-        const all_equal = data[k].reduce((acc, currentValue) => {
-          if (data[k][0] === currentValue && acc) {
-            return true;
-          } else {
-            return false;
-          }
-        }, true);
+        const all_equal = data[k].every(x => x === data[k][0]);
         if (! all_equal) {
           row_class = "row-changed";
         }
