@@ -6,13 +6,16 @@ import {
   DELETE_MODEL_VERSION,
   DELETE_REGISTERED_MODEL,
 } from './actions';
-import { fulfilled } from '../Actions';
+import {
+  getProtoField,
+} from './utils';
 import _ from 'lodash';
+import { fulfilled } from '../common/utils/ActionUtils';
 
 const modelByName = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(LIST_REGISTRED_MODELS): {
-      const models = action.payload.registered_models;
+      const models = action.payload[getProtoField("registered_models")];
       const nameToModelMap = {};
       if (models) {
         models.forEach((model) => (nameToModelMap[model.name] = model));
@@ -22,7 +25,7 @@ const modelByName = (state = {}, action) => {
       };
     }
     case fulfilled(GET_REGISTERED_MODEL): {
-      const detailedModel = action.payload.registered_model;
+      const detailedModel = action.payload[getProtoField("registered_model")];
       const { modelName } = action.meta;
       const modelWithUpdatedMetadata = {
         ...state[modelName],
@@ -46,7 +49,7 @@ const modelByName = (state = {}, action) => {
 const modelVersionsByModel = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(GET_MODEL_VERSION): {
-      const modelVersion = action.payload.model_version;
+      const modelVersion = action.payload[getProtoField("model_version")];
       const { modelName } = action.meta;
       const updatedMap = {
         ...state[modelName],
@@ -58,7 +61,7 @@ const modelVersionsByModel = (state = {}, action) => {
       };
     }
     case fulfilled(SEARCH_MODEL_VERSIONS): {
-      const modelVersions = action.payload.model_versions;
+      const modelVersions = action.payload[getProtoField("model_versions")];
       if (!modelVersions) {
         return state;
       }
@@ -79,6 +82,7 @@ const modelVersionsByModel = (state = {}, action) => {
       const { modelName, version } = action.meta;
       const modelVersionByVersion = state[modelName];
       return {
+        ...state,
         [modelName]: _.omit(modelVersionByVersion, version),
       };
     }
