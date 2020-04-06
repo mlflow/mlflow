@@ -11,7 +11,7 @@ import { ErrorWrapper } from '../../common/utils/ActionUtils';
 
 
 const BASE_PATH = "/experiments/17/s";
-const EXPERIMENT_ID = 17;
+const EXPERIMENT_ID = '17';
 
 let searchRunsApi;
 let getExperimentApi;

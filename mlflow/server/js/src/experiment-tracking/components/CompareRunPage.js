@@ -9,7 +9,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 
 class CompareRunPage extends Component {
   static propTypes = {
-    experimentId: PropTypes.number.isRequired,
+    experimentId: PropTypes.string.isRequired,
     runUuids: PropTypes.arrayOf(String).isRequired,
     dispatch: PropTypes.func.isRequired,
   };
@@ -41,7 +41,7 @@ const mapStateToProps = (state, ownProps) => {
   const { location } = ownProps;
   const searchValues = qs.parse(location.search);
   const runUuids = JSON.parse(searchValues["?runs"]);
-  const experimentId = parseInt(searchValues["experiment"], 10);
+  const experimentId = searchValues["experiment"];
   return { experimentId, runUuids };
 };
 

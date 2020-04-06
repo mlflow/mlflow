@@ -10,7 +10,7 @@ test('If activeExperimentId is defined then choose that one', () => {
   const wrapper = shallow(<ExperimentListView
     onClickListExperiments={() => {}}
     experiments={Fixtures.experiments}
-    activeExperimentId={1}
+    activeExperimentId={'1'}
   />);
   expect(wrapper.find('.active-experiment-list-item').first().prop('title')).toEqual('Test');
 });
@@ -37,7 +37,7 @@ test('If searchInput is set to "Test" and default experiment is active then no a
   const wrapper = shallow(<ExperimentListView
     onClickListExperiments={() => {}}
     experiments={Fixtures.experiments}
-    activeExperimentId={0}
+    activeExperimentId={'0'}
   />);
 
   wrapper.setState({ searchInput: 'Test' });
