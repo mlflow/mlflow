@@ -244,7 +244,7 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
     :param deployment_config: The configuration for the Azure web service. This configuration
                               allows you to specify the resources the webservice will use and
                               the compute cluster it will be deployed in. If unspecified, the web
-                              service will be deployed into a new Azure Container Instance. This is a
+                              service will be deployed into a Azure Container Instance. This is a
                               `azureml.core.DeploymentConfig` object. For more information, see
                               `<https://docs.microsoft.com/python/api/azureml-core/
                               azureml.core.webservice.aks.aksservicedeploymentconfiguration>` and
@@ -509,8 +509,8 @@ def _get_mlflow_azure_name_from_run(run_id):
     """
     azureml_max_resource_length = 32
     resource_prefix = "mlflow-run-"
-    suffix = run_id[:azureml_max_resource_length-len(resource_prefix)]
-    return resource_prefix + suffix
+    azureml_name = resource_prefix + run_id
+    return azureml_name[:azureml_max_resource_length]
 
 
 def _create_mlflow_wheel(mlflow_dir, out_dir):
@@ -543,7 +543,7 @@ def parse_deploy_config(json_dict_input):
     try:
         compute_target_type = json_dict_input["computeType"].lower()
         del json_dict_input["computeType"]
-        return computes[compute_target_type].deploy_configuration(**compute_target_type)
+        return computes[compute_target_type].deploy_configuration(**json_dict_input)
     except KeyError:
         raise MlflowException("Error, tried to use a deployment configuration without"
                               " specifying a valid computeType (Valid types are aci, aks).")

@@ -73,20 +73,22 @@ def build_image(model_uri, workspace_name, subscription_id, image_name, model_na
 @commands.command("deploy")
 @cli_args.MODEL_URI
 @click.option("--workspace-name", "-w", required=True,
-              help="The name of the Azure Workspace in which to build the image.")
+              help="The name of the Azure Workspace in which to deploy the service.")
 @click.option("--subscription-id", "-s", default=None,
               help=("The subscription id associated with the Azure Workspace in which to build"
                     " the service"))
 @click.option("--service-name", "-s", default=None,
               help=("The name to assign the Azure Container Image that is created. If unspecified,"
-                    " a unique service name will be generated."))
+                    " a unique service name will be generated based on the run id."))
 @click.option("--model-name", "-n", default=None,
               help=("The name to assign the Azure Model that is created. If unspecified,"
-                    " a unique image name will be generated."))
+                    " a unique model name will be generated based on the run id."))
 @cli_args.MLFLOW_HOME
 @click.option("--deployment-config", "-d", default=None,
-              help=("A path to a JSON formatted deployment config to for the"
-                    " Azure ML Webservice that is created."))
+              help=("A path to a snake_cased JSON formatted deployment config for the"
+                    " Azure ML Webservice that is created. See"
+                    " `azureml.core.aci.AciWebservice.deploy_configuration` or"
+                    " `azureml.core.aks.AksWebservice.deploy_configuration` for parameters"))
 @experimental
 def deploy(model_uri, workspace_name, subscription_id, service_name, model_name,
            mlflow_home, deployment_config):
@@ -106,8 +108,8 @@ def deploy(model_uri, workspace_name, subscription_id, service_name, model_name,
     from azureml.core import Workspace
 
     workspace = Workspace.get(name=workspace_name, subscription_id=subscription_id)
-    if deployment_config is not None:
-        deployment_dict = json.loads(deployment_config)
+    if deployment_config:
+        deployment_dict = json.load(deployment_config)
         deployment_config = mlflow.azureml.parse_deploy_config(deployment_dict)
     mlflow.azureml.deploy(
             model_uri=model_uri, workspace=workspace,
