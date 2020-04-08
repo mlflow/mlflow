@@ -27,8 +27,15 @@ def _fetch_dbfs(uri, local_path):
 def _fetch_s3(uri, local_path):
     import boto3
     print("=== Downloading S3 object %s to local path %s ===" % (uri, os.path.abspath(local_path)))
+
+    client_kwargs = {}
+    endpoint_url = os.environ.get('MLFLOW_S3_ENDPOINT_URL')
+
+    if endpoint_url:
+        client_kwargs['endpoint_url'] = endpoint_url
+
     (bucket, s3_path) = parse_s3_uri(uri)
-    boto3.client('s3').download_file(bucket, s3_path, local_path)
+    boto3.client('s3', **client_kwargs).download_file(bucket, s3_path, local_path)
 
 
 def _fetch_gs(uri, local_path):
