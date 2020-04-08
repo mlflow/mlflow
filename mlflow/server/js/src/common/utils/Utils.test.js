@@ -296,6 +296,7 @@ test('compareExperiments', () => {
   expect(Utils.compareExperiments(expA, expB)).toEqual(-1);
 
   expect([expB, exp1, expA, exp0].sort(Utils.compareExperiments)).toEqual([exp0, exp1, expA, expB]);
+});
 
 test('getPrivateVcsRegex', () => {
   setup_mock();
@@ -348,4 +349,3 @@ test('getPrivateVcsUrl', () => {
   }));
   expect(Utils.getPrivateVcsUrl("commit")).toEqual(null);
   teardown_mock();
-});
