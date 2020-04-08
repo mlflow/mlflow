@@ -349,3 +349,4 @@ test('getPrivateVcsUrl', () => {
   }));
   expect(Utils.getPrivateVcsUrl("commit")).toEqual(null);
   teardown_mock();
+});
