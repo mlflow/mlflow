@@ -7,6 +7,17 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.uri import append_to_uri_path
 
 
+def _get_model_configuration(model_path):
+    model_configuration_path = os.path.join(model_path, "MLmodel")
+    if not os.path.exists(model_configuration_path):
+        raise MlflowException(
+            "Could not find an \"MLmodel\" configuration file at \"{model_path}\"".format(
+                model_path=model_path),
+            RESOURCE_DOES_NOT_EXIST)
+
+    return Model.load(model_configuration_path)
+
+
 def _get_flavor_configuration(model_path, flavor_name):
     """
     Obtains the configuration for the specified flavor from the specified
@@ -18,14 +29,7 @@ def _get_flavor_configuration(model_path, flavor_name):
     :param flavor_name: The name of the flavor configuration to load.
     :return: The flavor configuration as a dictionary.
     """
-    model_configuration_path = os.path.join(model_path, "MLmodel")
-    if not os.path.exists(model_configuration_path):
-        raise MlflowException(
-            "Could not find an \"MLmodel\" configuration file at \"{model_path}\"".format(
-                model_path=model_path),
-            RESOURCE_DOES_NOT_EXIST)
-
-    model_conf = Model.load(model_configuration_path)
+    model_conf = _get_flavor_configuration_from_uri(model_path)
     if flavor_name not in model_conf.flavors:
         raise MlflowException(
             "Model does not have the \"{flavor_name}\" flavor".format(flavor_name=flavor_name),

@@ -14,8 +14,10 @@ from sklearn.linear_model import ElasticNet
 from urllib.parse import urlparse
 import mlflow
 import mlflow.sklearn
+from mlflow.models.signature import infer_signature
 
 import logging
+
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 
@@ -27,13 +29,12 @@ def eval_metrics(actual, pred):
     return rmse, mae, r2
 
 
-
 if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     np.random.seed(40)
 
     # Read the wine-quality csv file from the URL
-    csv_url =\
+    csv_url = \
         'http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv'
     try:
         data = pd.read_csv(csv_url, sep=';')
@@ -72,6 +73,8 @@ if __name__ == "__main__":
         mlflow.log_metric("r2", r2)
         mlflow.log_metric("mae", mae)
 
+        model_signature = infer_signature(train_x, predicted_qualities)
+        input_example = train_x.head(1)
         tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
 
         # Model registry does not work with file store
@@ -81,6 +84,10 @@ if __name__ == "__main__":
             # There are other ways to use the Model Registry, which depends on the use case,
             # please refer to the doc for more information:
             # https://mlflow.org/docs/latest/model-registry.html#api-workflow
-            mlflow.sklearn.log_model(lr, "model", registered_model_name="ElasticnetWineModel")
+            mlflow.sklearn.log_model(lr, "model", registered_model_name="ElasticnetWineModel",
+                                     model_signature=model_signature,
+                                     input_example=input_example)
         else:
-            mlflow.sklearn.log_model(lr, "model")
+            mlflow.sklearn.log_model(lr, "model",
+                                     model_signature=model_signature,
+                                     input_example=input_example)
