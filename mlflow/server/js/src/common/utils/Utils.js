@@ -595,6 +595,7 @@ class Utils {
     }
 
     return aId.localeCompare(bId);
+  }
 
    /**
    * Fetch private vcs regex
