@@ -1,4 +1,5 @@
 import os
+import time
 from importlib.machinery import SourceFileLoader
 from setuptools import setup, find_packages
 
@@ -19,11 +20,22 @@ def package_files(directory):
 # to include in the wheel, e.g. "../mlflow/server/js/build/index.html"
 js_files = package_files('mlflow/server/js/build')
 models_container_server_files = package_files("mlflow/models/container")
-alembic_files = ["../mlflow/store/db_migrations/alembic.ini", "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini"]
+alembic_files = ["../mlflow/store/db_migrations/alembic.ini",
+                 "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini"]
+
+
+def _check_add_criteo_environment(package_name):
+    # Check both cases because soon criteois.lan will change to crto.in
+    if "JENKINS_URL" in os.environ and ("criteois.lan" in os.environ["JENKINS_URL"]
+                                        or "crto.in" in os.environ["JENKINS_URL"]):
+        return package_name + "+criteo." + str(int(time.time()))
+
+    return package_name
+
 
 setup(
     name='mlflow',
-    version=version,
+    version=_check_add_criteo_environment(version),
     packages=find_packages(exclude=['tests', 'tests.*']),
     package_data={"mlflow": js_files + models_container_server_files + alembic_files},
     install_requires=[
@@ -49,10 +61,12 @@ setup(
         'sqlparse',
         'sqlalchemy<=1.3.13',
         'gorilla',
+        'skein',
         'prometheus-flask-exporter',
+        'conda-pack',
     ],
     extras_require={
-        'extras':[
+        'extras': [
             "scikit-learn; python_version >= '3.5'",
             # scikit-learn 0.20 is the last version to support Python 2.x  & Python 3.4.
             "scikit-learn==0.20; python_version < '3.5'",
@@ -61,7 +75,7 @@ setup(
             'azure-storage-blob>=12.0',
             'google-cloud-storage',
         ],
-         'sqlserver':[
+        'sqlserver': [
             "mlflow-dbstore",
         ],
     },
