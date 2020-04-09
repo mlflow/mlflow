@@ -95,6 +95,7 @@ There are three programmatic ways to add a model to the registry. First, you can
     from sklearn.ensemble import RandomForestRegressor
 
     import mlflow
+    import mlflow.sklearn
 
     with mlflow.start_run(run_name="YOUR_RUN_NAME") as run:
         params = {"n_estimators": 5, "random_state": 42}
