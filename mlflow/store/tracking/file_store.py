@@ -237,9 +237,13 @@ class FileStore(AbstractStore):
     def create_experiment(self, name, artifact_location=None):
         self._check_root_dir()
         self._validate_experiment_name(name)
-        # Get all existing experiments and find the one with largest ID.
+        # Get all existing experiments and find the one with largest numerical ID.
         # len(list_all(..)) would not work when experiments are deleted.
-        experiments_ids = [int(e.experiment_id) for e in self.list_experiments(ViewType.ALL)]
+        experiments_ids = [
+            int(e.experiment_id)
+            for e in self.list_experiments(ViewType.ALL)
+            if e.experiment_id.isdigit()
+        ]
         experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location)
 

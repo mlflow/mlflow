@@ -99,7 +99,7 @@ export class CompareRunView extends Component {
                   <h2>Parameters</h2>
                 </th>
               </tr>
-              {this.renderDataRows(this.props.paramLists)}
+              {this.renderDataRows(this.props.paramLists, true)}
               <tr>
                 <th scope="rowgroup"
                     className="inter-title"
@@ -107,7 +107,7 @@ export class CompareRunView extends Component {
                   <h2>Metrics</h2>
                 </th>
               </tr>
-              {this.renderDataRows(this.props.metricLists, (key, data) => {
+              {this.renderDataRows(this.props.metricLists, false, (key, data) => {
                 return <Link
                   to={Routes.getMetricPageRoute(
                       this.props.runInfos.map(info => info.run_uuid)
@@ -144,7 +144,10 @@ export class CompareRunView extends Component {
   }
 
   // eslint-disable-next-line no-unused-vars
-  renderDataRows(list, headerMap = (key, data) => key, formatter = (value) => value) {
+  renderDataRows(list,
+                 highlightChanges = false,
+                 headerMap = (key, data) => key,
+                 formatter = (value) => value) {
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
     keys.forEach(k => data[k] = []);
@@ -154,7 +157,15 @@ export class CompareRunView extends Component {
     });
 
     return keys.map(k => {
-      return <tr key={k}>
+      let row_class = undefined;
+      if (highlightChanges) {
+        const all_equal = data[k].every(x => x === data[k][0]);
+        if (! all_equal) {
+          row_class = "row-changed";
+        }
+      }
+
+      return <tr key={k} className={row_class}>
         <th scope="row" className="rowHeader">{headerMap(k, data[k])}</th>
         {data[k].map((value, i) =>
           <td className="data-value" key={this.props.runInfos[i].run_uuid}>

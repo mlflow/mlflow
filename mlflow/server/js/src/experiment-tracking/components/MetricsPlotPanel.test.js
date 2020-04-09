@@ -21,7 +21,7 @@ describe('unit tests', () => {
       },
     };
     minimalPropsForLineChart = {
-      experimentId: 1,
+      experimentId: '1',
       runUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
       latestMetricsByRunUuid: {
@@ -76,7 +76,7 @@ describe('unit tests', () => {
     };
 
     minimalPropsForBarChart = {
-      experimentId: 1,
+      experimentId: '1',
       runUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
       latestMetricsByRunUuid: {
