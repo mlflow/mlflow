@@ -74,15 +74,15 @@ class FTPArtifactRepository(ArtifactRepository):
                 ftp.storbinary('STOR ' + os.path.basename(local_file), f)
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        dest_path = posixpath.join(self.path, artifact_path) \
-            if artifact_path else self.path
+        dest_path = self.path
+        if artifact_path and artifact_path != 'model':
+            dest_path = posixpath.join(self.path, artifact_path)
 
         dest_path = posixpath.join(
             dest_path, os.path.split(local_dir)[1])
         dest_path_re = os.path.split(local_dir)[1]
-        if artifact_path:
-            dest_path_re = posixpath.join(
-                artifact_path, os.path.split(local_dir)[1])
+        if artifact_path and artifact_path != 'model':
+            dest_path_re = posixpath.join(artifact_path, os.path.split(local_dir)[1])
 
         local_dir = os.path.abspath(local_dir)
         for (root, _, filenames) in os.walk(local_dir):
