@@ -50,6 +50,7 @@ export class ExperimentView extends Component {
     this.onSearch = this.onSearch.bind(this);
     this.onClear = this.onClear.bind(this);
     this.onSortBy = this.onSortBy.bind(this);
+    this.onFilter = this.onFilter.bind(this);
     this.isAllChecked = this.isAllChecked.bind(this);
     this.onCheckbox = this.onCheckbox.bind(this);
     this.onCheckAll = this.onCheckAll.bind(this);
@@ -535,6 +536,7 @@ export class ExperimentView extends Component {
               categorizedUncheckedKeys={categorizedUncheckedKeys}
               isAllChecked={this.isAllChecked()}
               onSortBy={this.onSortBy}
+              onFilter={this.onFilter}
               orderByKey={this.props.orderByKey}
               orderByAsc={this.props.orderByAsc}
               runsSelected={this.state.runsSelected}
@@ -583,6 +585,26 @@ export class ExperimentView extends Component {
 
   onSortBy(orderByKey, orderByAsc) {
     this.initiateSearch({ orderByKey, orderByAsc });
+  }
+
+
+  onFilter(filters) {
+    const mapFilters = Object.entries(filters);
+    const conditions = mapFilters.map(
+      (entry) => {
+        return entry[0] + translateQuery(entry[1]);
+      }
+    ).join(' AND ');
+
+    const all_conditions = [];
+    if (this.state.searchInput !== undefined && this.state.searchInput.length > 0) {
+      all_conditions.push(this.state.searchInput);
+    }
+    if (conditions.length > 0) {
+      all_conditions.push(conditions);
+    }
+
+    this.initiateSearch({ searchInput: all_conditions.join(' AND ') });
   }
 
   initiateSearch({
@@ -955,6 +977,22 @@ const styles = {
   tableToggleButtonGroup: {
     marginLeft: 16,
   },
+};
+
+
+const translateQuery = (entry) => {
+  const filter = entry[0];
+  const value = entry[1];
+  if (filter === 'contains') {
+    return ' LIKE \'%' + value + '%\'';
+  }
+  if (filter === 'greaterThan') {
+    return ' >= ' + value;
+  }
+  if (filter === 'lessThan') {
+    return ' <= ' + value;
+  }
+  return "";
 };
 
 export default withRouter(connect(mapStateToProps, mapDispatchToProps)(ExperimentView));

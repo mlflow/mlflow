@@ -169,3 +169,18 @@ test("params, metrics and tags computation in mapStateToProps", () => {
   expect(newProps.paramKeyList).toEqual(['param0', 'param1']);
   expect(newProps.tagKeyList).toEqual(['tag0', 'tag1']);
 });
+
+test("test on filter changes call the correct !search on backend", () => {
+  const wrapper = getExperimentViewMock();
+  const instance = wrapper.instance();
+  instance.initiateSearch = jest.fn();
+  //  Set current search
+  instance.state = { searchInput: "params.foo == \"bar\" AND metrics.acc > 42" };
+  const filters = { "params.method": ["contains", "adam"], "metrics.it": ["lessThan", "0.3"] };
+
+  instance.onFilter(filters);
+
+  expect(instance.initiateSearch).toHaveBeenCalledWith(
+    { searchInput: "params.foo == \"bar\" AND metrics.acc > 42 AND params.method LIKE '%adam%' AND metrics.it <= 0.3" }
+  );
+});
