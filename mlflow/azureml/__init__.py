@@ -214,8 +214,8 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
 def deploy(model_uri, workspace, deployment_config=None, service_name=None, model_name=None,
            mlflow_home=None, synchronous=True):
     """
-    Register an MLflow model with Azure ML and deploy a websevice to Azure Container Instances (ACI) or
-    Azure Kubernetes Service (AKS).
+    Register an MLflow model with Azure ML and deploy a websevice to Azure Container Instances (ACI)
+    or Azure Kubernetes Service (AKS).
 
     The deployed service will contain a webserver that processes model queries.
     For information about the input data formats accepted by this webserver, see the
@@ -535,18 +535,6 @@ def _create_mlflow_wheel(mlflow_dir, out_dir):
             "Error creating MLFlow Wheel - couldn't"
             " find it in dir {} - found several wheels {}".format(out_path, files))
     return files[0]
-
-
-def parse_deploy_config(json_dict_input):
-    from azureml.core.webservice import AciWebservice, AksWebservice
-    computes = {"aks": AksWebservice, "aci": AciWebservice}
-    try:
-        compute_target_type = json_dict_input["computeType"].lower()
-        del json_dict_input["computeType"]
-        return computes[compute_target_type].deploy_configuration(**json_dict_input)
-    except KeyError:
-        raise MlflowException("Error, tried to use a deployment configuration without"
-                              " specifying a valid computeType (Valid types are aci, aks).")
 
 
 SCORE_SRC = """
