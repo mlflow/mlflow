@@ -85,7 +85,7 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
             - An ``azureml.core.image.ContainerImage`` object containing metadata for the new image.
             - An ``azureml.core.model.Model`` object containing metadata for the new model.
 
-    .. code-block:: Python
+    .. code-block:: python
         :caption: Example
 
         import mlflow.azureml
