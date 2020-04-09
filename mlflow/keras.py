@@ -114,15 +114,18 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
                          attempt to infer the Keras module based on the given model.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
-    >>> import mlflow
-    >>> # Build, compile, and train your model
-    >>> keras_model = ...
-    >>> keras_model_path = ...
-    >>> keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
-    >>> results = keras_model.fit(
-    ...     x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
-    ... # Save the model as an MLflow Model
-    >>> mlflow.keras.save_model(keras_model, keras_model_path)
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        # Build, compile, and train your model
+        keras_model = ...
+        keras_model_path = ...
+        keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
+        results = keras_model.fit(
+            x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
+        # Save the model as an MLflow Model
+        mlflow.keras.save_model(keras_model, keras_model_path)
     """
     if keras_module is None:
         def _is_plain_keras(model):
@@ -247,16 +250,19 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
                                   registered model if one with the given name does not exist.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
-    >>> from keras import Dense, layers
-    >>> import mlflow
-    >>> # Build, compile, and train your model
-    >>> keras_model = ...
-    >>> keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
-    >>> results = keras_model.fit(
-    ...     x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
-    >>> # Log metrics and log the model
-    >>> with mlflow.start_run() as run:
-    >>>   mlflow.keras.log_model(keras_model, "models")
+    .. code-block:: python
+        :caption: Example
+
+        from keras import Dense, layers
+        import mlflow
+        # Build, compile, and train your model
+        keras_model = ...
+        keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
+        results = keras_model.fit(
+            x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
+        # Log metrics and log the model
+        with mlflow.start_run() as run:
+            mlflow.keras.log_model(keras_model, "models")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
               keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects,
@@ -383,9 +389,12 @@ def load_model(model_uri, **kwargs):
 
     :return: A Keras model instance.
 
-    >>> # Load persisted model as a Keras model or as a PyFunc, call predict() on a pandas DataFrame
-    >>> keras_model = mlflow.keras.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2" + "/models")
-    >>> predictions = keras_model.predict(x_test)
+    .. code-block:: python
+        :caption: Example
+
+        # Load persisted model as a Keras model or as a PyFunc, call predict() on a pandas DataFrame
+        keras_model = mlflow.keras.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2" + "/models")
+        predictions = keras_model.predict(x_test)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
