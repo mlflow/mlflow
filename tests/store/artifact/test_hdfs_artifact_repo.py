@@ -241,7 +241,8 @@ def test_delete_artifacts(hdfs_system_mock):
                            "har://hdfs-root/user/j.doe/myarchive.har",
                            "har://hdfs-root/user/j.doe/myarchive.har/subfolder")])
 def test_har_resolve_connection_params(uri, expected_path, expected_uri):
-    path, port, computed_uri = _parse_har_filesystem(uri)
+    scheme, path, port, computed_uri = _parse_har_filesystem(uri)
+    assert "har" == scheme
     assert expected_path == path
     assert 0 == port
     assert expected_uri == computed_uri

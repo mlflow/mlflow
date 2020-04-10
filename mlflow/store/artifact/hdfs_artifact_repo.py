@@ -213,6 +213,7 @@ def _resolve_connection_params(artifact_uri):
     parsed = urllib.parse.urlparse(artifact_uri)
     if parsed.scheme == "har":
         return _parse_har_filesystem(artifact_uri)
+
     return parsed.scheme, parsed.hostname, parsed.port, parsed.path
 
 
@@ -223,7 +224,7 @@ def _parse_har_filesystem(artifact_uri):
             artifact_uri)
         raise HdfsArtifactRepositoryException(error_msg)
     archive_path = artifact_uri[:har_extension_index + len(HAR_EXTENSION)]
-    return archive_path, 0, artifact_uri
+    return "har", archive_path, 0, artifact_uri
 
 
 def _resolve_base_path(path, artifact_path):
@@ -297,8 +298,10 @@ def archive_artifacts(hdfs_artifact_repository, dest_path, archive_name):
     _logger.info("Command to execute to archive artifacts: %s", cmd)
     subprocess.check_output(shlex.split(cmd))
     _, _, _, path_in_hdfs = _resolve_connection_params(dest_path)
-    return "har://hdfs-{host}{path_in_hdfs}/{archive_name}".format(
-        host=hdfs_artifact_repository.host, path_in_hdfs=path_in_hdfs,
+    return "har://{scheme}-{host}{path_in_hdfs}/{archive_name}".format(
+        scheme=hdfs_artifact_repository.scheme,
+        host=hdfs_artifact_repository.host,
+        path_in_hdfs=path_in_hdfs,
         archive_name=archive_name)
 
 
