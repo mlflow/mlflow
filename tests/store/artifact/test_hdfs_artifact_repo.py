@@ -262,6 +262,7 @@ def test_archive_artifacts(mock_remove_folder, mock_checkoutput):
     mock_hdfs_artifact_repo = mock.Mock(spec=HdfsArtifactRepository)
     mock_hdfs_artifact_repo.list_artifacts.return_value = [
         FileInfo("foo", True, 0), FileInfo("bar", True, 0)]
+    mock_hdfs_artifact_repo.scheme = "hdfs"
     mock_hdfs_artifact_repo.host = "root"
     mock_hdfs_artifact_repo.path = "{run_folder}/artifacts".format(run_folder=run_folder)
     expected_har_path = "har://hdfs-root/user/j.doe/experiment/1/xxxyyy/artifacts.har"
