@@ -76,7 +76,7 @@ def log_model(spark_model, sample_input, artifact_path, registered_model_name=No
         # log parameters
         mlflow.log_param("max_iter", 10)
         mlflow.log_param("reg_param", 0.001)
-        #l og the Spark MLlib model in MLeap format
+        # log the Spark MLlib model in MLeap format
         mlflow.mleap.log_model(spark_model=model, sample_input=test_df, artifact_path="mleap-model")
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap,

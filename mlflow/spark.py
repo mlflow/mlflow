@@ -369,7 +369,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
         from mlflow import spark
         from pyspark.ml.pipeline.PipelineModel
 
-        #your pyspark.ml.pipeline.PipelineModel type
+        # your pyspark.ml.pipeline.PipelineModel type
         model = ...
         mlflow.spark.save_model(model, "spark-model")
     """
