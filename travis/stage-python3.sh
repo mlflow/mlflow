@@ -10,7 +10,7 @@ then
     ./travis/run-small-python-tests.sh && ./test-generate-protos.sh
   else
     ./travis/run-large-python-tests.sh
-    ./travis/test-anaconda-compatibility.sh "anaconda3:2019.10"
+    ./travis/test-anaconda-compatibility.sh "anaconda3:2020.02"
     ./travis/test-anaconda-compatibility.sh "anaconda3:2019.03"
   fi
 fi

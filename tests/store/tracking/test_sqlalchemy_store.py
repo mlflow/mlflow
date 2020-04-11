@@ -1650,6 +1650,22 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         assert len(run_results) == 2
 
 
+def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
+    store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
+    experiment_id = store.create_experiment(name="exp1")
+    run = store.create_run(
+        experiment_id=experiment_id, user_id="user", start_time=0, tags=[])
+    run_id = run.info.run_id
+    metric = entities.Metric("mymetric", 1, 0, 0)
+    store.log_metric(run_id=run_id, metric=metric)
+    param = entities.Param("myparam", "A")
+    store.log_param(run_id=run_id, param=param)
+    fetched_run = store.get_run(run_id=run_id)
+    assert fetched_run.info.run_id == run_id
+    assert metric.key in fetched_run.data.metrics
+    assert param.key in fetched_run.data.params
+
+
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     """
     Test case where user has an existing DB with schema generated before MLflow 1.0,
