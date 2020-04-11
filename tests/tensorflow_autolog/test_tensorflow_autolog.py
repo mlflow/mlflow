@@ -297,22 +297,22 @@ def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_call
         tensorboard_callback_logging_dir_path, histogram_freq=0)
 
     mlflow.tensorflow.autolog()
-    with mlflow.start_run():
-        data = random_train_data
-        labels = random_one_hot_labels
 
-        model = create_tf_keras_model()
+    data = random_train_data
+    labels = random_one_hot_labels
 
-        if fit_variant == 'fit_generator':
-            def generator():
-                while True:
-                    yield data, labels
-            model.fit_generator(
-                generator(), epochs=10, steps_per_epoch=1, callbacks=[tensorboard_callback])
-        else:
-            model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
+    model = create_tf_keras_model()
 
-        assert os.path.exists(tensorboard_callback_logging_dir_path)
+    if fit_variant == 'fit_generator':
+        def generator():
+            while True:
+                yield data, labels
+        model.fit_generator(
+            generator(), epochs=10, steps_per_epoch=1, callbacks=[tensorboard_callback])
+    else:
+        model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
+
+    assert os.path.exists(tensorboard_callback_logging_dir_path)
 
 
 @pytest.mark.large
@@ -322,12 +322,11 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
     import mock
     from mlflow.tensorflow import _TensorBoardLogDir
 
-    mock_log_dir_inst = _TensorBoardLogDir(location=str(tmpdir), is_temp=True)
-    with mlflow.start_run(), mock.patch("mlflow.tensorflow._TensorBoardLogDir", autospec=True)\
-            as mock_log_dir_class:
-        mock_log_dir_class.return_value = mock_log_dir_inst
+    mlflow.tensorflow.autolog()
 
-        mlflow.tensorflow.autolog()
+    mock_log_dir_inst = _TensorBoardLogDir(location=str(tmpdir), is_temp=True)
+    with mock.patch("mlflow.tensorflow._TensorBoardLogDir", autospec=True) as mock_log_dir_class:
+        mock_log_dir_class.return_value = mock_log_dir_inst
 
         data = random_train_data
         labels = random_one_hot_labels
