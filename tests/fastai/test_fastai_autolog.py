@@ -1,6 +1,5 @@
 import pytest
 import numpy as np
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611
 
 import pandas as pd
 import sklearn.datasets as datasets
@@ -8,15 +7,15 @@ from fastai.tabular import tabular_learner, TabularList
 from fastai.metrics import accuracy
 import mlflow  # noqa
 import mlflow.fastai  # noqa
-from fastai.callbacks import EarlyStoppingCallback, SaveModelCallback
+from fastai.callbacks import EarlyStoppingCallback
 
 np.random.seed(1337)
 
-LARGE_EPOCHS = 10
+LARGE_EPOCHS = 5
 
 
 @pytest.fixture(params=[True, False])
-def manual_run(request, tracking_uri_mock):
+def manual_run(request):
     if request.param:
         mlflow.start_run()
     yield
