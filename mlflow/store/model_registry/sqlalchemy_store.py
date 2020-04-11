@@ -282,8 +282,8 @@ class SqlAlchemyStore(AbstractStore):
         try:
             version = int(version)
         except ValueError:
-            raise MlflowException("The version for sql alchemy store must be an integer, got '{}'"
-                                  .format(version))
+            raise MlflowException("Model version must be an integer, got '{}'"
+                                  .format(version), error_code=INVALID_PARAMETER_VALUE)
         conditions = [
             SqlModelVersion.name == name,
             SqlModelVersion.version == version,
@@ -292,10 +292,10 @@ class SqlAlchemyStore(AbstractStore):
         versions = session.query(SqlModelVersion).filter(*conditions).all()
 
         if len(versions) == 0:
-            raise MlflowException('Model Version (name={}, version{}) '
+            raise MlflowException('Model Version (name={}, version={}) '
                                   'not found'.format(name, version), RESOURCE_DOES_NOT_EXIST)
         if len(versions) > 1:
-            raise MlflowException('Expected only 1 model version with (name={}, version{}). '
+            raise MlflowException('Expected only 1 model version with (name={}, version={}). '
                                   'Found {}.'.format(name, version, len(versions)),
                                   INVALID_STATE)
         return versions[0]

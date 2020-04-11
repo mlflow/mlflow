@@ -1,10 +1,9 @@
-import imp
 import os
-import sys
+from importlib.machinery import SourceFileLoader
 from setuptools import setup, find_packages
 
-version = imp.load_source(
-    'mlflow.version', os.path.join('mlflow', 'version.py')).VERSION
+version = SourceFileLoader(
+    'mlflow.version', os.path.join('mlflow', 'version.py')).load_module().VERSION
 
 
 # Get a list of all files in the JS directory to include in our module
