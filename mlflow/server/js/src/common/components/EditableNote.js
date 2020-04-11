@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import { Alert, Button, Icon, Tooltip } from 'antd';
 import { Prompt } from 'react-router';
 import ReactMde, { SvgIcon } from 'react-mde';
-import { getConverter, sanitizeConvertedHtml } from '../../utils/MarkdownUtils';
+import { getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import PropTypes from 'prop-types';
 
 const PROMPT_MESSAGE =
