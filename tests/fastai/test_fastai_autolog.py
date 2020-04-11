@@ -179,7 +179,6 @@ def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, cal
 @pytest.mark.parametrize('patience', [0, 1, 5])
 def test_fastai_autolog_early_stop_logs(fastai_random_data_run_with_callback, patience):
     model, run = fastai_random_data_run_with_callback
-    metrics = run.data.metrics
     params = run.data.params
     assert 'early_stop_patience' in params
     assert params['early_stop_patience'] == str(patience)
@@ -190,21 +189,11 @@ def test_fastai_autolog_early_stop_logs(fastai_random_data_run_with_callback, pa
     assert 'early_stop_min_delta' in params
     assert params['early_stop_min_delta'] == f'-{99999999}'
 
-    """
-    assert 'stopped_epoch' in metrics
-    assert 'restored_epoch' in metrics
-    restored_epoch = int(metrics['restored_epoch'])
-    assert int(metrics['stopped_epoch']) - max(1, callback.patience) == restored_epoch
-    """
-
     client = mlflow.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, 'valid_loss')
     num_of_epochs = len(model.recorder.val_losses)
-    # Check the test epoch numbers are correct
-    # Check that MLflow has logged the metrics of the "best" model
+
     assert len(metric_history) == num_of_epochs
-    # Check that MLflow has logged the correct data
-    # assert history.history['loss'][restored_epoch] == metric_history[-1].value
 
 
 @pytest.mark.large
