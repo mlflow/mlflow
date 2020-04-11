@@ -11,7 +11,6 @@ import mlflow.spark
 import mlflow.keras
 import mlflow.tensorflow
 
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from tests.spark_autologging.utils import _assert_spark_data_logged
 from tests.spark_autologging.utils import spark_session  # pylint: disable=unused-import
 from tests.spark_autologging.utils import format_to_file_path  # pylint: disable=unused-import
@@ -68,8 +67,7 @@ def _fit_keras_model(pandas_df, epochs):
 
 @pytest.mark.large
 def test_spark_autologging_with_keras_autologging(
-        spark_session, data_format, file_path, tracking_uri_mock):
-    # pylint: disable=unused-argument
+        spark_session, data_format, file_path):
     assert mlflow.active_run() is None
     mlflow.spark.autolog()
     mlflow.keras.autolog()
@@ -83,8 +81,7 @@ def test_spark_autologging_with_keras_autologging(
 
 @pytest.mark.large
 def test_spark_keras_autologging_context_provider(
-        spark_session, tracking_uri_mock, data_format, file_path):
-    # pylint: disable=unused-argument
+        spark_session, data_format, file_path):
     mlflow.spark.autolog()
     mlflow.keras.autolog()
 
@@ -109,8 +106,7 @@ def test_spark_keras_autologging_context_provider(
 
 @pytest.mark.large
 def test_spark_and_keras_autologging_all_runs_managed(
-        spark_session, tracking_uri_mock, data_format, file_path):
-    # pylint: disable=unused-argument
+        spark_session, data_format, file_path):
     mlflow.spark.autolog()
     mlflow.keras.autolog()
     for _ in range(2):
