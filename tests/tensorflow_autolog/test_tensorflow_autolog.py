@@ -6,7 +6,6 @@ import collections
 import shutil
 import pytest
 import tempfile
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611
 
 import numpy as np
 import pandas as pd
@@ -20,8 +19,8 @@ import mlflow.keras
 import os
 
 SavedModelInfo = collections.namedtuple(
-        "SavedModelInfo",
-        ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
+    "SavedModelInfo",
+    ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
 
 
 @pytest.fixture
@@ -39,7 +38,7 @@ def random_one_hot_labels():
 
 
 @pytest.fixture(params=[True, False])
-def manual_run(request, tracking_uri_mock):
+def manual_run(request):
     if request.param:
         mlflow.start_run()
     yield

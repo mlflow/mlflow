@@ -3,10 +3,7 @@
 from __future__ import print_function
 
 import collections
-import shutil
 import pytest
-import tempfile
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=W0611
 
 import numpy as np
 import pandas as pd
@@ -41,7 +38,7 @@ def random_one_hot_labels():
 
 
 @pytest.fixture(params=[True, False])
-def manual_run(request, tracking_uri_mock):
+def manual_run(request):
     if request.param:
         mlflow.start_run()
     yield
