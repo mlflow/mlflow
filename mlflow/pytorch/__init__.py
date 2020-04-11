@@ -337,7 +337,7 @@ def load_model(model_uri, **kwargs):
         import mlflow.pytorch
         # Set values
         model_path_dir = ...
-        run_id="96771d893a5e46159d9f3b49bf9013e2"
+        run_id = "96771d893a5e46159d9f3b49bf9013e2"
         pytorch_model = mlflow.pytorch.load_model("runs:/" + run_id + "/" + model_path_dir)
         y_pred = pytorch_model(x_new_data)
     """
