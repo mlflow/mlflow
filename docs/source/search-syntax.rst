@@ -193,9 +193,9 @@ The R API is similar to the Python API.
 
   library(mlflow)
   mlflow_search_runs(
-    'tags.experiment_iteration = "1"',
-    experiment_ids = as.character(2:3),
-    order_by = "tags.start_time DESCR"
+    filter = "metrics.rmse < 0.9 and tags.production = 'true'",
+    experiment_ids = as.character(1:2),
+    order_by = "params.lr DESC"
   )
 
 Java
