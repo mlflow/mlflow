@@ -179,7 +179,7 @@ export default class ExperimentViewUtil {
   }
 
   static AttributeColumnLabels = {
-    DATE: 'Date',
+    DATE: 'Start Time',
     USER: 'User',
     RUN_NAME: 'Run Name',
     SOURCE: 'Source',
