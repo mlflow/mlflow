@@ -6,6 +6,7 @@ module.exports = {
   ],
   'parser': 'babel-eslint',
   'plugins': [
+    'prettier',
     'react',
   ],
   'parserOptions': {
@@ -42,6 +43,7 @@ module.exports = {
     },
   },
   'rules': {
+    "prettier/prettier": "error",
     'accessor-pairs': 2,
     'array-bracket-spacing': 2,
     'array-callback-return': 2,
