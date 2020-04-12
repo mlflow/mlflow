@@ -4,19 +4,16 @@ import mock
 import os
 import pytest
 import yaml
-import json
 from collections import namedtuple
 
 import numpy as np
 import pandas as pd
-import pandas.testing
 import sklearn.datasets as datasets
 from fastai.tabular import tabular_learner, TabularList
 from fastai.metrics import accuracy
 
 import mlflow.fastai
 import mlflow.utils
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -28,7 +25,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import score_model_in_sagemaker_docker_container
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
@@ -147,7 +143,7 @@ def test_model_log(fastai_model, model_path):
                 mlflow.set_tracking_uri(old_uri)
 
 
-def test_log_model_calls_register_model(tracking_uri_mock, fastai_model):
+def test_log_model_calls_register_model(fastai_model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
@@ -162,7 +158,7 @@ def test_log_model_calls_register_model(tracking_uri_mock, fastai_model):
         mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
 
 
-def test_log_model_no_registered_model_name(tracking_uri_mock, fastai_model):
+def test_log_model_no_registered_model_name(fastai_model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
@@ -266,22 +262,3 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.fastai.get_default_conda_env()
-
-
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(fastai_model, model_path):
-    mlflow.fastai.save_model(fastai_learner=fastai_model.model, path=model_path, conda_env=None)
-    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
-
-    scoring_response = score_model_in_sagemaker_docker_container(
-            model_uri=model_path,
-            data=fastai_model.inference_dataframe,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            flavor=mlflow.pyfunc.FLAVOR_NAME)
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pandas.testing.assert_frame_equal(
-        deployed_model_preds,
-        pd.DataFrame(reloaded_pyfunc.predict(fastai_model.inference_dataframe)),
-        check_dtype=False,
-        check_less_precise=6)
