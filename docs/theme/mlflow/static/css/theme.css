@@ -5291,7 +5291,7 @@ a .rst-content code {
 .rst-content .viewcode-link,
 .rst-content .viewcode-back {
     display: inline-block;
-    color: #0288d1;
+    color: #2980B9;
     font-size: 80%;
     padding-left: 24px
 }
@@ -5342,9 +5342,9 @@ a .rst-content code {
 /*# sourceMappingURL=theme.css.map */
 
 div.viewcode-block:target {
-    background-color: #f4debf;
-    border-top: 1px solid #ac9;
-    border-bottom: 1px solid #ac9;
+    background-color: #d3f1f3;
+    border-top: 1px solid #44c1cb;
+    border-bottom: 1px solid #44c1cb;
     margin: 0px -12px;
     padding: 0px 12px;
 }
