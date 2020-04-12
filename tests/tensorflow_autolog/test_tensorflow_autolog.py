@@ -294,60 +294,60 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
     assert len(metric_history) == num_of_epochs
 
 
-@pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_callback(
-        tmpdir, random_train_data, random_one_hot_labels, fit_variant):
-    tensorboard_callback_logging_dir_path = str(tmpdir.mkdir("tb_logs"))
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(
-        tensorboard_callback_logging_dir_path, histogram_freq=0)
+# @pytest.mark.large
+# @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+# def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_callback(
+#         tmpdir, random_train_data, random_one_hot_labels, fit_variant):
+#     tensorboard_callback_logging_dir_path = str(tmpdir.mkdir("tb_logs"))
+#     tensorboard_callback = tf.keras.callbacks.TensorBoard(
+#         tensorboard_callback_logging_dir_path, histogram_freq=0)
+#
+#     mlflow.tensorflow.autolog()
+#
+#     data = random_train_data
+#     labels = random_one_hot_labels
+#
+#     model = create_tf_keras_model()
+#
+#     if fit_variant == 'fit_generator':
+#         def generator():
+#             while True:
+#                 yield data, labels
+#         model.fit_generator(
+#             generator(), epochs=10, steps_per_epoch=1, callbacks=[tensorboard_callback])
+#     else:
+#         model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
+#
+#     assert os.path.exists(tensorboard_callback_logging_dir_path)
 
-    mlflow.tensorflow.autolog()
 
-    data = random_train_data
-    labels = random_one_hot_labels
-
-    model = create_tf_keras_model()
-
-    if fit_variant == 'fit_generator':
-        def generator():
-            while True:
-                yield data, labels
-        model.fit_generator(
-            generator(), epochs=10, steps_per_epoch=1, callbacks=[tensorboard_callback])
-    else:
-        model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
-
-    assert os.path.exists(tensorboard_callback_logging_dir_path)
-
-
-@pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent(
-        tmpdir, random_train_data, random_one_hot_labels, fit_variant):
-    import mock
-    from mlflow.tensorflow import _TensorBoardLogDir
-
-    mlflow.tensorflow.autolog()
-
-    mock_log_dir_inst = _TensorBoardLogDir(location=str(tmpdir), is_temp=True)
-    with mock.patch("mlflow.tensorflow._TensorBoardLogDir", autospec=True) as mock_log_dir_class:
-        mock_log_dir_class.return_value = mock_log_dir_inst
-
-        data = random_train_data
-        labels = random_one_hot_labels
-
-        model = create_tf_keras_model()
-
-        if fit_variant == 'fit_generator':
-            def generator():
-                while True:
-                    yield data, labels
-            model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-        else:
-            model.fit(data, labels, epochs=10)
-
-        assert not os.path.exists(mock_log_dir_inst.location)
+# @pytest.mark.large
+# @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+# def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent
+#         tmpdir, random_train_data, random_one_hot_labels, fit_variant):
+#     import mock
+#     from mlflow.tensorflow import _TensorBoardLogDir
+#
+#     mlflow.tensorflow.autolog()
+#
+#     mock_log_dir_inst = _TensorBoardLogDir(location=str(tmpdir), is_temp=True)
+#     with mock.patch("mlflow.tensorflow._TensorBoardLogDir", autospec=True) as mock_log_dir_class:
+#         mock_log_dir_class.return_value = mock_log_dir_inst
+#
+#         data = random_train_data
+#         labels = random_one_hot_labels
+#
+#         model = create_tf_keras_model()
+#
+#         if fit_variant == 'fit_generator':
+#             def generator():
+#                 while True:
+#                     yield data, labels
+#             model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
+#         else:
+#             model.fit(data, labels, epochs=10)
+#
+#         assert not os.path.exists(mock_log_dir_inst.location)
 
 
 @pytest.fixture
