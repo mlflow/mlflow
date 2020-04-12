@@ -212,7 +212,7 @@ def log_model(gluon_model, artifact_path, conda_env=None):
         trainer = Trainer(net.collect_params())
         est = estimator.Estimator(net=net, loss=softmax_loss, metrics=Accuracy(), trainer=trainer)
         # Log metrics and log the model
-        with mlflow.start_run() as run:
+        with mlflow.start_run():
             est.fit(train_data=train_data, epochs=100, val_data=validation_data)
             mlflow.gluon.log_model(net, "model")
     """
