@@ -46,6 +46,12 @@ def manual_run(request, tracking_uri_mock):
     mlflow.end_run()
 
 
+@pytest.fixture(scope='function', autouse=True)
+def end_run_if_necessary():
+    yield
+    mlflow.end_run()
+
+
 def create_tf_keras_model():
     model = tf.keras.Sequential()
 
