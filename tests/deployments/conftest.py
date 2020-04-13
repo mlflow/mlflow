@@ -23,7 +23,7 @@ class FakePlugin(BasePlugin):
             raise RuntimeError('Error requested')
         return [f_deployment_id]
 
-    def describe(self, deployment_id, **kwargs):
+    def get(self, deployment_id, **kwargs):
         return {'key1': 'val1', 'key2': 'val2'}
 
 

@@ -204,7 +204,7 @@ Deployment Plugin
 Building a plugin for deployment has it's own implementation details apart from the ``setup.py`` configurations. For starters, as given in the above table,
 entrypoint value for the deployment plugin must be a class, we'll call it ``PluginClass`` now onwards, for the convenience. A ``PluginClass`` must be inherited from the
 base class defined `here <python_api/mlflow.deployments.html#mlflow.deployments.BasePlugin>`_. This base class is an abstract class that defines five abstract methods for
-five interface functions `create`, `delete`, `update`, `list` & `describe`. Each of these functions should take few predefined arguments. Any plugin specific arguments
+five interface functions `create`, `delete`, `update`, `list` & `get`. Each of these functions should take few predefined arguments. Any plugin specific arguments
 can be accessed as keyword arguments through ``kwargs``. Plugin specific options will also reach plugins through the kwargs.
 
 For example, passing host, username and password to the RedisAI plugin is possible by

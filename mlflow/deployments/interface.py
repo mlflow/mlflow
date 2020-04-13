@@ -76,7 +76,7 @@ def list_deployments(target, **kwargs):  # pylint: disable=W0622
     List the IDs of all model deployments in the specified target. These IDs
     can be used with the :py:func:`mlflow.deployments.delete_deployment`,
     :py:func:`mlflow.deployments.update_deployment`, and
-    :py:func:`mlflow.deployments.describe_deployment` commands.
+    :py:func:`mlflow.deployments.get_deployment` commands.
 
     :param target: String containing the deployment target name
     :param kwargs: Target-specific keyword-arguments for listing deployments
@@ -89,7 +89,7 @@ def list_deployments(target, **kwargs):  # pylint: disable=W0622
 
 
 @experimental
-def describe_deployment(target, deployment_id, **kwargs):
+def get_deployment(target, deployment_id, **kwargs):
     """
     Returns a dictionary describing the deployment with ID `deployment_id` in the specified
     target. The format and fields of the returned dictionary may vary across deployment targets.
@@ -99,7 +99,7 @@ def describe_deployment(target, deployment_id, **kwargs):
     :param kwargs: Target-specific keyword-arguments
     :return: A dictionary describing the deployment with ID `deployment_id`
     """
-    desc = plugin_store[target].describe(deployment_id, **kwargs)
+    desc = plugin_store[target].get(deployment_id, **kwargs)
     if not isinstance(desc, dict):
         raise TypeError("Description must be returned as a dictionary")
     return desc

@@ -50,8 +50,8 @@ def test_list_success(patched_plugin_store):  # pylint: disable=W0613
     assert ret[0] == f_deployment_id
 
 
-def test_describe_success(patched_plugin_store):  # pylint: disable=W0613
-    ret = deployments.describe_deployment(f_target, f_deployment_id)
+def test_get_success(patched_plugin_store):  # pylint: disable=W0613
+    ret = deployments.get_deployment(f_target, f_deployment_id)
     assert ret['key1'] == 'val1'
 
 
@@ -84,4 +84,4 @@ def test_entrypoints_not_reloading(patched_plugin_store):  # pylint: disable=W06
 
 def test_plugin_raising_error(patched_plugin_store):  # pylint: disable=W0613
     with pytest.raises(RuntimeError):
-        deployments.list_deployments(f_target, raiseError=True)  # special case to raise error
+        deployments.list_deployments(f_target, raiseError='True')  # special case to raise error

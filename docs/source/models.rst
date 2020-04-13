@@ -856,7 +856,7 @@ using the `mlflow.deployments Python API <python_api/mlflow.deployments.html#mlf
 * `Update <cli.html#mlflow-deployments-update>`_: Update an existing deployment, for example to
   deploy a new model version or change the deployment's configuration (e.g. increase replica count)
 * `List <cli.html#mlflow-deployments-list>`_: List IDs of all deployments
-* `Describe <cli.html#mlflow-deployments-describe>`_: Print a detailed description of a particular deployment
+* `Get <cli.html#mlflow-deployments-get>`_: Print a detailed description of a particular deployment
 
 
 Also, see:
@@ -868,4 +868,4 @@ Also, see:
     mlflow deployments delete --help
     mlflow deployments update --help
     mlflow deployments list --help
-    mlflow deployments describe --help
+    mlflow deployments get --help

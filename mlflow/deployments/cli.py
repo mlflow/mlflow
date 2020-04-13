@@ -1,7 +1,6 @@
 import click
 from mlflow.utils import cli_args
 from mlflow.deployments import interface
-from mlflow.cli import _user_args_to_dict
 
 
 deployment_target = click.option("--target", "-t", required=True, help="Deployment target")
@@ -22,11 +21,11 @@ def commands():
 
     To deploy to a custom target, you must first install an
     appropriate third-party Python plugin. See the list of known community-maintained plugins
-    at <https://mlflow.org/docs/latest/plugins.html#community-plugins>`_.
+    at https://mlflow.org/docs/latest/plugins.html#community-plugins.
 
     MLflow also enables you to write plugins for deployment to custom targets. For instructions on
     writing and distributing your own plugin, see
-    `<https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins>`_.
+    https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins.
     """
     pass
 
@@ -37,13 +36,13 @@ def commands():
 @cli_args.MODEL_URI
 @click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
                                      "inferred if it's not given")
-def create_cli(flavor, model_uri, target, config):
+def create_deployment(flavor, model_uri, target, config):
     """
     Deploy the model at ``model_uri`` to the specified target.
 
-    Additional plugin-specific arguments may also be passed to this command, via syntax like
-    `--param-name value`
+    Additional plugin-specific arguments may also be passed to this command, via `-C key=value`
     """
+    from mlflow.cli import _user_args_to_dict
     config_dict = _user_args_to_dict(config, flag_name="C")
     deployment = interface.create_deployment(target, model_uri, flavor, **config_dict)
     # TODO: Support async here and everywhere requires
@@ -55,13 +54,13 @@ def create_cli(flavor, model_uri, target, config):
 @parse_custom_arguments
 @deployment_target
 @deployment_id
-def delete_cli(_deployment_id, target, config):
+def delete_deployment(_deployment_id, target, config):
     """
     Delete the deployment with ID `deployment_id` from the specified target.
 
-    Additional plugin-specific arguments may also be passed to this command, via syntax like
-    `--param-name value`.
+    Additional plugin-specific arguments may also be passed to this command, via `-C key=value`.
     """
+    from mlflow.cli import _user_args_to_dict
     config_dict = _user_args_to_dict(config, flag_name="C")
     interface.delete_deployment(target, _deployment_id, **config_dict)
     click.echo("Deployment {} is deleted".format(_deployment_id))
@@ -79,15 +78,15 @@ def delete_cli(_deployment_id, target, config):
               "#artifact-stores")  # optional model_uri
 @click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
                                      "inferred if it's not given")
-def update_cli(flavor, model_uri, _deployment_id, target, config):
+def update_deployment(flavor, model_uri, _deployment_id, target, config):
     """
     Update the deployment with ID `deployment_id` in the specified target.
     You can update the URI of the model and/or the flavor of the deployed model (in which case the
     model URI must also be specified).
 
-    Additional plugin-specific arguments may also be passed to this command, via syntax like
-    `--param-name value`.
+    Additional plugin-specific arguments may also be passed to this command, via `-C key=value`.
     """
+    from mlflow.cli import _user_args_to_dict
     config_dict = _user_args_to_dict(config, flag_name="C")
     ret = interface.update_deployment(target, _deployment_id,
                                       model_uri=model_uri, flavor=flavor, **config_dict)
@@ -98,33 +97,33 @@ def update_cli(flavor, model_uri, _deployment_id, target, config):
 @commands.command("list", context_settings=context_settings)
 @parse_custom_arguments
 @deployment_target
-def list_cli(target, config):
+def list_deployment(target, config):
     """
     List the IDs of all model deployments in the specified target. These IDs can be used with
-    the `delete`, `update`, and `describe` commands.
+    the `delete`, `update`, and `get` commands.
 
-    Additional plugin-specific arguments may also be passed to this command, via syntax like
-    `--param-name value`.
+    Additional plugin-specific arguments may also be passed to this command, via `-C key=value`.
     """
+    from mlflow.cli import _user_args_to_dict
     config_dict = _user_args_to_dict(config, flag_name="C")
     ids = interface.list_deployments(target, **config_dict)
     click.echo("List of all deployments:\n{}".format(ids))
 
 
-@commands.command("describe", context_settings=context_settings)
+@commands.command("get", context_settings=context_settings)
 @parse_custom_arguments
 @deployment_target
 @deployment_id
-def describe_cli(_deployment_id, target, config):
+def get_deployment(_deployment_id, target, config):
     """
     Print a detailed description of the deployment with ID ``deployment_id`` in the specified
     target.
 
-    Additional plugin-specific arguments may also be passed to this command, via syntax like
-    `--param-name value`.
+    Additional plugin-specific arguments may also be passed to this command, via `-C key=value`.
     """
+    from mlflow.cli import _user_args_to_dict
     config_dict = _user_args_to_dict(config, flag_name="C")
-    desc = interface.describe_deployment(target, _deployment_id, **config_dict)
+    desc = interface.get_deployment(target, _deployment_id, **config_dict)
     for key, val in desc.items():
         click.echo("{}: {}".format(key, val))
     click.echo('\n')
