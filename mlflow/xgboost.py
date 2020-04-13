@@ -115,7 +115,8 @@ def save_model(xgb_model, path, conda_env=None, mlflow_model=Model()):
 
 
 def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=None,
-              model_signature: ModelSignature=None, input_example: ModelInputExample=None, **kwargs):
+              model_signature: ModelSignature=None, input_example: ModelInputExample=None,
+              **kwargs):
     """
     Log an XGBoost model as an MLflow artifact for the current run.
 

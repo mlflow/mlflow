@@ -35,16 +35,16 @@ def test_model_signature():
     signature1 = ModelSignature(
         inputs=Schema([ColSpec("a", DataType.boolean), ColSpec("b", DataType.binary)]),
         outputs=Schema([ColSpec(name=None, type=DataType.double),
-                 ColSpec(name=None, type=DataType.double)]))
+                        ColSpec(name=None, type=DataType.double)]))
     signature2 = ModelSignature(
         inputs=Schema([ColSpec("a", DataType.boolean), ColSpec("b", DataType.binary)]),
         outputs=Schema([ColSpec(name=None, type=DataType.double),
-                 ColSpec(name=None, type=DataType.double)]))
+                        ColSpec(name=None, type=DataType.double)]))
     assert signature1 == signature2
     signature3 = ModelSignature(
         inputs=Schema([ColSpec("a", DataType.boolean), ColSpec("b", DataType.binary)]),
         outputs=Schema([ColSpec(name=None, type=DataType.float),
-                 ColSpec(name=None, type=DataType.double)]))
+                        ColSpec(name=None, type=DataType.double)]))
     assert signature3 != signature1
     as_json = json.dumps(signature1.to_dict())
     signature4 = ModelSignature.from_dict(json.loads(as_json))
@@ -121,7 +121,8 @@ def test_input_examples(pandas_df_with_all_types):
     # pass the input as dictionary instead
     with TempDir() as tmp:
         sig = infer_signature(
-            {name: pandas_df_with_all_types[name].values for name in pandas_df_with_all_types.columns})
+            {name: pandas_df_with_all_types[name].values
+             for name in pandas_df_with_all_types.columns})
         filename = save_example(tmp.path(), pandas_df_with_all_types, schema=sig.inputs)
         parsed_df = from_json(tmp.path(filename), schema=sig.inputs)
         assert (pandas_df_with_all_types == parsed_df).all().all()

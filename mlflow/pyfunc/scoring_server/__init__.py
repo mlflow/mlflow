@@ -186,8 +186,8 @@ def init(model):
             return flask.Response(
                 response=("This predictor only supports the following content types,"
                           " {supported_content_types}. Got '{received_content_type}'.".format(
-                    supported_content_types=CONTENT_TYPES,
-                    received_content_type=flask.request.content_type)),
+                            supported_content_types=CONTENT_TYPES,
+                            received_content_type=flask.request.content_type)),
                 status=415,
                 mimetype='text/plain')
 
@@ -237,6 +237,7 @@ def _get_jsonable_obj(data, pandas_orient="records"):
     """Attempt to make the data json-able via standard library.
     Look for some commonly used types that are not jsonable and convert them into json-able ones.
     Unknown data types are returned as is.
+
     :param data: data to be converted, works with pandas and numpy, rest will be returned as is.
     :param pandas_orient: If `data` is a Pandas DataFrame, it will be converted to a JSON
                           dictionary using this Pandas serialization orientation.
