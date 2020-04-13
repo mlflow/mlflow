@@ -73,8 +73,6 @@ if __name__ == "__main__":
         mlflow.log_metric("r2", r2)
         mlflow.log_metric("mae", mae)
 
-        model_signature = infer_signature(train_x, predicted_qualities)
-        input_example = train_x.head(1)
         tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
 
         # Model registry does not work with file store
@@ -84,10 +82,6 @@ if __name__ == "__main__":
             # There are other ways to use the Model Registry, which depends on the use case,
             # please refer to the doc for more information:
             # https://mlflow.org/docs/latest/model-registry.html#api-workflow
-            mlflow.sklearn.log_model(lr, "model", registered_model_name="ElasticnetWineModel",
-                                     model_signature=model_signature,
-                                     input_example=input_example)
+            mlflow.sklearn.log_model(lr, "model", registered_model_name="ElasticnetWineModel")
         else:
-            mlflow.sklearn.log_model(lr, "model",
-                                     model_signature=model_signature,
-                                     input_example=input_example)
+            mlflow.sklearn.log_model(lr, "model")
