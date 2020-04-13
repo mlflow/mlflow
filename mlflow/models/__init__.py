@@ -70,7 +70,7 @@ class Model(object):
 
     def to_dict(self):
         res = self.__dict__.copy()
-        if "signature" in res:
+        if "signature" in res and res["signature"] is not None:
             res["signature"] = res["signature"].to_dict()
         return res
 

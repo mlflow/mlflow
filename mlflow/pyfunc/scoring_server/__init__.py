@@ -29,6 +29,7 @@ import traceback
 # dependencies to the minimum here.
 # ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
+from mlflow.utils.proto_json_utils import NumpyEncoder
 
 try:
     from mlflow.pyfunc import load_model
@@ -120,8 +121,29 @@ def parse_split_oriented_json_input_to_numpy(json_input):
             error_code=MALFORMED_REQUEST)
 
 
-def predictions_to_json(predictions, output):
+def predictions_to_json(raw_predictions, output):
+    predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
+    if isinstance(predictions, pd.DataFrame):
+        predictions = predictions.to_dict(orient="records")
     json.dump(predictions, output, cls=NumpyEncoder)
+
+
+def _get_jsonable_obj(data, pandas_orient="records"):
+    """Attempt to make the data json-able via standard library.
+    Look for some commonly used types that are not jsonable and convert them into json-able ones.
+    Unknown data types are returned as is.
+    :param data: data to be converted, works with pandas and numpy, rest will be returned as is.
+    :param pandas_orient: If `data` is a Pandas DataFrame, it will be converted to a JSON
+                          dictionary using this Pandas serialization orientation.
+    """
+    if isinstance(data, np.ndarray):
+        return data.tolist()
+    if isinstance(data, pd.DataFrame):
+        return data.to_dict(orient=pandas_orient)
+    if isinstance(data, pd.Series):
+        return pd.DataFrame(data).to_dict(orient=pandas_orient)
+    else:  # by default just return whatever this is and hope for the best
+        return data
 
 
 def _handle_serving_error(error_message, error_code):
@@ -184,8 +206,8 @@ def init(model):
             return flask.Response(
                 response=("This predictor only supports the following content types,"
                           " {supported_content_types}. Got '{received_content_type}'.".format(
-                            supported_content_types=CONTENT_TYPES,
-                            received_content_type=flask.request.content_type)),
+                    supported_content_types=CONTENT_TYPES,
+                    received_content_type=flask.request.content_type)),
                 status=415,
                 mimetype='text/plain')
 
@@ -229,16 +251,3 @@ def _predict(model_uri, input_path, output_path, content_type, json_format):
 def _serve(model_uri, port, host):
     pyfunc_model = load_model(model_uri)
     init(pyfunc_model).run(port=port, host=host)
-
-
-class NumpyEncoder(JSONEncoder):
-    """ Special json encoder for numpy types.
-    Note that some numpy types doesn't have native python equivalence,
-    hence json.dumps will raise TypeError.
-    In this case, you'll need to convert your numpy types into its closest python equivalence.
-    """
-
-    def default(self, o):  # pylint: disable=E0202
-        if isinstance(o, np.generic):
-            return np.asscalar(o)
-        return JSONEncoder.default(self, o)
