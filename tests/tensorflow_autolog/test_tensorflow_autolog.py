@@ -287,6 +287,62 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
     assert len(metric_history) == num_of_epochs
 
 
+@pytest.mark.large
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_callback(
+        tmpdir, random_train_data, random_one_hot_labels, fit_variant):
+    tensorboard_callback_logging_dir_path = str(tmpdir.mkdir("tb_logs"))
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(
+        tensorboard_callback_logging_dir_path, histogram_freq=0)
+
+    mlflow.tensorflow.autolog()
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_tf_keras_model()
+
+    if fit_variant == 'fit_generator':
+        def generator():
+            while True:
+                yield data, labels
+        model.fit_generator(
+            generator(), epochs=10, steps_per_epoch=1, callbacks=[tensorboard_callback])
+    else:
+        model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
+
+    assert os.path.exists(tensorboard_callback_logging_dir_path)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent(
+        tmpdir, random_train_data, random_one_hot_labels, fit_variant):
+    import mock
+    from mlflow.tensorflow import _TensorBoardLogDir
+
+    mlflow.tensorflow.autolog()
+
+    mock_log_dir_inst = _TensorBoardLogDir(location=str(tmpdir.mkdir("tb_logging")), is_temp=True)
+    with mock.patch("mlflow.tensorflow._TensorBoardLogDir", autospec=True) as mock_log_dir_class:
+        mock_log_dir_class.return_value = mock_log_dir_inst
+
+        data = random_train_data
+        labels = random_one_hot_labels
+
+        model = create_tf_keras_model()
+
+        if fit_variant == 'fit_generator':
+            def generator():
+                while True:
+                    yield data, labels
+            model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
+        else:
+            model.fit(data, labels, epochs=10)
+
+        assert not os.path.exists(mock_log_dir_inst.location)
+
+
 @pytest.fixture
 def tf_core_random_tensors():
     mlflow.tensorflow.autolog(every_n_iter=4)
@@ -422,16 +478,10 @@ def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_d
                                          "/model", session)
 
 
-@pytest.fixture
-def duplicate_autolog_tf_estimator_run(tmpdir, manual_run, export):
-    mlflow.tensorflow.autolog(every_n_iter=23)  # 23 is prime; no false positives in test
-    run = tf_estimator_random_data_run(tmpdir, manual_run, export)
-    return run  # should be autologged every 4 steps
-
-
 @pytest.mark.large
 @pytest.mark.parametrize('export', [True, False])
-def test_duplicate_autolog_second_overrides(duplicate_autolog_tf_estimator_run):
+def test_duplicate_autolog_second_overrides(tf_estimator_random_data_run):
+    mlflow.tensorflow.autolog(every_n_iter=23)
     client = mlflow.tracking.MlflowClient()
-    metrics = client.get_metric_history(duplicate_autolog_tf_estimator_run.info.run_id, 'loss')
+    metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, 'loss')
     assert all((x.step - 1) % 4 == 0 for x in metrics)
