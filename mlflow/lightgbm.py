@@ -31,7 +31,7 @@ import gorilla
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -116,7 +116,9 @@ def save_model(lgb_model, path, conda_env=None, mlflow_model=Model()):
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(lgb_model, artifact_path, conda_env=None, registered_model_name=None, **kwargs):
+def log_model(lgb_model, artifact_path, conda_env=None, registered_model_name=None,
+              model_signature: ModelSignature=None, input_example: ModelInputExample=None,
+              **kwargs):
     """
     Log a LightGBM model as an MLflow artifact for the current run.
 
@@ -145,11 +147,20 @@ def log_model(lgb_model, artifact_path, conda_env=None, registered_model_name=No
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
+    :param model_signature: Note:: Experimental: This argument may change or be removed in a
+                            future release without warning. Model signature describes model input
+                            and output schema.
+    :param input_example: Note:: Experimental: This argument may change or be removed in a
+                          future release without warning. Input example provides one or several
+                          examples of valid model input. The example can be used as a hint of what
+                          data to feed the model.
     :param kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.lightgbm,
               registered_model_name=registered_model_name,
-              lgb_model=lgb_model, conda_env=conda_env, **kwargs)
+              lgb_model=lgb_model, conda_env=conda_env,
+              model_signature=model_signature, input_example=input_example,
+              **kwargs)
 
 
 def _load_model(path):

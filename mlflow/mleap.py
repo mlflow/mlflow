@@ -17,7 +17,7 @@ import traceback
 from six import reraise
 
 import mlflow
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.exceptions import MlflowException
 from mlflow.utils import keyword_only
 
@@ -25,7 +25,8 @@ FLAVOR_NAME = "mleap"
 
 
 @keyword_only
-def log_model(spark_model, sample_input, artifact_path, registered_model_name=None):
+def log_model(spark_model, sample_input, artifact_path, registered_model_name=None,
+              model_signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log a Spark MLLib model in MLeap format as an MLflow artifact
     for the current run. The logged model will have the MLeap flavor.
@@ -45,6 +46,13 @@ def log_model(spark_model, sample_input, artifact_path, registered_model_name=No
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
+    :param model_signature: Note:: Experimental: This argument may change or be removed in a
+                            future release without warning. Model signature describes model input
+                            and output schema.
+    :param input_example: Note:: Experimental: This argument may change or be removed in a
+                          future release without warning. Input example provides one or several
+                          examples of valid model input. The example can be used as a hint of what
+                          data to feed the model.
 
     >>> import mlflow
     >>> import mlflow.mleap
@@ -79,7 +87,9 @@ def log_model(spark_model, sample_input, artifact_path, registered_model_name=No
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap,
                      spark_model=spark_model, sample_input=sample_input,
-                     registered_model_name=registered_model_name)
+                     registered_model_name=registered_model_name,
+                     model_signature=model_signature,
+                     input_example=input_example)
 
 
 @keyword_only

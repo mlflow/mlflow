@@ -1,4 +1,10 @@
+import base64
+import json
+from json import JSONEncoder
+
 from google.protobuf.json_format import MessageToJson, ParseDict
+import pandas as pd
+import numpy as np
 
 
 def message_to_json(message):
@@ -38,3 +44,17 @@ def parse_dict(js_dict, message):
     """Parses a JSON dictionary into a message proto, ignoring unknown fields in the JSON."""
     _stringify_all_experiment_ids(js_dict)
     ParseDict(js_dict=js_dict, message=message, ignore_unknown_fields=True)
+
+
+class NumpyEncoder(JSONEncoder):
+    """ Special json encoder for numpy types.
+    Note that some numpy types doesn't have native python equivalence,
+    hence json.dumps will raise TypeError.
+    In this case, you'll need to convert your numpy types into its closest python equivalence.
+    """
+    def default(self, o):  # pylint: disable=E0202
+        if isinstance(o, np.ndarray):
+            return json.dumps(o.tolist(), cls=NumpyEncoder)
+        if isinstance(o, np.generic):
+            return np.asscalar(o)
+        return JSONEncoder.default(self, o)

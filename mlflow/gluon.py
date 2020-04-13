@@ -12,7 +12,7 @@ from mxnet.gluon.nn import HybridSequential
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature, InputExample, ModelInputExample
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log
@@ -163,7 +163,8 @@ def get_default_conda_env():
 
 
 @experimental
-def log_model(gluon_model, artifact_path, conda_env=None):
+def log_model(gluon_model, artifact_path, conda_env=None,
+              model_signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log a Gluon model as an MLflow artifact for the current run.
 
@@ -186,6 +187,13 @@ def log_model(gluon_model, artifact_path, conda_env=None):
                                 'mxnet=1.5.0'
                             ]
                         }
+    :param model_signature: Note:: Experimental: This argument may change or be removed in a
+                            future release without warning. Model signature describes model input
+                            and output schema.
+    :param input_example: Note:: Experimental: This argument may change or be removed in a
+                          future release without warning. Input example provides one or several
+                          examples of valid model input. The example can be used as a hint of what
+                          data to feed the model.
 
     >>> from mxnet.gluon import Trainer
     >>> from mxnet.gluon.contrib import estimator
@@ -208,7 +216,7 @@ def log_model(gluon_model, artifact_path, conda_env=None):
     >>>   mlflow.gluon.log_model(net, "model")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.gluon, gluon_model=gluon_model,
-              conda_env=conda_env)
+              conda_env=conda_env, model_signature=model_signature, input_example=input_example)
 
 
 @experimental

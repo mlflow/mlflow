@@ -15,7 +15,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -102,7 +102,9 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=None, **kwargs):
+def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=None,
+              model_signature: ModelSignature=None, input_example: ModelInputExample=None,
+              **kwargs):
     """
     Log an H2O model as an MLflow artifact for the current run.
 
@@ -130,11 +132,20 @@ def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=No
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
+    :param model_signature: Note:: Experimental: This argument may change or be removed in a
+                            future release without warning. Model signature describes model input
+                            and output schema.
+    :param input_example: Note:: Experimental: This argument may change or be removed in a
+                          future release without warning. Input example provides one or several
+                          examples of valid model input. The example can be used as a hint of what
+                          data to feed the model.
     :param kwargs: kwargs to pass to ``h2o.save_model`` method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,
               registered_model_name=registered_model_name,
-              h2o_model=h2o_model, conda_env=conda_env, **kwargs)
+              h2o_model=h2o_model, conda_env=conda_env,
+              model_signature=model_signature, input_example=input_example,
+              **kwargs)
 
 
 def _load_model(path, init=False):

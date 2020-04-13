@@ -21,7 +21,7 @@ import pandas as pd
 
 from distutils.version import LooseVersion
 from mlflow import pyfunc
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature, ModelInputExample
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -208,7 +208,8 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
 
 
 def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, keras_module=None,
-              registered_model_name=None, **kwargs):
+              registered_model_name=None, model_signature: ModelSignature=None,
+              input_example: ModelInputExample=None, **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
@@ -245,6 +246,13 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
+    :param model_signature: Note:: Experimental: This argument may change or be removed in a
+                            future release without warning. Model signature describes model input
+                            and output schema.
+    :param input_example: Note:: Experimental: This argument may change or be removed in a
+                          future release without warning. Input example provides one or several
+                          examples of valid model input. The example can be used as a hint of what
+                          data to feed the model.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     >>> from keras import Dense, layers
@@ -260,7 +268,9 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
               keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects,
-              keras_module=keras_module, registered_model_name=registered_model_name, **kwargs)
+              keras_module=keras_module, registered_model_name=registered_model_name,
+              model_signature=model_signature, input_example=input_example,
+              **kwargs)
 
 
 def _save_custom_objects(path, custom_objects):

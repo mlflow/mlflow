@@ -18,7 +18,7 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -150,7 +150,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
 def log_model(sk_model, artifact_path, conda_env=None,
               serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE, registered_model_name=None,
-              model_signature=None, input_example=None):
+              model_signature: ModelSignature=None, input_example=None):
     """
     Log a scikit-learn model as an MLflow artifact for the current run.
 
@@ -183,6 +183,13 @@ def log_model(sk_model, artifact_path, conda_env=None,
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
+    :param model_signature: Note:: Experimental: This argument may change or be removed in a
+                            future release without warning. Model signature describes model input
+                            and output schema.
+    :param input_example: Note:: Experimental: This argument may change or be removed in a
+                          future release without warning. Input example provides one or several
+                          examples of valid model input. The example can be used as a hint of what
+                          data to feed the model.
 
     .. code-block:: python
         :caption: Example

@@ -29,7 +29,7 @@ import traceback
 # dependencies to the minimum here.
 # ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
-from mlflow.pyfunc.utils import get_jsonable_obj
+from mlflow.utils.proto_json_utils import get_jsonable_obj
 
 try:
     from mlflow.pyfunc import load_model
