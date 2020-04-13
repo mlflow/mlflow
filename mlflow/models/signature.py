@@ -33,8 +33,8 @@ class DataType(Enum):
     boolean = (1, np.bool)
     integer = (2, np.int32)
     long = (3, np.int64)
-    float = (4, np.float)
-    double = (5, np.double)
+    float = (4, np.float32)
+    double = (5, np.float64)
     string = (6, np.str)
     binary = (7, np.bytes_)
 
