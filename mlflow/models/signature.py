@@ -2,28 +2,11 @@
 The ``mlflow.models.signature`` module provides an API for specification of model signature and
 of model example input. Both model signature and input example can be stored as part of MLflow
 model metadata and provide valuable insights into the model behavior. In addition, the knowledge of
-input and output model schema can be leveraged by MLflow deployment tools - for example spark_udf
-can use the output schema to return result as struct (pandas.DataFrame).
-
-**********************
-Model Signature Format
-**********************
-
-
-**************************
-Model Input Example Format
-**************************
-
-
-Creating Schema
-
-
-The model schema can be constructed by hand or inferred from user provided dataset using
-:py:mod:`mlflow.models.signature.infer_signature`.
-
-
+input and output model schema can be leveraged by MLflow deployment tools.
 """
+
 import base64
+import importlib
 import os
 from enum import Enum
 
@@ -76,55 +59,55 @@ class ColSpec(object):
             raise MlflowException("Unsupported type '{0}', expected instance of DataType or "
                                   "one of {1}".format(type, [t.name for t in DataType]))
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, str]:
         """
         Serialize into a jsonable dictionary.
         :return: dictionary representation of the column spec.
         """
         return {"name": self.name, "type": self.type.name}
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         names_eq = self.name is None and other.name is None or self.name == other.name
         return names_eq and self.type == other.type
 
-    def __str__(self):
-        return "{name}: {type}".format(name=self.name, type=self.type)
-
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "{name}: {type}".format(name=self.name, type=self.type)
 
 
 class Schema(object):
+    """
+    Schema declares column types in a dataset.
+    """
     def __init__(self, cols: List[ColSpec]):
         self._cols = cols
 
     @property
-    def columns(self):
+    def columns(self) -> List[ColSpec]:
         return self._cols
 
-    def column_names(self):
+    def column_names(self) -> List[str]:
         return [x.name or i for i, x in enumerate(self._cols)]
 
-    def column_types(self):
+    def column_types(self) -> List[DataType]:
         return [x.type for x in self._cols]
 
-    def numpy_types(self):
+    def numpy_types(self) -> List[np.dtype]:
         return [x.type.to_numpy() for x in self._cols]
 
-    def to_json(self):
+    def to_json(self) -> str:
         return json.dumps([x.to_dict() for x in self._cols])
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if isinstance(other, Schema):
             return self.columns == other.columns
         else:
             return False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr(self.columns)
 
     @classmethod
-    def from_json(cls, json_str):
+    def from_json(cls, json_str: str):
         return cls([ColSpec(**x) for x in json.loads(json_str)])
 
 
@@ -152,7 +135,7 @@ class ModelSignature(object):
         self.inputs = inputs
         self.outputs = outputs
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, str]:
         """
         Serialize into a 'jsonable' dictionary.
 
@@ -169,7 +152,7 @@ class ModelSignature(object):
         }
 
     @classmethod
-    def from_dict(cls, signature_dict):
+    def from_dict(cls, signature_dict: Dict[str, str]):
         """
         Deserialize from dictionary representation.
 
@@ -186,10 +169,10 @@ class ModelSignature(object):
         else:
             return cls(inputs)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return self.inputs == other.inputs and self.outputs == other.outputs
 
-    def __repr__(self):
+    def __repr__(self) -> bool:
         import json
         return json.dumps({"ModelSignature": self.to_dict()}, indent=2)
 
@@ -230,33 +213,55 @@ def infer_signature(model_input: MlflowModelDataset,
     return ModelSignature(inputs, outputs)
 
 
-def save_example(path: str, input_example: ModelInputExample, input_schema: Schema = None):
+def save_example(path: str, input_example: ModelInputExample, schema: Schema = None) -> str:
+    """
+    Save mlflow example into a file on agiven path and return the resulting filename.
+
+    MLflow examples are stored as json and so the input data must be jsonable. If the input data
+    contains binary columns, the caller must provide schema adn binary columns will be  base64
+    encoded before generating the output.
+
+    :param path: Path where to store the example.
+    :param input_example: Data speficying the input example.
+    :param schema: Input example data types.
+    :return: Filename of the stored example.
+    """
     if isinstance(input_example, dict):
-        input_example = _dataframe_from_dict(input_example, input_schema)
+        if all([np.isscalar(x) for x in input_example.values()]):
+            input_example = pd.DataFrame({x: [v] for x, v in input_example.items()})
     elif isinstance(input_example, list):
         input_example = pd.DataFrame(input_example)
     if isinstance(input_example, pd.DataFrame):
         example_filename = "input_dataframe_example.json"
+    elif isinstance(input_example, dict):
+        example_filename = "input_dictionary_example.json"
     elif isinstance(input_example, np.ndarray):
         example_filename = "input_array_example.json"
     else:
         raise TypeError("Unexpected type of input_example. Expected one of "
                         "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
-            type(input_example)))
-    print()
-    print(input_example)
-    print()
-    print(input_schema)
-    print()
+                          type(input_example)))
     with open(os.path.join(path, example_filename), "w") as f:
-        to_json(input_example, pandas_orient="records", schema=input_schema, output_stream=f)
+        to_json(input_example, pandas_orient="records", schema=schema, output_stream=f)
     return example_filename
 
 
-def from_json(json_str, schema: Schema = None, pandas_orient="records"):
+def from_json(path_or_str, schema: Schema = None, pandas_orient: str="records") -> pd.DataFrame:
+    """
+    Read data frame back from json.
+
+    The data is always read as DataFrame even if it was written out as other supported data types (
+    numpy.ndarray or {str->numpy.ndarray}. If the data was saved with a schema, caller should pass
+    the same schema to ensure correct data parsing (e.g. binary columns need to be base64 decoded).
+
+    :param path_or_str: Path to a json file or a json string.
+    :param schema: Mlflow schema used when parsing the data.
+    :param pandas_orient: pandas data frame convention used to store the data.
+    :return: pandas.DataFrame.
+    """
     if schema is not None:
         dtypes = dict(zip(schema.column_names(), schema.column_types()))
-        df = pd.read_json(json_str, orient=pandas_orient, dtype=dtypes)
+        df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes)
         binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
 
         def base64decode(x):
@@ -267,18 +272,23 @@ def from_json(json_str, schema: Schema = None, pandas_orient="records"):
             df[col] = np.array(df[col].map(base64decode), dtype=np.bytes_)
             return df
     else:
-        return pd.read_json(json_str, orient=pandas_orient, dtype=False)
+        return pd.read_json(path_or_str, orient=pandas_orient, dtype=False)
 
 
-def to_json(data: MlflowModelDataset, pandas_orient="records", schema: Schema = None,
+def to_json(data: MlflowModelDataset, pandas_orient: str="records", schema: Schema = None,
             output_stream=None):
-    """Attempt to make the data json-able via standard library.
-    Look for some commonly used types that are not jsonable and convert them into json-able ones.
-    Unknown data types are returned as is.
+    """Write data out as json.
+    The data can not contain any non-jsonable columns except for 'binary' columns. If data contains
+    binary column(s), the caller must pass schema otherwise TypeError is raised. Binary columns are
+    base64 encoded.
 
     :param data: data to be converted, works with pandas and numpy, rest will be returned as is.
     :param pandas_orient: If `data` is a Pandas DataFrame, it will be converted to a JSON
                           dictionary using this Pandas serialization orientation.
+    :param schema: Schema of the data. It is required if the dataset contains data types that are
+                   not jsonable (binary).
+    :param output_stream: File-like. Output is written into the output stream if provided. It is
+                          returned as a string otherwise.
     """
 
     def get_jsonable_data(data: MlflowModelDataset, pandas_orient, schema: Schema = None):
@@ -288,6 +298,7 @@ def to_json(data: MlflowModelDataset, pandas_orient="records", schema: Schema = 
             binary_cols = []
 
         print("binary cols  = ", binary_cols)
+
         def base64encode(x):
             return base64.encodebytes(x).decode("ascii")
 
@@ -313,18 +324,19 @@ def to_json(data: MlflowModelDataset, pandas_orient="records", schema: Schema = 
             return data.to_dict(orient=pandas_orient)
 
         if isinstance(data, dict):
-            if binary_cols:
-                new_data = {}
-                keys = list(data.keys())
-                binary_col_names = set([keys[i] for i in binary_cols])
-                for col in keys:
-                    if not isinstance(data[col], np.ndarray):
-                        raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(data[col])))
-                    if col in binary_col_names:
-                        new_data[col] = base64_encode_ndarray(data[col]).tolist()
-                    else:
-                        new_data[col] = data[col].tolist()
-                return new_data
+            print(" GOT DICT!", data)
+            new_data = {}
+            keys = list(data.keys())
+            binary_col_names = set([keys[i] for i in binary_cols])
+            for col in keys:
+                if not isinstance(data[col], np.ndarray):
+                    raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(data[col])))
+                if col in binary_col_names:
+                    new_data[col] = base64_encode_ndarray(data[col]).tolist()
+                else:
+                    new_data[col] = data[col].tolist()
+            print("NEW_DATA", new_data)
+            return new_data
         if isinstance(data, np.ndarray):
             if binary_cols:
                 data = base64_encode_ndarray(data, binary_cols)
@@ -338,24 +350,16 @@ def to_json(data: MlflowModelDataset, pandas_orient="records", schema: Schema = 
         return json.dumps(get_jsonable_data(data, pandas_orient), cls=NumpyEncoder)
 
 
-def _dataframe_from_dict(d: dict, schema: Schema = None) -> pd.DataFrame:
-    print()
-    print("dict")
-    print(d)
-    print("values")
-    print(d.values())
-    print("====")
-    print()
-    if all([np.isscalar(x) for x in d.values()]):
-        d = {x: np.array([v], dtype="object") for x, v in d.items()}
-    if schema is not None:
-        dtypes = dict(zip(schema.column_names(), schema.numpy_types()))
-        d = {x: y.astype(dtype=dtypes[x]) for x, y in d.items()}
-        return pd.DataFrame.from_dict(d)
-    else:
-        d = {x: y.astype("object") for x, y in d.items()}
-        print(d)
-        return pd.DataFrame.from_dict(d).infer_objects()
+# def _dataframe_from_dict(d: dict, schema: Schema = None) -> pd.DataFrame:
+#     if all([np.isscalar(x) for x in d.values()]):
+#         d = {x: np.array([v], dtype="object") for x, v in d.items()}
+#     if schema is not None:
+#         dtypes = dict(zip(schema.column_names(), schema.numpy_types()))
+#         d = {x: y.astype(dtype=dtypes[x]) for x, y in d.items()}
+#         return pd.DataFrame.from_dict(d)
+#     else:
+#         d = {x: y.astype("object") for x, y in d.items()}
+#         return pd.DataFrame.from_dict(d).infer_objects()
 
 
 def _map_numpy_dtype(col: np.ndarray) -> DataType:
@@ -420,8 +424,10 @@ def _map_spark_type(x) -> DataType:
 
 
 def _is_spark_df(x) -> bool:
-    import pyspark.sql.dataframe
-    return isinstance(x, pyspark.sql.dataframe.DataFrame)
+    try:
+        return isinstance(x, importlib.import_module("pyspark.sql.dataframe").DataFrame)
+    except ImportError:
+        return False
 
 
 def _infer_schema(data: MlflowModelDataset) -> Schema:
