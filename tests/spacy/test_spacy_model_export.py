@@ -14,6 +14,7 @@ from sklearn.datasets import fetch_20newsgroups
 
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
+from mlflow.models import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -198,6 +199,37 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.spacy.get_default_conda_env()
+
+
+@pytest.mark.large
+def test_model_log_with_pyfunc_flavor(spacy_model_with_data):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.spacy.log_model(spacy_model=spacy_model_with_data.model, artifact_path=artifact_path)
+        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
+
+        loaded_model = Model.load(model_path)
+        assert pyfunc.FLAVOR_NAME in loaded_model.flavors
+
+
+@pytest.mark.large
+def test_model_log_without_pyfunc_flavor():
+    artifact_path = "model"
+    nlp = spacy.blank("en")
+
+    # Add a component not compatible with pyfunc
+    ner = nlp.create_pipe("ner")
+    nlp.add_pipe(ner, last=True)
+
+    # Ensure the pyfunc flavor is not present after logging and loading the model
+    with mlflow.start_run():
+        mlflow.spacy.log_model(spacy_model=nlp, artifact_path=artifact_path)
+        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
+
+        loaded_model = Model.load(model_path)
+        assert loaded_model.flavors.keys() == {"spacy"}
 
 
 def _train_model(nlp, train_data, n_iter=5):

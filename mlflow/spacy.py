@@ -91,8 +91,12 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=Model()):
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spacy",
-                        data=model_data_subpath, env=conda_env_subpath)
+    # Save the pyfunc flavor if at least one text categorizer in spaCy pipeline
+    if any([isinstance(pipe_component[1], spacy.pipeline.TextCategorizer)
+            for pipe_component in spacy_model.pipeline]):
+        pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spacy",
+                            data=model_data_subpath, env=conda_env_subpath)
+
     mlflow_model.add_flavor(FLAVOR_NAME, spacy_version=spacy.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
