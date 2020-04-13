@@ -14,10 +14,8 @@ from sklearn.linear_model import ElasticNet
 from urllib.parse import urlparse
 import mlflow
 import mlflow.sklearn
-from mlflow.models.signature import infer_signature
 
 import logging
-
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
 
@@ -29,12 +27,13 @@ def eval_metrics(actual, pred):
     return rmse, mae, r2
 
 
+
 if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     np.random.seed(40)
 
     # Read the wine-quality csv file from the URL
-    csv_url = \
+    csv_url =\
         'http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv'
     try:
         data = pd.read_csv(csv_url, sep=';')
