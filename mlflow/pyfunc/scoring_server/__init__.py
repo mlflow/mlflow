@@ -29,7 +29,6 @@ import traceback
 # dependencies to the minimum here.
 # ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
-from mlflow.utils.proto_json_utils import get_jsonable_obj
 
 try:
     from mlflow.pyfunc import load_model
@@ -121,8 +120,7 @@ def parse_split_oriented_json_input_to_numpy(json_input):
             error_code=MALFORMED_REQUEST)
 
 
-def predictions_to_json(raw_predictions, output):
-    predictions = get_jsonable_obj(raw_predictions, pandas_orient="records")
+def predictions_to_json(predictions, output):
     json.dump(predictions, output, cls=NumpyEncoder)
 
 

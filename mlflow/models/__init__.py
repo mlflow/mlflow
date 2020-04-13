@@ -25,7 +25,7 @@ import pandas as pd
 
 import yaml
 
-
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature, ModelInputExample, \
     save_example
@@ -137,7 +137,7 @@ class Model(object):
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             if input_example is not None:
                 input_schema = model_signature.inputs if model_signature is not None else None
-                mlflow_model.example_input = save_example(tmp.path(), input_schema)
+                mlflow_model.input_example = save_example(tmp.path(), input_example, input_schema)
             if model_signature is not None:
                 mlflow_model.signature = model_signature
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
