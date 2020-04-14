@@ -1,8 +1,21 @@
 """
 The :py:mod:`mlflow.models.signature` module provides an API for specification of model signature
-and of model example input. Both model signature and input example can be stored as part of MLflow
-model metadata and provide valuable insights into the model behavior. In addition, the knowledge of
-input and output model schema can be leveraged by MLflow deployment tools.
+and of model example input.
+
+Model signature defines schema of model input and output. The schema is based on a simplified data
+frame model defined by a list of (optionally) named and (mandatory) typed columns. The currently
+supported data types are defined by :py:class:`DataType` and consists of basic scalar types and
+string and binary string. Neither arrays (and multidimensional arrays) nor structured types
+(struct, map) are supported at this time.
+
+Input example specifies one or more valid inputs (observations) to the model. The example is stored
+as json and so the examples are limited to jsonable content with the exception of binary data
+provided the signature is defined. If the example includes binary data and model signature is
+defined, the binary data is base64 encoded before producing output.
+
+User can construct schema by hand or infer it from a dataset. Input examples are provided as is
+(pandas.DataFrame, numpy.ndarray, dictinary or list) and are json serialized  and stored as part of
+the model artifacts.
 """
 
 import base64
