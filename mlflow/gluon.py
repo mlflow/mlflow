@@ -43,9 +43,12 @@ def load_model(model_uri, ctx):
 
     :return: A Gluon model instance.
 
-    >>> # Load persisted model as a Gluon model, make inferences against an NDArray
-    >>> model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model")
-    >>> model(nd.array(np.random.rand(1000, 1, 32)))
+    .. code-block:: python
+        :caption: Example
+
+        # Load persisted model as a Gluon model, make inferences against an NDArray
+        model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model")
+        model(nd.array(np.random.rand(1000, 1, 32)))
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
 
@@ -109,25 +112,28 @@ def save_model(gluon_model, path, mlflow_model=Model(), conda_env=None):
                             ]
                         }
 
-    >>> from mxnet.gluon import Trainer
-    >>> from mxnet.gluon.contrib import estimator
-    >>> from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
-    >>> from mxnet.gluon.nn import HybridSequential
-    >>> from mxnet.metric import Accuracy
-    >>> import mlflow
-    >>> # Build, compile, and train your model
-    >>> gluon_model_path = ...
-    >>> net = HybridSequential()
-    >>> with net.name_scope():
-    >>> ...
-    >>> net.hybridize()
-    >>> net.collect_params().initialize()
-    >>> softmax_loss = SoftmaxCrossEntropyLoss()
-    >>> trainer = Trainer(net.collect_params())
-    >>> est = estimator.Estimator(net=net, loss=softmax_loss, metrics=Accuracy(), trainer=trainer)
-    >>> est.fit(train_data=train_data, epochs=100, val_data=validation_data)
-    ... # Save the model as an MLflow Model
-    >>> mlflow.gluon.save_model(net, gluon_model_path)
+    .. code-block:: python
+        :caption: Example
+
+        from mxnet.gluon import Trainer
+        from mxnet.gluon.contrib import estimator
+        from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
+        from mxnet.gluon.nn import HybridSequential
+        from mxnet.metric import Accuracy
+        import mlflow
+        # Build, compile, and train your model
+        gluon_model_path = ...
+        net = HybridSequential()
+        with net.name_scope():
+            ...
+        net.hybridize()
+        net.collect_params().initialize()
+        softmax_loss = SoftmaxCrossEntropyLoss()
+        trainer = Trainer(net.collect_params())
+        est = estimator.Estimator(net=net, loss=softmax_loss, metrics=Accuracy(), trainer=trainer)
+        est.fit(train_data=train_data, epochs=100, val_data=validation_data)
+        # Save the model as an MLflow Model
+        mlflow.gluon.save_model(net, gluon_model_path)
     """
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -187,25 +193,28 @@ def log_model(gluon_model, artifact_path, conda_env=None):
                             ]
                         }
 
-    >>> from mxnet.gluon import Trainer
-    >>> from mxnet.gluon.contrib import estimator
-    >>> from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
-    >>> from mxnet.gluon.nn import HybridSequential
-    >>> from mxnet.metric import Accuracy
-    >>> import mlflow
-    >>> # Build, compile, and train your model
-    >>> net = HybridSequential()
-    >>> with net.name_scope():
-    >>> ...
-    >>> net.hybridize()
-    >>> net.collect_params().initialize()
-    >>> softmax_loss = SoftmaxCrossEntropyLoss()
-    >>> trainer = Trainer(net.collect_params())
-    >>> est = estimator.Estimator(net=net, loss=softmax_loss, metrics=Accuracy(), trainer=trainer)
-    >>> # Log metrics and log the model
-    >>> with mlflow.start_run() as run:
-    >>>   est.fit(train_data=train_data, epochs=100, val_data=validation_data)
-    >>>   mlflow.gluon.log_model(net, "model")
+    .. code-block:: python
+        :caption: Example
+
+        from mxnet.gluon import Trainer
+        from mxnet.gluon.contrib import estimator
+        from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
+        from mxnet.gluon.nn import HybridSequential
+        from mxnet.metric import Accuracy
+        import mlflow
+        # Build, compile, and train your model
+        net = HybridSequential()
+        with net.name_scope():
+            ...
+        net.hybridize()
+        net.collect_params().initialize()
+        softmax_loss = SoftmaxCrossEntropyLoss()
+        trainer = Trainer(net.collect_params())
+        est = estimator.Estimator(net=net, loss=softmax_loss, metrics=Accuracy(), trainer=trainer)
+        # Log metrics and log the model
+        with mlflow.start_run():
+            est.fit(train_data=train_data, epochs=100, val_data=validation_data)
+            mlflow.gluon.log_model(net, "model")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.gluon, gluon_model=gluon_model,
               conda_env=conda_env)

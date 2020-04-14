@@ -46,36 +46,38 @@ def log_model(spark_model, sample_input, artifact_path, registered_model_name=No
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
 
-    >>> import mlflow
-    >>> import mlflow.mleap
-    >>> import pyspark
-    >>> from pyspark.ml import Pipeline
-    >>> from pyspark.ml.classification import LogisticRegression
-    >>> from pyspark.ml.feature import HashingTF, Tokenizer
-    >>># training DataFrame
-    >>> training = spark.createDataFrame([
-    ...     (0, "a b c d e spark", 1.0),
-    ...     (1, "b d", 0.0),
-    ...     (2, "spark f g h", 1.0),
-    ...     (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
-    >>># testing DataFrame
-    >>> test_df = spark.createDataFrame([
-    ...     (4, "spark i j k"),
-    ...     (5, "l m n"),
-    ...     (6, "spark hadoop spark"),
-    ...     (7, "apache hadoop")], ["id", "text"])
-    >>> # Create an MLlib pipeline
-    >>> tokenizer = Tokenizer(inputCol="text", outputCol="words")
-    >>> hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
-    >>> lr = LogisticRegression(maxIter=10, regParam=0.001)
-    >>> pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
-    >>> model = pipeline.fit(training)
-    >>> #log parameters
-    >>> mlflow.log_param("max_iter", 10)
-    >>> mlflow.log_param("reg_param", 0.001)
-    >>> #log the Spark MLlib model in MLeap format
-    >>> mlflow.mleap.log_model(spark_model=model, sample_input=test_df,
-    >>>                        artifact_path="mleap-model")
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        import mlflow.mleap
+        import pyspark
+        from pyspark.ml import Pipeline
+        from pyspark.ml.classification import LogisticRegression
+        from pyspark.ml.feature import HashingTF, Tokenizer
+        # training DataFrame
+        training = spark.createDataFrame([
+            (0, "a b c d e spark", 1.0),
+            (1, "b d", 0.0),
+            (2, "spark f g h", 1.0),
+            (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
+        # testing DataFrame
+        test_df = spark.createDataFrame([
+            (4, "spark i j k"),
+            (5, "l m n"),
+            (6, "spark hadoop spark"),
+            (7, "apache hadoop")], ["id", "text"])
+        # Create an MLlib pipeline
+        tokenizer = Tokenizer(inputCol="text", outputCol="words")
+        hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
+        lr = LogisticRegression(maxIter=10, regParam=0.001)
+        pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
+        model = pipeline.fit(training)
+        # log parameters
+        mlflow.log_param("max_iter", 10)
+        mlflow.log_param("reg_param", 0.001)
+        # log the Spark MLlib model in MLeap format
+        mlflow.mleap.log_model(spark_model=model, sample_input=test_df, artifact_path="mleap-model")
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap,
                      spark_model=spark_model, sample_input=sample_input,

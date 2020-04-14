@@ -65,7 +65,9 @@ following parameters:
 
 .. rubric:: Example
 
->>> tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
+::
+
+    tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
 
 ::
 
@@ -77,7 +79,9 @@ following parameters:
   │   └── model.pkl
   └── mlflow_env.yml
 
->>> cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
+::
+
+    cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
 
 ::
 
@@ -352,8 +356,11 @@ def spark_udf(spark, model_uri, result_type="double"):
     converted to string. If the result type is not an array type, the left most column with
     matching type is returned.
 
-    >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
-    >>> df.withColumn("prediction", predict("name", "age")).show()
+    .. code-block:: python
+        :caption: Example
+
+        predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
+        df.withColumn("prediction", predict("name", "age")).show()
 
     :param spark: A SparkSession object.
     :param model_uri: The location, in URI format, of the MLflow model with the
