@@ -1,0 +1,25 @@
+.compare-table th.row-header {
+  min-width: 120px;
+}
+
+.compare-table th.inter-title {
+  padding: 20px 0 0;
+  background: transparent;
+}
+
+.compare-table td.data-value,
+.compare-table th.data-value {
+  overflow: hidden;
+  max-width: 120px;
+  text-overflow: ellipsis;
+}
+
+.responsive-table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.compare-table tr.row-changed th, .compare-table tr.row-changed td{
+  background-color: rgba(249, 237, 190, 0.5) ;
+  color: #555;
+}
