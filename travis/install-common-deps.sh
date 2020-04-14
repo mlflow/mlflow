@@ -8,9 +8,9 @@ fi
 # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
 # We do this conditionally because it saves us some downloading if the
 # version is the same.
-wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
 
-bash miniconda.sh -b -p $HOME/miniconda
+bash $HOME/miniconda.sh -b -p $HOME/miniconda
 export PATH="$HOME/miniconda/bin:$PATH"
 hash -r
 conda config --set always_yes yes --set changeps1 no
