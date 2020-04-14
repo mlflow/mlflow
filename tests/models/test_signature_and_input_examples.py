@@ -1,9 +1,9 @@
 import json
 import math
 import numpy as np
+import os
 import pandas as pd
 import pytest
-import pyspark
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ColSpec, DataType, ModelSignature, \
@@ -75,10 +75,6 @@ def test_schema_inference(pandas_df_with_all_types):
     assert sig.inputs == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
     assert sig.outputs is None
     df = pandas_df_with_all_types.drop(columns=["integer", "float"])
-    spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
-    sparkdf = spark_session.createDataFrame(df)
-    sig = infer_signature(sparkdf)
-    assert sig.inputs == Schema([ColSpec(x, x) for x in df.columns])
     sig = infer_signature(df.values)
     assert sig.inputs == Schema([ColSpec(None, x) for x in df.columns])
     sig = infer_signature(df, np.array([1, 2, 3], dtype=np.int32))
@@ -105,6 +101,25 @@ def test_schema_inference(pandas_df_with_all_types):
         infer_signature(pd.DataFrame({"x": [np.array([[1, 2, 3]], dtype=np.int64)]}))
     with pytest.raises(MlflowException):
         infer_signature({"x": np.array([[1, 2, 3]], dtype=np.int64)})
+
+
+def test_spark_schema_inference(pandas_df_with_all_types):
+    try:
+        import pyspark
+        from pyspark.sql.types import StringType, _parse_datatype_string, StructField, StructType
+        sig = infer_signature(pandas_df_with_all_types)
+        spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
+        schema = StructType(
+            [StructField(t.name, _parse_datatype_string(t.name), True)
+             for t in sig.inputs.column_types()])
+        assert sig.inputs == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
+        sparkdf = spark_session.createDataFrame(pandas_df_with_all_types, schema=schema)
+        sig = infer_signature(sparkdf)
+        assert sig.inputs == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
+    except ImportError as ex:
+        if os.name != "nt":
+            # we do not require pyspark tests to run on windows.
+            raise ex
 
 
 def test_input_examples(pandas_df_with_all_types):
