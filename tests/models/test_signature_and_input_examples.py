@@ -135,8 +135,8 @@ def test_input_examples(pandas_df_with_all_types):
         filename = save_example(tmp.path(), df_without_binary)
         parsed_df = from_json(tmp.path(filename))
         sig = infer_signature(df_without_binary)
-        for col, type in zip(sig.inputs.column_names(), sig.inputs.numpy_types()):
-            parsed_df[col] = parsed_df[col].astype(type)
+        for col_name, col_type in zip(sig.inputs.column_names(), sig.inputs.numpy_types()):
+            parsed_df[col_name] = parsed_df[col_name].astype(col_type)
         assert (df_without_binary == parsed_df).all().all()
 
     # input passed as numpy array

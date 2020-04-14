@@ -64,7 +64,7 @@ class ColSpec(object):
     Declares data type and optionally a name.
     """
 
-    def __init__(self, name: str, type: DataType):
+    def __init__(self, name: str, type: DataType):  # pylint: disable=redefined-builtin
         self.name = name
         try:
             self.type = getattr(DataType, type) if isinstance(type, str) else type
