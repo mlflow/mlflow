@@ -69,8 +69,8 @@ def score_model(spark, data_path, model_uri):
 
 @click.command(help="Score images.")
 @cli_args.MODEL_URI
-@click.argument("--data-path", "-d")
-def run(model_uri, data_path):
+@click.argument("data-path")
+def run(data_path, model_uri):
     with pyspark.sql.SparkSession.builder \
             .config(key="spark.python.worker.reuse", value=True) \
             .config(key="spark.ui.enabled", value=False) \

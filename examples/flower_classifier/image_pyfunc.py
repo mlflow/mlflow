@@ -10,6 +10,7 @@ import os
 import pandas as pd
 import PIL
 from PIL import Image
+import pip
 import yaml
 import tensorflow as tf
 
@@ -128,6 +129,7 @@ def log_model(keras_model, artifact_path, image_dims, domain):
                                               keras_version=keras.__version__,
                                               tf_name=tf.__name__,  # can have optional -gpu suffix
                                               tf_version=tf.__version__,
+                                              pip_version=pip.__version__,
                                               pillow_version=PIL.__version__))
 
         mlflow.pyfunc.log_model(artifact_path=artifact_path,
@@ -165,6 +167,8 @@ dependencies:
   - python=={python_version}
   - keras=={keras_version}
   - {tf_name}=={tf_version}
+  - pip=={pip_version}  
+  - pillow=={pillow_version}
   - pip:
-    - pillow=={pillow_version}
+    - mlflow>=1.6
 """
