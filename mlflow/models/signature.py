@@ -130,9 +130,9 @@ class ModelSignature(object):
     ModelSignature specifies schema of model's inputs and outputs.
 
     The current supported schema for both the input and the output is a data-frame like schema
-    defined as a list of column specification :py:class:`ColSpec`. Columns can be named and must specify
-    their data type. Currently the list of supported types is limited to scalar data types defined
-    in :py:class:`DataType` enum.
+    defined as a list of column specification :py:class:`ColSpec`. Columns can be named and must
+    specify their data type. Currently the list of supported types is limited to scalar data types
+    defined in :py:class:`DataType` enum.
 
     ModelSignature can be inferred from training dataset and model predictions using
     :py:func:`mlflow.models.signature.infer_signature`, or alternatively constructed by hand by
