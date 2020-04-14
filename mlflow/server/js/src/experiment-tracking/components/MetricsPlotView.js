@@ -67,13 +67,6 @@ export class MetricsPlotView extends React.Component {
     return Utils.formatTimestamp(timestamp);
   };
 
-  static getHoverTemplate = (history, isSingleHistory, lineSmoothness) => {
-    if (isSingleHistory || (lineSmoothness === 1)) {
-      return '%{y}';
-    }
-    return history.map((entry) => 'Value: ' + entry.value.toFixed(5) + '<br>Smoothed: %{y}');
-  };
-
   getPlotPropsForLineChart = () => {
     const { metrics, xAxis, showPoint, lineSmoothness, isComparing,
       deselectedCurves } = this.props;
@@ -92,10 +85,12 @@ export class MetricsPlotView extends React.Component {
           return MetricsPlotView.parseTimestamp(entry.timestamp, history, xAxis);
         }),
         y: EMA(history.map((entry) => entry.value), lineSmoothness),
+        text: history.map((entry) => entry.value.toFixed(5)),
         type: 'scatter',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
         marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
-        hovertemplate: MetricsPlotView.getHoverTemplate(history, isSingleHistory, lineSmoothness),
+        hovertemplate: (isSingleHistory || (lineSmoothness === 1)) ?
+            '%{y}' : 'Value: %{text}<br>Smoothed: %{y}',
         visible: visible,
         runId: runUuid,
         metricName: metricKey,
