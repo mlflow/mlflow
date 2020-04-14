@@ -6,7 +6,7 @@ import pytest
 import pyspark
 
 from mlflow.exceptions import MlflowException
-from mlflow.models.signature import ColSpec, DataType, ModelSignature, ModelInputExample, \
+from mlflow.models.signature import ColSpec, DataType, ModelSignature, \
     infer_signature, save_example, from_json, Schema
 from mlflow.utils.file_utils import TempDir
 

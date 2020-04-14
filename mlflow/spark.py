@@ -304,7 +304,7 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
         mleap.add_to_model(mlflow_model=mlflow_model, path=dst_dir, spark_model=spark_model,
                            sample_input=sample_input)
     if input_example is not None:
-        mlflow_model.example_input = save_example(path=dst_dir, data=input_example)
+        mlflow_model.example_input = save_example(path=dst_dir, input_example=input_example)
     if model_signature is not None:
         mlflow_model.signature = model_signature
     conda_env_subpath = "conda.yaml"

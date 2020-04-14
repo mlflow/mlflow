@@ -76,7 +76,7 @@ class ColSpec(object):
 
 class Schema(object):
     """
-    Schema declares column types in a dataset.
+    Schema specifies column types in a dataset.
     """
 
     def __init__(self, cols: List[ColSpec]):
@@ -173,7 +173,6 @@ class ModelSignature(object):
         return self.inputs == other.inputs and self.outputs == other.outputs
 
     def __repr__(self) -> str:
-        import json
         return json.dumps({"ModelSignature": self.to_dict()}, indent=2)
 
 
@@ -301,7 +300,7 @@ def to_json(data: MlflowModelDataset, pandas_orient: str = "records", schema: Sc
     def base64encode(x):
         return base64.encodebytes(x).decode("ascii")
 
-    def base64_encode_ndarray(x, binary_cols):
+    def base64_encode_ndarray(x):
         print("base64 encoding cols {}".format(binary_cols))
         base64encode_vec = np.vectorize(base64encode)
         if len(x.shape) == 1:
@@ -335,7 +334,7 @@ def to_json(data: MlflowModelDataset, pandas_orient: str = "records", schema: Sc
         data = new_data
     elif isinstance(data, np.ndarray):
         if binary_cols:
-            data = base64_encode_ndarray(data, binary_cols).tolist()
+            data = base64_encode_ndarray(data).tolist()
         else:
             data = data.tolist()
 
