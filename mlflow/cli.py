@@ -297,7 +297,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
         sys.exit(1)
 
 
-@cli.command()
+@cli.command(short_help="Permanently delete runs in the `deleted` lifecycle stage.")
 @click.option("--backend-store-uri", metavar="PATH",
               default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
               help="URI of the backend store from which to delete runs. Acceptable URIs are "
