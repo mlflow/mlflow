@@ -29,7 +29,7 @@ def _get_flavor_configuration(model_path, flavor_name):
     :param flavor_name: The name of the flavor configuration to load.
     :return: The flavor configuration as a dictionary.
     """
-    model_conf = _get_flavor_configuration_from_uri(model_path)
+    model_conf = _get_model_configuration(model_path)
     if flavor_name not in model_conf.flavors:
         raise MlflowException(
             "Model does not have the \"{flavor_name}\" flavor".format(flavor_name=flavor_name),
