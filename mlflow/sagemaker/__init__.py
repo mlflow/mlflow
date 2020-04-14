@@ -233,18 +233,19 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                        #SageMaker.Client.create_model>`_. For more information, see
                        https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
 
-                       Example:
+    .. code-block:: python
+        :caption: Example
 
-                       >>> import mlflow.sagemaker as mfs
-                       >>> vpc_config = {
-                       ...                  'SecurityGroupIds': [
-                       ...                      'sg-123456abc',
-                       ...                  ],
-                       ...                  'Subnets': [
-                       ...                      'subnet-123456abc',
-                       ...                  ]
-                       ...              }
-                       >>> mfs.deploy(..., vpc_config=vpc_config)
+        import mlflow.sagemaker as mfs
+        vpc_config = {
+                        'SecurityGroupIds': [
+                            'sg-123456abc',
+                        ],
+                        'Subnets': [
+                            'subnet-123456abc',
+                        ]
+                     }
+        mfs.deploy(..., vpc_config=vpc_config)
 
     :param flavor: The name of the flavor of the model to use for deployment. Must be either
                    ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
