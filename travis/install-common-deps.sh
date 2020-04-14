@@ -7,9 +7,9 @@ sudo chown travis /travis-install
 # We do this conditionally because it saves us some downloading if the
 # version is the same.
 if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-  wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
+  wget https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
 else
-  wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
+  wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
 fi
 
 bash /travis-install/miniconda.sh -b -p $HOME/miniconda

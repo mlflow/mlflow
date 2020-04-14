@@ -27,6 +27,7 @@
 - [ ] Projects
 - [ ] Artifacts
 - [ ] Models
+- [ ] Model Registry
 - [ ] Scoring
 - [ ] Serving
 - [ ] R
