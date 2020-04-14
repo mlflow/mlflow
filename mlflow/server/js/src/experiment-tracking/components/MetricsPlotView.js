@@ -1,23 +1,34 @@
 import React from 'react';
 import Utils from '../../common/utils/Utils';
 import _ from 'lodash';
-import PropTypes, {array} from 'prop-types';
-import { X_AXIS_STEP, X_AXIS_RELATIVE } from './MetricsPlotControls';
+import PropTypes from 'prop-types';
+import { X_AXIS_STEP, X_AXIS_RELATIVE, MAX_LINE_SMOOTHNESS } from './MetricsPlotControls';
 import { CHART_TYPE_BAR } from './MetricsPlotPanel';
 import Plot from '../../../node_modules/react-plotly.js/react-plotly';
 
 const MAX_RUN_NAME_DISPLAY_LENGTH = 36;
 
-function EMA(mArray, mRange) {
-  const k = 2 / (mRange + 1);
-  // first item is just the same as the first item in the input
-  const emaArray = [mArray[0]];
-  // for the rest of the items, they are computed with the previous one
-  for (let i = 1; i < mArray.length; i++) {
-    // eslint-disable-next-line no-mixed-operators
-    emaArray.push(mArray[i] * k + emaArray[i - 1] * (1 - k));
+function EMA(mArray, smoothingWeight) {
+  // If all elements in the set of metric values are constant, or if
+  // the degree of smoothing is set to the minimum value, return the
+  // original set of metric values
+  if (smoothingWeight <= 1 || mArray.every((v) => v === mArray[0])) {
+    return mArray;
   }
-  return emaArray;
+
+  const smoothness = smoothingWeight / (MAX_LINE_SMOOTHNESS + 1);
+  const smoothedArray = [];
+  let biasedElement = 0;
+  for (let i = 0; i < mArray.length; i++) {
+    biasedElement = (biasedElement * smoothness) + ((1 - smoothness) * mArray[i]);
+    // To avoid biasing earlier elements toward smaller-than-accurate values, we divide
+    // all elements by a `debiasedWeight` that asymptotically increases and approaches
+    // 1 as the element index increases
+    const debiasWeight = 1.0 - Math.pow(smoothness, i + 1);
+    const debiasedElement = biasedElement / debiasWeight;
+    smoothedArray.push(debiasedElement);
+  }
+  return smoothedArray;
 }
 
 export class MetricsPlotView extends React.Component {
@@ -56,6 +67,13 @@ export class MetricsPlotView extends React.Component {
     return Utils.formatTimestamp(timestamp);
   };
 
+  static getHoverTemplate = (history, isSingleHistory, lineSmoothness) => {
+    if (isSingleHistory || (lineSmoothness === 1)) {
+      return '%{y}';
+    }
+    return history.map((entry) => 'Value: ' + entry.value.toFixed(5) + '<br>Smoothed: %{y}');
+  };
+
   getPlotPropsForLineChart = () => {
     const { metrics, xAxis, showPoint, lineSmoothness, isComparing,
       deselectedCurves } = this.props;
@@ -76,8 +94,8 @@ export class MetricsPlotView extends React.Component {
         y: EMA(history.map((entry) => entry.value), lineSmoothness),
         type: 'scatter',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
-        // line: { shape: 'spline', smoothing: lineSmoothness },
         marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
+        hovertemplate: MetricsPlotView.getHoverTemplate(history, isSingleHistory, lineSmoothness),
         visible: visible,
         runId: runUuid,
         metricName: metricKey,

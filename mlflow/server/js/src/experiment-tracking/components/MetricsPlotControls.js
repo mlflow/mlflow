@@ -9,6 +9,7 @@ const RadioGroup = Radio.Group;
 export const X_AXIS_WALL = 'wall';
 export const X_AXIS_STEP = 'step';
 export const X_AXIS_RELATIVE = 'relative';
+export const MAX_LINE_SMOOTHNESS = 100;
 
 export class MetricsPlotControls extends React.Component {
   static propTypes = {
@@ -70,8 +71,8 @@ export class MetricsPlotControls extends React.Component {
               <LineSmoothSlider
                 className='smoothness-toggle'
                 min={1}
-                max={100}
-                handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 500)}
+                max={MAX_LINE_SMOOTHNESS}
+                handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 100)}
                 defaultValue={initialLineSmoothness}
               />
             </div>
