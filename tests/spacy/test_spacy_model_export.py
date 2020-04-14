@@ -24,7 +24,7 @@ from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import, E
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def spacy_model_with_data():
     # Creating blank model and setting up the spaCy pipeline
     nlp = spacy.blank("en")
@@ -42,7 +42,6 @@ def spacy_model_with_data():
     train_x, train_y, test_x, _ = _get_train_test_dataset(categories)
     train_data = list(zip(train_x, [{"cats": cats} for cats in train_y]))
     _train_model(nlp, train_data)
-
     return ModelWithData(nlp, pd.DataFrame(test_x))
 
 
