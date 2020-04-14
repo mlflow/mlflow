@@ -1,6 +1,6 @@
 """
-The ``mlflow.models.signature`` module provides an API for specification of model signature and
-of model example input. Both model signature and input example can be stored as part of MLflow
+The :py:mod:`mlflow.models.signature` module provides an API for specification of model signature
+and of model example input. Both model signature and input example can be stored as part of MLflow
 model metadata and provide valuable insights into the model behavior. In addition, the knowledge of
 input and output model schema can be leveraged by MLflow deployment tools.
 """
@@ -76,7 +76,7 @@ class ColSpec(object):
 
 class Schema(object):
     """
-    Schema specifies column types in a dataset.
+    Schema specifies column types (:py:class:`DataType`) in a dataset.
     """
 
     def __init__(self, cols: List[ColSpec]):
@@ -87,16 +87,16 @@ class Schema(object):
         return self._cols
 
     def column_names(self) -> List[str]:
-        return [x.name or i for i, x in enumerate(self._cols)]
+        return [x.name or i for i, x in enumerate(self.columns)]
 
     def column_types(self) -> List[DataType]:
         return [x.type for x in self._cols]
 
     def numpy_types(self) -> List[np.dtype]:
-        return [x.type.to_numpy() for x in self._cols]
+        return [x.type.to_numpy() for x in self.columns]
 
     def to_json(self) -> str:
-        return json.dumps([x.to_dict() for x in self._cols])
+        return json.dumps([x.to_dict() for x in self.columns])
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Schema):
@@ -117,13 +117,13 @@ class ModelSignature(object):
     ModelSignature specifies schema of model's inputs and outputs.
 
     The current supported schema for both the input and the output is a data-frame like schema
-    defined as a list of column specification ``ColSpec``. Columns can be named and must specify
+    defined as a list of column specification :py:class:`ColSpec`. Columns can be named and must specify
     their data type. Currently the list of supported types is limited to scalar data types defined
-    in ``DataType`` enum.
+    in :py:class:`DataType` enum.
 
     ModelSignature can be inferred from training dataset and model predictions using
-    ``mlflow.models.signature.infer_signature``, or alternatively constructed by hand by passing a
-    lists of input and output Column specifications.
+    :py:func:`mlflow.models.signature.infer_signature`, or alternatively constructed by hand by
+    passing a lists of input and output column specifications.
     """
 
     def __init__(self, inputs: Schema, outputs: Schema = None):
@@ -186,7 +186,7 @@ def infer_signature(model_input: MlflowModelDataset,
     Infer an MLflow model signature from the training data (input) and model predictions (output).
     This method captures the column names and data types from the user data. The signature
     represents model input and output as dataframes with (optionally) named columns and data type
-    specified as one of types defined in mlflow.models.signature.DataType. This method will raise
+    specified as one of types defined in :py:class:`DataType`. This method will raise
     an exception if the user data contains incompatible types or is not passed in one of the
     supported formats (containers).
 
@@ -221,7 +221,7 @@ def save_example(path: str, input_example: ModelInputExample, schema: Schema = N
     encoded before generating the output.
 
     :param path: Path where to store the example.
-    :param input_example: Data speficying the input example.
+    :param input_example: Data with the input example(s).
     :param schema: Input example data types.
     :return: Filename of the stored example.
     """
@@ -295,13 +295,10 @@ def to_json(data: MlflowModelDataset, pandas_orient: str = "records", schema: Sc
     else:
         binary_cols = []
 
-    print("binary cols  = ", binary_cols)
-
     def base64encode(x):
         return base64.encodebytes(x).decode("ascii")
 
     def base64_encode_ndarray(x):
-        print("base64 encoding cols {}".format(binary_cols))
         base64encode_vec = np.vectorize(base64encode)
         if len(x.shape) == 1:
             return base64encode_vec(x)
