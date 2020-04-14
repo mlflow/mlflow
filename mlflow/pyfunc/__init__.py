@@ -345,8 +345,8 @@ def spark_udf(spark, model_uri, result_type="double"):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
-    Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
-    ordinals (0, 1, ...). On some versions of Spark, it is also possible to wrap the input in a
+    Parameters passed to the UDF are forwarded to the model as a DataFrame where the column names
+    are ordinals (0, 1, ...). On some versions of Spark, it is also possible to wrap the input in a
     struct. In that case, the data will be passed as a DataFrame with column names given by the
     struct definition (e.g. when invoked as my_udf(struct('x', 'y'), the model will ge the data as a
     pandas DataFrame with 2 columns 'x' and 'y').
