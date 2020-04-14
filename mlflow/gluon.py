@@ -12,7 +12,7 @@ from mxnet.gluon.nn import HybridSequential
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature, InputExample, ModelInputExample
+from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log

@@ -177,7 +177,7 @@ class ModelSignature(object):
         return json.dumps({"ModelSignature": self.to_dict()}, indent=2)
 
 
-ModelInputExample = TypeVar('InputExample', pd.DataFrame, np.ndarray, dict, list)
+ModelInputExample = TypeVar('ModelInputExample', pd.DataFrame, np.ndarray, dict, list)
 MlflowModelDataset = TypeVar('MlflowModelDataset', pd.DataFrame, np.ndarray, Dict[str, np.ndarray])
 
 
