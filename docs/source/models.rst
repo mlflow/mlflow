@@ -561,7 +561,10 @@ Example requests:
     }'
 
     # record-oriented (fine for vector rows, loses ordering for JSON records)
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[[1, 2, 3], [4, 5, 6]]'
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+        {"a": 1,"b": 2,"c": 3},
+        {"a": 4,"b": 5,"c": 6}
+    ]'
 
 
 For more information about serializing pandas DataFrames, see
