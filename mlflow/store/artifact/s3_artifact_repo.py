@@ -44,7 +44,11 @@ class S3ArtifactRepository(ArtifactRepository):
         dest_path = posixpath.join(
             dest_path, os.path.basename(local_file))
         s3_client = self._get_s3_client()
-        s3_client.upload_file(local_file, bucket, dest_path, self.get_s3_file_upload_extra_args())
+        s3_client.upload_file(
+            Filename=local_file,
+            Bucket=bucket,
+            Key=dest_path,
+            ExtraArgs=self.get_s3_file_upload_extra_args)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
@@ -60,10 +64,10 @@ class S3ArtifactRepository(ArtifactRepository):
                 upload_path = posixpath.join(dest_path, rel_path)
             for f in filenames:
                 s3_client.upload_file(
-                        os.path.join(root, f),
-                        bucket,
-                        posixpath.join(upload_path, f),
-                        self.get_s3_file_upload_extra_args())
+                        Filename=os.path.join(root, f),
+                        Bucket=bucket,
+                        Key=posixpath.join(upload_path, f),
+                        ExtraArgs=self.get_s3_file_upload_extra_args())
 
     def list_artifacts(self, path=None):
         (bucket, artifact_path) = data.parse_s3_uri(self.artifact_uri)
