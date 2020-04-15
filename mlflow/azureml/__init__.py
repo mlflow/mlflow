@@ -242,8 +242,9 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
                               service will be deployed into a Azure Container Instance. This is a
                               `azureml.core.DeploymentConfig` object. For more information, see
                               `<https://docs.microsoft.com/python/api/azureml-core/
-                              azureml.core.webservice.aks.aksservicedeploymentconfiguration>` and
-                              `<https://docs.microsoft.com/en-us/python/api/azureml-core/azureml.core.webservice.aci.aciservicedeploymentconfiguration>
+                              azureml.core.webservice.aks.aksservicedeploymentconfiguration>`_ and
+                              `<https://docs.microsoft.com/en-us/python/api/azureml-core/azureml
+                              .core.webservice.aci.aciservicedeploymentconfiguration>`_
                               `
     :param service_name: The name to assign the Azure Machine learning webservice that will be
                        created. If unspecified, a unique name will be generated.
