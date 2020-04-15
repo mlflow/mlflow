@@ -34,8 +34,8 @@ markComment: >
   for your contributions.
 
 # Comment to post when removing the stale label.
-unmarkComment: >
-   Thank you for interacting with this issue! Removing the stale label!
+#unmarkComment: >
+#   Thank you for interacting with this issue! Removing the stale label!
 
 # Comment to post when closing a stale Issue or Pull Request.
 closeComment: >
