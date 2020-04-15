@@ -286,6 +286,9 @@ def from_json(path_or_str, schema: Schema = None, pandas_orient: str = "records"
 
         for i in binary_cols:
             col = df.columns[i]
+            print()
+            print("base64 decoding col", col, df[col])
+            print()
             df[col] = np.array(df[col].map(base64decode), dtype=np.bytes_)
             return df
     else:
