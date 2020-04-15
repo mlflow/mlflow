@@ -252,9 +252,9 @@ def save_example(path: str, input_example: ModelInputExample, schema: Schema = N
     else:
         raise TypeError("Unexpected type of input_example. Expected one of "
                         "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
-                          type(input_example)))
+            type(input_example)))
     with open(os.path.join(path, example_filename), "w") as f:
-        to_json(input_example, pandas_orient="records", schema=schema, output_stream=f)
+        to_json(input_example, pandas_orient="split", schema=schema, output_stream=f)
     return example_filename
 
 
@@ -273,22 +273,14 @@ def from_json(path_or_str, schema: Schema = None, pandas_orient: str = "records"
     """
     if schema is not None:
         dtypes = dict(zip(schema.column_names(), schema.column_types()))
-        df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes)
-        print()
-        print("df read from json:")
-        print(df)
-        print()
+        df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes)[schema.column_names()]
         binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
 
         def base64decode(x):
-            print("decoding", x, x.encode("ascii"))
             return base64.decodebytes(x.encode("ascii"))
 
         for i in binary_cols:
             col = df.columns[i]
-            print()
-            print("base64 decoding col", col, df[col])
-            print()
             df[col] = np.array(df[col].map(base64decode), dtype=np.bytes_)
             return df
     else:

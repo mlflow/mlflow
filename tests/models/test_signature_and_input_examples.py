@@ -125,19 +125,20 @@ def test_input_examples(pandas_df_with_all_types):
     # test setting example with data frame with all supported data types
     with TempDir() as tmp:
         filename = save_example(tmp.path(), pandas_df_with_all_types, schema=sig.inputs)
-        parsed_df = from_json(tmp.path(filename), schema=sig.inputs)
+        parsed_df = from_json(tmp.path(filename), schema=sig.inputs, pandas_orient="split")
         assert (pandas_df_with_all_types == parsed_df).all().all()
         # the frame read without schema should match except for the binary values
-        assert (parsed_df.drop(columns=["binary"]) == from_json(tmp.path(filename))
+        assert (parsed_df.drop(columns=["binary"]) == from_json(tmp.path(filename),
+                                                                pandas_orient="split")
                 .drop(columns=["binary"])).all().all()
 
     # pass the input as dictionary instead
     with TempDir() as tmp:
-        sig = infer_signature(
-            {name: pandas_df_with_all_types[name].values
-             for name in pandas_df_with_all_types.columns})
-        filename = save_example(tmp.path(), pandas_df_with_all_types, schema=sig.inputs)
-        parsed_df = from_json(tmp.path(filename), schema=sig.inputs)
+        d = {name: pandas_df_with_all_types[name].values
+             for name in pandas_df_with_all_types.columns}
+        sig = infer_signature(d)
+        filename = save_example(tmp.path(), d, schema=sig.inputs)
+        parsed_df = from_json(tmp.path(filename), schema=sig.inputs, pandas_orient="records")
         assert (pandas_df_with_all_types == parsed_df).all().all()
 
     # saving example with binary data and no schema should fail
@@ -146,14 +147,14 @@ def test_input_examples(pandas_df_with_all_types):
             save_example(tmp.path(), pandas_df_with_all_types)
         df_without_binary = pandas_df_with_all_types.drop(columns=["binary"])
         filename = save_example(tmp.path(), df_without_binary)
-        parsed_df = from_json(tmp.path(filename))
+        parsed_df = from_json(tmp.path(filename), pandas_orient="split")
         sig = infer_signature(df_without_binary)
         for col_name, col_type in zip(sig.inputs.column_names(), sig.inputs.numpy_types()):
             parsed_df[col_name] = parsed_df[col_name].astype(col_type)
         assert (df_without_binary == parsed_df).all().all()
 
     # input passed as numpy array
-    sig = infer_signature(pandas_df_with_all_types)
+    sig = infer_signature(pandas_df_with_all_types.values)
     with TempDir() as tmp:
         filename = save_example(tmp.path(), pandas_df_with_all_types.values,
                                 schema=sig.inputs)
@@ -178,5 +179,5 @@ def test_input_examples(pandas_df_with_all_types):
     with TempDir() as tmp:
         example = {"a": 1, "b": "abc"}
         filename = save_example(tmp.path(), example)
-        parsed_df = from_json(tmp.path(filename))
+        parsed_df = from_json(tmp.path(filename), pandas_orient="split")
         assert example == parsed_df.to_dict(orient="records")[0]
