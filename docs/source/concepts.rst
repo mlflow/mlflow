@@ -38,7 +38,7 @@ Being productive with machine learning can therefore be challenging for several 
   its own approach for each ML library that it uses, and the link between a model and the code and
   parameters that produced it is often lost.
 
-* **There's no central store to manage model stage transitions and versions.** A data science team
+* **There's no central store to manage models (their versions and stage transitions).** A data science team
   creates many models. In absence of a central place to collaborate and manage model lifecycle, data
   science teams face challenges in how they manage models stages: from development to staging, and finally,
   to archiving or production, with respective versions, annotations, and history.
