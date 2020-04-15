@@ -106,7 +106,7 @@ def test_schema_inference(pandas_df_with_all_types):
 def test_spark_schema_inference(pandas_df_with_all_types):
     try:
         import pyspark
-        from pyspark.sql.types import StringType, _parse_datatype_string, StructField, StructType
+        from pyspark.sql.types import _parse_datatype_string, StructField, StructType
         sig = infer_signature(pandas_df_with_all_types)
         spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
         schema = StructType(
