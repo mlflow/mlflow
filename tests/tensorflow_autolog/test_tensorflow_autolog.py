@@ -132,8 +132,6 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     # Testing optimizer parameters are logged
     assert 'optimizer_name' in data.params
     assert data.params['optimizer_name'] == 'AdamOptimizer'
-    assert 'model_summary' in data.tags
-    assert 'Total params: 6,922' in data.tags['model_summary']
     client = mlflow.tracking.MlflowClient()
     all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'epoch_acc')
     assert all((x.step - 1) % 5 == 0 for x in all_epoch_acc)
