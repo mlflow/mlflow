@@ -31,7 +31,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import score_model_in_sagemaker_docker_container
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "inference_dmatrix"])
 
@@ -44,7 +43,7 @@ def xgb_model():
     y = iris.target
 
     dtrain = xgb.DMatrix(X, y)
-    model = xgb.train({}, dtrain)  # pass an empty dict to use default booster paramters
+    model = xgb.train({'objective': 'multi:softprob', 'num_class': 3}, dtrain)
     return ModelWithData(model=model, inference_dataframe=X, inference_dmatrix=dtrain)
 
 
@@ -135,7 +134,7 @@ def test_model_log(xgb_model, model_path):
                 mlflow.set_tracking_uri(old_uri)
 
 
-def test_log_model_calls_register_model(tracking_uri_mock, xgb_model):
+def test_log_model_calls_register_model(xgb_model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
@@ -148,7 +147,7 @@ def test_log_model_calls_register_model(tracking_uri_mock, xgb_model):
         mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
 
 
-def test_log_model_no_registered_model_name(tracking_uri_mock, xgb_model):
+def test_log_model_no_registered_model_name(xgb_model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:

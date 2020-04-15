@@ -53,7 +53,7 @@ mlflow_run <- function(uri = ".", entry_point = NULL, version = NULL, parameters
     uri <- fs::path_expand(uri)
 
   param_list <- if (!is.null(parameters)) parameters %>%
-    purrr::imap_chr(~ paste0(.y, "=", .x)) %>%
+    purrr::imap_chr(~ paste0(.y, "=", format(.x, scientific = FALSE))) %>%
     purrr::reduce(~ mlflow_cli_param(.x, "--param-list", .y), .init = list())
 
   args <- list(uri) %>%

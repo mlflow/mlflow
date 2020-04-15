@@ -85,35 +85,38 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
             - An ``azureml.core.image.ContainerImage`` object containing metadata for the new image.
             - An ``azureml.core.model.Model`` object containing metadata for the new model.
 
-    >>> import mlflow.azureml
-    >>> from azureml.core import Workspace
-    >>> from azureml.core.webservice import AciWebservice, Webservice
-    >>>
-    >>> # Load or create an Azure ML Workspace
-    >>> workspace_name = "<Name of your Azure ML workspace>"
-    >>> subscription_id = "<Your Azure subscription ID>"
-    >>> resource_group = "<Name of the Azure resource group in which to create Azure ML resources>"
-    >>> location = "<Name of the Azure location (region) in which to create Azure ML resources>"
-    >>> azure_workspace = Workspace.create(name=workspace_name,
-    >>>                                    subscription_id=subscription_id,
-    >>>                                    resource_group=resource_group,
-    >>>                                    location=location,
-    >>>                                    create_resource_group=True,
-    >>>                                    exist_okay=True)
-    >>>
-    >>> # Build an Azure ML Container Image for an MLflow model
-    >>> azure_image, azure_model = mlflow.azureml.build_image(
-    >>>                                 model_uri="<model_uri>",
-    >>>                                 workspace=azure_workspace,
-    >>>                                 synchronous=True)
-    >>> # If your image build failed, you can access build logs at the following URI:
-    >>> print("Access the following URI for build logs: {}".format(azure_image.image_build_log_uri))
-    >>>
-    >>> # Deploy the image to Azure Container Instances (ACI) for real-time serving
-    >>> webservice_deployment_config = AciWebservice.deploy_configuration()
-    >>> webservice = Webservice.deploy_from_image(
-    >>>                    image=azure_image, workspace=azure_workspace, name="<deployment-name>")
-    >>> webservice.wait_for_deployment()
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.azureml
+        from azureml.core import Workspace
+        from azureml.core.webservice import AciWebservice, Webservice
+
+        # Load or create an Azure ML Workspace
+        workspace_name = "<Name of your Azure ML workspace>"
+        subscription_id = "<Your Azure subscription ID>"
+        resource_group = "<Name of the Azure resource group in which to create Azure ML resources>"
+        location = "<Name of the Azure location (region) in which to create Azure ML resources>"
+        azure_workspace = Workspace.create(name=workspace_name,
+                                            subscription_id=subscription_id,
+                                            resource_group=resource_group,
+                                            location=location,
+                                            create_resource_group=True,
+                                            exist_okay=True)
+
+        # Build an Azure ML Container Image for an MLflow model
+        azure_image, azure_model = mlflow.azureml.build_image(
+                                        model_uri="<model_uri>",
+                                        workspace=azure_workspace,
+                                        synchronous=True)
+        # If your image build failed, you can access build logs at the following URI:
+        print("Access the following URI for build logs: {}".format(azure_image.image_build_log_uri))
+
+        # Deploy the image to Azure Container Instances (ACI) for real-time serving
+        webservice_deployment_config = AciWebservice.deploy_configuration()
+        webservice = Webservice.deploy_from_image(
+                            image=azure_image, workspace=azure_workspace, name="<deployment-name>")
+        webservice.wait_for_deployment()
     """
     # The Azure ML SDK is only compatible with Python 3. However, the `mlflow.azureml` module should
     # still be accessible for import from Python 2. Therefore, we will only import from the SDK

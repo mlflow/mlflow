@@ -191,3 +191,11 @@ def test_download_artifacts():
                             os.path.join(tmp_dir.path(), artifact_path))
         with open(os.path.join(tmp_dir.path(), artifact_path), "rb") as fd:
             assert expected_data == fd.read()
+
+
+@mock.patch('pyarrow.hdfs.HadoopFileSystem')
+def test_delete_artifacts(hdfs_system_mock):
+    delete_mock = hdfs_system_mock.return_value.delete
+    repo = HdfsArtifactRepository('hdfs:/some_path/maybe/path')
+    repo.delete_artifacts('artifacts')
+    delete_mock.assert_called_once_with('/some_path/maybe/path/artifacts', recursive=True)

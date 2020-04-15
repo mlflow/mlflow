@@ -8,6 +8,7 @@ import time
 import os
 from six import iteritems
 
+from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
@@ -180,6 +181,7 @@ class TrackingServiceClient(object):
     def set_experiment_tag(self, experiment_id, key, value):
         """
         Set a tag on the experiment with the specified ID. Value is converted to a string.
+
         :param experiment_id: String ID of the experiment.
         :param key: Name of the tag.
         :param value: Tag value (converted to a string).
@@ -191,6 +193,7 @@ class TrackingServiceClient(object):
     def set_tag(self, run_id, key, value):
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
+
         :param run_id: String ID of the run.
         :param key: Name of the tag.
         :param value: Tag value (converted to a string)
@@ -229,6 +232,12 @@ class TrackingServiceClient(object):
         for tag in tags:
             _validate_tag_name(tag.key)
         self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
+
+    def _record_logged_model(self, run_id, mlflow_model):
+        if not isinstance(mlflow_model, Model):
+            raise TypeError("Argument 'mlflow_model' should be of type mlflow.models.Model but was "
+                            "{}".format(type(mlflow_model)))
+        self.store.record_logged_model(run_id, mlflow_model)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """

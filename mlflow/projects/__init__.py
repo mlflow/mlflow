@@ -17,6 +17,7 @@ import tempfile
 import logging
 import posixpath
 import docker
+import platform
 
 import mlflow.projects.databricks
 import mlflow.tracking as tracking
@@ -93,7 +94,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
-         backend=None, backend_config=None, use_conda=True,
+         docker_args=None, backend=None, backend_config=None, use_conda=True,
          storage_dir=None, synchronous=True, run_id=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
@@ -152,6 +153,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                         base_image=project.docker_env.get('image'),
                                         run_id=active_run.info.run_id)
             command_args += _get_docker_command(image=image, active_run=active_run,
+                                                docker_args=docker_args,
                                                 volumes=project.docker_env.get("volumes"),
                                                 user_env_vars=project.docker_env.get("environment"))
         # Synchronously create a conda environment (even though this may take some time)
@@ -208,7 +210,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
 
 
 def run(uri, entry_point="main", version=None, parameters=None,
-        experiment_name=None, experiment_id=None,
+        docker_args=None, experiment_name=None, experiment_id=None,
         backend=None, backend_config=None, use_conda=True,
         storage_dir=None, synchronous=True, run_id=None):
     """
@@ -254,7 +256,9 @@ def run(uri, entry_point="main", version=None, parameters=None,
                         Note that if ``synchronous`` is False and ``backend`` is "local", this
                         method will return, but the current process will block when exiting until
                         the local run completes. If the current process is interrupted, any
-                        asynchronous runs launched via this method will be terminated.
+                        asynchronous runs launched via this method will be terminated. If
+                        ``synchronous`` is True and the run fails, the current process will
+                        error out as well.
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
@@ -282,8 +286,9 @@ def run(uri, entry_point="main", version=None, parameters=None,
 
     submitted_run_obj = _run(
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
-        parameters=parameters, backend=backend, backend_config=cluster_spec_dict,
-        use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id)
+        parameters=parameters, docker_args=docker_args, backend=backend,
+        backend_config=cluster_spec_dict, use_conda=use_conda, storage_dir=storage_dir,
+        synchronous=synchronous, run_id=run_id)
     if synchronous:
         _wait_for(submitted_run_obj)
     return submitted_run_obj
@@ -642,9 +647,14 @@ def _get_local_uri_or_none(uri):
         return None, None
 
 
-def _get_docker_command(image, active_run, volumes=None, user_env_vars=None):
+def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_env_vars=None):
     docker_path = "docker"
     cmd = [docker_path, "run", "--rm"]
+
+    if docker_args:
+        for key, value in docker_args.items():
+            cmd += ['--' + key, value]
+
     env_vars = _get_run_env_vars(run_id=active_run.info.run_id,
                                  experiment_id=active_run.info.experiment_id)
     tracking_uri = tracking.get_tracking_uri()
@@ -810,7 +820,11 @@ def _get_local_artifact_cmd_and_envs(artifact_repo):
 
 def _get_s3_artifact_cmd_and_envs(artifact_repo):
     # pylint: disable=unused-argument
-    aws_path = posixpath.expanduser("~/.aws")
+    if platform.system() == "Windows":
+        win_user_dir = os.environ["USERPROFILE"]
+        aws_path = os.path.join(win_user_dir, ".aws")
+    else:
+        aws_path = posixpath.expanduser("~/.aws")
 
     volumes = []
     if posixpath.exists(aws_path):

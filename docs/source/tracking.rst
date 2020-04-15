@@ -70,7 +70,7 @@ There are different kinds of remote tracking URIs:
 
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
 - Database encoded as ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. MLflow supports the dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. For more details, see `SQLAlchemy database uri <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
-- HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLFlow tracking server <tracking_server>`.
+- HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLflow tracking server <tracking_server>`.
 - Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
   `See docs <http://docs.databricks.com/applications/mlflow/logging-from-outside-databricks.html>`_ on
   logging to Databricks-hosted MLflow, or :ref:`the quickstart <quickstart_logging_to_remote_server>` to
@@ -218,27 +218,36 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
   X-axis relative time - graphs the time relative to the first metric logged, for each run
 
 
-Automatic Logging from TensorFlow and Keras (experimental)
-==================================================================
-Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
-log statements. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
-`TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_. 
+Automatic Logging
+=================
+
+Automatic logging allows you to log metrics, parameters, and models without the need for explicit
+log statements, and is currently supported for:
+
+.. contents::
+  :local:
+  :depth: 1
+
+TensorFlow and Keras (experimental)
+-----------------------------------
+Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
+`TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 
 Autologging captures the following information:
 
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 | Framework        | Metrics                                                | Parameters                                                   | Tags          | Artifacts                                                                                                                                        |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| Keras            | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | Model summary | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end                      |
+| Keras            | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end                      |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.keras``     | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | Model summary | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs on training end    |
+| ``tf.keras``     | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs on training end    |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``tf.estimator`` | TensorBoard metrics                                    | steps, max_steps                                             | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call to ``tf.estimator.export_saved_model``                     |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 | TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                           | --            | --                                                                                                                                               |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 
-Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`. 
+Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`.
 
 If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information to.
 Once training ends via calls to ``tf.estimator.train()``, ``tf.keras.fit()``, ``tf.keras.fit_generator()``, ``keras.fit()`` or ``keras.fit_generator()``,
@@ -246,15 +255,14 @@ or once ``tf.estimator`` models are exported via ``tf.estimator.export_saved_mod
 
 If a run exists when ``autolog()`` captures data, MLflow will log to that run and not automatically end that run after training.
 
-**Note** Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
+.. note::
+  - Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
+  - This feature is experimental - the API and format of the logged data are subject to change.
 
-**Note**: this feature is experimental - the API and format of the logged data are subject to change.
-
-
-Automatic Logging from Gluon (experimental)
-==================================================================
-Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
-log statements. See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
+Gluon (experimental)
+--------------------
+Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
+See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
 
 Autologging captures the following information:
 
@@ -264,7 +272,72 @@ Autologging captures the following information:
 | Gluon            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Gluon model); on training end                                   |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
 
+.. note::
+  This feature is experimental - the API and format of the logged data are subject to change.
+
+XGBoost (experimental)
+----------------------
+Call :py:func:`mlflow.xgboost.autolog` before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                  | Tags          | Artifacts                                                           |
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------+
+| XGBoost   | user-specified metrics | `xgboost.train`_ parameters | --            | `MLflow Model`_ (XGBoost model) on training end; feature importance |
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------+
+
+If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
+
+.. note::
+  - This feature is experimental - the API and format of the logged data are subject to change.
+  - The `scikit-learn API <https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn>`__ is not supported.
+
+.. _xgboost.train: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
+.. _MLflow Model: https://mlflow.org/docs/latest/models.html
+
+
+LightGBM (experimental)
+-----------------------
+Call :py:func:`mlflow.lightgbm.autolog` before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
++-----------+------------------------+------------------------------+---------------+----------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                   | Tags          | Artifacts                                                            |
++-----------+------------------------+------------------------------+---------------+----------------------------------------------------------------------+
+| LightGBM  | user-specified metrics | `lightgbm.train`_ parameters | --            | `MLflow Model`_ (LightGBM model) on training end; feature importance |
++-----------+------------------------+------------------------------+---------------+----------------------------------------------------------------------+
+
+If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
+
+.. note::
+  - This feature is experimental - the API and format of the logged data are subject to change.
+  - The `scikit-learn API <https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api>`__ is not supported.
+
+.. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
+
+Spark (experimental)
+--------------------
+
+Initialize a SparkSession with the mlflow-spark JAR attached (e.g.
+``SparkSession.builder.config("spark.jars.packages", "org.mlflow.mlflow-spark")``) and then
+call :py:func:`mlflow.spark.autolog` to enable automatic logging of Spark datasource
+information at read-time, without the need for explicit
+log statements. Note that autologging of Spark ML (MLlib) models is not yet supported.
+
+Autologging captures the following information:
+
++------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
+| Framework        | Metrics | Parameters |  Tags                                                                                        | Artifacts |
++------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
+| Spark            | --      | --         | Single tag containing source path, version, format. The tag contains one line per datasource | --        |
++------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
+
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
+Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely)
+to see race conditions when launching short-lived MLflow runs that result in datasource information
+not being logged.
 
 
 .. _organizing_runs_in_experiments:
@@ -334,6 +407,8 @@ The Tracking UI lets you visualize, search and compare runs, as well as download
 metadata for analysis in other tools. If you log runs to a local ``mlruns`` directory,
 run ``mlflow ui`` in the directory above it, and it loads the corresponding runs.
 Alternatively, the :ref:`MLflow tracking server <tracking_server>` serves the same UI and enables remote storage of run artifacts.
+In that case, you can view the UI using URL ``http://<ip address of your MLflow tracking server>:5000`` in your browser from any
+machine, including any remote machine that can connect to your tracking server.
 
 The UI contains the following key features:
 
@@ -351,7 +426,7 @@ You can access all of the functions in the Tracking UI programmatically. This ma
 
 * Query and compare runs using any data analysis tool of your choice, for example, **pandas**. 
 * Determine the artifact URI for a run to feed some of its artifacts into a new run when executing a workflow. For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
-* Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLFlow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
+* Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLflow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 * Run automated parameter search algorithms, where you query the metrics from various runs to submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
 
 
@@ -429,13 +504,19 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
   is a path inside the file store. Typically this is not an appropriate location, as the client and
   server probably refer to different physical locations (that is, the same path on different disks).
 
+Deletion Behavior
+~~~~~~~~~~~~~~~~~
+In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
+from the backend store or artifact store when a Run is deleted. The :ref:`mlflow gc <cli>` CLI is provided
+for permanently removing Run metadata and artifacts for deleted runs.
+
 SQLAlchemy Options
 ~~~~~~~~~~~~~~~~~~
 
 You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalchemy.org/en/latest/core/pooling.html>`_ using environment variables.
 
 +-----------------------------------------+-----------------------------+
-| MLFlow Environment Variable             | SQLAlchemy QueuePool Option |
+| MLflow Environment Variable             | SQLAlchemy QueuePool Option |
 +-----------------------------------------+-----------------------------+
 | ``MLFLOW_SQLALCHEMYSTORE_POOL_SIZE``    | ``pool_size``               |
 +-----------------------------------------+-----------------------------+
@@ -462,11 +543,19 @@ these are available. For more information on how to set credentials, see
 `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_.
 
 To store artifacts in a custom endpoint, set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL.
-For example, if you have a Minio server at 1.2.3.4 on port 9000:
+For example, if you have a MinIO server at 1.2.3.4 on port 9000:
 
 .. code-block:: bash
 
   export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
+
+Additionally, if MinIO server is configured with non-default region, you should set ``AWS_DEFAULT_REGION`` variable:
+
+.. code-block:: bash
+
+  export AWS_DEFAULT_REGION=my_region
+
+Complete list of configurable values for an S3 client is available in `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
 
 Azure Blob Storage
 ^^^^^^^^^^^^^^^^^^
@@ -476,7 +565,7 @@ To store artifacts in Azure Blob Storage, specify a URI of the form
 MLflow expects Azure Storage access credentials in the
 ``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
 a connection string if one is set), so you must set one of these variables on both your client
-application and your MLflow tracking server. Finally, you must run ``pip install azure-storage``
+application and your MLflow tracking server. Finally, you must run ``pip install azure-storage-blob``
 separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
 a dependency on this package by default.
 
@@ -636,4 +725,8 @@ internal use. The following tags are set automatically by MLflow, when appropria
 | ``mlflow.docker.image.name``  | Name of the Docker image used to execute this run.                                     |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.docker.image.id``    | ID of the Docker image used to execute this run.                                       |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.log-model.history``  | (Experimental) Model metadata collected by log-model calls. Includes the serialized    |
+|                               | form of the MLModel model files logged to a run, although the exact format and         |
+|                               | information captured is subject to change.                                             |
 +-------------------------------+----------------------------------------------------------------------------------------+

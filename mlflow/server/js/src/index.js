@@ -1,10 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import App from './components/App';
+import App from './experiment-tracking/components/App';
 import { setupAjaxHeaders } from './setupAjaxHeaders';
 import { Provider } from 'react-redux';
-import store from './Store';
+import store from './store';
 
 setupAjaxHeaders();
 

@@ -33,6 +33,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import extract_db_type_from_uri
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
+from tests.store.tracking import AbstractStoreTest
 
 DB_URI = 'sqlite:///'
 ARTIFACT_URI = 'artifact_folder'
@@ -78,10 +79,13 @@ class TestParseDbUri(unittest.TestCase):
                            "mlflow.org/docs/latest/tracking.html#storage for format specifications")
 
 
-class TestSqlAlchemyStoreSqlite(unittest.TestCase):
+class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
     def _get_store(self, db_uri=''):
         return SqlAlchemyStore(db_uri, ARTIFACT_URI)
+
+    def create_test_run(self):
+        return self._run_factory()
 
     def setUp(self):
         self.maxDiff = None  # print all differences on assert failures
@@ -90,6 +94,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         os.close(fd)
         self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
         self.store = self._get_store(self.db_url)
+
+    def get_store(self):
+        return self.store
 
     def tearDown(self):
         mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
@@ -101,19 +108,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             return [self.store.create_experiment(name=name) for name in names]
 
         return self.store.create_experiment(name=names)
-
-    def _verify_logged(self, run_id, metrics, params, tags):
-        run = self.store.get_run(run_id)
-        all_metrics = sum([self.store.get_metric_history(run_id, key)
-                           for key in run.data.metrics], [])
-        assert len(all_metrics) == len(metrics)
-        logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
-        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp, m.step) for m in metrics])
-        logged_tags = set([(tag_key, tag_value) for tag_key, tag_value in run.data.tags.items()])
-        assert set([(tag.key, tag.value) for tag in tags]) <= logged_tags
-        assert len(run.data.params) == len(params)
-        logged_params = [(param_key, param_val) for param_key, param_val in run.data.params.items()]
-        assert set(logged_params) == set([(param.key, param.value) for param in params])
 
     def test_default_experiment(self):
         experiments = self.store.list_experiments()
@@ -226,6 +220,105 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         actual = self.store.get_experiment(experiment_id)
         self.assertEqual(actual.experiment_id, experiment_id)
         self.assertEqual(actual.name, 'test exp')
+
+    def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
+        cases = [
+            ("path/to/local/folder", "path/to/local/folder/{e}"),
+            ("/path/to/local/folder", "/path/to/local/folder/{e}"),
+            ("#path/to/local/folder?", "#path/to/local/folder?/{e}"),
+            ("file:path/to/local/folder", "file:path/to/local/folder/{e}"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+            ("file:path/to/local/folder?param=value", "file:path/to/local/folder/{e}?param=value"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
+            (
+                "file:///path/to/local/folder?param=value#fragment",
+                "file:///path/to/local/folder/{e}?param=value#fragment",
+            ),
+            ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}"),
+            (
+                "s3://bucket/path/to/root?creds=mycreds",
+                "s3://bucket/path/to/root/{e}?creds=mycreds",
+            ),
+            (
+                "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
+                "dbscheme+driver://root@host/dbname/{e}?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/{e}?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/mydb/{e}?creds=mycreds#myfragment",
+            ),
+        ]
+
+        # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
+        # filesystem directories for file URI and POSIX path test cases
+        with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
+            for i in range(len(cases)):
+                artifact_root_uri, expected_artifact_uri_format = cases[i]
+                with TempDir() as tmp:
+                    dbfile_path = tmp.path("db")
+                    store = SqlAlchemyStore(
+                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri)
+                    exp_id = store.create_experiment(name="exp")
+                    exp = store.get_experiment(exp_id)
+                    self.assertEqual(exp.artifact_location,
+                                     expected_artifact_uri_format.format(e=exp_id))
+
+    def test_create_run_appends_to_artifact_uri_path_correctly(self):
+        cases = [
+            ("path/to/local/folder", "path/to/local/folder/{e}/{r}/artifacts"),
+            ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
+            ("#path/to/local/folder?", "#path/to/local/folder?/{e}/{r}/artifacts"),
+            ("file:path/to/local/folder", "file:path/to/local/folder/{e}/{r}/artifacts"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
+            (
+                "file:path/to/local/folder?param=value",
+                "file:path/to/local/folder/{e}/{r}/artifacts?param=value"
+            ),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
+            (
+                "file:///path/to/local/folder?param=value#fragment",
+                "file:///path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
+            ),
+            ("s3://bucket/path/to/root", "s3://bucket/path/to/root/{e}/{r}/artifacts"),
+            (
+                "s3://bucket/path/to/root?creds=mycreds",
+                "s3://bucket/path/to/root/{e}/{r}/artifacts?creds=mycreds",
+            ),
+            (
+                "dbscheme+driver://root@host/dbname?creds=mycreds#myfragment",
+                "dbscheme+driver://root@host/dbname/{e}/{r}/artifacts?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/{e}/{r}/artifacts"
+                "?creds=mycreds#myfragment",
+            ),
+            (
+                "dbscheme+driver://root:password@hostname.com/mydb?creds=mycreds#myfragment",
+                "dbscheme+driver://root:password@hostname.com/mydb/{e}/{r}/artifacts"
+                "?creds=mycreds#myfragment",
+            ),
+        ]
+
+        # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
+        # filesystem directories for file URI and POSIX path test cases
+        with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
+            for i in range(len(cases)):
+                artifact_root_uri, expected_artifact_uri_format = cases[i]
+                with TempDir() as tmp:
+                    dbfile_path = tmp.path("db")
+                    store = SqlAlchemyStore(
+                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri)
+                    exp_id = store.create_experiment(name="exp")
+                    run = store.create_run(
+                        experiment_id=exp_id, user_id='user', start_time=0, tags=[])
+                    self.assertEqual(
+                        run.info.artifact_uri,
+                        expected_artifact_uri_format.format(e=exp_id, r=run.info.run_id))
 
     def test_run_tag_model(self):
         # Create a run whose UUID we can reference when creating tag models.
@@ -419,6 +512,38 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             deleted_run = self.store.get_run(run.info.run_id)
             self.assertEqual(actual.run_uuid, deleted_run.info.run_id)
 
+    def test_hard_delete_run(self):
+        run = self._run_factory()
+        metric = entities.Metric('blahmetric', 100.0, int(1000 * time.time()), 0)
+        self.store.log_metric(run.info.run_id, metric)
+        param = entities.Param('blahparam', '100.0')
+        self.store.log_param(run.info.run_id, param)
+        tag = entities.RunTag('test tag', 'a boogie')
+        self.store.set_tag(run.info.run_id, tag)
+
+        self.store._hard_delete_run(run.info.run_id)
+
+        with self.store.ManagedSessionMaker() as session:
+            actual_run = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
+            self.assertEqual(None, actual_run)
+            actual_metric = session.query(models.SqlMetric)\
+                .filter_by(run_uuid=run.info.run_id).first()
+            self.assertEqual(None, actual_metric)
+            actual_param = session.query(models.SqlParam)\
+                .filter_by(run_uuid=run.info.run_id).first()
+            self.assertEqual(None, actual_param)
+            actual_tag = session.query(models.SqlTag).filter_by(run_uuid=run.info.run_id).first()
+            self.assertEqual(None, actual_tag)
+
+    def test_get_deleted_runs(self):
+        run = self._run_factory()
+        deleted_run_ids = self.store._get_deleted_runs()
+        self.assertEqual([], deleted_run_ids)
+
+        self.store.delete_run(run.info.run_uuid)
+        deleted_run_ids = self.store._get_deleted_runs()
+        self.assertEqual([run.info.run_uuid], deleted_run_ids)
+
     def test_log_metric(self):
         run = self._run_factory()
 
@@ -520,7 +645,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run.info.run_id, param2)
-        self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+        self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
 
     def test_log_empty_str(self):
         run = self._run_factory()
@@ -684,15 +809,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(renamed_experiment.name, new_name)
 
     def test_update_run_info(self):
-        run = self._run_factory()
-
-        new_status = entities.RunStatus.FINISHED
-        endtime = int(time.time())
-
-        actual = self.store.update_run_info(run.info.run_id, new_status, endtime)
-
-        self.assertEqual(actual.status, RunStatus.to_string(new_status))
-        self.assertEqual(actual.end_time, endtime)
+        experiment_id = self._experiment_factory('test_update_run_info')
+        for new_status_string in models.RunStatusTypes:
+            run = self._run_factory(config=self._get_run_configs(experiment_id=experiment_id))
+            endtime = int(time.time())
+            actual = self.store.update_run_info(
+                run.info.run_id, RunStatus.from_string(new_status_string), endtime)
+            self.assertEqual(actual.status, new_status_string)
+            self.assertEqual(actual.end_time, endtime)
 
     def test_restore_experiment(self):
         experiment_id = self._experiment_factory('helloexp')
@@ -853,10 +977,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         def create_run(start_time, end):
             return self.store.create_run(
-                    experiment_id,
-                    user_id="MrDuck",
-                    start_time=start_time,
-                    tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)]).info.run_id
+                experiment_id,
+                user_id="MrDuck",
+                start_time=start_time,
+                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)]).info.run_id
 
         start_time = 123
         for end in [234, None, 456, -123, 789, 123]:
@@ -1162,17 +1286,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
         # all params and metrics match
-        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0"
+        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
                          "and metrics.m_a > 1.0")
         six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
 
         # test with mismatch param
-        filter_string = ("params.random_bad_name = 'p_val' and metrics.common = 1.0"
+        filter_string = ("params.random_bad_name = 'p_val' and metrics.common = 1.0 "
                          "and metrics.m_a > 1.0")
         six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
         # test with mismatch metric
-        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0"
+        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
                          "and metrics.m_a > 100.0")
         six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
@@ -1261,9 +1385,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.assertRaises(MlflowException) as e:
             self.store.log_batch(run.info.run_id, metrics=[metric], params=[overwrite_param],
                                  tags=[tag])
-        self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+        self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        self._verify_logged(run.info.run_id, metrics=[], params=[param], tags=[])
+        self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param], tags=[])
 
     def test_log_batch_param_overwrite_disallowed_single_req(self):
         # Test that attempting to overwrite a param via log_batch results in an exception
@@ -1276,14 +1400,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.assertRaises(MlflowException) as e:
             self.store.log_batch(run.info.run_id, metrics=[metric], params=[param0, param1],
                                  tags=[tag])
-        self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+        self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        self._verify_logged(run.info.run_id, metrics=[], params=[param0], tags=[])
+        self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param0], tags=[])
 
     def test_log_batch_accepts_empty_payload(self):
         run = self._run_factory()
         self.store.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
-        self._verify_logged(run.info.run_id, metrics=[], params=[], tags=[])
+        self._verify_logged(self.store, run.info.run_id, metrics=[], params=[], tags=[])
 
     def test_log_batch_internal_error(self):
         # Verify that internal errors during the DB save step for log_batch result in
@@ -1294,7 +1418,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             raise Exception("Some internal error")
 
         package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-        with mock.patch(package + ".log_metric") as metric_mock,\
+        with mock.patch(package + ".log_metric") as metric_mock, \
                 mock.patch(package + ".log_param") as param_mock, \
                 mock.patch(package + ".set_tag") as tags_mock:
             metric_mock.side_effect = _raise_exception_fn
@@ -1320,7 +1444,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         params = [Param("p-key", "p-val")]
         self.store.log_batch(run.info.run_id, metrics=[], params=params, tags=[])
         self.store.log_batch(run.info.run_id, metrics=[], params=params, tags=[])
-        self._verify_logged(run.info.run_id, metrics=[], params=params, tags=[])
+        self._verify_logged(self.store, run.info.run_id, metrics=[], params=params, tags=[])
 
     def test_log_batch_tags_idempotency(self):
         run = self._run_factory()
@@ -1328,8 +1452,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
         self.store.log_batch(
             run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
-        self._verify_logged(
-            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+        self._verify_logged(self.store,
+                            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
 
     def test_log_batch_allows_tag_overwrite(self):
         run = self._run_factory()
@@ -1337,30 +1461,33 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "val")])
         self.store.log_batch(
             run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
-        self._verify_logged(
-            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
+        self._verify_logged(self.store,
+                            run.info.run_id, metrics=[], params=[],
+                            tags=[RunTag("t-key", "newval")])
 
     def test_log_batch_allows_tag_overwrite_single_req(self):
         run = self._run_factory()
         tags = [RunTag("t-key", "val"), RunTag("t-key", "newval")]
         self.store.log_batch(run.info.run_id, metrics=[], params=[], tags=tags)
-        self._verify_logged(run.info.run_id, metrics=[], params=[], tags=[tags[-1]])
+        self._verify_logged(self.store, run.info.run_id, metrics=[], params=[], tags=[tags[-1]])
 
     def test_log_batch_same_metric_repeated_single_req(self):
         run = self._run_factory()
         metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
         metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
         self.store.log_batch(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
-        self._verify_logged(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+        self._verify_logged(self.store, run.info.run_id, params=[], metrics=[metric0, metric1],
+                            tags=[])
 
     def test_log_batch_same_metric_repeated_multiple_reqs(self):
         run = self._run_factory()
         metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
         metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
         self.store.log_batch(run.info.run_id, params=[], metrics=[metric0], tags=[])
-        self._verify_logged(run.info.run_id, params=[], metrics=[metric0], tags=[])
+        self._verify_logged(self.store, run.info.run_id, params=[], metrics=[metric0], tags=[])
         self.store.log_batch(run.info.run_id, params=[], metrics=[metric1], tags=[])
-        self._verify_logged(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+        self._verify_logged(self.store, run.info.run_id, params=[], metrics=[metric0, metric1],
+                            tags=[])
 
     def test_upgrade_cli_idempotence(self):
         # Repeatedly run `mlflow db upgrade` against our database, verifying that the command
@@ -1549,6 +1676,22 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert len(run_results) == 2
 
 
+def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
+    store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
+    experiment_id = store.create_experiment(name="exp1")
+    run = store.create_run(
+        experiment_id=experiment_id, user_id="user", start_time=0, tags=[])
+    run_id = run.info.run_id
+    metric = entities.Metric("mymetric", 1, 0, 0)
+    store.log_metric(run_id=run_id, metric=metric)
+    param = entities.Param("myparam", "A")
+    store.log_param(run_id=run_id, param=param)
+    fetched_run = store.get_run(run_id=run_id)
+    assert fetched_run.info.run_id == run_id
+    assert metric.key in fetched_run.data.metrics
+    assert param.key in fetched_run.data.params
+
+
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     """
     Test case where user has an existing DB with schema generated before MLflow 1.0,
@@ -1643,12 +1786,12 @@ class TestZeroValueInsertion(unittest.TestCase):
 
 
 def test_get_attribute_name():
-    assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
-    assert(models.SqlRun.get_attribute_name("status") == "status")
-    assert(models.SqlRun.get_attribute_name("start_time") == "start_time")
-    assert(models.SqlRun.get_attribute_name("end_time") == "end_time")
+    assert (models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
+    assert (models.SqlRun.get_attribute_name("status") == "status")
+    assert (models.SqlRun.get_attribute_name("start_time") == "start_time")
+    assert (models.SqlRun.get_attribute_name("end_time") == "end_time")
 
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
     # searchable attibutes are also orderable
-    assert(len(entities.RunInfo.get_orderable_attributes()) == 4)
+    assert (len(entities.RunInfo.get_orderable_attributes()) == 4)

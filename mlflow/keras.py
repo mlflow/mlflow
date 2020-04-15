@@ -37,6 +37,8 @@ _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
 _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
 # File name to which keras model is saved
 _MODEL_SAVE_PATH = "model.h5"
+# Conda env subpath when saving/loading model
+_CONDA_ENV_SUBPATH = "conda.yaml"
 
 
 def get_default_conda_env(include_cloudpickle=False, keras_module=None):
@@ -112,15 +114,18 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
                          attempt to infer the Keras module based on the given model.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
-    >>> import mlflow
-    >>> # Build, compile, and train your model
-    >>> keras_model = ...
-    >>> keras_model_path = ...
-    >>> keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
-    >>> results = keras_model.fit(
-    ...     x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
-    ... # Save the model as an MLflow Model
-    >>> mlflow.keras.save_model(keras_model, keras_model_path)
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        # Build, compile, and train your model
+        keras_model = ...
+        keras_model_path = ...
+        keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
+        results = keras_model.fit(
+            x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
+        # Save the model as an MLflow Model
+        mlflow.keras.save_model(keras_model, keras_model_path)
     """
     if keras_module is None:
         def _is_plain_keras(model):
@@ -150,33 +155,58 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
     elif type(keras_module) == str:
         keras_module = importlib.import_module(keras_module)
 
+    # check if path exists
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
+
+    # construct new data folder in existing path
     data_subpath = "data"
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)
+
+    # save custom objects if there are custom objects
     if custom_objects is not None:
         _save_custom_objects(data_path, custom_objects)
+
+    # save keras module spec to path/data/keras_module.txt
     with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
         f.write(keras_module.__name__)
+
+    # save keras model to path/data/model.h5
     model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
-    keras_model.save(os.path.join(path, model_subpath), **kwargs)
+    model_path = os.path.join(path, model_subpath)
+    if path.startswith('/dbfs/'):
+        # The Databricks Filesystem uses a FUSE implementation that does not support
+        # random writes. It causes an error.
+        with tempfile.NamedTemporaryFile(suffix='.h5') as f:
+            keras_model.save(f.name, **kwargs)
+            f.flush()  # force flush the data
+            shutil.copyfile(src=f.name, dst=model_path)
+    else:
+        keras_model.save(model_path, **kwargs)
+
+    # update flavor info to mlflow_model
     mlflow_model.add_flavor(FLAVOR_NAME,
                             keras_module=keras_module.__name__,
                             keras_version=keras_module.__version__,
                             data=data_subpath)
-    conda_env_subpath = "conda.yaml"
+
+    # save conda.yaml info to path/conda.yml
     if conda_env is None:
         conda_env = get_default_conda_env(include_cloudpickle=custom_objects is not None,
                                           keras_module=keras_module)
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
+    with open(os.path.join(path, _CONDA_ENV_SUBPATH), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.keras",
-                        data=data_subpath, env=conda_env_subpath)
+                        data=data_subpath, env=_CONDA_ENV_SUBPATH)
+
+    # save mlflow_model to path/MLmodel
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -220,16 +250,19 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
                                   registered model if one with the given name does not exist.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
-    >>> from keras import Dense, layers
-    >>> import mlflow
-    >>> # Build, compile, and train your model
-    >>> keras_model = ...
-    >>> keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
-    >>> results = keras_model.fit(
-    ...     x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
-    >>> # Log metrics and log the model
-    >>> with mlflow.start_run() as run:
-    >>>   mlflow.keras.log_model(keras_model, "models")
+    .. code-block:: python
+        :caption: Example
+
+        from keras import Dense, layers
+        import mlflow
+        # Build, compile, and train your model
+        keras_model = ...
+        keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
+        results = keras_model.fit(
+            x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
+        # Log metrics and log the model
+        with mlflow.start_run() as run:
+            mlflow.keras.log_model(keras_model, "models")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
               keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects,
@@ -356,9 +389,12 @@ def load_model(model_uri, **kwargs):
 
     :return: A Keras model instance.
 
-    >>> # Load persisted model as a Keras model or as a PyFunc, call predict() on a pandas DataFrame
-    >>> keras_model = mlflow.keras.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2" + "/models")
-    >>> predictions = keras_model.predict(x_test)
+    .. code-block:: python
+        :caption: Example
+
+        # Load persisted model as a Keras model or as a PyFunc, call predict() on a pandas DataFrame
+        keras_model = mlflow.keras.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2" + "/models")
+        predictions = keras_model.predict(x_test)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
@@ -376,6 +412,26 @@ def autolog():
     Logs loss and any other metrics specified in the fit
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
+
+    EarlyStopping Integration with Keras Automatic Logging
+
+    MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()``/``fit_generator()``
+    call, and if the ``restore_best_weights`` parameter is set to be ``True``, then MLflow will
+    log the metrics associated with the restored model as a final, extra step. The epoch of the
+    restored model will also be logged as the metric ``restored_epoch``.
+    This allows for easy comparison between the actual metrics of the restored model and
+    the metrics of other models.
+
+    If ``restore_best_weights`` is set to be ``False``,
+    then MLflow will not log an additional step.
+
+    Regardless of ``restore_best_weights``, MLflow will also log ``stopped_epoch``,
+    which indicates the epoch at which training stopped due to early stopping.
+
+    If training does not end due to early stopping, then ``stopped_epoch`` will be logged as ``0``.
+
+    MLflow will also log the parameters of the EarlyStopping callback,
+    excluding ``mode`` and ``verbose``.
     """
     import keras
 
@@ -402,8 +458,6 @@ def autolog():
             sum_list = []
             self.model.summary(print_fn=sum_list.append)
             summary = '\n'.join(sum_list)
-            try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
-
             tempdir = tempfile.mkdtemp()
             try:
                 summary_file = os.path.join(tempdir, "model_summary.txt")
@@ -421,63 +475,97 @@ def autolog():
         def on_train_end(self, logs=None):
             try_mlflow_log(log_model, self.model, artifact_path='model')
 
-    @gorilla.patch(keras.Model)
-    def fit(self, *args, **kwargs):
+    def _early_stop_check(callbacks):
+        if LooseVersion(keras.__version__) < LooseVersion('2.3.0'):
+            es_callback = keras.callbacks.EarlyStopping
+        else:
+            es_callback = keras.callbacks.callbacks.EarlyStopping
+        for callback in callbacks:
+            if isinstance(callback, es_callback):
+                return callback
+        return None
+
+    def _log_early_stop_callback_params(callback):
+        if callback:
+            try:
+                earlystopping_params = {'monitor': callback.monitor,
+                                        'min_delta': callback.min_delta,
+                                        'patience': callback.patience,
+                                        'baseline': callback.baseline,
+                                        'restore_best_weights': callback.restore_best_weights}
+                try_mlflow_log(mlflow.log_params, earlystopping_params)
+            except Exception:  # pylint: disable=W0703
+                return
+
+    def _get_early_stop_callback_attrs(callback):
+        try:
+            return callback.stopped_epoch, callback.restore_best_weights, callback.patience
+        except Exception:  # pylint: disable=W0703
+            return None
+
+    def _log_early_stop_callback_metrics(callback, history):
+        if callback:
+            callback_attrs = _get_early_stop_callback_attrs(callback)
+            if callback_attrs is None:
+                return
+            stopped_epoch, restore_best_weights, patience = callback_attrs
+            try_mlflow_log(mlflow.log_metric, 'stopped_epoch', stopped_epoch)
+            # Weights are restored only if early stopping occurs
+            if stopped_epoch != 0 and restore_best_weights:
+                restored_epoch = stopped_epoch - max(1, patience)
+                try_mlflow_log(mlflow.log_metric, 'restored_epoch', restored_epoch)
+                restored_metrics = {key: history.history[key][restored_epoch]
+                                    for key in history.history.keys()}
+                # Checking that a metric history exists
+                metric_key = next(iter(history.history), None)
+                if metric_key is not None:
+                    last_epoch = len(history.history[metric_key])
+                    try_mlflow_log(mlflow.log_metrics, restored_metrics, step=last_epoch)
+
+    def _run_and_log_function(self, original, args, kwargs, unlogged_params, callback_arg_index):
         if not mlflow.active_run():
             try_mlflow_log(mlflow.start_run)
             auto_end_run = True
         else:
             auto_end_run = False
 
-        original = gorilla.get_original_attribute(keras.Model, 'fit')
-
-        unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data', 'verbose']
-
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
+        early_stop_callback = None
 
-        # Checking if the 'callback' argument of fit() is set
-        if len(args) >= 6:
+        # Checking if the 'callback' argument of the function is set
+        if len(args) > callback_arg_index:
             tmp_list = list(args)
-            tmp_list[5] += [__MLflowKerasCallback()]
+            early_stop_callback = _early_stop_check(tmp_list[callback_arg_index])
+            tmp_list[callback_arg_index] += [__MLflowKerasCallback()]
             args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
+            early_stop_callback = _early_stop_check(kwargs['callbacks'])
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
 
-        result = original(self, *args, **kwargs)
+        _log_early_stop_callback_params(early_stop_callback)
+
+        history = original(self, *args, **kwargs)
+
+        _log_early_stop_callback_metrics(early_stop_callback, history)
+
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
-        return result
+
+        return history
+
+    @gorilla.patch(keras.Model)
+    def fit(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(keras.Model, 'fit')
+        unlogged_params = ['self', 'x', 'y', 'callbacks', 'validation_data', 'verbose']
+        return _run_and_log_function(self, original, args, kwargs, unlogged_params, 5)
 
     @gorilla.patch(keras.Model)
     def fit_generator(self, *args, **kwargs):
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            auto_end_run = True
-        else:
-            auto_end_run = False
-
         original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
-
         unlogged_params = ['self', 'generator', 'callbacks', 'validation_data', 'verbose']
-
-        log_fn_args_as_params(original, args, kwargs, unlogged_params)
-
-        # Checking if the 'callback' argument of fit() is set
-        if len(args) >= 5:
-            tmp_list = list(args)
-            tmp_list[4] += [__MLflowKerasCallback()]
-            args = tuple(tmp_list)
-        elif 'callbacks' in kwargs:
-            kwargs['callbacks'] += [__MLflowKerasCallback()]
-        else:
-            kwargs['callbacks'] = [__MLflowKerasCallback()]
-
-        result = original(self, *args, **kwargs)
-        if auto_end_run:
-            try_mlflow_log(mlflow.end_run)
-        return result
+        return _run_and_log_function(self, original, args, kwargs, unlogged_params, 4)
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     gorilla.apply(gorilla.Patch(keras.Model, 'fit', fit, settings=settings))
