@@ -252,7 +252,7 @@ def save_example(path: str, input_example: ModelInputExample, schema: Schema = N
     else:
         raise TypeError("Unexpected type of input_example. Expected one of "
                         "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
-            type(input_example)))
+                          type(input_example)))
     with open(os.path.join(path, example_filename), "w") as f:
         to_json(input_example, pandas_orient="split", schema=schema, output_stream=f)
     return example_filename
