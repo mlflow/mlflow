@@ -281,7 +281,7 @@ def from_json(path_or_str, schema: Schema = None, pandas_orient: str = "records"
         binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
 
         def base64decode(x):
-            print("decoding", x, x.ecnode("ascii"))
+            print("decoding", x, x.encode("ascii"))
             return base64.decodebytes(x.encode("ascii"))
 
         for i in binary_cols:
