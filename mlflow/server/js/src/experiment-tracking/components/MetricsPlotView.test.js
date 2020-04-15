@@ -36,7 +36,7 @@ const metricsForLine = [
         timestamp: 1556662043000,
       },
       {
-        key: 'metric_0',
+        key: 'metric_1',
         value: 400,
         step: 1,
         timestamp: 1556662044000,
@@ -80,6 +80,7 @@ describe('unit tests', () => {
   let wrapper;
   let instance;
   let minimalPropsForLineChart;
+  let minimalPropsForSmoothedLineChart;
   let minimalPropsForBarChart;
 
   beforeEach(() => {
@@ -93,12 +94,16 @@ describe('unit tests', () => {
       chartType: CHART_TYPE_LINE,
       isComparing: false,
       yAxisLogScale: false,
-      lineSmoothness: 0,
+      lineSmoothness: 1,
       onClick: jest.fn(),
       onLayoutChange: jest.fn(),
       onLegendDoubleClick: jest.fn(),
       onLegendClick: jest.fn(),
       deselectedCurves: [],
+    };
+    minimalPropsForSmoothedLineChart = {
+      ...minimalPropsForLineChart,
+      lineSmoothness: 50,
     };
     minimalPropsForBarChart = {
       ...minimalPropsForLineChart,
@@ -124,13 +129,11 @@ describe('unit tests', () => {
           runId: 'runUuid1',
           x: [0, 1],
           y: [100, 200],
+          text: ['100.00000', '200.00000'],
           type: 'scatter',
           visible: true,
           mode: 'lines+markers',
-          line: {
-            shape: 'spline',
-            smoothing: 0,
-          },
+          hovertemplate: '%{y}',
           marker: {"opacity": 0},
         },
         {
@@ -139,13 +142,47 @@ describe('unit tests', () => {
           runId: 'runUuid2',
           x: [0, 1],
           y: [300, 400],
+          text: ['300.00000', '400.00000'],
           type: 'scatter',
           visible: true,
           mode: 'lines+markers',
-          line: {
-            shape: 'spline',
-            smoothing: 0,
-          },
+          hovertemplate: '%{y}',
+          marker: {"opacity": 0},
+        },
+      ],
+      layout: {},
+    });
+  });
+
+  test('getPlotPropsForLineChart(lineSmoothness = 50)', () => {
+    wrapper = shallow(<MetricsPlotView {...minimalPropsForSmoothedLineChart} />);
+    instance = wrapper.instance();
+    expect(instance.getPlotPropsForLineChart()).toEqual({
+      data: [
+        {
+          metricName: 'metric_0',
+          name: 'metric_0',
+          runId: 'runUuid1',
+          x: [0, 1],
+          y: [100, 166.88741721854302],
+          text: ['100.00000', '200.00000'],
+          type: 'scatter',
+          visible: true,
+          mode: 'lines+markers',
+          hovertemplate: 'Value: %{text}<br>Smoothed: %{y}',
+          marker: {"opacity": 0},
+        },
+        {
+          metricName: 'metric_1',
+          name: 'metric_1',
+          runId: 'runUuid2',
+          x: [0, 1],
+          y: [300, 366.887417218543],
+          text: ['300.00000', '400.00000'],
+          type: 'scatter',
+          visible: true,
+          mode: 'lines+markers',
+          hovertemplate: 'Value: %{text}<br>Smoothed: %{y}',
           marker: {"opacity": 0},
         },
       ],
