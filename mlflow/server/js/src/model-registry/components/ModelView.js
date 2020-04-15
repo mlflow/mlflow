@@ -12,6 +12,7 @@ import {
   Dropdown,
   Modal,
   Tooltip,
+  Button,
 } from 'antd';
 import {
   ACTIVE_STAGES,
@@ -156,7 +157,7 @@ export class ModelView extends React.Component {
   }
 
   renderDescriptionEditIcon() {
-    return <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
+    return <Button type="link" onClick={this.startEditingDescription}><Icon type='form' /></Button>;
   }
 
   renderDetails = () => {
