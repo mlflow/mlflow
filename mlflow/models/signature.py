@@ -274,9 +274,14 @@ def from_json(path_or_str, schema: Schema = None, pandas_orient: str = "records"
     if schema is not None:
         dtypes = dict(zip(schema.column_names(), schema.column_types()))
         df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes)
+        print()
+        print("df read from json:")
+        print(df)
+        print()
         binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
 
         def base64decode(x):
+            print("decoding", x, x.ecnode("ascii"))
             return base64.decodebytes(x.encode("ascii"))
 
         for i in binary_cols:
