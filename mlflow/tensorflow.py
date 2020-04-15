@@ -485,8 +485,6 @@ class __MLflowTfKerasCallback(Callback):
         sum_list = []
         self.model.summary(print_fn=sum_list.append)
         summary = '\n'.join(sum_list)
-        try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
-
         tempdir = tempfile.mkdtemp()
         try:
             summary_file = os.path.join(tempdir, "model_summary.txt")
@@ -525,8 +523,6 @@ class __MLflowTfKeras2Callback(Callback):
         sum_list = []
         self.model.summary(print_fn=sum_list.append)
         summary = '\n'.join(sum_list)
-        try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
-
         tempdir = tempfile.mkdtemp()
         try:
             summary_file = os.path.join(tempdir, "model_summary.txt")
