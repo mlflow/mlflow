@@ -433,7 +433,7 @@ class Utils {
       selectedMetricKeys: [],
       showPoint: false,
       yAxisLogScale: false,
-      lineSmoothness: 0,
+      lineSmoothness: 1,
       layout: {},
     };
     const params = qs.parse(search.slice(1, search.length));

@@ -34,8 +34,8 @@ export class LineSmoothSlider extends React.Component {
             min={min}
             max={max}
             onChange={this.onChange}
-            value={typeof inputValue === 'number' ? inputValue : 0}
-            step={0.01}
+            value={typeof inputValue === 'number' ? inputValue : 1}
+            step={1}
           />
         </Col>
         <Col span={4}>
@@ -43,7 +43,7 @@ export class LineSmoothSlider extends React.Component {
             min={min}
             max={max}
             style={{ marginLeft: 16 }}
-            step={0.01}
+            step={1}
             value={inputValue}
             onChange={this.onChange}
           />

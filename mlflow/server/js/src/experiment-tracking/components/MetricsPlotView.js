@@ -2,11 +2,34 @@ import React from 'react';
 import Utils from '../../common/utils/Utils';
 import _ from 'lodash';
 import PropTypes from 'prop-types';
-import { X_AXIS_STEP, X_AXIS_RELATIVE } from './MetricsPlotControls';
+import { X_AXIS_STEP, X_AXIS_RELATIVE, MAX_LINE_SMOOTHNESS } from './MetricsPlotControls';
 import { CHART_TYPE_BAR } from './MetricsPlotPanel';
 import Plot from '../../../node_modules/react-plotly.js/react-plotly';
 
 const MAX_RUN_NAME_DISPLAY_LENGTH = 36;
+
+const EMA = (mArray, smoothingWeight) => {
+  // If all elements in the set of metric values are constant, or if
+  // the degree of smoothing is set to the minimum value, return the
+  // original set of metric values
+  if (smoothingWeight <= 1 || mArray.every((v) => v === mArray[0])) {
+    return mArray;
+  }
+
+  const smoothness = smoothingWeight / (MAX_LINE_SMOOTHNESS + 1);
+  const smoothedArray = [];
+  let biasedElement = 0;
+  for (let i = 0; i < mArray.length; i++) {
+    biasedElement = (biasedElement * smoothness) + ((1 - smoothness) * mArray[i]);
+    // To avoid biasing earlier elements toward smaller-than-accurate values, we divide
+    // all elements by a `debiasedWeight` that asymptotically increases and approaches
+    // 1 as the element index increases
+    const debiasWeight = 1.0 - Math.pow(smoothness, i + 1);
+    const debiasedElement = biasedElement / debiasWeight;
+    smoothedArray.push(debiasedElement);
+  }
+  return smoothedArray;
+};
 
 export class MetricsPlotView extends React.Component {
   static propTypes = {
@@ -61,11 +84,13 @@ export class MetricsPlotView extends React.Component {
           }
           return MetricsPlotView.parseTimestamp(entry.timestamp, history, xAxis);
         }),
-        y: history.map((entry) => entry.value),
+        y: EMA(history.map((entry) => entry.value), lineSmoothness),
+        text: history.map((entry) => entry.value.toFixed(5)),
         type: 'scatter',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
-        line: { shape: 'spline', smoothing: lineSmoothness },
         marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
+        hovertemplate: (isSingleHistory || (lineSmoothness === 1)) ?
+            '%{y}' : 'Value: %{text}<br>Smoothed: %{y}',
         visible: visible,
         runId: runUuid,
         metricName: metricKey,

@@ -44,7 +44,7 @@ class Routes {
    */
   static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys = null,
                             plotLayout = {}, selectedXAxis = X_AXIS_RELATIVE, yAxisLogScale = false,
-                            lineSmoothness = 0, showPoint = false, deselectedCurves = [],
+                            lineSmoothness = 1, showPoint = false, deselectedCurves = [],
                             lastLinearYAxisRange = []) {
     // If runs to display are specified (e.g. if user filtered to specific runs in a metric
     // comparison plot), embed them in the URL, otherwise default to metricKey
