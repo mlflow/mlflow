@@ -547,7 +547,7 @@ For example, if you want to upload to a KMS Encrypted bucket using the KMS Key 1
 
 .. code-block:: bash
 
-  export MLFLOW_S3_UPLOAD_EXTRA_ARGS="{\"ServerSideEncryption\": \"aws:kms\", \"SSEKMSKeyId\": \"1234\"}"
+  export MLFLOW_S3_UPLOAD_EXTRA_ARGS='{"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "1234"}'
 
 For a list of available extra args see `Boto3 ExtraArgs Documentation <https://github.com/boto/boto3/blob/develop/docs/source/guide/s3-uploading-files.rst#the-extraargs-parameter>`_.
 
