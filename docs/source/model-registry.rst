@@ -95,6 +95,7 @@ There are three programmatic ways to add a model to the registry. First, you can
     from sklearn.ensemble import RandomForestRegressor
 
     import mlflow
+    import mlflow.sklearn
 
     with mlflow.start_run(run_name="YOUR_RUN_NAME") as run:
         params = {"n_estimators": 5, "random_state": 42}
@@ -103,7 +104,7 @@ There are three programmatic ways to add a model to the registry. First, you can
         # Log parameters and metrics using the MLflow APIs
         mlflow.log_params(params)
         mlflow.log_param("param_1", randint(0, 100))
-        mlflow.log_metrics({"metric_1": random(), "metric_2", random() + 1})
+        mlflow.log_metrics({"metric_1": random(), "metric_2": random() + 1})
 
         # Log the sklearn model and register as version 1
         mlflow.sklearn.log_model(
