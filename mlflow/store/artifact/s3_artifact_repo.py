@@ -36,8 +36,11 @@ class S3ArtifactRepository(ArtifactRepository):
         import boto3
         from botocore.client import Config
         s3_endpoint_url = os.environ.get('MLFLOW_S3_ENDPOINT_URL')
+        # NOTE: If you need to specify this env variable, please file an issue at
+        # https://github.com/mlflow/mlflow/issues so we know your use-case!
+        signature_version = os.environ.get('MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION', 's3v4')
         return boto3.client('s3',
-                            config=Config(signature_version='s3v4'),
+                            config=Config(signature_version=signature_version),
                             endpoint_url=s3_endpoint_url)
 
     def log_artifact(self, local_file, artifact_path=None):
