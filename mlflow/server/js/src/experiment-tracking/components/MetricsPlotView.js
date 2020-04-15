@@ -8,7 +8,7 @@ import Plot from '../../../node_modules/react-plotly.js/react-plotly';
 
 const MAX_RUN_NAME_DISPLAY_LENGTH = 36;
 
-function EMA(mArray, smoothingWeight) {
+const EMA = (mArray, smoothingWeight) => {
   // If all elements in the set of metric values are constant, or if
   // the degree of smoothing is set to the minimum value, return the
   // original set of metric values
@@ -29,7 +29,7 @@ function EMA(mArray, smoothingWeight) {
     smoothedArray.push(debiasedElement);
   }
   return smoothedArray;
-}
+};
 
 export class MetricsPlotView extends React.Component {
   static propTypes = {
