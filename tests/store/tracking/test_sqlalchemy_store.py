@@ -1066,6 +1066,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         filter_string = "params.generic_2 LIKE '%other%'"
         six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
 
+        filter_string = "params.generic_2 LIKE 'other%'"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+
+        filter_string = "params.generic_2 LIKE '%other'"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+
+        filter_string = "params.generic_2 LIKE 'other'"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+
+        filter_string = "params.generic_2 LIKE '%Other%'"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+
         filter_string = "params.generic_2 ILIKE '%Other%'"
         six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
 
@@ -1113,6 +1125,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         six.assertCountEqual(self, [r2],
                              self._search(experiment_id,
                                           filter_string="tags.generic_2 LIKE '%other%'"))
+        six.assertCountEqual(self, [],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 LIKE '%Other%'"))
+        six.assertCountEqual(self, [],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 LIKE 'other%'"))
+        six.assertCountEqual(self, [],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 LIKE '%other'"))
+        six.assertCountEqual(self, [],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 LIKE 'other'"))
         six.assertCountEqual(self, [r2],
                              self._search(experiment_id,
                                           filter_string="tags.generic_2 ILIKE '%Other%'"))
@@ -1252,7 +1276,22 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1)
         six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
 
+        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:4])
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[-4:])
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1.upper())
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
         filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1.upper())
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[:4].upper())
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-4:].upper())
         six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
 
         for (k, v) in {"experiment_id": e1,
@@ -1288,6 +1327,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         # all params and metrics match
         filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
                          "and metrics.m_a > 1.0")
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+
+        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
+                         "and metrics.m_a > 1.0 and params.p_a LIKE 'a%'")
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+
+        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
+                         "and metrics.m_a > 1.0 and params.p_a LIKE 'A%'")
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+
+        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
+                         "and metrics.m_a > 1.0 and params.p_a ILIKE 'A%'")
         six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
 
         # test with mismatch param
