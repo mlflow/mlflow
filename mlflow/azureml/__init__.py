@@ -102,7 +102,7 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
     >>>                                    resource_group=resource_group,
     >>>                                    location=location,
     >>>                                    create_resource_group=True,
-    >>>                                    exist_okay=True)
+    >>>                                    exist_ok=True)
     >>>
     >>> # Build an Azure ML Container Image for an MLflow model
     >>> azure_image, azure_model = mlflow.azureml.build_image(
@@ -234,11 +234,6 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
-
-    :param service_name: The name to assign the Azure Machine learning webservice that will be
-                       created. If unspecified, a unique name will be generated.
-    :param model_name: The name to assign the Azure Model will be created. If unspecified,
-                       a unique model name will be generated.
     :param workspace: The AzureML workspace in which to deploy the service. This is a
                       `azureml.core.Workspace` object.
     :param deployment_config: The configuration for the Azure web service. This configuration
@@ -250,6 +245,11 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
                               azureml.core.webservice.aks.aksservicedeploymentconfiguration>` and
                               `<https://docs.microsoft.com/en-us/python/api/azureml-core/azureml.core.webservice.aci.aciservicedeploymentconfiguration>
                               `
+    :param service_name: The name to assign the Azure Machine learning webservice that will be
+                       created. If unspecified, a unique name will be generated.
+    :param model_name: The name to assign the Azure Model will be created. If unspecified,
+                       a unique model name will be generated.
+
     :param mlflow_home: Path to a local copy of the MLflow GitHub repository. If specified, the
                         image will install MLflow from this directory. Otherwise, it will install
                         MLflow from pip.
@@ -257,10 +257,11 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
                         terminates before returning. If ``False``, the method returns immediately,
                         but the returned image will not be available until the asynchronous
                         creation process completes. Use the
-                        ``azureml.core.Image.wait_for_creation()`` function to wait for the creation
-                        process to complete.
+                        ``azureml.core.Webservice.wait_for_deployment()`` function to wait
+                        for the deployment process to complete.
     :return: A tuple containing the following elements in order:
-            - An ``azureml.core.image.ContainerImage`` object containing metadata for the new image.
+            - An ``azureml.core.webservice.Webservice`` object containing metadata for the
+            new service.
             - An ``azureml.core.model.Model`` object containing metadata for the new model.
 
     >>> import mlflow.azureml
@@ -277,12 +278,12 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
     >>>                                    resource_group=resource_group,
     >>>                                    location=location,
     >>>                                    create_resource_group=True,
-    >>>                                    exist_okay=True)
+    >>>                                    exist_ok=True)
     >>>
-    >>> # Build an Azure ML Container Image for an MLflow model
+    >>> # Create an Azure Container Instance webservice for an MLflow model
     >>> azure_service, azure_model = mlflow.azureml.deploy(
     >>>                                 model_uri="<model_uri>",
-    >>>                                 service_name="<deployment-name>"
+    >>>                                 service_name="<deployment-name>",
     >>>                                 workspace=azure_workspace,
     >>>                                 synchronous=True)
     >>>
@@ -316,9 +317,9 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
     tags = _build_tags(model_uri=model_uri, model_python_version=model_python_version)
 
     if service_name is None:
-        service_name = _get_mlflow_azure_name_from_run(run_id)
+        service_name = _get_mlflow_azure_name(run_id)
     if model_name is None:
-        model_name = _get_mlflow_azure_name_from_run(run_id)
+        model_name = _get_mlflow_azure_name(run_id)
 
     with TempDir(chdr=True) as tmp:
         model_directory_path = tmp.path("model")
@@ -342,11 +343,10 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
         environment = None
         if pyfunc.ENV in model_pyfunc_conf:
             environment = AzureEnvironment.from_conda_specification(
-                          _get_mlflow_azure_name_from_run(run_id),
+                          _get_mlflow_azure_name(run_id),
                           os.path.join(tmp_model_path, model_pyfunc_conf[pyfunc.ENV]))
         else:
-            environment = AzureEnvironment("MLFlow{}".format(
-                            _get_mlflow_azure_name_from_run(run_id)))
+            environment = AzureEnvironment(_get_mlflow_azure_name(run_id))
 
         if mlflow_home is not None:
             path = tmp.path("dist")
@@ -359,12 +359,12 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
             environment.python.conda_dependencies.add_pip_package(whl_url)
         else:
             environment.python.conda_dependencies.add_pip_package(
-                "mlflow~={}".format(mlflow_version))
+                "mlflow=={}".format(mlflow_version))
 
         # AzureML requires azureml-defaults to be installed to include
         # flask for the inference server.
         environment.python.conda_dependencies.add_pip_package(
-            "azureml-defaults~={}".format(AZUREML_VERSION))
+            "azureml-defaults=={}".format(AZUREML_VERSION))
 
         inference_config = InferenceConfig(entry_script=execution_script_path,
                                            environment=environment)
@@ -502,13 +502,13 @@ def _get_mlflow_azure_resource_name():
     return resource_prefix + unique_id
 
 
-def _get_mlflow_azure_name_from_run(run_id):
+def _get_mlflow_azure_name(run_id):
     """
     :return: A unique name for an Azure resource indicating that the resource was created by
              MLflow
     """
     azureml_max_resource_length = 32
-    resource_prefix = "mlflow-run-"
+    resource_prefix = "mlflow-model-"
     azureml_name = resource_prefix + run_id
     return azureml_name[:azureml_max_resource_length]
 
@@ -517,8 +517,9 @@ def _create_mlflow_wheel(mlflow_dir, out_dir):
     """
     Create the wheel of MLFlow by using setup.py bdist_wheel in the outdir.
 
-    :param model_path: The absolute path to the mlflow.
+    :param mlflow_dir: The absolute path to base of the MLflow Repo to create a wheel from..
     :param out_dir: The absolute path to the outdir.
+                    Will be created if it does not exist.
     :return: The absolute path to the wheel.
     """
     unresolved = Path(out_dir)
