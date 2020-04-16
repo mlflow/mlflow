@@ -471,10 +471,12 @@ class __MLflowTfKerasCallback(Callback):
 
     def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
         opt = self.model.optimizer
-        # Secondary checks are if the optimizer is a TensorFlow optimizer rather than a Keras one.
         if hasattr(opt, '_name'):
             try_mlflow_log(mlflow.log_param, 'optimizer_name', opt._name)
+        # Elif checks are if the optimizer is a TensorFlow optimizer rather than a Keras one.
         elif hasattr(opt, 'optimizer'):
+            # TensorFlow optimizer parameters are associated with the inner optimizer variable.
+            # Therefore, we assign opt to be opt.optimizer for logging parameters.
             opt = opt.optimizer
             try_mlflow_log(mlflow.log_param, 'optimizer_name', type(opt).__name__)
         if hasattr(opt, 'lr'):
