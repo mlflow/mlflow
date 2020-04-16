@@ -648,6 +648,8 @@ following are examples of valid model uris:
 -  ``file:relative/path/to/local/model``
 -  ``s3://my_bucket/path/to/model``
 -  ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+-  ``models:/<model_name>/<model_version>``
+-  ``models:/<model_name>/<stage>``
 
 For more information about supported URI schemes, see the Artifacts
 Documentation at
@@ -1164,6 +1166,8 @@ following are examples of valid model uris:
 -  ``file:relative/path/to/local/model``
 -  ``s3://my_bucket/path/to/model``
 -  ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+-  ``models:/<model_name>/<model_version>``
+-  ``models:/<model_name>/<stage>``
 
 For more information about supported URI schemes, see the Artifacts
 Documentation at
@@ -1297,9 +1301,9 @@ model types.
 
 .. code:: r
 
-   list(list("mlflow_save_model"), list("crate"))(model, path, ...)
-   list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path, conda_env = NULL, ...)
-   mlflow_save_model(model, path, ...)
+   list(list("mlflow_save_model"), list("crate"))(model, path, model_spec = list(), ...)
+   list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path, model_spec = list(), conda_env = NULL, ...)
+   mlflow_save_model(model, path, model_spec = list(), ...)
 
 .. _arguments-29:
 
@@ -1315,6 +1319,9 @@ Arguments
 | ``path``                          | Destination path where this       |
 |                                   | MLflow compatible model will be   |
 |                                   | saved.                            |
++-----------------------------------+-----------------------------------+
+| ``model_spec``                    | MLflow model config this model    |
+|                                   | flavor is being added to.         |
 +-----------------------------------+-----------------------------------+
 | ``...``                           | Optional additional arguments.    |
 +-----------------------------------+-----------------------------------+

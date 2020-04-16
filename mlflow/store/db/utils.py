@@ -27,8 +27,7 @@ def _get_package_dir():
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
     InitialBase.metadata.create_all(engine)
-    engine_url = str(engine.url)
-    _upgrade_db(engine_url)
+    _upgrade_db(engine)
 
 
 def _get_latest_schema_revision():
@@ -109,7 +108,7 @@ def _get_alembic_config(db_url, alembic_dir=None):
     return config
 
 
-def _upgrade_db(url):
+def _upgrade_db(engine):
     """
     Upgrade the schema of an MLflow tracking database to the latest supported version.
     Note that schema migrations can be slow and are not guaranteed to be transactional -
@@ -121,9 +120,17 @@ def _upgrade_db(url):
     """
     # alembic adds significant import time, so we import it lazily
     from alembic import command
-    _logger.info("Updating database tables at %s", url)
-    config = _get_alembic_config(url)
-    command.upgrade(config, 'heads')
+    db_url = str(engine.url)
+    _logger.info("Updating database tables at %s", db_url)
+    config = _get_alembic_config(db_url)
+    # Initialize a shared connection to be used for the database upgrade, ensuring that
+    # any connection-dependent state (e.g., the state of an in-memory database) is preserved
+    # for reference by the upgrade routine. For more information, see
+    # https://alembic.sqlalchemy.org/en/latest/cookbook.html#sharing-a-
+    # connection-with-a-series-of-migration-commands-and-environments
+    with engine.begin() as connection:
+        config.attributes['connection'] = connection  # pylint: disable=E1137
+        command.upgrade(config, 'heads')
 
 
 def _get_schema_version(engine):
@@ -132,17 +139,16 @@ def _get_schema_version(engine):
         return mc.get_current_revision()
 
 
-def _is_initialized_before_mlflow_1(url):
+def _is_initialized_before_mlflow_1(engine):
     """
     Returns true if the database at the specified URL was initialized before MLflow 1.0, False
     otherwise.
     A database is initialized before MLflow 1.0 if and only if its revision ID is set to None.
     """
-    engine = sqlalchemy.create_engine(url)
     return _get_schema_version(engine) is None
 
 
-def _upgrade_db_initialized_before_mlflow_1(url):
+def _upgrade_db_initialized_before_mlflow_1(engine):
     """
     Upgrades the schema of an MLflow tracking database created prior to MLflow 1.0, removing
     duplicate constraint names. This method performs a one-time update for pre-1.0 users that we
@@ -157,7 +163,7 @@ def _upgrade_db_initialized_before_mlflow_1(url):
     from alembic import command
     _logger.info("Updating database tables in preparation for MLflow 1.0 schema migrations ")
     alembic_dir = os.path.join(_get_package_dir(), 'temporary_db_migrations_for_pre_1_users')
-    config = _get_alembic_config(url, alembic_dir)
+    config = _get_alembic_config(str(engine.url), alembic_dir)
     command.upgrade(config, 'heads')
     # Reset the alembic version to "base" (the 'first' version) so that a) the versioning system
     # is unaware that this migration occurred and b) subsequent migrations, like the migration to

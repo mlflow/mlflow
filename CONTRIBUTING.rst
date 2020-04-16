@@ -23,7 +23,9 @@ by running the following from your checkout of MLflow:
     pip install -r test-requirements.txt
     pip install -e .  # installs mlflow from current checkout
 
-Ensure `Docker <https://www.docker.com/>`_ is installed.
+You may need to run ``conda install cmake`` for the test requirements to properly install, as ``onnx`` needs ``cmake``. 
+
+Ensure `Docker <https://www.docker.com/>`_ is installed. 
 
 ``npm`` is required to run the Javascript dev server and the tracking UI.
 You can verify that ``npm`` is on the PATH by running ``npm -v``, and
@@ -194,10 +196,11 @@ uses ``pytest==3.2.1`` for testing. Your tests should be added to the relevant f
 if there is no appropriate file, in a new file prefixed with ``test_`` so that ``pytest`` includes that
 file for testing.
 
-If your tests require usage of a tracking URI, you can use the
+If your tests require usage of a tracking URI, the
 `pytest fixture <https://docs.pytest.org/en/3.2.1/fixture.html>`_
-`tracking_uri_mock <https://github.com/mlflow/mlflow/blob/master/tests/projects/utils.py#L74>`_
-to set up a mock tracking URI that will set itself up before your test runs and tear itself down after.
+`tracking_uri_mock <https://github.com/mlflow/mlflow/blob/master/tests/conftest.py#L74>`_ is automatically set up
+for every tests. It sets up a mock tracking URI that will set itself up before your test runs and tear itself down after.
+If you want to deactivate the mock for your test, mark the test with `@pytest.mark.notrackingurimock` operator.
 
 Adding New Model Flavor Support
 -------------------------------
