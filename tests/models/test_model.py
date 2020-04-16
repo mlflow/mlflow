@@ -24,9 +24,10 @@ def test_model_save_load():
                   inputs=Schema([ColSpec("x", "integer"), ColSpec("y", "integer")]),
                   outputs=Schema([ColSpec(name=None, type="double")])),
               input_example={"x": 1, "y": 2})
-    assert m != n
     n.utc_time_created = m.utc_time_created
     assert m == n
+    n.run_id = "124"
+    assert m != n
     with TempDir() as tmp:
         m.save(tmp.path("model"))
         o = Model.load(tmp.path("model"))
