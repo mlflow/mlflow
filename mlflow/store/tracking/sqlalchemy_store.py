@@ -9,7 +9,7 @@ import sqlalchemy.sql.expression as sql
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
-from mlflow.store.db.db_types import MYSQL, MSSQL
+from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE
 import mlflow.store.db.utils
 from mlflow.store.tracking.dbmodels.models import SqlExperiment, SqlRun, \
     SqlMetric, SqlParam, SqlTag, SqlExperimentTag, SqlLatestMetric
@@ -624,6 +624,9 @@ class SqlAlchemyStore(AbstractStore):
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
 
         with self.ManagedSessionMaker() as session:
+            if self.db_type == SQLITE:
+                session.execute("PRAGMA case_sensitive_like = true;")
+
             # Fetch the appropriate runs and eagerly load their summary metrics, params, and
             # tags. These run attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
@@ -697,15 +700,17 @@ def _get_attributes_filtering_clauses(parsed):
         key_type = sql_statement.get('type')
         key_name = sql_statement.get('key')
         value = sql_statement.get('value')
-        comparator = sql_statement.get('comparator')
+        comparator = sql_statement.get('comparator').upper()
         if SearchUtils.is_attribute(key_type, comparator):
-            # validity of the comparator is checked in SearchUtils.parse_search_filter()
-            op = SearchUtils.filter_ops.get(comparator)
-            if op:
-                # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
-                # by the call to parse_search_filter
-                attribute_name = SqlRun.get_attribute_name(key_name)
-                clauses.append(op(getattr(SqlRun, attribute_name), value))
+            # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
+            # by the call to parse_search_filter
+            attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
+            if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
+                op = SearchUtils.get_sql_filter_ops(attribute, comparator)
+                clauses.append(op(value))
+            elif comparator in SearchUtils.filter_ops:
+                op = SearchUtils.filter_ops.get(comparator)
+                clauses.append(op(attribute, value))
     return clauses
 
 
@@ -713,7 +718,7 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
     key_type = sql_statement.get('type')
     key_name = sql_statement.get('key')
     value = sql_statement.get('value')
-    comparator = sql_statement.get('comparator')
+    comparator = sql_statement.get('comparator').upper()
 
     if SearchUtils.is_metric(key_type, comparator):
         entity = SqlLatestMetric
@@ -728,9 +733,16 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         raise MlflowException("Invalid search expression type '%s'" % key_type,
                               error_code=INVALID_PARAMETER_VALUE)
 
-    # validity of the comparator is checked in SearchUtils.parse_search_filter()
-    op = SearchUtils.filter_ops.get(comparator)
-    if op:
+    if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
+        op = SearchUtils.get_sql_filter_ops(entity.value, comparator)
+        return (
+            session
+            .query(entity)
+            .filter(entity.key == key_name, op(value))
+            .subquery()
+        )
+    elif comparator in SearchUtils.filter_ops:
+        op = SearchUtils.filter_ops.get(comparator)
         return (
             session
             .query(entity)
