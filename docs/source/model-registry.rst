@@ -7,7 +7,7 @@ MLflow Model Registry
 The MLflow Model Registry component is a centralized model store, set of APIs, and UI, to
 collaboratively manage the full lifecycle of an MLflow Model. It provides model lineage (which
 MLflow experiment and run produced the model), model versioning, stage transitions (for example from
-staging to production), and annotations.
+staging to productƒion), and annotations.
 
 .. contents:: Table of Contents
   :local:
@@ -187,10 +187,10 @@ You can transition a registered model to one of the stages: **Staging**, **Produ
     client.transition_model_version_stage(
         name="sk-learn-random-forest-reg-model",
         version=3,
-        stage="production"
+        stage="Production"
     )
 
-The accepted values for <stage> are: "Staging"|"staging", "Archived"|"archived", "Production"|"production", "None"|"none".
+The accepted values for <stage> are: Staging|Archived|Production|None.
 
 Listing and Searching MLflow Models
 -----------------------------------
