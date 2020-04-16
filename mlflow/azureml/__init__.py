@@ -300,6 +300,7 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
     from azureml.core.model import Model as AzureModel, InferenceConfig
     from azureml.core import Environment as AzureEnvironment
     from azureml.core import VERSION as AZUREML_VERSION
+    from azureml.core.webservice import AciWebservice
 
     absolute_model_path = _download_artifact_from_uri(model_uri)
 
@@ -382,6 +383,8 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
                 # We want more narrowly-scoped tags to win on merge
                 tags.update(deployment_config.tags)
             deployment_config.tags = tags
+        else:
+            deployment_config = AciWebservice.deploy_configuration(tags=tags)
 
         webservice = AzureModel.deploy(
             workspace=workspace,
