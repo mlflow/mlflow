@@ -1,18 +1,20 @@
 package org.mlflow.tracking;
 
+import com.google.common.collect.Lists;
 import org.apache.http.client.utils.URIBuilder;
-
-import org.mlflow.api.proto.Service.*;
 import org.mlflow.artifacts.ArtifactRepository;
 import org.mlflow.artifacts.ArtifactRepositoryFactory;
+import org.mlflow.artifacts.CliBasedArtifactRepository;
+import org.mlflow.api.proto.ModelRegistry.*;
+import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.creds.*;
 
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.lang.Iterable;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -126,7 +128,7 @@ public class MlflowClient {
    * Return RunInfos from provided list of experiments that satisfy the search query.
    * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or
    *                    similar that returns a page of Run results.
-   * 
+   *
    * @param experimentIds List of experiment IDs.
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
@@ -142,7 +144,7 @@ public class MlflowClient {
 
   /**
    * Return RunInfos from provided list of experiments that satisfy the search query.
-   * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or 
+   * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or
    *                    similar that returns a page of Run results.
    *
    * @param experimentIds List of experiment IDs.
@@ -433,6 +435,10 @@ public class MlflowClient {
     return httpCaller.post(path, json);
   }
 
+  public String sendPatch(String path, String json) {
+    return httpCaller.patch(path, json);
+  }
+
   /**
    * @return HostCredsProvider backing this MlflowClient. Visible for testing.
    */
@@ -636,4 +642,147 @@ public class MlflowClient {
     URI baseArtifactUri = URI.create(getRun(runId).getInfo().getArtifactUri());
     return artifactRepositoryFactory.getArtifactRepository(baseArtifactUri, runId);
   }
+
+
+  // ********************
+  // * Model Registry *
+  // ********************
+
+  /**
+   * :: Experimental ::
+   *
+   * This API may change or be removed in a future release without warning.
+   *
+   * Return the latest model version for each stage.
+   * The current available stages are: [None, Staging, Production, Archived].
+   *
+   *    <pre>
+   *        import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+   *        List{@code <ModelVersion>} detailsList = getLatestVersions("model");
+   *
+   *        for (ModelVersion details : detailsList) {
+   *            System.out.println("Model Name: " + details.getModelVersion()
+   *                                                       .getRegisteredModel()
+   *                                                       .getName());
+   *            System.out.println("Model Version: " + details.getModelVersion().getVersion());
+   *            System.out.println("Current Stage: " + details.getCurrentStage());
+   *        }
+   *    </pre>
+   *
+   * @param modelName The name of the model
+   * @return A collection of {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
+   */
+  public List<ModelVersion> getLatestVersions(String modelName) {
+      return getLatestVersions(modelName, Collections.emptyList());
+  }
+
+  /**
+   * :: Experimental ::
+   *
+   * This API may change or be removed in a future release without warning.
+   *
+   * Return the latest model version for each stage requested.
+   * The current available stages are: [None, Staging, Production, Archived].
+   *
+   *    <pre>
+   *        import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+   *        List{@code <ModelVersion>} detailsList =
+   *          getLatestVersions("model", Lists.newArrayList{@code <String>}("Staging"));
+   *
+   *        for (ModelVersion details : detailsList) {
+   *            System.out.println("Model Name: " + details.getModelVersion()
+   *                                                       .getRegisteredModel()
+   *                                                       .getName());
+   *            System.out.println("Model Version: " + details.getModelVersion().getVersion());
+   *            System.out.println("Current Stage: " + details.getCurrentStage());
+   *        }
+   *    </pre>
+   *
+   * @param modelName The name of the model
+   * @param stages A list of stages
+   * @return The latest model version
+   *         {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
+   */
+  public List<ModelVersion> getLatestVersions(String modelName, Iterable<String> stages) {
+    String json = sendGet(mapper.makeGetLatestVersion(modelName, stages));
+    GetLatestVersions.Response response =  mapper.toGetLatestVersionsResponse(json);
+    return response.getModelVersionsList();
+  }
+
+  /**
+   * :: Experimental ::
+   *
+   * This API may change or be removed in a future release without warning.
+   *
+   * Return the model URI containing for the given model version. The model URI can be used
+   * to download the model version artifacts.
+   *
+   *    <pre>
+   *        String modelUri = getModelVersionDownloadUri("model", 0);
+   *    </pre>
+   *
+   * @param modelName The name of the model
+   * @param version The version number of the model
+   * @return The specified model version's URI.
+   */
+  public String getModelVersionDownloadUri(String modelName, String version) {
+    String json = sendGet(mapper.makeGetModelVersionDownloadUri(modelName, version));
+    return mapper.toGetModelVersionDownloadUriResponse(json);
+  }
+
+  /**
+   * :: Experimental ::
+   *
+   * This API may change or be removed in a future release without warning.
+   *
+   * Return a local file or directory containing all artifacts within the given registered model
+   * version. The method will download the model version artifacts to the local file system.
+   *
+   *    <pre>
+   *        File modelVersionFile = downloadModelVersion("model", 0);
+   *    </pre>
+   *
+   * @param modelName The name of the model
+   * @param version The version number of the model
+   * @return A local file or directory ({@link java.io.File}) containing model artifacts
+   */
+  public File downloadModelVersion(String modelName, String version) {
+    String downloadUri = getModelVersionDownloadUri(modelName, version);
+
+    CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null,
+            hostCredsProvider);
+    return repository.downloadArtifactFromUri(downloadUri);
+  }
+
+  /**
+   * :: experimental ::
+   *
+   * this api may change or be removed in a future release without warning.
+   *
+   * Return a local file or directory containing all artifacts within the latest registered
+   * model version in the given stage. The method will download the model version artifacts
+   * to the local file system.
+   *
+   *    <pre>
+   *        File modelVersionFile = downloadLatestModelVersion("model", "Staging");
+   *    </pre>
+   *
+   * (i.e., the contents of the local directory are now available).
+   *
+   * @param modelName The name of the model
+   * @param stage The name of the stage
+   * @return A local file or directory ({@link java.io.File}) containing model artifacts
+   */
+  public File downloadLatestModelVersion(String modelName, String stage) {
+      List<ModelVersion> versions = getLatestVersions(modelName, Lists.newArrayList(stage));
+
+      if (versions.size() < 1) {
+        throw new MlflowClientException("No model version found for " + modelName +
+                "and stage " + stage);
+      }
+
+      ModelVersion details = versions.get(0);
+      return downloadModelVersion(modelName, details.getVersion());
+  }
+
 }

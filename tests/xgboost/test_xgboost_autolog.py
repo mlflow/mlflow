@@ -5,14 +5,16 @@ import numpy as np
 import pandas as pd
 from sklearn import datasets
 import xgboost as xgb
+import matplotlib as mpl
 
 import mlflow
 import mlflow.xgboost
 
-client = mlflow.tracking.MlflowClient()
+mpl.use('Agg')
 
 
 def get_latest_run():
+    client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
 
@@ -107,8 +109,8 @@ def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
               evals=[(dtrain, 'train')], evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-
     metric_key = 'train-merror'
+    client = mlflow.tracking.MlflowClient()
     metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
     assert metric_key in data.metrics
     assert len(metric_history) == 20
@@ -123,7 +125,7 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain)
     xgb.train(bst_params, dtrain, num_boost_round=20, evals=evals, evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-
+    client = mlflow.tracking.MlflowClient()
     for eval_name in [e[1] for e in evals]:
         metric_key = '{}-merror'.format(eval_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
@@ -142,7 +144,7 @@ def test_xgb_autolog_logs_metrics_with_multi_metrics(bst_params, dtrain):
               evals=[(dtrain, 'train')], evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-
+    client = mlflow.tracking.MlflowClient()
     for metric_name in params['eval_metric']:
         metric_key = 'train-{}'.format(metric_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
@@ -161,7 +163,7 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
     xgb.train(params, dtrain, num_boost_round=20, evals=evals, evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-
+    client = mlflow.tracking.MlflowClient()
     for eval_name in [e[1] for e in evals]:
         for metric_name in params['eval_metric']:
             metric_key = '{}-{}'.format(eval_name, metric_name)
@@ -188,6 +190,7 @@ def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
     assert int(data.metrics['best_iteration']) == model.best_iteration
     assert 'stopped_iteration' in data.metrics
     assert int(data.metrics['stopped_iteration']) == len(evals_result['train']['merror']) - 1
+    client = mlflow.tracking.MlflowClient()
 
     for eval_name in [e[1] for e in evals]:
         for metric_name in params['eval_metric']:
@@ -208,15 +211,20 @@ def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace('file://', '')
+    client = mlflow.tracking.MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     importance_type = 'weight'
-    filename = 'feature_importance_{}.json'.format(importance_type)
-    filepath = os.path.join(artifacts_dir, filename)
-    with open(filepath, 'r') as f:
+    plot_name = 'feature_importance_{}.png'.format(importance_type)
+    assert plot_name in artifacts
+
+    json_name = 'feature_importance_{}.json'.format(importance_type)
+    assert json_name in artifacts
+
+    json_path = os.path.join(artifacts_dir, json_name)
+    with open(json_path, 'r') as f:
         loaded_imp = json.load(f)
 
-    assert filename in artifacts
     assert loaded_imp == model.get_score(importance_type=importance_type)
 
 
@@ -228,16 +236,28 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace('file://', '')
+    client = mlflow.tracking.MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     for imp_type in importance_types:
-        filename = 'feature_importance_{}.json'.format(imp_type)
-        filepath = os.path.join(artifacts_dir, filename)
-        with open(filepath, 'r') as f:
+        plot_name = 'feature_importance_{}.png'.format(imp_type)
+        assert plot_name in artifacts
+
+        json_name = 'feature_importance_{}.json'.format(imp_type)
+        assert json_name in artifacts
+
+        json_path = os.path.join(artifacts_dir, json_name)
+        with open(json_path, 'r') as f:
             loaded_imp = json.load(f)
 
-        assert filename in artifacts
         assert loaded_imp == model.get_score(importance_type=imp_type)
+
+
+@pytest.mark.large
+def test_no_figure_is_opened_after_logging(bst_params, dtrain):
+    mlflow.xgboost.autolog()
+    xgb.train(bst_params, dtrain)
+    assert mpl.pyplot.get_fignums() == []
 
 
 @pytest.mark.large

@@ -1,3 +1,4 @@
+import logging
 import os
 
 import json
@@ -32,7 +33,8 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
+
+_logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
@@ -59,12 +61,19 @@ def spark_context():
              value='ml.combust.mleap:mleap-spark-base_2.11:0.12.0,'
                    'ml.combust.mleap:mleap-spark_2.11:0.12.0')
     conf.set(key="spark_session.python.worker.reuse", value=True)
-    spark = pyspark.sql.SparkSession.builder\
-        .config(conf=conf)\
-        .master("local-cluster[2, 1, 1024]")\
-        .getOrCreate()
-    sc = spark.sparkContext
-    return sc
+    max_tries = 3
+    for num_tries in range(max_tries):
+        try:
+            spark = pyspark.sql.SparkSession.builder\
+                .config(conf=conf)\
+                .master("local-cluster[2, 1, 1024]")\
+                .getOrCreate()
+            return spark.sparkContext
+        except Exception as e:
+            if num_tries >= max_tries - 1:
+                raise
+            _logger.exception(e, "Attempt %s to create a SparkSession failed, retrying..." %
+                              num_tries)
 
 
 @pytest.fixture(scope="session")
@@ -341,7 +350,7 @@ def test_sparkml_model_log_invalid_args(spark_model_transformer, model_path):
 
 
 @pytest.mark.large
-def test_log_model_calls_register_model(tracking_uri_mock, tmpdir, spark_model_iris):
+def test_log_model_calls_register_model(tmpdir, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(str(tmpdir), "test")
     try:
@@ -358,7 +367,7 @@ def test_log_model_calls_register_model(tracking_uri_mock, tmpdir, spark_model_i
 
 
 @pytest.mark.large
-def test_log_model_no_registered_model_name(tracking_uri_mock, tmpdir, spark_model_iris):
+def test_log_model_no_registered_model_name(tmpdir, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(str(tmpdir), "test")
     try:

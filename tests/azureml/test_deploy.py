@@ -2,9 +2,7 @@ from __future__ import print_function
 
 import sys
 import os
-import json
 import pytest
-import yaml
 import mock
 import numpy as np
 from mock import Mock
@@ -15,7 +13,6 @@ import sklearn.datasets as datasets
 import sklearn.linear_model as glm
 from keras.models import Sequential
 from keras.layers import Dense
-from click.testing import CliRunner
 
 import mlflow
 import mlflow.azureml
@@ -27,7 +24,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import

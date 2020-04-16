@@ -70,7 +70,7 @@ There are different kinds of remote tracking URIs:
 
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
 - Database encoded as ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. MLflow supports the dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. For more details, see `SQLAlchemy database uri <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
-- HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLFlow tracking server <tracking_server>`.
+- HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLflow tracking server <tracking_server>`.
 - Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
   `See docs <http://docs.databricks.com/applications/mlflow/logging-from-outside-databricks.html>`_ on
   logging to Databricks-hosted MLflow, or :ref:`the quickstart <quickstart_logging_to_remote_server>` to
@@ -238,9 +238,9 @@ Autologging captures the following information:
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 | Framework        | Metrics                                                | Parameters                                                   | Tags          | Artifacts                                                                                                                                        |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| Keras            | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | Model summary | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end                      |
+| Keras            | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end                      |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.keras``     | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | Model summary | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs on training end    |
+| ``tf.keras``     | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs on training end    |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``tf.estimator`` | TensorBoard metrics                                    | steps, max_steps                                             | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call to ``tf.estimator.export_saved_model``                     |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -426,7 +426,7 @@ You can access all of the functions in the Tracking UI programmatically. This ma
 
 * Query and compare runs using any data analysis tool of your choice, for example, **pandas**. 
 * Determine the artifact URI for a run to feed some of its artifacts into a new run when executing a workflow. For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
-* Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLFlow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
+* Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLflow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 * Run automated parameter search algorithms, where you query the metrics from various runs to submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
 
 
@@ -504,13 +504,19 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
   is a path inside the file store. Typically this is not an appropriate location, as the client and
   server probably refer to different physical locations (that is, the same path on different disks).
 
+Deletion Behavior
+~~~~~~~~~~~~~~~~~
+In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
+from the backend store or artifact store when a Run is deleted. The :ref:`mlflow gc <cli>` CLI is provided
+for permanently removing Run metadata and artifacts for deleted runs.
+
 SQLAlchemy Options
 ~~~~~~~~~~~~~~~~~~
 
 You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalchemy.org/en/latest/core/pooling.html>`_ using environment variables.
 
 +-----------------------------------------+-----------------------------+
-| MLFlow Environment Variable             | SQLAlchemy QueuePool Option |
+| MLflow Environment Variable             | SQLAlchemy QueuePool Option |
 +-----------------------------------------+-----------------------------+
 | ``MLFLOW_SQLALCHEMYSTORE_POOL_SIZE``    | ``pool_size``               |
 +-----------------------------------------+-----------------------------+
@@ -537,11 +543,19 @@ these are available. For more information on how to set credentials, see
 `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_.
 
 To store artifacts in a custom endpoint, set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL.
-For example, if you have a Minio server at 1.2.3.4 on port 9000:
+For example, if you have a MinIO server at 1.2.3.4 on port 9000:
 
 .. code-block:: bash
 
   export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
+
+Additionally, if MinIO server is configured with non-default region, you should set ``AWS_DEFAULT_REGION`` variable:
+
+.. code-block:: bash
+
+  export AWS_DEFAULT_REGION=my_region
+
+Complete list of configurable values for an S3 client is available in `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
 
 Azure Blob Storage
 ^^^^^^^^^^^^^^^^^^
@@ -551,7 +565,7 @@ To store artifacts in Azure Blob Storage, specify a URI of the form
 MLflow expects Azure Storage access credentials in the
 ``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
 a connection string if one is set), so you must set one of these variables on both your client
-application and your MLflow tracking server. Finally, you must run ``pip install azure-storage``
+application and your MLflow tracking server. Finally, you must run ``pip install azure-storage-blob``
 separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
 a dependency on this package by default.
 
@@ -711,4 +725,8 @@ internal use. The following tags are set automatically by MLflow, when appropria
 | ``mlflow.docker.image.name``  | Name of the Docker image used to execute this run.                                     |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.docker.image.id``    | ID of the Docker image used to execute this run.                                       |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.log-model.history``  | (Experimental) Model metadata collected by log-model calls. Includes the serialized    |
+|                               | form of the MLModel model files logged to a run, although the exact format and         |
+|                               | information captured is subject to change.                                             |
 +-------------------------------+----------------------------------------------------------------------------------------+
