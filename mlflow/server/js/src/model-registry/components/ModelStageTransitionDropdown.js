@@ -32,8 +32,9 @@ export class ModelStageTransitionDropdown extends React.Component {
         (() => {
           this.setState({ confirmModalVisible: false });
           const comment = this.transitionFormRef.current.getFieldValue('comment');
-          const archiveExistingVersions = !!this.transitionFormRef
-            .current.getFieldValue('archiveExistingVersions');
+          const archiveExistingVersions = !!this.transitionFormRef.current.getFieldValue(
+            'archiveExistingVersions'
+          );
           this.transitionFormRef.current.resetFields();
           this.props.onSelect(activity, comment, archiveExistingVersions);
         }),
@@ -66,7 +67,7 @@ export class ModelStageTransitionDropdown extends React.Component {
             }
           >
             Transition to &nbsp;&nbsp;&nbsp;&nbsp;
-            <i className='fas fa-long-arrow-alt-right' />
+            <i className="fas fa-long-arrow-alt-right" />
             &nbsp;&nbsp;&nbsp;&nbsp;
             {StageTagComponents[stage]}
           </Menu.Item>
@@ -93,7 +94,7 @@ export class ModelStageTransitionDropdown extends React.Component {
       }
       return (
         <Modal
-          title='Stage Transition'
+          title="Stage Transition"
           visible={confirmModalVisible}
           onOk={handleConfirm}
           onCancel={this.handleConfirmModalCancel}
@@ -113,11 +114,11 @@ export class ModelStageTransitionDropdown extends React.Component {
         <Dropdown
           overlay={this.getMenu()}
           trigger={['click']}
-          className='stage-transition-dropdown'
+          className="stage-transition-dropdown"
         >
           <span>
             {StageTagComponents[currentStage]}
-            <Icon type='down' style={{ cursor: 'pointer', marginLeft: -4 }} />
+            <Icon type="down" style={{ cursor: 'pointer', marginLeft: -4 }} />
           </span>
         </Dropdown>
         {this.renderConfirmModal()}
@@ -130,9 +131,8 @@ export const renderActivityDescription = (activity) => {
   if (activity) {
     return (
       <div>
-        Transition to
-        &nbsp;&nbsp;&nbsp;
-        <i className='fas fa-long-arrow-alt-right' />
+        Transition to &nbsp;&nbsp;&nbsp;
+        <i className="fas fa-long-arrow-alt-right" />
         &nbsp;&nbsp;&nbsp;&nbsp;
         {StageTagComponents[activity.to_stage]}
       </div>

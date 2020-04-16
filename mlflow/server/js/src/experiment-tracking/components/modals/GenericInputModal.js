@@ -74,7 +74,7 @@ export class GenericInputModal extends Component {
         width={540}
         visible={isOpen}
         onOk={this.onSubmit}
-        okText='Save'
+        okText="Save"
         confirmLoading={isSubmitting}
         onCancel={this.onRequestCloseHandler}
         centered

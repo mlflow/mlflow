@@ -23,8 +23,8 @@ export class MetricViewImpl extends Component {
     const experimentId = experiment.experiment_id;
     const { selectedMetricKeys } = Utils.getMetricPlotStateFromUrl(location.search);
     return (
-      <div className='MetricView'>
-        <div className='header-container'>
+      <div className="MetricView">
+        <div className="header-container">
           <BreadcrumbTitle
             experiment={experiment}
             runNames={runNames}

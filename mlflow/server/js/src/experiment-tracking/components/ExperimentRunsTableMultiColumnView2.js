@@ -104,10 +104,11 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     return rowNode.data.isFullWidth;
   }
 
-  getLocalStore = () => LocalStorageUtils.getStoreForComponent(
-    "ExperimentRunsTableMultiColumnView2",
-    this.props.experimentId,
-  );
+  getLocalStore = () =>
+    LocalStorageUtils.getStoreForComponent(
+      'ExperimentRunsTableMultiColumnView2',
+      this.props.experimentId
+    );
 
   applyingRowSelectionFromProps = false;
 
@@ -261,9 +262,10 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds }) => {
       const tags = tagsList[idx];
       const params = paramsList[idx];
-      const metrics = metricsList[idx].map(
-        ({ key, value }) => ({ key, value: Utils.formatMetric(value) }),
-      );
+      const metrics = metricsList[idx].map(({ key, value }) => ({
+        key,
+        value: Utils.formatMetric(value),
+      }));
       const runInfo = runInfos[idx];
 
       const user = Utils.getUser(runInfo, tags);
@@ -380,9 +382,11 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
 
   persistGridState = () => {
     if (!this.columnApi) return;
-    this.getLocalStore().saveComponentState(new AgGridPersistedState({
-      columnGroupState: this.columnApi.getColumnGroupState(),
-    }));
+    this.getLocalStore().saveComponentState(
+      new AgGridPersistedState({
+        columnGroupState: this.columnApi.getColumnGroupState(),
+      })
+    );
   };
 
   restoreGridState() {
@@ -410,13 +414,13 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     } = ExperimentRunsTableMultiColumnView2;
 
     return (
-      <div className='ag-theme-balham multi-column-view'>
+      <div className="ag-theme-balham multi-column-view">
         <AgGridReact
           defaultColDef={defaultColDef}
           columnDefs={columnDefs}
           rowData={this.getRowData()}
           modules={[Grid, ClientSideRowModelModule]}
-          rowSelection='multiple'
+          rowSelection="multiple"
           onGridReady={this.handleGridReady}
           onSelectionChanged={this.handleSelectionChange}
           onColumnGroupOpened={this.persistGridState}
@@ -427,7 +431,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           frameworkComponents={frameworkComponents}
           fullWidthCellRendererFramework={FullWidthCellRenderer}
           fullWidthCellRendererParams={{ handleLoadMoreRuns, loadingMore }}
-          loadingOverlayComponent='loadingOverlayComponent'
+          loadingOverlayComponent="loadingOverlayComponent"
           loadingOverlayComponentParams={{ showImmediately: true }}
           isFullWidthCell={isFullWidthCell}
           isRowSelectable={this.isRowSelectable}
@@ -495,7 +499,9 @@ function SourceCellRenderer(props) {
       {Utils.renderSourceTypeIcon(Utils.getSourceType(tags))}
       {sourceType}
     </React.Fragment>
-  ) : <React.Fragment>{EMPTY_CELL_PLACEHOLDER}</React.Fragment>;
+  ) : (
+    <React.Fragment>{EMPTY_CELL_PLACEHOLDER}</React.Fragment>
+  );
 }
 SourceCellRenderer.propTypes = { data: PropTypes.object };
 

@@ -48,9 +48,7 @@ export class ModelVersionTable extends React.Component {
         className: 'model-version',
         dataIndex: 'version',
         render: (version) => (
-          <Link to={getModelVersionPageRoute(modelName, version)}>
-            {`Version ${version}`}
-          </Link>
+          <Link to={getModelVersionPageRoute(modelName, version)}>{`Version ${version}`}</Link>
         ),
       },
       {
@@ -81,13 +79,13 @@ export class ModelVersionTable extends React.Component {
       : modelVersions;
     return (
       <Table
-        size='middle'
+        size="middle"
         rowKey={this.getRowKey}
-        className='model-version-table'
+        className="model-version-table"
         dataSource={versions}
         columns={this.getColumns()}
         locale={{ emptyText: 'No model version.' }}
-        rowSelection={{onChange: this.props.onChange}}
+        rowSelection={{ onChange: this.props.onChange }}
       />
     );
   }

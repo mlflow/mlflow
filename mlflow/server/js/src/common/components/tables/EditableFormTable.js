@@ -70,9 +70,9 @@ export class EditableTable extends React.Component {
     ...this.props.columns.map((col) =>
       (col.editable
         ? {
-          ...col,
-          // `onCell` returns props to be added to EditableCell
-          onCell: (record) => ({
+            ...col,
+            // `onCell` returns props to be added to EditableCell
+            onCell: (record) => ({
             record,
             dataIndex: col.dataIndex,
             title: col.title,
@@ -81,8 +81,8 @@ export class EditableTable extends React.Component {
             cancel: this.cancel,
             recordKey: record.key,
           }),
-        }
-        : col),
+          }
+        : col)
     ),
     {
       title: 'Actions',
@@ -92,7 +92,7 @@ export class EditableTable extends React.Component {
         const { editingKey, isRequestPending } = this.state;
         const editing = this.isEditing(record);
         if (editing && isRequestPending) {
-          return <Icon type='loading' />;
+          return <Icon type="loading" />;
         }
         return editing ? (
           <span>
@@ -117,7 +117,7 @@ export class EditableTable extends React.Component {
               onConfirm={() => this.delete(record.key)}
             >
               <a disabled={editingKey !== ''}>
-                <i className="far fa-trash-alt"/>
+                <i className="far fa-trash-alt" />
               </a>
             </Popconfirm>
           </span>
@@ -154,7 +154,7 @@ export class EditableTable extends React.Component {
         this.setState({ editingKey: '', isRequestPending: false });
       });
     }
-  }
+  };
 
   edit = (key) => {
     this.setState({ editingKey: key });
@@ -170,11 +170,11 @@ export class EditableTable extends React.Component {
     return (
       <EditableContext.Provider value={form}>
         <Table
-          className='editable-table'
+          className="editable-table"
           components={components}
           dataSource={data}
           columns={this.columns}
-          size='middle'
+          size="middle"
           pagination={false}
           locale={{ emptyText: 'No tags found.' }}
         />

@@ -27,26 +27,26 @@ export class ParallelCoordinatesPlotControls extends React.Component {
       handleMetricsSelectChange,
     } = this.props;
     return (
-      <div className='plot-controls'>
+      <div className="plot-controls">
         <div>Parameters:</div>
         <TreeSelect
-          className='metrics-select'
-          searchPlaceholder='Please select parameters'
+          className="metrics-select"
+          searchPlaceholder="Please select parameters"
           value={selectedParamKeys}
           showCheckedStrategy={TreeSelect.SHOW_PARENT}
           treeCheckable
-          treeData={paramKeys.map((k) => ({ title: k, value: k, label: k}))}
+          treeData={paramKeys.map((k) => ({ title: k, value: k, label: k }))}
           onChange={handleParamsSelectChange}
           filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
         />
         <div style={{ marginTop: 20 }}>Metrics:</div>
         <TreeSelect
-          className='metrics-select'
-          searchPlaceholder='Please select metrics'
+          className="metrics-select"
+          searchPlaceholder="Please select metrics"
           value={selectedMetricKeys}
           showCheckedStrategy={TreeSelect.SHOW_PARENT}
           treeCheckable
-          treeData={metricKeys.map((k) => ({ title: k, value: k, label: k}))}
+          treeData={metricKeys.map((k) => ({ title: k, value: k, label: k }))}
           onChange={handleMetricsSelectChange}
           filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
         />

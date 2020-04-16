@@ -5,7 +5,7 @@ import { connect } from 'react-redux';
 import { GenericInputModal } from './GenericInputModal';
 import { RenameForm, NEW_NAME_FIELD } from './RenameForm';
 
-import { setTagApi} from '../../actions';
+import { setTagApi } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 import { getUUID } from '../../../common/utils/ActionUtils';
 
@@ -32,12 +32,12 @@ class RenameRunModalImpl extends Component {
     const { isOpen, runName } = this.props;
     return (
       <GenericInputModal
-        title='Rename Run'
+        title="Rename Run"
         isOpen={isOpen}
         handleSubmit={this.handleRenameRun}
         onClose={this.props.onClose}
       >
-        <RenameForm type='run' name={runName} visible={isOpen} />
+        <RenameForm type="run" name={runName} visible={isOpen} />
       </GenericInputModal>
     );
   }

@@ -32,7 +32,7 @@ class ShowArtifactMapView extends Component {
 
   static defaultProps = {
     getArtifact: getArtifactContent,
-  }
+  };
 
   state = {
     loading: true,
@@ -102,17 +102,17 @@ class ShowArtifactMapView extends Component {
 
   render() {
     if (this.state.loading) {
-      return <div className='artifact-map-view-loading'>Loading...</div>;
+      return <div className="artifact-map-view-loading">Loading...</div>;
     }
     if (this.state.error) {
       return (
-        <div className='artifact-map-view-error'>
+        <div className="artifact-map-view-error">
           Oops, we couldn't load your file because of an error.
         </div>
       );
     } else {
       return (
-        <div className='map-container'>
+        <div className="map-container">
           <div id={this.mapDivId}></div>
         </div>
       );
@@ -122,12 +122,15 @@ class ShowArtifactMapView extends Component {
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
     const artifactLocation = getSrc(this.props.path, this.props.runUuid);
-    this.props.getArtifact(artifactLocation).then((rawFeatures) => {
-      const parsedFeatures = JSON.parse(rawFeatures);
-      this.setState({ features: parsedFeatures, loading: false });
-    }).catch((error) => {
-      this.setState({ error: error, loading: false, features: undefined });
-    });
+    this.props
+      .getArtifact(artifactLocation)
+      .then((rawFeatures) => {
+        const parsedFeatures = JSON.parse(rawFeatures);
+        this.setState({ features: parsedFeatures, loading: false });
+      })
+      .catch((error) => {
+        this.setState({ error: error, loading: false, features: undefined });
+      });
   }
 }
 

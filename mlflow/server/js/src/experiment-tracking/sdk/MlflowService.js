@@ -9,7 +9,7 @@
 
 import $ from 'jquery';
 import JsonBigInt from 'json-bigint';
-import Utils from "../../common/utils/Utils";
+import Utils from '../../common/utils/Utils';
 
 const StrictJsonBigInt = JsonBigInt({ strict: true, storeAsString: true });
 
@@ -332,7 +332,7 @@ export class MlflowService {
     });
   }
 
-    /**
+  /**
    * @param {DeleteTag} data: Immutable Record
    * @param {function} success
    * @param {function} error

@@ -1,3 +1,3 @@
 export default {
-  secondaryText: "#888",
+  secondaryText: '#888',
 };

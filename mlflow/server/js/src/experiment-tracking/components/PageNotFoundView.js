@@ -8,8 +8,8 @@ export class PageNotFoundView extends Component {
     return (
       <div>
         <img
-          className='center'
-          alt='404 not found'
+          className="center"
+          alt="404 not found"
           style={{ height: '300px', marginTop: '80px' }}
           src={overflow}
         />
@@ -23,4 +23,3 @@ export class PageNotFoundView extends Component {
     );
   }
 }
-

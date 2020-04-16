@@ -11,12 +11,12 @@ describe('DirectTransitionForm', () => {
 
   beforeEach(() => {
     minimalProps = {
-      form: { getFieldDecorator: jest.fn(() => c => c) },
+      form: { getFieldDecorator: jest.fn(() => (c) => c) },
     };
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<DirectTransitionFormImpl {...minimalProps}/>);
+    wrapper = shallow(<DirectTransitionFormImpl {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 

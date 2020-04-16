@@ -6,7 +6,7 @@ import { getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import PropTypes from 'prop-types';
 
 const PROMPT_MESSAGE =
-  "Are you sure you want to navigate away? Your pending text changes will be lost.";
+  'Are you sure you want to navigate away? Your pending text changes will be lost.';
 
 export class EditableNote extends Component {
   static propTypes = {
@@ -39,7 +39,7 @@ export class EditableNote extends Component {
 
   handleTabChange = (selectedTab) => {
     this.setState({ selectedTab });
-  }
+  };
 
   handleSubmitClick = () => {
     const { onSubmit } = this.props;
@@ -78,17 +78,17 @@ export class EditableNote extends Component {
   renderActions() {
     const { confirmLoading } = this.state;
     return (
-      <div className='editable-note-actions'>
+      <div className="editable-note-actions">
         <div>
           <Button
-            htmlType='button'
-            type='primary'
+            htmlType="button"
+            type="primary"
             onClick={this.handleSubmitClick}
             disabled={!this.contentHasChanged() || confirmLoading}
           >
-            {confirmLoading && <Icon type='loading' />} Save
+            {confirmLoading && <Icon type="loading" />} Save
           </Button>
-          <Button htmlType='button' onClick={this.handleCancelClick} disabled={confirmLoading}>
+          <Button htmlType="button" onClick={this.handleCancelClick} disabled={confirmLoading}>
             Cancel
           </Button>
         </div>
@@ -98,9 +98,7 @@ export class EditableNote extends Component {
 
   getSanitizedHtmlContent() {
     const { markdown } = this.state;
-    return markdown
-      ? sanitizeConvertedHtml(this.converter.makeHtml(markdown))
-      : null;
+    return markdown ? sanitizeConvertedHtml(this.converter.makeHtml(markdown)) : null;
   }
 
   render() {
@@ -108,25 +106,23 @@ export class EditableNote extends Component {
     const { markdown, selectedTab, error } = this.state;
     const htmlContent = this.getSanitizedHtmlContent();
     return (
-      <div className='note-view-outer-container'>
+      <div className="note-view-outer-container">
         {showEditor ? (
           <React.Fragment>
-            <div className='note-view-text-area'>
+            <div className="note-view-text-area">
               <ReactMde
                 value={markdown}
                 onChange={this.handleMdeValueChange}
                 selectedTab={selectedTab}
                 onTabChange={this.handleTabChange}
-                generateMarkdownPreview={(md) =>
-                  Promise.resolve(this.getSanitizedHtmlContent(md))
-                }
+                generateMarkdownPreview={(md) => Promise.resolve(this.getSanitizedHtmlContent(md))}
                 getIcon={(name) => <TooltipIcon name={name} />}
               />
             </div>
             {error && (
               <Alert
-                type='error'
-                message='There was an error submitting your note.'
+                type="error"
+                message="There was an error submitting your note."
                 description={error}
                 closable
               />
@@ -135,7 +131,7 @@ export class EditableNote extends Component {
             <Prompt when={this.contentHasChanged()} message={PROMPT_MESSAGE} />
           </React.Fragment>
         ) : (
-          <HTMLNoteContent content={htmlContent}/>
+          <HTMLNoteContent content={htmlContent} />
         )}
       </div>
     );
@@ -159,10 +155,11 @@ function HTMLNoteContent(props) {
     <div className="note-view-outer-container">
       <div className="note-view-text-area">
         <div className="note-view-preview note-editor-preview">
-          <div className="note-editor-preview-content"
+          <div
+            className="note-editor-preview-content"
             // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: props.content }}>
-          </div>
+            dangerouslySetInnerHTML={{ __html: props.content }}
+          ></div>
         </div>
       </div>
     </div>

@@ -108,7 +108,7 @@ export class ExperimentListView extends Component {
     // get searchInput from state
     const { searchInput } = this.state;
     return (
-      <div className='experiment-list-outer-container'>
+      <div className="experiment-list-outer-container">
         <CreateExperimentModal
           isOpen={this.state.showCreateExperimentModal}
           onClose={this.handleCloseCreateExperimentModal}
@@ -127,45 +127,52 @@ export class ExperimentListView extends Component {
           experimentName={this.state.selectedExperimentName}
         />
         <div>
-          <h1 className='experiments-header'>Experiments</h1>
-          <div className='experiment-list-create-btn-container'>
+          <h1 className="experiments-header">Experiments</h1>
+          <div className="experiment-list-create-btn-container">
             <i
               onClick={this.handleCreateExperiment}
-              title='New Experiment'
-              className='fas fa-plus fa-border experiment-list-create-btn'
+              title="New Experiment"
+              className="fas fa-plus fa-border experiment-list-create-btn"
             />
           </div>
-          <div className='collapser-container'>
+          <div className="collapser-container">
             <i
               onClick={this.props.onClickListExperiments}
-              title='Hide experiment list'
-              className='collapser fa fa-chevron-left login-icon'
+              title="Hide experiment list"
+              className="collapser fa fa-chevron-left login-icon"
             />
           </div>
           <input
-            className='experiment-list-search-input'
-            type='text'
-            placeholder='Search Experiments'
+            className="experiment-list-search-input"
+            type="text"
+            placeholder="Search Experiments"
             value={searchInput}
             onChange={this.handleSearchInputChange}
           />
-          <div className='experiment-list-container' style={{ height: experimentListHeight }}>
+          <div className="experiment-list-container" style={{ height: experimentListHeight }}>
             {this.props.experiments
               // filter experiments based on searchInput
-              .filter((exp) => exp.getName().toLowerCase().includes(searchInput.toLowerCase()))
+              .filter((exp) =>
+                exp
+                  .getName()
+                  .toLowerCase()
+                  .includes(searchInput.toLowerCase())
+              )
               .map((exp, idx) => {
                 const { name, experiment_id } = exp;
-                const active = this.props.activeExperimentId !== undefined
+                const active =
+                  this.props.activeExperimentId !== undefined
                     ? experiment_id === this.props.activeExperimentId
                     : idx === 0;
-                const className =
-                  `experiment-list-item ${active ? 'active-experiment-list-item' : ''}`;
+                const className = `experiment-list-item ${
+                  active ? 'active-experiment-list-item' : ''
+                }`;
                 return (
                   <div key={experiment_id} title={name} className={`header-container ${className}`}>
                     <Link
                       style={{ textDecoration: 'none', color: 'unset', width: '80%' }}
                       to={Routes.getExperimentPageRoute(experiment_id)}
-                      onClick={active ? ev => ev.preventDefault() : ev => ev}
+                      onClick={active ? (ev) => ev.preventDefault() : (ev) => ev}
                     >
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
                     </Link>
@@ -176,7 +183,7 @@ export class ExperimentListView extends Component {
                       data-experimentname={name}
                       style={{ marginRight: 10 }}
                     >
-                      <Icon type='edit' />
+                      <Icon type="edit" />
                     </a>
                     {/* Delete Experiment option */}
                     <a
@@ -184,7 +191,7 @@ export class ExperimentListView extends Component {
                       data-experimentid={experiment_id}
                       data-experimentname={name}
                     >
-                      <i className='far fa-trash-alt' />
+                      <i className="far fa-trash-alt" />
                     </a>
                   </div>
                 );

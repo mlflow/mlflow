@@ -13,10 +13,10 @@ export class PermissionDeniedView extends Component {
     return (
       <div>
         <img
-          className='center'
+          className="center"
           style={{ height: 300, marginTop: 80 }}
           src={permissionDeniedLock}
-          alt='permission denied'
+          alt="permission denied"
         />
         <h1 className="center" style={{ paddingTop: 10 }}>
           Permission Denied

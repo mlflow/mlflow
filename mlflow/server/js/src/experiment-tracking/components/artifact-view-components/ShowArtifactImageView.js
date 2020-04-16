@@ -31,7 +31,7 @@ class ShowArtifactImageView extends Component {
     this.fetchImage();
   };
 
-  componentDidUpdate = prevProps => {
+  componentDidUpdate = (prevProps) => {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
       if (this.isGif()) {
         return;
@@ -87,11 +87,7 @@ class ShowArtifactImageView extends Component {
     const { loading, dataURL, width, height } = this.state;
 
     if (loading) {
-      return (
-        <div className='artifact-image-view-loading'>
-          Loading...
-        </div>
-      );
+      return <div className="artifact-image-view-loading">Loading...</div>;
     }
     return (
       <Plot

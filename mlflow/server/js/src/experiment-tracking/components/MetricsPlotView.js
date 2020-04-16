@@ -45,14 +45,14 @@ export class MetricsPlotView extends React.Component {
   };
 
   getPlotPropsForLineChart = () => {
-    const { metrics, xAxis, showPoint, lineSmoothness, isComparing,
-      deselectedCurves } = this.props;
+    const { metrics, xAxis, showPoint, lineSmoothness, isComparing, deselectedCurves } = this.props;
     const deselectedCurvesSet = new Set(deselectedCurves);
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
       const isSingleHistory = history.length === 0;
-      const visible = !deselectedCurvesSet.has(Utils.getCurveKey(runUuid, metricKey)) ?
-          true : "legendonly";
+      const visible = !deselectedCurvesSet.has(Utils.getCurveKey(runUuid, metricKey))
+        ? true
+        : 'legendonly';
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
         x: history.map((entry) => {
@@ -65,7 +65,7 @@ export class MetricsPlotView extends React.Component {
         type: 'scatter',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
         line: { shape: 'spline', smoothing: lineSmoothness },
-        marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
+        marker: { opacity: isSingleHistory || showPoint ? 1 : 0 },
         visible: visible,
         runId: runUuid,
         metricName: metricKey,
@@ -97,14 +97,13 @@ export class MetricsPlotView extends React.Component {
 
     const arrayOfHistorySortedByMetricKey = _.sortBy(
       Object.values(historyByMetricKey),
-      'metricKey',
+      'metricKey'
     );
 
     const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map((history) => history.metricKey);
     const deselectedCurvesSet = new Set(deselectedCurves);
     const data = runUuids.map((runUuid, i) => {
-      const visibility = deselectedCurvesSet.has(runUuid) ?
-        { visible: 'legendonly' } : {};
+      const visibility = deselectedCurvesSet.has(runUuid) ? { visible: 'legendonly' } : {};
       return {
         name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
         x: sortedMetricKeys,
@@ -131,7 +130,7 @@ export class MetricsPlotView extends React.Component {
         ? this.getPlotPropsForBarChart()
         : this.getPlotPropsForLineChart();
     return (
-      <div className='metrics-plot-view-container'>
+      <div className="metrics-plot-view-container">
         <Plot
           {...plotProps}
           useResizeHandler

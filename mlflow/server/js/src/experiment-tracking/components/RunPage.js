@@ -50,7 +50,7 @@ class RunPage extends Component {
 
   render() {
     return (
-      <div className='App-content'>
+      <div className="App-content">
         <RequestStateWrapper
           requestIds={[
             this.getRunRequestId,
@@ -62,19 +62,21 @@ class RunPage extends Component {
             if (shouldRenderError) {
               const getRunRequest = Utils.getRequestWithId(requests, this.getRunRequestId);
               if (getRunRequest.error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
-                return <RunNotFoundView runId={this.props.runUuid}/>;
+                return <RunNotFoundView runId={this.props.runUuid} />;
               }
               return null;
             }
-            return <RunView
-              runUuid={this.props.runUuid}
-              getMetricPagePath={(key) =>
-                Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
-              }
-              experimentId={this.props.experimentId}
-              modelVersions={this.props.modelVersions}
-              handleSetRunTag={this.handleSetRunTag}
-            />;
+            return (
+              <RunView
+                runUuid={this.props.runUuid}
+                getMetricPagePath={(key) =>
+                  Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
+                }
+                experimentId={this.props.experimentId}
+                modelVersions={this.props.modelVersions}
+                handleSetRunTag={this.handleSetRunTag}
+              />
+            );
           }}
         </RequestStateWrapper>
       </div>

@@ -5,7 +5,6 @@ import Colors from '../styles/Colors';
 import Routes from '../routes';
 import { Link } from 'react-router-dom';
 
-
 export class RunNotFoundView extends Component {
   static propTypes = {
     runId: PropTypes.string.isRequired,
@@ -15,7 +14,7 @@ export class RunNotFoundView extends Component {
     return (
       <div>
         <img
-          className='center'
+          className="center"
           alt="404 Not Found"
           style={{ height: '300px', marginTop: '80px' }}
           src={overflow}

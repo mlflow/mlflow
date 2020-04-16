@@ -30,21 +30,22 @@ export class DirectTransitionFormImpl extends React.Component {
                 Transition existing {StageTagComponents[toStage]}
                 model versions to {StageTagComponents[Stages.ARCHIVED]}
               </Tooltip>
-            </Checkbox>,
+            </Checkbox>
           )}
         </Form.Item>
-      ) : '';
+      ) : (
+        ''
+      );
 
     return (
-      <Form className='model-version-update-form'>
-        <Form.Item label='Comment'>
-          {getFieldDecorator('comment')(<TextArea rows={4} placeholder='Comment' />)}
+      <Form className="model-version-update-form">
+        <Form.Item label="Comment">
+          {getFieldDecorator('comment')(<TextArea rows={4} placeholder="Comment" />)}
         </Form.Item>
         {archiveExistingVersionsCheckbox}
       </Form>
     );
   }
 }
-
 
 export const DirectTransitionForm = Form.create()(DirectTransitionFormImpl);
