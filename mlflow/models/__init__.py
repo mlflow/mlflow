@@ -43,7 +43,7 @@ class Model(object):
     """
 
     def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None,
-                 signature=None, input_example: ModelInputExample = None,
+                 signature: ModelSignature=None, input_example: ModelInputExample = None,
                  **kwargs):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:
@@ -54,6 +54,11 @@ class Model(object):
         self.signature = signature
         self.input_example = input_example
         self.__dict__.update(kwargs)
+
+    def __eq__(self, other):
+        if not isinstance(other, Model):
+            return False
+        return self.__dict__ == other.__dict__
 
     def add_flavor(self, name, **params):
         """Add an entry for how to serve the model in a given format."""
@@ -82,7 +87,7 @@ class Model(object):
         return self.to_yaml()
 
     def to_json(self):
-        return json.dumps(self.__dict__)
+        return json.dumps(self.to_dict())
 
     def save(self, path):
         """Write the model as a local YAML file."""
