@@ -288,7 +288,7 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
                                            location=location,
                                            create_resource_group=True,
                                            exist_ok=True)
-        
+
         # Create an Azure Container Instance webservice for an MLflow model
         azure_service, azure_model = mlflow.azureml.deploy(model_uri="<model_uri>",
                                                            service_name="<deployment-name>",
