@@ -1,5 +1,49 @@
 Changelog
 =========
+1.8.0 (2020-04-16)
+------------------
+MLflow 1.8.0 includes several major features and improvements:
+
+Features:
+
+- Csteegz/update azml (#2711, @akshaya-a)
+- Case sensitivity and more tests for LIKE and ILIKE (#2708, @mparkhe)
+- Change line smoothing on Exponential Moving Average (#2620, @Valentyn1997)
+- Add support for spacy flavor (#2242, @arocketman)
+- [UI] Separate selection checkbox into its own column (#2559, @harupy)
+- highlight changes in CompareRunView (#2565, @gabrielbretschner)
+- Add run comparison in model registry (#2537, @juntai-zheng)
+- RFC: Allow string experiment IDs in the UI (#2568, @jonas)
+- Passing args to docker run CLI (#2608, @ksanjeevan)
+- - added windows support for pushing images to aws ecr (#2500, @AndreyBulezyuk)
+
+Bug fixes and documentation updates:
+
+- Fix CLI summary message in mlflow azureml build_image CLI (#2712, @dbczumar)
+- update flower example (#2647, @tfurmston)
+- Let curl follow redirects (fix #2691) (#2699, @HiromuHota)
+- Fix bug causing erroneous deletion of TensorBoard logging directory (#2670, @dbczumar)
+- Add short help for CLI (#2679, @dbczumar)
+- Updated Miniconda download URL (#2685, @michaeltinsley)
+- Make boto3 use $MLFLOW_S3_ENDPOINT_URL if specified (#2629, @poppash)
+- SqlAlchemy: Reuse connection for DB upgrades (#2667, @dbczumar)
+- Allow numerical parameters with values >= 1'000 in R mlflow::mlflow_run() (#2665, @lorenzwalthert)
+- AWS creds for Windows users (#2634, @AndreyBulezyuk)
+- Update _mlflow_conda_env to add pip when necessary (#2646, @tfurmston)
+- Update model version integer format error code (#2625, @andychow-db)
+- Capitalize stage name (#2632, @keigohtr)
+- Model registry cleanup and tests (#2638, @aarondav)
+- Fix support for conda env dicts with pyfunc.log_model (#2618, @dbczumar)
+- [DOC] Add links to source code (#2627, @harupy)
+- update doc for pandas-records payload (#2660, @SaiKiranBurle)
+- Some Python API doc fixes (#2687, @dmatrix)
+- Fix documentation identified bug in #2643 (#2666, @pogil)
+- Added the missing Model Registry component (#2536, @dmatrix)
+- documenting datatype for `step` argument in `log_metric` (#2654, @mparkhe)
+- Added usage of the model registry to the log_model function (#2609, @netanel246)
+
+Small bug fixes and doc updates (#2594, @Trollgeir; #2703, @juntai-zheng; #2538, @keigohtr; #2656, #2553, @lorenzwalthert; #2622, @pingsutw; #2615, #2600, #2533, @mlflow-automation; #1391, @sueann; #2613, #2598, #2534, @smurching; #2652, @mparkhe; #2706, #2653, #2639, @tomasatdatabricks; #2611, @9dogs; #2700, #2705, @aarondav; #2675, #2540, @mengxr; #2686, @RensDimmendaal; #2694, #2695, #2532, @dbczumar)
+
 
 1.7.2 (2020-03-20)
 ------------------------
