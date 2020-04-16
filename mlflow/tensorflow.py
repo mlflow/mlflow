@@ -471,13 +471,23 @@ class __MLflowTfKerasCallback(Callback):
 
     def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
         opt = self.model.optimizer
-        if hasattr(opt, 'optimizer'):
+        # Secondary checks are if the optimizer is a TensorFlow optimizer rather than a Keras one.
+        if hasattr(opt, '_name'):
+            try_mlflow_log(mlflow.log_param, 'optimizer_name', opt._name)
+        elif hasattr(opt, 'optimizer'):
             opt = opt.optimizer
             try_mlflow_log(mlflow.log_param, 'optimizer_name', type(opt).__name__)
-        if hasattr(opt, '_lr'):
+        if hasattr(opt, 'lr'):
+            lr = opt.lr if type(opt.lr) is float else tensorflow.keras.backend.eval(opt.lr)
+            try_mlflow_log(mlflow.log_param, 'learning_rate', lr)
+        elif hasattr(opt, '_lr'):
             lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
             try_mlflow_log(mlflow.log_param, 'learning_rate', lr)
-        if hasattr(opt, '_epsilon'):
+        if hasattr(opt, 'epsilon'):
+            epsilon = opt.epsilon if type(opt.epsilon) is float \
+                else tensorflow.keras.backend.eval(opt.epsilon)
+            try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
+        elif hasattr(opt, '_epsilon'):
             epsilon = opt._epsilon if type(opt._epsilon) is float \
                 else tensorflow.keras.backend.eval(opt._epsilon)
             try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
