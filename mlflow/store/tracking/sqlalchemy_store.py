@@ -697,15 +697,17 @@ def _get_attributes_filtering_clauses(parsed):
         key_type = sql_statement.get('type')
         key_name = sql_statement.get('key')
         value = sql_statement.get('value')
-        comparator = sql_statement.get('comparator')
+        comparator = sql_statement.get('comparator').upper()
         if SearchUtils.is_attribute(key_type, comparator):
-            # validity of the comparator is checked in SearchUtils.parse_search_filter()
-            op = SearchUtils.filter_ops.get(comparator)
-            if op:
-                # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
-                # by the call to parse_search_filter
-                attribute_name = SqlRun.get_attribute_name(key_name)
-                clauses.append(op(getattr(SqlRun, attribute_name), value))
+            # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
+            # by the call to parse_search_filter
+            attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
+            if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
+                op = SearchUtils.get_sql_filter_ops(attribute, comparator)
+                clauses.append(op(value))
+            elif comparator in SearchUtils.filter_ops:
+                op = SearchUtils.filter_ops.get(comparator)
+                clauses.append(op(attribute, value))
     return clauses
 
 
@@ -713,7 +715,7 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
     key_type = sql_statement.get('type')
     key_name = sql_statement.get('key')
     value = sql_statement.get('value')
-    comparator = sql_statement.get('comparator')
+    comparator = sql_statement.get('comparator').upper()
 
     if SearchUtils.is_metric(key_type, comparator):
         entity = SqlLatestMetric
@@ -728,9 +730,16 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         raise MlflowException("Invalid search expression type '%s'" % key_type,
                               error_code=INVALID_PARAMETER_VALUE)
 
-    # validity of the comparator is checked in SearchUtils.parse_search_filter()
-    op = SearchUtils.filter_ops.get(comparator)
-    if op:
+    if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
+        op = SearchUtils.get_sql_filter_ops(entity.value, comparator)
+        return (
+            session
+            .query(entity)
+            .filter(entity.key == key_name, op(value))
+            .subquery()
+        )
+    elif comparator in SearchUtils.filter_ops:
+        op = SearchUtils.filter_ops.get(comparator)
         return (
             session
             .query(entity)
