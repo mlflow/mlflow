@@ -16,7 +16,7 @@ else
 fi
 
 # NB: Also add --ignore'd tests to run-small-python-tests.sh
-pytest tests --large --ignore=tests/examples --ignore=tests/h2o --ignore=tests/keras \
+pytest tests --color=yes --large --ignore=tests/examples --ignore=tests/h2o --ignore=tests/keras \
   --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
   --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/azureml --ignore=tests/onnx \
   --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore=tests/gluon \
@@ -24,30 +24,31 @@ pytest tests --large --ignore=tests/examples --ignore=tests/h2o --ignore=tests/k
   --ignore=tests/spacy --ignore=tests/spark_autologging --ignore=tests/models
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
-pytest --verbose tests/pytorch --large
-pytest --verbose tests/h2o --large
-pytest --verbose tests/onnx --large
-pytest --verbose tests/pyfunc --large
-pytest --verbose tests/sagemaker --large
-pytest --verbose tests/sagemaker/mock --large
-pytest --verbose tests/sklearn --large
-pytest --verbose tests/spark --large
-pytest --verbose tests/tensorflow/test_tensorflow_model_export.py --large
-pytest --verbose tests/tensorflow_autolog/test_tensorflow_autolog.py --large
-pytest --verbose tests/azureml --large
-pytest --verbose tests/models --large
-pytest --verbose tests/xgboost --large
-pytest --verbose tests/lightgbm --large
+pytest --color=yes --verbose tests/pytorch --large
+pytest --color=yes --verbose tests/h2o --large
+pytest --color=yes --verbose tests/onnx --large
+pytest --color=yes --verbose tests/pyfunc --large
+pytest --color=yes --verbose tests/sagemaker --large
+pytest --color=yes --verbose tests/sagemaker/mock --large
+pytest --color=yes --verbose tests/sklearn --large
+pytest --color=yes --verbose tests/spark --large
+pytest --color=yes --verbose tests/tensorflow/test_tensorflow_model_export.py --large
+pytest --color=yes --verbose tests/tensorflow_autolog/test_tensorflow_autolog.py --large
+pytest --color=yes --verbose tests/azureml --large
+pytest --color=yes --verbose tests/models --large
+pytest --color=yes --verbose tests/xgboost --large
+pytest --color=yes --verbose tests/lightgbm --large
 # TODO(smurching) Unpin TensorFlow dependency version once test failures with TF 2.1.0 have been
 # fixed
 pip install 'tensorflow==2.0.0'
-pytest --verbose tests/tensorflow/test_tensorflow2_model_export.py --large
-pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
-pytest --verbose tests/keras --large
-pytest --verbose tests/keras_autolog --large
-pytest --verbose tests/gluon --large
-pytest --verbose tests/gluon_autolog --large
-pytest --verbose tests/spacy --large
+pytest --color=yes --verbose tests/tensorflow/test_tensorflow2_model_export.py --large
+pytest --color=yes --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
+pytest --color=yes --verbose tests/keras --large
+pytest --color=yes --verbose tests/keras_autolog --large
+pytest --color=yes --verbose tests/gluon --large
+pytest --color=yes --verbose tests/gluon_autolog --large
+pytest --color=yes --verbose tests/spacy --large
+
 # Run Spark autologging tests
 ./travis/test-spark-autologging.sh
 test $err = 0
