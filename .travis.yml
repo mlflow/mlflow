@@ -82,6 +82,12 @@ matrix:
       if: type != cron
       script:
         - ./travis/run-python-sagemaker-tests.sh;
+    - language: python
+      python: 3.6
+      name: "Flavors"
+      if: type != cron
+      script:
+        - ./travis/run-python-flavor-tests.sh;
     # Run Windows tests in the "large" test builder so that we don't spend Travis executor
     # time running Windows tests if Python 3 small tests fail.
     - os: windows

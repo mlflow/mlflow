@@ -20,7 +20,6 @@ pytest --verbose tests/h2o --large
 pytest --verbose tests/onnx --large
 pytest --verbose tests/pyfunc --large
 pytest --verbose tests/sklearn --large
-pytest --verbose tests/spark --large
 pytest --verbose tests/azureml --large
 pytest --verbose tests/models --large
 pytest --verbose tests/xgboost --large
