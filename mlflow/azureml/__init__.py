@@ -377,6 +377,12 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
         inference_config = InferenceConfig(entry_script=execution_script_path,
                                            environment=environment)
 
+        if deployment_config is not None:
+            if deployment_config.tags is not None:
+                # We want more narrowly-scoped tags to win on merge
+                tags.update(deployment_config.tags)
+            deployment_config.tags = tags
+
         webservice = AzureModel.deploy(
             workspace=workspace,
             name=service_name,
