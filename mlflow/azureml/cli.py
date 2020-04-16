@@ -22,7 +22,8 @@ def commands():
     pass
 
 
-@commands.command("build-image")
+@commands.command(short_help=("Register an MLflow model with Azure ML and build an Azure ML"
+                              " ContainerImage for deployment."))
 @cli_args.MODEL_URI
 @click.option("--workspace-name", "-w", required=True,
               help="The name of the Azure Workspace in which to build the image.")
