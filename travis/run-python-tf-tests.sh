@@ -15,7 +15,8 @@ pytest --verbose tests/tensorflow/test_tensorflow2_model_export.py --large
 pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
 pytest --verbose tests/keras --large
 pytest --verbose tests/keras_autolog --large
-# Run Spark autologging tests
+
+# Run Spark autologging tests, which rely on tensorflow
 ./travis/test-spark-autologging.sh
 
 test $err = 0
