@@ -101,17 +101,16 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
         resource_group = "<Name of the Azure resource group in which to create Azure ML resources>"
         location = "<Name of the Azure location (region) in which to create Azure ML resources>"
         azure_workspace = Workspace.create(name=workspace_name,
-                                            subscription_id=subscription_id,
-                                            resource_group=resource_group,
-                                            location=location,
-                                            create_resource_group=True,
-                                            exist_ok=True)
+                                           subscription_id=subscription_id,
+                                           resource_group=resource_group,
+                                           location=location,
+                                           create_resource_group=True,
+                                           exist_ok=True)
 
         # Build an Azure ML Container Image for an MLflow model
-        azure_image, azure_model = mlflow.azureml.build_image(
-                                        model_uri="<model_uri>",
-                                        workspace=azure_workspace,
-                                        synchronous=True)
+        azure_image, azure_model = mlflow.azureml.build_image(model_uri="<model_uri>",
+                                                              workspace=azure_workspace,
+                                                              synchronous=True)
         # If your image build failed, you can access build logs at the following URI:
         print("Access the following URI for build logs: {}".format(azure_image.image_build_log_uri))
 
@@ -248,9 +247,8 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
                               azureml.core.webservice.aks.aksservicedeploymentconfiguration>`_ and
                               `<https://docs.microsoft.com/en-us/python/api/azureml-core/azureml
                               .core.webservice.aci.aciservicedeploymentconfiguration>`_
-                              `
     :param service_name: The name to assign the Azure Machine learning webservice that will be
-                       created. If unspecified, a unique name will be generated.
+                         created. If unspecified, a unique name will be generated.
     :param model_name: The name to assign the Azure Model will be created. If unspecified,
                        a unique model name will be generated.
     :param tags: A collection of tags, represented as a dictionary of string key-value pairs, to
@@ -275,28 +273,27 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
     .. code-block:: python
         :caption: Example
 
-    import mlflow.azureml
-    from azureml.core import Workspace
-    from azureml.core.webservice import AciWebservice, Webservice
+        import mlflow.azureml
+        from azureml.core import Workspace
+        from azureml.core.webservice import AciWebservice, Webservice
 
-    # Load or create an Azure ML Workspace
-    workspace_name = "<Name of your Azure ML workspace>"
-    subscription_id = "<Your Azure subscription ID>"
-    resource_group = "<Name of the Azure resource group in which to create Azure ML resources>"
-    location = "<Name of the Azure location (region) in which to create Azure ML resources>"
-    azure_workspace = Workspace.create(name=workspace_name,
-                                       subscription_id=subscription_id,
-                                       resource_group=resource_group,
-                                       location=location,
-                                       create_resource_group=True,
-                                       exist_ok=True)
-    
-    # Create an Azure Container Instance webservice for an MLflow model
-    azure_service, azure_model = mlflow.azureml.deploy(
-                                    model_uri="<model_uri>",
-                                    service_name="<deployment-name>",
-                                    workspace=azure_workspace,
-                                    synchronous=True)
+        # Load or create an Azure ML Workspace
+        workspace_name = "<Name of your Azure ML workspace>"
+        subscription_id = "<Your Azure subscription ID>"
+        resource_group = "<Name of the Azure resource group in which to create Azure ML resources>"
+        location = "<Name of the Azure location (region) in which to create Azure ML resources>"
+        azure_workspace = Workspace.create(name=workspace_name,
+                                           subscription_id=subscription_id,
+                                           resource_group=resource_group,
+                                           location=location,
+                                           create_resource_group=True,
+                                           exist_ok=True)
+        
+        # Create an Azure Container Instance webservice for an MLflow model
+        azure_service, azure_model = mlflow.azureml.deploy(model_uri="<model_uri>",
+                                                           service_name="<deployment-name>",
+                                                           workspace=azure_workspace,
+                                                           synchronous=True)
     """
     # The Azure ML SDK is only compatible with Python 3. However, the `mlflow.azureml` module should
     # still be accessible for import from Python 2. Therefore, we will only import from the SDK
