@@ -70,6 +70,30 @@ matrix:
         - for file in $(find src | grep test.js | sort) ; do npm run test -- $file; done
     - stage: Large
       if: type != cron
+    - language: python
+      python: 3.6
+      name: "Flavors"
+      if: type != cron
+      install:
+        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-python-flavor-tests.sh;
+    - language: python
+      python: 3.6
+      name: "TensorFlow"
+      if: type != cron
+      install:
+        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-python-tf-tests.sh;
+    - language: python
+      python: 3.6
+      name: "SageMaker"
+      if: type != cron
+      install:
+        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-python-sagemaker-tests.sh;
     # Run Windows tests in the "large" test builder so that we don't spend Travis executor
     # time running Windows tests if Python 3 small tests fail.
     - os: windows
