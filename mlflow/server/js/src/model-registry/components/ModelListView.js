@@ -4,8 +4,9 @@ import PropTypes from 'prop-types';
 import { Table, Input } from 'antd';
 import { Link } from 'react-router-dom';
 import { getModelPageRoute, getModelVersionPageRoute } from '../routes';
-import Utils from '../../utils/Utils';
+import Utils from '../../common/utils/Utils';
 import { Stages, StageTagComponents, EMPTY_CELL_PLACEHOLDER } from '../constants';
+import { ModelRegistryDocUrl } from '../../common/constants';
 
 const NAME_COLUMN = 'Name';
 const LATEST_VERSION_COLUMN = 'Latest Version';
@@ -20,6 +21,7 @@ const getLatestVersionNumberByStage = (latest_versions, stage) => {
 };
 
 const { Search } = Input;
+export const SEARCH_DEBOUNCE_INTERVAL = 200;
 
 export class ModelListView extends React.Component {
   static propTypes = {
@@ -35,13 +37,15 @@ export class ModelListView extends React.Component {
   };
 
   componentDidMount() {
-    document.title = 'MLflow Models';
+    const pageTitle = "MLflow Models";
+    Utils.updatePageTitle(pageTitle);
   }
 
   getColumns = () => {
     return [
       {
         title: NAME_COLUMN,
+        className: 'model-name',
         dataIndex: 'name',
         render: (text, row) => {
           return (
@@ -55,6 +59,7 @@ export class ModelListView extends React.Component {
       },
       {
         title: LATEST_VERSION_COLUMN,
+        className: 'latest-version',
         render: ({ name, latest_versions }) => {
           const versionNumber = getOverallLatestVersionNumber(latest_versions);
           return versionNumber ? (
@@ -66,6 +71,7 @@ export class ModelListView extends React.Component {
       },
       {
         title: StageTagComponents[Stages.STAGING],
+        className: 'latest-staging',
         render: ({ name, latest_versions }) => {
           const versionNumber = getLatestVersionNumberByStage(latest_versions, Stages.STAGING);
           return versionNumber ? (
@@ -77,6 +83,7 @@ export class ModelListView extends React.Component {
       },
       {
         title: StageTagComponents[Stages.PRODUCTION],
+        className: 'latest-production',
         render: ({ name, latest_versions }) => {
           const versionNumber = getLatestVersionNumberByStage(latest_versions, Stages.PRODUCTION);
           return versionNumber ? (
@@ -117,12 +124,33 @@ export class ModelListView extends React.Component {
 
   emitNameFilterChangeDebounced = _.debounce((e) => {
     this.setState({ nameFilter: e.target.value });
-  }, 200);
+  }, SEARCH_DEBOUNCE_INTERVAL);
+
+  static getEmptyTextComponent(nameFilter) {
+    // Handle the case when emptiness is caused by search filter
+    if (nameFilter) {
+      return 'No models found.';
+    }
+    // Handle the case when emptiness is caused by no registered model
+    const learnMoreLinkUrl = ModelListView.getLearnMoreLinkUrl();
+    return (
+      <div>
+        <div>No models yet.</div>
+        <div>
+          MLflow Model Registry is a centralized model store that enables
+          you to manage the full lifecycle of MLflow Models.{' '}
+          <a target='_blank' href={learnMoreLinkUrl}>Learn more</a>{'.'}
+        </div>
+      </div>
+    );
+  }
+
+  static getLearnMoreLinkUrl = () => ModelRegistryDocUrl;
 
   render() {
     const { nameFilter } = this.state;
     const sortedModels = this.getFilteredModels();
-    const emptyText = `No model${nameFilter ? ' found' : ''}.`;
+    const emptyText = ModelListView.getEmptyTextComponent(nameFilter);
     return (
       <div>
         <div style={{ display: 'flex' }}>

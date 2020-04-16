@@ -27,16 +27,16 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             self.client = client
             return
 
-        from azure.storage.blob import BlockBlobService
+        from azure.storage.blob import BlobServiceClient
         (_, account, _) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
         if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
-            self.client = BlockBlobService(
-                account_name=account,
-                connection_string=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"))
+            self.client = BlobServiceClient.from_connection_string(
+                conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"))
         elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
-            self.client = BlockBlobService(
-                account_name=account,
-                account_key=os.environ.get("AZURE_STORAGE_ACCESS_KEY"))
+            account_url = "https://{account}.blob.core.windows.net".format(account=account)
+            self.client = BlobServiceClient(
+                account_url=account_url,
+                credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY"))
         else:
             raise Exception("You need to set one of AZURE_STORAGE_CONNECTION_STRING or "
                             "AZURE_STORAGE_ACCESS_KEY to access Azure storage.")
@@ -60,14 +60,17 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
     def log_artifact(self, local_file, artifact_path=None):
         (container, _, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
+        container_client = self.client.get_container_client(container)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(
                 dest_path, os.path.basename(local_file))
-        self.client.create_blob_from_path(container, dest_path, local_file)
+        with open(local_file, "rb") as file:
+            container_client.upload_blob(dest_path, file)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (container, _, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
+        container_client = self.client.get_container_client(container)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         local_dir = os.path.abspath(local_dir)
@@ -77,46 +80,43 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                 rel_path = os.path.relpath(root, local_dir)
                 upload_path = posixpath.join(dest_path, rel_path)
             for f in filenames:
-                path = posixpath.join(upload_path, f)
-                self.client.create_blob_from_path(
-                    container, path, os.path.join(root, f))
+                remote_file_path = posixpath.join(upload_path, f)
+                local_file_path = os.path.join(root, f)
+                with open(local_file_path, "rb") as file:
+                    container_client.upload_blob(remote_file_path, file)
 
     def list_artifacts(self, path=None):
-        from azure.storage.blob.models import BlobPrefix
+        from azure.storage.blob._models import BlobPrefix
         (container, _, artifact_path) = self.parse_wasbs_uri(self.artifact_uri)
+        container_client = self.client.get_container_client(container)
         dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)
         infos = []
         prefix = dest_path + "/"
-        marker = None  # Used to make next list request if this one exceeded the result limit
-        while True:
-            results = self.client.list_blobs(container, prefix=prefix, delimiter='/', marker=marker)
-            for r in results:
-                if not r.name.startswith(artifact_path):
-                    raise MlflowException(
-                        "The name of the listed Azure blob does not begin with the specified"
-                        " artifact path. Artifact path: {artifact_path}. Blob name:"
-                        " {blob_name}".format(artifact_path=artifact_path, blob_name=r.name))
-                if isinstance(r, BlobPrefix):   # This is a prefix for items in a subdirectory
-                    subdir = posixpath.relpath(path=r.name, start=artifact_path)
-                    if subdir.endswith("/"):
-                        subdir = subdir[:-1]
-                    infos.append(FileInfo(subdir, True, None))
-                else:  # Just a plain old blob
-                    file_name = posixpath.relpath(path=r.name, start=artifact_path)
-                    infos.append(FileInfo(file_name, False, r.properties.content_length))
-            # Check whether a new marker is returned, meaning we have to make another request
-            if results.next_marker:
-                marker = results.next_marker
-            else:
-                break
+        results = container_client.walk_blobs(name_starts_with=prefix)
+        for r in results:
+            if not r.name.startswith(artifact_path):
+                raise MlflowException(
+                    "The name of the listed Azure blob does not begin with the specified"
+                    " artifact path. Artifact path: {artifact_path}. Blob name:"
+                    " {blob_name}".format(artifact_path=artifact_path, blob_name=r.name))
+            if isinstance(r, BlobPrefix):   # This is a prefix for items in a subdirectory
+                subdir = posixpath.relpath(path=r.name, start=artifact_path)
+                if subdir.endswith("/"):
+                    subdir = subdir[:-1]
+                infos.append(FileInfo(subdir, True, None))
+            else:  # Just a plain old blob
+                file_name = posixpath.relpath(path=r.name, start=artifact_path)
+                infos.append(FileInfo(file_name, False, r.size))
         return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
         (container, _, remote_root_path) = self.parse_wasbs_uri(self.artifact_uri)
+        container_client = self.client.get_container_client(container)
         remote_full_path = posixpath.join(remote_root_path, remote_file_path)
-        self.client.get_blob_to_path(container, remote_full_path, local_path)
+        with open(local_path, "wb") as file:
+            container_client.download_blob(remote_full_path).readinto(file)
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException('Not implemented yet')
