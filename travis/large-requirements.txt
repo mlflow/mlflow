@@ -10,7 +10,7 @@ onnx==1.6.0;
 onnxmltools==1.6.1;
 onnxruntime==1.2.0;
 mleap==0.15.0
-mxnet==2.0.0b20200315
+mxnet==1.5.0
 pandas<=0.23.4
 pyarrow==0.16.0
 pyspark==2.4.5
