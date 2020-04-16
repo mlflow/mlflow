@@ -210,10 +210,10 @@ export class ModelView extends React.Component {
                 </Radio.Button>
               </Radio.Group>
               <BootstrapButton
-		className="btn-primary"
-		disabled={compareDisabled}
-		onClick={this.onCompare}
-	       >
+                className="btn-primary"
+                disabled={compareDisabled}
+                onClick={this.onCompare}
+               >
                 Compare
               </BootstrapButton>
             </div>
