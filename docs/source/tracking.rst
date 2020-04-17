@@ -135,9 +135,6 @@ multiple metrics at once.
 :py:func:`mlflow.set_tag` sets a single key-value tag in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.set_tags` to set multiple tags at once.
 
-:py:func:`mlflow.set_note` sets a note for the currently active run. The note content is a string
-that can be used to record a more detailed description for the run.
-
 :py:func:`mlflow.log_artifact` logs a local file or directory as an artifact, optionally taking an
 ``artifact_path`` to place it in within the run's artifact URI. Run artifacts can be organized into
 directories, so you can place the artifact in a directory this way.
@@ -713,6 +710,10 @@ internal use. The following tags are set automatically by MLflow, when appropria
 | Key                           | Description                                                                            |
 +===============================+========================================================================================+
 | ``mlflow.runName``            | Human readable name that identifies this run.                                          |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.note.content``       | A descriptive note about this run. This reserved tag is not set automatically and can  |
+|                               | be overridden by the user to include additional information about the run. The content |
+|                               | is displayed on the run's page under the Notes section.                                |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.parentRunId``        | The ID of the parent run, if this is a nested run.                                     |
 +-------------------------------+----------------------------------------------------------------------------------------+

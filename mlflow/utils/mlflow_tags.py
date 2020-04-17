@@ -1,7 +1,8 @@
 """
 File containing all of the run tags in the mlflow. namespace.
 
-See the REST API documentation for information on the meaning of these tags.
+See the System Tags section in the MLflow Tracking documentation for information on the
+meaning of these tags.
 """
 
 MLFLOW_RUN_NAME = "mlflow.runName"

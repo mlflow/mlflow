@@ -21,8 +21,7 @@ from mlflow.tracking import artifact_utils
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME, \
-    MLFLOW_RUN_NOTE
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -236,24 +235,6 @@ def delete_tag(key):
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().delete_tag(run_id, key)
-
-
-def set_note(content):
-    """
-    Set a note for the current run. If no run is active, this method will create a
-    new active run.
-
-    :param content: Contents of the note (string)
-    """
-    set_tag(MLFLOW_RUN_NOTE, content)
-
-
-def delete_note():
-    """
-    Delete the note from the current run. This is irreversible. If no run is active,
-    this method will create a new active run.
-    """
-    delete_tag(MLFLOW_RUN_NOTE)
 
 
 def log_metric(key, value, step=None):

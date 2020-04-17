@@ -26,7 +26,6 @@ from mlflow.tracking.fluent import (_EXPERIMENT_ID_ENV_VAR,
                                     set_experiment, start_run, get_run)
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NOTE
 
 # pylint: disable=unused-argument
 
@@ -623,34 +622,4 @@ def test_delete_tag():
         mlflow.delete_tag('a')
     with pytest.raises(MlflowException):
         mlflow.delete_tag('b')
-    mlflow.end_run()
-
-
-def test_set_note():
-    """
-    Confirm that fluent API sets a note for a run
-    """
-    run = mlflow.start_run()
-    assert MLFLOW_RUN_NOTE not in run.data.tags
-    note = "this is a note"
-    mlflow.set_note(note)
-    run = MlflowClient().get_run(mlflow.active_run().info.run_id)
-    assert MLFLOW_RUN_NOTE in run.data.tags
-    assert run.data.tags[MLFLOW_RUN_NOTE] == note
-    mlflow.end_run()
-
-
-def test_delete_note():
-    """
-    Confirm that fluent API deletes a note for a run
-    """
-    note = "this is a note"
-    mlflow.set_note(note)
-    run = MlflowClient().get_run(mlflow.active_run().info.run_id)
-    assert MLFLOW_RUN_NOTE in run.data.tags
-    assert run.data.tags[MLFLOW_RUN_NOTE] == note
-
-    mlflow.delete_note()
-    run = MlflowClient().get_run(mlflow.active_run().info.run_id)
-    assert MLFLOW_RUN_NOTE not in run.data.tags
     mlflow.end_run()
