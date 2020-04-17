@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 /**
  * Client to an MLflow Tracking Sever.
  */
-public class MlflowClient implements Serialiazable {
+public class MlflowClient implements Serializable {
   protected static final String DEFAULT_EXPERIMENT_ID = "0";
 
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
