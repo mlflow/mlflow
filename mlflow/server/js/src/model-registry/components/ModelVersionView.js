@@ -76,9 +76,11 @@ export class ModelVersionView extends React.Component {
   };
 
   handleSubmitEditDescription = (description) => {
-    return this.props.handleEditDescription(description).then(() => {
-      this.setState({ showDescriptionEditor: false });
-    });
+    return this.props
+      .handleEditDescription(description)
+      .then(() => {
+        this.setState({ showDescriptionEditor: false });
+      });
   };
 
   startEditingDescription = (e) => {
@@ -89,20 +91,23 @@ export class ModelVersionView extends React.Component {
   renderBreadCrumbDropdown() {
     const menu = (
       <Menu>
-        {ACTIVE_STAGES.includes(this.props.modelVersion.current_stage) ? (
-          <Menu.Item disabled className="delete">
-            <Tooltip title={MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>Delete</Tooltip>
-          </Menu.Item>
-        ) : (
-          <Menu.Item onClick={this.showDeleteModal} className="delete">
-            Delete
-          </Menu.Item>
-        )}
+        {ACTIVE_STAGES.includes(this.props.modelVersion.current_stage) ?
+          (
+            <Menu.Item disabled className='delete'>
+              <Tooltip title={MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>
+                Delete
+              </Tooltip>
+            </Menu.Item>
+          ) : (
+            <Menu.Item onClick={this.showDeleteModal} className='delete'>
+              Delete
+            </Menu.Item>
+          )}
       </Menu>
     );
     return (
-      <Dropdown overlay={menu} trigger={['click']} className="breadcrumb-dropdown">
-        <Icon type="caret-down" className="breadcrumb-caret" />
+      <Dropdown overlay={menu} trigger={['click']} className='breadcrumb-dropdown'>
+        <Icon type='caret-down' className='breadcrumb-caret'/>
       </Dropdown>
     );
   }
@@ -126,11 +131,7 @@ export class ModelVersionView extends React.Component {
   }
 
   renderDescriptionEditIcon() {
-    return (
-      <a onClick={this.startEditingDescription}>
-        <Icon type="form" />
-      </a>
-    );
+    return <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
   }
 
   render() {
@@ -143,15 +144,13 @@ export class ModelVersionView extends React.Component {
     } = this.props;
     const { status, description } = modelVersion;
     const { isDeleteModalVisible, isDeleteModalConfirmLoading, showDescriptionEditor } = this.state;
-    const chevron = <i className="fas fa-chevron-right breadcrumb-chevron" />;
+    const chevron = <i className='fas fa-chevron-right breadcrumb-chevron' />;
     const breadcrumbItemClass = 'truncate-text single-line breadcrumb-title';
     return (
       <div>
         {/* Breadcrumbs */}
-        <h1 className="breadcrumb-header">
-          <Link to={modelListPageRoute} className={breadcrumbItemClass}>
-            Registered Models
-          </Link>
+        <h1 className='breadcrumb-header'>
+          <Link to={modelListPageRoute} className={breadcrumbItemClass}>Registered Models</Link>
           {chevron}
           <Link to={getModelPageRoute(modelName)} className={breadcrumbItemClass}>
             {modelName}
@@ -163,28 +162,28 @@ export class ModelVersionView extends React.Component {
         {this.renderStatusAlert()}
 
         {/* Metadata List */}
-        <Descriptions className="metadata-list">
-          <Descriptions.Item label="Registered At">
+        <Descriptions className='metadata-list'>
+          <Descriptions.Item label='Registered At'>
             {Utils.formatTimestamp(modelVersion.creation_timestamp)}
           </Descriptions.Item>
-          <Descriptions.Item label="Creator">{modelVersion.user_id}</Descriptions.Item>
-          <Descriptions.Item label="Stage">
+          <Descriptions.Item label='Creator'>{modelVersion.user_id}</Descriptions.Item>
+          <Descriptions.Item label='Stage'>
             {status === ModelVersionStatus.READY ? (
               <ModelStageTransitionDropdown
                 currentStage={modelVersion.current_stage}
                 permissionLevel={modelVersion.permission_level}
                 onSelect={handleStageTransitionDropdownSelect}
               />
-            ) : (
-              StageTagComponents[modelVersion.current_stage]
-            )}
+            ) : StageTagComponents[modelVersion.current_stage]}
           </Descriptions.Item>
-          <Descriptions.Item label="Last Modified">
+          <Descriptions.Item label='Last Modified'>
             {Utils.formatTimestamp(modelVersion.last_updated_timestamp)}
           </Descriptions.Item>
           {runInfo ? (
-            <Descriptions.Item label="Source Run">
-              <Link to={Routers.getRunPageRoute(runInfo.getExperimentId(), runInfo.getRunUuid())}>
+            <Descriptions.Item label='Source Run'>
+              <Link
+                to={Routers.getRunPageRoute(runInfo.getExperimentId(), runInfo.getRunUuid())}
+              >
                 {runDisplayName || runInfo.getRunUuid()}
               </Link>
             </Descriptions.Item>
@@ -195,7 +194,8 @@ export class ModelVersionView extends React.Component {
         <CollapsibleSection
           title={
             <span>
-              Description {!showDescriptionEditor ? this.renderDescriptionEditIcon() : null}
+              Description{' '}
+              {!showDescriptionEditor ? this.renderDescriptionEditIcon() : null}
             </span>
           }
           forceOpen={showDescriptionEditor}
@@ -212,8 +212,8 @@ export class ModelVersionView extends React.Component {
           visible={isDeleteModalVisible}
           confirmLoading={isDeleteModalConfirmLoading}
           onOk={this.handleDeleteConfirm}
-          okText="Delete"
-          okType="danger"
+          okText='Delete'
+          okType='danger'
           onCancel={this.hideDeleteModal}
         >
           <span>Are you sure you want to delete model version {modelVersion.version}? </span>

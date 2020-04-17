@@ -47,55 +47,55 @@ export class MetricsPlotControls extends React.Component {
       'Smoothing can be useful for displaying the ' +
       'overall trend when the logging frequency is high.';
     return (
-      <div className="plot-controls">
+      <div className='plot-controls'>
         {chartType === CHART_TYPE_LINE ? (
           <div>
-            <div className="inline-control">
-              <div className="control-label">Points:</div>
+            <div className='inline-control'>
+              <div className='control-label'>Points:</div>
               <Switch
-                className="show-point-toggle"
-                checkedChildren="On"
-                unCheckedChildren="Off"
+                className='show-point-toggle'
+                checkedChildren='On'
+                unCheckedChildren='Off'
                 defaultChecked={showPoint}
                 onChange={this.props.handleShowPointChange}
               />
             </div>
-            <div className="block-control">
-              <div className="control-label">
-                Line Smoothness{' '}
+            <div className='block-control'>
+              <div className='control-label'>
+                Line Smoothness {' '}
                 <Tooltip title={lineSmoothnessTooltipText}>
-                  <Icon type="question-circle" />
+                  <Icon type='question-circle' />
                 </Tooltip>
               </div>
               <LineSmoothSlider
-                className="smoothness-toggle"
+                className='smoothness-toggle'
                 min={0}
                 max={1.3}
                 handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 500)}
                 defaultValue={initialLineSmoothness}
               />
             </div>
-            <div className="block-control">
-              <div className="control-label">X-axis:</div>
+            <div className='block-control'>
+              <div className='control-label'>X-axis:</div>
               <RadioGroup onChange={this.props.handleXAxisChange} value={this.props.selectedXAxis}>
-                <Radio className="x-axis-radio" value={X_AXIS_STEP}>
+                <Radio className='x-axis-radio' value={X_AXIS_STEP}>
                   Step
                 </Radio>
-                <Radio className="x-axis-radio" value={X_AXIS_WALL}>
+                <Radio className='x-axis-radio' value={X_AXIS_WALL}>
                   Time (Wall)
                 </Radio>
-                <Radio className="x-axis-radio" value={X_AXIS_RELATIVE}>
+                <Radio className='x-axis-radio' value={X_AXIS_RELATIVE}>
                   Time (Relative)
                 </Radio>
               </RadioGroup>
             </div>
           </div>
         ) : null}
-        <div className="block-control">
-          <div className="control-label">Y-axis:</div>
+        <div className='block-control'>
+          <div className='control-label'>Y-axis:</div>
           <TreeSelect
-            className="metrics-select"
-            searchPlaceholder="Please select metric"
+            className='metrics-select'
+            searchPlaceholder='Please select metric'
             value={this.props.selectedMetricKeys}
             showCheckedStrategy={TreeSelect.SHOW_PARENT}
             treeCheckable
@@ -104,11 +104,11 @@ export class MetricsPlotControls extends React.Component {
             filterTreeNode={this.handleMetricsSelectFilterChange}
           />
         </div>
-        <div className="inline-control">
-          <div className="control-label">Y-axis Log Scale:</div>
+        <div className='inline-control'>
+          <div className='control-label'>Y-axis Log Scale:</div>
           <Switch
-            checkedChildren="On"
-            unCheckedChildren="Off"
+            checkedChildren='On'
+            unCheckedChildren='Off'
             defaultChecked={yAxisLogScale}
             onChange={this.props.handleYAxisLogScaleChange}
           />

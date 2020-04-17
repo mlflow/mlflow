@@ -11,13 +11,11 @@ export class Spinner extends Component {
 
   render() {
     const className = classNames({
-      Spinner: true,
-      'Spinner-immediate': this.props.showImmediately,
+      "Spinner": true,
+      "Spinner-immediate": this.props.showImmediately,
     });
-    return (
-      <div className={className}>
-        <img alt="Page loading..." src={spinner} />
-      </div>
-    );
+    return <div className={className}>
+      <img alt="Page loading..." src={spinner}/>
+    </div>;
   }
 }

@@ -131,7 +131,7 @@ describe('unit tests', () => {
             shape: 'spline',
             smoothing: 0,
           },
-          marker: { opacity: 0 },
+          marker: {"opacity": 0},
         },
         {
           metricName: 'metric_1',
@@ -146,7 +146,7 @@ describe('unit tests', () => {
             shape: 'spline',
             smoothing: 0,
           },
-          marker: { opacity: 0 },
+          marker: {"opacity": 0},
         },
       ],
       layout: {},

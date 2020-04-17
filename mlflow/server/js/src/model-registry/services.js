@@ -28,17 +28,19 @@ export class Services {
    * @returns {*|jQuery|*|*|*|*}
    */
   static listRegisteredModels({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/list'), {
-      type: 'GET',
-      dataType: 'json',
-      converters: {
-        'text json': StrictJsonBigInt.parse,
+    return $.ajax(
+      Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/list'), {
+        type: 'GET',
+        dataType: 'json',
+        converters: {
+          'text json': StrictJsonBigInt.parse,
+        },
+        data: data,
+        jsonp: false,
+        success: success,
+        error: error,
       },
-      data: data,
-      jsonp: false,
-      success: success,
-      error: error,
-    });
+    );
   }
 
   /**
@@ -122,7 +124,7 @@ export class Services {
         jsonp: false,
         success: success,
         error: error,
-      }
+      },
     );
   }
 
@@ -134,15 +136,16 @@ export class Services {
    * @returns {*|jQuery|*|*|*|*}
    */
   static updateModelVersion({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/model-versions/update'), {
-      type: 'PATCH',
-      dataType: 'json',
-      contentType: 'application/json; charset=utf-8',
-      data: JSON.stringify(data),
-      jsonp: false,
-      success: success,
-      error: error,
-    });
+    return $.ajax(Utils.getAjaxUrl(
+      'ajax-api/2.0/preview/mlflow/model-versions/update'), {
+        type: 'PATCH',
+        dataType: 'json',
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify(data),
+        jsonp: false,
+        success: success,
+        error: error,
+      });
   }
 
   /**
@@ -153,9 +156,8 @@ export class Services {
    * @returns {*|jQuery|*|*|*|*}
    */
   static transitionModelVersionStage({ data, success, error }) {
-    return $.ajax(
-      Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/databricks/model-versions/transition-stage'),
-      {
+    return $.ajax(Utils.getAjaxUrl(
+      'ajax-api/2.0/preview/mlflow/databricks/model-versions/transition-stage'), {
         type: 'POST',
         dataType: 'json',
         contentType: 'application/json; charset=utf-8',
@@ -163,8 +165,7 @@ export class Services {
         jsonp: false,
         success: success,
         error: error,
-      }
-    );
+      });
   }
 
   /**
@@ -194,15 +195,17 @@ export class Services {
    * @returns {*|jQuery|*|*|*|*}
    */
   static getRegisteredModel({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/get'), {
-      type: 'GET',
-      dataType: 'json',
-      contentType: 'application/json; charset=utf-8',
-      data: data,
-      jsonp: false,
-      success: success,
-      error: error,
-    });
+    return $.ajax(
+      Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/get'), {
+        type: 'GET',
+        dataType: 'json',
+        contentType: 'application/json; charset=utf-8',
+        data: data,
+        jsonp: false,
+        success: success,
+        error: error,
+      }
+    );
   }
 
   /**
@@ -213,14 +216,16 @@ export class Services {
    * @returns {*|jQuery|*|*|*|*}
    */
   static getModelVersion({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/model-versions/get'), {
-      type: 'GET',
-      dataType: 'json',
-      contentType: 'application/json; charset=utf-8',
-      data: data,
-      jsonp: false,
-      success: success,
-      error: error,
-    });
+    return $.ajax(
+      Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/model-versions/get'), {
+        type: 'GET',
+        dataType: 'json',
+        contentType: 'application/json; charset=utf-8',
+        data: data,
+        jsonp: false,
+        success: success,
+        error: error,
+      });
   }
+
 }

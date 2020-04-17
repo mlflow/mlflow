@@ -1,7 +1,9 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import { Stages } from '../constants';
+import {
+  Stages,
+} from '../constants';
 import { Dropdown } from 'antd';
 import { mockGetFieldValue } from '../test-utils';
 
@@ -20,7 +22,7 @@ describe('ModelStageTransitionDropdown', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ModelStageTransitionDropdown {...minimalProps} />);
+    wrapper = shallow(<ModelStageTransitionDropdown {...minimalProps}/>);
     expect(wrapper.length).toBe(1);
   });
 
@@ -45,7 +47,7 @@ describe('ModelStageTransitionDropdown', () => {
       onSelect: mockOnSelect,
     };
     const activity = {};
-    const comment = 'comment';
+    const comment = "comment";
     wrapper = shallow(<ModelStageTransitionDropdown {...props} />);
     const mockArchiveFieldValues = [true, false, undefined];
     mockArchiveFieldValues.forEach((fieldValue) => {

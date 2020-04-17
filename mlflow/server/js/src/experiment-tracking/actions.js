@@ -118,7 +118,7 @@ export const loadMoreRunsApi = (
   runViewType,
   orderBy,
   pageToken,
-  id = getUUID()
+  id = getUUID(),
 ) => ({
   type: LOAD_MORE_RUNS_API,
   payload: wrapDeferred(MlflowService.searchRuns, {
@@ -132,13 +132,13 @@ export const loadMoreRunsApi = (
   meta: { id },
 });
 
+
 export const LIST_ARTIFACTS_API = 'LIST_ARTIFACTS_API';
 export const listArtifactsApi = (runUuid, path, id = getUUID()) => {
   return {
     type: LIST_ARTIFACTS_API,
     payload: wrapDeferred(MlflowService.listArtifacts, {
-      run_uuid: runUuid,
-      path: path,
+      run_uuid: runUuid, path: path,
     }),
     meta: { id: id, runUuid: runUuid, path: path },
   };
@@ -149,8 +149,7 @@ export const getMetricHistoryApi = (runUuid, metricKey, id = getUUID()) => {
   return {
     type: GET_METRIC_HISTORY_API,
     payload: wrapDeferred(MlflowService.getMetricHistory, {
-      run_uuid: runUuid,
-      metric_key: decodeURIComponent(metricKey),
+      run_uuid: runUuid, metric_key: decodeURIComponent(metricKey),
     }),
     meta: { id: id, runUuid: runUuid, key: metricKey },
   };
@@ -161,9 +160,7 @@ export const setTagApi = (runUuid, tagName, tagValue, id = getUUID()) => {
   return {
     type: SET_TAG_API,
     payload: wrapDeferred(MlflowService.setTag, {
-      run_uuid: runUuid,
-      key: tagName,
-      value: tagValue,
+      run_uuid: runUuid, key: tagName, value: tagValue,
     }),
     meta: { id: id, runUuid: runUuid, key: tagName, value: tagValue },
   };
@@ -174,8 +171,7 @@ export const deleteTagApi = (runUuid, tagName, id = getUUID()) => {
   return {
     type: DELETE_TAG_API,
     payload: wrapDeferred(MlflowService.deleteTag, {
-      run_id: runUuid,
-      key: tagName,
+      run_id: runUuid, key: tagName,
     }),
     meta: { id: id, run_id: runUuid, key: tagName },
   };
@@ -186,9 +182,7 @@ export const setExperimentTagApi = (experimentId, tagName, tagValue, id = getUUI
   return {
     type: SET_EXPERIMENT_TAG_API,
     payload: wrapDeferred(MlflowService.setExperimentTag, {
-      experiment_id: experimentId,
-      key: tagName,
-      value: tagValue,
+      experiment_id: experimentId, key: tagName, value: tagValue,
     }),
     meta: { id, experimentId, key: tagName, value: tagValue },
   };
@@ -208,3 +202,4 @@ export const openErrorModal = (text) => {
     text,
   };
 };
+

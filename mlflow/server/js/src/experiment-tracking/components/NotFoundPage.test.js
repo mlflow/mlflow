@@ -3,7 +3,8 @@ import { shallow } from 'enzyme';
 import NotFoundPage from './NotFoundPage';
 
 describe('NotFoundPage', () => {
+
   test('should render without exploding', () => {
-    shallow(<NotFoundPage />);
+    shallow(<NotFoundPage/>);
   });
 });

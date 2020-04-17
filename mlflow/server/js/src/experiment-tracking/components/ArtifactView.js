@@ -1,9 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import {
-  getBasename,
-  getExtension,
-  IMAGE_EXTENSIONS,
+  getBasename, getExtension, IMAGE_EXTENSIONS,
   TEXT_EXTENSIONS,
 } from '../../common/utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
@@ -14,8 +12,7 @@ import ShowArtifactPage, { getSrc } from './artifact-view-components/ShowArtifac
 import {
   ModelVersionStatus,
   ModelVersionStatusIcons,
-  DefaultModelVersionStatusMessages,
-  modelVersionStatusIconTooltips,
+  DefaultModelVersionStatusMessages, modelVersionStatusIconTooltips,
 } from '../../model-registry/constants';
 import Utils from '../../common/utils/Utils';
 import _ from 'lodash';
@@ -49,7 +46,7 @@ export class ArtifactView extends Component {
     const existingModelVersions = modelVersionsBySource[activeNodeRealPath];
 
     return existingModelVersions ? (
-      <ModelVersionInfoSection modelVersion={_.last(existingModelVersions)} />
+      <ModelVersionInfoSection modelVersion={_.last(existingModelVersions)}/>
     ) : (
       <RegisterModelButton
         runUuid={runUuid}
@@ -61,11 +58,11 @@ export class ArtifactView extends Component {
 
   renderPathAndSizeInfo() {
     return (
-      <div className="artifact-info-left">
-        <div className="artifact-info-path">
+      <div className='artifact-info-left'>
+        <div className='artifact-info-path'>
           <label>Full Path:</label> {this.getActiveNodeRealPath()}
         </div>
-        <div className="artifact-info-size">
+        <div className='artifact-info-size'>
           <label>Size:</label> {this.getActiveNodeSize()}
         </div>
       </div>
@@ -76,9 +73,9 @@ export class ArtifactView extends Component {
     const { runUuid } = this.props;
     const { activeNodeId } = this.state;
     return (
-      <div className="artifact-info-link">
-        <a href={getSrc(activeNodeId, runUuid)} title="Download artifact">
-          <i className="fas fa-download" />
+      <div className='artifact-info-link'>
+        <a href={getSrc(activeNodeId, runUuid)} title='Download artifact'>
+          <i className='fas fa-download' />
         </a>
       </div>
     );
@@ -86,13 +83,11 @@ export class ArtifactView extends Component {
 
   renderArtifactInfo() {
     return (
-      <div className="artifact-info">
+      <div className='artifact-info'>
         {this.renderPathAndSizeInfo()}
-        <div className="artifact-info-right">
+        <div className='artifact-info-right'>
           {this.activeNodeIsDirectory()
-            ? Utils.isModelRegistryEnabled()
-              ? this.renderModelVersionInfoSection()
-              : null
+            ? (Utils.isModelRegistryEnabled() ? this.renderModelVersionInfoSection() : null)
             : this.renderDownloadLink()}
         </div>
       </div>
@@ -124,7 +119,7 @@ export class ArtifactView extends Component {
         return Object.values(artifactNode.children).map((c) => this.getTreebeardData(c));
       }
       // This case should never happen since we should never call this function on an empty root.
-      throw Error('unreachable code.');
+      throw Error("unreachable code.");
     }
 
     let id;
@@ -214,7 +209,7 @@ export class ArtifactView extends Component {
           </div>
           <div className="artifact-right">
             {this.state.activeNodeId ? this.renderArtifactInfo() : null}
-            <ShowArtifactPage runUuid={this.props.runUuid} path={this.state.activeNodeId} />
+            <ShowArtifactPage runUuid={this.props.runUuid} path={this.state.activeNodeId}/>
           </div>
         </div>
       </div>
@@ -229,32 +224,31 @@ function ModelVersionInfoSection(props) {
   const modelVersionLink = (
     <a
       href={getModelVersionPageURL(name, version)}
-      className="model-version-link"
+      className='model-version-link'
       title={`${name}, v${version}`}
-      target="_blank"
+      target='_blank'
     >
-      <span className="model-name">{name}</span>
+      <span className='model-name'>{name}</span>
       <span>,&nbsp;v{version}&nbsp;</span>
-      <i className="fas fa-external-link-alt" />
+      <i className='fas fa-external-link-alt'/>
     </a>
   );
 
   return (
-    <div className="model-version-info">
-      <div className="model-version-link-section">
+    <div className='model-version-info'>
+      <div className='model-version-link-section'>
         <Tooltip title={status_message || modelVersionStatusIconTooltips[status]}>
           {ModelVersionStatusIcons[status]}
         </Tooltip>
         {modelVersionLink}
       </div>
-      <div className="model-version-status-text">
+      <div className='model-version-status-text'>
         {status === ModelVersionStatus.READY ? (
           <React.Fragment>
-            Registered on {Utils.formatTimestamp(modelVersion.creation_timestamp, 'yyyy/mm/dd')}
+            Registered on {' '}
+            {Utils.formatTimestamp(modelVersion.creation_timestamp, 'yyyy/mm/dd')}
           </React.Fragment>
-        ) : (
-          status_message || DefaultModelVersionStatusMessages[status]
-        )}
+        ) : (status_message || DefaultModelVersionStatusMessages[status])}
       </div>
     </div>
   );
@@ -266,7 +260,9 @@ function NoArtifactView() {
   return (
     <div className="empty-artifact-outer-container">
       <div className="empty-artifact-container">
-        <div>{/* TODO: put a nice image here */}</div>
+        <div>
+          {/* TODO: put a nice image here */}
+        </div>
         <div>
           <div className="no-artifacts">No Artifacts Recorded</div>
           <div className="no-artifacts-info">
@@ -355,7 +351,7 @@ const TREEBEARD_STYLE = {
 };
 
 // eslint-disable-next-line react/prop-types
-decorators.Header = ({ style, node }) => {
+decorators.Header = ({style, node}) => {
   let iconType;
   if (node.children) {
     iconType = 'folder';
@@ -379,7 +375,7 @@ decorators.Header = ({ style, node }) => {
   return (
     <div style={style.base}>
       <div style={style.title}>
-        <i className={iconClass} style={iconStyle} />
+        <i className={iconClass} style={iconStyle}/>
         {node.name}
       </div>
     </div>
@@ -387,10 +383,11 @@ decorators.Header = ({ style, node }) => {
 };
 
 // eslint-disable-next-line react/prop-types
-decorators.Loading = ({ style }) => {
+decorators.Loading = ({style}) => {
   return (
     <div style={style}>
-      <img alt="" className="loading-spinner" src={spinner} /> loading...
+      <img alt="" className="loading-spinner" src={spinner}/>
+      {' '}loading...
     </div>
   );
 };

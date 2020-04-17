@@ -33,20 +33,20 @@ class RenameExperimentModalImpl extends Component {
 
   debouncedExperimentNameValidator = debounce(
     getExperimentNameValidator(() => this.props.experimentNames),
-    400
+    400,
   );
 
   render() {
     const { isOpen, experimentName } = this.props;
     return (
       <GenericInputModal
-        title="Rename Experiment"
+        title='Rename Experiment'
         isOpen={isOpen}
         handleSubmit={this.handleRenameExperiment}
         onClose={this.props.onClose}
       >
         <RenameForm
-          type="experiment"
+          type='experiment'
           name={experimentName}
           visible={isOpen}
           validator={this.debouncedExperimentNameValidator}
@@ -68,6 +68,5 @@ const mapDispatchToProps = {
 };
 
 export const RenameExperimentModal = connect(
-  mapStateToProps,
-  mapDispatchToProps
+  mapStateToProps, mapDispatchToProps
 )(RenameExperimentModalImpl);

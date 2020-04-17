@@ -3,12 +3,8 @@ import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import ParallelCoordinatesPlotView from './ParallelCoordinatesPlotView';
 import { ParallelCoordinatesPlotControls } from './ParallelCoordinatesPlotControls';
-import {
-  getAllParamKeysByRunUuids,
-  getAllMetricKeysByRunUuids,
-  getSharedMetricKeysByRunUuids,
-  getSharedParamKeysByRunUuids,
-} from '../reducers/Reducers';
+import { getAllParamKeysByRunUuids, getAllMetricKeysByRunUuids, getSharedMetricKeysByRunUuids,
+         getSharedParamKeysByRunUuids } from '../reducers/Reducers';
 import _ from 'lodash';
 import { Empty } from 'antd';
 
@@ -47,7 +43,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     const { runUuids, allParamKeys, allMetricKeys } = this.props;
     const { selectedParamKeys, selectedMetricKeys } = this.state;
     return (
-      <div className="parallel-coorinates-plot-panel">
+      <div className='parallel-coorinates-plot-panel'>
         <ParallelCoordinatesPlotControls
           paramKeys={allParamKeys}
           metricKeys={allMetricKeys}
@@ -56,15 +52,13 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
           handleMetricsSelectChange={this.handleMetricsSelectChange}
           handleParamsSelectChange={this.handleParamsSelectChange}
         />
-        {!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys) ? (
+        {(!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys)) ? (
           <ParallelCoordinatesPlotView
             runUuids={runUuids}
             paramKeys={selectedParamKeys}
             metricKeys={selectedMetricKeys}
           />
-        ) : (
-          <Empty style={{ width: '100%', height: '100%' }} />
-        )}
+        ) : <Empty style={{ width: '100%', height: '100%' }}/>}
       </div>
     );
   }

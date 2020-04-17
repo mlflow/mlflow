@@ -1,4 +1,7 @@
-export const mockRegisteredModelDetailed = (name, latestVersions = []) => {
+export const mockRegisteredModelDetailed = (
+  name,
+  latestVersions = [],
+  ) => {
   return {
     creation_timestamp: 1571344731467,
     last_updated_timestamp: 1573581360069,

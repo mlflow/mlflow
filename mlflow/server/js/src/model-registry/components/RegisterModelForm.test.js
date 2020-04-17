@@ -43,4 +43,5 @@ describe('RegisterModelForm', () => {
     instance.setState({ selectedModel: CREATE_NEW_MODEL_OPTION_VALUE });
     expect(wrapper.find('[label="Model Name"]').length).toBe(1);
   });
+
 });

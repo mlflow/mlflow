@@ -25,10 +25,8 @@ export default class CompareRunUtil {
         if (numeric && isNaN(parseFloat(item.value))) {
           keys[item.key] = false;
         }
-      })
-    );
-    return Object.keys(keys)
-      .filter((k) => keys[k])
-      .sort();
+      }
+    ));
+    return Object.keys(keys).filter(k => keys[k]).sort();
   }
 }

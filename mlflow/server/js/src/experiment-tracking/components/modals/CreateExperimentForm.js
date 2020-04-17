@@ -36,19 +36,19 @@ class CreateExperimentFormComponent extends Component {
     // const validationSchema = getValidationSchema(this.props.type);
     const { getFieldDecorator } = this.props.form;
     return (
-      <Form layout="vertical">
+      <Form layout='vertical'>
         <Form.Item label={'Experiment Name'}>
           {getFieldDecorator(EXP_NAME_FIELD, {
             rules: [
               { required: true, message: 'Please input a new name for the new experiment.' },
               { validator: this.props.validator },
             ],
-          })(<Input placeholder="Input an experiment name" ref={this.autoFocusInputRef} />)}
+          })(<Input placeholder='Input an experiment name' ref={this.autoFocusInputRef} />)}
         </Form.Item>
         <Form.Item label={'Artifact Location'}>
           {getFieldDecorator(ARTIFACT_LOCATION, {
             rules: [{ required: false }],
-          })(<Input placeholder="Input an artifact location (optional)" />)}
+          })(<Input placeholder='Input an artifact location (optional)' />)}
         </Form.Item>
       </Form>
     );

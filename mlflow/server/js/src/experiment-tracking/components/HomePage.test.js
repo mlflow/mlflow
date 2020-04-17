@@ -9,6 +9,7 @@ import configureStore from 'redux-mock-store';
 import { HomePageImpl } from './HomePage';
 import HomeView from './HomeView';
 
+
 describe('HomePage', () => {
   let wrapper;
   let minimalProps;
@@ -29,16 +30,20 @@ describe('HomePage', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<HomePageImpl {...minimalProps} />, {
-      wrappingComponent: (props) => {
-        const { children } = props;
-        return (
-          <Provider store={minimalStore}>
-            <BrowserRouter>{children}</BrowserRouter>
-          </Provider>
-        );
-      },
-    });
+    wrapper = shallow(<HomePageImpl {...minimalProps}/>,
+      {
+        wrappingComponent: (props) => {
+          const { children } = props;
+          return (
+            <Provider store={minimalStore}>
+              <BrowserRouter>
+                {children}
+              </BrowserRouter>
+            </Provider>
+          );
+        },
+      }
+    );
     expect(wrapper.length).toBe(1);
   });
 
@@ -48,16 +53,20 @@ describe('HomePage', () => {
       experimentId: '0',
     };
 
-    wrapper = shallow(<HomePageImpl {...props} />, {
-      wrappingComponent: () => {
-        const { children } = props;
-        return (
-          <Provider store={minimalStore}>
-            <BrowserRouter>{children}</BrowserRouter>
-          </Provider>
-        );
-      },
-    });
+    wrapper = shallow(<HomePageImpl {...props}/>,
+      {
+        wrappingComponent: () => {
+          const { children } = props;
+          return (
+            <Provider store={minimalStore}>
+              <BrowserRouter>
+                {children}
+              </BrowserRouter>
+            </Provider>
+          );
+        },
+      }
+    );
     expect(wrapper.find(HomeView).length).toBe(1);
   });
 });

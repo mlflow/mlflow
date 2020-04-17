@@ -5,6 +5,7 @@ import Colors from '../../experiment-tracking/styles/Colors';
 import Routes from '../../experiment-tracking/routes';
 import { Link } from 'react-router-dom';
 
+
 export class Error404View extends Component {
   static propTypes = {
     resourceName: PropTypes.string.isRequired,
@@ -16,7 +17,7 @@ export class Error404View extends Component {
     return (
       <div>
         <img
-          className="center"
+          className='center'
           alt="404 Not Found"
           style={{ height: '300px', marginTop: '80px' }}
           src={error404Img}

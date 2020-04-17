@@ -35,12 +35,12 @@ export class ParallelCoordinatesPlotView extends React.Component {
     const lastMetricKey = this.findLastKeyFromState(metricKeys);
     const lastMetricDimension = this.props.metricDimensions.find((d) => d.label === lastMetricKey);
     const colorScaleConfigs = ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(
-      lastMetricDimension
+      lastMetricDimension,
     );
     // This make sure axis order consistency across renders.
     const orderedDimensions = ParallelCoordinatesPlotView.getDimensionsOrderedBySequence(
       [...paramDimensions, ...metricDimensions],
-      sequence
+      sequence,
     );
     return [
       {
@@ -96,8 +96,9 @@ export class ParallelCoordinatesPlotView extends React.Component {
   maybeUpdateStateForColorScale = (currentSequenceFromPlotly) => {
     const rightmostMetricKeyFromState = this.findLastKeyFromState(this.props.metricKeys);
     const metricsKeySet = new Set(this.props.metricKeys);
-    const rightmostMetricKeyFromPlotly = _.findLast(currentSequenceFromPlotly, (key) =>
-      metricsKeySet.has(key)
+    const rightmostMetricKeyFromPlotly = _.findLast(
+      currentSequenceFromPlotly,
+      (key) => metricsKeySet.has(key),
     );
     // Currently we always render color scale based on the rightmost metric axis, so if that changes
     // we need to setState with the new axes sequence to trigger a rerender.
@@ -119,7 +120,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
         style={{ width: '100%', height: '100%' }}
         data={this.getData()}
         onUpdate={this.handlePlotUpdate}
-        className="pcp-plot"
+        className='pcp-plot'
         config={{ displayModeBar: false }}
       />
     );
@@ -152,11 +153,11 @@ export const generateAttributesForCategoricalDimension = (labels) => {
 export const inferType = (key, runUuids, entryByRunUuid) => {
   for (let i = 0; i < runUuids.length; i++) {
     const value = entryByRunUuid[runUuids[i]][key].value;
-    if (typeof value === 'string' && isNaN(Number(value)) && value !== 'NaN') {
-      return 'string';
+    if (typeof(value) === "string" && isNaN(Number(value)) && value !== "NaN") {
+      return "string";
     }
   }
-  return 'number';
+  return "number";
 };
 
 export const createDimension = (key, runUuids, entryByRunUuid) => {
@@ -164,7 +165,7 @@ export const createDimension = (key, runUuids, entryByRunUuid) => {
   const dataType = inferType(key, runUuids, entryByRunUuid);
   if (dataType === 'string') {
     attributes = generateAttributesForCategoricalDimension(
-      runUuids.map((runUuid) => entryByRunUuid[runUuid][key].value)
+      runUuids.map((runUuid) => entryByRunUuid[runUuid][key].value),
     );
   } else {
     attributes.values = runUuids.map((runUuid) => {
@@ -172,7 +173,7 @@ export const createDimension = (key, runUuids, entryByRunUuid) => {
       return isNaN(value) ? 0 : Number(value); // Default NaN to zero here
     });
     // For some reason, Plotly tries to plot these values with SI prefixes by default
-    attributes.tickformat = 'f';
+    attributes.tickformat = "f";
   }
   return {
     label: key,
@@ -186,16 +187,14 @@ const mapStateToProps = (state, ownProps) => {
   // Show only runs that have all the parameters/metrics we chose to plot, since the parallel
   // coordinates plot can't easily handle data points that are missing a dimension.
   const validRunUuids = runUuids.filter((uuid) => {
-    return (
-      paramKeys.every((key) => paramsByRunUuid[uuid][key] !== undefined) &&
-      metricKeys.every((key) => latestMetricsByRunUuid[uuid][key] !== undefined)
-    );
+    return paramKeys.every((key) => paramsByRunUuid[uuid][key] !== undefined) &&
+      metricKeys.every((key) => latestMetricsByRunUuid[uuid][key] !== undefined);
   });
   const paramDimensions = paramKeys.map((paramKey) =>
-    createDimension(paramKey, validRunUuids, paramsByRunUuid)
+    createDimension(paramKey, validRunUuids, paramsByRunUuid),
   );
   const metricDimensions = metricKeys.map((metricKey) =>
-    createDimension(metricKey, validRunUuids, latestMetricsByRunUuid)
+    createDimension(metricKey, validRunUuids, latestMetricsByRunUuid),
   );
   return { paramDimensions, metricDimensions };
 };

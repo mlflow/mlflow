@@ -7,6 +7,7 @@ import { Input, Tree } from 'antd';
 import _ from 'lodash';
 import PropTypes from 'prop-types';
 
+
 const { TreeNode } = Tree;
 const { Search } = Input;
 export const NodeShape = {
@@ -57,9 +58,9 @@ export class SearchTree extends React.Component {
         .map((item) =>
           (item.title.toLowerCase().includes(value.toLowerCase())
             ? getParentKey(item.key, data)
-            : null)
+            : null),
         )
-        .filter((item) => !_.isEmpty(item))
+        .filter((item) => !_.isEmpty(item)),
     );
     this.setState({
       expandedKeys,
@@ -101,16 +102,12 @@ export class SearchTree extends React.Component {
           // We set the span title to display search tree node text on hover
           <span style={styles.treeNodeTextStyle} title={item.title}>
             {beforeStr}
-            <span className="search-highlight" style={styles.searchHighlight}>
-              {matchStr}
-            </span>
+            <span className='search-highlight' style={styles.searchHighlight}>{matchStr}</span>
             {afterStr}
           </span>
         ) : (
           // We set the span title to display search tree node text on hover
-          <span style={styles.treeNodeTextStyle} title={item.title}>
-            {item.title}
-          </span>
+          <span style={styles.treeNodeTextStyle} title={item.title}>{item.title}</span>
         );
       if (item.children) {
         return (
@@ -130,7 +127,7 @@ export class SearchTree extends React.Component {
       <div>
         <Search
           style={{ marginBottom: 8 }}
-          placeholder="Search"
+          placeholder='Search'
           value={searchValue}
           onChange={this.handleSearch}
           onKeyUp={this.handleSearchInputKeyUp}
@@ -179,7 +176,7 @@ export const getParentKey = (key, treeData) => {
   for (let i = 0; i < treeData.length; i++) {
     const node = treeData[i];
     if (node.children) {
-      if (node.children.some((item) => item.key === key)) {
+      if (node.children.some(item => item.key === key)) {
         parentKey = node.key;
       } else {
         parentKey = getParentKey(key, node.children);
@@ -189,6 +186,7 @@ export const getParentKey = (key, treeData) => {
   }
   return parentKey;
 };
+
 
 export const styles = {
   treeNodeTextStyle: {

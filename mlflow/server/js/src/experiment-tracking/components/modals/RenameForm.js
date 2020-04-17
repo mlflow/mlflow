@@ -47,7 +47,7 @@ class RenameFormComponent extends Component {
   render() {
     const { getFieldDecorator } = this.props.form;
     return (
-      <Form layout="vertical">
+      <Form layout='vertical'>
         <Form.Item label={`New ${this.props.type} name`}>
           {getFieldDecorator(NEW_NAME_FIELD, {
             rules: [
@@ -56,7 +56,7 @@ class RenameFormComponent extends Component {
             ],
             initialValue: this.props.name,
           })(
-            <Input placeholder={`Input a ${this.props.type} name`} ref={this.autoFocusInputRef} />
+            <Input placeholder={`Input a ${this.props.type} name`} ref={this.autoFocusInputRef} />,
           )}
         </Form.Item>
       </Form>

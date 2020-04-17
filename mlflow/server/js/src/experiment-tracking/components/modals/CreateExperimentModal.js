@@ -32,9 +32,7 @@ export class CreateExperimentModalImpl extends Component {
     const response = await this.props.createExperimentApi(experimentName, artifactLocation);
     await this.props.listExperimentsApi();
 
-    const {
-      value: { experiment_id: newExperimentId },
-    } = response;
+    const { value: { experiment_id: newExperimentId } } = response;
     if (newExperimentId) {
       this.props.history.push(Routes.getExperimentPageRoute(newExperimentId));
     }
@@ -42,14 +40,14 @@ export class CreateExperimentModalImpl extends Component {
 
   debouncedExperimentNameValidator = debounce(
     getExperimentNameValidator(() => this.props.experimentNames),
-    400
+    400,
   );
 
   render() {
     const { isOpen } = this.props;
     return (
       <GenericInputModal
-        title="Create Experiment"
+        title='Create Experiment'
         isOpen={isOpen}
         handleSubmit={this.handleCreateExperiment}
         onClose={this.props.onClose}

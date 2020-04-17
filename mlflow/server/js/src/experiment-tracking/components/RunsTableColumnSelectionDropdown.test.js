@@ -33,12 +33,12 @@ describe('RunsTableColumnSelectionDropdown', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<RunsTableColumnSelectionDropdown {...minimalProps} />);
+    wrapper = shallow(<RunsTableColumnSelectionDropdown {...minimalProps}/>);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render SearchTree with correct tree data', () => {
-    wrapper = mount(<RunsTableColumnSelectionDropdown {...commonProps} />);
+    wrapper = mount(<RunsTableColumnSelectionDropdown {...commonProps}/>);
     instance = wrapper.instance();
     instance.setState({ menuVisible: true });
     wrapper.update();
@@ -76,7 +76,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
   });
 
   test('should check all keys by default', () => {
-    wrapper = mount(<RunsTableColumnSelectionDropdown {...commonProps} />);
+    wrapper = mount(<RunsTableColumnSelectionDropdown {...commonProps}/>);
     instance = wrapper.instance();
     instance.setState({ menuVisible: true });
     wrapper.update();
@@ -105,15 +105,12 @@ describe('RunsTableColumnSelectionDropdown', () => {
         [ColumnTypes.TAGS]: ['t1'],
       },
     };
-    wrapper = mount(<RunsTableColumnSelectionDropdown {...props} />);
+    wrapper = mount(<RunsTableColumnSelectionDropdown {...props}/>);
     instance = wrapper.instance();
     instance.setState({ menuVisible: true });
     wrapper.update();
-    expect(wrapper.find(SearchTree).prop('checkedKeys')).toEqual([
-      'attributes-Date',
-      'params-p2',
-      'metrics-m2',
-      'tags-t2',
-    ]);
+    expect(wrapper.find(SearchTree).prop('checkedKeys')).toEqual(
+      ['attributes-Date', 'params-p2', 'metrics-m2', 'tags-t2'],
+    );
   });
 });

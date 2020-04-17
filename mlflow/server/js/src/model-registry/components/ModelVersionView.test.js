@@ -2,10 +2,16 @@ import React from 'react';
 import { shallow, mount } from 'enzyme';
 import { ModelVersionView } from './ModelVersionView';
 import { mockModelVersionDetailed } from '../test-utils';
-import { Stages, ModelVersionStatus, ACTIVE_STAGES } from '../constants';
-import { Dropdown } from 'antd';
+import {
+  Stages,
+  ModelVersionStatus,
+  ACTIVE_STAGES,
+} from '../constants';
+import {
+  Dropdown,
+} from 'antd';
 import { BrowserRouter } from 'react-router-dom';
-import Utils from '../../common/utils/Utils';
+import Utils from "../../common/utils/Utils";
 
 describe('ModelVersionView', () => {
   let wrapper;
@@ -19,7 +25,7 @@ describe('ModelVersionView', () => {
         1,
         Stages.PRODUCTION,
         ModelVersionStatus.READY,
-        []
+        [],
       ),
       handleStageTransitionDropdownSelect: jest.fn(),
       handlePendingRequestTransition: jest.fn(),
@@ -43,7 +49,7 @@ describe('ModelVersionView', () => {
         1,
         Stages.NONE,
         ModelVersionStatus.READY,
-        []
+        [],
       ),
     };
     wrapper = mount(
@@ -64,7 +70,7 @@ describe('ModelVersionView', () => {
           1,
           ACTIVE_STAGES[i],
           ModelVersionStatus.READY,
-          []
+          [],
         ),
       };
       wrapper = mount(
@@ -72,14 +78,11 @@ describe('ModelVersionView', () => {
           <ModelVersionView {...props} />
         </BrowserRouter>
       );
-      wrapper
-        .find('.breadcrumb-dropdown')
-        .hostNodes()
-        .simulate('click');
+      wrapper.find('.breadcrumb-dropdown').hostNodes().simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
       // attribute within the rendered HTML.
-      const deleteMenuItem = wrapper.find('.delete').hostNodes();
+      const deleteMenuItem = wrapper.find(".delete").hostNodes();
       expect(deleteMenuItem.prop('aria-disabled')).toBe(true);
       deleteMenuItem.simulate('click');
       expect(wrapper.find(ModelVersionView).instance().state.isDeleteModalVisible).toBe(false);
@@ -97,7 +100,7 @@ describe('ModelVersionView', () => {
           1,
           inactiveStages[i],
           ModelVersionStatus.READY,
-          []
+          [],
         ),
       };
       wrapper = mount(
@@ -105,24 +108,21 @@ describe('ModelVersionView', () => {
           <ModelVersionView {...props} />
         </BrowserRouter>
       );
-      wrapper
-        .find('.breadcrumb-dropdown')
-        .hostNodes()
-        .simulate('click');
+      wrapper.find('.breadcrumb-dropdown').hostNodes().simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
       // attribute within the rendered HTML.
-      const deleteMenuItem = wrapper.find('.delete').hostNodes();
+      const deleteMenuItem = wrapper.find(".delete").hostNodes();
       expect(deleteMenuItem.prop('aria-disabled')).toBeUndefined();
       deleteMenuItem.simulate('click');
       expect(wrapper.find(ModelVersionView).instance().state.isDeleteModalVisible).toBe(true);
     }
   });
 
-  test('Page title is set', () => {
+  test("Page title is set", () => {
     const mockUpdatePageTitle = jest.fn();
     Utils.updatePageTitle = mockUpdatePageTitle;
-    wrapper = shallow(<ModelVersionView {...minimalProps} />);
-    expect(mockUpdatePageTitle.mock.calls[0][0]).toBe('Model A v1 - MLflow Model');
+    wrapper = shallow(<ModelVersionView {...minimalProps}/>);
+    expect(mockUpdatePageTitle.mock.calls[0][0]).toBe("Model A v1 - MLflow Model");
   });
 });

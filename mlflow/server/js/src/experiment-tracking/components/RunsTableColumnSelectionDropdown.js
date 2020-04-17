@@ -84,17 +84,14 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
     return [
       ..._.difference(
         Object.values(ExperimentViewUtil.AttributeColumnLabels),
-        categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES]
+        categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES],
       ).map((key) => `${ColumnTypes.ATTRIBUTES}-${key}`),
-      ..._.difference(paramKeyList, categorizedUncheckedKeys[ColumnTypes.PARAMS]).map(
-        (key) => `${ColumnTypes.PARAMS}-${key}`
-      ),
-      ..._.difference(metricKeyList, categorizedUncheckedKeys[ColumnTypes.METRICS]).map(
-        (key) => `${ColumnTypes.METRICS}-${key}`
-      ),
-      ..._.difference(visibleTagKeyList, categorizedUncheckedKeys[ColumnTypes.TAGS]).map(
-        (key) => `${ColumnTypes.TAGS}-${key}`
-      ),
+      ..._.difference(paramKeyList, categorizedUncheckedKeys[ColumnTypes.PARAMS])
+        .map((key) => `${ColumnTypes.PARAMS}-${key}`),
+      ..._.difference(metricKeyList, categorizedUncheckedKeys[ColumnTypes.METRICS])
+        .map((key) => `${ColumnTypes.METRICS}-${key}`),
+      ..._.difference(visibleTagKeyList, categorizedUncheckedKeys[ColumnTypes.TAGS])
+        .map((key) => `${ColumnTypes.TAGS}-${key}`),
     ];
   }
 
@@ -126,7 +123,7 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
         onVisibleChange={this.handleVisibleChange}
       >
         <Button style={{ height: 34, display: 'flex', alignItems: 'center' }}>
-          <Icon type="setting" style={{ marginTop: 2 }} />
+          <Icon type='setting' style={{ marginTop: 2 }} />
           Columns
         </Button>
       </Dropdown>

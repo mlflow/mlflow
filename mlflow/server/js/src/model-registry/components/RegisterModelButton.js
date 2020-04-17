@@ -83,8 +83,8 @@ class RegisterModelButton extends React.Component {
                 values[MODEL_NAME_FIELD],
                 modelPath,
                 runUuid,
-                this.createModelVersionRequestId
-              )
+                this.createModelVersionRequestId,
+              ),
             )
             .then(this.resetAndClearModalForm)
             .catch(this.handleRegistrationFailure)
@@ -96,7 +96,7 @@ class RegisterModelButton extends React.Component {
               selectedModelName,
               modelPath,
               runUuid,
-              this.createModelVersionRequestId
+              this.createModelVersionRequestId,
             )
             .then(this.resetAndClearModalForm)
             .catch(this.handleRegistrationFailure)
@@ -130,22 +130,22 @@ class RegisterModelButton extends React.Component {
     const { visible, confirmLoading } = this.state;
     const { disabled, modelByName } = this.props;
     return (
-      <div className="register-model-btn-wrapper">
+      <div className='register-model-btn-wrapper'>
         <Button
-          className="register-model-btn"
-          type="primary"
+          className='register-model-btn'
+          type='primary'
           onClick={this.showRegisterModal}
           disabled={disabled}
-          htmlType="button"
+          htmlType='button'
         >
           Register Model
         </Button>
         <Modal
-          title="Register Model"
+          title='Register Model'
           width={540}
           visible={visible}
           onOk={this.handleRegisterModel}
-          okText="Register"
+          okText='Register'
           confirmLoading={confirmLoading}
           onCancel={this.hideRegisterModal}
           centered

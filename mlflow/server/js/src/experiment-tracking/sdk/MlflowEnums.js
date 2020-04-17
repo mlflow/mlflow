@@ -28,3 +28,4 @@ export const ViewType = {
   DELETED_ONLY: 'DELETED_ONLY',
   ALL: 'ALL',
 };
+

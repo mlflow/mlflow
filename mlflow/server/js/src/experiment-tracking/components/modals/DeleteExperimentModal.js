@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import PropTypes from 'prop-types';
-import { deleteExperimentApi, listExperimentsApi } from '../../actions';
+import { deleteExperimentApi, listExperimentsApi} from '../../actions';
 import Routes from '../../routes';
 import Utils from '../../../common/utils/Utils';
 import { connect } from 'react-redux';
@@ -56,15 +56,14 @@ export class DeleteExperimentModalImpl extends Component {
                 will be deleted.
               </b>
             </p>
-            {process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ? (
+            {process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ?
               <p>
                 Deleted experiments are restorable for 30 days, after which they are purged.
                 <br />
                 Artifacts are not automatically purged and must be manually deleted.
               </p>
-            ) : (
-              ''
-            )}
+            : ''
+          }
           </div>
         }
         confirmButtonText={'Delete'}
