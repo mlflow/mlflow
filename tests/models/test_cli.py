@@ -127,6 +127,7 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         assert "No suitable flavor backend was found for the model." in stderr
 
 
+@pytest.mark.large
 def test_serve_gunicorn_opts(iris_data, sk_model):
     if sys.platform == "win32":
         pytest.skip("This test requires gunicorn which is not available on windows.")
@@ -159,6 +160,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
         assert expected_command_pattern.search(stdout) is not None
 
 
+@pytest.mark.large
 def test_predict(iris_data, sk_model):
     with TempDir(chdr=True) as tmp:
         with mlflow.start_run() as active_run:
@@ -245,6 +247,7 @@ def test_predict(iris_data, sk_model):
         assert all(expected == actual)
 
 
+@pytest.mark.large
 def test_prepare_env_passes(sk_model):
     if no_conda:
         pytest.skip("This test requires conda.")
@@ -270,6 +273,7 @@ def test_prepare_env_passes(sk_model):
         assert p.wait() == 0
 
 
+@pytest.mark.large
 def test_prepare_env_fails(sk_model):
     if no_conda:
         pytest.skip("This test requires conda.")
