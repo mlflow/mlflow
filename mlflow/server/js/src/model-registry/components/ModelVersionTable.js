@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Table, Tooltip } from 'antd';
 import { Link } from 'react-router-dom';
-import Utils from '../../utils/Utils';
+import Utils from '../../common/utils/Utils';
 import {
   ACTIVE_STAGES,
   StageTagComponents,
@@ -10,7 +10,6 @@ import {
   modelVersionStatusIconTooltips,
 } from '../constants';
 import { getModelVersionPageRoute } from '../routes';
-import { ConstantOverrides } from '../overrides/constant-overrides';
 
 const VERSION_COLUMN = 'Version';
 const CREATED_AT_COLUMN = 'Registered at';
@@ -22,6 +21,7 @@ export class ModelVersionTable extends React.Component {
     modelName: PropTypes.string.isRequired,
     modelVersions: PropTypes.array.isRequired,
     activeStageOnly: PropTypes.bool,
+    onChange: PropTypes.func.isRequired,
   };
 
   static defaultProps = {
@@ -45,6 +45,7 @@ export class ModelVersionTable extends React.Component {
       },
       {
         title: VERSION_COLUMN,
+        className: 'model-version',
         dataIndex: 'version',
         render: (version) => (
           <Link to={getModelVersionPageRoute(modelName, version)}>
@@ -86,9 +87,8 @@ export class ModelVersionTable extends React.Component {
         dataSource={versions}
         columns={this.getColumns()}
         locale={{ emptyText: 'No model version.' }}
+        rowSelection={{onChange: this.props.onChange}}
       />
     );
   }
 }
-
-export default ConstantOverrides.ModelVersionTable || ModelVersionTable;
