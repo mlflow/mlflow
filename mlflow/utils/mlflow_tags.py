@@ -5,6 +5,7 @@ See the REST API documentation for information on the meaning of these tags.
 """
 
 MLFLOW_RUN_NAME = "mlflow.runName"
+MLFLOW_RUN_NOTE = "mlflow.note.content"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 MLFLOW_USER = "mlflow.user"
 MLFLOW_SOURCE_TYPE = "mlflow.source.type"
