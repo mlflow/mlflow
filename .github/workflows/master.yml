@@ -83,3 +83,15 @@ jobs:
         npm run lint
         set -e
         for file in $(find src | grep test.js | sort) ; do npm run test -- $file; done
+
+  protos:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      run: |
+        wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
+        sudo unzip /travis-install/protoc.zip -d /usr
+    - name: Run tests
+      run: |
+        ./test-generate-protos.sh
