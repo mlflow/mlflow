@@ -96,7 +96,7 @@ class AbstractStore:
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for 'Staging' and 'Production' stages.
 
-        :return: List of `:py:class:`mlflow.entities.model_registry.ModelVersion` objects.
+        :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         pass
 

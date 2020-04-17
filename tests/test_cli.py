@@ -79,7 +79,7 @@ def test_mlflow_run():
     with mock.patch("mlflow.cli.projects") as mock_projects:
         result = CliRunner().invoke(run)
         mock_projects.run.assert_not_called()
-        assert 'Missing argument "URI"' in result.output
+        assert "Missing argument 'URI'" in result.output
 
     with mock.patch("mlflow.cli.projects") as mock_projects:
         CliRunner().invoke(run, ["project_uri"])

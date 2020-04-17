@@ -238,9 +238,9 @@ Autologging captures the following information:
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 | Framework        | Metrics                                                | Parameters                                                   | Tags          | Artifacts                                                                                                                                        |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| Keras            | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | Model summary | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end                      |
+| Keras            | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end                      |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.keras``     | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | Model summary | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs on training end    |
+| ``tf.keras``     | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs on training end    |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``tf.estimator`` | TensorBoard metrics                                    | steps, max_steps                                             | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call to ``tf.estimator.export_saved_model``                     |
 +------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -542,12 +542,29 @@ the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` de
 these are available. For more information on how to set credentials, see
 `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_.
 
+To add S3 file upload extra arguments, set ``MLFLOW_S3_UPLOAD_EXTRA_ARGS`` to a JSON object of key/value pairs.
+For example, if you want to upload to a KMS Encrypted bucket using the KMS Key 1234:
+
+.. code-block:: bash
+
+  export MLFLOW_S3_UPLOAD_EXTRA_ARGS='{"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "1234"}'
+
+For a list of available extra args see `Boto3 ExtraArgs Documentation <https://github.com/boto/boto3/blob/develop/docs/source/guide/s3-uploading-files.rst#the-extraargs-parameter>`_.
+
 To store artifacts in a custom endpoint, set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL.
-For example, if you have a Minio server at 1.2.3.4 on port 9000:
+For example, if you have a MinIO server at 1.2.3.4 on port 9000:
 
 .. code-block:: bash
 
   export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
+
+Additionally, if MinIO server is configured with non-default region, you should set ``AWS_DEFAULT_REGION`` variable:
+
+.. code-block:: bash
+
+  export AWS_DEFAULT_REGION=my_region
+
+Complete list of configurable values for an S3 client is available in `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
 
 Azure Blob Storage
 ^^^^^^^^^^^^^^^^^^
@@ -557,7 +574,7 @@ To store artifacts in Azure Blob Storage, specify a URI of the form
 MLflow expects Azure Storage access credentials in the
 ``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
 a connection string if one is set), so you must set one of these variables on both your client
-application and your MLflow tracking server. Finally, you must run ``pip install azure-storage``
+application and your MLflow tracking server. Finally, you must run ``pip install azure-storage-blob``
 separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
 a dependency on this package by default.
 
