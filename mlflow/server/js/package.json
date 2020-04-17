@@ -81,8 +81,6 @@
     "eject": "react-scripts eject",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
-    "prettier": "prettier --write 'src/**/*.{js,css}'",
-    "prettier:check": "prettier --check 'src/**/*.{js,css}'"
   },
   "homepage": "static-files",
   "jest": {
