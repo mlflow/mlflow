@@ -49,10 +49,10 @@ jobs:
   r-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: r-lib/actions/setup-r@v1
-        with:
-          r-version: '3.5.3'
+    - uses: actions/checkout@master
+    - uses: r-lib/actions/setup-r@v1
+      with:
+        r-version: '3.5.3'
     - name: Install dependencies
       run: |
         export GITHUB_WORKFLOW=1
