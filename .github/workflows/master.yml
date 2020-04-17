@@ -52,7 +52,7 @@ jobs:
     - uses: actions/checkout@master
     - uses: r-lib/actions/setup-r@v1
       with:
-        r-version: '3.5.3'
+        r-version: '3.3.0'
     - name: Install dependencies
       run: |
         export GITHUB_WORKFLOW=1
