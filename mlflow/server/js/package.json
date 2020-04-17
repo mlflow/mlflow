@@ -28,7 +28,7 @@
     "react": "16.5.2",
     "react-app-rewire-polyfills": "^0.2.0",
     "react-bootstrap": "0.32.1",
-    "react-dom": "16.5.2",
+    "react-dom": "16.3.2",
     "react-iframe": "1.8.0",
     "react-mde": "^7.6.2",
     "react-modal": "^3.4.4",
