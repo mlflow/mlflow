@@ -7,8 +7,7 @@ then
      echo "skipping this step on windows."
   elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]
   then
-    ./travis/run-small-python-tests.sh
-    ./test-generate-protos.sh
+    echo 'Small tests are replaced by Github Actions'
   else
     ./travis/run-large-python-tests.sh
     ./travis/test-anaconda-compatibility.sh "anaconda3:2020.02"
