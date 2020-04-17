@@ -711,6 +711,10 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +===============================+========================================================================================+
 | ``mlflow.runName``            | Human readable name that identifies this run.                                          |
 +-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.note.content``       | A descriptive note about this run. This reserved tag is not set automatically and can  |
+|                               | be overridden by the user to include additional information about the run. The content |
+|                               | is displayed on the run's page under the Notes section.                                |
++-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.parentRunId``        | The ID of the parent run, if this is a nested run.                                     |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.user``               | Identifier of the user who created the run.                                            |
