@@ -65,6 +65,8 @@ jobs:
       run: |
         export GITHUB_WORKFLOW=1
         source ./travis/install-common-deps.sh
+        export PATH="$HOME/miniconda/bin:$PATH"
+        source activate test-environment
         cd mlflow/R/mlflow
         # Building the package here populates the /home/travis/R/Library cache,
         # and is also used when python forks into R (e.g., rfunc via models CLI).
@@ -90,6 +92,8 @@ jobs:
     - name: Run tests
       run: |
         export GITHUB_WORKFLOW=1
+        export PATH="$HOME/miniconda/bin:$PATH"
+        source activate test-environment
         cd mlflow/java
         mvn clean package -q
 
