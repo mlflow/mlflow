@@ -46,31 +46,6 @@ jobs:
         source activate test-environment
         ./travis/run-small-python-tests.sh
 
-  r-tests:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@master
-    - uses: r-lib/actions/setup-r@v1
-    - name: Install dependencies
-      run: |
-        install.packages("devtools")
-        remotes::install_deps(dependencies = TRUE, upgrade = FALSE)
-      shell: Rscript {0}
-    - name: Run tests
-      run: |
-        source ./travis/install-common-deps.sh
-        export PATH="$HOME/miniconda/bin:$PATH"
-        source activate test-environment
-        cd mlflow/R/mlflow
-        # Building the package here populates the /home/travis/R/Library cache,
-        # and is also used when python forks into R (e.g., rfunc via models CLI).
-        R CMD build .
-        export LINTR_COMMENT_BOT=false
-        cd tests
-        Rscript ../.travis.R
-        export COVR_RUNNING=true
-        Rscript -e 'covr::codecov()'
-
   java:
     runs-on: ubuntu-latest
     steps:
