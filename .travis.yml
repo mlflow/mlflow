@@ -10,7 +10,8 @@ matrix:
     # Nightly builds run the tests/examples end-to-end test suite.
     # Does not include Windows since Projects/Models are mostly not compatible with Windows as of now.
     - stage: Nightly
-    - stage: Small
+      if: type == cron
+    - stage: Large
       if: type != cron
     - language: r
       name: "R"
@@ -39,8 +40,6 @@ matrix:
         - Rscript -e 'covr::codecov()'
       after_failure:
         - "[ -r /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log ] && cat /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
-    - stage: Large
-      if: type != cron
     - language: python
       python: 3.6
       name: "Flavors"
