@@ -86,7 +86,7 @@ export class MetricsPlotView extends React.Component {
         }),
         y: EMA(history.map((entry) => entry.value), lineSmoothness),
         text: history.map((entry) => entry.value.toFixed(5)),
-        type: 'scatter',
+        type: 'scattergl',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
         marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
         hovertemplate: (isSingleHistory || (lineSmoothness === 1)) ?
