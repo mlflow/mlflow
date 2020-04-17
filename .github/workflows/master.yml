@@ -7,6 +7,26 @@ on:
     branches: [ master ]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.6
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.6
+    - name: Install dependencies
+      run: |
+        export GITHUB_WORKFLOW=1
+        INSTALL_LARGE_PYTHON_DEPS=true INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+        pip install -r ./travis/lint-requirements.txt
+    - name: Run tests
+      run: |
+        export GITHUB_WORKFLOW=1
+        export PATH="$HOME/miniconda/bin:$PATH"
+        source activate test-environment
+        ./lint.sh
+
   python-small:
     runs-on: ubuntu-latest
     steps:
@@ -25,3 +45,65 @@ jobs:
         export PATH="$HOME/miniconda/bin:$PATH"
         source activate test-environment
         ./travis/run-small-python-tests.sh
+
+  r-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up R
+      uses: actions/setup-r@v1
+    - name: Install dependencies
+      run: |
+        export GITHUB_WORKFLOW=1
+        # cached packages dramatically decreases build time, but it must not include mlflow
+        rm -rf $HOME/R/Library/mlflow
+        cd mlflow/R/mlflow
+        Rscript -e 'install.packages("devtools")'
+        Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = FALSE)'
+    - name: Run tests
+      run: |
+        export GITHUB_WORKFLOW=1
+        source ./travis/install-common-deps.sh
+        cd mlflow/R/mlflow
+        # Building the package here populates the /home/travis/R/Library cache,
+        # and is also used when python forks into R (e.g., rfunc via models CLI).
+        R CMD build .
+        export LINTR_COMMENT_BOT=false
+        cd tests
+        Rscript ../.travis.R
+        export COVR_RUNNING=true
+        Rscript -e 'covr::codecov()'
+
+  java:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Java
+      uses: actions/setup-java@v1
+    - name: Install dependencies
+      run: |
+        export GITHUB_WORKFLOW=1
+        source ./travis/install-common-deps.sh
+    - name: Run tests
+      run: |
+        export GITHUB_WORKFLOW=1
+        cd mlflow/java
+        mvn clean package -q
+
+  js:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Node
+      uses: actions/setup-node@v1
+    - name: Install dependencies
+      run: |
+        export GITHUB_WORKFLOW=1
+        source ./travis/install-common-deps.sh
+    - name: Run tests
+      run: |
+        cd mlflow/server/js
+        npm i
+        npm run lint
+        set -e
+        for file in $(find src | grep test.js | sort) ; do npm run test -- $file; done
