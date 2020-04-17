@@ -21,8 +21,8 @@ You install MLflow by running:
 
 .. note::
 
-    You cannot install MLflow on the MacOS system installation of Python. We recommend installing
-    Python 3 through the `Homebrew <https://brew.sh/>`_ package manager using
+    MLflow works on MacOS. If you run into issues with the default system Python on MacOS, try
+    installing Python 3 through the `Homebrew <https://brew.sh/>`_ package manager using
     ``brew install python``. (In this case, installing MLflow is now ``pip3 install mlflow``).
 
 At this point we recommend you follow the :doc:`tutorial<tutorials-and-examples/tutorial>` for a walk-through on how you

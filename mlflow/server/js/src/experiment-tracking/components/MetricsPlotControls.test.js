@@ -15,7 +15,7 @@ describe('unit tests', () => {
     handleYAxisLogScaleChange: jest.fn(),
     handleLineSmoothChange: jest.fn(),
     chartType: CHART_TYPE_LINE,
-    initialLineSmoothness: 0,
+    initialLineSmoothness: 1,
     yAxisLogScale: true,
     xAxis: X_AXIS_RELATIVE,
     onLayoutChange: jest.fn(),
