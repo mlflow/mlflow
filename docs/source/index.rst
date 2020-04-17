@@ -12,7 +12,6 @@ It tackles four primary functions:
 * Providing a central model store to collaboratively manage the full lifecycle of an MLflow Model,
   including model versioning, stage transitions, and annotations (:ref:`registry`).
 
-
 MLflow is library-agnostic. You can use it with any machine learning library, and in any
 programming language, since all functions are accessible through a :ref:`rest-api`
 and :ref:`CLI<cli>`. For convenience, the project also includes a :ref:`python-api`, :ref:`R-api`, 
