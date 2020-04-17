@@ -51,19 +51,13 @@ jobs:
     steps:
     - uses: actions/checkout@master
     - uses: r-lib/actions/setup-r@v1
-      with:
-        r-version: '3.3.0'
     - name: Install dependencies
       run: |
-        export GITHUB_WORKFLOW=1
-        # cached packages dramatically decreases build time, but it must not include mlflow
-        rm -rf $HOME/R/Library/mlflow
-        cd mlflow/R/mlflow
-        Rscript -e 'install.packages("devtools")'
-        Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = FALSE)'
+        install.packages("devtools")
+        remotes::install_deps(dependencies = TRUE, upgrade = FALSE)
+      shell: Rscript {0}
     - name: Run tests
       run: |
-        export GITHUB_WORKFLOW=1
         source ./travis/install-common-deps.sh
         export PATH="$HOME/miniconda/bin:$PATH"
         source activate test-environment
