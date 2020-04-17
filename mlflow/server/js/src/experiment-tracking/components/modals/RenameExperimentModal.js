@@ -68,5 +68,6 @@ const mapDispatchToProps = {
 };
 
 export const RenameExperimentModal = connect(
-  mapStateToProps, mapDispatchToProps
+  mapStateToProps,
+  mapDispatchToProps,
 )(RenameExperimentModalImpl);

@@ -7,9 +7,7 @@ import { connect } from 'react-redux';
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { getAllModelVersions } from '../../model-registry/reducers';
 import { ArtifactNode } from '../utils/ArtifactUtils';
-import {
-  MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL,
-} from '../../model-registry/constants';
+import { MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../../model-registry/constants';
 import _ from 'lodash';
 import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
@@ -59,7 +57,7 @@ class ArtifactPage extends Component {
   }
 
   render() {
-    return <ArtifactView {...this.props} handleActiveNodeChange={this.handleActiveNodeChange}/>;
+    return <ArtifactView {...this.props} handleActiveNodeChange={this.handleActiveNodeChange} />;
   }
 }
 
@@ -71,7 +69,6 @@ const mapStateToProps = (state, ownProps) => {
   const modelVersionsBySource = _.groupBy(getAllModelVersions(state), 'source');
   return { artifactNode, artifactRootUri, modelVersionsBySource, apis };
 };
-
 
 const mapDispatchToProps = {
   listArtifactsApi,

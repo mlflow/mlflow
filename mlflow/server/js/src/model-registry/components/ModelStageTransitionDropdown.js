@@ -32,8 +32,9 @@ export class ModelStageTransitionDropdown extends React.Component {
         (() => {
           this.setState({ confirmModalVisible: false });
           const comment = this.transitionFormRef.current.getFieldValue('comment');
-          const archiveExistingVersions = !!this.transitionFormRef
-            .current.getFieldValue('archiveExistingVersions');
+          const archiveExistingVersions = !!this.transitionFormRef.current.getFieldValue(
+            'archiveExistingVersions',
+          );
           this.transitionFormRef.current.resetFields();
           this.props.onSelect(activity, comment, archiveExistingVersions);
         }),
@@ -130,8 +131,7 @@ export const renderActivityDescription = (activity) => {
   if (activity) {
     return (
       <div>
-        Transition to
-        &nbsp;&nbsp;&nbsp;
+        Transition to &nbsp;&nbsp;&nbsp;
         <i className='fas fa-long-arrow-alt-right' />
         &nbsp;&nbsp;&nbsp;&nbsp;
         {StageTagComponents[activity.to_stage]}

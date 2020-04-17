@@ -19,7 +19,7 @@ class ShowArtifactHtmlView extends Component {
 
   static defaultProps = {
     getArtifact: getArtifactContent,
-  }
+  };
 
   state = {
     loading: true,
@@ -39,14 +39,10 @@ class ShowArtifactHtmlView extends Component {
 
   render() {
     if (this.state.loading) {
-      return (
-        <div className='artifact-html-view-loading'>
-          Loading...
-        </div>
-      );
+      return <div className='artifact-html-view-loading'>Loading...</div>;
     }
     if (this.state.error) {
-      console.error("Unable to load HTML artifact, got error " + this.state.error);
+      console.error('Unable to load HTML artifact, got error ' + this.state.error);
       return (
         <div className='artifact-html-view-error'>
           Oops we couldn't load your file because of an error.
@@ -54,16 +50,17 @@ class ShowArtifactHtmlView extends Component {
       );
     } else {
       return (
-        <Iframe url=""
-                src={this.getBlobURL(this.state.html, 'text/html')}
-                width="100%"
-                height="500px"
-                id="html"
-                className="html-iframe"
-                display="block"
-                position="relative"
-                sandbox="allow-scripts"/>
-
+        <Iframe
+          url=''
+          src={this.getBlobURL(this.state.html, 'text/html')}
+          width='100%'
+          height='500px'
+          id='html'
+          className='html-iframe'
+          display='block'
+          position='relative'
+          sandbox='allow-scripts'
+        />
       );
     }
   }
@@ -71,16 +68,19 @@ class ShowArtifactHtmlView extends Component {
   getBlobURL = (code, type) => {
     const blob = new Blob([code], { type });
     return URL.createObjectURL(blob);
-  }
+  };
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
     const artifactLocation = getSrc(this.props.path, this.props.runUuid);
-    this.props.getArtifact(artifactLocation).then((html) => {
-      this.setState({ html: html, loading: false });
-    }).catch((error) => {
-      this.setState({ error: error, loading: false });
-    });
+    this.props
+      .getArtifact(artifactLocation)
+      .then((html) => {
+        this.setState({ html: html, loading: false });
+      })
+      .catch((error) => {
+        this.setState({ error: error, loading: false });
+      });
   }
 }
 

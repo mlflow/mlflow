@@ -21,11 +21,11 @@ class ModelListPage extends React.Component {
   render() {
     const { models } = this.props;
     return (
-        <div className='App-content'>
-          <RequestStateWrapper requestIds={[this.listRegisteredModelsApiId]}>
-            <ModelListView models={models}/>
-          </RequestStateWrapper>
-        </div>
+      <div className='App-content'>
+        <RequestStateWrapper requestIds={[this.listRegisteredModelsApiId]}>
+          <ModelListView models={models} />
+        </RequestStateWrapper>
+      </div>
     );
   }
 }

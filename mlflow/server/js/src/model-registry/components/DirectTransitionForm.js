@@ -33,7 +33,9 @@ export class DirectTransitionFormImpl extends React.Component {
             </Checkbox>,
           )}
         </Form.Item>
-      ) : '';
+      ) : (
+        ''
+      );
 
     return (
       <Form className='model-version-update-form'>
@@ -45,6 +47,5 @@ export class DirectTransitionFormImpl extends React.Component {
     );
   }
 }
-
 
 export const DirectTransitionForm = Form.create()(DirectTransitionFormImpl);

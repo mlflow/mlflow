@@ -70,9 +70,9 @@ export class EditableTable extends React.Component {
     ...this.props.columns.map((col) =>
       (col.editable
         ? {
-          ...col,
-          // `onCell` returns props to be added to EditableCell
-          onCell: (record) => ({
+            ...col,
+            // `onCell` returns props to be added to EditableCell
+            onCell: (record) => ({
             record,
             dataIndex: col.dataIndex,
             title: col.title,
@@ -81,7 +81,7 @@ export class EditableTable extends React.Component {
             cancel: this.cancel,
             recordKey: record.key,
           }),
-        }
+          }
         : col),
     ),
     {
@@ -108,16 +108,16 @@ export class EditableTable extends React.Component {
               onClick={() => this.edit(record.key)}
               style={{ marginRight: 10 }}
             >
-              <Icon type="edit" />
+              <Icon type='edit' />
             </a>
             <Popconfirm
-              title="Are you sure you want to delete this tag？"
-              okText="Confirm"
-              cancelText="Cancel"
+              title='Are you sure you want to delete this tag？'
+              okText='Confirm'
+              cancelText='Cancel'
               onConfirm={() => this.delete(record.key)}
             >
               <a disabled={editingKey !== ''}>
-                <i className="far fa-trash-alt"/>
+                <i className='far fa-trash-alt' />
               </a>
             </Popconfirm>
           </span>
@@ -154,7 +154,7 @@ export class EditableTable extends React.Component {
         this.setState({ editingKey: '', isRequestPending: false });
       });
     }
-  }
+  };
 
   edit = (key) => {
     this.setState({ editingKey: key });

@@ -60,25 +60,34 @@ class ExperimentRunsTableMultiColumnView extends Component {
     const numMetrics = metricKeyList.length;
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
-      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid), "td"),
+      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid), 'td'),
       ExperimentViewUtil.getExpander(
-        hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), runInfo.run_uuid,
-        "td"),
+        hasExpander,
+        expanderOpen,
+        () => onExpand(runInfo.run_uuid, childrenIds),
+        runInfo.run_uuid,
+        'td',
+      ),
     ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, "td")
-      .forEach((col) => rowContents.push(col));
+    ExperimentViewUtil.getRunInfoCellsForRow(
+      runInfo,
+      tagsList[idx],
+      isParent,
+      'td',
+    ).forEach((col) => rowContents.push(col));
     paramKeyList.forEach((paramKey) => {
-      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap, "td"));
+      rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap, 'td'));
     });
     if (numParams === 0) {
-      rowContents.push(<td className="left-border" key={"meta-param-empty"}/>);
+      rowContents.push(<td className='left-border' key={'meta-param-empty'} />);
     }
     metricKeyList.forEach((metricKey) => {
       rowContents.push(
-        ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges, "td"));
+        ExperimentViewUtil.getUnbaggedMetricCell(metricKey, metricsMap, metricRanges, 'td'),
+      );
     });
     if (numMetrics === 0) {
-      rowContents.push(<td className="left-border" key="meta-metric-empty" />);
+      rowContents.push(<td className='left-border' key='meta-metric-empty' />);
     }
     return {
       key: runInfo.run_uuid,
@@ -88,50 +97,54 @@ class ExperimentRunsTableMultiColumnView extends Component {
   }
 
   getMetricParamHeaderCells() {
-    const {
-      paramKeyList,
-      metricKeyList,
-      onSortBy,
-      orderByKey,
-      orderByAsc,
-    } = this.props;
+    const { paramKeyList, metricKeyList, onSortBy, orderByKey, orderByAsc } = this.props;
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const columns = [];
 
     const getHeaderCell = (isParam, key, i, canonicalKey) => {
       const sortIcon = ExperimentViewUtil.getSortIcon(orderByKey, orderByAsc, canonicalKey);
-      const className = classNames("bottom-row", "sortable", { "left-border": i === 0 });
-      const elemKey = (isParam ? "param-" : "metric-") + key;
+      const className = classNames('bottom-row', 'sortable', { 'left-border': i === 0 });
+      const elemKey = (isParam ? 'param-' : 'metric-') + key;
       return (
-        <th
-          key={elemKey} className={className}
-          onClick={() => onSortBy(canonicalKey, !orderByAsc)}
-        >
-          <span
-            style={styles.metricParamNameContainer}
-            className="run-table-container"
-          >
+        <th key={elemKey} className={className} onClick={() => onSortBy(canonicalKey, !orderByAsc)}>
+          <span style={styles.metricParamNameContainer} className='run-table-container'>
             {key}
           </span>
           <span style={styles.sortIconContainer}>{sortIcon}</span>
-        </th>);
+        </th>
+      );
     };
 
     paramKeyList.forEach((paramKey, i) => {
-      columns.push(getHeaderCell(true, paramKey, i,
-        ExperimentViewUtil.makeCanonicalKey("params", paramKey)));
+      columns.push(
+        getHeaderCell(true, paramKey, i, ExperimentViewUtil.makeCanonicalKey('params', paramKey)),
+      );
     });
     if (numParams === 0) {
-      columns.push(<th key="meta-param-empty" className="bottom-row left-border">(n/a)</th>);
+      columns.push(
+        <th key='meta-param-empty' className='bottom-row left-border'>
+          (n/a)
+        </th>,
+      );
     }
 
     metricKeyList.forEach((metricKey, i) => {
-      columns.push(getHeaderCell(false, metricKey, i,
-        ExperimentViewUtil.makeCanonicalKey("metrics", metricKey)));
+      columns.push(
+        getHeaderCell(
+          false,
+          metricKey,
+          i,
+          ExperimentViewUtil.makeCanonicalKey('metrics', metricKey),
+        ),
+      );
     });
     if (numMetrics === 0) {
-      columns.push(<th key="meta-metric-empty" className="bottom-row left-border">(n/a)</th>);
+      columns.push(
+        <th key='meta-metric-empty' className='bottom-row left-border'>
+          (n/a)
+        </th>,
+      );
     }
     return columns;
   }
@@ -156,36 +169,36 @@ class ExperimentRunsTableMultiColumnView extends Component {
       getRow: this.getRow,
     });
     const columns = [
-      ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "th"),
-      ExperimentViewUtil.getExpanderHeader("th"),
+      ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, 'th'),
+      ExperimentViewUtil.getExpanderHeader('th'),
     ];
-    ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, orderByKey, orderByAsc, "th")
-      .forEach((cell) => columns.push(cell));
+    ExperimentViewUtil.getRunMetadataHeaderCells(
+      onSortBy,
+      orderByKey,
+      orderByAsc,
+      'th',
+    ).forEach((cell) => columns.push(cell));
     this.getMetricParamHeaderCells().forEach((cell) => columns.push(cell));
-    return (<Table className="ExperimentViewMultiColumn" hover>
-      <colgroup span="9"/>
-      <colgroup span={paramKeyList.length}/>
-      <colgroup span={metricKeyList.length}/>
-      <tbody>
-      <tr>
-        <th className="top-row" scope="colgroup" colSpan={NUM_RUN_METADATA_COLS}/>
-        <th
-          className="top-row left-border"
-          scope="colgroup"
-          colSpan={paramKeyList.length}
-        >
-          Parameters
-        </th>
-        <th className="top-row left-border" scope="colgroup"
-          colSpan={metricKeyList.length}>Metrics
-        </th>
-      </tr>
-      <tr>
-        {columns}
-      </tr>
-      {ExperimentViewUtil.renderRows(rows)}
-      </tbody>
-    </Table>);
+    return (
+      <Table className='ExperimentViewMultiColumn' hover>
+        <colgroup span='9' />
+        <colgroup span={paramKeyList.length} />
+        <colgroup span={metricKeyList.length} />
+        <tbody>
+          <tr>
+            <th className='top-row' scope='colgroup' colSpan={NUM_RUN_METADATA_COLS} />
+            <th className='top-row left-border' scope='colgroup' colSpan={paramKeyList.length}>
+              Parameters
+            </th>
+            <th className='top-row left-border' scope='colgroup' colSpan={metricKeyList.length}>
+              Metrics
+            </th>
+          </tr>
+          <tr>{columns}</tr>
+          {ExperimentViewUtil.renderRows(rows)}
+        </tbody>
+      </Table>
+    );
   }
 }
 
@@ -196,14 +209,14 @@ const styles = {
     display: 'inline-block',
   },
   metricParamNameContainer: {
-    verticalAlign: "middle",
-    display: "inline-block",
+    verticalAlign: 'middle',
+    display: 'inline-block',
   },
 };
 
 const mapStateToProps = (state, ownProps) => {
   const { metricsList } = ownProps;
-  return {metricRanges: ExperimentViewUtil.computeMetricRanges(metricsList)};
+  return { metricRanges: ExperimentViewUtil.computeMetricRanges(metricsList) };
 };
 
 export default connect(mapStateToProps)(ExperimentRunsTableMultiColumnView);

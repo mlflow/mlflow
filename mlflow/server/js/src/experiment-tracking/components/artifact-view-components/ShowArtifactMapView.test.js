@@ -10,31 +10,31 @@ describe('ShowArtifactMapView', () => {
 
   beforeEach(() => {
     minimalProps = {
-      path: "fakepath",
-      runUuid: "fakeUuid",
+      path: 'fakepath',
+      runUuid: 'fakeUuid',
     };
     // Mock the `getArtifact` function to avoid spurious network errors
     // during testing
     const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.resolve("some content");
+      return Promise.resolve('some content');
     });
     commonProps = { ...minimalProps, getArtifact: getArtifact };
-    wrapper = shallow(<ShowArtifactMapView {...commonProps}/>);
+    wrapper = shallow(<ShowArtifactMapView {...commonProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ShowArtifactMapView {...minimalProps}/>);
+    wrapper = shallow(<ShowArtifactMapView {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render error message when error occurs', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.reject(new Error("my error text"));
+      return Promise.reject(new Error('my error text'));
     });
     const props = { ...minimalProps, getArtifact: getArtifact };
-    wrapper = shallow(<ShowArtifactMapView {...props}/>);
+    wrapper = shallow(<ShowArtifactMapView {...props} />);
     setImmediate(() => {
-      expect(wrapper.find(".artifact-map-view-error").length).toBe(1);
+      expect(wrapper.find('.artifact-map-view-error').length).toBe(1);
       expect(wrapper.instance().state.loading).toBe(false);
       expect(wrapper.instance().state.html).toBeUndefined();
       expect(wrapper.instance().state.error).toBeDefined();
@@ -45,7 +45,7 @@ describe('ShowArtifactMapView', () => {
   test('should render loading text when view is loading', () => {
     instance = wrapper.instance();
     instance.setState({ loading: true });
-    expect(wrapper.find(".artifact-map-view-loading").length).toBe(1);
+    expect(wrapper.find('.artifact-map-view-loading').length).toBe(1);
   });
 
   test('should render simple geoJSON in map view', (done) => {
@@ -66,7 +66,7 @@ describe('ShowArtifactMapView', () => {
     const div = global.document.createElement('div');
     global.document.body.appendChild(div);
     const props = { ...minimalProps, getArtifact: getArtifact };
-    wrapper = mount(<ShowArtifactMapView {...props}/>, {
+    wrapper = mount(<ShowArtifactMapView {...props} />, {
       attachTo: div,
     });
 

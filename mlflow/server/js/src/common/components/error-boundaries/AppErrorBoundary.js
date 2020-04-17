@@ -23,11 +23,11 @@ class AppErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div>
-          <img className="error-image" alt="Error" src={defaultErrorImg}/>
-          <h1 className={"center"}>Something went wrong</h1>
-          <h4 className={"center"}>
-            If this error persists, please report an issue on {' '}
-            <a href="https://github.com/mlflow/mlflow/issues">our GitHub page</a>.
+          <img className='error-image' alt='Error' src={defaultErrorImg} />
+          <h1 className={'center'}>Something went wrong</h1>
+          <h4 className={'center'}>
+            If this error persists, please report an issue on{' '}
+            <a href='https://github.com/mlflow/mlflow/issues'>our GitHub page</a>.
           </h4>
         </div>
       );

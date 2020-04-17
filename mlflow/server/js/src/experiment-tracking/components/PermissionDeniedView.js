@@ -18,10 +18,10 @@ export class PermissionDeniedView extends Component {
           src={permissionDeniedLock}
           alt='permission denied'
         />
-        <h1 className="center" style={{ paddingTop: 10 }}>
+        <h1 className='center' style={{ paddingTop: 10 }}>
           Permission Denied
         </h1>
-        <h2 className="center" style={{ color: Colors.secondaryText }}>
+        <h2 className='center' style={{ color: Colors.secondaryText }}>
           {this.props.errorMessage || defaultMessage}
         </h2>
       </div>
