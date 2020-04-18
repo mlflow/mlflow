@@ -24,7 +24,6 @@ from mlflow.utils.rest_utils import _DEFAULT_HEADERS
 from tests import helper_functions
 
 from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
 @pytest.fixture()
@@ -161,8 +160,8 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disa
 ])
 def test_dbfs_path_exists_error_response_handling(response_mock):
     with mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds") \
-         as get_databricks_host_creds_mock, \
-         mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
+            as get_databricks_host_creds_mock, \
+            mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
         # given a well formed DatabricksJobRunner
         # note: databricks_profile is None needed because clients using profile are mocked
         job_runner = DatabricksJobRunner(databricks_profile=None)
@@ -214,10 +213,9 @@ def test_run_databricks_validations(
         databricks.before_run_validations("databricks", cluster_spec_mock)
 
 
-def test_run_databricks(
-        before_run_validations_mock,  # pylint: disable=unused-argument
-        tracking_uri_mock, runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
-        runs_submit_mock, runs_get_mock, cluster_spec_mock, set_tag_mock):
+@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
+                         "dbfs_mocks")
+def test_run_databricks(runs_submit_mock, runs_get_mock, cluster_spec_mock, set_tag_mock):
     """Test running on Databricks with mocks."""
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         # Test that MLflow gets the correct run status when performing a Databricks run
@@ -238,11 +236,10 @@ def test_run_databricks(
             validate_exit_status(submitted_run.get_status(), expect_status)
 
 
+@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
+                         "dbfs_mocks", "cluster_spec_mock", "set_tag_mock")
 def test_run_databricks_cluster_spec_json(
-        before_run_validations_mock,  # pylint: disable=unused-argument
-        tracking_uri_mock, runs_cancel_mock, dbfs_mocks,  # pylint: disable=unused-argument
-        runs_submit_mock, runs_get_mock,
-        cluster_spec_mock, set_tag_mock):  # pylint: disable=unused-argument
+        runs_submit_mock, runs_get_mock):
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
         cluster_spec = {
@@ -258,8 +255,7 @@ def test_run_databricks_cluster_spec_json(
         assert req_body["new_cluster"] == cluster_spec
 
 
-def test_run_databricks_throws_exception_when_spec_uses_existing_cluster(
-        tracking_uri_mock):  # pylint: disable=unused-argument
+def test_run_databricks_throws_exception_when_spec_uses_existing_cluster():
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         existing_cluster_spec = {
             "existing_cluster_id": "1000-123456-clust1",
@@ -271,7 +267,7 @@ def test_run_databricks_throws_exception_when_spec_uses_existing_cluster(
 
 
 def test_run_databricks_cancel(
-        before_run_validations_mock, tracking_uri_mock,  # pylint: disable=unused-argument
+        before_run_validations_mock,  # pylint: disable=unused-argument
         runs_submit_mock, dbfs_mocks, set_tag_mock,  # pylint: disable=unused-argument
         runs_cancel_mock, runs_get_mock, cluster_spec_mock):
     # Test that MLflow properly handles Databricks run cancellation. We mock the result of

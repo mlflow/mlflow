@@ -125,3 +125,6 @@ class RunsArtifactRepository(ArtifactRepository):
         :param local_path: The path to which to save the downloaded file.
         """
         self.repo._download_file(remote_file_path, local_path)
+
+    def delete_artifacts(self, artifact_path=None):
+        self.repo.delete_artifacts(artifact_path)

@@ -1,6 +1,7 @@
 import os
 import random
 import uuid
+import inspect
 
 import mock
 import numpy as np
@@ -87,6 +88,15 @@ def reset_experiment_id():
 def reload_context_registry():
     """Reload the context registry module to clear caches."""
     reload(mlflow.tracking.context.registry)
+
+
+def test_all_fluent_apis_are_included_in_dunder_all():
+    def _is_function_or_class(obj):
+        return callable(obj) or inspect.isclass(obj)
+
+    apis = [a for a in dir(mlflow)
+            if _is_function_or_class(getattr(mlflow, a)) and not a.startswith('_')]
+    assert sorted(apis) == sorted(mlflow.__all__)
 
 
 def test_get_experiment_id_from_env():

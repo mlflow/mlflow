@@ -24,8 +24,8 @@ from __future__ import absolute_import
 import os
 import yaml
 import logging
-import posixpath
 import re
+import traceback
 
 import mlflow
 from mlflow import pyfunc, mleap
@@ -37,8 +37,10 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import is_local_uri
+from mlflow.utils.uri import is_local_uri, append_to_uri_path
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
+from mlflow.utils import experimental
+
 
 FLAVOR_NAME = "spark"
 
@@ -47,6 +49,10 @@ DFS_TMP = "/tmp/mlflow"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 
 _logger = logging.getLogger(__name__)
+
+
+def _format_exception(ex):
+    return "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
 
 
 def get_default_conda_env():
@@ -80,7 +86,7 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
 
     Note: If no run is active, it will instantiate a run to obtain a run_id.
 
-    :param spark_model: Spark model to be saved - MLFlow can only save descendants of
+    :param spark_model: Spark model to be saved - MLflow can only save descendants of
                         pyspark.ml.Model which implement MLReadable and MLWritable.
     :param artifact_path: Run relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -113,20 +119,23 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
 
-    >>> from pyspark.ml import Pipeline
-    >>> from pyspark.ml.classification import LogisticRegression
-    >>> from pyspark.ml.feature import HashingTF, Tokenizer
-    >>> training = spark.createDataFrame([
-    ...   (0, "a b c d e spark", 1.0),
-    ...   (1, "b d", 0.0),
-    ...   (2, "spark f g h", 1.0),
-    ...   (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
-    >>> tokenizer = Tokenizer(inputCol="text", outputCol="words")
-    >>> hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
-    >>> lr = LogisticRegression(maxIter=10, regParam=0.001)
-    >>> pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
-    >>> model = pipeline.fit(training)
-    >>> mlflow.spark.log_model(model, "spark-model")
+    .. code-block:: python
+        :caption: Example
+
+        from pyspark.ml import Pipeline
+        from pyspark.ml.classification import LogisticRegression
+        from pyspark.ml.feature import HashingTF, Tokenizer
+        training = spark.createDataFrame([
+            (0, "a b c d e spark", 1.0),
+            (1, "b d", 0.0),
+            (2, "spark f g h", 1.0),
+            (3, "hadoop mapreduce", 0.0) ], ["id", "text", "label"])
+        tokenizer = Tokenizer(inputCol="text", outputCol="words")
+        hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
+        lr = LogisticRegression(maxIter=10, regParam=0.001)
+        pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
+        model = pipeline.fit(training)
+        mlflow.spark.log_model(model, "spark-model")
     """
     from py4j.protocol import Py4JJavaError
 
@@ -310,7 +319,7 @@ def _validate_model(spark_model):
             or not isinstance(spark_model, MLReadable) \
             or not isinstance(spark_model, MLWritable):
         raise MlflowException(
-            "Cannot serialize this model. MLFlow can only save descendants of pyspark.Model"
+            "Cannot serialize this model. MLflow can only save descendants of pyspark.Model"
             "that implement MLWritable and MLReadable.",
             INVALID_PARAMETER_VALUE)
 
@@ -324,7 +333,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
     Additionally, if a sample input is specified using the ``sample_input`` parameter, the model
     is also serialized in MLeap format and the MLeap flavor is added.
 
-    :param spark_model: Spark model to be saved - MLFlow can only save descendants of
+    :param spark_model: Spark model to be saved - MLflow can only save descendants of
                         pyspark.ml.Model which implement MLReadable and MLWritable.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
@@ -354,12 +363,15 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
                          This must be a PySpark DataFrame that the model can evaluate. If
                          ``sample_input`` is ``None``, the MLeap flavor is not added.
 
-    >>> from mlflow import spark
-    >>> from pyspark.ml.pipeline.PipelineModel
-    >>>
-    >>> #your pyspark.ml.pipeline.PipelineModel type
-    >>> model = ...
-    >>> mlflow.spark.save_model(model, "spark-model")
+    .. code-block:: python
+        :caption: Example
+
+        from mlflow import spark
+        from pyspark.ml.pipeline.PipelineModel
+
+        # your pyspark.ml.pipeline.PipelineModel type
+        model = ...
+        mlflow.spark.save_model(model, "spark-model")
     """
     _validate_model(spark_model)
     from pyspark.ml import PipelineModel
@@ -411,16 +423,19 @@ def load_model(model_uri, dfs_tmpdir=None):
                        destination. Defaults to ``/tmp/mlflow``.
     :return: pyspark.ml.pipeline.PipelineModel
 
-    >>> from mlflow import spark
-    >>> model = mlflow.spark.load_model("spark-model")
-    >>> # Prepare test documents, which are unlabeled (id, text) tuples.
-    >>> test = spark.createDataFrame([
-    ...   (4, "spark i j k"),
-    ...   (5, "l m n"),
-    ...   (6, "spark hadoop spark"),
-    ...   (7, "apache hadoop")], ["id", "text"])
-    >>>  # Make predictions on test documents.
-    >>> prediction = model.transform(test)
+    .. code-block:: python
+        :caption: Example
+
+        from mlflow import spark
+        model = mlflow.spark.load_model("spark-model")
+        # Prepare test documents, which are unlabeled (id, text) tuples.
+        test = spark.createDataFrame([
+            (4, "spark i j k"),
+            (5, "l m n"),
+            (6, "spark hadoop spark"),
+            (7, "apache hadoop")], ["id", "text"])
+        # Make predictions on test documents
+        prediction = model.transform(test)
     """
     if RunsArtifactRepository.is_runs_uri(model_uri):
         runs_uri = model_uri
@@ -431,7 +446,7 @@ def load_model(model_uri, dfs_tmpdir=None):
         model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
-    model_uri = posixpath.join(model_uri, flavor_conf["model_data"])
+    model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
     return _load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
 
 
@@ -473,3 +488,56 @@ class _PyFuncModelWrapper(object):
         spark_df = self.spark.createDataFrame(pandas_df)
         return [x.prediction for x in
                 self.spark_model.transform(spark_df).select("prediction").collect()]
+
+
+@experimental
+def autolog():
+    """
+    Enables automatic logging of Spark datasource paths, versions (if applicable), and formats
+    when they are read. This method is not threadsafe and assumes a
+    `SparkSession
+    <https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession>`_
+    already exists with the
+    `mlflow-spark JAR
+    <http://mlflow.org/docs/latest/tracking.html#automatic-logging-from-spark-experimental>`_
+    attached. It should be called on the Spark driver, not on the executors (i.e. do not call
+    this method within a function parallelized by Spark). This API requires Spark 3.0 or above.
+
+    Datasource information is logged under the current active MLflow run. If no active run
+    exists, datasource information is cached in memory & logged to the next-created active run
+    (but not to successive runs). Note that autologging of Spark ML (MLlib) models is not currently
+    supported via this API. Datasource-autologging is best-effort, meaning that if Spark is under
+    heavy load or MLflow logging fails for any reason (e.g., if the MLflow server is unavailable),
+    logging may be dropped.
+
+    For any unexpected issues with autologging, check Spark driver and executor logs in addition
+    to stderr & stdout generated from your MLflow code - datasource information is pulled from
+    Spark, so logs relevant to debugging may show up amongst the Spark logs.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.spark
+        from pyspark.sql import SparkSession
+        # Create and persist some dummy data
+        spark = (SparkSession.builder
+                    .config("spark.jars.packages", "org.mlflow.mlflow-spark")
+                    .getOrCreate())
+        df = spark.createDataFrame([
+                (4, "spark i j k"),
+                (5, "l m n"),
+                (6, "spark hadoop spark"),
+                (7, "apache hadoop")], ["id", "text"])
+        import tempfile
+        tempdir = tempfile.mkdtemp()
+        df.write.format("csv").save(tempdir)
+        # Enable Spark datasource autologging.
+        mlflow.spark.autolog()
+        loaded_df = spark.read.format("csv").load(tempdir)
+        # Call collect() to trigger a read of the Spark datasource. Datasource info
+        # (path and format)is automatically logged to an MLflow run.
+        loaded_df.collect()
+        shutil.rmtree(tempdir) # clean up tempdir
+    """
+    from mlflow import _spark_autologging
+    _spark_autologging.autolog()

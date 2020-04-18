@@ -4,7 +4,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
-    UpdateExperiment, LogBatch, DeleteTag, SetExperimentTag, GetExperimentByName
+    UpdateExperiment, LogBatch, LogModel, DeleteTag, SetExperimentTag, GetExperimentByName
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
@@ -239,6 +239,12 @@ class RestStore(AbstractStore):
             LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id))
         self._call_endpoint(LogBatch, req_body)
 
+    def record_logged_model(self, run_id, mlflow_model):
+        req_body = message_to_json(
+            LogModel(run_id=run_id, model_json=mlflow_model.to_json())
+        )
+        self._call_endpoint(LogModel, req_body)
+
 
 class DatabricksRestStore(RestStore):
     """
@@ -248,6 +254,7 @@ class DatabricksRestStore(RestStore):
     on all internal server errors. This implementation should be deprecated once
     GetExperimentByName is available everywhere.
     """
+
     def get_experiment_by_name(self, experiment_name):
         try:
             req_body = message_to_json(GetExperimentByName(experiment_name=experiment_name))
