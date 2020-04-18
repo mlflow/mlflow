@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 
@@ -6,8 +7,9 @@ import sqlalchemy
 import sqlalchemy.sql.expression as sql
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
-from mlflow.store.db.db_types import MYSQL, MSSQL
+from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE
 import mlflow.store.db.utils
 from mlflow.store.tracking.dbmodels.models import SqlExperiment, SqlRun, \
     SqlMetric, SqlParam, SqlTag, SqlExperimentTag, SqlLatestMetric
@@ -25,7 +27,7 @@ from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
     _validate_run_id, _validate_metric, _validate_experiment_tag, _validate_tag
-
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
 _logger = logging.getLogger(__name__)
 
@@ -406,6 +408,14 @@ class SqlAlchemyStore(AbstractStore):
 
             return run.info
 
+    def _try_get_run_tag(self,  session, run_id, tagKey, eager=False):
+        query_options = self._get_eager_run_query_options() if eager else []
+        tags = session \
+            .query(SqlTag) \
+            .options(*query_options) \
+            .filter(SqlTag.run_uuid == run_id and SqlTag.key == tagKey).all()
+        return None if not tags else tags[0]
+
     def get_run(self, run_id):
         with self.ManagedSessionMaker() as session:
             # Load the run with the specified id and eagerly load its summary metrics, params, and
@@ -428,6 +438,23 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             run.lifecycle_stage = LifecycleStage.DELETED
             self._save_to_db(objs=run, session=session)
+
+    def _hard_delete_run(self, run_id):
+        """
+        Permanently delete a run (metadata and metrics, tags, parameters).
+        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
+        """
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            session.delete(run)
+
+    def _get_deleted_runs(self):
+        with self.ManagedSessionMaker() as session:
+            run_ids = session\
+                .query(SqlRun.run_uuid) \
+                .filter(SqlRun.lifecycle_stage == LifecycleStage.DELETED) \
+                .all()
+            return [run_id[0] for run_id in run_ids]
 
     def log_metric(self, run_id, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
@@ -517,8 +544,8 @@ class SqlAlchemyStore(AbstractStore):
                 if len(existing_params) > 0:
                     old_value = existing_params[0]
                     raise MlflowException(
-                        "Changing param value is not allowed. Param with key='{}' was already"
-                        " logged with value='{}' for run ID='{}. Attempted logging new value"
+                        "Changing param values is not allowed. Param with key='{}' was already"
+                        " logged with value='{}' for run ID='{}'. Attempted logging new value"
                         " '{}'.".format(
                             param.key, old_value, run_id, param.value), INVALID_PARAMETER_VALUE)
                 else:
@@ -544,6 +571,7 @@ class SqlAlchemyStore(AbstractStore):
     def set_tag(self, run_id, tag):
         """
         Set a tag on a run.
+
         :param run_id: String ID of the run
         :param tag: RunTag instance to log
         """
@@ -556,6 +584,7 @@ class SqlAlchemyStore(AbstractStore):
     def delete_tag(self, run_id, key):
         """
         Delete a tag from a run. This is irreversible.
+
         :param run_id: String ID of the run
         :param key: Name of the tag
         """
@@ -595,6 +624,9 @@ class SqlAlchemyStore(AbstractStore):
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
 
         with self.ManagedSessionMaker() as session:
+            if self.db_type == SQLITE:
+                session.execute("PRAGMA case_sensitive_like = true;")
+
             # Fetch the appropriate runs and eagerly load their summary metrics, params, and
             # tags. These run attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
@@ -645,6 +677,22 @@ class SqlAlchemyStore(AbstractStore):
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
 
+    def record_logged_model(self, run_id, mlflow_model):
+        if not isinstance(mlflow_model, Model):
+            raise TypeError("Argument 'mlflow_model' should be mlflow.models.Model, got '{}'"
+                            .format(type(mlflow_model)))
+        model_dict = mlflow_model.to_dict()
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+            previous_tag = [t for t in run.tags if t.key == MLFLOW_LOGGED_MODELS]
+            if previous_tag:
+                value = json.dumps(json.loads(previous_tag[0].value) + [model_dict])
+            else:
+                value = json.dumps([model_dict])
+            _validate_tag(MLFLOW_LOGGED_MODELS, value)
+            session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
+
 
 def _get_attributes_filtering_clauses(parsed):
     clauses = []
@@ -652,15 +700,17 @@ def _get_attributes_filtering_clauses(parsed):
         key_type = sql_statement.get('type')
         key_name = sql_statement.get('key')
         value = sql_statement.get('value')
-        comparator = sql_statement.get('comparator')
+        comparator = sql_statement.get('comparator').upper()
         if SearchUtils.is_attribute(key_type, comparator):
-            # validity of the comparator is checked in SearchUtils.parse_search_filter()
-            op = SearchUtils.filter_ops.get(comparator)
-            if op:
-                # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
-                # by the call to parse_search_filter
-                attribute_name = SqlRun.get_attribute_name(key_name)
-                clauses.append(op(getattr(SqlRun, attribute_name), value))
+            # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
+            # by the call to parse_search_filter
+            attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
+            if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
+                op = SearchUtils.get_sql_filter_ops(attribute, comparator)
+                clauses.append(op(value))
+            elif comparator in SearchUtils.filter_ops:
+                op = SearchUtils.filter_ops.get(comparator)
+                clauses.append(op(attribute, value))
     return clauses
 
 
@@ -668,7 +718,7 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
     key_type = sql_statement.get('type')
     key_name = sql_statement.get('key')
     value = sql_statement.get('value')
-    comparator = sql_statement.get('comparator')
+    comparator = sql_statement.get('comparator').upper()
 
     if SearchUtils.is_metric(key_type, comparator):
         entity = SqlLatestMetric
@@ -683,9 +733,16 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         raise MlflowException("Invalid search expression type '%s'" % key_type,
                               error_code=INVALID_PARAMETER_VALUE)
 
-    # validity of the comparator is checked in SearchUtils.parse_search_filter()
-    op = SearchUtils.filter_ops.get(comparator)
-    if op:
+    if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
+        op = SearchUtils.get_sql_filter_ops(entity.value, comparator)
+        return (
+            session
+            .query(entity)
+            .filter(entity.key == key_name, op(value))
+            .subquery()
+        )
+    elif comparator in SearchUtils.filter_ops:
+        op = SearchUtils.filter_ops.get(comparator)
         return (
             session
             .query(entity)

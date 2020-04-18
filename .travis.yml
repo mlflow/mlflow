@@ -10,23 +10,7 @@ matrix:
     # Nightly builds run the tests/examples end-to-end test suite.
     # Does not include Windows since Projects/Models are mostly not compatible with Windows as of now.
     - stage: Nightly
-    - language: python
-      python: 2.7
-      install:
-        # CHANGED_FILES detects whether or not files related to the nightly build are changed.
-        # True is so that the command returns a 0 exit code whether or not CHANGED_FILES is empty.
-        - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples\|Dockerfile") || true;
-        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
-            INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
-          fi;
-      script:
-        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"examples"* ]]; then
-            pytest --verbose tests/examples --large;
-          fi
-        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"Dockerfile"* ]]; then
-            docker build -t mlflow_test_build . && docker images | grep mlflow_test_build;
-          fi
-    - stage: small
+    - stage: Small
       if: type != cron
     - language: python
       name: "Lint (Python 3.6)"
@@ -47,7 +31,7 @@ matrix:
         - export NOT_CRAN=true
         - cd mlflow/R/mlflow
         - Rscript -e 'install.packages("devtools")'
-        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = "always")'
+        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = FALSE)'
         - cd ../../..
       install:
         - source ./travis/install-common-deps.sh
@@ -82,16 +66,34 @@ matrix:
         - cd mlflow/server/js
         - npm i
         - npm run lint
-        - npm test -- --coverage
-    - stage: large
+        - set -e
+        - for file in $(find src | grep test.js | sort) ; do npm run test -- $file; done
+    - stage: Large
       if: type != cron
     - language: python
-      python: 2.7
+      python: 3.6
+      name: "Flavors"
       if: type != cron
       install:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
-        - ./travis/run-large-python-tests.sh
+        - ./travis/run-python-flavor-tests.sh;
+    - language: python
+      python: 3.6
+      name: "TensorFlow"
+      if: type != cron
+      install:
+        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-python-tf-tests.sh;
+    - language: python
+      python: 3.6
+      name: "SageMaker"
+      if: type != cron
+      install:
+        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-python-sagemaker-tests.sh;
     # Run Windows tests in the "large" test builder so that we don't spend Travis executor
     # time running Windows tests if Python 3 small tests fail.
     - os: windows
@@ -106,27 +108,24 @@ matrix:
         - pip install -r travis/small-requirements.txt
         - pip install -e .
       script:
-        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects --ignore=tests/xgboost --ignore=tests/lightgbm tests
-    # Run small Python 2.7 tests in the "large" test builder so that we don't spend Travis executor
-    # time running Python 2.7 tests if Python 3 small tests fail.
-    - language: python
-      name: "Python 2.7 Small Tests"
-      if: type != cron
-      python: 2.7
-      install:
-        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-      script:
-        - ./travis/run-small-python-tests.sh
+        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects --ignore=tests/xgboost --ignore=tests/lightgbm --ignore=tests/spark_autologging --ignore=tests/spacy tests
     - language: python
       python: 3.6
-      name: "Docs (rsthtml)"
+      name: "Docs (rsthtml, javadocs)"
       if: type != cron
       install:
+        # Install Java & Maven
+        - sudo apt-get update
+        - sudo apt-get install default-jdk -y
+        - sudo apt-get install maven -y
+        - java -version
+        # Install Python doc deps
         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
         - pip install sphinx==2.2.1 sphinx-click==2.3.0
       script:
         - cd docs
         - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
+        - make javadocs
 
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
@@ -147,23 +146,7 @@ install:
     fi;
 
 script:
-    if ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
-      if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
-         echo "skipping this step on windows.";
-      elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-        ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
-      else
-        ./travis/run-large-python-tests.sh;
-        ./travis/test-anaconda-compatibility.sh;
-      fi
-    fi;
-    CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples\|Dockerfile") || true;
-    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"examples"* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
-      pytest --verbose tests/examples --large;
-    fi;
-    if [[ "$TRAVIS_EVENT_TYPE" == "cron" || "$CHANGED_FILES" == *"Dockerfile"* ]] && [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]]; then
-      docker build -t mlflow_test_build . && docker images | grep mlflow_test_build;
-    fi;
+  - ./travis/stage-python3.sh;
 
 notifications:
   # Send Slack notifications on build being broken or fixed, and email (Pagerduty) notifications

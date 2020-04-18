@@ -14,8 +14,9 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 * `MLflow Models <https://mlflow.org/docs/latest/models.html>`_: A model packaging format and tools that let
   you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms such as
   Docker, Apache Spark, Azure ML and AWS SageMaker.
+* `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
-|docs| |travis| |pypi| |conda-forge| |cran| |maven| |license|
+|docs| |travis| |pypi| |conda-forge| |cran| |maven| |license| |downloads|
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg
     :target: https://mlflow.org/docs/latest/index.html
@@ -38,6 +39,9 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 .. |license| image:: https://img.shields.io/badge/license-Apache%202-brightgreen.svg
     :target: https://github.com/mlflow/mlflow/blob/master/LICENSE.txt
     :alt: Apache 2 License
+.. |downloads| image:: https://pepy.tech/badge/mlflow
+    :target: https://pepy.tech/project/mlflow
+    :alt: Total Downloads
 
 Installing
 ----------

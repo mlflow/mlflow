@@ -26,7 +26,6 @@ from tests.models import test_pyfunc
 from tests.helper_functions import pyfunc_build_image, pyfunc_serve_from_docker_image, \
     pyfunc_serve_from_docker_image_with_env_override, \
     RestEndpoint, get_safe_port, pyfunc_serve_and_score_model
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED, \
     CONTENT_TYPE_JSON, CONTENT_TYPE_CSV
@@ -128,8 +127,8 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         assert "No suitable flavor backend was found for the model." in stderr
 
 
-def test_serve_gunicorn_opts(iris_data, sk_model,
-                             tracking_uri_mock):  # pylint: disable=unused-argument
+@pytest.mark.large
+def test_serve_gunicorn_opts(iris_data, sk_model):
     if sys.platform == "win32":
         pytest.skip("This test requires gunicorn which is not available on windows.")
     with mlflow.start_run() as active_run:
@@ -161,7 +160,8 @@ def test_serve_gunicorn_opts(iris_data, sk_model,
         assert expected_command_pattern.search(stdout) is not None
 
 
-def test_predict(iris_data, sk_model, tracking_uri_mock):  # pylint: disable=unused-argument
+@pytest.mark.large
+def test_predict(iris_data, sk_model):
     with TempDir(chdr=True) as tmp:
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
@@ -247,6 +247,7 @@ def test_predict(iris_data, sk_model, tracking_uri_mock):  # pylint: disable=unu
         assert all(expected == actual)
 
 
+@pytest.mark.large
 def test_prepare_env_passes(sk_model):
     if no_conda:
         pytest.skip("This test requires conda.")
@@ -272,27 +273,28 @@ def test_prepare_env_passes(sk_model):
         assert p.wait() == 0
 
 
+@pytest.mark.large
 def test_prepare_env_fails(sk_model):
     if no_conda:
         pytest.skip("This test requires conda.")
 
     with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, "model", conda_env={"env": "Bad conda env"})
+            mlflow.sklearn.log_model(sk_model, "model",
+                                     conda_env={"dependencies": ["mlflow-does-not-exist-dep==abc"]})
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
 
         # Test with no conda
         p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri,
-                              "--no-conda"], stderr=subprocess.PIPE)
+                              "--no-conda"])
         assert p.wait() == 0
 
         # With conda - should fail due to bad conda environment.
-        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri],
-                             stderr=subprocess.PIPE)
+        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri])
         assert p.wait() != 0
 
 
-@pytest.mark.release
+@pytest.mark.large
 def test_build_docker(iris_data, sk_model):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
@@ -305,7 +307,7 @@ def test_build_docker(iris_data, sk_model):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
-@pytest.mark.release
+@pytest.mark.large
 def test_build_docker_with_env_override(iris_data, sk_model):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
