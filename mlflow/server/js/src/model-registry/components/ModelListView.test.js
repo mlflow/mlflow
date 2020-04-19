@@ -22,7 +22,7 @@ describe('ModelListView', () => {
 
   test('should render with minimal props without exploding', () => {
     wrapper = shallow(<ModelListView {...minimalProps}/>);
-    expect(wrapper.length).not.toBeNull();
+    expect(wrapper.length).toBe(1);
   });
 
   test('should show correct empty message', () => {
