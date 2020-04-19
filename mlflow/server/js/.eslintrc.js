@@ -113,9 +113,7 @@ module.exports = {
     'import/prefer-default-export': 0,
     'import/unambiguous': 0,
     'indent': 0,
-    'indent-legacy': ['error', 2, {
-      'SwitchCase': 1,
-    }],
+    'indent-legacy': 0,
     'init-declarations': 0,
     'jsx-quotes': "off",
     'key-spacing': 2,
