@@ -16,8 +16,11 @@ export class NoExperimentView extends Component {
           No Experiments Exist
         </h1>
         <h2 className='center' style={{ color: Colors.secondaryText }}>
+          {/* prettier-ignore */}
           To create an experiment use the{' '}
-          <a href={'https://www.mlflow.org/docs/latest/cli.html#experiments'}>mlflow experiments</a>{' '}
+          <a href={'https://www.mlflow.org/docs/latest/cli.html#experiments'}>
+            mlflow experiments
+          </a>{' '}
           CLI.
         </h2>
       </div>
