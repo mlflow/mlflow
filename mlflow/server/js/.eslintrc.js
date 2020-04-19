@@ -147,7 +147,7 @@ module.exports = {
     'no-catch-shadow': "off",
     'no-class-assign': 2,
     'no-cond-assign': 2,
-    'no-confusing-arrow': [2, { 'allowParens': true }],
+    'no-confusing-arrow': 0,
     'no-console': 0,
     'no-const-assign': 2,
     'no-constant-condition': 2,
