@@ -545,14 +545,14 @@ const mapStateToProps = (state, ownProps) => {
     const metricsHistory = metricsByRunUuid[runUuid];
     return metricsHistory
       ? Object.keys(metricsHistory).map((metricKey) => {
-        const history = metricsHistory[metricKey].map((entry) => ({
+          const history = metricsHistory[metricKey].map((entry) => ({
             key: entry.key,
             value: entry.value,
             step: Number.parseInt(entry.step, 10) || 0, // default step to 0
             timestamp: Number.parseFloat(entry.timestamp),
           }));
-        return { metricKey, history, runUuid, runDisplayName };
-      })
+          return { metricKey, history, runUuid, runDisplayName };
+        })
       : [];
   });
 

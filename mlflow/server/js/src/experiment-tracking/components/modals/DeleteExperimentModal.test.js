@@ -40,16 +40,13 @@ describe('DeleteExperimentModal', () => {
     expect(wrapper.length).toBe(1);
   });
 
-  test(
-    'handleSubmit redirects user to root page if active experiment is current ' + 'experiment',
-    (done) => {
-      instance = wrapper.instance();
-      instance.handleSubmit().then(() => {
-        expect(location.search).toEqual('/');
-        done();
-      });
-    },
-  );
+  test('handleSubmit redirects user to root page if active experiment is current experiment', (done) => {
+    instance = wrapper.instance();
+    instance.handleSubmit().then(() => {
+      expect(location.search).toEqual('/');
+      done();
+    });
+  });
 
   test('handleSubmit does not perform redirection if DeleteExperiment request fails', (done) => {
     const props = {
@@ -64,17 +61,14 @@ describe('DeleteExperimentModal', () => {
     });
   });
 
-  test(
-    'handleSubmit does not perform redirection if deleted experiment is not active ' + 'experiment',
-    (done) => {
-      wrapper = shallow(
-        <DeleteExperimentModalImpl {...{ ...minimalProps, activeExperimentId: undefined }} />,
-      );
-      instance = wrapper.instance();
-      instance.handleSubmit().then(() => {
-        expect(location.search).toEqual('initialSearchValue');
-        done();
-      });
-    },
-  );
+  test('handleSubmit does not perform redirection if deleted experiment is not active experiment', (done) => {
+    wrapper = shallow(
+      <DeleteExperimentModalImpl {...{ ...minimalProps, activeExperimentId: undefined }} />,
+    );
+    instance = wrapper.instance();
+    instance.handleSubmit().then(() => {
+      expect(location.search).toEqual('initialSearchValue');
+      done();
+    });
+  });
 });

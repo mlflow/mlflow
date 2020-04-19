@@ -55,9 +55,9 @@ export class SearchTree extends React.Component {
     const expandedKeys = _.uniq(
       dataList
         .map((item) =>
-          (item.title.toLowerCase().includes(value.toLowerCase())
+          item.title.toLowerCase().includes(value.toLowerCase())
             ? getParentKey(item.key, data)
-            : null),
+            : null,
         )
         .filter((item) => !_.isEmpty(item)),
     );

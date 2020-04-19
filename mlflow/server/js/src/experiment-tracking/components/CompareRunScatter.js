@@ -39,23 +39,23 @@ class CompareRunScatter extends Component {
         x:
           this.paramKeys.length > 0
             ? {
-              key: this.paramKeys[0],
-              isMetric: false,
-            }
+                key: this.paramKeys[0],
+                isMetric: false,
+              }
             : {
-              key: this.metricKeys[1],
-              isMetric: true,
-            },
+                key: this.metricKeys[1],
+                isMetric: true,
+              },
         y:
           this.metricKeys.length > 0
             ? {
-              key: this.metricKeys[0],
-              isMetric: true,
-            }
+                key: this.metricKeys[0],
+                isMetric: true,
+              }
             : {
-              key: this.paramKeys[1],
-              isMetric: false,
-            },
+                key: this.paramKeys[1],
+                isMetric: false,
+              },
       };
     }
   }

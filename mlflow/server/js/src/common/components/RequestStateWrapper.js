@@ -40,8 +40,8 @@ export class RequestStateWrapper extends Component {
   static getDerivedStateFromProps(nextProps) {
     const shouldRender = nextProps.requests.length
       ? nextProps.requests.every((r) => {
-        return r && r.active === false;
-      })
+          return r && r.active === false;
+        })
       : false;
     return {
       shouldRender,

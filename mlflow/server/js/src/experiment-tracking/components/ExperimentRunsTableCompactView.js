@@ -440,8 +440,8 @@ export class ExperimentRunsTableCompactView extends React.Component {
             const runMetadataWidth = runMetadataColWidths.reduce((a, b) => a + b);
             const tableMinWidth =
               BAGGED_COL_WIDTH * (showBaggedParams + showBaggedMetrics) +
-              runMetadataWidth +
-              UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length);
+              UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length) +
+              runMetadataWidth;
             const tableWidth = Math.max(width, tableMinWidth);
             // If we aren't showing bagged metrics or params (bagged metrics & params are the
             // only cols that use the CellMeasurer component), set the row height statically

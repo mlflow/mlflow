@@ -31,8 +31,8 @@ export const deleteRegisteredModelApi = (model, id = getUUID(), localUpdateOnly)
   payload: localUpdateOnly
     ? Promise.resolve()
     : wrapDeferred(Services.deleteRegisteredModel, {
-      name: model,
-    }),
+        name: model,
+      }),
   meta: { id, model },
 });
 
@@ -92,9 +92,9 @@ export const deleteModelVersionApi = (modelName, version, id = getUUID(), localU
   payload: localUpdateOnly
     ? Promise.resolve()
     : wrapDeferred(Services.deleteModelVersion, {
-      name: modelName,
-      version: version,
-    }),
+        name: modelName,
+        version: version,
+      }),
   meta: { id, modelName, version },
 });
 

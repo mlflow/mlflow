@@ -217,8 +217,9 @@ export class ExperimentPage extends Component {
     if (orderByAsc === false) {
       state['orderByAsc'] = orderByAsc;
     }
-    const newUrl =
-      `/experiments/${this.props.experimentId}` + `/s?${Utils.getSearchUrlFromState(state)}`;
+    const newUrl = `/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(
+      state,
+    )}`;
     if (newUrl !== this.props.history.location.pathname + this.props.history.location.search) {
       this.props.history.push(newUrl);
     }

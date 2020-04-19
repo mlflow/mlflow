@@ -68,21 +68,21 @@ export class EditableTable extends React.Component {
 
   initColumns = () => [
     ...this.props.columns.map((col) =>
-      (col.editable
+      col.editable
         ? {
             ...col,
             // `onCell` returns props to be added to EditableCell
             onCell: (record) => ({
-            record,
-            dataIndex: col.dataIndex,
-            title: col.title,
-            editing: this.isEditing(record),
-            save: this.save,
-            cancel: this.cancel,
-            recordKey: record.key,
-          }),
+              record,
+              dataIndex: col.dataIndex,
+              title: col.title,
+              editing: this.isEditing(record),
+              save: this.save,
+              cancel: this.cancel,
+              recordKey: record.key,
+            }),
           }
-        : col),
+        : col,
     ),
     {
       title: 'Actions',
