@@ -1,8 +1,7 @@
-import json
 import os
 
 import mlflow
-from build.lib.mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models import Model, ModelSignature
 from mlflow.models.signature import Schema, ColSpec, read_example
 from mlflow.utils.file_utils import TempDir
