@@ -17,12 +17,10 @@ jobs:
         python-version: 3.6
     - name: Install dependencies
       run: |
-        export GITHUB_WORKFLOW=1
         INSTALL_LARGE_PYTHON_DEPS=true INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
         pip install -r ./travis/lint-requirements.txt
     - name: Run tests
       run: |
-        export GITHUB_WORKFLOW=1
         export PATH="$HOME/miniconda/bin:$PATH"
         source activate test-environment
         ./lint.sh
@@ -37,11 +35,9 @@ jobs:
         python-version: 3.6
     - name: Install dependencies
       run: |
-        export GITHUB_WORKFLOW=1
         INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
     - name: Run tests
       run: |
-        export GITHUB_WORKFLOW=1
         export PATH="$HOME/miniconda/bin:$PATH"
         source activate test-environment
         ./travis/run-small-python-tests.sh
@@ -56,11 +52,9 @@ jobs:
         java-version: 8
     - name: Install dependencies
       run: |
-        export GITHUB_WORKFLOW=1
         source ./travis/install-common-deps.sh
     - name: Run tests
       run: |
-        export GITHUB_WORKFLOW=1
         export PATH="$HOME/miniconda/bin:$PATH"
         source activate test-environment
         cd mlflow/java
@@ -72,9 +66,10 @@ jobs:
     - uses: actions/checkout@v2
     - name: Set up Node
       uses: actions/setup-node@v1
+      with:
+        node-version: 10.x
     - name: Install dependencies
       run: |
-        export GITHUB_WORKFLOW=1
         source ./travis/install-common-deps.sh
     - name: Run tests
       run: |

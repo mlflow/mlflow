@@ -2,6 +2,7 @@
 
 set -ex
 sudo mkdir -p /travis-install
+# GITHUB_WORKFLOW is set by default during GitHub workflows
 if [[ -z $GITHUB_WORKFLOW ]]; then
   sudo chown travis /travis-install
 fi

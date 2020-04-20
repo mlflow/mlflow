@@ -105,10 +105,6 @@ install:
   - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
       echo "skipping this step on windows.";
-    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh &&
-      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
-      sudo unzip /travis-install/protoc.zip -d /usr;
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]] && ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
       echo "skipping the nightly stage because this build is not nightly and there are no changed files associated with nightly tests.";
     else
