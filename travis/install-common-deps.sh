@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
 
-set -x
-df -h
+set -ex
+
+# Cleanup apt repository to make room for tests.
 sudo apt clean
 df -h
-docker rmi $(docker image ls -aq)
-df -h
-rm -rf $HOME/miniconda
-df -h
 
-set -ex
 sudo mkdir -p /travis-install
 # GITHUB_WORKFLOW is set by default during GitHub workflows
 if [[ -z $GITHUB_WORKFLOW ]]; then
