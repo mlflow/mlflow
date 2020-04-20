@@ -2,8 +2,6 @@
 
 set -x
 df -h
-sudo rm -f /swapfile
-df -h
 sudo apt clean
 df -h
 docker rmi $(docker image ls -aq)
