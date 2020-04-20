@@ -21,24 +21,24 @@ describe('unit tests', () => {
         {
           label: 'param_0',
           values: [1, 2],
-          tickformat: 'f',
+          tickformat: '.5f',
         },
         {
           label: 'param_1',
           values: [2, 3],
-          tickformat: 'f',
+          tickformat: '.5f',
         },
       ],
       metricDimensions: [
         {
           label: 'metric_0',
           values: [1, 2],
-          tickformat: 'f',
+          tickformat: '.5f',
         },
         {
           label: 'metric_1',
           values: [2, 3],
-          tickformat: 'f',
+          tickformat: '.5f',
         },
       ],
     };
@@ -184,7 +184,7 @@ describe('unit tests', () => {
     expect(createDimension(key, runUuids, entryByRunUuid)).toEqual({
       label: 'metric_0',
       values: [1, 2],
-      tickformat: 'f',
+      tickformat: '.5f',
     });
   });
 

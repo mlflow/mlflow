@@ -31,7 +31,7 @@ export class ConfirmModal extends Component {
 
   handleSubmitWrapper() {
     this.setState({ isSubmitting: true });
-    this.props.handleSubmit().finally(() => {
+    return this.props.handleSubmit().finally(() => {
       this.props.onClose();
       this.setState({ isSubmitting: false });
     });

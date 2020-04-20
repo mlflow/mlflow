@@ -23,11 +23,11 @@ export const StageLabels = {
 };
 
 export const StageTagComponents = {
-  [Stages.NONE]: <Tag>{StageLabels[Stages.NONE]}</Tag>,
-  [Stages.STAGING]: <Tag color='orange'>{StageLabels[Stages.STAGING]}</Tag>,
-  [Stages.PRODUCTION]: <Tag color='green'>{StageLabels[Stages.PRODUCTION]}</Tag>,
+  [Stages.NONE]: <Tag key='none'>{StageLabels[Stages.NONE]}</Tag>,
+  [Stages.STAGING]: <Tag key='staging' color='orange'>{StageLabels[Stages.STAGING]}</Tag>,
+  [Stages.PRODUCTION]: <Tag key='production' color='green'>{StageLabels[Stages.PRODUCTION]}</Tag>,
   [Stages.ARCHIVED]: (
-    <Tag color='#eee' style={{ color: '#333'}}>{StageLabels[Stages.ARCHIVED]}</Tag>
+    <Tag key='archived' color='#eee' style={{ color: '#333'}}>{StageLabels[Stages.ARCHIVED]}</Tag>
   ),
 };
 

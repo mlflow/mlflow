@@ -2,7 +2,6 @@ import React from 'react';
 import { Dropdown, Menu, Icon, Modal } from 'antd';
 import PropTypes from 'prop-types';
 import { Stages, StageTagComponents, ActivityTypes } from '../constants';
-import { DirectTransitionForm } from './DirectTransitionForm';
 
 import _ from 'lodash';
 
@@ -31,11 +30,7 @@ export class ModelStageTransitionDropdown extends React.Component {
         onSelect &&
         (() => {
           this.setState({ confirmModalVisible: false });
-          const comment = this.transitionFormRef.current.getFieldValue('comment');
-          const archiveExistingVersions = !!this.transitionFormRef
-            .current.getFieldValue('archiveExistingVersions');
-          this.transitionFormRef.current.resetFields();
-          this.props.onSelect(activity, comment, archiveExistingVersions);
+          this.props.onSelect(activity);
         }),
     });
   };
@@ -78,19 +73,6 @@ export class ModelStageTransitionDropdown extends React.Component {
   renderConfirmModal() {
     const { confirmModalVisible, confirmingActivity, handleConfirm } = this.state;
     if (confirmingActivity) {
-      let formComponent;
-      switch (confirmingActivity.type) {
-        case ActivityTypes.APPLIED_TRANSITION:
-          formComponent = (
-            <DirectTransitionForm
-              ref={this.transitionFormRef}
-              toStage={confirmingActivity.to_stage}
-            />
-          );
-          break;
-        default:
-          formComponent = null;
-      }
       return (
         <Modal
           title='Stage Transition'
@@ -99,7 +81,6 @@ export class ModelStageTransitionDropdown extends React.Component {
           onCancel={this.handleConfirmModalCancel}
         >
           {renderActivityDescription(confirmingActivity)}
-          {formComponent}
         </Modal>
       );
     }

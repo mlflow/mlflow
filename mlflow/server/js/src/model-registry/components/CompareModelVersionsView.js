@@ -4,7 +4,7 @@ import { getParams, getRunInfo, getRunTags } from '../../experiment-tracking/red
 import { connect } from 'react-redux';
 import '../../experiment-tracking/components/CompareRunView.css';
 import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
-import CompareRunScatter from '../../experiment-tracking/components/CompareRunScatter';
+import { CompareRunScatter } from '../../experiment-tracking/components/CompareRunScatter';
 import CompareRunContour from '../../experiment-tracking/components/CompareRunContour';
 import Routes from '../../experiment-tracking/routes';
 import { Link } from 'react-router-dom';

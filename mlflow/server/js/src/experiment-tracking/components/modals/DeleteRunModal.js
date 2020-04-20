@@ -44,12 +44,12 @@ export class DeleteRunModalImpl extends Component {
             </p>
             {
               process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ?
-              <p>
-                Deleted runs are restorable for 30 days, after which they are purged along with
-                associated metrics, params and tags.
-                <br />
-                Artifacts are not automatically purged and must be manually deleted.
-              </p> : ""
+                <p>
+                  Deleted runs are restorable for 30 days, after which they are purged along with
+                  associated metrics, params and tags.
+                  <br/>
+                  Artifacts are not automatically purged and must be manually deleted.
+                </p> : ""
             }
           </div>
         }

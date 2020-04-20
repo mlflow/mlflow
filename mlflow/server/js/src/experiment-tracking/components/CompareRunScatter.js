@@ -11,8 +11,9 @@ import { getLatestMetrics } from '../reducers/MetricReducer';
 import './CompareRunScatter.css';
 import CompareRunUtil from './CompareRunUtil';
 
-class CompareRunScatter extends Component {
+export class CompareRunScatterImpl extends Component {
   static propTypes = {
+    runUuids: PropTypes.arrayOf(String).isRequired,
     runInfos: PropTypes.arrayOf(RunInfo).isRequired,
     metricLists: PropTypes.arrayOf(Array).isRequired,
     paramLists: PropTypes.arrayOf(Array).isRequired,
@@ -77,7 +78,7 @@ class CompareRunScatter extends Component {
       return <div/>;
     }
 
-    const keyLength = CompareRunScatter.MAX_PLOT_KEY_LENGTH;
+    const keyLength = CompareRunScatterImpl.MAX_PLOT_KEY_LENGTH;
 
     const xs = [];
     const ys = [];
@@ -184,8 +185,8 @@ class CompareRunScatter extends Component {
   }
 
   getPlotlyTooltip(index) {
-    const keyLength = CompareRunScatter.MAX_PLOT_KEY_LENGTH;
-    const valueLength = CompareRunScatter.MAX_PLOT_VALUE_LENGTH;
+    const keyLength = CompareRunScatterImpl.MAX_PLOT_KEY_LENGTH;
+    const valueLength = CompareRunScatterImpl.MAX_PLOT_VALUE_LENGTH;
     const runName = this.props.runDisplayNames[index];
     let result = `<b>${this.encodeHtml(runName)}</b><br>`;
     const paramList = this.props.paramLists[index];
@@ -218,4 +219,4 @@ const mapStateToProps = (state, ownProps) => {
   return { runInfos, metricLists, paramLists };
 };
 
-export default connect(mapStateToProps)(CompareRunScatter);
+export const CompareRunScatter = connect(mapStateToProps)(CompareRunScatterImpl);

@@ -19,6 +19,9 @@ class AppErrorBoundary extends Component {
     console.error(error);
   }
 
+  getSupportPageUrl = () => "https://github.com/mlflow/mlflow/issues";
+
+
   render() {
     if (this.state.hasError) {
       return (
@@ -26,8 +29,8 @@ class AppErrorBoundary extends Component {
           <img className="error-image" alt="Error" src={defaultErrorImg}/>
           <h1 className={"center"}>Something went wrong</h1>
           <h4 className={"center"}>
-            If this error persists, please report an issue on {' '}
-            <a href="https://github.com/mlflow/mlflow/issues">our GitHub page</a>.
+            If this error persists, please report an issue {' '}
+            <a href={this.getSupportPageUrl()} target='_blank'>here</a>.
           </h4>
         </div>
       );

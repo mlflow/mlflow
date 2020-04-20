@@ -1,6 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import Utils from '../../common/utils/Utils';
+import { Button } from 'antd';
 
 // Number of tags shown when cell is collapsed
 export const NUM_TAGS_ON_COLLAPSED = 3;
@@ -46,11 +47,11 @@ export class CollapsibleTagsCell extends React.Component {
           );
         })}
         {visibleTags.length > 3 ? (
-          <a className='tag-cell-toggle-link' onClick={this.handleToggleCollapse}>
+          <Button type="link" className='tag-cell-toggle-link' onClick={this.handleToggleCollapse}>
             {this.state.collapsed
               ? `${visibleTags.length - NUM_TAGS_ON_COLLAPSED} more`
               : `Show less`}
-          </a>
+          </Button>
         ) : null}
       </div>
     );

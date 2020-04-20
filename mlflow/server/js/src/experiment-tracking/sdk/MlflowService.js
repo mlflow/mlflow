@@ -163,7 +163,6 @@ export class MlflowService {
       error: error,
     });
   }
-
   /**
    * @param {RestoreRun} data: Immutable Record
    * @param {function} success
@@ -332,7 +331,7 @@ export class MlflowService {
     });
   }
 
-    /**
+  /**
    * @param {DeleteTag} data: Immutable Record
    * @param {function} success
    * @param {function} error

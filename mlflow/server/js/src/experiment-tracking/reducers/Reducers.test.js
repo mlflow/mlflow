@@ -1,17 +1,21 @@
 import { ArtifactNode } from '../utils/ArtifactUtils';
-import { experimentsById, runInfosByUuid, paramsByRunUuid, tagsByRunUuid, artifactsByRunUuid,
-         artifactRootUriByRunUuid, experimentTagsByExperimentId, getParams, getRunTags, getRunInfo,
-         getExperiments, getExperiment, getExperimentTags, apis, rootReducer, getApis, getArtifacts,
-         getSharedParamKeysByRunUuids, getAllParamKeysByRunUuids, getArtifactRootUri } from './Reducers';
+import {
+  experimentsById, runInfosByUuid, paramsByRunUuid, tagsByRunUuid, artifactsByRunUuid,
+  artifactRootUriByRunUuid, experimentTagsByExperimentId, getParams, getRunTags, getRunInfo,
+  getExperiments, getExperiment, getExperimentTags, apis, rootReducer, getApis, getArtifacts,
+  getSharedParamKeysByRunUuids, getAllParamKeysByRunUuids, getArtifactRootUri,
+} from './Reducers';
 import { mockExperiment, mockRunInfo } from '../utils/test-utils/ReduxStoreFixtures';
 import { RunTag, RunInfo, Param, Experiment, ExperimentTag } from "../sdk/MlflowMessages";
-import { LIST_EXPERIMENTS_API, GET_EXPERIMENT_API, GET_RUN_API, SEARCH_RUNS_API,
-         LOAD_MORE_RUNS_API, SET_TAG_API, DELETE_TAG_API, LIST_ARTIFACTS_API,
-         SET_EXPERIMENT_TAG_API } from '../actions';
 import {
-         fulfilled,
-         pending,
-         rejected,
+  LIST_EXPERIMENTS_API, GET_EXPERIMENT_API, GET_RUN_API, SEARCH_RUNS_API,
+  LOAD_MORE_RUNS_API, SET_TAG_API, DELETE_TAG_API, LIST_ARTIFACTS_API,
+  SET_EXPERIMENT_TAG_API,
+} from '../actions';
+import {
+  fulfilled,
+  pending,
+  rejected,
 } from '../../common/utils/ActionUtils';
 import { deepFreeze } from '../../common/utils/TestUtils';
 
@@ -159,8 +163,8 @@ describe('test runInfosByUuid', () => {
       type: fulfilled(SEARCH_RUNS_API),
       payload: {
         runs: [
-            {info: runA.toJSON()},
-            {info: runB.toJSON()},
+          { info: runA.toJSON() },
+          { info: runB.toJSON() },
         ],
       },
     };
@@ -187,9 +191,9 @@ describe('test runInfosByUuid', () => {
       type: fulfilled(SEARCH_RUNS_API),
       payload: {
         runs: [
-          { info: preserved.toJSON()},
-          { info: replacedNew.toJSON()},
-          { info: newRun.toJSON()},
+          { info: preserved.toJSON() },
+          { info: replacedNew.toJSON() },
+          { info: newRun.toJSON() },
         ],
       },
     };
@@ -237,9 +241,9 @@ describe('test runInfosByUuid', () => {
       type: fulfilled(LOAD_MORE_RUNS_API),
       payload: {
         runs: [
-          { info: preserved.toJSON()},
-          { info: replacedNew.toJSON()},
-          { info: newRun.toJSON()},
+          { info: preserved.toJSON() },
+          { info: replacedNew.toJSON() },
+          { info: newRun.toJSON() },
         ],
       },
     };
@@ -284,6 +288,7 @@ describe('test params(tags)ByRunUuid', () => {
     }
     return res;
   }
+
   const val1 = {
     key: key1,
     value: "abc",
@@ -308,7 +313,7 @@ describe('test params(tags)ByRunUuid', () => {
   }
 
   test('getRunApi updates empty state correctly', () => {
-    const empty_state = {run01: {}};
+    const empty_state = { run01: {} };
     const expected_state = {
       run01: {
         key1: val1,
@@ -316,6 +321,7 @@ describe('test params(tags)ByRunUuid', () => {
         key3: val3,
       },
     };
+
     function new_action(paramOrTag, vals) {
       return {
         type: fulfilled(GET_RUN_API),
@@ -329,6 +335,7 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
+
     reduceAndTest(paramsByRunUuid, undefined, newState("params", empty_state), new_action("params", undefined));
     reduceAndTest(tagsByRunUuid, undefined, newState("tags", empty_state), new_action("tags"), undefined);
     reduceAndTest(paramsByRunUuid, undefined, newState("params", expected_state), new_action("params", [val1, val2, val3]));
@@ -357,6 +364,7 @@ describe('test params(tags)ByRunUuid', () => {
         key2: val2,
       },
     };
+
     function new_action(paramOrTag) {
       return {
         type: fulfilled(GET_RUN_API),
@@ -370,6 +378,7 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
+
     reduceAndTest(paramsByRunUuid, newState("params", initial_state), newState("params", expected_state), new_action("params"));
     reduceAndTest(tagsByRunUuid, newState("tags", initial_state), newState("tags", expected_state), new_action("tags"));
   });
@@ -400,24 +409,29 @@ describe('test params(tags)ByRunUuid', () => {
       },
       run04: {},
     };
+
     function new_action(paramOrTag, action_type) {
       return {
         type: fulfilled(action_type),
         payload: {
           runs: [
-            { info: mockRunInfo("run01").toJSON(),
-              data: { [paramOrTag]: [val1_2, val3]},
+            {
+              info: mockRunInfo("run01").toJSON(),
+              data: { [paramOrTag]: [val1_2, val3] },
             },
-            { info: mockRunInfo("run03").toJSON(),
-              data: { [paramOrTag]: [val3]},
+            {
+              info: mockRunInfo("run03").toJSON(),
+              data: { [paramOrTag]: [val3] },
             },
-            { info: mockRunInfo("run04").toJSON(),
-              data: { [paramOrTag]: undefined},
+            {
+              info: mockRunInfo("run04").toJSON(),
+              data: { [paramOrTag]: undefined },
             },
           ],
         },
       };
     }
+
     const reducers = {
       params: paramsByRunUuid,
       tags: tagsByRunUuid,
@@ -425,9 +439,9 @@ describe('test params(tags)ByRunUuid', () => {
     for (const paramOrTag of ["params", "tags"]) {
       for (const action_type of [SEARCH_RUNS_API, LOAD_MORE_RUNS_API]) {
         reduceAndTest(reducers[paramOrTag],
-        newState(paramOrTag, initial_state),
-        newState(paramOrTag, expected_state),
-        new_action(paramOrTag, action_type));
+          newState(paramOrTag, initial_state),
+          newState(paramOrTag, expected_state),
+          new_action(paramOrTag, action_type));
       }
     }
   });
@@ -438,6 +452,7 @@ describe('test params(tags)ByRunUuid', () => {
         key1: val1,
       },
     };
+
     function new_action() {
       return {
         type: fulfilled(SET_TAG_API),
@@ -448,6 +463,7 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
+
     reduceAndTest(tagsByRunUuid, undefined, newState("tags", expected_state), new_action("tags"));
   });
 
@@ -472,6 +488,7 @@ describe('test params(tags)ByRunUuid', () => {
         key2: val2,
       },
     };
+
     function new_action() {
       return {
         type: fulfilled(SET_TAG_API),
@@ -482,11 +499,13 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
+
     reduceAndTest(tagsByRunUuid, newState("tags", initial_state), newState("tags", expected_state), new_action());
   });
 
   test('deleteTagApi works with empty state', () => {
     const expected_state = {};
+
     function new_action() {
       return {
         type: fulfilled(DELETE_TAG_API),
@@ -496,6 +515,7 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
+
     reduceAndTest(tagsByRunUuid, undefined, newState("tags", expected_state), new_action());
   });
 
@@ -519,6 +539,7 @@ describe('test params(tags)ByRunUuid', () => {
         key2: val2,
       },
     };
+
     function new_action() {
       return {
         type: fulfilled(DELETE_TAG_API),
@@ -528,6 +549,7 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
+
     reduceAndTest(tagsByRunUuid, newState("tags", initial_state), newState("tags", expected_state), new_action());
   });
 });
@@ -664,7 +686,7 @@ describe('test artifactsByRunUuid', () => {
       isRoot: false,
     });
     const dir2 = Object.assign(new ArtifactNode(), {
-      children: {file2: file2},
+      children: { file2: file2 },
       fileInfo: {
         is_dir: true,
         path: "dir1/dir2",
@@ -682,7 +704,7 @@ describe('test artifactsByRunUuid', () => {
       isRoot: false,
     });
     const dir1 = Object.assign(new ArtifactNode(), {
-      children: {dir2: dir2, file1: file1},
+      children: { dir2: dir2, file1: file1 },
       fileInfo: {
         is_dir: true,
         path: "dir1",
@@ -752,7 +774,7 @@ describe('test artifactsByRunUuid', () => {
       isRoot: false,
     });
     const dir2_2 = Object.assign(new ArtifactNode(), {
-      children: {dir3: dir3, file3: file3, file4: file4},
+      children: { dir3: dir3, file3: file3, file4: file4 },
       fileInfo: {
         is_dir: true,
         path: "dir1/dir2",
@@ -761,7 +783,7 @@ describe('test artifactsByRunUuid', () => {
       isRoot: false,
     });
     const dir1_2 = Object.assign(new ArtifactNode(), {
-      children: {dir2: dir2_2, file1: file1},
+      children: { dir2: dir2_2, file1: file1 },
       fileInfo: {
         is_dir: true,
         path: "dir1",
@@ -784,20 +806,40 @@ describe('test artifactsByRunUuid', () => {
 describe('test artifactRootUriByRunUuid', () => {
   test("artifactRootUriByRunUuid", () => {
     const state1 = artifactRootUriByRunUuid(undefined, {
-      type: fulfilled(LIST_ARTIFACTS_API),
-      meta: { runUuid: "run01"},
+      type: fulfilled(GET_RUN_API),
+      meta: {
+        id: "a",
+        runUuid: "run01",
+      },
       payload: {
-        root_uri: "some/path",
+        run: {
+          info: {
+            run_uuid: 'run01',
+            experiment_id: "1",
+            artifact_uri: "some/path",
+          },
+          data: {},
+        },
       },
     });
     expect(state1).toEqual({
       run01: "some/path",
     });
     const state2 = artifactRootUriByRunUuid(state1, {
-      type: fulfilled(LIST_ARTIFACTS_API),
-      meta: { runUuid: "run02"},
+      type: fulfilled(GET_RUN_API),
+      meta: {
+        id: "a",
+        runUuid: "run02",
+      },
       payload: {
-        root_uri: "some/other/path",
+        run: {
+          info: {
+            run_uuid: 'run02',
+            experiment_id: "1",
+            artifact_uri: "some/other/path",
+          },
+          data: {},
+        },
       },
     });
     expect(state2).toEqual({
@@ -805,10 +847,20 @@ describe('test artifactRootUriByRunUuid', () => {
       run02: "some/other/path",
     });
     const state3 = artifactRootUriByRunUuid(state2, {
-      type: fulfilled(LIST_ARTIFACTS_API),
-      meta: { runUuid: "run02"},
+      type: fulfilled(GET_RUN_API),
+      meta: {
+        id: "a",
+        runUuid: "run02",
+      },
       payload: {
-        root_uri: "some/other/updated/path",
+        run: {
+          info: {
+            run_uuid: 'run02',
+            experiment_id: "1",
+            artifact_uri: "some/other/updated/path",
+          },
+          data: {},
+        },
       },
     });
     expect(state3).toEqual({
@@ -817,10 +869,11 @@ describe('test artifactRootUriByRunUuid', () => {
     });
   });
 });
+
 describe('test experimentTagsByExperimentId', () => {
-  const tag1 = {key: "key1", value: "value1"};
-  const tag2 = {key: "key2", value: "value2"};
-  const tag1_2 = {key: "key1", value: "value1_2"};
+  const tag1 = { key: "key1", value: "value1" };
+  const tag2 = { key: "key2", value: "value2" };
+  const tag1_2 = { key: "key1", value: "value1_2" };
   test("get experiment api", () => {
     const empty_state = experimentTagsByExperimentId(undefined, {
       type: fulfilled(GET_EXPERIMENT_API),
@@ -929,7 +982,7 @@ describe('test experimentTagsByExperimentId', () => {
 });
 
 describe("test public accessors", () => {
-  function new_action({type, id = "a", runUuid = "run01", payload = "data"}) {
+  function new_action({ type, id = "a", runUuid = "run01", payload = "data" }) {
     return {
       type: type,
       meta: {
@@ -944,15 +997,17 @@ describe("test public accessors", () => {
     const A = Experiment.fromJs({
       experiment_id: 'a',
       name: 'A',
-      tags: [{name: "a", value: "A"}, "b"],
+      tags: [{ name: "a", value: "A" }, "b"],
     });
     const B = Experiment.fromJs({
       experiment_id: 'b',
       name: 'B',
     });
 
-    const action = new_action({type: fulfilled(LIST_EXPERIMENTS_API),
-      payload: {experiments: [A.toJSON(), B.toJSON()]}});
+    const action = new_action({
+      type: fulfilled(LIST_EXPERIMENTS_API),
+      payload: { experiments: [A.toJSON(), B.toJSON()] },
+    });
     const state = rootReducer(undefined, action);
     expect(state.entities.experimentTagsByExperimentId).toEqual({});
     expect(getExperiments(state)).toEqual([A, B]);
@@ -978,17 +1033,18 @@ describe("test public accessors", () => {
       key: key3,
       value: "ijk",
     };
-    const action0 = new_action({type: fulfilled(GET_RUN_API), payload: {
-      run: {
-        info: RunInfo.fromJs({
-          runUuid: "run05",
-          experiment_id: "experiment01",
-          artifact_uri: "artifact_uri",
+    const action0 = new_action({
+      type: fulfilled(GET_RUN_API), payload: {
+        run: {
+          info: RunInfo.fromJs({
+            runUuid: "run05",
+            experiment_id: "experiment01",
+            artifact_uri: "artifact_uri",
 
-        }).toJSON(),
-        data: {},
+          }).toJSON(),
+          data: {},
+        },
       },
-    },
     });
     const state0 = rootReducer(undefined, action0);
     expect(getParams("run01", state0)).toEqual({});
@@ -1010,12 +1066,12 @@ describe("test public accessors", () => {
     };
     const state = rootReducer(undefined, action1);
     expect(getParams("run01", state)).toEqual({
-      key1: Param.fromJs({ key: "key1", value: "abc"}),
-      key2: Param.fromJs({ key: "key2", value: "efg"}),
+      key1: Param.fromJs({ key: "key1", value: "abc" }),
+      key2: Param.fromJs({ key: "key2", value: "efg" }),
     });
     expect(getRunTags("run01", state)).toEqual({
-      key2: RunTag.fromJs({ key: "key2", value: "efg"}),
-      key3: RunTag.fromJs({ key: "key3", value: "ijk"}),
+      key2: RunTag.fromJs({ key: "key2", value: "efg" }),
+      key3: RunTag.fromJs({ key: "key3", value: "ijk" }),
     });
     expect(getRunInfo("run05", state)).toEqual(undefined);
     expect(getRunInfo("run01", state)).toEqual(RunInfo.fromJs({
@@ -1043,25 +1099,32 @@ describe("test public accessors", () => {
     }));
     expect(getApis([], undefined)).toEqual([]);
     expect(getApis(["a", "b"], state2)).toEqual([
-      {id: "a", active: true}, {id: "b", active: true},
+      { id: "a", active: true }, { id: "b", active: true },
     ]);
     expect(getApis(["a", "b", "c"], state2)).toEqual([
-      {id: "a", active: true}, {id: "b", active: true}, {id: "c", active: true},
+      { id: "a", active: true }, { id: "b", active: true }, { id: "c", active: true },
     ]);
     expect(getApis(["c", "a"], state2)).toEqual([
-      {id: "c", active: true}, {id: "a", active: true},
+      { id: "c", active: true }, { id: "a", active: true },
     ]);
   });
 
   test("get artifact root", () => {
     const state0 = rootReducer(undefined, {
-      type: fulfilled(LIST_ARTIFACTS_API),
+      type: fulfilled(GET_RUN_API),
       meta: {
         id: "a",
         runUuid: "run01",
       },
       payload: {
-        root_uri: "some/path",
+        run: {
+          info: {
+            run_uuid: 'run01',
+            experiment_id: "1",
+            artifact_uri: "some/path",
+          },
+          data: {},
+        },
       },
     });
     expect(getArtifactRootUri("run01", state0)).toEqual("some/path");
@@ -1069,7 +1132,8 @@ describe("test public accessors", () => {
 
   test("get artifacts", () => {
     const state0 = rootReducer(undefined, new_action(
-      {type: fulfilled(LIST_ARTIFACTS_API),
+      {
+        type: fulfilled(LIST_ARTIFACTS_API),
         runUuid: "run01",
         payload: {
           files: [{
@@ -1083,7 +1147,7 @@ describe("test public accessors", () => {
       children: {
         file1: Object.assign(new ArtifactNode(), {
           children: undefined,
-          fileInfo: {is_dir: false, path: "file1"},
+          fileInfo: { is_dir: false, path: "file1" },
           isLoaded: false,
           isRoot: false,
         }),
@@ -1162,6 +1226,7 @@ describe("test apis", () => {
       payload: "payload",
     };
   }
+
   test("all action states", () => {
     const state0 = apis(undefined, new_action(pending(GET_RUN_API)));
     expect(state0).toEqual({

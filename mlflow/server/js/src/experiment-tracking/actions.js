@@ -83,7 +83,6 @@ export const deleteRunApi = (runUuid, id = getUUID()) => {
     return deleteResponse.then(() => dispatch(getRunApi(runUuid, id)));
   };
 };
-
 export const RESTORE_RUN_API = 'RESTORE_RUN_API';
 export const restoreRunApi = (runUuid, id = getUUID()) => {
   return (dispatch) => {

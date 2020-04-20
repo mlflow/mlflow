@@ -15,7 +15,7 @@ export function CollapsibleSection(props) {
       defaultActiveKey={['1']}
       expandIcon={({ isActive }) => <Icon type='caret-right' rotate={isActive ? 90 : 0} />}
     >
-      <Collapse.Panel header={title} key='1'>
+      <Collapse.Panel className='collapsible-panel' header={title} key='1'>
         {props.children}
       </Collapse.Panel>
     </Collapse>

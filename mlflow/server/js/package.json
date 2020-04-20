@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@ag-grid-community/core": "22.0.0",
     "@ag-grid-community/client-side-row-model": "22.0.0",
+    "@ag-grid-community/core": "22.0.0",
     "@ag-grid-community/react": "^22.0.0",
     "antd": "^3.23.5",
     "bytes": "3.0.0",
@@ -15,6 +15,7 @@
     "file-saver": "1.3.8",
     "formik": "^1.1.1",
     "html-entities": "1.2.1",
+    "http-proxy-middleware": "^1.0.3",
     "immutable": "3.8.1",
     "jquery": "^3.4.1",
     "json-bigint": "databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658",
@@ -27,17 +28,17 @@
     "react": "16.5.2",
     "react-app-rewire-polyfills": "^0.2.0",
     "react-bootstrap": "0.32.1",
-    "react-dom": "^16.3.2",
+    "react-dom": "16.3.2",
     "react-iframe": "1.8.0",
     "react-mde": "^7.6.2",
     "react-modal": "^3.4.4",
     "react-overlays": "^0.8.3",
-    "react-plotly.js": "2.4.0",
+    "react-plotly.js": "2.2.0",
     "react-redux": "5.0.7",
     "react-router": "4.2.0",
     "react-router-dom": "4.2.2",
     "react-router-redux": "4.0.8",
-    "react-scripts": "1.1.4",
+    "react-scripts": "2.1.8",
     "react-sticky": "6.0.2",
     "react-treebeard": "2.1.0",
     "react-virtualized": "9.21.0",
@@ -51,10 +52,9 @@
     "yup": "^0.26.3"
   },
   "devDependencies": {
-    "babel-eslint": "8.2.2",
+    "canvas": "^2.6.1",
     "enzyme": "3.5.0",
     "enzyme-adapter-react-16": "1.3.0",
-    "eslint": "4.18.2",
     "eslint-config-airbnb-base": "~12.0.0",
     "eslint-config-standard": "10.2.1",
     "eslint-import-resolver-webpack": "0.8.4",
@@ -66,10 +66,11 @@
     "eslint-plugin-promise": "3.6.0",
     "eslint-plugin-react": "7.4.0",
     "eslint-plugin-standard": "3.0.1",
+    "jest-canvas-mock": "^2.2.0",
     "jest-localstorage-mock": "^2.3.0",
     "react-app-rewire-define-plugin": "1.0.0",
-    "react-app-rewired": "^1.5.2",
-    "redux-mock-store": "^1.5.4"
+    "redux-mock-store": "^1.5.4",
+    "react-app-rewired": "^2.1.5"
   },
   "scripts": {
     "start": "react-app-rewired start",
@@ -88,15 +89,12 @@
     ],
     "coverageReporters": [
       "lcov"
+    ],
+    "setupFilesAfterEnv": [
+      "jest-canvas-mock"
     ]
   },
-  "proxy": {
-    "/ajax-api": {
-      "target": "http://localhost:5000"
-    },
-    "/get-artifact": {
-      "target": "http://localhost:5000",
-      "ws": true
-    }
-  }
+  "browserslist": [
+    "defaults"
+  ]
 }

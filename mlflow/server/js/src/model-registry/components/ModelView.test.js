@@ -67,7 +67,7 @@ describe('ModelView', () => {
         <ModelView {...minimalProps} />
       </BrowserRouter>
     );
-    expect(wrapper.find(ModelView).length).not.toBeNull();
+    expect(wrapper.find(ModelView).length).toBe(1);
   });
 
   test('should render all model versions initially', () => {
