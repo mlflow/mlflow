@@ -437,7 +437,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         if (MAP_COLUMNNAMES_TO_MLFLOW_NAMES.has(columnSplitId[0])) {
           const columnType = MAP_COLUMNNAMES_TO_MLFLOW_NAMES.get(columnSplitId[0]);
           const columnName = columnSplitId[1];
-          filters[columnType + "." + columnName] = [
+          filters[columnType + ".\"" + columnName + "\""] = [
             filterInstance.getModel().type, filterInstance.getModel().filter,
           ];
         }

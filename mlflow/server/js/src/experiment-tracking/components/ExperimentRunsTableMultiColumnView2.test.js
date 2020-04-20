@@ -71,12 +71,17 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     { // A filter that is not a user params, tags or metrics
       colId: "mlflow.tags.private",
       colDef: { field: "mlflow.tags.private" },
+    },
+    { // With a space in parameter name
+      colId: "$$$param$$$-foo bar",
+      colDef: { field: "$$$param$$$-foo bar" },
     }];
     instance.columnApi = { getAllDisplayedColumns: jest.fn(() => columns) };
     const filterInstances = new Map([
       ["$$$param$$$-foo", { getModel: jest.fn(() => ({ type: "contains", filter: "myfilter_1" })) }],
       ["$$$tag$$$-bar_1", { getModel: jest.fn(() => ({ type: "contains", filter: "myfilter_2" })) }],
       ["mlflow.tags.private", { getModel: jest.fn() }],
+      ["$$$param$$$-foo bar", { getModel: jest.fn(() => ({ type: "contains", filter: "myfilter_3" })) }],
     ]);
     instance.gridApi = {
       getFilterInstance: jest.fn(
@@ -85,8 +90,9 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     };
     instance.onFilterChanged();
     expect(minimalProps.onFilter).toHaveBeenCalledWith({
-      "params.foo": ["contains", "myfilter_1"],
-      "tags.bar": ["contains", "myfilter_2"],
+      "params.\"foo\"": ["contains", "myfilter_1"],
+      "tags.\"bar\"": ["contains", "myfilter_2"],
+      "params.\"foo bar\"": ["contains", "myfilter_3"],
     });
   });
 });
