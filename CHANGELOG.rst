@@ -14,7 +14,7 @@ Features:
 - Added ability to compare source runs associated with model versions from the registered model UI  (#2537, @juntai-zheng)
 - Added support for alphanumerical experiment IDs in the UI. (#2568, @jonas)
 - Added support for passing arguments to ``docker run`` when running docker-based MLflow projects (#2608, @ksanjeevan)
-- Added Windows support for pushing images to AWS ECR (#2500, @AndreyBulezyuk)
+- Added Windows support for ``mlflow sagemaker build-and-push-container`` CLI & API (#2500, @AndreyBulezyuk)
 - Improved performance of reading experiment data from local filesystem when LibYAML is installed (#2707, @Higgcz)
 - Added a healthcheck endpoint to the REST API server at ``/health`` that always returns a 200 response status code, to be used to verify health of the server (#2725, @crflynn)
 - MLflow metrics UI plots now scale to rendering thousands of points using scattergl (#2447, @mjlbach)
