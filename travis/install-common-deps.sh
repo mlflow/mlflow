@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+set -x
+df -h
+sudo rm -f /swapfile
+df -h
+sudo apt clean
+df -h
+docker rmi $(docker image ls -aq)
+df -h
+
 set -ex
 sudo mkdir -p /travis-install
 # GITHUB_WORKFLOW is set by default during GitHub workflows
