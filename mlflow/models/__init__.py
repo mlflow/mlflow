@@ -123,7 +123,11 @@ class Model(object):
                                       registered model if one with the given name does not exist.
         :param model_signature: Note:: Experimental: This argument may change or be removed in a
                                 future release without warning. Model signature describes model
-                                input and output schema.
+                                input and output schema. Model signature can be inferred from a
+                                dataset by calling
+                                :py:func:`mlflow.models.signature.infer_signature`
+                                or constructed by hand, see
+                                :py:class:``mlflow.models.signature.ModelSignature`
         :param input_example: Note:: Experimental: This argument may change or be removed in a
                               future release without warning. Input example provides one or several
                               examples of valid model input. The example can be used as a hint of
