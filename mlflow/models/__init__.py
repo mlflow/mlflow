@@ -72,9 +72,6 @@ class Model(object):
         return res
 
     def to_yaml(self, stream=None):
-        # NOTE: We do not want to sort keys to preserve the ordering of the arguments set by
-        # __init__ method. This is not super important but the MLmodel yaml looks a little better
-        # if schema is at the end for example.
         return yaml.safe_dump(self.to_dict(), stream=stream, default_flow_style=False)
 
     def __str__(self):
