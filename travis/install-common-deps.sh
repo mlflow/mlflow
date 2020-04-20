@@ -6,6 +6,8 @@ sudo apt clean
 df -h
 docker rmi $(docker image ls -aq)
 df -h
+rm -rf $HOME/miniconda
+df -h
 
 set -ex
 sudo mkdir -p /travis-install
