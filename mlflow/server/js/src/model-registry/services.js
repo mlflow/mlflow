@@ -149,6 +149,25 @@ export class Services {
       });
   }
 
+  /**
+   * Transition model version stage
+   * @param data
+   * @param success
+   * @param error
+   * @returns {*|jQuery|*|*|*|*}
+   */
+  static transitionModelVersionStage({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl(
+      'ajax-api/2.0/preview/mlflow/model-versions/transition-stage'), {
+        type: 'POST',
+        dataType: 'json',
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify(data),
+        jsonp: false,
+        success: success,
+        error: error,
+      });
+  }
 
   /**
    * Delete model version

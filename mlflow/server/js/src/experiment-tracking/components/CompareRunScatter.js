@@ -116,7 +116,7 @@ export class CompareRunScatterImpl extends Component {
                   y: ys,
                   text: tooltips,
                   hoverinfo: "text",
-                  type: 'scatter',
+                  type: 'scattergl',
                   mode: 'markers',
                   marker: {
                     size: 10,

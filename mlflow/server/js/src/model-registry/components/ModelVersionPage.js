@@ -94,17 +94,15 @@ export class ModelVersionPageImpl extends React.Component {
       });
   }
 
-  handleStageTransitionDropdownSelect = (activity, comment, archiveExistingVersions) => {
+  handleStageTransitionDropdownSelect = (activity) => {
     const { modelName, version } = this.props;
     const toStage = activity.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {
       this.props
         .transitionModelVersionStageApi(
           modelName,
-          version,
+          version.toString(),
           toStage,
-          archiveExistingVersions,
-          comment,
           this.transitionModelVersionStageRequestId,
         )
         .then(this.loadData)
@@ -189,6 +187,7 @@ export class ModelVersionPageImpl extends React.Component {
                   handleEditDescription={this.handleEditDescription}
                   deleteModelVersionApi={this.props.deleteModelVersionApi}
                   history={history}
+                  handleStageTransitionDropdownSelect={this.handleStageTransitionDropdownSelect}
                 />
               );
             }
