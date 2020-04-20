@@ -16,9 +16,10 @@ import math
 
 class SearchUtils(object):
     VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
-    VALID_PARAM_COMPARATORS = set(['!=', '=', 'LIKE', 'like', 'ILIKE', 'ilike'])
-    VALID_TAG_COMPARATORS = set(['!=', '=', 'LIKE', 'like', 'ILIKE', 'ilike'])
-    VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '=', 'LIKE', 'like', 'ILIKE', 'ilike'])
+    VALID_PARAM_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
+    VALID_TAG_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
+    VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
+    CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set(['LIKE', 'ILIKE'])
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
     _METRIC_IDENTIFIER = "metric"
@@ -45,15 +46,15 @@ class SearchUtils(object):
         '!=': operator.ne,
         '<=': operator.le,
         '<': operator.lt,
-        'like': re.match,
-        'ilike': re.match
+        'LIKE': re.match,
+        'ILIKE': re.match
     }
 
     @classmethod
     def get_sql_filter_ops(cls, column, operator):
         sql_filter_ops = {
-            'like': column.like,
-            'ilike': column.ilike
+            'LIKE': column.like,
+            'ILIKE': column.ilike
         }
         return sql_filter_ops[operator]
 
@@ -281,7 +282,7 @@ class SearchUtils(object):
         key_type = sed.get('type')
         key = sed.get('key')
         value = sed.get('value')
-        comparator = sed.get('comparator').lower()
+        comparator = sed.get('comparator').upper()
 
         if cls.is_metric(key_type, comparator):
             lhs = run.data.metrics.get(key, None)
@@ -298,9 +299,9 @@ class SearchUtils(object):
         if lhs is None:
             return False
 
-        if comparator in ['like', 'ilike']:
+        if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
             # Change value from sql syntax to regex syntax
-            if comparator == 'ilike':
+            if comparator == 'ILIKE':
                 value = value.lower()
                 lhs = lhs.lower()
             if not value.startswith('%'):

@@ -74,6 +74,7 @@ setup(
             'mleap>=0.8.1',
             'azure-storage-blob>=12.0',
             'google-cloud-storage',
+            'azureml-core>=1.2.0'
         ],
         'sqlserver': [
             "mlflow-dbstore",

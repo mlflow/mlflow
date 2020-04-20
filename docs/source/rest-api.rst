@@ -11,6 +11,9 @@ The API is hosted under the ``/api`` route on the MLflow tracking server. For ex
 experiments on a tracking server hosted at ``http://localhost:5000``, access
 ``http://localhost:5000/api/2.0/preview/mlflow/experiments/list``.
 
+MLflow also provides a health check endpoint at the ``/health`` route, which responds with a 200 response code and
+``OK`` in the response body.
+
 .. contents:: Table of Contents
     :local:
     :depth: 1
