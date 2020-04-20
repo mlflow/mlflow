@@ -24,6 +24,7 @@ class ArtifactPage extends Component {
     apis: PropTypes.object.isRequired,
     listArtifactsApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
+    artifactsAreLoading: PropTypes.bool.isRequired,
   };
 
   state = { activeNodeIsDirectory: false };

@@ -16,6 +16,7 @@ const EXPERIMENT_ID = '17';
 let searchRunsApi;
 let getExperimentApi;
 let loadMoreRunsApi;
+let listAllColumnsApi;
 let history;
 let location;
 
@@ -23,6 +24,8 @@ beforeEach(() => {
   searchRunsApi = jest.fn(() => Promise.resolve());
   getExperimentApi = jest.fn(() => Promise.resolve());
   loadMoreRunsApi = jest.fn(() => Promise.resolve());
+  listAllColumnsApi = jest.fn(() => Promise.resolve(
+    { value: { metrics: [], params: [], tags: [] } }));
   location = {};
 
   history = {};
@@ -38,6 +41,7 @@ const getExperimentPageMock = () => {
     searchRunsApi={searchRunsApi}
     getExperimentApi={getExperimentApi}
     loadMoreRunsApi={loadMoreRunsApi}
+    listAllColumnsApi={listAllColumnsApi}
     history={history}
     location={location}
   />);
@@ -154,9 +158,9 @@ test('should render experiment view when search error occurs', () => {
   const renderedView = shallow(
     <Router>
       {experimentPageInstance.renderExperimentView(
-      false,
-      true,
-      [searchRunsErrorRequest, getExperimentErrorRequest])}
+        false,
+        true,
+        [searchRunsErrorRequest, getExperimentErrorRequest])}
     </Router>
   );
   expect(renderedView.find(ExperimentView)).toHaveLength(1);
@@ -190,4 +194,12 @@ test('should update next page token to null when load-more response has no token
   return Promise.all([promise1, promise2]).then(() =>
     expect(instance.state.nextPageToken).toBe(null),
   );
+});
+
+test('should ask all columns with the correct lifecycle state', () => {
+  const wrapper = getExperimentPageMock();
+  const instance = wrapper.instance();
+  instance.onSearch(null, null, null, "Deleted", null, null);
+  const listAllColumnsApiCalls = listAllColumnsApi.mock.calls[1];
+  expect(listAllColumnsApiCalls[1]).toEqual(ViewType.DELETED_ONLY);
 });

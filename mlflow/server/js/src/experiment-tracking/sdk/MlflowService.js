@@ -366,4 +366,24 @@ export class MlflowService {
       error: error,
     });
   }
+
+  /**
+   * @param {ListAllColumns} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static ListAllColumns({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/columns/list'), {
+      type: 'GET',
+      dataType: 'json',
+      converters: {
+        'text json': StrictJsonBigInt.parse,
+      },
+      data: data,
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
 }
