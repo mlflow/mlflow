@@ -126,6 +126,7 @@ class FileStore(AbstractStore):
         if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
             parents.append(self.trash_folder)
         for parent in parents:
+            print("parent", parent)
             exp_list = find(parent, experiment_id, full_path=True)
             if len(exp_list) > 0:
                 return exp_list[0]

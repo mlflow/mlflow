@@ -6,7 +6,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ColSpec, DataType, ModelSignature, \
-    infer_signature, save_example, from_json, Schema
+    infer_signature, save_example, read_example, Schema, read_example
 from mlflow.utils.file_utils import TempDir
 
 
@@ -64,8 +64,8 @@ def pandas_df_with_all_types():
         "long": np.array([1, 2, 3], np.int64),
         "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
         "double": [math.pi, 2 * math.pi, 3 * math.pi],
-        "string": ["a", "b", 'c'],
         "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
+        "string": ["a", "b", 'c'],
     })
 
 
@@ -123,60 +123,45 @@ def test_input_examples(pandas_df_with_all_types):
     sig = infer_signature(pandas_df_with_all_types)
     # test setting example with data frame with all supported data types
     with TempDir() as tmp:
-        filename = save_example(tmp.path(), pandas_df_with_all_types, schema=sig.inputs)
-        parsed_df = from_json(tmp.path(filename), schema=sig.inputs, pandas_orient="split")
+        filename = save_example(tmp.path(), pandas_df_with_all_types)
+        parsed_df = read_example(tmp.path(filename), schema=sig.inputs)
         assert (pandas_df_with_all_types == parsed_df).all().all()
         # the frame read without schema should match except for the binary values
-        assert (parsed_df.drop(columns=["binary"]) == from_json(tmp.path(filename),
-                                                                pandas_orient="split")
+        assert (parsed_df.drop(columns=["binary"]) == read_example(tmp.path(filename))
                 .drop(columns=["binary"])).all().all()
 
     # pass the input as dictionary instead
     with TempDir() as tmp:
         d = {name: pandas_df_with_all_types[name].values
              for name in pandas_df_with_all_types.columns}
-        sig = infer_signature(d)
-        filename = save_example(tmp.path(), d, schema=sig.inputs)
-        parsed_df = from_json(tmp.path(filename), schema=sig.inputs, pandas_orient="records")
+        filename = save_example(tmp.path(), d)
+        parsed_df = read_example(tmp.path(filename), sig.inputs)
         assert (pandas_df_with_all_types == parsed_df).all().all()
-
-    # saving example with binary data and no schema should fail
-    with TempDir() as tmp:
-        with pytest.raises(TypeError):
-            save_example(tmp.path(), pandas_df_with_all_types)
-        df_without_binary = pandas_df_with_all_types.drop(columns=["binary"])
-        filename = save_example(tmp.path(), df_without_binary)
-        parsed_df = from_json(tmp.path(filename), pandas_orient="split")
-        sig = infer_signature(df_without_binary)
-        for col_name, col_type in zip(sig.inputs.column_names(), sig.inputs.numpy_types()):
-            parsed_df[col_name] = parsed_df[col_name].astype(col_type)
-        assert (df_without_binary == parsed_df).all().all()
 
     # input passed as numpy array
     sig = infer_signature(pandas_df_with_all_types.values)
     with TempDir() as tmp:
-        filename = save_example(tmp.path(), pandas_df_with_all_types.values,
-                                schema=sig.inputs)
-        parsed_df = from_json(tmp.path(filename), schema=sig.inputs)
-        assert (pandas_df_with_all_types.values == parsed_df.values).all().all()
+        filename = save_example(tmp.path(), pandas_df_with_all_types.values)
+        parsed_ary = read_example(tmp.path(filename), schema=sig.inputs)
+        assert (pandas_df_with_all_types.values == parsed_ary).all().all()
 
     # pass multidimensional array
     with TempDir() as tmp:
         example = np.array([[[1, 2, 3]]])
         filename = save_example(tmp.path(), example)
-        parsed_df = from_json(tmp.path(filename))
-        assert (example == np.array(parsed_df.values.tolist())).all()
+        parsed_ary = read_example(tmp.path(filename))
+        assert (example == parsed_ary).all()
     # pass multidimensional array
     with TempDir() as tmp:
         example = np.array([[[1, 2, 3]]])
         filename = save_example(tmp.path(), {"x": example, "y": example})
-        parsed_df = from_json(tmp.path(filename))
-        assert (example == np.array(parsed_df["x"].values.tolist())).all().all()
-        assert (example == np.array(parsed_df["y"].values.tolist())).all().all()
+        parsed_dict = read_example(tmp.path(filename))
+        assert (example == parsed_dict["x"]).all()
+        assert (example == parsed_dict["y"]).all()
 
     # pass dict with scalars
     with TempDir() as tmp:
         example = {"a": 1, "b": "abc"}
         filename = save_example(tmp.path(), example)
-        parsed_df = from_json(tmp.path(filename), pandas_orient="split")
+        parsed_df = read_example(tmp.path(filename))
         assert example == parsed_df.to_dict(orient="records")[0]

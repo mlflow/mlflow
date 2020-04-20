@@ -225,46 +225,128 @@ def infer_signature(model_input: MlflowModelDataset,
     return ModelSignature(inputs, outputs)
 
 
-def save_example(path: str, input_example: ModelInputExample, schema: Schema = None) -> str:
+def save_example(path: str, input_example: ModelInputExample) -> str:
     """
     Save mlflow example into a file on a given path and return the resulting filename.
 
-    MLflow examples are stored as json and so the input data must be jsonable. If the input data
-    contains binary columns, the caller must provide schema and binary columns will be  base64
-    encoded before generating the output.
+    The example(s) can be provided as :py:class:`pandas.DataFrame`, :py:class:`numpy.ndarray',
+    python dictionary or python list. The assumption is that the example is conceptually either a
+    DataFrame-like dataset or a numpy array or a dictionary of numpy arrays. Therefore, lists and
+    dictionaries with no-numpy array values are converted to DataFrames first. This function will
+    raise an Exception if such conversion fails.
+
+    NOTE: If the input example is provided as a list, it is assumed that it is a list of rows. If
+    you want to provide a single row example as a list, it is still expected as a list of lists.
+
+    NOTE: Dictionaries with all scalar values are assumed ot be a single DataFrame row and will be
+    converted accordingly.
+
+    Example Storage Format
+    ======================
+    The examples are stored as json for portability and readability. Therefore, the contents of the
+    example(s) must be jsonable. Mlflow will make the following conversions automatically on behalf
+    of the user:
+
+    - binary values: :py:class`bytes` or :py:class`bytearray` are converted to base64
+      encoded strings.
+    - numpy types: Numpy types are converted to the corresponding python types or their closest
+      equivalent.
+
+    The different input types are encoded as follows:
+
+    - DataFrames are stored in pandas orient="split" format.
+    - Lists are assumed to contain DataFrame rows and are converted into a DataFrame before writing
+      them out.
+    - Dictionaries are treated depending on their content:
+        a) all values are numpy arrays - stored as json object with json arrays as values.
+        b) else considered pandas DataFrame and is converted before writing out.
+    - Numpy arrays are stored as json lists.
 
     :param path: Path where to store the example.
     :param input_example: Data with the input example(s).
-    :param schema: Input example data types.
     :return: Filename of the stored example.
     """
     if isinstance(input_example, dict):
+        # assume dicts with non-numpy array values are dataframes
         if all([np.isscalar(x) for x in input_example.values()]):
-            input_example = pd.DataFrame({x: [v] for x, v in input_example.items()})
-    elif isinstance(input_example, list):
+            input_example = pd.DataFrame([input_example])
+        elif any([not isinstance(x, np.ndarray) for x in input_example.values()]):
+            input_example = pd.DataFrame.from_dict(input_example)
+
+    if isinstance(input_example, list):
         input_example = pd.DataFrame(input_example)
+
     if isinstance(input_example, pd.DataFrame):
         example_filename = "input_dataframe_example.json"
+        input_example = input_example.to_dict(orient="split")
     elif isinstance(input_example, dict):
-        example_filename = "input_dictionary_example.json"
+        example_filename = "input_array_dictionary_example.json"
     elif isinstance(input_example, np.ndarray):
         example_filename = "input_array_example.json"
+        input_example = input_example.tolist()
     else:
         raise TypeError("Unexpected type of input_example. Expected one of "
                         "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
-                          type(input_example)))
+            type(input_example)))
     with open(os.path.join(path, example_filename), "w") as f:
-        to_json(input_example, pandas_orient="split", schema=schema, output_stream=f)
+        json.dump(input_example, f, cls=NumpyEncoder)
     return example_filename
 
 
-def from_json(path_or_str, schema: Schema = None, pandas_orient: str = "records") -> pd.DataFrame:
-    """
-    Read data frame back from json.
+def _base64decode(x):
+    return base64.decodebytes(x.encode("ascii"))
 
-    The data is always read as DataFrame even if it was written out as other supported data types (
-    numpy.ndarray or {str->numpy.ndarray}. If the data was saved with a schema, caller should pass
-    the same schema to ensure correct data parsing (e.g. binary columns need to be base64 decoded).
+
+def read_example(path: str, schema: Schema = None) -> ModelInputExample:
+    filename = os.path.split(path)[-1]
+    if filename == "input_dataframe_example.json":
+        return dataframe_from_json(path, schema, pandas_orient="split")
+    with open(path, "r") as f:
+        res = json.load(f)
+    if filename == "input_array_example.json":
+        if not isinstance(res, list):
+            raise TypeError("Unexpected type, expected 'list', got {}".format(type(res)))
+
+        if schema is not None:
+            if len(set(schema.column_types())) > 1:
+                res = np.array(res, dtype=np.object)
+            else:
+                res = np.array(res)
+            binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
+            if binary_cols:
+                convert = np.vectorize(_base64decode)
+                for i in binary_cols:
+                    res[..., i] = convert(res[..., i])
+            return res
+        else:
+            return np.array(res)
+    elif filename == "input_array_dictionary_example.json":
+        if not isinstance(res, dict):
+            raise TypeError("Unexpected type, expected 'dict', got {}".format(type(res)))
+        if schema is not None:
+            typemap = dict(zip(schema.column_names(), schema.column_types()))
+            def convert(x, y):
+                if typemap[x] == DataType.binary:
+                    return np.array([_base64decode(z) for z in y], np.bytes_)
+                else:
+                    return np.array(y, dtype=typemap[x].to_numpy())
+
+            return {x: convert(x, y) for x, y in res.items()}
+        else:
+            return {x: np.array(y) for x, y in res.items()}
+    else:
+        raise MlflowException("Unexpected example filename, expected one of ("
+                              "'input_dataframe_example.json', "
+                              "'input_array_dictionary_example.json', "
+                              "'input_array_example.json'"
+                              "), got '{}'".format(filename))
+
+
+def dataframe_from_json(path_or_str, schema: Schema = None,
+                        pandas_orient: str = "split") -> pd.DataFrame:
+    """
+    Read data frame back from json. User can pass schema to ensure correct type parsing and to make
+    any necessary conversions (e.g. string -> binary for binary columns).
 
     :param path_or_str: Path to a json file or a json string.
     :param schema: Mlflow schema used when parsing the data.
@@ -276,82 +358,12 @@ def from_json(path_or_str, schema: Schema = None, pandas_orient: str = "records"
         df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes)[schema.column_names()]
         binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
 
-        def base64decode(x):
-            return base64.decodebytes(x.encode("ascii"))
-
         for i in binary_cols:
             col = df.columns[i]
-            df[col] = np.array(df[col].map(base64decode), dtype=np.bytes_)
+            df[col] = np.array(df[col].map(_base64decode), dtype=np.bytes_)
             return df
     else:
         return pd.read_json(path_or_str, orient=pandas_orient, dtype=False)
-
-
-def to_json(data: MlflowModelDataset, pandas_orient: str = "records", schema: Schema = None,
-            output_stream=None):
-    """Write data out as json.
-    The data can not contain any non-jsonable columns except for 'binary' columns. If data contains
-    binary column(s), the caller must pass schema otherwise TypeError is raised. Binary columns are
-    base64 encoded.
-
-    :param data: data to be converted, works with pandas and numpy, rest will be returned as is.
-    :param pandas_orient: If `data` is a Pandas DataFrame, it will be converted to a JSON
-                          dictionary using this Pandas serialization orientation.
-    :param schema: Schema of the data. It is required if the dataset contains data types that are
-                   not jsonable (binary).
-    :param output_stream: File-like. Output is written into the output stream if provided. It is
-                          returned as a string otherwise.
-    """
-
-    if schema is not None:
-        binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
-    else:
-        binary_cols = []
-
-    def base64encode(x):
-        return base64.encodebytes(x).decode("ascii")
-
-    def base64_encode_ndarray(x):
-        base64encode_vec = np.vectorize(base64encode)
-        if len(x.shape) == 1:
-            return base64encode_vec(x)
-        else:
-            y = x.copy()
-            for i in binary_cols:
-                y[..., i] = base64encode_vec(x[..., i])
-            return y
-
-    if isinstance(data, pd.Series):
-        data = pd.DataFrame(data)
-    if isinstance(data, pd.DataFrame):
-        if binary_cols:
-            data = data.copy()
-            for i in binary_cols:
-                col = data.columns[i]
-                data[col] = data[col].map(base64encode)
-        data = data.to_dict(orient=pandas_orient)
-    elif isinstance(data, dict):
-        new_data = {}
-        keys = list(data.keys())
-        binary_col_names = set([keys[i] for i in binary_cols])
-        for col in keys:
-            if not isinstance(data[col], np.ndarray):
-                raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(data[col])))
-            if col in binary_col_names:
-                new_data[col] = base64_encode_ndarray(data[col]).tolist()
-            else:
-                new_data[col] = data[col].tolist()
-        data = new_data
-    elif isinstance(data, np.ndarray):
-        if binary_cols:
-            data = base64_encode_ndarray(data).tolist()
-        else:
-            data = data.tolist()
-
-    if output_stream is not None:
-        json.dump(data, output_stream, cls=NumpyEncoder)
-    else:
-        return json.dumps(data, cls=NumpyEncoder)
 
 
 def _map_numpy_dtype(col: np.ndarray) -> DataType:

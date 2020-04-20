@@ -1,3 +1,4 @@
+import base64
 from json import JSONEncoder
 
 from google.protobuf.json_format import MessageToJson, ParseDict
@@ -49,7 +50,21 @@ class NumpyEncoder(JSONEncoder):
     hence json.dumps will raise TypeError.
     In this case, you'll need to convert your numpy types into its closest python equivalence.
     """
+
+
     def default(self, o):  # pylint: disable=E0202
+        def encode_binary(x):
+            return base64.encodebytes(x).decode("ascii")
+        if isinstance(o, np.ndarray):
+            if o.dtype == np.object:
+                return [self.default(x) for x in o.tolist()]
+            elif o.dtype == np.bytes_:
+                return np.vectorize(encode_binary)(o)
+            else:
+                return o.tolist()
+
         if isinstance(o, np.generic):
             return np.asscalar(o)
-        return JSONEncoder.default(self, o)
+        if isinstance(o, bytes) or isinstance(o, bytearray):
+            return encode_binary(o)
+        return o

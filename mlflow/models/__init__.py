@@ -14,7 +14,7 @@ The built-in flavors are:
 
 For details, see `MLflow Models <../models.html>`_.
 """
-
+import os
 from abc import abstractmethod, ABCMeta
 from datetime import datetime
 import json
@@ -133,19 +133,21 @@ class Model(object):
         :param input_example: Note:: Experimental: This argument may change or be removed in a
                               future release without warning. Input example provides one or several
                               examples of valid model input. The example can be used as a hint of
-                              what data to feed the model.
+                              what data to feed the model. The example is saved using
+                              :py:func:`mlflow.model.signatures.save_example`. This method will
+                              raise if saving example fails.
         :param kwargs: Extra args passed to the model flavor.
         """
         with TempDir() as tmp:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
-            if input_example is not None:
-                input_schema = model_signature.inputs if model_signature is not None else None
-                mlflow_model.input_example = save_example(tmp.path(), input_example, input_schema)
             if model_signature is not None:
                 mlflow_model.signature = model_signature
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+            if input_example is not None:
+                mlflow_model.input_example = save_example(local_path, input_example)
+                mlflow_model.save(os.path.join(local_path, "MLmodel"))
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
