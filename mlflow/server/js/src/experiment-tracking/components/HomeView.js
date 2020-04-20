@@ -5,9 +5,10 @@ import ExperimentListView from './ExperimentListView';
 import ExperimentPage from './ExperimentPage';
 import { getExperiments } from '../reducers/Reducers';
 import { NoExperimentView } from './NoExperimentView';
+import Utils from '../../common/utils/Utils';
 
 export const getFirstActiveExperiment = (experiments) => {
-  const sorted = experiments.concat().sort((a, b) => (a.experiment_id - b.experiment_id));
+  const sorted = experiments.concat().sort(Utils.compareExperiments);
   return sorted.find((e) => e.lifecycle_stage === "active");
 };
 
@@ -18,7 +19,7 @@ class HomeView extends Component {
   }
 
   static propTypes = {
-    experimentId: PropTypes.number,
+    experimentId: PropTypes.string,
   };
 
   state = {
@@ -92,7 +93,7 @@ const mapStateToProps = (state, ownProps) => {
   if (ownProps.experimentId === undefined) {
     const firstExp = getFirstActiveExperiment(getExperiments(state));
     if (firstExp) {
-      return { experimentId: parseInt(firstExp.experiment_id, 10) };
+      return { experimentId: firstExp.experiment_id };
     }
   }
   return {};

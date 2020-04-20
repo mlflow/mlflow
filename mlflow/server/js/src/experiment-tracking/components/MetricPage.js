@@ -12,7 +12,7 @@ export class MetricPageImpl extends Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricKey: PropTypes.string.isRequired,
-    experimentId: PropTypes.number,
+    experimentId: PropTypes.string,
     dispatch: PropTypes.func.isRequired,
   };
 
@@ -63,7 +63,7 @@ const mapStateToProps = (state, ownProps) => {
   const runUuids = JSON.parse(searchValues["?runs"]);
   let experimentId = null;
   if (searchValues.hasOwnProperty("experiment")) {
-    experimentId = parseInt(searchValues["experiment"], 10);
+    experimentId = searchValues["experiment"];
   }
   const { metricKey } = match.params;
   return {

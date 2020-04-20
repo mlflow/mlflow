@@ -24,7 +24,7 @@ export const CHART_TYPE_BAR = 'bar';
 
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
-    experimentId: PropTypes.number.isRequired,
+    experimentId: PropTypes.string.isRequired,
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricKey: PropTypes.string.isRequired,
     // A map of { runUuid : { metricKey: value } }
@@ -413,14 +413,13 @@ export class MetricsPlotPanel extends React.Component {
         const { popoverVisible, popoverX, popoverY } = this.state;
         const { points, event: { clientX, clientY } } = data;
         const samePointClicked = popoverX === clientX && popoverY === clientY;
-
         const runItems = points
           .sort((a, b) => b.y - a.y)
           .map(point => ({
             runId: point.data.runId,
             name: point.data.name,
             color: point.fullData.marker.color,
-            y: point.y,
+            y: point.text,
           }));
 
         this.setState({

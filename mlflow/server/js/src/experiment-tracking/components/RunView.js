@@ -24,7 +24,7 @@ class RunView extends Component {
     runUuid: PropTypes.string.isRequired,
     run: PropTypes.object.isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
-    experimentId: PropTypes.number.isRequired,
+    experimentId: PropTypes.string.isRequired,
     params: PropTypes.object.isRequired,
     tags: PropTypes.object.isRequired,
     latestMetrics: PropTypes.object.isRequired,

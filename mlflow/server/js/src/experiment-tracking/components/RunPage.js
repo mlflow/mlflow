@@ -14,7 +14,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 class RunPage extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
-    experimentId: PropTypes.number.isRequired,
+    experimentId: PropTypes.string.isRequired,
     modelVersions: PropTypes.arrayOf(Object),
     getRunApi: PropTypes.func.isRequired,
     listArtifactsApi: PropTypes.func.isRequired,
@@ -85,7 +85,7 @@ class RunPage extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { match } = ownProps;
   const runUuid = match.params.runUuid;
-  const experimentId = parseInt(match.params.experimentId, 10);
+  const experimentId = match.params.experimentId;
   return {
     runUuid,
     experimentId,

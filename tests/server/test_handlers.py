@@ -16,7 +16,7 @@ from mlflow.server.handlers import get_endpoints, _create_experiment, _get_reque
     _list_registered_models, _get_latest_versions, _create_model_version, _update_model_version, \
     _delete_model_version, _get_model_version_download_uri, \
     _search_model_versions, _get_model_version, _transition_stage, _rename_registered_model
-from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
 from mlflow.protos.model_registry_pb2 import CreateRegisteredModel, UpdateRegisteredModel, \
@@ -54,6 +54,13 @@ def mock_model_registry_store():
         mock_store = mock.MagicMock()
         m.return_value = mock_store
         yield mock_store
+
+
+def test_health():
+    with app.test_client() as c:
+        response = c.get("/health")
+        assert response.status_code == 200
+        assert response.get_data().decode() == "OK"
 
 
 def test_get_endpoints():
