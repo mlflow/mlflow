@@ -65,21 +65,16 @@ class Model(object):
         self.flavors[name] = params
         return self
 
-    def get_flavor_conf(self, flavor_name: str):
-        try:
-            return self.flavors[flavor_name]
-        except KeyError:
-            raise MlflowException(
-                "Model does not have the \"{flavor_name}\" flavor".format(flavor_name=flavor_name),
-                RESOURCE_DOES_NOT_EXIST)
-
     def to_dict(self):
         res = self.__dict__.copy()
-        if "signature" in res and res["signature"] is not None:
+        if res.get("signature") is not None:
             res["signature"] = res["signature"].to_dict()
         return res
 
     def to_yaml(self, stream=None):
+        # NOTE: We do not want to sort keys to preserve the ordering of the arguments set by
+        # __init__ method. This is not super important but the MLmodel yaml looks a little better
+        # if schema is at the end for example.
         return yaml.safe_dump(self.to_dict(), stream=stream, default_flow_style=False,
                               sort_keys=False)
 

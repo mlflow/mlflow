@@ -51,7 +51,7 @@ class DataType(Enum):
     string = (6, np.str)
     binary = (7, np.bytes_)
 
-    def __str__(self):
+    def __repr__(self):
         return self.name
 
     def to_numpy(self):
@@ -80,7 +80,7 @@ class ColSpec(object):
         return {"name": self.name, "type": self.type.name}
 
     def __eq__(self, other) -> bool:
-        names_eq = self.name is None and other.name is None or self.name == other.name
+        names_eq = (self.name is None and other.name is None) or self.name == other.name
         return names_eq and self.type == other.type
 
     def __repr__(self) -> str:
