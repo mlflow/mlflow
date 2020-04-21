@@ -25,5 +25,6 @@ Feature requests typically go through the following lifecycle:
 
 1. Submit feature request on GitHub issues containing a high-level description of the proposal and its motivation.
    We encourage requesters to provide an overview of the feature's implementation as well, if possible.
-2. Discuss feature request with a committer, who will provide input on the implementation overview or ask for a more detailed design, if applicable.
+2. Discuss feature request with a committer. The committer will provide input on the implementation overview or 
+   ask for a more detailed design, if applicable.
 3. After discussion & agreement on feature request, start implementation.
