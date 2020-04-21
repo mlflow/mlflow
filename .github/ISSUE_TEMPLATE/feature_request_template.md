@@ -4,29 +4,82 @@ about: Use this template for feature and enhancement proposals.
 labels: 'enhancement'
 title: "[FR]"
 ---
-Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
-for information on what types of issues we address.
+Thank you for submitting a feature request. **Before proceeding, please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md) for guidelines and information about the feature request lifecycle**.
 
-Please fill in this template and do not delete it unless you are sure your issue is outside its scope.
+**Please fill in this template. Feature requests that do not complete this template will not be reviewed.**
 
--------
-## Guidelines
+## Willingness to contribute
+The MLflow Community encourages new feature contributions. Would you or another member of your organization be willing to contribute an implementation of this feature (either as an MLflow Plugin or an enhancement to the MLflow code base)?
 
-Feature requests typically go through the following lifecycle:
+- [ ] Yes. I can contribute this feature independently.
+- [ ] Yes. I would be willing to contribute this feature with guidance from the MLflow community.
+- [ ] No. Explanation:
 
-1. Submit feature request with high-level description on GitHub issues (this is what you're doing now)
-2. Discuss feature request with a committer, who may ask for a more detailed design
-3. After discussion & agreement on feature request, start implementation
+## Proposal Summary
 
+(In a few sentences, provide a clear, high-level description of the feature request)
 
-## Describe the proposal
-Provide a clear high-level description of the feature request in the following sections. Feature requests that are likely to be accepted:
-* Are minimal in scope (note that it's always easier to add additional functionality later than remove functionality)
-* Are extensible (e.g. if adding an integration with an ML framework, is it possible to add similar integrations with other frameworks?)
-* Have user impact & value that justifies the maintenance burden of supporting the feature moving forwards. The [JQuery contributor guide](https://contribute.jquery.org/open-source/#contributing-something-new) has an excellent discussion on this.
+## Motivation
+- What is the use case for this feature?
+- Why is this use case valuable to support for MLflow users in general?
+- (If applicable) Why is this use case valuable to support for your projects or organization?
+- Why is it currently difficult to achieve this use case? (please be as specific as possible about why related MLflow features and components are insufficient)
 
-### Motivation
-What is the use case in mind?  Why is it valuable to support, and why is it currently difficult or impossible to achieve? Could the desired functionality alternatively be implemented as a third-party package using MLflow public APIs?
+## Proposed Changes
 
-### Proposed Changes
-For user-facing changes, what APIs are you proposing to add or modify? For internal changes, what code paths will need to be modified?
+### Can this feature be introduced as an MLflow Plugin?
+[MLflow Plugins] enable integration of third-party modules with many of MLflow’s components, allowing you to maintain and iterate on certain features independently of the MLflow Repository.
+
+Please refer to the https://mlflow.org/docs/latest/plugins.html for a list of supported MLflow Plugin types. Afterwards, select the option that best applies and fill in the **Explanation** field if applicable:
+
+- [ ] Yes. I think this feature can be introduced as an MLflow Plugin.
+- [ ] No. It does not make sense to structure this feature as an MLflow Plugin. Explanation:
+- [ ] No. I don’t think MLflow Plugins currently supports this type of feature. Explanation:
+
+If you selected “Yes,” please submit this feature request and add the “Plugin” GitHub label. An MLflow Community member will provide further guidance on how to get started with developing this feature as an MLflow Plugin.
+
+If you selected “No”, please complete the subsequent sections.
+
+### Which MLflow component(s) does this feature affect?
+
+- [ ] UI
+- [ ] CLI
+- [ ] API
+- [ ] REST-API
+- [ ] Examples
+- [ ] Docs
+- [ ] Tracking
+- [ ] Projects
+- [ ] Artifacts
+- [ ] Models
+- [ ] Model Registry
+- [ ] Scoring
+- [ ] Serving
+- [ ] R
+- [ ] Java
+- [ ] Python
+
+### Implementation impact
+Please answer the following questions to the best of your ability. If you are not familiar with the MLflow code base, please feel free to leave questions about implementation details blank as necessary, and check the following “Needs implementation input” box:
+- [ ] Needs implementation input
+
+- Does this feature introduce any new libraries to MLflow? If so, which ones?
+
+- Does this feature introduce changes or additions to the [MLflow REST API](https://mlflow.org/docs/latest/rest-api.html)? If so, why are these changes absolutely necessary? (Please describe alternative approaches you’ve considered and why they won’t work)
+
+- Does this feature introduce new MLflow Client or Fluent APIs? If so, why are these changes absolutely necessary? (Please describe alternative approaches you’ve considered and why they won’t work)
+
+- Does this feature make backwards-incompatible changes to existing MLflow APIs and behaviors? (Please describe why any backwards-incompatible changes cannot be avoided)
+
+- Does this feature introduce changes to any of the following backend APIs (selected all that apply)?:
+   - [ ] Tracking Artifact Repository
+   - [ ] Tracking Backend Store
+   - [ ] Model Registry Backend Store
+   - [ ] ...
+   - [ ] Other backend API
+
+(If you selected any of the fields above, please outline the proposed API changes)
+
+### Further Design
+
+(Use this section to include any additional information about your proposed changes. If you have a design document, please provide a link here.)
