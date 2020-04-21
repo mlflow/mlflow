@@ -940,7 +940,6 @@ export const mapStateToProps = (state, ownProps) => {
     });
   }
 
-
   const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
   tagsList.forEach(tagMap => {
     Object.values(tagMap).forEach(tag => tagKeysSet.add(tag.key));
@@ -981,7 +980,6 @@ const styles = {
     marginLeft: 16,
   },
 };
-
 
 const translateQuery = (entry) => {
   const filter = entry[0];
