@@ -266,7 +266,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
 
     submitted_run_obj = _run(
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
-        parameters=parameters, docker_args=docker_args, backend=backend,
+        parameters=parameters, docker_args=docker_args, backend_name=backend,
         backend_config=cluster_spec_dict, use_conda=use_conda, storage_dir=storage_dir,
         synchronous=synchronous, run_id=run_id)
     if synchronous:
