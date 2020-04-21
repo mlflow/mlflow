@@ -3,7 +3,7 @@ import os
 import mlflow
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models import Model, ModelSignature
-from mlflow.models.signature import Schema, ColSpec, read_example
+from mlflow.models.signature import Schema, ColSpec, dataframe_from_json
 from mlflow.utils.file_utils import TempDir
 
 
@@ -80,5 +80,5 @@ def test_model_log():
         print(loaded_model.signature)
         print()
         assert loaded_model.signature == sig
-        x = read_example(os.path.join(local_path, loaded_model.input_example))
+        x = dataframe_from_json(os.path.join(local_path, loaded_model.input_example))
         assert x.to_dict(orient="records")[0] == input_example

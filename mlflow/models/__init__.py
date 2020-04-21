@@ -20,16 +20,12 @@ from datetime import datetime
 import json
 import logging
 
-import numpy as np
-import pandas as pd
-
 import yaml
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature, ModelInputExample, \
     save_example
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.file_utils import TempDir
 
 
@@ -129,8 +125,8 @@ class Model(object):
                               future release without warning. Input example provides one or several
                               examples of valid model input. The example can be used as a hint of
                               what data to feed the model. The example is saved using
-                              :py:func:`mlflow.model.signatures.save_example`. This method will
-                              raise if saving example fails.
+                              :py:func:`mlflow.model.signatures.save_example`. Exception is raised
+                              if save_example call fails.
         :param kwargs: Extra args passed to the model flavor.
         """
         with TempDir() as tmp:

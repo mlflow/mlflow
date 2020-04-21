@@ -32,6 +32,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
 
+class TensorsNotSupportedException(MlflowException):
+    def __init__(self, msg):
+        super().__init__("Multidimensional arrays (aka tensors) are not supported. "
+                         "{}".format(msg))
+
+
 class DataType(Enum):
     """
     Data types supported by Mlflow model signature.
@@ -54,7 +60,7 @@ class DataType(Enum):
     def __repr__(self):
         return self.name
 
-    def to_numpy(self):
+    def to_numpy(self) -> np.dtype:
         return self._numpy_type
 
 
@@ -212,7 +218,7 @@ def infer_signature(model_input: MlflowModelDataset,
       - pyspark.sql.DataFrame
 
     element (scalar) types:
-      - those that can be translated to one of MLflow's DataType.
+      - those that can be translated to one of :py:class:`mlflow.models.signature.DataType` values.
 
     NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
 
@@ -227,22 +233,19 @@ def infer_signature(model_input: MlflowModelDataset,
 
 def save_example(path: str, input_example: ModelInputExample) -> str:
     """
-    Save mlflow example into a file on a given path and return the resulting filename.
+    Save MLflow example into a file on a given path and return the resulting filename.
 
     The example(s) can be provided as :py:class:`pandas.DataFrame`, :py:class:`numpy.ndarray',
-    python dictionary or python list. The assumption is that the example is conceptually either a
-    DataFrame-like dataset or a numpy array or a dictionary of numpy arrays. Therefore, lists and
-    dictionaries with no-numpy array values are converted to DataFrames first. This function will
-    raise an Exception if such conversion fails.
+    python dictionary or python list. The assumption is that the example is a DataFrame-like
+    dataset with jsonable elements (see storage format section below).
 
-    NOTE: If the input example is provided as a list, it is assumed that it is a list of rows. If
-    you want to provide a single row example as a list, it is still expected as a list of lists.
+    NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
 
-    NOTE: Dictionaries with all scalar values are assumed ot be a single DataFrame row and will be
-    converted accordingly.
+    NOTE: If the example is 1 dimensional (e.g. dictionary of str -> scalar, or a list of scalars),
+    the assumption is that it is a single row of data (rather than 1 column).
 
-    Example Storage Format
-    ======================
+    Storage Format
+    ==============
     The examples are stored as json for portability and readability. Therefore, the contents of the
     example(s) must be jsonable. Mlflow will make the following conversions automatically on behalf
     of the user:
@@ -252,44 +255,59 @@ def save_example(path: str, input_example: ModelInputExample) -> str:
     - numpy types: Numpy types are converted to the corresponding python types or their closest
       equivalent.
 
-    The different input types are encoded as follows:
-
-    - DataFrames are stored in pandas orient="split" format.
-    - Lists are assumed to contain DataFrame rows and are converted into a DataFrame before writing
-      them out.
-    - Dictionaries are treated depending on their content:
-        a) all values are numpy arrays - stored as json object with json arrays as values.
-        b) else considered pandas DataFrame and is converted before writing out.
-    - Numpy arrays are stored as json lists.
+    The json output is formatted according to pandas orient='split' convention (we omit index).
+    The output is a json object with the following attributes:
+     - columns: list of column names. Columns are not included if there are no column names or if
+                the column names are ordered sequence 0..N where N is the number of columns in the
+                dataset.
+    - data: Json array with the data organized row-wise.
 
     :param path: Path where to store the example.
-    :param input_example: Data with the input example(s).
+    :param input_example: Data with the input example(s). Expected to be a DataFrame-like
+                          (2 dimensional) dataset with jsonable elements.
     :return: Filename of the stored example.
     """
+
+    def _is_scalar(x):
+        return np.isscalar(x) or x is None
+
     if isinstance(input_example, dict):
-        # assume dicts with non-numpy array values are dataframes
-        if all([np.isscalar(x) for x in input_example.values()]):
+        for x, y in input_example.items():
+            if isinstance(y, np.ndarray) and len(y.shape) > 1:
+                raise TensorsNotSupportedException("Column '{0}' has shape {1}".format(x, y.shape))
+
+        if all([_is_scalar(x) for x in input_example.values()]):
             input_example = pd.DataFrame([input_example])
-        elif any([not isinstance(x, np.ndarray) for x in input_example.values()]):
+        else:
             input_example = pd.DataFrame.from_dict(input_example)
-
-    if isinstance(input_example, list):
-        input_example = pd.DataFrame(input_example)
-
-    if isinstance(input_example, pd.DataFrame):
-        example_filename = "input_dataframe_example.json"
-        input_example = input_example.to_dict(orient="split")
-    elif isinstance(input_example, dict):
-        example_filename = "input_array_dictionary_example.json"
+    elif isinstance(input_example, list):
+        for i, x in enumerate(input_example):
+            if isinstance(x, np.ndarray) and len(x.shape) > 1:
+                raise TensorsNotSupportedException("Row '{0}' has shape {1}".format(i, x.shape))
+        if all([_is_scalar(x) for x in input_example]):
+            input_example = pd.DataFrame([input_example])
+        else:
+            input_example = pd.DataFrame(input_example)
     elif isinstance(input_example, np.ndarray):
-        example_filename = "input_array_example.json"
-        input_example = input_example.tolist()
-    else:
+        if len(input_example.shape) > 2:
+            raise TensorsNotSupportedException("Input array has shape {}".format(
+                input_example.shape))
+        input_example = pd.DataFrame(input_example)
+    elif not isinstance(input_example, pd.DataFrame):
         raise TypeError("Unexpected type of input_example. Expected one of "
                         "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
-            type(input_example)))
+                          type(input_example)))
+
+    example_filename = "input_dataframe_example.json"
+    res = input_example.to_dict(orient="split")
+    # Do not include row index
+    del res["index"]
+    if all(input_example.columns == range(len(input_example.columns))):
+        # No need to write default column index out
+        del res["columns"]
+
     with open(os.path.join(path, example_filename), "w") as f:
-        json.dump(input_example, f, cls=NumpyEncoder)
+        json.dump(res, f, cls=NumpyEncoder)
     return example_filename
 
 
@@ -297,56 +315,11 @@ def _base64decode(x):
     return base64.decodebytes(x.encode("ascii"))
 
 
-def read_example(path: str, schema: Schema = None) -> ModelInputExample:
-    filename = os.path.split(path)[-1]
-    if filename == "input_dataframe_example.json":
-        return dataframe_from_json(path, schema, pandas_orient="split")
-    with open(path, "r") as f:
-        res = json.load(f)
-    if filename == "input_array_example.json":
-        if not isinstance(res, list):
-            raise TypeError("Unexpected type, expected 'list', got {}".format(type(res)))
-
-        if schema is not None:
-            if len(set(schema.column_types())) > 1:
-                res = np.array(res, dtype=np.object)
-            else:
-                res = np.array(res)
-            binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
-            if binary_cols:
-                convert = np.vectorize(_base64decode)
-                for i in binary_cols:
-                    res[..., i] = convert(res[..., i])
-            return res
-        else:
-            return np.array(res)
-    elif filename == "input_array_dictionary_example.json":
-        if not isinstance(res, dict):
-            raise TypeError("Unexpected type, expected 'dict', got {}".format(type(res)))
-        if schema is not None:
-            typemap = dict(zip(schema.column_names(), schema.column_types()))
-            def convert(x, y):
-                if typemap[x] == DataType.binary:
-                    return np.array([_base64decode(z) for z in y], np.bytes_)
-                else:
-                    return np.array(y, dtype=typemap[x].to_numpy())
-
-            return {x: convert(x, y) for x, y in res.items()}
-        else:
-            return {x: np.array(y) for x, y in res.items()}
-    else:
-        raise MlflowException("Unexpected example filename, expected one of ("
-                              "'input_dataframe_example.json', "
-                              "'input_array_dictionary_example.json', "
-                              "'input_array_example.json'"
-                              "), got '{}'".format(filename))
-
-
 def dataframe_from_json(path_or_str, schema: Schema = None,
                         pandas_orient: str = "split") -> pd.DataFrame:
     """
-    Read data frame back from json. User can pass schema to ensure correct type parsing and to make
-    any necessary conversions (e.g. string -> binary for binary columns).
+    Parse json into pandas.DataFrame. User can pass schema to ensure correct type parsing and to
+    make any necessary conversions (e.g. string -> binary for binary columns).
 
     :param path_or_str: Path to a json file or a json string.
     :param schema: Mlflow schema used when parsing the data.
