@@ -63,7 +63,7 @@ setup(
             'google-cloud-storage',
             'azureml-core>=1.2.0'
         ],
-         'sqlserver':[
+         'sqlserver': [
             "mlflow-dbstore",
         ],
     },
@@ -83,4 +83,9 @@ setup(
     keywords='ml ai databricks',
     url='https://mlflow.org/',
     python_requires='>=3.5',
+    project_urls={
+        'Bug Tracker': 'https://github.com/mlflow/mlflow/issues',
+        'Documentation': 'https://mlflow.org/docs/latest/index.html',
+        'Source Code': 'https://github.com/mlflow/mlflow'
+    },
 )
