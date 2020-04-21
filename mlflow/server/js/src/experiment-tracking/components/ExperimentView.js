@@ -8,7 +8,7 @@ import {
   getRunInfo,
   getRunTags,
   getExperimentTags } from '../reducers/Reducers';
-import { setExperimentTagApi} from '../actions';
+import { setExperimentTagApi } from '../actions';
 import { withRouter } from 'react-router-dom';
 import Routes from '../routes';
 import { Button, ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
@@ -50,6 +50,7 @@ export class ExperimentView extends Component {
     this.onSearch = this.onSearch.bind(this);
     this.onClear = this.onClear.bind(this);
     this.onSortBy = this.onSortBy.bind(this);
+    this.onFilter = this.onFilter.bind(this);
     this.isAllChecked = this.isAllChecked.bind(this);
     this.onCheckbox = this.onCheckbox.bind(this);
     this.onCheckAll = this.onCheckAll.bind(this);
@@ -81,10 +82,12 @@ export class ExperimentView extends Component {
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     history: PropTypes.any,
 
-    // List of all parameter keys available in the runs we're viewing
+    // List of all parameter keys available in the experiment we're viewing
     paramKeyList: PropTypes.arrayOf(String).isRequired,
-    // List of all metric keys available in the runs we're viewing
+    // List of all metric keys available in the experiment we're viewing
     metricKeyList: PropTypes.arrayOf(String).isRequired,
+    // List of all metric keys available in the experiment we're viewing
+    tagKeyList: PropTypes.arrayOf(String).isRequired,
 
     // List of list of params in all the visible runs
     paramsList: PropTypes.arrayOf(Array).isRequired,
@@ -296,7 +299,7 @@ export class ExperimentView extends Component {
   }
 
   handleCancelEditNote() {
-    this.setState({showNotesEditor: false});
+    this.setState({ showNotesEditor: false });
   }
 
   startEditingDescription = (e) => {
@@ -350,7 +353,7 @@ export class ExperimentView extends Component {
       handleLoadMoreRuns,
       experimentTags,
       experiment,
-      tagsList,
+      tagKeyList,
       paramKeyList,
       metricKeyList,
     } = this.props;
@@ -361,8 +364,7 @@ export class ExperimentView extends Component {
     const filteredParamKeys = this.getFilteredKeys(paramKeyList, ColumnTypes.PARAMS);
     const filteredMetricKeys = this.getFilteredKeys(metricKeyList, ColumnTypes.METRICS);
 
-    const visibleTagKeyList = Utils.getVisibleTagKeyList(tagsList);
-    const filteredVisibleTagKeyList = this.getFilteredKeys(visibleTagKeyList, ColumnTypes.TAGS);
+    const filteredVisibleTagKeyList = this.getFilteredKeys(tagKeyList, ColumnTypes.TAGS);
     const filteredUnbaggedParamKeys = this.getFilteredKeys(unbaggedParams, ColumnTypes.PARAMS);
     const filteredUnbaggedMetricKeys = this.getFilteredKeys(unbaggedMetrics, ColumnTypes.METRICS);
 
@@ -372,7 +374,7 @@ export class ExperimentView extends Component {
     const noteInfo = NoteInfo.fromTags(experimentTags);
     const searchInputHelpTooltipContent = (
       <div className="search-input-tooltip-content">
-        Search runs using a simplified version of the SQL <b>WHERE</b> clause.<br/>
+        Search runs using a simplified version of the SQL <b>WHERE</b> clause.<br />
         <a
           href="https://www.mlflow.org/docs/latest/search-syntax.html"
           target="_blank"
@@ -419,7 +421,7 @@ export class ExperimentView extends Component {
                       className="ExperimentView-searchInput"
                       type="text"
                       placeholder={'metrics.rmse < 1 and params.model = "tree" and ' +
-                                   'tags.mlflow.source.type = "LOCAL"'}
+                        'tags.mlflow.source.type = "LOCAL"'}
                       value={this.state.searchInput}
                       onChange={this.onSearchInput}
                     />
@@ -482,44 +484,44 @@ export class ExperimentView extends Component {
             </Button>
             {
               this.props.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ?
-              <Button disabled={deleteDisabled} onClick={this.onDeleteRun}>
-                Delete
+                <Button disabled={deleteDisabled} onClick={this.onDeleteRun}>
+                  Delete
               </Button> : null
             }
             {
               this.props.lifecycleFilter === LIFECYCLE_FILTER.DELETED ?
-              <Button disabled={restoreDisabled} onClick={this.onRestoreRun}>
-                Restore
+                <Button disabled={restoreDisabled} onClick={this.onRestoreRun}>
+                  Restore
               </Button> : null
             }
             <Button onClick={this.onDownloadCsv}>
-              Download CSV <i className="fas fa-download"/>
+              Download CSV <i className="fas fa-download" />
             </Button>
             <span style={{ float: 'right', marginLeft: 16 }}>
               <RunsTableColumnSelectionDropdown
                 paramKeyList={paramKeyList}
                 metricKeyList={metricKeyList}
-                visibleTagKeyList={visibleTagKeyList}
+                visibleTagKeyList={filteredVisibleTagKeyList}
                 categorizedUncheckedKeys={categorizedUncheckedKeys}
                 onCheck={this.handleColumnSelectionCheck}
               />
             </span>
             <span style={{ cursor: 'pointer', float: 'right' }}>
               <ButtonGroup style={styles.tableToggleButtonGroup}>
-              <Button
-                onClick={() => this.setShowMultiColumns(false)}
-                title="Compact view"
-                className={classNames({ "active": !this.state.persistedState.showMultiColumns })}
-              >
-                <i className={"fas fa-list"}/>
-              </Button>
-              <Button
-                onClick={() => this.setShowMultiColumns(true)}
-                title="Grid view"
-                className={classNames({ "active": this.state.persistedState.showMultiColumns })}
-              >
-                <i className={"fas fa-table"}/>
-              </Button>
+                <Button
+                  onClick={() => this.setShowMultiColumns(false)}
+                  title="Compact view"
+                  className={classNames({ "active": !this.state.persistedState.showMultiColumns })}
+                >
+                  <i className={"fas fa-list"} />
+                </Button>
+                <Button
+                  onClick={() => this.setShowMultiColumns(true)}
+                  title="Grid view"
+                  className={classNames({ "active": this.state.persistedState.showMultiColumns })}
+                >
+                  <i className={"fas fa-table"} />
+                </Button>
               </ButtonGroup>
             </span>
           </div>
@@ -537,6 +539,7 @@ export class ExperimentView extends Component {
               categorizedUncheckedKeys={categorizedUncheckedKeys}
               isAllChecked={this.isAllChecked()}
               onSortBy={this.onSortBy}
+              onFilter={this.onFilter}
               orderByKey={this.props.orderByKey}
               orderByAsc={this.props.orderByAsc}
               runsSelected={this.state.runsSelected}
@@ -575,7 +578,7 @@ export class ExperimentView extends Component {
                 handleLoadMoreRuns={handleLoadMoreRuns}
                 loadingMore={loadingMore}
               />
-              )
+            )
             )
           }
         </div>
@@ -584,17 +587,37 @@ export class ExperimentView extends Component {
   }
 
   onSortBy(orderByKey, orderByAsc) {
-    this.initiateSearch({orderByKey, orderByAsc});
+    this.initiateSearch({ orderByKey, orderByAsc });
+  }
+
+
+  onFilter(filters) {
+    const mapFilters = Object.entries(filters);
+    const conditions = mapFilters.map(
+      (entry) => {
+        return entry[0] + translateQuery(entry[1]);
+      }
+    ).join(' AND ');
+
+    const all_conditions = [];
+    if (this.state.searchInput !== undefined && this.state.searchInput.length > 0) {
+      all_conditions.push(this.state.searchInput);
+    }
+    if (conditions.length > 0) {
+      all_conditions.push(conditions);
+    }
+
+    this.initiateSearch({ searchInput: all_conditions.join(' AND ') });
   }
 
   initiateSearch({
-      paramKeyFilterInput,
-      metricKeyFilterInput,
-      searchInput,
-      lifecycleFilterInput,
-      orderByKey,
-      orderByAsc,
-    }) {
+    paramKeyFilterInput,
+    metricKeyFilterInput,
+    searchInput,
+    lifecycleFilterInput,
+    orderByKey,
+    orderByAsc,
+  }) {
     const myParamKeyFilterInput = (paramKeyFilterInput !== undefined ?
       paramKeyFilterInput : this.state.paramKeyFilterInput);
     const myMetricKeyFilterInput = (metricKeyFilterInput !== undefined ?
@@ -638,13 +661,13 @@ export class ExperimentView extends Component {
 
   onCheckAll() {
     if (this.isAllChecked()) {
-      this.setState({runsSelected: {}});
+      this.setState({ runsSelected: {} });
     } else {
       const runsSelected = {};
-      this.props.runInfos.forEach(({run_uuid}) => {
+      this.props.runInfos.forEach(({ run_uuid }) => {
         runsSelected[run_uuid] = true;
       });
-      this.setState({runsSelected: runsSelected});
+      this.setState({ runsSelected: runsSelected });
     }
   }
 
@@ -721,8 +744,10 @@ export class ExperimentView extends Component {
       searchInput,
       lifecycleFilterInput,
     } = this.state;
-    this.initiateSearch({paramKeyFilterInput, metricKeyFilterInput, searchInput,
-      lifecycleFilterInput});
+    this.initiateSearch({
+      paramKeyFilterInput, metricKeyFilterInput, searchInput,
+      lifecycleFilterInput,
+    });
   }
 
   onClear() {
@@ -731,11 +756,13 @@ export class ExperimentView extends Component {
     const newPersistedState = new ExperimentViewPersistedState({
       showMultiColumns: this.state.persistedState.showMultiColumns,
     });
-    this.setState({persistedState: newPersistedState.toJSON()}, () => {
+    this.setState({ persistedState: newPersistedState.toJSON() }, () => {
       this.snapshotComponentState();
-      this.initiateSearch({paramKeyFilterInput: "", metricKeyFilterInput: "",
+      this.initiateSearch({
+        paramKeyFilterInput: "", metricKeyFilterInput: "",
         searchInput: "", lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
-        orderByKey: null, orderByAsc: true});
+        orderByKey: null, orderByAsc: true,
+      });
     });
   }
 
@@ -866,7 +893,7 @@ export class ExperimentView extends Component {
 }
 
 export const mapStateToProps = (state, ownProps) => {
-  const { lifecycleFilter } = ownProps;
+  const { lifecycleFilter, metricKeysList, paramKeysList, tagKeysList } = ownProps;
 
   // The runUuids we should serve.
   const { runInfosByUuid } = state.entities;
@@ -885,29 +912,53 @@ export const mapStateToProps = (state, ownProps) => {
   const experiment = getExperiment(ownProps.experimentId, state);
   const metricKeysSet = new Set();
   const paramKeysSet = new Set();
+  const tagKeysSet = new Set();
   const metricsList = runInfos.map((runInfo) => {
     const metricsByRunUuid = getLatestMetrics(runInfo.getRunUuid(), state);
-    const metrics = Object.values(metricsByRunUuid || {});
-    metrics.forEach((metric) => {
-      metricKeysSet.add(metric.key);
-    });
-    return metrics;
+    return Object.values(metricsByRunUuid || {});
   });
-  const paramsList = runInfos.map((runInfo) => {
-    const params = Object.values(getParams(runInfo.getRunUuid(), state));
-    params.forEach((param) => {
-      paramKeysSet.add(param.key);
-    });
-    return params;
+  metricsList.forEach((metricByRunId) => {
+    metricByRunId.forEach((metric) => metricKeysSet.add(metric.key));
   });
 
+  if (Array.isArray(metricKeysList) && metricKeysList.length) {
+    metricKeysList.forEach((metric) => {
+      metricKeysSet.add(metric);
+    });
+  }
+
+  const paramsList = runInfos.map((runInfo) =>
+    Object.values(getParams(runInfo.getRunUuid(), state))
+  );
+  paramsList.forEach(paramByRunId => {
+    paramByRunId.forEach(param => paramKeysSet.add(param.key));
+  });
+
+  if (Array.isArray(paramKeysList) && paramKeysList.length) {
+    paramKeysList.forEach((param) => {
+      paramKeysSet.add(param);
+    });
+  }
+
+
   const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
+  tagsList.forEach(tagMap => {
+    Object.values(tagMap).forEach(tag => tagKeysSet.add(tag.key));
+  });
+
+  if (Array.isArray(tagKeysList) && tagKeysList.length) {
+    tagKeysList.forEach((tag) => {
+      tagKeysSet.add(tag);
+    });
+  }
+
   const experimentTags = getExperimentTags(experiment.experiment_id, state);
   return {
     runInfos,
     experiment,
     metricKeyList: Array.from(metricKeysSet.values()).sort(),
     paramKeyList: Array.from(paramKeysSet.values()).sort(),
+    tagKeyList: Array.from(tagKeysSet.values()).sort(),
     metricsList,
     paramsList,
     tagsList,
@@ -929,6 +980,22 @@ const styles = {
   tableToggleButtonGroup: {
     marginLeft: 16,
   },
+};
+
+
+const translateQuery = (entry) => {
+  const filter = entry[0];
+  const value = entry[1];
+  if (filter === 'contains') {
+    return ' LIKE \'%' + value + '%\'';
+  }
+  if (filter === 'greaterThan') {
+    return ' >= ' + value;
+  }
+  if (filter === 'lessThan') {
+    return ' <= ' + value;
+  }
+  return "";
 };
 
 export default withRouter(connect(mapStateToProps, mapDispatchToProps)(ExperimentView));
