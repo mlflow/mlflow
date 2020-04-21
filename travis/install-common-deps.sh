@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 
 set -ex
+
+# Cleanup apt repository to make room for tests.
+sudo apt clean
+df -h
+
 sudo mkdir -p /travis-install
+# GITHUB_WORKFLOW is set by default during GitHub workflows
 if [[ -z $GITHUB_WORKFLOW ]]; then
   sudo chown travis /travis-install
 fi
