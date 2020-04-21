@@ -10,17 +10,9 @@ matrix:
     # Nightly builds run the tests/examples end-to-end test suite.
     # Does not include Windows since Projects/Models are mostly not compatible with Windows as of now.
     - stage: Nightly
-    - stage: Small
+      if: type == cron
+    - stage: Large
       if: type != cron
-    - language: python
-      name: "Lint (Python 3.6)"
-      if: type != cron
-      python: 3.6
-      install:
-        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-        - pip install -r ./travis/lint-requirements.txt
-      script:
-        - ./lint.sh
     - language: r
       name: "R"
       if: type != cron
@@ -48,28 +40,6 @@ matrix:
         - Rscript -e 'covr::codecov()'
       after_failure:
         - "[ -r /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log ] && cat /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
-    - language: java
-      name: "Java"
-      if: type != cron
-      install:
-        - source ./travis/install-common-deps.sh
-      script:
-        - cd mlflow/java
-        - mvn clean package -q
-    - language: node_js
-      node_js:
-        - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
-      install:
-      name: "Node.js"
-      if: type != cron
-      script:
-        - cd mlflow/server/js
-        - npm i
-        - npm run lint
-        - set -e
-        - for file in $(find src | grep test.js | sort) ; do npm run test -- $file; done
-    - stage: Large
-      if: type != cron
     - language: python
       python: 3.6
       name: "Flavors"
@@ -135,10 +105,6 @@ install:
   - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
       echo "skipping this step on windows.";
-    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh &&
-      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
-      sudo unzip /travis-install/protoc.zip -d /usr;
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]] && ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
       echo "skipping the nightly stage because this build is not nightly and there are no changed files associated with nightly tests.";
     else
