@@ -60,7 +60,7 @@ If you selected “No”, please complete the subsequent sections.
 - [ ] Python
 
 ### Implementation impact
-Please answer the following questions to the best of your ability. If you are not familiar with the MLflow code base, please feel free to leave questions about implementation details blank as necessary, and check the following “Needs implementation input” box:
+Please answer the following questions to the best of your ability. If you are not familiar with the MLflow code base, please feel free to leave questions about implementation details blank as necessary, and select the following “Needs implementation input” box:
 - [ ] Needs implementation input
 
 - Does this feature introduce any new libraries to MLflow? If so, which ones?
@@ -71,7 +71,7 @@ Please answer the following questions to the best of your ability. If you are no
 
 - Does this feature make backwards-incompatible changes to existing MLflow APIs and behaviors? (Please describe why any backwards-incompatible changes cannot be avoided)
 
-- Does this feature introduce changes to any of the following backend APIs (selected all that apply)?:
+- Does this feature introduce changes to any of the following backend APIs (select all that apply)?:
    - [ ] Tracking Artifact Repository
    - [ ] Tracking Backend Store
    - [ ] Model Registry Backend Store
