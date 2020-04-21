@@ -4,8 +4,8 @@ about: Use this template for reporting bugs encountered while using MLflow.
 labels: 'bug'
 title: "[BUG]"
 ---
-Thank you for submitting an issue. **Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
-for additional information about bug reports. For help with debugging your code, please refer to [Stack Overflow](https://stackoverflow.com/questions/tagged/mlflow).**
+Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
+for additional information about bug reports. For help with debugging your code, please refer to [Stack Overflow](https://stackoverflow.com/questions/tagged/mlflow).
 
 **Please fill in this template. Bug reports that do not complete this template will not be reviewed.**
 
