@@ -10,13 +10,12 @@ for additional information about bug reports. For help with debugging your code,
 **Please fill in this template. Bug reports that do not complete this template will not be reviewed.**
 
 ### Willingness to contribute
-The MLflow Community encourages bug fix contributions. Would you or another member of your organization be willing to contribute a fix for this bug to the MLflow code base?
+The MLflow Community encourages bug fix contributions. Would you or another member of your organization be willing to contribute a fix
+for this bug to the MLflow code base?
 
 - [ ] Yes. I can contribute a fix for this bug independently.
 - [ ] Yes. I would be willing to contribute a fix for this bug with guidance from the MLflow community.
 - [ ] No. **Explanation:**
-
-Please fill in this template and do not delete it unless you are sure your issue is outside its scope.
 
 ### System information
 - **Have I written custom code (as opposed to using a stock example script provided in MLflow)**:
