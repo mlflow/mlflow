@@ -22,10 +22,7 @@ types = [np.int32, np.int, np.str, np.float32, np.double]
 
 
 def score_model_as_udf(model_uri, pandas_df, result_type="double"):
-    spark = pyspark.sql.SparkSession.builder\
-        .config(key="spark.python.worker.reuse", value=True)\
-        .master("local-cluster[2, 1, 1024]")\
-        .getOrCreate()
+    spark = get_spark_session(pyspark.SparkConf())
     spark_df = spark.createDataFrame(pandas_df)
     pyfunc_udf = spark_udf(spark=spark, model_uri=model_uri, result_type=result_type)
     new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
@@ -52,12 +49,19 @@ def configure_environment():
     os.environ["PYSPARK_PYTHON"] = sys.executable
 
 
-@pytest.fixture
-def spark():
+def get_spark_session(conf):
+    os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
+    conf.set(key="spark_session.python.worker.reuse", value=True)
     return pyspark.sql.SparkSession.builder\
-        .config(key="spark.python.worker.reuse", value=True)\
+        .config(conf=conf)\
         .master("local-cluster[2, 1, 1024]")\
         .getOrCreate()
+
+
+@pytest.fixture
+def spark():
+    conf = pyspark.SparkConf()
+    return get_spark_session(conf)
 
 
 @pytest.fixture

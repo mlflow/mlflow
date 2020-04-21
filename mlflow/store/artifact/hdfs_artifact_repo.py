@@ -178,27 +178,18 @@ def hdfs_system(scheme, host, port):
     """
     import pyarrow as pa
 
-    if host and host.startswith("har://"):
-        _logger.info(
-            "Hadoop archive can be open only by libhdfs. Ignoring MLFLOW_HDFS_DRIVER setting.")
-        driver = "libhdfs"
-    else:
-        driver = os.getenv('MLFLOW_HDFS_DRIVER') or 'libhdfs'
     kerb_ticket = os.getenv('MLFLOW_KERBEROS_TICKET_CACHE')
     kerberos_user = os.getenv('MLFLOW_KERBEROS_USER')
     extra_conf = _parse_extra_conf(os.getenv('MLFLOW_PYARROW_EXTRA_CONF'))
 
-    if scheme == "viewfs":
-        if driver == "libhdfs":
-            host = scheme + "://" + host
-        else:
-            _logger.warning("viewfs://namenode resolves to hdfs://namenode"
-                            " with hdfs3 driver.")
+    if host:
+        host = scheme + "://" + host
+    else:
+        host = 'default'
 
-    connected = pa.hdfs.connect(host=host or 'default',
+    connected = pa.hdfs.connect(host=host,
                                 port=port or 0,
                                 user=kerberos_user,
-                                driver=driver,
                                 kerb_ticket=kerb_ticket,
                                 extra_conf=extra_conf)
     yield connected
