@@ -7,6 +7,8 @@ they address yours.
 
 For support (ex. "How do I do X?"), please ask on [Stack Overflow](https://stackoverflow.com/questions/tagged/mlflow).
 
+## Issue Categories
+
 Our policy is that GitHub issues fall into one of the following categories:
 
 1. Bug reports
@@ -17,7 +19,7 @@ Our policy is that GitHub issues fall into one of the following categories:
 Each category has its own GitHub issue template. Please do not delete the issue template unless you are certain your
 issue is outside its scope.
 
-## Feature Requests
+### Feature Requests
 
 Feature requests typically go through the following lifecycle:
 

@@ -13,7 +13,7 @@ The MLflow Community encourages new feature contributions. Would you or another 
 
 - [ ] Yes. I can contribute this feature independently.
 - [ ] Yes. I would be willing to contribute this feature with guidance from the MLflow community.
-- [ ] No. Explanation:
+- [ ] No. **Explanation:**
 
 ## Proposal Summary
 
@@ -33,8 +33,8 @@ The MLflow Community encourages new feature contributions. Would you or another 
 Please refer to the https://mlflow.org/docs/latest/plugins.html for a list of supported MLflow Plugin types. Afterwards, select the option that best applies and fill in the **Explanation** field if applicable:
 
 - [ ] Yes. I think this feature can be introduced as an MLflow Plugin.
-- [ ] No. It does not make sense to structure this feature as an MLflow Plugin. Explanation:
-- [ ] No. I don’t think MLflow Plugins currently supports this type of feature. Explanation:
+- [ ] No. It does not make sense to structure this feature as an MLflow Plugin. **Explanation:**
+- [ ] No. I don’t think MLflow Plugins currently supports this type of feature. **Explanation:**
 
 If you selected “Yes,” please submit this feature request and add the “Plugin” GitHub label. An MLflow Community member will provide further guidance on how to get started with developing this feature as an MLflow Plugin.
 
@@ -75,10 +75,9 @@ Please answer the following questions to the best of your ability. If you are no
    - [ ] Tracking Artifact Repository
    - [ ] Tracking Backend Store
    - [ ] Model Registry Backend Store
-   - [ ] ...
-   - [ ] Other backend API
+   - [ ] Other backend APIs
 
-(If you selected any of the fields above, please outline the proposed API changes)
+   (If you selected any of the fields above, please outline the proposed API changes)
 
 ### Further Design
 
