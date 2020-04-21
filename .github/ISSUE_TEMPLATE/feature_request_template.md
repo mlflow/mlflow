@@ -22,7 +22,7 @@ The MLflow Community encourages new feature contributions. Would you or another 
 ## Motivation
 - What is the use case for this feature?
 - Why is this use case valuable to support for MLflow users in general?
-- (If applicable) Why is this use case valuable to support for your projects or organization?
+- Why is this use case valuable to support for your project(s) or organization?
 - Why is it currently difficult to achieve this use case? (please be as specific as possible about why related MLflow features and components are insufficient)
 
 ## Proposed Changes
