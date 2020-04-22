@@ -1,4 +1,5 @@
 import json
+import numpy as np
 from typing import Dict, Any, List
 
 from mlflow.exceptions import MlflowException

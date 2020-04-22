@@ -5,12 +5,14 @@ import pandas as pd
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.models.signature import ColSpec, DataType, ModelSignature, \
-    infer_signature, Schema, dataframe_from_json
+from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import save_example, TensorsNotSupportedException
+from mlflow.types import DataType
+from mlflow.types.schema import ColSpec, Schema
+from mlflow.types.utils import infer_schema
 
 from mlflow.utils.file_utils import TempDir
-
+from mlflow.utils.proto_json_utils import dataframe_from_json
 
 
 def test_col_spec():
@@ -88,7 +90,8 @@ def test_schema_inference_on_dataframe(pandas_df_with_all_types):
 
 def test_schema_inference_on_dictionary(pandas_df_with_all_types):
     # test dictionary
-    sig = infer_signature(pandas_df_with_all_types.to_dict(orient="list"))
+    d = {c: pandas_df_with_all_types[c].values for c in pandas_df_with_all_types.columns}
+    sig = infer_signature(d)
     assert dict(zip(sig.inputs.column_names(), sig.inputs.column_types())) == \
         {c: DataType[c] for c in pandas_df_with_all_types.columns}
     # test exception is raised if non-numpy data in dictionary
@@ -99,59 +102,61 @@ def test_schema_inference_on_dictionary(pandas_df_with_all_types):
 
 
 def test_schema_inference_on_numpy_array(pandas_df_with_all_types):
-    sig = infer_signature(pandas_df_with_all_types.values)
-    assert sig.inputs == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
+    # drop int and float as we lose type size information when storing as objects and defaults are
+    # 64b.
+    pandas_df_with_all_types = pandas_df_with_all_types.drop(columns=["integer", "float"])
+    schema = infer_schema(pandas_df_with_all_types.values)
+    assert schema == Schema([ColSpec(x) for x in pandas_df_with_all_types.columns])
 
     # test objects
-    sig = infer_signature(np.array(["a"], dtype=np.object))
-    assert sig.inputs == Schema([ColSpec(DataType.string), None])
-    sig = infer_signature(np.array([bytes([1])], dtype=np.object))
-    assert sig.inputs == Schema([ColSpec(DataType.binary), None])
-    sig = infer_signature(np.array([bytearray([1]), None], dtype=np.object))
-    assert sig.inputs == Schema([ColSpec(DataType.binary)])
-    sig = infer_signature(np.array([True, None], dtype=np.object))
-    assert sig.inputs == Schema([ColSpec(DataType.boolean)])
-    sig = infer_signature(np.array([1, None], dtype=np.object))
-    assert sig.inputs == Schema([ColSpec(DataType.long)])
-    sig = infer_signature(np.array([1.1, None], dtype=np.object))
-    assert sig.inputs == Schema([ColSpec(DataType.double)])
+    schema = infer_schema(np.array(["a"], dtype=np.object))
+    assert schema == Schema([ColSpec(DataType.string)])
+    schema = infer_schema(np.array([bytes([1])], dtype=np.object))
+    assert schema == Schema([ColSpec(DataType.binary)])
+    schema = infer_schema(np.array([bytearray([1]), None], dtype=np.object))
+    assert schema == Schema([ColSpec(DataType.binary)])
+    schema = infer_schema(np.array([True, None], dtype=np.object))
+    assert schema == Schema([ColSpec(DataType.boolean)])
+    schema = infer_schema(np.array([1.1, None], dtype=np.object))
+    assert schema == Schema([ColSpec(DataType.double)])
 
     # test bytes
-    sig = infer_signature(np.array([bytes([1])], dtype=np.bytes_))
-    assert sig.inputs == Schema([ColSpec(DataType.binary), None])
-    sig = infer_signature(np.array([bytearray([1])], dtype=np.bytes_))
-    assert sig.inputs == Schema([ColSpec(DataType.binary), None])
+    schema = infer_schema(np.array([bytes([1])], dtype=np.bytes_))
+
+    assert schema == Schema([ColSpec(DataType.binary)])
+    schema = infer_schema(np.array([bytearray([1])], dtype=np.bytes_))
+    assert schema == Schema([ColSpec(DataType.binary)])
 
     # test string
-    sig = infer_signature(np.array(["a"], dtype=np.str))
-    assert sig.inputs == Schema([ColSpec(DataType.string), None])
+    schema = infer_schema(np.array(["a"], dtype=np.str))
+    assert schema == Schema([ColSpec(DataType.string)])
 
     # test boolean
-    sig = infer_signature(np.array([True], dtype=np.bool))
-    assert sig.inputs == Schema([ColSpec(DataType.boolean), None])
+    schema = infer_schema(np.array([True], dtype=np.bool))
+    assert schema == Schema([ColSpec(DataType.boolean)])
 
     # test ints
     for t in [np.uint8, np.uint16, np.int8, np.int16, np.int32]:
-        sig = infer_signature(np.array([1, 2, 3], dtype=t))
-        assert sig.inputs == Schema([ColSpec("integer")])
+        schema = infer_schema(np.array([1, 2, 3], dtype=t))
+        assert schema == Schema([ColSpec("integer")])
 
     # test longs
     for t in [np.uint32, np.int64]:
-        sig = infer_signature(np.array([1, 2, 3], dtype=t))
-        assert sig.inputs == Schema([ColSpec("long")])
+        schema = infer_schema(np.array([1, 2, 3], dtype=t))
+        assert schema == Schema([ColSpec("long")])
 
     # unsigned long is unsupported
     with pytest.raises(MlflowException):
         infer_signature(np.array([1, 2, 3], dtype=np.uint64))
 
     # test floats
-    for t in [np.float8, np.float16, np.float32]:
-        sig = infer_signature(np.array([1.1, 2.2, 3.3], dtype=t))
-        assert sig.inputs == Schema([ColSpec("float")])
+    for t in [np.float16, np.float32]:
+        schema = infer_schema(np.array([1.1, 2.2, 3.3], dtype=t))
+        assert schema == Schema([ColSpec("float")])
 
     # test doubles
-    sig = infer_signature(np.array([1.1, 2.2, 3.3], dtype=np.float64))
-    assert sig.inputs == Schema([ColSpec("double")])
+    schema = infer_schema(np.array([1.1, 2.2, 3.3], dtype=np.float64))
+    assert schema == Schema([ColSpec("double")])
 
     # unsupported
     with pytest.raises(MlflowException):
@@ -171,15 +176,15 @@ def test_spark_schema_inference(pandas_df_with_all_types):
     try:
         import pyspark
         from pyspark.sql.types import _parse_datatype_string, StructField, StructType
-        sig = infer_signature(pandas_df_with_all_types)
+        schema = infer_schema(pandas_df_with_all_types)
+        assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
         spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
-        schema = StructType(
+        spark_schema = StructType(
             [StructField(t.name, _parse_datatype_string(t.name), True)
-             for t in sig.inputs.column_types()])
-        assert sig.inputs == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
-        sparkdf = spark_session.createDataFrame(pandas_df_with_all_types, schema=schema)
-        sig = infer_signature(sparkdf)
-        assert sig.inputs == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
+             for t in schema.column_types()])
+        sparkdf = spark_session.createDataFrame(pandas_df_with_all_types, schema=spark_schema)
+        schema = infer_schema(sparkdf)
+        assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
     except ImportError:
         pass
 

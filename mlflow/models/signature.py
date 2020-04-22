@@ -64,7 +64,8 @@ class ModelSignature(object):
             return cls(inputs)
 
     def __eq__(self, other) -> bool:
-        return self.inputs == other.inputs and self.outputs == other.outputs
+        return isinstance(other, ModelSignature) \
+               and self.inputs == other.inputs and self.outputs == other.outputs
 
     def __repr__(self) -> str:
         return json.dumps({"ModelSignature": self.to_dict()}, indent=2)

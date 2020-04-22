@@ -4,9 +4,10 @@ import mlflow
 
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models import Model
-from mlflow.models.signature import Schema, ColSpec, ModelSignature, dataframe_from_json
+from mlflow.models.signature import ModelSignature
+from mlflow.types.schema import Schema, ColSpec
 from mlflow.utils.file_utils import TempDir
-
+from mlflow.utils.proto_json_utils import dataframe_from_json
 
 
 def test_model_save_load():
