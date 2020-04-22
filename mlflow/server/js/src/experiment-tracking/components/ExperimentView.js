@@ -25,7 +25,7 @@ import RestoreRunModal from './modals/RestoreRunModal';
 import { NoteInfo, NOTE_CONTENT_TAG } from "../utils/NoteUtils";
 import LocalStorageUtils from "../../common/utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
-import { Icon, Popover, Descriptions } from 'antd';
+import { Icon, Popover, Descriptions, Button as AntdButton } from 'antd';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import classNames from 'classnames';
@@ -310,7 +310,10 @@ export class ExperimentView extends Component {
   renderNoteSection(noteInfo) {
     const { showNotesEditor } = this.state;
 
-    const editIcon = <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
+    const editIcon =
+      <AntdButton type="link" onClick={this.startEditingDescription}>
+        <Icon type='form'/>
+      </AntdButton>;
 
     return (
       <CollapsibleSection
@@ -937,7 +940,6 @@ export const mapStateToProps = (state, ownProps) => {
     });
   }
 
-
   const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
   tagsList.forEach(tagMap => {
     Object.values(tagMap).forEach(tag => tagKeysSet.add(tag.key));
@@ -978,7 +980,6 @@ const styles = {
     marginLeft: 16,
   },
 };
-
 
 const translateQuery = (entry) => {
   const filter = entry[0];

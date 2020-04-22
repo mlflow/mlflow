@@ -15,11 +15,11 @@ import { NOTE_CONTENT_TAG, NoteInfo } from "../utils/NoteUtils";
 import { BreadcrumbTitle } from "./BreadcrumbTitle";
 import { RenameRunModal } from "./modals/RenameRunModal";
 import EditableTagsTableView from './EditableTagsTableView';
-import { Icon, Descriptions } from 'antd';
+import { Icon, Descriptions, Button } from 'antd';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 
-class RunView extends Component {
+export class RunViewImpl extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     run: PropTypes.object.isRequired,
@@ -107,7 +107,7 @@ class RunView extends Component {
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
       run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
-    const status = RunView.getRunStatusDisplayName(run.getStatus());
+    const status = RunViewImpl.getRunStatusDisplayName(run.getStatus());
     const queryParams = window.location && window.location.search ?
       window.location.search : "";
     const tableStyles = {
@@ -122,7 +122,10 @@ class RunView extends Component {
       },
     };
     const runCommand = this.getRunCommand();
-    const editIcon = <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
+    const editIcon =
+      <Button type="link" onClick={this.startEditingDescription}>
+        <Icon className="edit-icon" type='form' />
+      </Button>;
     return (
       <div className="RunView">
         {/* Breadcrumbs */}
@@ -259,7 +262,7 @@ const mapStateToProps = (state, ownProps) => {
     runDisplayName, runName, artifactsAreLoading};
 };
 
-export default connect(mapStateToProps)(RunView);
+export const RunView = connect(mapStateToProps)(RunViewImpl);
 
 // Private helper functions.
 

@@ -5,7 +5,7 @@ import { connect } from 'react-redux';
 import { openErrorModal, restoreRunApi } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 
-class RestoreRunModal extends Component {
+export class RestoreRunModalImpl extends Component {
   constructor(props) {
     super(props);
     this.handleSubmit = this.handleSubmit.bind(this);
@@ -15,16 +15,17 @@ class RestoreRunModal extends Component {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
     selectedRunIds: PropTypes.arrayOf(String).isRequired,
-    dispatch: PropTypes.func.isRequired,
+    openErrorModal: PropTypes.func.isRequired,
+    restoreRunApi: PropTypes.func.isRequired,
   };
 
   handleSubmit() {
     const restorePromises = [];
     this.props.selectedRunIds.forEach((runId) => {
-      restorePromises.push(this.props.dispatch(restoreRunApi(runId)));
+      restorePromises.push(this.props.restoreRunApi(runId));
     });
     return Promise.all(restorePromises).catch(() => {
-      this.props.dispatch(openErrorModal('While restoring an experiment run, an error occurred.'));
+      this.props.openErrorModal('While restoring an experiment run, an error occurred.');
     });
   }
 
@@ -43,4 +44,9 @@ class RestoreRunModal extends Component {
   }
 }
 
-export default connect()(RestoreRunModal);
+const mapDispatchToProps = {
+  restoreRunApi,
+  openErrorModal,
+};
+
+export default connect(null, mapDispatchToProps)(RestoreRunModalImpl);
