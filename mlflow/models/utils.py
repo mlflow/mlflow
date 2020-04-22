@@ -79,9 +79,9 @@ def save_example(path: str, input_example: ModelInputExample) -> Dict[str, Any]:
         try:
             import pyspark.sql.dataframe
             if isinstance(input_example, pyspark.sql.dataframe.DataFrame):
-                raise MlflowException("Examples can not be provided as Spark Dataframe. Please make "
-                                      "sure your example is of a small size and turn it into a "
-                                      "pandas DataFrame by calling toPandas method.")
+                raise MlflowException("Examples can not be provided as Spark Dataframe. "
+                                      "Please make sure your example is of a small size and turn "
+                                      "it into a pandas DataFrame by calling toPandas method.")
         except ImportError:
             pass
 

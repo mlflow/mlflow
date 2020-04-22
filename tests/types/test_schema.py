@@ -52,8 +52,9 @@ def test_schema_inference_on_dictionary(pandas_df_with_all_types):
     # test dictionary
     d = {c: pandas_df_with_all_types[c].values for c in pandas_df_with_all_types.columns}
     schema = _infer_schema(d)
-    assert dict(zip(schema.column_names(), schema.column_types())) == \
-           {c: DataType[c] for c in pandas_df_with_all_types.columns}
+    assert dict(zip(schema.column_names(), schema.column_types())) == {
+        c: DataType[c] for c in pandas_df_with_all_types.columns
+    }
     # test exception is raised if non-numpy data in dictionary
     with pytest.raises(TypeError):
         _infer_schema({"x": 1})
