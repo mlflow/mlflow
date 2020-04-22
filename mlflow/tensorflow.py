@@ -75,7 +75,7 @@ def get_default_conda_env():
 
 @keyword_only
 def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,
-              conda_env=None, model_signature: ModelSignature=None,
+              conda_env=None, signature: ModelSignature=None,
               input_example: ModelInputExample=None, registered_model_name=None):
     """
     Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
@@ -125,9 +125,17 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param model_signature: Note:: Experimental: This argument may change or be removed in a
-                            future release without warning. Model signature describes model input
-                            and output schema.
+    :param signature: Note:: Experimental: This argument may change or be removed in a
+                      future release without warning. Model signature describes model input
+                      and output schema. The model signature can be inferred from datasets
+                      representing valid model input (e.g. the training dataset) and valid
+                      model output (e.g. model predictions generated on the training dataset).
+                      For example, you can obtain model signature as follows:
+                      ```
+                      from mlflow.models.signature import infer_signature
+                      train = df.drop_column("target_label")
+                      signature = infer_signature(train, model.predict(train))
+                      ```
     :param input_example: Note:: Experimental: This argument may change or be removed in a
                           future release without warning. Input example provides one or several
                           examples of valid model input. The example can be used as a hint of what
@@ -137,7 +145,7 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                      tf_saved_model_dir=tf_saved_model_dir, tf_meta_graph_tags=tf_meta_graph_tags,
                      tf_signature_def_key=tf_signature_def_key, conda_env=conda_env,
                      registered_model_name=registered_model_name,
-                     signature=model_signature,
+                     signature=signature,
                      input_example=input_example)
 
 

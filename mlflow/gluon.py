@@ -166,7 +166,7 @@ def get_default_conda_env():
 
 @experimental
 def log_model(gluon_model, artifact_path, conda_env=None,
-              model_signature: ModelSignature=None, input_example: ModelInputExample=None):
+              signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log a Gluon model as an MLflow artifact for the current run.
 
@@ -189,9 +189,17 @@ def log_model(gluon_model, artifact_path, conda_env=None,
                                 'mxnet=1.5.0'
                             ]
                         }
-    :param model_signature: Note:: Experimental: This argument may change or be removed in a
-                            future release without warning. Model signature describes model input
-                            and output schema.
+    :param signature: Note:: Experimental: This argument may change or be removed in a
+                      future release without warning. Model signature describes model input
+                      and output schema. The model signature can be inferred from datasets
+                      representing valid model input (e.g. the training dataset) and valid
+                      model output (e.g. model predictions generated on the training dataset).
+                      For example, you can obtain model signature as follows:
+                      ```
+                      from mlflow.models.signature import infer_signature
+                      train = df.drop_column("target_label")
+                      signature = infer_signature(train, model.predict(train))
+                      ```
     :param input_example: Note:: Experimental: This argument may change or be removed in a
                           future release without warning. Input example provides one or several
                           examples of valid model input. The example can be used as a hint of what
@@ -218,7 +226,7 @@ def log_model(gluon_model, artifact_path, conda_env=None,
     >>>   mlflow.gluon.log_model(net, "model")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.gluon, gluon_model=gluon_model,
-              conda_env=conda_env, signature=model_signature, input_example=input_example)
+              conda_env=conda_env, signature=signature, input_example=input_example)
 
 
 @experimental

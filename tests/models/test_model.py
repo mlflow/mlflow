@@ -7,7 +7,7 @@ from mlflow.models import Model
 from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import Schema, ColSpec
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.proto_json_utils import dataframe_from_json
+from mlflow.utils.proto_json_utils import _dataframe_from_json
 
 
 def test_model_save_load():
@@ -77,5 +77,6 @@ def test_model_log():
             "flavor2": {"x": 1, "y": 2},
         }
         assert loaded_model.signature == sig
-        x = dataframe_from_json(os.path.join(local_path, loaded_model.input_example))
+        x = _dataframe_from_json(os.path.join(local_path,
+                                              loaded_model.input_example["artifact_path"]))
         assert x.to_dict(orient="records")[0] == input_example

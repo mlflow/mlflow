@@ -78,8 +78,8 @@ def _base64decode(x):
     return base64.decodebytes(x.encode("ascii"))
 
 
-def dataframe_from_json(path_or_str, schema: Schema = None,
-                        pandas_orient: str = "split") -> pd.DataFrame:
+def _dataframe_from_json(path_or_str, schema: Schema = None,
+                         pandas_orient: str = "split") -> pd.DataFrame:
     """
     Parse json into pandas.DataFrame. User can pass schema to ensure correct type parsing and to
     make any necessary conversions (e.g. string -> binary for binary columns).

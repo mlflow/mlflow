@@ -29,7 +29,7 @@ except ImportError:
                                  Dict[str, np.ndarray])
 
 
-def infer_schema(data: MlflowModelDataset) -> Schema:
+def _infer_schema(data: MlflowModelDataset) -> Schema:
     """
     Infer an MLflow schema from a dataset.
 

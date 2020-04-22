@@ -8,7 +8,7 @@ import json
 from typing import Dict, Any
 
 from mlflow.types.schema import Schema
-from mlflow.types.utils import MlflowModelDataset, infer_schema
+from mlflow.types.utils import MlflowModelDataset, _infer_schema
 
 
 class ModelSignature(object):
@@ -79,13 +79,27 @@ def infer_signature(model_input: MlflowModelDataset,
     """
     Infer an MLflow model signature from the training data (input) and model predictions (output).
 
-    See :py:func:`mlflow.types.utils.infer_schema`
+    The signature represents model input and output as data frames with (optionally) named columns
+    and data type specified as one of types defined in :py:class:`DataType`. This method will raise
+    an exception if the user data contains incompatible types or is not passed in one of the
+    supported formats listed below.
+
+    The input should be one of these:
+      - pandas.DataFrame
+      - dictionary of { name -> numpy.ndarray}
+      - numpy.ndarray
+      - pyspark.sql.DataFrame
+
+    The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType`.
+
+    NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
+
 
     :param model_input: Valid input to the model. E.g. (a subset of) the training dataset.
     :param model_output: Valid model output. E.g. Model predictions for the (subset of) training
                          dataset.
     :return: ModelSignature
     """
-    inputs = infer_schema(model_input)
-    outputs = infer_schema(model_output) if model_output is not None else None
+    inputs = _infer_schema(model_input)
+    outputs = _infer_schema(model_output) if model_output is not None else None
     return ModelSignature(inputs, outputs)

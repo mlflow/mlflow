@@ -214,7 +214,7 @@ def load_model(model_uri):
 
 @experimental
 def log_model(onnx_model, artifact_path, conda_env=None, registered_model_name=None,
-              model_signature: ModelSignature=None, input_example: ModelInputExample=None):
+              signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log an ONNX model as an MLflow artifact for the current run.
 
@@ -241,9 +241,17 @@ def log_model(onnx_model, artifact_path, conda_env=None, registered_model_name=N
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param model_signature: Note:: Experimental: This argument may change or be removed in a
-                            future release without warning. Model signature describes model input
-                            and output schema.
+   :param signature: Note:: Experimental: This argument may change or be removed in a
+                     future release without warning. Model signature describes model input
+                     and output schema. The model signature can be inferred from datasets
+                     representing valid model input (e.g. the training dataset) and valid
+                     model output (e.g. model predictions generated on the training dataset).
+                     For example, you can obtain model signature as follows:
+                     ```
+                     from mlflow.models.signature import infer_signature
+                     train = df.drop_column("target_label")
+                     signature = infer_signature(train, model.predict(train))
+                     ```
     :param input_example: Note:: Experimental: This argument may change or be removed in a
                           future release without warning. Input example provides one or several
                           examples of valid model input. The example can be used as a hint of what
@@ -252,4 +260,4 @@ def log_model(onnx_model, artifact_path, conda_env=None, registered_model_name=N
     Model.log(artifact_path=artifact_path, flavor=mlflow.onnx,
               onnx_model=onnx_model, conda_env=conda_env,
               registered_model_name=registered_model_name,
-              signature=model_signature, input_example=input_example)
+              signature=signature, input_example=input_example)

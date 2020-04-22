@@ -82,7 +82,7 @@ def get_default_conda_env():
 
 def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
               sample_input=None, registered_model_name=None,
-              model_signature: ModelSignature=None, input_example: ModelInputExample=None):
+              signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
     MLlib persistence format and produces an MLflow Model with the Spark flavor.
@@ -121,9 +121,17 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param model_signature: Note:: Experimental: This argument may change or be removed in a
+    :param signature: Note:: Experimental: This argument may change or be removed in a
                             future release without warning. Model signature describes model input
-                            and output schema.
+                            and output schema. The model signature can be inferred from datasets
+                            representing valid model input (e.g. the training dataset) and valid
+                            model output (e.g. model predictions generated on the training dataset).
+                            For example, you can obtain model signature as follows:
+                            ```
+                            from mlflow.models.signature import infer_signature
+                            train = df.drop_column("target_label")
+                            signature = infer_signature(train, model.predict(train))
+                            ```
     :param input_example: Note:: Experimental: This argument may change or be removed in a
                           future release without warning. Input example provides one or several
                           examples of valid model input. The example can be used as a hint of what
@@ -170,7 +178,7 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
         return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
                          conda_env=conda_env, dfs_tmpdir=dfs_tmpdir, sample_input=sample_input,
                          registered_model_name=registered_model_name,
-                         signature=model_signature, input_example=input_example)
+                         signature=signature, input_example=input_example)
 
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -178,7 +186,7 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
         tmp_model_metadata_dir = tmp.path()
         _save_model_metadata(
             tmp_model_metadata_dir, spark_model, mlflow_model, sample_input, conda_env,
-            model_signature=model_signature, input_example=input_example)
+            model_signature=signature, input_example=input_example)
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         if registered_model_name is not None:
             mlflow.register_model("runs:/%s/%s" % (run_id, artifact_path), registered_model_name)
@@ -294,7 +302,7 @@ class _HadoopFileSystem:
 
 
 def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda_env,
-                         model_signature=None, input_example=None):
+                         signature=None, input_example=None):
     """
     Saves model metadata into the passed-in directory. The persisted metadata assumes that a
     model can be loaded from a relative path to the metadata file (currently hard-coded to
@@ -307,8 +315,8 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
                            sample_input=sample_input)
     if input_example is not None:
         mlflow_model.example_input = save_example(path=dst_dir, input_example=input_example)
-    if model_signature is not None:
-        mlflow_model.signature = model_signature
+    if signature is not None:
+        mlflow_model.signature = signature
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
         conda_env = get_default_conda_env()
