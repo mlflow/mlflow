@@ -1,10 +1,19 @@
+"""
+The :py:mod:`mlflow.types` module defines mlflow data types and provides utilities such as type
+inference from python types.
+
+The types defined here can be used by other mlflow components to describe interface independent of
+other frameworks or languages.  The data types can be organized in Schema that declares a sequence
+of optionally named typed columns.
+"""
+
 from enum import Enum
 import numpy as np
 
 
 class DataType(Enum):
     """
-    MLflow data types definition.
+    MLflow element data types definition.
     """
 
     def __new__(cls, value, numpy_type):

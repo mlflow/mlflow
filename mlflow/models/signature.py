@@ -3,11 +3,6 @@ The :py:mod:`mlflow.models.signature` module provides an API for specification o
 
 Model signature defines schema of model input and output. See :py:class:`mlflow.types.Schema` for
 more details on Schema and data types.
-
-Model signature can be infered from datasets specifying valid model input (e.g. the training
-dataset) and valid model output (e.g. model predictions on the training dataset) by calling
-:py:func:`mlflow.models.utils.infer_signature`.
-
 """
 import json
 from typing import Dict, Any
@@ -20,14 +15,9 @@ class ModelSignature(object):
     """
     ModelSignature specifies schema of model's inputs and outputs.
 
-    The current supported schema for both the input and the output is a data-frame like schema
-    defined as a list of column specification :py:class:`ColSpec`. Columns can be named and must
-    specify their data type. Currently the list of supported types is limited to scalar data types
-    defined in :py:class:`DataType` enum.
-
     ModelSignature can be inferred from training dataset and model predictions using
     :py:func:`mlflow.models.signature.infer_signature`, or alternatively constructed by hand by
-    passing a lists of input and output column specifications.
+    passing an input and output Schema.
     """
 
     def __init__(self, inputs: Schema, outputs: Schema = None):
@@ -84,21 +74,8 @@ def infer_signature(model_input: MlflowModelDataset,
                     model_output: MlflowModelDataset = None) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input) and model predictions (output).
-    This method captures the column names and data types from the user data. The signature
-    represents model input and output as dataframes with (optionally) named columns and data type
-    specified as one of types defined in :py:class:`DataType`. This method will raise
-    an exception if the user data contains incompatible types or is not passed in one of the
-    supported formats (containers).
 
-    The input should be one of these:
-      - pandas.DataFrame
-      - dictionary of { name -> numpy.ndarray}
-      - numpy.ndarray
-      - pyspark.sql.DataFrame
-
-    The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType`.
-
-    NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
+    See :py:func:`mlflow.types.utils.infer_schema`
 
     :param model_input: Valid input to the model. E.g. (a subset of) the training dataset.
     :param model_output: Valid model output. E.g. Model predictions for the (subset of) training

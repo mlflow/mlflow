@@ -14,6 +14,81 @@ class TensorsNotSupportedException(MlflowException):
                          "{}".format(msg))
 
 
+try:
+    import pyspark.sql.dataframe
+
+    MlflowModelDataset = TypeVar('MlflowModelDataset',
+                                 pd.DataFrame,
+                                 np.ndarray,
+                                 Dict[str, np.ndarray],
+                                 pyspark.sql.dataframe.DataFrame)
+except ImportError:
+    MlflowModelDataset = TypeVar('MlflowModelDataset',
+                                 pd.DataFrame,
+                                 np.ndarray,
+                                 Dict[str, np.ndarray])
+
+
+def infer_schema(data: MlflowModelDataset) -> Schema:
+    """
+    Infer an MLflow schema from a dataset.
+
+    This method captures the column names and data types from the user data. The signature
+    represents model input and output as data frames with (optionally) named columns and data
+    type specified as one of types defined in :py:class:`DataType`. This method will raise
+    an exception if the user data contains incompatible types or is not passed in one of the
+    supported formats (containers).
+
+    The input should be one of these:
+      - pandas.DataFrame
+      - dictionary of { name -> numpy.ndarray}
+      - numpy.ndarray
+      - pyspark.sql.DataFrame
+
+    The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType`.
+
+    NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
+
+    :param data: Dataset to infer from.
+
+    :return: Schema
+    """
+    if isinstance(data, dict):
+        res = []
+        for col in data.keys():
+            ary = data[col]
+            if not isinstance(ary, np.ndarray):
+                raise TypeError("Data in the dictionary must be of type numpy.ndarray")
+            dims = len(ary.shape)
+            if dims == 1:
+                res.append(ColSpec(type=_infer_numpy_array(ary), name=col))
+            else:
+                raise TensorsNotSupportedException("Data in the dictionary must be 1-dimensional, "
+                                                   "got shape {}".format(ary.shape))
+        return Schema(res)
+    elif isinstance(data, pd.DataFrame):
+        return Schema([ColSpec(type=_infer_numpy_array(data[col].values), name=col)
+                       for col in data.columns])
+    elif isinstance(data, np.ndarray):
+        if len(data.shape) > 2:
+            raise TensorsNotSupportedException("Attempting to infer schema from numpy array with "
+                                               "shape {}".format(data.shape))
+        if data.dtype == np.object:
+            data = pd.DataFrame(data).infer_objects()
+            return Schema([ColSpec(type=_infer_numpy_array(data[col].values))
+                           for col in data.columns])
+        if len(data.shape) == 1:
+            return Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))])
+        elif len(data.shape) == 2:
+            return Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))] * data.shape[1])
+    elif _is_spark_df(data):
+        return Schema([ColSpec(type=_infer_spark_type(field.dataType), name=field.name)
+                       for field in data.schema.fields])
+    raise TypeError("Expected one of (pandas.DataFrame, numpy array, "
+                    "dictionary of (name -> numpy.ndarray), pyspark.sql.DataFrame) "
+                    "but got '{}'".format(type(data)))
+
+
 def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
     if not isinstance(dtype, np.dtype):
         raise TypeError("Expected numpy.dtype, got '{}'.".format(type(dtype)))
@@ -115,55 +190,3 @@ def _is_spark_df(x) -> bool:
         return isinstance(x, pyspark.sql.dataframe.DataFrame)
     except ImportError:
         return False
-
-
-try:
-    import pyspark.sql.dataframe
-
-    MlflowModelDataset = TypeVar('MlflowModelDataset',
-                                 pd.DataFrame,
-                                 np.ndarray,
-                                 Dict[str, np.ndarray],
-                                 pyspark.sql.dataframe.DataFrame)
-except ImportError:
-    MlflowModelDataset = TypeVar('MlflowModelDataset',
-                                 pd.DataFrame,
-                                 np.ndarray,
-                                 Dict[str, np.ndarray])
-
-
-def infer_schema(data: MlflowModelDataset) -> Schema:
-    if isinstance(data, dict):
-        res = []
-        for col in data.keys():
-            ary = data[col]
-            if not isinstance(ary, np.ndarray):
-                raise TypeError("Data in the dictionary must be of type numpy.ndarray")
-            dims = len(ary.shape)
-            if dims == 1:
-                res.append(ColSpec(type=_infer_numpy_array(ary), name=col))
-            else:
-                raise TensorsNotSupportedException("Data in the dictionary must be 1-dimensional, "
-                                                   "got shape {}".format(ary.shape))
-        return Schema(res)
-    elif isinstance(data, pd.DataFrame):
-        return Schema([ColSpec(type=_infer_numpy_array(data[col].values), name=col)
-                       for col in data.columns])
-    elif isinstance(data, np.ndarray):
-        if len(data.shape) > 2:
-            raise TensorsNotSupportedException("Attempting to infer schema from numpy array with "
-                                               "shape {}".format(data.shape))
-        if data.dtype == np.object:
-            data = pd.DataFrame(data).infer_objects()
-            return Schema([ColSpec(type=_infer_numpy_array(data[col].values))
-                           for col in data.columns])
-        if len(data.shape) == 1:
-            return Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))])
-        elif len(data.shape) == 2:
-            return Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))] * data.shape[1])
-    elif _is_spark_df(data):
-        return Schema([ColSpec(type=_infer_spark_type(field.dataType), name=field.name)
-                       for field in data.schema.fields])
-    raise TypeError("Expected one of (pandas.DataFrame, numpy array, "
-                    "dictionary of (name -> numpy.ndarray), pyspark.sql.DataFrame) "
-                    "but got '{}'".format(type(data)))
