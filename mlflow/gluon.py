@@ -218,7 +218,7 @@ def log_model(gluon_model, artifact_path, conda_env=None,
     >>>   mlflow.gluon.log_model(net, "model")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.gluon, gluon_model=gluon_model,
-              conda_env=conda_env, model_signature=model_signature, input_example=input_example)
+              conda_env=conda_env, signature=model_signature, input_example=input_example)
 
 
 @experimental

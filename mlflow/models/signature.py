@@ -68,7 +68,10 @@ class ModelSignature(object):
                and self.inputs == other.inputs and self.outputs == other.outputs
 
     def __repr__(self) -> str:
-        return json.dumps({"ModelSignature": self.to_dict()}, indent=2)
+        return "inputs: \n" \
+               "  {}\n" \
+               "outputs: \n" \
+               "  {}\n".format(repr(self.inputs), repr(self.outputs))
 
 
 def infer_signature(model_input: MlflowModelDataset,

@@ -31,7 +31,8 @@ class Model(object):
         self.flavors = flavors if flavors is not None else {}
         if signature is not None:
             self.signature = signature
-        self.input_example = input_example
+        if input_example is not None:
+            self.input_example = input_example
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -82,7 +83,7 @@ class Model(object):
 
     @classmethod
     def log(cls, artifact_path, flavor, registered_model_name=None,
-            model_signature: ModelSignature = None, input_example: ModelInputExample = None,
+            signature: ModelSignature = None, input_example: ModelInputExample = None,
             **kwargs):
         """
         Log model using supplied flavor module. If no run is active, this method will create a new
@@ -96,7 +97,7 @@ class Model(object):
                                       in a future release without warning. If given, create a model
                                       version under ``registered_model_name``, also creating a
                                       registered model if one with the given name does not exist.
-        :param model_signature: Note:: Experimental: This argument may change or be removed in a
+        :param signature: Note:: Experimental: This argument may change or be removed in a
                                 future release without warning. Model signature describes model
                                 input and output schema. Model signature can be inferred from a
                                 dataset by calling
@@ -115,8 +116,8 @@ class Model(object):
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
-            if model_signature is not None:
-                mlflow_model.signature = model_signature
+            if signature is not None:
+                mlflow_model.signature = signature
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             if input_example is not None:
                 mlflow_model.input_example = save_example(local_path, input_example)

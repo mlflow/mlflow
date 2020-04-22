@@ -137,7 +137,7 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                      tf_saved_model_dir=tf_saved_model_dir, tf_meta_graph_tags=tf_meta_graph_tags,
                      tf_signature_def_key=tf_signature_def_key, conda_env=conda_env,
                      registered_model_name=registered_model_name,
-                     model_signature=model_signature,
+                     signature=model_signature,
                      input_example=input_example)
 
 

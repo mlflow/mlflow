@@ -90,7 +90,7 @@ def log_model(spark_model, sample_input, artifact_path, registered_model_name=No
     return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap,
                      spark_model=spark_model, sample_input=sample_input,
                      registered_model_name=registered_model_name,
-                     model_signature=model_signature,
+                     signature=model_signature,
                      input_example=input_example)
 
 

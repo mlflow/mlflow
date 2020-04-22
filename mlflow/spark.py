@@ -170,7 +170,7 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
         return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
                          conda_env=conda_env, dfs_tmpdir=dfs_tmpdir, sample_input=sample_input,
                          registered_model_name=registered_model_name,
-                         model_signature=model_signature, input_example=input_example)
+                         signature=model_signature, input_example=input_example)
 
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)

@@ -146,7 +146,7 @@ def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=No
     Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,
               registered_model_name=registered_model_name,
               h2o_model=h2o_model, conda_env=conda_env,
-              model_signature=model_signature, input_example=input_example,
+              signature=model_signature, input_example=input_example,
               **kwargs)
 
 

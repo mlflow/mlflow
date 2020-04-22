@@ -219,7 +219,7 @@ def log_model(sk_model, artifact_path, conda_env=None,
                      conda_env=conda_env,
                      serialization_format=serialization_format,
                      registered_model_name=registered_model_name,
-                     model_signature=model_signature,
+                     signature=model_signature,
                      input_example=input_example)
 
 

@@ -64,7 +64,7 @@ def test_model_log():
         input_example = {"x": 1, "y": 2}
         with mlflow.start_run() as r:
             Model.log("some/path", TestFlavor,
-                      model_signature=sig,
+                      signature=sig,
                       input_example=input_example)
 
         local_path = _download_artifact_from_uri("runs:/{}/some/path".format(r.info.run_id),

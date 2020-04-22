@@ -252,4 +252,4 @@ def log_model(onnx_model, artifact_path, conda_env=None, registered_model_name=N
     Model.log(artifact_path=artifact_path, flavor=mlflow.onnx,
               onnx_model=onnx_model, conda_env=conda_env,
               registered_model_name=registered_model_name,
-              model_signature=model_signature, input_example=input_example)
+              signature=model_signature, input_example=input_example)

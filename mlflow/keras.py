@@ -271,7 +271,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
               keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects,
               keras_module=keras_module, registered_model_name=registered_model_name,
-              model_signature=model_signature, input_example=input_example,
+              signature=model_signature, input_example=input_example,
               **kwargs)
 
 

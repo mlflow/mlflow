@@ -161,7 +161,7 @@ def log_model(lgb_model, artifact_path, conda_env=None, registered_model_name=No
     Model.log(artifact_path=artifact_path, flavor=mlflow.lightgbm,
               registered_model_name=registered_model_name,
               lgb_model=lgb_model, conda_env=conda_env,
-              model_signature=model_signature, input_example=input_example,
+              signature=model_signature, input_example=input_example,
               **kwargs)
 
 

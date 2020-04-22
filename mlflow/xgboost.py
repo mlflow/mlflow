@@ -159,7 +159,7 @@ def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=No
     Model.log(artifact_path=artifact_path, flavor=mlflow.xgboost,
               registered_model_name=registered_model_name,
               xgb_model=xgb_model, conda_env=conda_env,
-              model_signature=model_signature, input_example=input_example, **kwargs)
+              signature=model_signature, input_example=input_example, **kwargs)
 
 
 def _load_model(path):

@@ -28,14 +28,20 @@ class ColSpec(object):
         Serialize into a jsonable dictionary.
         :return: dictionary representation of the column spec.
         """
-        return {"name": self.name, "type": self.type.name}
+        if self.name is None:
+            return {"type": self.type.name}
+        else:
+            return {"name": self.name, "type": self.type.name}
 
     def __eq__(self, other) -> bool:
         names_eq = (self.name is None and other.name is None) or self.name == other.name
         return names_eq and self.type == other.type
 
     def __repr__(self) -> str:
-        return "{name}: {type}".format(name=self.name, type=self.type)
+        if self.name is None:
+            return repr(self.type)
+        else:
+            return "{name}: {type}".format(name=repr(self.name), type=repr(self.type))
 
 
 class Schema(object):
@@ -64,6 +70,9 @@ class Schema(object):
 
     def to_json(self) -> str:
         return json.dumps([x.to_dict() for x in self.columns])
+
+    def to_dict(self) -> List[Dict[str, Any]]:
+        return [x.to_dict() for x in self.columns]
 
     @classmethod
     def from_json(cls, json_str: str):
