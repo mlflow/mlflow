@@ -45,7 +45,7 @@ def test_model_save_load():
 
 class TestFlavor(object):
     @classmethod
-    def save_model(cls, path, mlflow_model, *args, **kwargs):
+    def save_model(cls, path, mlflow_model, *args, **kwargs):  # pylint: disable=unused-argument
         mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
         mlflow_model.flavors["flavor2"] = {"x": 1, "y": 2}
         print()

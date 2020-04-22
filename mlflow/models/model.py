@@ -66,7 +66,6 @@ class Model(object):
     @classmethod
     def load(cls, path):
         """Load a model from its YAML representation."""
-        import os
         if os.path.isdir(path):
             path = os.path.join(path, "MLmodel")
         with open(path) as f:

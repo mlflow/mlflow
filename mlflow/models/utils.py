@@ -1,10 +1,11 @@
 import json
 import os
-from typing import TypeVar
+from typing import TypeVar, Any, Dict
 
 import numpy as np
 import pandas as pd
 
+from mlflow.exceptions import MlflowException
 from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
@@ -12,7 +13,7 @@ from mlflow.utils.proto_json_utils import NumpyEncoder
 ModelInputExample = TypeVar('ModelInputExample', pd.DataFrame, np.ndarray, dict, list)
 
 
-def save_example(path: str, input_example: ModelInputExample) -> str:
+def save_example(path: str, input_example: ModelInputExample) -> Dict[str, Any]:
     """
     Save MLflow example into a file on a given path and return the resulting filename.
 
@@ -75,6 +76,15 @@ def save_example(path: str, input_example: ModelInputExample) -> str:
                 input_example.shape))
         input_example = pd.DataFrame(input_example)
     elif not isinstance(input_example, pd.DataFrame):
+        try:
+            import pyspark.sql.dataframe
+            if isinstance(input_example, pyspark.sql.dataframe.DataFrame):
+                raise MlflowException("Examples can not be provided as Spark Dataframe. Please make "
+                                      "sure your example is of a small size and turn it into a "
+                                      "pandas DataFrame by calling toPandas method.")
+        except ImportError:
+            pass
+
         raise TypeError("Unexpected type of input_example. Expected one of "
                         "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
                           type(input_example)))
@@ -89,4 +99,8 @@ def save_example(path: str, input_example: ModelInputExample) -> str:
 
     with open(os.path.join(path, example_filename), "w") as f:
         json.dump(res, f, cls=NumpyEncoder)
-    return example_filename
+    return {
+        "artifact_path": example_filename,
+        "type": "dataframe",
+        "pandas_orient": "split"
+    }
