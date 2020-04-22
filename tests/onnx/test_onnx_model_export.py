@@ -8,6 +8,7 @@ import mock
 from keras.models import Sequential
 from keras.layers import Dense
 import sklearn.datasets as datasets
+from sklearn.linear_model import LogisticRegression
 import pandas as pd
 import numpy as np
 import yaml
@@ -55,9 +56,26 @@ def onnx_model(model):
 
 
 @pytest.fixture(scope='module')
+def sklearn_model(data):
+    x, y = data
+    model = LogisticRegression()
+    model.fit(x, y)
+    return model
+
+
+@pytest.fixture(scope='module')
+def onnx_sklearn_model(sklearn_model):
+    import onnxmltools
+    from skl2onnx.common.data_types import FloatTensorType
+
+    initial_type = [('float_input', FloatTensorType([None, 4]))]
+    onx = onnxmltools.convert_sklearn(sklearn_model, initial_types=initial_type)
+    return onx
+
+
+@pytest.fixture(scope='module')
 def predicted(model, data):
     return model.predict(data[0])
-
 
 @pytest.fixture(scope='module')
 def tf_model_multiple_inputs_float64():
@@ -424,3 +442,16 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.onnx.get_default_conda_env()
+
+"""
+https://github.com/mlflow/mlflow/issues/2499
+User encountered issue where an sklearn model, converted to onnx, would return a list response. The issue 
+resulted in an error because MLflow assumed it would be a numpy array. Therefore, the this test validates
+the service does not receive that error when using such a model.
+"""
+@pytest.mark.large
+def test_OnnxModelWrapper_predit_handles_list_output(onnx_sklearn_model,  model_path, data):
+    x,y = data
+    mlflow.onnx.save_model(onnx_sklearn_model, model_path)
+    wrapper = mlflow.onnx._OnnxModelWrapper(model_path + '/model.onnx')
+    wrapper.predict(pd.DataFrame(x))
