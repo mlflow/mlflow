@@ -50,11 +50,10 @@ class NumpyEncoder(JSONEncoder):
     hence json.dumps will raise TypeError.
     In this case, you'll need to convert your numpy types into its closest python equivalence.
     """
-
-
     def default(self, o):  # pylint: disable=E0202
         def encode_binary(x):
             return base64.encodebytes(x).decode("ascii")
+
         if isinstance(o, np.ndarray):
             if o.dtype == np.object:
                 return [self.default(x) for x in o.tolist()]

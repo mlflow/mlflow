@@ -17,25 +17,16 @@ User can construct schema by hand or infer it from a dataset. Input examples are
 (pandas.DataFrame, numpy.ndarray, dictinary or list) and are json serialized  and stored as part of
 the model artifacts.
 """
-
 import base64
-import importlib
-import os
 from enum import Enum
 
 import json
 import numpy as np
 import pandas as pd
-from typing import List, Dict, TypeVar
+from typing import List, Dict, TypeVar, Any
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.proto_json_utils import NumpyEncoder
-
-
-class TensorsNotSupportedException(MlflowException):
-    def __init__(self, msg):
-        super().__init__("Multidimensional arrays (aka tensors) are not supported. "
-                         "{}".format(msg))
+from mlflow.models.utils import TensorsNotSupportedException
 
 
 class DataType(Enum):
@@ -70,15 +61,18 @@ class ColSpec(object):
     Declares data type and optionally a name.
     """
 
-    def __init__(self, name: str, type: DataType):  # pylint: disable=redefined-builtin
+    def __init__(self, type: DataType, name: str = None):  # pylint: disable=redefined-builtin
         self.name = name
         try:
-            self.type = getattr(DataType, type) if isinstance(type, str) else type
-        except AttributeError:
+            self.type = DataType[type] if isinstance(type, str) else type
+        except KeyError:
             raise MlflowException("Unsupported type '{0}', expected instance of DataType or "
                                   "one of {1}".format(type, [t.name for t in DataType]))
+        if not isinstance(self.type, DataType):
+            raise TypeError("Expected mlflow.models.signature.Datatype or str for the 'type' "
+                            "argument, but got {}".format(self.type.__class__))
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> Dict[str, Any]:
         """
         Serialize into a jsonable dictionary.
         :return: dictionary representation of the column spec.
@@ -155,7 +149,7 @@ class ModelSignature(object):
         self.inputs = inputs
         self.outputs = outputs
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> Dict[str, Any]:
         """
         Serialize into a 'jsonable' dictionary.
 
@@ -171,7 +165,7 @@ class ModelSignature(object):
         }
 
     @classmethod
-    def from_dict(cls, signature_dict: Dict[str, str]):
+    def from_dict(cls, signature_dict: Dict[str, Any]):
         """
         Deserialize from dictionary representation.
 
@@ -195,8 +189,19 @@ class ModelSignature(object):
         return json.dumps({"ModelSignature": self.to_dict()}, indent=2)
 
 
-ModelInputExample = TypeVar('ModelInputExample', pd.DataFrame, np.ndarray, dict, list)
-MlflowModelDataset = TypeVar('MlflowModelDataset', pd.DataFrame, np.ndarray, Dict[str, np.ndarray])
+try:
+    import pyspark.sql.dataframe
+
+    MlflowModelDataset = TypeVar('MlflowModelDataset',
+                                 pd.DataFrame,
+                                 np.ndarray,
+                                 Dict[str, np.ndarray],
+                                 pyspark.sql.dataframe.DataFrame)
+except ImportError:
+    MlflowModelDataset = TypeVar('MlflowModelDataset',
+                                 pd.DataFrame,
+                                 np.ndarray,
+                                 Dict[str, np.ndarray])
 
 
 def infer_signature(model_input: MlflowModelDataset,
@@ -209,21 +214,19 @@ def infer_signature(model_input: MlflowModelDataset,
     an exception if the user data contains incompatible types or is not passed in one of the
     supported formats (containers).
 
-    Supported input:
-
-    container types:
+    The input should be one of these:
       - pandas.DataFrame
       - dictionary of { name -> numpy.ndarray}
       - numpy.ndarray
       - pyspark.sql.DataFrame
 
-    element (scalar) types:
-      - those that can be translated to one of :py:class:`mlflow.models.signature.DataType` values.
+    The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType`.
 
     NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
 
-    :param model_input: Valid input to the model. E.g. (a subset of) training dataset.
-    :param model_output: Valid model output. Model predictions for the (subset of) training dataset.
+    :param model_input: Valid input to the model. E.g. (a subset of) the training dataset.
+    :param model_output: Valid model output. E.g. Model predictions for the (subset of) training
+                         dataset.
     :return: ModelSignature
     """
     inputs = _infer_schema(model_input)
@@ -231,84 +234,144 @@ def infer_signature(model_input: MlflowModelDataset,
     return ModelSignature(inputs, outputs)
 
 
-def save_example(path: str, input_example: ModelInputExample) -> str:
-    """
-    Save MLflow example into a file on a given path and return the resulting filename.
+def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
+    if not isinstance(dtype, np.dtype):
+        raise TypeError("Expected numpy.dtype, got '{}'.".format(type(dtype)))
+    if dtype.kind == "b":
+        return DataType.boolean
+    elif dtype.kind == "i" or dtype.kind == "u":
+        if dtype.itemsize < 4 or (dtype.kind == "i" and dtype.itemsize == 4):
+            return DataType.integer
+        elif dtype.itemsize < 8 or (dtype.kind == "i" and dtype.itemsize == 8):
+            return DataType.long
+    elif dtype.kind == "f":
+        if dtype.itemsize <= 4:
+            return DataType.float
+        elif dtype.itemsize <= 8:
+            return DataType.double
 
-    The example(s) can be provided as :py:class:`pandas.DataFrame`, :py:class:`numpy.ndarray',
-    python dictionary or python list. The assumption is that the example is a DataFrame-like
-    dataset with jsonable elements (see storage format section below).
+    elif dtype.kind == "U":
+        return DataType.string
+    elif dtype.kind == "S":
+        return DataType.binary
+    elif dtype.kind == "O":
+        raise Exception("Can not infer np.object without looking at the values, call "
+                        "_map_numpy_array instead.")
+    raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(
+        dtype, dtype.kind))
 
-    NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
 
-    NOTE: If the example is 1 dimensional (e.g. dictionary of str -> scalar, or a list of scalars),
-    the assumption is that it is a single row of data (rather than 1 column).
+def _infer_numpy_array(col: np.ndarray) -> DataType:
+    if not isinstance(col, np.ndarray):
+        raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(col)))
+    if len(col.shape) > 1:
+        raise MlflowException("Expected 1d array, got array with shape {}".format(col.shape))
 
-    Storage Format
-    ==============
-    The examples are stored as json for portability and readability. Therefore, the contents of the
-    example(s) must be jsonable. Mlflow will make the following conversions automatically on behalf
-    of the user:
+    class IsInstanceOrNone(object):
+        def __init__(self, *args):
+            self.classes = args
+            self.seen_instances = 0
 
-    - binary values: :py:class`bytes` or :py:class`bytearray` are converted to base64
-      encoded strings.
-    - numpy types: Numpy types are converted to the corresponding python types or their closest
-      equivalent.
+        def __call__(self, x):
+            if x is None:
+                return True
+            elif any(map(lambda c: isinstance(x, c), self.classes)):
+                self.seen_instances += 1
+                return True
+            else:
+                return False
 
-    The json output is formatted according to pandas orient='split' convention (we omit index).
-    The output is a json object with the following attributes:
-     - columns: list of column names. Columns are not included if there are no column names or if
-                the column names are ordered sequence 0..N where N is the number of columns in the
-                dataset.
-    - data: Json array with the data organized row-wise.
-
-    :param path: Path where to store the example.
-    :param input_example: Data with the input example(s). Expected to be a DataFrame-like
-                          (2 dimensional) dataset with jsonable elements.
-    :return: Filename of the stored example.
-    """
-
-    def _is_scalar(x):
-        return np.isscalar(x) or x is None
-
-    if isinstance(input_example, dict):
-        for x, y in input_example.items():
-            if isinstance(y, np.ndarray) and len(y.shape) > 1:
-                raise TensorsNotSupportedException("Column '{0}' has shape {1}".format(x, y.shape))
-
-        if all([_is_scalar(x) for x in input_example.values()]):
-            input_example = pd.DataFrame([input_example])
+    if col.dtype.kind == "O":
+        is_binary_test = IsInstanceOrNone(bytes, bytearray)
+        if all(map(is_binary_test, col)) and is_binary_test.seen_instances > 0:
+            return DataType.binary
+        is_string_test = IsInstanceOrNone(str)
+        if all(map(is_string_test, col)) and is_string_test.seen_instances > 0:
+            return DataType.string
+        # NB: bool is also instance of int => boolean test must precede integer test.
+        is_boolean_test = IsInstanceOrNone(bool)
+        if all(map(is_boolean_test, col)) and is_boolean_test.seen_instances > 0:
+            return DataType.boolean
+        is_long_test = IsInstanceOrNone(int)
+        if all(map(is_long_test, col)) and is_long_test.seen_instances > 0:
+            return DataType.long
+        is_double_test = IsInstanceOrNone(float)
+        if all(map(is_double_test, col)) and is_double_test.seen_instances > 0:
+            return DataType.double
         else:
-            input_example = pd.DataFrame.from_dict(input_example)
-    elif isinstance(input_example, list):
-        for i, x in enumerate(input_example):
-            if isinstance(x, np.ndarray) and len(x.shape) > 1:
-                raise TensorsNotSupportedException("Row '{0}' has shape {1}".format(i, x.shape))
-        if all([_is_scalar(x) for x in input_example]):
-            input_example = pd.DataFrame([input_example])
-        else:
-            input_example = pd.DataFrame(input_example)
-    elif isinstance(input_example, np.ndarray):
-        if len(input_example.shape) > 2:
-            raise TensorsNotSupportedException("Input array has shape {}".format(
-                input_example.shape))
-        input_example = pd.DataFrame(input_example)
-    elif not isinstance(input_example, pd.DataFrame):
-        raise TypeError("Unexpected type of input_example. Expected one of "
-                        "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
-                          type(input_example)))
+            raise MlflowException("Unable to map 'np.object' type to MLflow DataType. np.object can"
+                                  "be mapped iff all values have identical data type which is one "
+                                  "of (string, (bytes or byterray),  int, float).")
+    else:
+        return _infer_numpy_dtype(col.dtype)
 
-    example_filename = "input_dataframe_example.json"
-    res = input_example.to_dict(orient="split")
-    # Do not include row index
-    del res["index"]
-    if all(input_example.columns == range(len(input_example.columns))):
-        # No need to write default column index out
-        del res["columns"]
 
-    with open(os.path.join(path, example_filename), "w") as f:
-        json.dump(res, f, cls=NumpyEncoder)
-    return example_filename
+def _infer_spark_type(x) -> DataType:
+    import pyspark.sql.types
+    if isinstance(x, pyspark.sql.types.NumericType):
+        if isinstance(x, pyspark.sql.types.IntegralType):
+            if isinstance(x, pyspark.sql.types.LongType):
+                return DataType.long
+            else:
+                return DataType.integer
+        elif isinstance(x, pyspark.sql.types.FloatType):
+            return DataType.float
+        elif isinstance(x, pyspark.sql.types.DoubleType):
+            return DataType.double
+    elif isinstance(x, pyspark.sql.types.BooleanType):
+        return DataType.boolean
+    elif isinstance(x, pyspark.sql.types.StringType):
+        return DataType.string
+    elif isinstance(x, pyspark.sql.types.BinaryType):
+        return DataType.binary
+    else:
+        raise Exception("Unsupported Spark Type '{}', MLflow schema is only supported for scalar "
+                        "Spark types.".format(type(x)))
+
+
+def _is_spark_df(x) -> bool:
+    try:
+        import pyspark.sql.dataframe
+        return isinstance(x, pyspark.sql.dataframe.DataFrame)
+    except ImportError:
+        return False
+
+
+def _infer_schema(data: MlflowModelDataset) -> Schema:
+    if isinstance(data, dict):
+        res = []
+        for col in data.keys():
+            ary = data[col]
+            if not isinstance(ary, np.ndarray):
+                raise TypeError("Data in the dictionary must be of type numpy.ndarray")
+            dims = len(ary.shape)
+            if dims == 1:
+                res.append(ColSpec(type=_infer_numpy_array(ary), name=col))
+            else:
+                raise TensorsNotSupportedException("Data in the dictionary must be 1-dimensional, "
+                                                   "got shape {}".format(ary.shape))
+        return Schema(res)
+    elif isinstance(data, pd.DataFrame):
+        return Schema([ColSpec(type=_infer_numpy_array(data[col].values), name=col)
+                       for col in data.columns])
+    elif isinstance(data, np.ndarray):
+        if len(data.shape) > 2:
+            raise TensorsNotSupportedException("Attempting to infer schema from numpy array with "
+                                               "shape {}".format(data.shape))
+        if data.dtype == np.object:
+            data = pd.DataFrame(data).infer_objects()
+            return Schema([ColSpec(type=_infer_numpy_array(data[col].values))
+                           for col in data.columns])
+        if len(data.shape) == 1:
+            return Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))])
+        elif len(data.shape) == 2:
+            return Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))] * data.shape[1])
+    elif _is_spark_df(data):
+        return Schema([ColSpec(type=_infer_spark_type(field.dataType), name=field.name)
+                       for field in data.schema.fields])
+    raise TypeError("Expected one of (pandas.DataFrame, numpy array, "
+                    "dictionary of (name -> numpy.ndarray), pyspark.sql.DataFrame) "
+                    "but got '{}'".format(type(data)))
 
 
 def _base64decode(x):
@@ -337,113 +400,3 @@ def dataframe_from_json(path_or_str, schema: Schema = None,
             return df
     else:
         return pd.read_json(path_or_str, orient=pandas_orient, dtype=False)
-
-
-def _map_numpy_dtype(col: np.ndarray) -> DataType:
-    if not isinstance(col, np.ndarray):
-        raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(col)))
-    if len(col.shape) > 1:
-        raise MlflowException("Expected 1d array, got array with shape {}".format(col.shape))
-    if col.dtype.kind == "b":
-        return DataType.boolean
-    elif col.dtype.kind == "i" or col.dtype.kind == "u":
-        if col.dtype.itemsize < 4 or col.dtype.kind == "i" and col.dtype.itemsize == 4:
-            return DataType.integer
-        elif col.dtype.itemsize < 8 or col.dtype.kind == "i" and col.dtype.itemsize == 8:
-            return DataType.long
-    elif col.dtype.kind == "f":
-        if col.dtype.itemsize <= 4:
-            return DataType.float
-        elif col.dtype.itemsize <= 8:
-            return DataType.double
-    elif col.dtype.kind == "U":
-        return DataType.string
-    elif col.dtype.kind == "S":
-        return DataType.binary
-    elif col.dtype.kind == "O":
-        first_elem = col[0]
-        if isinstance(first_elem, bytearray) or isinstance(first_elem, bytes) and all(
-                [isinstance(x, bytearray) or isinstance(x, bytes) for x in col]):
-            return DataType.binary
-        elif isinstance(first_elem, str) and all([isinstance(x, str) for x in col]):
-            return DataType.string
-        elif isinstance(first_elem, int) and all([isinstance(x, int) for x in col]):
-            return DataType.long
-        elif isinstance(first_elem, float) and all([isinstance(x, float) for x in col]):
-            return DataType.double
-        else:
-            raise MlflowException("unsupported element type {} ".format(type(first_elem)))
-    raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(
-        col.dtype, col.dtype.kind))
-
-
-def _map_spark_type(x) -> DataType:
-    import pyspark.sql.types
-    if isinstance(x, pyspark.sql.types.NumericType):
-        if isinstance(x, pyspark.sql.types.IntegralType):
-            if isinstance(x, pyspark.sql.types.LongType):
-                return DataType.long
-            else:
-                return DataType.integer
-        elif isinstance(x, pyspark.sql.types.FloatType):
-            return DataType.float
-        elif isinstance(x, pyspark.sql.types.DoubleType):
-            return DataType.double
-    elif isinstance(x, pyspark.sql.types.BooleanType):
-        return DataType.boolean
-    elif isinstance(x, pyspark.sql.types.StringType):
-        return DataType.string
-    elif isinstance(x, pyspark.sql.types.BinaryType):
-        return DataType.binary
-    else:
-        raise Exception("Unsupported Spark Type '{}', MLflow schema is only supported for scalar "
-                        "Spark types.".format(type(x)))
-
-
-def _is_spark_df(x) -> bool:
-    try:
-        return isinstance(x, importlib.import_module("pyspark.sql.dataframe").DataFrame)
-    except ImportError:
-        return False
-
-
-def _infer_schema(data: MlflowModelDataset) -> Schema:
-    if hasattr(data, "__len__") and len(data) == 0:
-        return Schema([])
-    if isinstance(data, dict):
-        res = []
-        for col in data.keys():
-            ary = data[col]
-            if not isinstance(ary, np.ndarray):
-                raise TypeError("Data in the dictionary must be of type numpy.ndarray")
-            dims = len(ary.shape)
-            if dims == 1:
-                res.append(ColSpec(col, _map_numpy_dtype(ary)))
-            else:
-                raise MlflowException("Data in the dictionary must be 1-dimensional, "
-                                      "got shape {}".format(ary.shape))
-        return Schema(res)
-
-    if isinstance(data, pd.DataFrame):
-        return Schema([ColSpec(col, _map_numpy_dtype(data[col].values)) for col in data.columns])
-    elif isinstance(data, np.ndarray):
-        if len(data.shape) > 2:
-            raise MlflowException("Multidimensional arrays (aka tensors) are not supported, "
-                                  "got array with shape {}".format(data.shape))
-        if data.dtype == np.dtype("O"):
-            df = pd.DataFrame(data).infer_objects()
-            schema = _infer_schema(df)
-            return Schema([ColSpec(None, t) for t in schema.column_types()])
-        else:
-            if len(data.shape) == 2:
-                array_type = _map_numpy_dtype(data[0])
-                return Schema([ColSpec(None, array_type)] * data.shape[1])
-            else:
-                array_type = _map_numpy_dtype(data)
-                return Schema([ColSpec(None, array_type)])
-    elif _is_spark_df(data):
-        return Schema([ColSpec(field.name, _map_spark_type(field.dataType)) for field in
-                       data.schema.fields])
-    raise TypeError("Expected one of (pandas.DataFrame, numpy array, "
-                    "dictionary of (name -> numpy.ndarray), pyspark.sql.DataFrame) "
-                    "but got '{}'".format(type(data)))

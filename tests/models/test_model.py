@@ -1,10 +1,12 @@
 import os
 
 import mlflow
+
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.models import Model, ModelSignature
-from mlflow.models.signature import Schema, ColSpec, dataframe_from_json
+from mlflow.models import Model
+from mlflow.models.signature import Schema, ColSpec, ModelSignature, dataframe_from_json
 from mlflow.utils.file_utils import TempDir
+
 
 
 def test_model_save_load():
@@ -15,7 +17,7 @@ def test_model_save_load():
                   "flavor2": {"x": 1, "y": 2},
               },
               signature=ModelSignature(
-                  inputs=Schema([ColSpec("x", "integer"), ColSpec("y", "integer")]),
+                  inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
                   outputs=Schema([ColSpec(name=None, type="double")])),
               input_example={"x": 1, "y": 2})
     n = Model(artifact_path="some/path",
@@ -25,7 +27,7 @@ def test_model_save_load():
                   "flavor2": {"x": 1, "y": 2},
               },
               signature=ModelSignature(
-                  inputs=Schema([ColSpec("x", "integer"), ColSpec("y", "integer")]),
+                  inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
                   outputs=Schema([ColSpec(name=None, type="double")])),
               input_example={"x": 1, "y": 2})
     n.utc_time_created = m.utc_time_created
@@ -56,7 +58,7 @@ def test_model_log():
     with TempDir(chdr=True) as tmp:
         mlflow.create_experiment("test")
         mlflow.set_experiment("test")
-        sig = ModelSignature(inputs=Schema([ColSpec("x", "integer"), ColSpec("y", "integer")]),
+        sig = ModelSignature(inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
                              outputs=Schema([ColSpec(name=None, type="double")]))
         input_example = {"x": 1, "y": 2}
         with mlflow.start_run() as r:
@@ -67,18 +69,12 @@ def test_model_log():
         local_path = _download_artifact_from_uri("runs:/{}/some/path".format(r.info.run_id),
                                                  output_path=tmp.path(""))
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        print()
-        print(loaded_model.to_yaml())
-        print()
         assert loaded_model.run_id == r.info.run_id
         assert loaded_model.artifact_path == "some/path"
         assert loaded_model.flavors == {
             "flavor1": {"a": 1, "b": 2},
             "flavor2": {"x": 1, "y": 2},
         }
-        print()
-        print(loaded_model.signature)
-        print()
         assert loaded_model.signature == sig
         x = dataframe_from_json(os.path.join(local_path, loaded_model.input_example))
         assert x.to_dict(orient="records")[0] == input_example
