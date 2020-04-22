@@ -178,7 +178,8 @@ class _OnnxModelWrapper:
             if isinstance(data, list):
                 data = np.asarray(data)
             return data
-        response = pd.DataFrame.from_dict({c: format_output(p) for (c, p) in zip(self.output_names, predicted)})
+        response = pd.DataFrame.from_dict({c: format_output(p)
+                                           for (c, p) in zip(self.output_names, predicted)})
         return response
 
 

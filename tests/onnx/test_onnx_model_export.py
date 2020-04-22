@@ -77,6 +77,7 @@ def onnx_sklearn_model(sklearn_model):
 def predicted(model, data):
     return model.predict(data[0])
 
+
 @pytest.fixture(scope='module')
 def tf_model_multiple_inputs_float64():
     graph = tf.Graph()
@@ -443,15 +444,16 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
     assert conda_env == mlflow.onnx.get_default_conda_env()
 
-"""
-https://github.com/mlflow/mlflow/issues/2499
-User encountered issue where an sklearn model, converted to onnx, would return a list response. The issue 
-resulted in an error because MLflow assumed it would be a numpy array. Therefore, the this test validates
-the service does not receive that error when using such a model.
-"""
+
 @pytest.mark.large
 def test_OnnxModelWrapper_predit_handles_list_output(onnx_sklearn_model,  model_path, data):
-    x,y = data
+    """
+    https://github.com/mlflow/mlflow/issues/2499
+    User encountered issue where an sklearn model, converted to onnx, would return a list response.
+    The issue resulted in an error because MLflow assumed it would be a numpy array. Therefore,
+    the this test validates the service does not receive that error when using such a model.
+    """
+    x, y = data
     mlflow.onnx.save_model(onnx_sklearn_model, model_path)
     wrapper = mlflow.onnx._OnnxModelWrapper(model_path + '/model.onnx')
     wrapper.predict(pd.DataFrame(x))
