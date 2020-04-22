@@ -8,7 +8,7 @@ import pandas as pd
 from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
-
+# defines valid input for model input examples. See save_example below for more detail.
 ModelInputExample = TypeVar('ModelInputExample', pd.DataFrame, np.ndarray, dict, list)
 
 

@@ -18,7 +18,9 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature
+from mlflow.models import Model
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -150,7 +152,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
 def log_model(sk_model, artifact_path, conda_env=None,
               serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE, registered_model_name=None,
-              model_signature: ModelSignature=None, input_example=None):
+              model_signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log a scikit-learn model as an MLflow artifact for the current run.
 

@@ -17,9 +17,11 @@ import numpy as np
 import pandas as pd
 
 from mlflow import pyfunc
-from mlflow.models import Model, ModelSignature, ModelInputExample
+from mlflow.models import Model
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import experimental

@@ -30,7 +30,9 @@ import traceback
 import mlflow
 from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature, save_example
+from mlflow.models import Model
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import save_example, ModelInputExample
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -80,7 +82,7 @@ def get_default_conda_env():
 
 def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
               sample_input=None, registered_model_name=None,
-              model_signature: ModelSignature=None, input_example=None):
+              model_signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
     MLlib persistence format and produces an MLflow Model with the Spark flavor.

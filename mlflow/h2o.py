@@ -15,7 +15,9 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model, ModelSignature, ModelInputExample
+from mlflow.models import Model
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
