@@ -20,7 +20,6 @@
 - [ ] UI
 - [ ] CLI
 - [ ] API
-- [ ] REST-API
 - [ ] Examples
 - [ ] Docs
 - [ ] Tracking
@@ -29,7 +28,6 @@
 - [ ] Models
 - [ ] Model Registry
 - [ ] Scoring
-- [ ] Serving
 - [ ] R
 - [ ] Java
 - [ ] Python

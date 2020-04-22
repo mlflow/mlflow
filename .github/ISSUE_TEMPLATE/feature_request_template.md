@@ -6,14 +6,14 @@ title: "[FR]"
 ---
 Thank you for submitting a feature request. **Before proceeding, please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md) for guidelines and information about the feature request lifecycle**.
 
-**Please fill in this feature request template to ensure a thorough review.**
+**Please fill in this feature request template to ensure a timely and thorough response.**
 
 ## Willingness to contribute
 The MLflow Community encourages new feature contributions. Would you or another member of your organization be willing to contribute an implementation of this feature (either as an MLflow Plugin or an enhancement to the MLflow code base)?
 
 - [ ] Yes. I can contribute this feature independently.
 - [ ] Yes. I would be willing to contribute this feature with guidance from the MLflow community.
-- [ ] No. **Explanation:**
+- [ ] No. I cannot contribute this feature at this time.
 
 ## Proposal Summary
 
@@ -34,7 +34,7 @@ Please refer to the https://mlflow.org/docs/latest/plugins.html for a list of su
 
 - [ ] Yes. I think this feature can be introduced as an MLflow Plugin.
 - [ ] No. It does not make sense to structure this feature as an MLflow Plugin. **Explanation:**
-- [ ] No. I don’t think MLflow Plugins currently supports this type of feature. **Explanation:**
+- [ ] No. I don’t think MLflow Plugins currently support this type of feature. **Explanation:**
 
 If you selected “Yes,” please submit this feature request and add the “Plugin” GitHub label. An MLflow Community member will provide further guidance on how to get started with developing this feature as an MLflow Plugin.
 
@@ -45,7 +45,6 @@ If you selected “No”, please complete the subsequent sections.
 - [ ] UI
 - [ ] CLI
 - [ ] API
-- [ ] REST-API
 - [ ] Examples
 - [ ] Docs
 - [ ] Tracking
@@ -54,7 +53,6 @@ If you selected “No”, please complete the subsequent sections.
 - [ ] Models
 - [ ] Model Registry
 - [ ] Scoring
-- [ ] Serving
 - [ ] R
 - [ ] Java
 - [ ] Python
