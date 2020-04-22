@@ -89,7 +89,7 @@ def save_example(path: str, input_example: ModelInputExample) -> Dict[str, Any]:
                         "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
                           type(input_example)))
 
-    example_filename = "input_dataframe_example.json"
+    example_filename = "input_example.json"
     res = input_example.to_dict(orient="split")
     # Do not include row index
     del res["index"]
