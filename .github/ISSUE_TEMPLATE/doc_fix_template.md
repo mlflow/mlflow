@@ -7,7 +7,7 @@ title: "[DOC-FIX]"
 Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
 for information on what types of issues we address.
 
-**Please fill in this template. Documentation issues that do not complete this template will not be reviewed.**
+**Please fill in this documentation issue template to ensure a thorough response.**
 
 ### Willingness to contribute
 The MLflow Community encourages documentation fix contributions. Would you or another member of your organization be willing to

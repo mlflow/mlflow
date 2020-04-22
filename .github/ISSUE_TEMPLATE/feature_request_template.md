@@ -6,7 +6,7 @@ title: "[FR]"
 ---
 Thank you for submitting a feature request. **Before proceeding, please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md) for guidelines and information about the feature request lifecycle**.
 
-**Please fill in this template. Feature requests that do not complete this template will not be reviewed.**
+**Please fill in this feature request template to ensure a thorough review.**
 
 ## Willingness to contribute
 The MLflow Community encourages new feature contributions. Would you or another member of your organization be willing to contribute an implementation of this feature (either as an MLflow Plugin or an enhancement to the MLflow code base)?

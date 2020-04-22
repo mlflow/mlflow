@@ -21,6 +21,16 @@ issue is outside its scope.
 
 ### Feature Requests
 
+#### Guidelines
+Feature requests that are likely to be accepted:
+
+* Are minimal in scope (note that it's always easier to add additional functionality later than remove functionality)
+* Are extensible (e.g. if adding an integration with an ML framework, is it possible to add similar integrations with other frameworks?)
+* Have user impact & value that justifies the maintenance burden of supporting the feature moving forwards. The
+  [JQuery contributor guide](https://contribute.jquery.org/open-source/#contributing-something-new) has an excellent discussion on this.
+
+#### Lifecycle
+
 Feature requests typically go through the following lifecycle:
 
 1. A feature request GitHub Issue is submitted, which contains a high-level description of the proposal and its motivation.
@@ -28,7 +38,8 @@ Feature requests typically go through the following lifecycle:
 2. The feature request is discussed with a committer. The committer will provide input on the implementation overview or
    ask for a more detailed design, if applicable.
 3. After discussion & agreement on the feature request and its implementation, an implementation owner is identified.
-4. The implementation owner begins developing the feature and ultimately files associated pull requests.
+4. The implementation owner begins developing the feature and ultimately files associated pull requests against the
+   MLflow Repository or packages the feature as an MLflow Plugin.
 
 ### Bug reports
 
