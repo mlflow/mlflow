@@ -1,4 +1,3 @@
-import base64
 import json
 import os
 from typing import TypeVar
@@ -6,16 +5,12 @@ from typing import TypeVar
 import numpy as np
 import pandas as pd
 
-from mlflow.exceptions import MlflowException
+from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
 ModelInputExample = TypeVar('ModelInputExample', pd.DataFrame, np.ndarray, dict, list)
 
 
-class TensorsNotSupportedException(MlflowException):
-    def __init__(self, msg):
-        super().__init__("Multidimensional arrays (aka tensors) are not supported. "
-                         "{}".format(msg))
 
 
 def save_example(path: str, input_example: ModelInputExample) -> str:
@@ -83,7 +78,7 @@ def save_example(path: str, input_example: ModelInputExample) -> str:
     elif not isinstance(input_example, pd.DataFrame):
         raise TypeError("Unexpected type of input_example. Expected one of "
                         "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
-            type(input_example)))
+                          type(input_example)))
 
     example_filename = "input_dataframe_example.json"
     res = input_example.to_dict(orient="split")

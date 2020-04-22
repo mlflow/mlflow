@@ -3,6 +3,10 @@ from json import JSONEncoder
 
 from google.protobuf.json_format import MessageToJson, ParseDict
 import numpy as np
+import pandas as pd
+
+from mlflow.types import DataType
+from mlflow.types.schema import Schema
 
 
 def message_to_json(message):
@@ -50,6 +54,7 @@ class NumpyEncoder(JSONEncoder):
     hence json.dumps will raise TypeError.
     In this case, you'll need to convert your numpy types into its closest python equivalence.
     """
+
     def default(self, o):  # pylint: disable=E0202
         def encode_binary(x):
             return base64.encodebytes(x).decode("ascii")
@@ -67,3 +72,31 @@ class NumpyEncoder(JSONEncoder):
         if isinstance(o, bytes) or isinstance(o, bytearray):
             return encode_binary(o)
         return o
+
+
+def _base64decode(x):
+    return base64.decodebytes(x.encode("ascii"))
+
+
+def dataframe_from_json(path_or_str, schema: Schema = None,
+                        pandas_orient: str = "split") -> pd.DataFrame:
+    """
+    Parse json into pandas.DataFrame. User can pass schema to ensure correct type parsing and to
+    make any necessary conversions (e.g. string -> binary for binary columns).
+
+    :param path_or_str: Path to a json file or a json string.
+    :param schema: Mlflow schema used when parsing the data.
+    :param pandas_orient: pandas data frame convention used to store the data.
+    :return: pandas.DataFrame.
+    """
+    if schema is not None:
+        dtypes = dict(zip(schema.column_names(), schema.column_types()))
+        df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes)[schema.column_names()]
+        binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
+
+        for i in binary_cols:
+            col = df.columns[i]
+            df[col] = np.array(df[col].map(_base64decode), dtype=np.bytes_)
+            return df
+    else:
+        return pd.read_json(path_or_str, orient=pandas_orient, dtype=False)
