@@ -30,6 +30,7 @@ export class RunPageImpl extends Component {
 
   setTagRequestId = getUUID();
 
+
   componentWillMount() {
     const { experimentId, runUuid } = this.props;
     this.props.getRunApi(runUuid, this.getRunRequestId);
@@ -44,7 +45,7 @@ export class RunPageImpl extends Component {
       .then(() => getRunApi(runUuid, this.getRunRequestId));
   };
 
-  renderRunView = (isLoading, shouldRenderError, requests) => {
+  renderRunView = (isLoading, shouldRenderError, requests, asyncRequests) => {
     if (shouldRenderError) {
       const getRunRequest = Utils.getRequestWithId(requests, this.getRunRequestId);
       if (getRunRequest.error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
@@ -52,12 +53,19 @@ export class RunPageImpl extends Component {
       }
       return null;
     }
+    const getArtifactsRequest = Utils.getRequestWithId(
+      asyncRequests, this.listArtifactRequestId
+    );
+    const artifactsLoading = getArtifactsRequest === undefined ?
+      true :
+      getArtifactsRequest.active === true;
     return <RunView
       runUuid={this.props.runUuid}
       getMetricPagePath={(key) =>
         Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
       }
       experimentId={this.props.experimentId}
+      artifactsAreLoading={artifactsLoading}
       modelVersions={this.props.modelVersions}
       handleSetRunTag={this.handleSetRunTag}
     />;
@@ -68,9 +76,12 @@ export class RunPageImpl extends Component {
       this.getRunRequestId,
       this.getExperimentRequestId,
     ];
+    const asyncRequestIds = [
+      this.listArtifactRequestId,
+    ];
     return (
       <div className='App-content'>
-        <RequestStateWrapper requestIds={requestIds}>
+        <RequestStateWrapper requestIds={requestIds} asyncRequestIds={asyncRequestIds}>
           {this.renderRunView}
         </RequestStateWrapper>
       </div>
