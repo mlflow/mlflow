@@ -446,7 +446,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 
 @pytest.mark.large
-def test_OnnxModelWrapper_predit_handles_list_output(onnx_sklearn_model,  model_path, data):
+def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model,  model_path, data):
     """
     https://github.com/mlflow/mlflow/issues/2499
     User encountered issue where an sklearn model, converted to onnx, would return a list response.
@@ -455,5 +455,5 @@ def test_OnnxModelWrapper_predit_handles_list_output(onnx_sklearn_model,  model_
     """
     x, y = data
     mlflow.onnx.save_model(onnx_sklearn_model, model_path)
-    wrapper = mlflow.onnx._OnnxModelWrapper(model_path + '/model.onnx')
+    wrapper = mlflow.pyfunc.load_model(model_path)
     wrapper.predict(pd.DataFrame(x))
