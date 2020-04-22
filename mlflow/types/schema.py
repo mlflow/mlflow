@@ -77,4 +77,3 @@ class Schema(object):
 
     def __repr__(self) -> str:
         return repr(self.columns)
-

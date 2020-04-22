@@ -35,4 +35,3 @@ class DataType(Enum):
 
     def to_numpy(self) -> np.dtype:
         return self._numpy_type
-
