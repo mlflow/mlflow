@@ -65,7 +65,9 @@ following parameters:
 
 .. rubric:: Example
 
->>> tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
+::
+
+    tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
 
 ::
 
@@ -77,7 +79,9 @@ following parameters:
   │   └── model.pkl
   └── mlflow_env.yml
 
->>> cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
+::
+
+    cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
 
 ::
 
@@ -341,8 +345,8 @@ def spark_udf(spark, model_uri, result_type="double"):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
-    Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
-    ordinals (0, 1, ...). On some versions of Spark, it is also possible to wrap the input in a
+    Parameters passed to the UDF are forwarded to the model as a DataFrame where the column names
+    are ordinals (0, 1, ...). On some versions of Spark, it is also possible to wrap the input in a
     struct. In that case, the data will be passed as a DataFrame with column names given by the
     struct definition (e.g. when invoked as my_udf(struct('x', 'y'), the model will ge the data as a
     pandas DataFrame with 2 columns 'x' and 'y').
@@ -352,8 +356,11 @@ def spark_udf(spark, model_uri, result_type="double"):
     converted to string. If the result type is not an array type, the left most column with
     matching type is returned.
 
-    >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
-    >>> df.withColumn("prediction", predict("name", "age")).show()
+    .. code-block:: python
+        :caption: Example
+
+        predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
+        df.withColumn("prediction", predict("name", "age")).show()
 
     :param spark: A SparkSession object.
     :param model_uri: The location, in URI format, of the MLflow model with the
