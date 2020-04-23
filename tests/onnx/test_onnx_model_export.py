@@ -454,6 +454,7 @@ def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model,  m
     the this test validates the service does not receive that error when using such a model.
     """
     import mlflow.onnx
+    import skl2onnx
     x, y = data
     mlflow.onnx.save_model(onnx_sklearn_model, model_path)
     wrapper = mlflow.pyfunc.load_model(model_path)
