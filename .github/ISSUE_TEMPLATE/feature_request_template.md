@@ -30,7 +30,7 @@ The MLflow Community encourages new feature contributions. Would you or another 
 ## Which MLflow component(s) does this feature affect?
 
 - [ ] UI
-- [ ] CLI
+- [ ] Command Line Interface
 - [ ] API
 - [ ] Examples
 - [ ] Docs

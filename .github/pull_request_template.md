@@ -18,7 +18,7 @@
 ### What component(s) does this PR affect?
 
 - [ ] UI
-- [ ] CLI
+- [ ] Command Line Interface
 - [ ] API
 - [ ] Examples
 - [ ] Docs
