@@ -8,7 +8,6 @@ import mock
 from keras.models import Sequential
 from keras.layers import Dense
 import sklearn.datasets as datasets
-from sklearn.linear_model import LogisticRegression
 import pandas as pd
 import numpy as np
 import yaml
@@ -57,6 +56,7 @@ def onnx_model(model):
 
 @pytest.fixture(scope='module')
 def sklearn_model(data):
+    from sklearn.linear_model import LogisticRegression
     x, y = data
     model = LogisticRegression()
     model.fit(x, y)
