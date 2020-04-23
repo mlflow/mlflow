@@ -63,14 +63,14 @@ class NumpyEncoder(JSONEncoder):
             if o.dtype == np.object:
                 return [self.try_convert(x)[0] for x in o.tolist()]
             elif o.dtype == np.bytes_:
-                return np.vectorize(encode_binary)(o)
+                return np.vectorize(encode_binary)(o), True
             else:
-                return o.tolist()
+                return o.tolist(), True
 
         if isinstance(o, np.generic):
-            return np.asscalar(o)
+            return np.asscalar(o), True
         if isinstance(o, bytes) or isinstance(o, bytearray):
-            return encode_binary(o)
+            return encode_binary(o), True
         return o, False
 
     def default(self, o):  # pylint: disable=E0202
