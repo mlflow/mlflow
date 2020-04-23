@@ -77,7 +77,6 @@ class NumpyEncoder(JSONEncoder):
             return JSONEncoder.default(o)
 
 
-
 def _base64decode(x):
     return base64.decodebytes(x.encode("ascii"))
 

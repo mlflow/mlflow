@@ -27,10 +27,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import save_example, ModelInputExample
 from mlflow.utils.file_utils import TempDir
+from .flavor_backend import FlavorBackend
 
 _logger = logging.getLogger(__name__)
-
-from .flavor_backend import FlavorBackend
 
 
 class Model(object):
