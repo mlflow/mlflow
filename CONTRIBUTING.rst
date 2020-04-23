@@ -314,16 +314,16 @@ You can see an example flavor PR `here <https://github.com/mlflow/mlflow/pull/21
 Building Protobuf Files
 ~~~~~~~~~~~~~~~~~~~~~~~
 To build protobuf files, simply run ``generate-protos.sh``. The required ``protoc`` version is ``3.6.0``.
-You can find the URL of a system-appropriate installation of ``protoc`` at 
-https://github.com/protocolbuffers/protobuf/releases/tag/v3.6.0, e.g. 
-https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/protoc-3.6.0-osx-x86_64.zip if 
+You can find the URL of a system-appropriate installation of ``protoc`` at
+https://github.com/protocolbuffers/protobuf/releases/tag/v3.6.0, e.g.
+https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/protoc-3.6.0-osx-x86_64.zip if
 you're on 64-bit Mac OSX.
 
 Then, run the following to install ``protoc``:
 
 .. code-block:: bash
 
-    # Update PROTOC_ZIP if on a platform other than 64-bit Mac OSX 
+    # Update PROTOC_ZIP if on a platform other than 64-bit Mac OSX
     PROTOC_ZIP=protoc-3.6.0-osx-x86_64.zip
     curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/$PROTOC_ZIP
     sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
