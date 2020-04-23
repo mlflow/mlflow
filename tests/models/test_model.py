@@ -57,12 +57,11 @@ class TestFlavor(object):
 
 def test_model_log():
     with TempDir(chdr=True) as tmp:
-        mlflow.create_experiment("test")
-        mlflow.set_experiment("test")
+        experiment_id = mlflow.create_experiment("test")
         sig = ModelSignature(inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
                              outputs=Schema([ColSpec(name=None, type="double")]))
         input_example = {"x": 1, "y": 2}
-        with mlflow.start_run() as r:
+        with mlflow.start_run(experiment_id=experiment_id) as r:
             Model.log("some/path", TestFlavor,
                       signature=sig,
                       input_example=input_example)

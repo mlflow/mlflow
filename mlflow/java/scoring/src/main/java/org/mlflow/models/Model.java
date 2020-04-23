@@ -39,7 +39,7 @@ public class Model {
   Signature signature;
 
   @JsonProperty("input_example")
-  String input_example;
+  private Map<String, Object> input_example;
 
   private String rootPath;
 

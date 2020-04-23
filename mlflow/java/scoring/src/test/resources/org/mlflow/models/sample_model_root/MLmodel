@@ -14,4 +14,8 @@ signature:
     {"name": "density", "type": "double"}, {"name": "pH", "type": "double"}, {"name":
     "sulphates", "type": "double"}, {"name": "alcohol", "type": "double"}]'
   outputs: '[{"name": null, "type": "double"}]'
-input_example: input_example.json
+input_example: {
+  "type": "dataframe",
+  "format": "split",
+  "artifact_path": "input_example.json"
+}
