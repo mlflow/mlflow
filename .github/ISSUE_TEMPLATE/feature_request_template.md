@@ -46,4 +46,4 @@ The MLflow Community encourages new feature contributions. Would you or another 
 
 (Use this section to include any additional information about the feature. If you have a proposal
 for how to implement this feature, please include it here. For implementation guidelines, please
-refer to the Contributing Guide.)
+refer to the `Contributing Guide`.)

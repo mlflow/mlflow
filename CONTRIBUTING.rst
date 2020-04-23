@@ -1,9 +1,11 @@
 Contributing to MLflow
 ======================
-We welcome community contributions to MLflow. This page describes:
-1. The contribution process
-2. Contribution guidelines
-3. How to develop/test your changes to MLflow locally
+We welcome community contributions to MLflow. This page provides useful information about
+contributing to MLflow.
+
+.. contents:: **Table of Contents**
+  :local:
+  :depth: 3
 
 Contribution process
 ####################
@@ -14,25 +16,25 @@ Details about each issue type and the issue lifecycle are discussed in the `MLfl
 
 MLflow committers actively triage and respond to GitHub issues. In general, we recommend waiting
 for feebdack from an MLflow committer or community member before proceeding to implement a feature
-or patch. This is particularly important for :ref:`significant changes <significant-changes>`.
+or patch. This is particularly important for
+`significant changes <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#write-designs-for-significant-changes>`_.
 
 After you have agreed upon an implementation strategy for your feature or patch with an MLflow
-committer, the next step is to introduce your changes (see :ref:`developing-changes`) as a
-pull request against the MLflow Repository or as a standalone MLflow Plugin. MLflow committers
+committer, the next step is to introduce your changes (see `developing changes
+<https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#developing-and-testing-changes-to-mlflow>`_)
+as a pull request against the MLflow Repository or as a standalone MLflow Plugin. MLflow committers
 actively review pull requests and are also happy to provide implementation guidance for Plugins.
 
 Once your pull request against the MLflow Repository has been merged, your corresponding changes
 will be automatically included in the next MLflow release. Every change is listed in the MLflow
-release notes and `Changelog <https://github.com/mlflow/mlflow/blob/cdc6a651d5af0f29bd448d2c87a198cf5d32792b/CHANGELOG.rst>`_.
+release notes and `Changelog <https://github.com/mlflow/mlflow/blob/master/CHANGELOG.rst>`_.
 Congratulations, you have just contributed to MLflow! We appreciate your contribution!
 
-.. _contribution-guidelines:
 Contribution guidelines
 #######################
 In this section, we provide guidelines to consider as you develop new features and patches for
 MLflow.
 
-.. _significant-changes:
 Write designs for significant changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -84,7 +86,7 @@ MLflow Plugin. MLflow Plugins are a great choice for the following types of chan
 MLflow committers and community members are happy to provide assistance with the development and review of
 new MLflow Plugins.
 
-Finally, MLflow maintains a list of Plugins developed by community members:
+Finally, MLflow maintains a list of Plugins developed by community members, which is located at
 https://mlflow.org/docs/latest/plugins.html#community-plugins. This is an excellent way to
 inform MLflow users about your exciting new Plugins. To list your plugin, simply introduce
 a new pull request against the `corresponding docs section of the MLflow code base
@@ -92,7 +94,6 @@ a new pull request against the `corresponding docs section of the MLflow code ba
 
 For more information about Plugins, see https://mlflow.org/docs/latest/plugins.html.
 
-.. _developing-changes:
 Developing and testing changes to MLflow
 ########################################
 The majority of the MLflow codebase is developed in Python. This includes the CLI, Tracking Server,
@@ -148,7 +149,7 @@ If modifying dependencies in ``mlflow/server/js/package.json``, run ``npm update
 
 
 Java
-----
+~~~~
 Certain MLflow modules are implemented in Java, under the ``mlflow/java/`` directory.
 These are the Java Tracking API client (``mlflow/java/client``) and the Model Scoring Server
 for Java-based models like MLeap (``mlflow/java/scoring``).
@@ -169,7 +170,7 @@ If opening a PR that makes API changes, please regenerate API documentation as d
 
 
 R
--
+~
 
 The ``mlflow/R/mlflow`` directory contains R wrappers for the Projects, Tracking and Models
 components. These wrappers depend on the Python package, so first install
@@ -226,7 +227,7 @@ Please also follow the recommendations from the
 `Advanced R - Style Guide <http://adv-r.had.co.nz/Style.html>`_ regarding naming and styling.
 
 Python
-------
+~~~~~~
 Verify that the unit tests & linter pass before submitting a pull request by running:
 
 .. code-block:: bash
@@ -280,7 +281,7 @@ If opening a PR that changes or adds new APIs, please update or add Python docum
 described in `Writing Docs`_ and commit the docs to your PR branch.
 
 Writing Python Tests
---------------------
+~~~~~~~~~~~~~~~~~~~~
 If your PR includes code that isn't currently covered by our tests (e.g. adding a new flavor, adding
 autolog support to a flavor, etc.), you should write tests that cover your new code. MLflow currently
 uses ``pytest==3.2.1`` for testing. Your tests should be added to the relevant file under ``tests``, or
@@ -294,7 +295,7 @@ for every tests. It sets up a mock tracking URI that will set itself up before y
 If you want to deactivate the mock for your test, mark the test with `@pytest.mark.notrackingurimock` operator.
 
 Adding New Model Flavor Support
--------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you are adding new framework flavor support, you'll need to modify ``pytest`` and Travis configurations so tests for your code can run properly. Generally, the files you'll have to edit are:
 
@@ -311,7 +312,7 @@ You can see an example flavor PR `here <https://github.com/mlflow/mlflow/pull/21
 
 
 Building Protobuf Files
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 To build protobuf files, simply run ``generate-protos.sh``. The required ``protoc`` version is ``3.6.0``.
 You can find the URL of a system-appropriate installation of ``protoc`` at 
 https://github.com/protocolbuffers/protobuf/releases/tag/v3.6.0, e.g. 
@@ -333,7 +334,7 @@ Verify that .proto files and autogenerated code are in sync by running ``./test-
 
 
 Database Schema Changes
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 MLflow's Tracking component supports storing experiment and run data in a SQL backend. To
 make changes to the tracking database schema, run the following from your
 checkout of MLflow:
@@ -355,7 +356,7 @@ migration logic.
 
 
 Launching the Development UI
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 We recommend `Running the Javascript Dev Server`_ - otherwise, the tracking frontend will request
 files in the ``mlflow/server/js/build`` directory, which is not checked into Git.
 Alternatively, you can generate the necessary files in ``mlflow/server/js/build`` as described in
@@ -363,7 +364,7 @@ Alternatively, you can generate the necessary files in ``mlflow/server/js/build`
 
 
 Running the Javascript Dev Server
----------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 `Install Node Modules`_, then run the following:
 
 In one shell:
@@ -382,7 +383,7 @@ In another shell:
 The MLflow Tracking UI will show runs logged in ``./mlruns`` at `<http://localhost:3000>`_.
 
 Building a Distributable Artifact
----------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 `Install Node Modules`_, then run the following:
 
 Generate JS files in ``mlflow/server/js/build``:
@@ -401,7 +402,7 @@ Build a pip-installable wheel in ``dist/``:
 
 
 Writing Docs
-------------
+~~~~~~~~~~~~
 First, install dependencies for building docs as described in `Prerequisites`_.
 
 To generate a live preview of Python & other rst documentation, run the following snippet. Note
