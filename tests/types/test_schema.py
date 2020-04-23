@@ -120,8 +120,9 @@ def test_schema_inference_on_numpy_array(pandas_df_with_all_types):
     assert schema == Schema([ColSpec("double")])
 
     # unsupported
-    with pytest.raises(MlflowException):
-        _infer_schema(np.array([1, 2, 3], dtype=np.float128))
+    if hasattr(np, "float128"):
+        with pytest.raises(MlflowException):
+            _infer_schema(np.array([1, 2, 3], dtype=np.float128))
 
 
 def test_that_schema_inference_with_tensors_raises_exception():
