@@ -1,5 +1,53 @@
 Changelog
 =========
+1.8.0 (2020-04-16)
+------------------
+MLflow 1.8.0 includes several major features and improvements:
+
+Features:
+
+- Added ``mlflow.azureml.deploy`` API for deploying MLflow models to AzureML (#2375 @csteegz, #2711, @akshaya-a)
+- Added support for case-sensitive LIKE and case-insensitive ILIKE queries (e.g. ``'params.framework LIKE '%sklearn%'``) with the SearchRuns API & UI when running against a SQLite backend (#2217, @t-henri; #2708, @mparkhe)
+- Improved line smoothing in MLflow metrics UI using exponential moving averages (#2620, @Valentyn1997)
+- Added ``mlflow.spacy`` module with support for logging and loading spaCy models (#2242, @arocketman)
+- Parameter values that differ across runs are highlighted in run comparison UI (#2565, @gabrielbretschner)
+- Added ability to compare source runs associated with model versions from the registered model UI  (#2537, @juntai-zheng)
+- Added support for alphanumerical experiment IDs in the UI. (#2568, @jonas)
+- Added support for passing arguments to ``docker run`` when running docker-based MLflow projects (#2608, @ksanjeevan)
+- Added Windows support for ``mlflow sagemaker build-and-push-container`` CLI & API (#2500, @AndreyBulezyuk)
+- Improved performance of reading experiment data from local filesystem when LibYAML is installed (#2707, @Higgcz)
+- Added a healthcheck endpoint to the REST API server at ``/health`` that always returns a 200 response status code, to be used to verify health of the server (#2725, @crflynn)
+- MLflow metrics UI plots now scale to rendering thousands of points using scattergl (#2447, @mjlbach)
+
+Bug fixes:
+
+- Fixed CLI summary message in ``mlflow azureml build_image`` CLI (#2712, @dbczumar)
+- Updated ``examples/flower_classifier/score_images_rest.py`` with multiple bug fixes (#2647, @tfurmston)
+- Fixed pip not found error while packaging models via ``mlflow models build-docker`` (#2699, @HiromuHota)
+- Fixed bug in ``mlflow.tensorflow.autolog`` causing erroneous deletion of TensorBoard logging directory (#2670, @dbczumar)
+- Fixed a bug that truncated the description of the ``mlflow gc`` subcommand in ``mlflow --help`` (#2679, @dbczumar)
+- Fixed bug where ``mlflow models build-docker`` was failing due to incorrect Miniconda download URL (#2685, @michaeltinsley)
+- Fixed a bug in S3 artifact logging functionality where ``MLFLOW_S3_ENDPOINT_URL`` was ignored (#2629, @poppash)
+- Fixed a bug where Sqlite in-memory was not working as a tracking backend store by modifying DB upgrade logic (#2667, @dbczumar)
+- Fixed a bug to allow numerical parameters with values >= 1000 in R ``mlflow::mlflow_run()`` API (#2665, @lorenzwalthert)
+- Fixed a bug where AWS creds was not found in the Windows platform due path differences (#2634, @AndreyBulezyuk)
+- Fixed a bug to add pip when necessary in ``_mlflow_conda_env`` (#2646, @tfurmston)
+- Fixed error code to be more meaningful if input to model version is incorrect (#2625, @andychow-db)
+- Fixed multiple bugs in model registry (#2638, @aarondav)
+- Fixed support for conda env dicts with ``mlflow.pyfunc.log_model`` (#2618, @dbczumar)
+- Fixed a bug where hiding the start time column in the UI would also hide run selection checkboxes (#2559, @harupy)
+
+Documentation updates:
+
+- Added links to source code to mlflow.org (#2627, @harupy)
+- Documented fix for pandas-records payload (#2660, @SaiKiranBurle)
+- Fixed documentation bug in TensorFlow ``load_model`` utility (#2666, @pogil)
+- Added the missing Model Registry description and link on the first page (#2536, @dmatrix)
+- Added documentation for expected datatype for step argument in ``log_metric`` to match REST API (#2654, @mparkhe)
+- Added usage of the model registry to the ``log_model`` function in ``sklearn_elasticnet_wine/train.py`` example (#2609, @netanel246)
+
+Small bug fixes and doc updates (#2594, @Trollgeir; #2703,#2709, @juntai-zheng; #2538, #2632, @keigohtr; #2656, #2553, @lorenzwalthert; #2622, @pingsutw; #2615, #2600, #2533, @mlflow-automation; #1391, @sueann; #2613, #2598, #2534, #2723, @smurching; #2652, #2710, @mparkhe; #2706, #2653, #2639, @tomasatdatabricks; #2611, @9dogs; #2700, #2705, @aarondav; #2675, #2540, @mengxr; #2686, @RensDimmendaal; #2694, #2695, #2532, @dbczumar; #2733, #2716, @harupy; #2726, @crflynn; #2582, #2687, @dmatrix)
+
 
 1.7.2 (2020-03-20)
 ------------------------

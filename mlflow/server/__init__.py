@@ -31,6 +31,12 @@ if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
     activate_prometheus_exporter(app)
 
 
+# Provide a health check endpoint to ensure the application is responsive
+@app.route("/health")
+def health():
+    return "OK", 200
+
+
 # Serve the "get-artifact" route.
 @app.route(_add_static_prefix('/get-artifact'))
 def serve_artifacts():

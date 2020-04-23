@@ -11,7 +11,7 @@ import {
   SET_EXPERIMENT_TAG_API,
   SET_TAG_API,
   DELETE_TAG_API,
-  } from '../actions';
+} from '../actions';
 import { Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
@@ -200,9 +200,9 @@ export const tagsByRunUuid = (state = {}, action) => {
       const oldTags = state[runUuid] ? state[runUuid] : {};
       const newTags = _.omit(oldTags, action.meta.key);
       if (Object.keys(newTags).length === 0) {
-        return _.omit({...state}, runUuid);
+        return _.omit({ ...state }, runUuid);
       } else {
-        return {...state, [runUuid]: newTags};
+        return { ...state, [runUuid]: newTags };
       }
     }
     default:
@@ -317,11 +317,12 @@ export const getArtifactRootUri = (runUuid, state) => {
 
 export const artifactRootUriByRunUuid = (state = {}, action) => {
   switch (action.type) {
-    case fulfilled(LIST_ARTIFACTS_API): {
-      const runUuid = action.meta.runUuid;
+    case fulfilled(GET_RUN_API): {
+      const runInfo = RunInfo.fromJs(action.payload.run.info);
+      const runUuid = runInfo.getRunUuid();
       return {
         ...state,
-        [runUuid]: action.payload.root_uri,
+        [runUuid]: runInfo.getArtifactUri(),
       };
     }
     default:
@@ -343,24 +344,24 @@ export const entities = combineReducers({
 });
 
 export const getSharedParamKeysByRunUuids = (runUuids, state) =>
-    _.intersection(
-        ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
-    );
+  _.intersection(
+    ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
+  );
 
 export const getSharedMetricKeysByRunUuids = (runUuids, state) =>
-    _.intersection(
-        ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
-    );
+  _.intersection(
+    ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
+  );
 
 export const getAllParamKeysByRunUuids = (runUuids, state) =>
-    _.union(
-        ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
-    );
+  _.union(
+    ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
+  );
 
 export const getAllMetricKeysByRunUuids = (runUuids, state) =>
-    _.union(
-        ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
-    );
+  _.union(
+    ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
+  );
 
 export const getApis = (requestIds, state) => {
   return requestIds.map((id) => state.apis[id] || {});

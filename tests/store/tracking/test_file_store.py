@@ -587,6 +587,15 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         six.assertCountEqual(self, [r2], self._search(fs, experiment_id,
                                                       filter_str="tags.p_b = 'ABC'"))
 
+        six.assertCountEqual(self, [r2], self._search(fs, experiment_id,
+                                                      filter_str="tags.generic_2 LIKE '%other%'"))
+        six.assertCountEqual(self, [], self._search(fs, experiment_id,
+                                                    filter_str="tags.generic_2 LIKE 'other%'"))
+        six.assertCountEqual(self, [], self._search(fs, experiment_id,
+                                                    filter_str="tags.generic_2 LIKE '%other'"))
+        six.assertCountEqual(self, [r2], self._search(fs, experiment_id,
+                                                      filter_str="tags.generic_2 ILIKE '%OTHER%'"))
+
     def test_search_with_max_results(self):
         fs = FileStore(self.test_root)
         exp = fs.create_experiment("search_with_max_results")
