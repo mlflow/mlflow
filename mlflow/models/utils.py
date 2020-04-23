@@ -42,7 +42,7 @@ def save_example(path: str, input_example: ModelInputExample) -> Dict[str, Any]:
      - columns: list of column names. Columns are not included if there are no column names or if
                 the column names are ordered sequence 0..N where N is the number of columns in the
                 dataset.
-    - data: Json array with the data organized row-wise.
+     - data: Json array with the data organized row-wise.
 
     :param path: Path where to store the example.
     :param input_example: Data with the input example(s). Expected to be a DataFrame-like

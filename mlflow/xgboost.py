@@ -147,17 +147,21 @@ def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=No
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
+
    :param signature: Note:: Experimental: This argument may change or be removed in a
                      future release without warning. Model signature describes model input
                      and output schema. The model signature can be inferred from datasets
                      representing valid model input (e.g. the training dataset) and valid
                      model output (e.g. model predictions generated on the training dataset).
                      For example, you can obtain model signature as follows:
-                     ```
-                     from mlflow.models.signature import infer_signature
-                     train = df.drop_column("target_label")
-                     signature = infer_signature(train, model.predict(train))
-                     ```
+
+                     .. code-block:: python
+
+                       from mlflow.models.signature import infer_signature
+                       train = df.drop_column("target_label")
+                       signature = infer_signature(train, model.predict(train))
+
+
     :param input_example: Note:: Experimental: This argument may change or be removed in a
                           future release without warning. Input example provides one or several
                           examples of valid model input. The example can be used as a hint of what

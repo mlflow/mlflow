@@ -1,5 +1,7 @@
 import json
+import math
 import numpy as np
+import pandas as pd
 import pytest
 
 from mlflow.models.signature import infer_signature
@@ -7,6 +9,19 @@ from mlflow.models.utils import save_example
 from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import _dataframe_from_json
+
+
+@pytest.fixture
+def pandas_df_with_all_types():
+    return pd.DataFrame({
+        "boolean": [True, False, True],
+        "integer": np.array([1, 2, 3], np.int32),
+        "long": np.array([1, 2, 3], np.int64),
+        "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
+        "double": [math.pi, 2 * math.pi, 3 * math.pi],
+        "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
+        "string": ["a", "b", 'c'],
+    })
 
 
 def test_input_examples(pandas_df_with_all_types):
