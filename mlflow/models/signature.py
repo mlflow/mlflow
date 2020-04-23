@@ -1,8 +1,8 @@
 """
 The :py:mod:`mlflow.models.signature` module provides an API for specification of model signature.
 
-Model signature defines schema of model input and output. See :py:class:`mlflow.types.Schema` for
-more details on Schema and data types.
+Model signature defines schema of model input and output. See :py:class:`mlflow.types.schema.Schema`
+for more details on Schema and data types.
 """
 import json
 from typing import Dict, Any
@@ -80,9 +80,9 @@ def infer_signature(model_input: MlflowModelDataset,
     Infer an MLflow model signature from the training data (input) and model predictions (output).
 
     The signature represents model input and output as data frames with (optionally) named columns
-    and data type specified as one of types defined in :py:class:`DataType`. This method will raise
-    an exception if the user data contains incompatible types or is not passed in one of the
-    supported formats listed below.
+    and data type specified as one of types defined in :py:class:`mlflow.types.DataType`.
+    This method will raise an exception if the user data contains incompatible types or is not
+    passed in one of the supported formats listed below.
 
     The input should be one of these:
       - pandas.DataFrame
@@ -90,7 +90,7 @@ def infer_signature(model_input: MlflowModelDataset,
       - numpy.ndarray
       - pyspark.sql.DataFrame
 
-    The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType`.
+    The element types should be mappable to one of :py:class:`mlflow.types.DataType`.
 
     NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
 

@@ -46,10 +46,11 @@ class ColSpec(object):
 
 class Schema(object):
     """
-    Schema specifies column types (:py:class:`DataType`) in a dataset.
+    Schema specifies column types (:py:class:`mlflow.types.DataType`) in a dataset.
 
     Schema is a list of column specification :py:class:`ColSpec`. Columns can be named and must
-    specify their data type. The list of supported types is defined in :py:class:`DataType` enum.
+    specify their data type. The list of supported types is defined in
+    :py:class:`mlflow.types.DataType` enum.
     """
 
     def __init__(self, cols: List[ColSpec]):

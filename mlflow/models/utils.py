@@ -17,36 +17,38 @@ def save_example(path: str, input_example: ModelInputExample) -> Dict[str, Any]:
     """
     Save MLflow example into a file on a given path and return the resulting filename.
 
-    The example(s) can be provided as :py:class:`pandas.DataFrame`, :py:class:`numpy.ndarray',
-    python dictionary or python list. The assumption is that the example is a DataFrame-like
-    dataset with jsonable elements (see storage format section below).
+    The example(s) can be provided as pandas.DataFrame, numpy.ndarray, python dictionary or python
+    list. The assumption is that the example is a DataFrame-like dataset with jsonable elements
+    (see storage format section below).
 
     NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
 
     NOTE: If the example is 1 dimensional (e.g. dictionary of str -> scalar, or a list of scalars),
     the assumption is that it is a single row of data (rather than 1 column).
 
-    Storage Format
-    ==============
+    Storage Format:
+
     The examples are stored as json for portability and readability. Therefore, the contents of the
     example(s) must be jsonable. Mlflow will make the following conversions automatically on behalf
     of the user:
 
-    - binary values: :py:class`bytes` or :py:class`bytearray` are converted to base64
+    - binary values: :py:class:`bytes` or :py:class:`bytearray` are converted to base64
       encoded strings.
     - numpy types: Numpy types are converted to the corresponding python types or their closest
       equivalent.
 
     The json output is formatted according to pandas orient='split' convention (we omit index).
     The output is a json object with the following attributes:
-     - columns: list of column names. Columns are not included if there are no column names or if
-                the column names are ordered sequence 0..N where N is the number of columns in the
-                dataset.
-     - data: Json array with the data organized row-wise.
+
+    - columns: list of column names. Columns are not included if there are no column names or if
+               the column names are ordered sequence 0..N where N is the number of columns in the
+               dataset.
+    - data: Json array with the data organized row-wise.
 
     :param path: Path where to store the example.
     :param input_example: Data with the input example(s). Expected to be a DataFrame-like
                           (2 dimensional) dataset with jsonable elements.
+
     :return: Filename of the stored example.
     """
 

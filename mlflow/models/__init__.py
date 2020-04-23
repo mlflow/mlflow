@@ -134,8 +134,9 @@ class Model(object):
         :param input_example: Note:: Experimental: This argument may change or be removed in a
                               future release without warning. Input example provides one or several
                               examples of valid model input. The example can be used as a hint of
-                              what data to feed the model.
-
+                              what data to feed the model. This function fails if saving example
+                              fails. See :py:func:`mlflow.models.utils.save_example` for more
+                              details about how examples are saved.
         :param kwargs: Extra args passed to the model flavor.
         """
         with TempDir() as tmp:
