@@ -55,13 +55,13 @@ class NumpyEncoder(JSONEncoder):
     In this case, you'll need to convert your numpy types into its closest python equivalence.
     """
 
-    def default(self, o, swallow_error=False):  # pylint: disable=E0202
+    def try_convert(self, o):
         def encode_binary(x):
             return base64.encodebytes(x).decode("ascii")
 
         if isinstance(o, np.ndarray):
             if o.dtype == np.object:
-                return [self.default(x, swallow_error=True) for x in o.tolist()]
+                return [self.try_convert(x)[0] for x in o.tolist()]
             elif o.dtype == np.bytes_:
                 return np.vectorize(encode_binary)(o)
             else:
@@ -71,10 +71,14 @@ class NumpyEncoder(JSONEncoder):
             return np.asscalar(o)
         if isinstance(o, bytes) or isinstance(o, bytearray):
             return encode_binary(o)
-        if swallow_error:
-            return o
+        return o, False
+
+    def default(self, o):  # pylint: disable=E0202
+        res, converted = self.try_convert(o)
+        if converted:
+            return res
         else:
-            return JSONEncoder.default(o)
+            return super().default(o)
 
 
 def _base64decode(x):

@@ -193,7 +193,7 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
         tmp_model_metadata_dir = tmp.path()
         _save_model_metadata(
             tmp_model_metadata_dir, spark_model, mlflow_model, sample_input, conda_env,
-            model_signature=signature, input_example=input_example)
+            signature=signature, input_example=input_example)
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         if registered_model_name is not None:
             mlflow.register_model("runs:/%s/%s" % (run_id, artifact_path), registered_model_name)
