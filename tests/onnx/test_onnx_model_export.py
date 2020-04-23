@@ -453,6 +453,7 @@ def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model,  m
     The issue resulted in an error because MLflow assumed it would be a numpy array. Therefore,
     the this test validates the service does not receive that error when using such a model.
     """
+    import onnx
     import mlflow.onnx
     import skl2onnx
     x, y = data
