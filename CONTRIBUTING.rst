@@ -15,11 +15,13 @@ an MLflow committer before investing heavily in implementation. This is particul
 implementation:
 
 - Introduces changes or additions to the `MLflow REST API <https://mlflow.org/docs/latest/rest-api.html>`_
+
   - The MLflow REST API is implemented by a variety of open source and proprietary platforms. Changes to the REST
     API impact all of these platforms. Accordingly, we encourage developers to thoroughly explore alternatives
     before attempting to introduce REST API changes.
 
 - Introduces new user-facing MLflow APIs
+
   - MLflow's API surface is carefully designed to generalize across a variety of common ML operations.
     It is important to ensure that new APIs are broadly useful to ML developers, easy to work with,
     and simple yet powerful.
@@ -43,7 +45,7 @@ MLflow Plugin. MLflow Plugins are a great choice for the following types of chan
 3. Introducing a new implementation of the Model Registry backend (`Abstract Store
    <https://github.com/mlflow/mlflow/blob/cdc6a651d5af0f29bd448d2c87a198cf5d32792b/mlflow/store/model_registry/abstract_store.py>`_)
    for a particular platform
-4. Automatically capturing and recording information about MLflow Runs created in specific environments.
+4. Automatically capturing and recording information about MLflow Runs created in specific environments
 
 MLflow committers and community members are happy to provide assistance with the development and review of
 new MLflow Plugins. For more information about Plugins, see https://mlflow.org/docs/latest/plugins.html.
