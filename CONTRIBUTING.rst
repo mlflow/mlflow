@@ -1,12 +1,38 @@
 Contributing to MLflow
 ======================
 We welcome community contributions to MLflow. This page describes:
-1. The contribution process and guidelines
-2. How to develop/test your changes to MLflow locally
+1. The contribution process
+2. Contribution guidelines
+3. How to develop/test your changes to MLflow locally
 
-Contribution process and guidelines
-###################################
+Contribution process
+####################
+The MLflow contribution process starts with filing a GitHub issue. MLflow defines four
+categories of issues: feature requests, bug reports, documentation fixes, and installation issues.
+Details about each issue type and the issue lifecycle are discussed in the `MLflow Issue Policy
+<https://github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md>`_.
 
+MLflow committers actively triage and respond to GitHub issues. In general, we recommend waiting
+for feebdack from an MLflow committer or community member before proceeding to implement a feature
+or patch. This is particularly important for :ref:`significant changes <significant-changes>`.
+
+After you have agreed upon an implementation strategy for your feature or patch with an MLflow
+committer, the next step is to introduce your changes (see :ref:`developing-changes`) as a
+pull request against the MLflow Repository or as a standalone MLflow Plugin. MLflow committers
+actively review pull requests and are also happy to provide implementation guidance for Plugins.
+
+Once your pull request against the MLflow Repository has been merged, your corresponding changes
+will be automatically included in the next MLflow release. Every change is listed in the MLflow
+release notes and `Changelog <https://github.com/mlflow/mlflow/blob/cdc6a651d5af0f29bd448d2c87a198cf5d32792b/CHANGELOG.rst>`_.
+Congratulations, you have just contributed to MLflow! We appreciate your contribution!
+
+.. _contribution-guidelines:
+Contribution guidelines
+#######################
+In this section, we provide guidelines to consider as you develop new features and patches for
+MLflow.
+
+.. _significant-changes:
 Write designs for significant changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -31,6 +57,14 @@ implementation:
 - Makes changes to critical internal abstractions. Examples include: the Tracking Artifact Repository,
   the Tracking Abstract Store, and the Model Registry Abstract Store.
 
+Make changes backwards compatibile
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MLflow's users rely on specific platform and API behaviors in their daily workflows. As new versions
+of MLflow are developed and released, it is important to ensure that users' workflows continue to
+operate as expected. Accordingly, please take care to consider backwards compatibility when introducing
+changes to the MLflow code base. If you are unsure of the backwards compatibility implications of
+a particular change, feel free to ask an MLflow committer or community member for input.
+
 Consider introducing new features as MLflow Plugins
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 `MLflow Plugins <https://mlflow.org/docs/latest/plugins.html>`_ enable integration of third-party modules with many of
@@ -48,9 +82,17 @@ MLflow Plugin. MLflow Plugins are a great choice for the following types of chan
 4. Automatically capturing and recording information about MLflow Runs created in specific environments
 
 MLflow committers and community members are happy to provide assistance with the development and review of
-new MLflow Plugins. For more information about Plugins, see https://mlflow.org/docs/latest/plugins.html.
+new MLflow Plugins.
 
+Finally, MLflow maintains a list of Plugins developed by community members:
+https://mlflow.org/docs/latest/plugins.html#community-plugins. This is an excellent way to
+inform MLflow users about your exciting new Plugins. To list your plugin, simply introduce
+a new pull request against the `corresponding docs section of the MLflow code base
+<https://github.com/mlflow/mlflow/blob/cdc6a651d5af0f29bd448d2c87a198cf5d32792b/docs/source/plugins.rst#community-plugins>`_.
 
+For more information about Plugins, see https://mlflow.org/docs/latest/plugins.html.
+
+.. _developing-changes:
 Developing and testing changes to MLflow
 ########################################
 The majority of the MLflow codebase is developed in Python. This includes the CLI, Tracking Server,
