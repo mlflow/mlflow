@@ -1,12 +1,59 @@
 Contributing to MLflow
 ======================
-We welcome community contributions to MLflow. This page describes how to develop/test your changes
-to MLflow locally.
+We welcome community contributions to MLflow. This page describes:
+1. The contribution process and guidelines
+2. How to develop/test your changes to MLflow locally
 
-The majority of the MLflow codebase is in Python. This includes the CLI, Tracking Server,
+Contribution process and guidelines
+###################################
+
+Write designs for significant changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For significant changes to MLflow, we recommend outlining a design for the feature or patch and discussing it with
+an MLflow committer before investing heavily in implementation. This is particularly important if your proposed
+implementation:
+
+- Introduces changes or additions to the `MLflow REST API <https://mlflow.org/docs/latest/rest-api.html>`_
+  - The MLflow REST API is implemented by a variety of open source and proprietary platforms. Changes to the REST
+    API impact all of these platforms. Accordingly, we encourage developers to thoroughly explore alternatives
+    before attempting to introduce REST API changes.
+
+- Introduces new user-facing MLflow APIs
+  - MLflow's API surface is carefully designed to generalize across a variety of common ML operations.
+    It is important to ensure that new APIs are broadly useful to ML developers, easy to work with,
+    and simple yet powerful.
+
+- Adds new library dependencies to MLflow
+
+- Makes changes to critical internal abstractions. Examples include: the Tracking Artifact Repository,
+  the Tracking Abstract Store, and the Model Registry Abstract Store.
+
+Consider introducing new features as MLflow Plugins
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+`MLflow Plugins <https://mlflow.org/docs/latest/plugins.html>`_ enable integration of third-party modules with many of
+MLflow’s components, allowing you to maintain and iterate on certain features independently of the MLflow Repository.
+Before implementing changes to the MLflow code base, consider whether your feature might be better structured as an
+MLflow Plugin. MLflow Plugins are a great choice for the following types of changes:
+
+1. Supporting a new storage platform for MLflow artifacts
+2. Introducing a new implementation of the MLflow Tracking backend (`Abstract Store
+   <https://github.com/mlflow/mlflow/blob/cdc6a651d5af0f29bd448d2c87a198cf5d32792b/mlflow/store/tracking/abstract_store.py>`_)
+   for a particular platform
+3. Introducing a new implementation of the Model Registry backend (`Abstract Store
+   <https://github.com/mlflow/mlflow/blob/cdc6a651d5af0f29bd448d2c87a198cf5d32792b/mlflow/store/model_registry/abstract_store.py>`_)
+   for a particular platform
+4. Automatically capturing and recording information about MLflow Runs created in specific environments.
+
+MLflow committers and community members are happy to provide assistance with the development and review of
+new MLflow Plugins. For more information about Plugins, see https://mlflow.org/docs/latest/plugins.html.
+
+
+Developing and testing changes to MLflow
+########################################
+The majority of the MLflow codebase is developed in Python. This includes the CLI, Tracking Server,
 Artifact Repositories (e.g., S3 or Azure Blob Storage backends), and of course the Python fluent,
 tracking, and model APIs.
-
 
 Prerequisites
 ~~~~~~~~~~~~~
@@ -23,9 +70,9 @@ by running the following from your checkout of MLflow:
     pip install -r test-requirements.txt
     pip install -e .  # installs mlflow from current checkout
 
-You may need to run ``conda install cmake`` for the test requirements to properly install, as ``onnx`` needs ``cmake``. 
+You may need to run ``conda install cmake`` for the test requirements to properly install, as ``onnx`` needs ``cmake``.
 
-Ensure `Docker <https://www.docker.com/>`_ is installed. 
+Ensure `Docker <https://www.docker.com/>`_ is installed.
 
 ``npm`` is required to run the Javascript dev server and the tracking UI.
 You can verify that ``npm`` is on the PATH by running ``npm -v``, and
