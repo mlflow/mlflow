@@ -134,18 +134,16 @@ def test_that_schema_inference_with_tensors_raises_exception():
         _infer_schema({"x": np.array([[1, 2, 3]], dtype=np.int64)})
 
 
+@pytest.mark.large
 def test_spark_schema_inference(pandas_df_with_all_types):
-    try:
-        import pyspark
-        from pyspark.sql.types import _parse_datatype_string, StructField, StructType
-        schema = _infer_schema(pandas_df_with_all_types)
-        assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
-        spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
-        spark_schema = StructType(
-            [StructField(t.name, _parse_datatype_string(t.name), True)
-             for t in schema.column_types()])
-        sparkdf = spark_session.createDataFrame(pandas_df_with_all_types, schema=spark_schema)
-        schema = _infer_schema(sparkdf)
-        assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
-    except ImportError:
-        pass
+    import pyspark
+    from pyspark.sql.types import _parse_datatype_string, StructField, StructType
+    schema = _infer_schema(pandas_df_with_all_types)
+    assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
+    spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
+    spark_schema = StructType(
+        [StructField(t.name, _parse_datatype_string(t.name), True)
+         for t in schema.column_types()])
+    sparkdf = spark_session.createDataFrame(pandas_df_with_all_types, schema=spark_schema)
+    schema = _infer_schema(sparkdf)
+    assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
