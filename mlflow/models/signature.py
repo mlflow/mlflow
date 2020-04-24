@@ -14,9 +14,9 @@ class ModelSignature(object):
     """
     ModelSignature specifies schema of model's inputs and outputs.
 
-    ModelSignature can be inferred from training dataset and model predictions using
-    :py:func:`mlflow.models.signature.infer_signature`, or alternatively constructed by hand by
-    passing an input and output Schema.
+    ModelSignature can be :py:func:`inferred <mlflow.models.infer_signature>` from training dataset
+    and model predictions using or constructed by hand by passing an input and output
+    :py:class:`Schema <mlflow.types.Schema>`.
     """
 
     def __init__(self, inputs: Schema, outputs: Schema = None):

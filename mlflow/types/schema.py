@@ -1,9 +1,39 @@
 import json
+from enum import Enum
+
 import numpy as np
 from typing import Dict, Any, List
 
 from mlflow.exceptions import MlflowException
-from mlflow.types import DataType
+
+
+class DataType(Enum):
+    """
+    MLflow element data types definition.
+    """
+
+    def __new__(cls, value, numpy_type):
+        res = object.__new__(cls)
+        res._value_ = value
+        res._numpy_type = numpy_type
+        return res
+
+    boolean = (1, np.bool)
+    integer = (2, np.int32)
+    long = (3, np.int64)
+    float = (4, np.float32)
+    double = (5, np.float64)
+    string = (6, np.str)
+    binary = (7, np.bytes_)
+
+    def __repr__(self):
+        return self.name
+
+    def __str(self):
+        return self.name
+
+    def to_numpy(self) -> np.dtype:
+        return self._numpy_type
 
 
 class ColSpec(object):
@@ -46,11 +76,11 @@ class ColSpec(object):
 
 class Schema(object):
     """
-    Schema specifies column types (:py:class:`mlflow.types.DataType`) in a dataset.
+    Schema specifies column types (:py:class:`DataType`) in a dataset.
 
     Schema is a list of column specification :py:class:`ColSpec`. Columns can be named and must
     specify their data type. The list of supported types is defined in
-    :py:class:`mlflow.types.DataType` enum.
+    :py:class:`DataType` enum.
     """
 
     def __init__(self, cols: List[ColSpec]):
