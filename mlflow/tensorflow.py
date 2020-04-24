@@ -33,6 +33,8 @@ from tensorflow.keras.callbacks import Callback, TensorBoard  # pylint: disable=
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import keyword_only, experimental
@@ -74,7 +76,8 @@ def get_default_conda_env():
 
 @keyword_only
 def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,
-              conda_env=None, registered_model_name=None):
+              conda_env=None, signature: ModelSignature=None,
+              input_example: ModelInputExample=None, registered_model_name=None):
     """
     Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
     for the current run. This method operates on TensorFlow variables and graphs that have been
@@ -119,15 +122,34 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                                 'tensorflow=1.8.0'
                             ]
                         }
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset) and valid
+                      model output (e.g. model predictions generated on the training dataset),
+                      for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        signature = infer_signature(train, model.predict(train))
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.tensorflow,
                      tf_saved_model_dir=tf_saved_model_dir, tf_meta_graph_tags=tf_meta_graph_tags,
                      tf_signature_def_key=tf_signature_def_key, conda_env=conda_env,
-                     registered_model_name=registered_model_name)
+                     registered_model_name=registered_model_name,
+                     signature=signature,
+                     input_example=input_example)
 
 
 @keyword_only

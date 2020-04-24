@@ -3,3 +3,19 @@ flavors:
     mleap_version: 0.8.1
     model_data: mleap/model
 utc_time_created: '2018-08-10 18:34:28.720095'
+run_id: c228016dea284522882b657d91eeffa6
+artifact_path: model
+
+signature:
+  inputs: '[{"name": "fixed acidity", "type": "double"}, {"name": "volatile acidity",
+    "type": "double"}, {"name": "citric acid", "type": "double"}, {"name": "residual
+    sugar", "type": "double"}, {"name": "chlorides", "type": "double"}, {"name": "free
+    sulfur dioxide", "type": "double"}, {"name": "total sulfur dioxide", "type": "double"},
+    {"name": "density", "type": "double"}, {"name": "pH", "type": "double"}, {"name":
+    "sulphates", "type": "double"}, {"name": "alcohol", "type": "double"}]'
+  outputs: '[{"name": null, "type": "double"}]'
+input_example: {
+  "type": "dataframe",
+  "format": "split",
+  "artifact_path": "input_example.json"
+}

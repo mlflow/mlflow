@@ -29,6 +29,7 @@ import traceback
 # dependencies to the minimum here.
 # ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
+from mlflow.utils.proto_json_utils import NumpyEncoder
 
 try:
     from mlflow.pyfunc import load_model
@@ -230,19 +231,6 @@ def _predict(model_uri, input_path, output_path, content_type, json_format):
 def _serve(model_uri, port, host):
     pyfunc_model = load_model(model_uri)
     init(pyfunc_model).run(port=port, host=host)
-
-
-class NumpyEncoder(JSONEncoder):
-    """ Special json encoder for numpy types.
-    Note that some numpy types doesn't have native python equivalence,
-    hence json.dumps will raise TypeError.
-    In this case, you'll need to convert your numpy types into its closest python equivalence.
-    """
-
-    def default(self, o):  # pylint: disable=E0202
-        if isinstance(o, np.generic):
-            return np.asscalar(o)
-        return JSONEncoder.default(self, o)
 
 
 def _get_jsonable_obj(data, pandas_orient="records"):
