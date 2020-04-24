@@ -1,6 +1,6 @@
 import json
 import os
-from typing import TypeVar, Any, Dict, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -10,6 +10,7 @@ from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
 ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list]
+
 
 class _Example(object):
     """
@@ -47,6 +48,7 @@ class _Example(object):
         - numpy types: Numpy types are converted to the corresponding python types or their closest
           equivalent.
     """
+
     def __init__(self, input_example: ModelInputExample):
         def _is_scalar(x):
             return np.isscalar(x) or x is None
@@ -54,7 +56,8 @@ class _Example(object):
         if isinstance(input_example, dict):
             for x, y in input_example.items():
                 if isinstance(y, np.ndarray) and len(y.shape) > 1:
-                    raise TensorsNotSupportedException("Column '{0}' has shape {1}".format(x, y.shape))
+                    raise TensorsNotSupportedException(
+                        "Column '{0}' has shape {1}".format(x, y.shape))
 
             if all([_is_scalar(x) for x in input_example.values()]):
                 input_example = pd.DataFrame([input_example])
@@ -85,7 +88,7 @@ class _Example(object):
                 pass
             raise TypeError("Unexpected type of input_example. Expected one of "
                             "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
-                              type(input_example)))
+                type(input_example)))
         example_filename = "input_example.json"
         self.data = input_example.to_dict(orient="split")
         # Do not include row index
@@ -101,5 +104,3 @@ class _Example(object):
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`.  """
         with open(os.path.join(parent_dir_path, self.info["artifact_path"]), "w") as f:
             json.dump(self.data, f, cls=NumpyEncoder)
-
-

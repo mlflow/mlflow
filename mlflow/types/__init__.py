@@ -6,4 +6,3 @@ components to describe interface independent of other frameworks or languages.
 from .schema import DataType, ColSpec, Schema
 
 __all__ = ["Schema", "ColSpec", "DataType"]
-
