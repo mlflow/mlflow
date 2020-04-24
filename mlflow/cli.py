@@ -78,7 +78,7 @@ def cli():
                    "at https://www.mlflow.org/docs/latest/projects.html.")
 @cli_args.NO_CONDA
 @click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
-              help="Only valid when ``backend`` is local."
+              help="Only valid when ``backend`` is local. "
                    "MLflow downloads artifacts from distributed URIs passed to parameters of "
                    "type 'path' to subdirectories of storage_dir.")
 @click.option("--run-id", metavar="RUN_ID",
