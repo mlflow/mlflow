@@ -1,4 +1,4 @@
-from typing import TypeVar, Dict
+from typing import TypeVar, Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -14,22 +14,7 @@ class TensorsNotSupportedException(MlflowException):
                          "{}".format(msg))
 
 
-try:
-    import pyspark.sql.dataframe
-
-    MlflowModelDataset = TypeVar('MlflowModelDataset',
-                                 pd.DataFrame,
-                                 np.ndarray,
-                                 Dict[str, np.ndarray],
-                                 pyspark.sql.dataframe.DataFrame)
-except ImportError:
-    MlflowModelDataset = TypeVar('MlflowModelDataset',
-                                 pd.DataFrame,
-                                 np.ndarray,
-                                 Dict[str, np.ndarray])
-
-
-def _infer_schema(data: MlflowModelDataset) -> Schema:
+def _infer_schema(data: Any) -> Schema:
     """
     Infer an MLflow schema from a dataset.
 

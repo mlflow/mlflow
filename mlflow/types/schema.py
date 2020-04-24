@@ -45,7 +45,7 @@ class DataType(Enum):
 
 class ColSpec(object):
     """
-    Specification of name and type of a single column in dataset.
+    Specification of name and type of a single column in a dataset.
     """
     def __init__(self, type: DataType,
                  name: Optional[str] = None):  # pylint: disable=redefined-builtin

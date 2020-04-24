@@ -10,7 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _Example
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.proto_json_utils import NumpyEncoder
+
 
 _logger = logging.getLogger(__name__)
 
@@ -47,18 +47,21 @@ class Model(object):
         return self
 
     def to_dict(self):
+        """Serialize the model to a dictionary."""
         res = self.__dict__.copy()
         if res.get("signature") is not None:
             res["signature"] = res["signature"].to_dict()
         return res
 
     def to_yaml(self, stream=None):
+        """Write the model as yaml string."""
         return yaml.safe_dump(self.to_dict(), stream=stream, default_flow_style=False)
 
     def __str__(self):
         return self.to_yaml()
 
     def to_json(self):
+        """Write the model as json."""
         return json.dumps(self.to_dict())
 
     def save(self, path):
