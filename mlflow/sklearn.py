@@ -181,18 +181,14 @@ def log_model(sk_model, artifact_path, conda_env=None,
                                  format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
                                  provides better cross-system compatibility by identifying and
                                  packaging code dependencies with the serialized model.
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
 
-    :param signature: Note:: Experimental: This argument may change or be removed
-                      release without warning.
-
-                      :py:class:`ModelSignature <mlflow.models.ModelSignature>` describes model
-                      input and output :py:class:`Schema <mlflow.types.Schema>`. The model
-                      signature can be :py:func:`inferred <mlflow.models.infer_signature>` from
-                      datasets with valid model input (e.g. the training dataset) and valid
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset) and valid
                       model output (e.g. model predictions generated on the training dataset),
                       for example:
 
@@ -201,12 +197,12 @@ def log_model(sk_model, artifact_path, conda_env=None,
                         from mlflow.models.signature import infer_signature
                         train = df.drop_column("target_label")
                         signature = infer_signature(train, model.predict(train))
-    :param input_example: Note:: Experimental: This argument may change or be removed in a future
-                          release without warning. Input example provides one or several instances
-                          of valid model input. The example can be used as a hint of what data to
-                          feed the model. The given example will be converted to a Pandas DataFrame
-                          and then serialized to json using the Pandas split-oriented format. Bytes
-                          are base64-encoded.
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
 
 
     .. code-block:: python
