@@ -5,9 +5,17 @@ labels: 'bug'
 title: "[BUG]"
 ---
 Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
-for information on what types of issues we address. For help with debugging your code, please refer to [Stack Overflow](https://stackoverflow.com/questions/tagged/mlflow).
+for additional information about bug reports. For help with debugging your code, please refer to [Stack Overflow](https://stackoverflow.com/questions/tagged/mlflow).
 
-Please fill in this template and do not delete it unless you are sure your issue is outside its scope.
+**Please fill in this bug report template to ensure a timely and thorough response.**
+
+### Willingness to contribute
+The MLflow Community encourages bug fix contributions. Would you or another member of your organization be willing to contribute a fix
+for this bug to the MLflow code base?
+
+- [ ] Yes. I can contribute a fix for this bug independently.
+- [ ] Yes. I would be willing to contribute a fix for this bug with guidance from the MLflow community.
+- [ ] No. I cannot contribute a bug fix at this time.
 
 ### System information
 - **Have I written custom code (as opposed to using a stock example script provided in MLflow)**:
