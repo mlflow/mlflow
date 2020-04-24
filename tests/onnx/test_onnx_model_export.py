@@ -55,6 +55,25 @@ def onnx_model(model):
 
 
 @pytest.fixture(scope='module')
+def sklearn_model(data):
+    from sklearn.linear_model import LogisticRegression
+    x, y = data
+    model = LogisticRegression()
+    model.fit(x, y)
+    return model
+
+
+@pytest.fixture(scope='module')
+def onnx_sklearn_model(sklearn_model):
+    import onnxmltools
+    from skl2onnx.common.data_types import FloatTensorType
+
+    initial_type = [('float_input', FloatTensorType([None, 4]))]
+    onx = onnxmltools.convert_sklearn(sklearn_model, initial_types=initial_type)
+    return onx
+
+
+@pytest.fixture(scope='module')
 def predicted(model, data):
     return model.predict(data[0])
 
@@ -424,3 +443,21 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.onnx.get_default_conda_env()
+
+
+# TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
+@pytest.mark.release
+def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model,  model_path, data):
+    """
+    https://github.com/mlflow/mlflow/issues/2499
+    User encountered issue where an sklearn model, converted to onnx, would return a list response.
+    The issue resulted in an error because MLflow assumed it would be a numpy array. Therefore,
+    the this test validates the service does not receive that error when using such a model.
+    """
+    import onnx
+    import mlflow.onnx
+    import skl2onnx
+    x, y = data
+    mlflow.onnx.save_model(onnx_sklearn_model, model_path)
+    wrapper = mlflow.pyfunc.load_model(model_path)
+    wrapper.predict(pd.DataFrame(x))
