@@ -112,10 +112,10 @@ class Model(object):
                             train = df.drop_column("target_label")
                             signature = infer_signature(train, model.predict(train))
 
-        :param input_example: (Experimental) Input example provides one or several examples of 
-                              valid model input. The example can be used as a hint of what data to 
-                              feed the model. The given example will be converted to a Pandas 
-                              DataFrame and then serialized to json using the Pandas split-oriented 
+        :param input_example: (Experimental) Input example provides one or several examples of
+                              valid model input. The example can be used as a hint of what data to
+                              feed the model. The given example will be converted to a Pandas
+                              DataFrame and then serialized to json using the Pandas split-oriented
                               format. Bytes are base64-encoded.
 
         :param kwargs: Extra args passed to the model flavor.
