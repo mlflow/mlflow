@@ -21,7 +21,6 @@ from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 pytestmark = pytest.mark.skipif(
     (sys.version_info < (3, 6)),
@@ -53,6 +52,25 @@ def model(data):
 def onnx_model(model):
     import onnxmltools
     return onnxmltools.convert_keras(model)
+
+
+@pytest.fixture(scope='module')
+def sklearn_model(data):
+    from sklearn.linear_model import LogisticRegression
+    x, y = data
+    model = LogisticRegression()
+    model.fit(x, y)
+    return model
+
+
+@pytest.fixture(scope='module')
+def onnx_sklearn_model(sklearn_model):
+    import onnxmltools
+    from skl2onnx.common.data_types import FloatTensorType
+
+    initial_type = [('float_input', FloatTensorType([None, 4]))]
+    onx = onnxmltools.convert_sklearn(sklearn_model, initial_types=initial_type)
+    return onx
 
 
 @pytest.fixture(scope='module')
@@ -264,7 +282,7 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
 # TODO: Use the default conda environment once MLflow's Travis build supports the onnxruntime
 # library
 @pytest.mark.large
-def test_model_log(tracking_uri_mock, onnx_model, onnx_custom_env):
+def test_model_log(onnx_model, onnx_custom_env):
     # pylint: disable=unused-argument
 
     import onnx
@@ -290,7 +308,7 @@ def test_model_log(tracking_uri_mock, onnx_model, onnx_custom_env):
             mlflow.end_run()
 
 
-def test_log_model_calls_register_model(tracking_uri_mock, onnx_model, onnx_custom_env):
+def test_log_model_calls_register_model(onnx_model, onnx_custom_env):
     import mlflow.onnx
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
@@ -302,7 +320,7 @@ def test_log_model_calls_register_model(tracking_uri_mock, onnx_model, onnx_cust
         mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
 
 
-def test_log_model_no_registered_model_name(tracking_uri_mock, onnx_model, onnx_custom_env):
+def test_log_model_no_registered_model_name(onnx_model, onnx_custom_env):
     import mlflow.onnx
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
@@ -314,7 +332,7 @@ def test_log_model_no_registered_model_name(tracking_uri_mock, onnx_model, onnx_
 
 # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
 @pytest.mark.release
-def test_model_log_evaluate_pyfunc_format(tracking_uri_mock, onnx_model, data, predicted):
+def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
     import onnx
     import mlflow.onnx
     x, y = data
@@ -425,3 +443,21 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.onnx.get_default_conda_env()
+
+
+# TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
+@pytest.mark.release
+def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model,  model_path, data):
+    """
+    https://github.com/mlflow/mlflow/issues/2499
+    User encountered issue where an sklearn model, converted to onnx, would return a list response.
+    The issue resulted in an error because MLflow assumed it would be a numpy array. Therefore,
+    the this test validates the service does not receive that error when using such a model.
+    """
+    import onnx
+    import mlflow.onnx
+    import skl2onnx
+    x, y = data
+    mlflow.onnx.save_model(onnx_sklearn_model, model_path)
+    wrapper = mlflow.pyfunc.load_model(model_path)
+    wrapper.predict(pd.DataFrame(x))

@@ -1,6 +1,7 @@
 import base64
 import json
 import operator
+import re
 
 import sqlparse
 from sqlparse.sql import Identifier, Token, Comparison, Statement
@@ -15,9 +16,10 @@ import math
 
 class SearchUtils(object):
     VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
-    VALID_PARAM_COMPARATORS = set(['!=', '='])
-    VALID_TAG_COMPARATORS = set(['!=', '='])
-    VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '='])
+    VALID_PARAM_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
+    VALID_TAG_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
+    VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
+    CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set(['LIKE', 'ILIKE'])
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
     _METRIC_IDENTIFIER = "metric"
@@ -44,7 +46,17 @@ class SearchUtils(object):
         '!=': operator.ne,
         '<=': operator.le,
         '<': operator.lt,
+        'LIKE': re.match,
+        'ILIKE': re.match
     }
+
+    @classmethod
+    def get_sql_filter_ops(cls, column, operator):
+        sql_filter_ops = {
+            'LIKE': column.like,
+            'ILIKE': column.ilike
+        }
+        return sql_filter_ops[operator]
 
     @classmethod
     def _trim_ends(cls, string_value):
@@ -256,7 +268,7 @@ class SearchUtils(object):
         key_type = sed.get('type')
         key = sed.get('key')
         value = sed.get('value')
-        comparator = sed.get('comparator')
+        comparator = sed.get('comparator').upper()
 
         if cls.is_metric(key_type, comparator):
             lhs = run.data.metrics.get(key, None)
@@ -272,7 +284,20 @@ class SearchUtils(object):
                                   error_code=INVALID_PARAMETER_VALUE)
         if lhs is None:
             return False
-        if comparator in cls.filter_ops.keys():
+
+        if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
+            # Change value from sql syntax to regex syntax
+            if comparator == 'ILIKE':
+                value = value.lower()
+                lhs = lhs.lower()
+            if not value.startswith('%'):
+                value = '^' + value
+            if not value.endswith('%'):
+                value = value + '$'
+            value = value.replace('_', '.').replace('%', '.*')
+            return cls.filter_ops.get(comparator)(value, lhs)
+
+        elif comparator in cls.filter_ops.keys():
             return cls.filter_ops.get(comparator)(lhs, value)
         else:
             return False

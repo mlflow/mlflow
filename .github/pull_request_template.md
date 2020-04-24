@@ -18,17 +18,16 @@
 ### What component(s) does this PR affect?
 
 - [ ] UI
-- [ ] CLI
+- [ ] Command Line Interface
 - [ ] API
-- [ ] REST-API
 - [ ] Examples
 - [ ] Docs
 - [ ] Tracking
 - [ ] Projects
 - [ ] Artifacts
 - [ ] Models
+- [ ] Model Registry
 - [ ] Scoring
-- [ ] Serving
 - [ ] R
 - [ ] Java
 - [ ] Python

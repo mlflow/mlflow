@@ -65,7 +65,9 @@ following parameters:
 
 .. rubric:: Example
 
->>> tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
+::
+
+    tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
 
 ::
 
@@ -77,7 +79,9 @@ following parameters:
   │   └── model.pkl
   └── mlflow_env.yml
 
->>> cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
+::
+
+    cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
 
 ::
 
@@ -194,6 +198,7 @@ import numpy as np
 import os
 import pandas
 import shutil
+import yaml
 from copy import deepcopy
 
 import mlflow
@@ -340,8 +345,8 @@ def spark_udf(spark, model_uri, result_type="double"):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
-    Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
-    ordinals (0, 1, ...). On some versions of Spark, it is also possible to wrap the input in a
+    Parameters passed to the UDF are forwarded to the model as a DataFrame where the column names
+    are ordinals (0, 1, ...). On some versions of Spark, it is also possible to wrap the input in a
     struct. In that case, the data will be passed as a DataFrame with column names given by the
     struct definition (e.g. when invoked as my_udf(struct('x', 'y'), the model will ge the data as a
     pandas DataFrame with 2 columns 'x' and 'y').
@@ -351,8 +356,11 @@ def spark_udf(spark, model_uri, result_type="double"):
     converted to string. If the result type is not an array type, the left most column with
     matching type is returned.
 
-    >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
-    >>> df.withColumn("prediction", predict("name", "age")).show()
+    .. code-block:: python
+        :caption: Example
+
+        predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
+        df.withColumn("prediction", predict("name", "age")).show()
 
     :param spark: A SparkSession object.
     :param model_uri: The location, in URI format, of the MLflow model with the
@@ -717,7 +725,6 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
 
     code = None
     data = None
-    env = None
 
     if data_path is not None:
         model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
@@ -728,12 +735,17 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
             _copy_file_or_tree(src=code_path, dst=path, dst_dir="code")
         code = "code"
 
-    if conda_env is not None:
-        shutil.copy(src=conda_env, dst=os.path.join(path, "mlflow_env.yml"))
-        env = "mlflow_env.yml"
+    conda_env_subpath = "mlflow_env.yml"
+    if conda_env is None:
+        conda_env = get_default_conda_env()
+    elif not isinstance(conda_env, dict):
+        with open(conda_env, "r") as f:
+            conda_env = yaml.safe_load(f)
+    with open(os.path.join(path, conda_env_subpath), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     mlflow.pyfunc.add_to_model(
-        mlflow_model, loader_module=loader_module, code=code, data=data, env=env)
+        mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, 'MLmodel'))
     return mlflow_model
 

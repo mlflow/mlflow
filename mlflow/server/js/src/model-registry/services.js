@@ -1,11 +1,10 @@
 import $ from 'jquery';
 import JsonBigInt from 'json-bigint';
-import Utils from '../utils/Utils';
-import { ServiceOverrides } from './overrides/service-overrides';
+import Utils from '../common/utils/Utils';
 
 const StrictJsonBigInt = JsonBigInt({ strict: true, storeAsString: true });
 
-class Services {
+export class Services {
   static createRegisteredModel({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/create'), {
       type: 'POST',
@@ -29,17 +28,19 @@ class Services {
    * @returns {*|jQuery|*|*|*|*}
    */
   static listRegisteredModels({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/list'), {
-      type: 'GET',
-      dataType: 'json',
-      converters: {
-        'text json': StrictJsonBigInt.parse,
+    return $.ajax(
+      Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/list'), {
+        type: 'GET',
+        dataType: 'json',
+        converters: {
+          'text json': StrictJsonBigInt.parse,
+        },
+        data: data,
+        jsonp: false,
+        success: success,
+        error: error,
       },
-      data: data,
-      jsonp: false,
-      success: success,
-      error: error,
-    });
+    );
   }
 
   /**
@@ -104,6 +105,7 @@ class Services {
       error: error,
     });
   }
+
 
   /**
    * Search model versions
@@ -194,15 +196,17 @@ class Services {
    * @returns {*|jQuery|*|*|*|*}
    */
   static getRegisteredModel({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/get'), {
-      type: 'GET',
-      dataType: 'json',
-      contentType: 'application/json; charset=utf-8',
-      data: data,
-      jsonp: false,
-      success: success,
-      error: error,
-    });
+    return $.ajax(
+      Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/get'), {
+        type: 'GET',
+        dataType: 'json',
+        contentType: 'application/json; charset=utf-8',
+        data: data,
+        jsonp: false,
+        success: success,
+        error: error,
+      }
+    );
   }
 
   /**
@@ -213,16 +217,16 @@ class Services {
    * @returns {*|jQuery|*|*|*|*}
    */
   static getModelVersion({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/model-versions/get'), {
-      type: 'GET', // TODO(mparkhe): Flatten API request arguments to be usable with GET
-      dataType: 'json',
-      contentType: 'application/json; charset=utf-8',
-      data: data,
-      jsonp: false,
-      success: success,
-      error: error,
-    });
+    return $.ajax(
+      Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/model-versions/get'), {
+        type: 'GET',
+        dataType: 'json',
+        contentType: 'application/json; charset=utf-8',
+        data: data,
+        jsonp: false,
+        success: success,
+        error: error,
+      });
   }
-}
 
-export default ServiceOverrides.Services || Services;
+}

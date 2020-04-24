@@ -15,7 +15,6 @@ from mlflow.utils.mlflow_tags import (
 )
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from mlflow.projects import _project_spec
 from mlflow.exceptions import MlflowException
 
@@ -27,9 +26,10 @@ def _build_uri(base_uri, subdirectory):
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
+@pytest.mark.large
 def test_docker_project_execution(
         use_start_run,
-        tmpdir, tracking_uri_mock, docker_example_base_image):  # pylint: disable=unused-argument
+        tmpdir, docker_example_base_image):  # pylint: disable=unused-argument
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR, experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
@@ -69,6 +69,7 @@ def test_docker_project_execution(
     ("databricks://some-profile", "-e MLFLOW_TRACKING_URI=databricks ")
 ])
 @mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
+@pytest.mark.large
 def test_docker_project_tracking_uri_propagation(
         ProfileConfigProvider, tmpdir, tracking_uri,
         expected_command_segment, docker_example_base_image):  # pylint: disable=unused-argument
@@ -91,8 +92,7 @@ def test_docker_project_tracking_uri_propagation(
         mlflow.set_tracking_uri(old_uri)
 
 
-def test_docker_uri_mode_validation(
-        tracking_uri_mock, docker_example_base_image):  # pylint: disable=unused-argument
+def test_docker_uri_mode_validation(docker_example_base_image):  # pylint: disable=unused-argument
     with pytest.raises(ExecutionException):
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks")
 
@@ -177,7 +177,7 @@ def test_docker_s3_artifact_cmd_and_envs_from_home():
 
 def test_docker_wasbs_artifact_cmd_and_envs_from_home():
     # pylint: disable=unused-import, unused-variable
-    from azure.storage.blob import BlockBlobService
+    from azure.storage.blob import BlobServiceClient
 
     mock_env = {
         "AZURE_STORAGE_CONNECTION_STRING": "mock_connection_string",
@@ -185,7 +185,7 @@ def test_docker_wasbs_artifact_cmd_and_envs_from_home():
     }
     wasbs_uri = "wasbs://container@account.blob.core.windows.net/some/path"
     with mock.patch.dict("os.environ", mock_env), \
-            mock.patch("azure.storage.blob.BlockBlobService"):
+            mock.patch("azure.storage.blob.BlobServiceClient"):
         cmds, envs = mlflow.projects._get_docker_artifact_storage_cmd_and_envs(wasbs_uri)
         assert cmds == []
         assert envs == mock_env
@@ -281,11 +281,31 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
         with pytest.raises(MlflowException):
             with mock.patch.dict("os.environ", os_environ):
                 mlflow.projects._get_docker_command(
-                    image, active_run, volumes, environment)
+                    image, active_run, None, volumes, environment)
     else:
         with mock.patch.dict("os.environ", os_environ):
             docker_command = mlflow.projects._get_docker_command(
-                image, active_run, volumes, environment)
+                image, active_run, None, volumes, environment)
         for exp_type, expected in expected:
             assert expected in docker_command
             assert docker_command[docker_command.index(expected) - 1] == exp_type
+
+
+@pytest.mark.parametrize("docker_args", [
+    {}, {"ARG": "VAL"}, {"ARG1": "VAL1", "ARG2": "VAL2"}
+])
+def test_docker_run_args(docker_args):
+    active_run = mock.MagicMock()
+    run_info = mock.MagicMock()
+    run_info.run_id = "fake_run_id"
+    run_info.experiment_id = "fake_experiment_id"
+    run_info.artifact_uri = "/tmp/mlruns/artifacts"
+    active_run.info = run_info
+    image = mock.MagicMock()
+    image.tags = ["image:tag"]
+
+    docker_command = mlflow.projects._get_docker_command(
+                    image, active_run, docker_args, None, None)
+
+    for flag, value in docker_args.items():
+        assert docker_command[docker_command.index(value) - 1] == "--{}".format(flag)

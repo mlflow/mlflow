@@ -3,8 +3,8 @@ import { ModelListView } from './ModelListView';
 import { connect } from 'react-redux';
 import { listRegisteredModelsApi } from '../actions';
 import PropTypes from 'prop-types';
-import { getUUID } from '../../Actions';
-import RequestStateWrapper from '../../components/RequestStateWrapper';
+import RequestStateWrapper from '../../common/components/RequestStateWrapper';
+import { getUUID } from '../../common/utils/ActionUtils';
 
 class ModelListPage extends React.Component {
   static propTypes = {
