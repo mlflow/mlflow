@@ -170,10 +170,16 @@ class _OnnxModelWrapper:
             }
         else:
             feed_dict = {self.inputs[0][0]: dataframe.values}
-
         predicted = self.rt.run(self.output_names, feed_dict)
-        return pd.DataFrame.from_dict(
-            {c: p.reshape(-1) for (c, p) in zip(self.output_names, predicted)})
+
+        def format_output(data):
+            # Output can be list and it should be converted to a numpy array
+            # https://github.com/mlflow/mlflow/issues/2499
+            data = np.asarray(data)
+            return data.reshape(-1)
+        response = pd.DataFrame.from_dict({c: format_output(p)
+                                           for (c, p) in zip(self.output_names, predicted)})
+        return response
 
 
 def _load_pyfunc(path):
