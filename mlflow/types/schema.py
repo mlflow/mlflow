@@ -47,8 +47,8 @@ class ColSpec(object):
     """
     Specification of name and type of a single column in a dataset.
     """
-    def __init__(self, type: DataType,
-                 name: Optional[str] = None):  # pylint: disable=redefined-builtin
+    def __init__(self, type: DataType,  # pylint: disable=redefined-builtin
+                 name: Optional[str] = None):
         self._name = name
         try:
             self._type = DataType[type] if isinstance(type, str) else type
