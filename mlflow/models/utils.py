@@ -16,7 +16,7 @@ class _Example(object):
     Represents an input example for MLflow model.
 
     Contains jsonable data that can be saved with the model and meta data about the exported format
-    that can be seaved with :py:class:`Model <mlflow.models.Model>`.
+    that can be saved with :py:class:`Model <mlflow.models.Model>`.
 
     The _Example is created from example data provided by user. The example(s) can be provided as
     pandas.DataFrame, numpy.ndarray, python dictionary or python list. The assumption is that the
