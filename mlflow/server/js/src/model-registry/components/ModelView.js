@@ -12,6 +12,7 @@ import {
   Dropdown,
   Modal,
   Tooltip,
+  Button,
 } from 'antd';
 import {
   ACTIVE_STAGES,
@@ -19,7 +20,7 @@ import {
 } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
-import { Button } from "react-bootstrap";
+import { Button as BootstrapButton } from "react-bootstrap";
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -156,7 +157,7 @@ export class ModelView extends React.Component {
   }
 
   renderDescriptionEditIcon() {
-    return <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
+    return <Button type="link" onClick={this.startEditingDescription}><Icon type='form' /></Button>;
   }
 
   renderDetails = () => {
@@ -208,9 +209,13 @@ export class ModelView extends React.Component {
                   Active({this.getActiveVersionsCount()})
                 </Radio.Button>
               </Radio.Group>
-              <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
+              <BootstrapButton
+                className="btn-primary"
+                disabled={compareDisabled}
+                onClick={this.onCompare}
+               >
                 Compare
-              </Button>
+              </BootstrapButton>
             </div>
           </span>
         )}>

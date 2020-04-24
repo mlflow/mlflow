@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { modelListPageRoute, getModelPageRoute } from '../routes';
 import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import { Dropdown, Icon, Menu, Modal, Alert, Descriptions, Tooltip } from 'antd';
+import { Dropdown, Icon, Menu, Modal, Alert, Descriptions, Tooltip, Button } from 'antd';
 import {
   ModelVersionStatus,
   StageTagComponents,
@@ -131,7 +131,7 @@ export class ModelVersionView extends React.Component {
   }
 
   renderDescriptionEditIcon() {
-    return <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
+    return <Button type="link" onClick={this.startEditingDescription}><Icon type='form' /></Button>;
   }
 
   render() {

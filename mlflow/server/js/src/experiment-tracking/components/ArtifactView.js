@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import {
   getBasename, getExtension, IMAGE_EXTENSIONS,
@@ -21,8 +22,11 @@ import { Tooltip } from 'antd';
 
 import './ArtifactView.css';
 import spinner from '../../common/static/mlflow-spinner.png';
+import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
+import { getAllModelVersions } from '../../model-registry/reducers';
+import { listArtifactsApi } from '../actions';
 
-export class ArtifactView extends Component {
+export class ArtifactViewImpl extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     // The root artifact node.
@@ -216,6 +220,22 @@ export class ArtifactView extends Component {
     );
   }
 }
+
+
+const mapStateToProps = (state, ownProps) => {
+  const { runUuid } = ownProps;
+  const { apis } = state;
+  const artifactNode = getArtifacts(runUuid, state);
+  const artifactRootUri = getArtifactRootUri(runUuid, state);
+  const modelVersionsBySource = _.groupBy(getAllModelVersions(state), 'source');
+  return { artifactNode, artifactRootUri, modelVersionsBySource, apis };
+};
+
+const mapDispatchToProps = {
+  listArtifactsApi,
+};
+
+export const ArtifactView = connect(mapStateToProps, mapDispatchToProps)(ArtifactViewImpl);
 
 function ModelVersionInfoSection(props) {
   const { modelVersion } = props;
