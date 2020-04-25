@@ -510,7 +510,8 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     if os.name != "nt":
         process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir, env=env)
     else:
-        process = subprocess.Popen(command, close_fds=True, cwd=work_dir, env=env)
+        # process = subprocess.Popen(command, close_fds=True, cwd=work_dir, env=env)
+        process = subprocess.Popen(["cmd", "/c", command], close_fds=True, cwd=work_dir, env=env)
     return LocalSubmittedRun(run_id, process)
 
 
