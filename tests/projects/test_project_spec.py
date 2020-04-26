@@ -4,7 +4,7 @@ import pytest
 import textwrap
 
 from mlflow.exceptions import ExecutionException
-from mlflow.projects import _project_spec
+from mlflow.projects import utils
 from tests.projects.utils import load_project
 
 
@@ -57,7 +57,7 @@ def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents, mlp
         tmpdir.join(mlproject_path).write(mlproject)
     if conda_env_path:
         tmpdir.join(conda_env_path).write(conda_env_contents)
-    project = _project_spec.load_project(tmpdir.strpath)
+    project = utils.load_project(tmpdir.strpath)
     assert project._entry_points == {}
     expected_env_path = \
         os.path.abspath(os.path.join(tmpdir.strpath, conda_env_path)) if conda_env_path else None
@@ -71,7 +71,7 @@ def test_load_docker_project(tmpdir):
     docker_env:
         image: some-image
     """))
-    project = _project_spec.load_project(tmpdir.strpath)
+    project = utils.load_project(tmpdir.strpath)
     assert project._entry_points == {}
     assert project.conda_env_path is None
     assert project.docker_env.get("image") == "some-image"
@@ -91,5 +91,5 @@ def test_load_docker_project(tmpdir):
 def test_load_invalid_project(tmpdir, invalid_project_contents, expected_error_msg):
     tmpdir.join("MLproject").write(invalid_project_contents)
     with pytest.raises(ExecutionException) as e:
-        _project_spec.load_project(tmpdir.strpath)
+        utils.load_project(tmpdir.strpath)
     assert expected_error_msg in str(e.value)

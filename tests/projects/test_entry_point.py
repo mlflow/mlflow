@@ -5,7 +5,7 @@ import pytest
 from six.moves import shlex_quote
 
 from mlflow.exceptions import ExecutionException
-from mlflow.projects._project_spec import EntryPoint
+from mlflow.projects.entities import EntryPoint
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from tests.projects.utils import load_project, TEST_PROJECT_DIR
 
@@ -119,11 +119,11 @@ def test_params():
 
     user1 = {}
     with pytest.raises(ExecutionException):
-        entry_point._validate_parameters(user1)
+        entry_point.validate_parameters(user1)
 
     user_2 = {"beta": 0.004}
     with pytest.raises(ExecutionException):
-        entry_point._validate_parameters(user_2)
+        entry_point.validate_parameters(user_2)
 
     user_3 = {"alpha": 0.004, "gamma": 0.89}
     expected_final_3 = {"alpha": '0.004', "l1_ratio": '0.1', "l2_ratio": '0.0003',

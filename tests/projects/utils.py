@@ -9,7 +9,7 @@ import pytest
 from mlflow.utils.file_utils import TempDir, _copy_project
 
 from mlflow.entities import RunStatus
-from mlflow.projects import _project_spec
+from mlflow.projects import utils
 
 
 TEST_DIR = "tests"
@@ -23,7 +23,7 @@ SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
 
 def load_project():
     """ Loads an example project for use in tests, returning an in-memory `Project` object. """
-    return _project_spec.load_project(TEST_PROJECT_DIR)
+    return utils.load_project(TEST_PROJECT_DIR)
 
 
 def validate_exit_status(status_str, expected):

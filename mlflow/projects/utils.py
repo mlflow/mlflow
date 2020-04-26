@@ -1,3 +1,8 @@
+"""
+Exposes developer APIs for implementing custom project execution backend plugins. For common
+use cases like running MLflow projects, see :py:mod:`mlflow.projects`. For more information on
+writing a plugin for a custom project execution backend, see `MLflow Plugins <../../plugins.html>`_.
+"""
 import logging
 import os
 import re
@@ -6,10 +11,11 @@ import tempfile
 
 from distutils import dir_util
 from six.moves import urllib
+import yaml
 
 from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
-from mlflow.projects import _project_spec
+from mlflow.projects.entities import Project, EntryPoint
 from mlflow import tracking
 from mlflow.tracking.context.git_context import _get_git_commit
 from mlflow.tracking import fluent
@@ -25,6 +31,8 @@ from mlflow.utils.mlflow_tags import (
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
+_MLPROJECT_FILE_NAME = "mlproject"
+_DEFAULT_CONDA_FILE_NAME = "conda.yaml"
 
 
 _logger = logging.getLogger(__name__)
@@ -101,21 +109,97 @@ def _is_valid_branch_name(work_dir, version):
     return False
 
 
-def fetch_and_validate_project(uri, version, entry_point, parameters):
-    parameters = parameters or {}
-    work_dir = _fetch_project(uri=uri, version=version)
-    project = _project_spec.load_project(work_dir)
-    project.get_entry_point(entry_point)._validate_parameters(parameters)
-    return work_dir
+def _find_mlproject(directory):
+    filenames = os.listdir(directory)
+    for filename in filenames:
+        if filename.lower() == _MLPROJECT_FILE_NAME:
+            return os.path.join(directory, filename)
+    return None
 
 
-def load_project(work_dir):
-    return _project_spec.load_project(work_dir)
-
-
-def _fetch_project(uri, version=None):
+def load_project(directory):
     """
-    Fetch a project into a local directory, returning the path to the local project directory.
+    Loads a :py:class:`mlflow.projects.entities.Project` from the specified directory
+
+    :param directory: Directory from which to load project config. Config will be loaded from a
+                      file named "MLproject" in the specified directory, if one exists.
+    :return: A :py:class:`mlflow.projects.entities.Project`
+    """
+    mlproject_path = _find_mlproject(directory)
+
+    # TODO: Validate structure of YAML loaded from the file
+    yaml_obj = {}
+    if mlproject_path is not None:
+        with open(mlproject_path) as mlproject_file:
+            yaml_obj = yaml.safe_load(mlproject_file)
+
+    project_name = yaml_obj.get("name")
+
+    # Validate config if docker_env parameter is present
+    docker_env = yaml_obj.get("docker_env")
+    if docker_env:
+        if not docker_env.get("image"):
+            raise ExecutionException("Project configuration (MLproject file) was invalid: Docker "
+                                     "environment specified but no image attribute found.")
+        if docker_env.get("volumes"):
+            if not (isinstance(docker_env["volumes"], list)
+                    and all([isinstance(i, str) for i in docker_env["volumes"]])):
+                raise ExecutionException("Project configuration (MLproject file) was invalid: "
+                                         "Docker volumes must be a list of strings, "
+                                         """e.g.: '["/path1/:/path1", "/path2/:/path2"])""")
+        if docker_env.get("environment"):
+            if not (isinstance(docker_env["environment"], list)
+                    and all([isinstance(i, list) or isinstance(i, str)
+                             for i in docker_env["environment"]])):
+                raise ExecutionException(
+                    "Project configuration (MLproject file) was invalid: "
+                    "environment must be a list containing either strings (to copy environment "
+                    "variables from host system) or lists of string pairs (to define new "
+                    "environment variables)."
+                    """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])""")
+
+    # Validate config if conda_env parameter is present
+    conda_path = yaml_obj.get("conda_env")
+    if conda_path and docker_env:
+        raise ExecutionException("Project cannot contain both a docker and "
+                                 "conda environment.")
+
+    # Parse entry points
+    entry_points = {}
+    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
+        parameters = entry_point_yaml.get("parameters", {})
+        command = entry_point_yaml.get("command")
+        entry_points[name] = EntryPoint(name, parameters, command)
+
+    if conda_path:
+        conda_env_path = os.path.join(directory, conda_path)
+        if not os.path.exists(conda_env_path):
+            raise ExecutionException("Project specified conda environment file %s, but no such "
+                                     "file was found." % conda_env_path)
+        return Project(entry_points=entry_points, name=project_name,
+                       conda_env_path=conda_env_path, docker_env=docker_env)
+
+    default_conda_path = os.path.join(directory, _DEFAULT_CONDA_FILE_NAME)
+    if os.path.exists(default_conda_path):
+        return Project(entry_points=entry_points, name=project_name,
+                       conda_env_path=default_conda_path, docker_env=docker_env)
+
+    return Project(entry_points=entry_points, name=project_name, conda_env_path=None,
+                   docker_env=docker_env)
+
+
+def fetch_project(uri, version=None):
+    """
+    Fetch a project into a local directory, returning the path to the local project directory. If
+    provided URI is a remote URI (e.g. the URI of a remote git repo like
+    http://github.com/mlflow/mlflow-example.git), the project will be fetched to a local temporary
+    directory.
+
+    :param uri: URI of project to run. A local filesystem path
+                or a Git repository URI (e.g. https://github.com/mlflow/mlflow-example)
+                pointing to a project directory containing an MLproject file.
+    :param version: For Git-based projects, either a commit hash or a branch name.
+    :return: String path of directory containing fetched project
     """
     parsed_uri, subdirectory = _parse_subdirectory(uri)
     use_temp_dst_dir = _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)
@@ -190,18 +274,11 @@ def _fetch_zip_repo(uri):
     return BytesIO(response.content)
 
 
-def get_or_create_run(run_id, uri, experiment_id, work_dir, version, entry_point, parameters):
-    if run_id:
-        return tracking.MlflowClient().get_run(run_id)
-    else:
-        return _create_run(uri, experiment_id, work_dir, version, entry_point, parameters)
-
-
-def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
+def create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     """
-    Create a ``Run`` against the current MLflow tracking server, logging metadata (e.g. the URI,
-    entry point, and parameters of the project) about the run. Return an ``ActiveRun`` that can be
-    used to report additional data about the run (metrics/params) to the tracking server.
+    Creates and returns an :py:class:`mlflow.entities.Run` against the current MLflow tracking
+    server, logging metadata (e.g. the URI, entry point, and parameters of the project) about the
+    run.
     """
     if _is_local_uri(uri):
         source_name = tracking._tracking_service.utils._get_git_url_if_present(_expand_uri(uri))
@@ -236,7 +313,7 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
         tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] = version
     active_run = tracking.MlflowClient().create_run(experiment_id=experiment_id, tags=tags)
 
-    project = _project_spec.load_project(work_dir)
+    project = load_project(work_dir)
     # Consolidate parameters for logging.
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
     entry_point_obj = project.get_entry_point(entry_point)

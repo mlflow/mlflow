@@ -15,7 +15,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
-from mlflow.projects import _project_spec
+from mlflow.projects import utils
 from mlflow.exceptions import MlflowException
 
 
@@ -115,13 +115,13 @@ def test_docker_image_uri_no_git(get_git_commit_mock):
 
 def test_docker_valid_project_backend_local():
     work_dir = "./examples/docker"
-    project = _project_spec.load_project(work_dir)
+    project = utils.load_project(work_dir)
     mlflow.projects._validate_docker_env(project)
 
 
 def test_docker_invalid_project_backend_local():
     work_dir = "./examples/docker"
-    project = _project_spec.load_project(work_dir)
+    project = utils.load_project(work_dir)
     project.name = None
     with pytest.raises(ExecutionException):
         mlflow.projects._validate_docker_env(project)
