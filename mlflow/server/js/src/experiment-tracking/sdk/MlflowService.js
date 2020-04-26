@@ -163,7 +163,6 @@ export class MlflowService {
       error: error,
     });
   }
-
   /**
    * @param {RestoreRun} data: Immutable Record
    * @param {function} success

@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
-import { Popover } from 'antd';
+import { Popover, Button } from 'antd';
 import Routes from '../routes';
 import Utils from '../../common/utils/Utils';
 
@@ -35,7 +35,7 @@ export class RunLinksPopover extends React.Component {
           return (
             <Link key={key} to={to}>
               <p style={{ color }}>
-                <i className='fas fa-external-link-alt' style={{ marginRight: 5 }} />
+                <i className="fas fa-external-link-alt" style={{ marginRight: 5 }} />
                 {`${name}, ${Utils.formatMetric(y)}`}
               </p>
             </Link>
@@ -50,9 +50,9 @@ export class RunLinksPopover extends React.Component {
     return (
       <div>
         <span>Jump to individual runs</span>
-        <a onClick={handleClose} style={{ float: 'right', marginLeft: '7px' }}>
-          <i className='fas fa-times' />
-        </a>
+        <Button type="link" onClick={handleClose} style={{ float: 'right', marginLeft: '7px' }}>
+          <i className="fas fa-times" />
+        </Button>
       </div>
     );
   };
@@ -63,7 +63,7 @@ export class RunLinksPopover extends React.Component {
       <Popover
         content={this.renderContent()}
         title={this.renderTitle()}
-        placement='left'
+        placement="left"
         visible={visible}
         onVisibleChange={handleVisibleChange}
       >

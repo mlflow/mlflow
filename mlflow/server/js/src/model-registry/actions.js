@@ -31,8 +31,8 @@ export const deleteRegisteredModelApi = (model, id = getUUID(), localUpdateOnly)
   payload: localUpdateOnly
     ? Promise.resolve()
     : wrapDeferred(Services.deleteRegisteredModel, {
-        name: model,
-      }),
+      name: model,
+    }),
   meta: { id, model },
 });
 
@@ -45,9 +45,7 @@ export const createModelVersionApi = (name, source, runId, id = getUUID()) => ({
 
 export const SEARCH_MODEL_VERSIONS = 'SEARCH_MODEL_VERSIONS';
 export const searchModelVersionsApi = (filterObj, id = getUUID()) => {
-  const filter = Object.keys(filterObj)
-    .map((key) => `${key}="${filterObj[key]}"`)
-    .join('&');
+  const filter = Object.keys(filterObj).map((key) => `${key}='${filterObj[key]}'`).join('&');
   return {
     type: SEARCH_MODEL_VERSIONS,
     payload: wrapDeferred(Services.searchModelVersions, { filter }),
@@ -56,7 +54,12 @@ export const searchModelVersionsApi = (filterObj, id = getUUID()) => {
 };
 
 export const UPDATE_MODEL_VERSION = 'UPDATE_MODEL_VERSION';
-export const updateModelVersionApi = (modelName, version, description, id = getUUID()) => ({
+export const updateModelVersionApi = (
+  modelName,
+  version,
+  description,
+  id = getUUID(),
+) => ({
   type: UPDATE_MODEL_VERSION,
   payload: wrapDeferred(Services.updateModelVersion, {
     name: modelName,
@@ -71,8 +74,6 @@ export const transitionModelVersionStageApi = (
   modelName,
   version,
   stage,
-  archiveExistingVersions,
-  comment,
   id = getUUID(),
 ) => ({
   type: TRANSITION_MODEL_VERSION_STAGE,
@@ -80,8 +81,6 @@ export const transitionModelVersionStageApi = (
     name: modelName,
     version,
     stage,
-    archive_existing_versions: archiveExistingVersions,
-    comment,
   }),
   meta: { id },
 });
@@ -92,9 +91,9 @@ export const deleteModelVersionApi = (modelName, version, id = getUUID(), localU
   payload: localUpdateOnly
     ? Promise.resolve()
     : wrapDeferred(Services.deleteModelVersion, {
-        name: modelName,
-        version: version,
-      }),
+      name: modelName,
+      version: version,
+    }),
   meta: { id, modelName, version },
 });
 
@@ -116,3 +115,4 @@ export const getModelVersionApi = (modelName, version, id = getUUID()) => ({
   }),
   meta: { id, modelName, version },
 });
+

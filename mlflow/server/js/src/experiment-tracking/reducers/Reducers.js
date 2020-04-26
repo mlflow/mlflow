@@ -317,11 +317,12 @@ export const getArtifactRootUri = (runUuid, state) => {
 
 export const artifactRootUriByRunUuid = (state = {}, action) => {
   switch (action.type) {
-    case fulfilled(LIST_ARTIFACTS_API): {
-      const runUuid = action.meta.runUuid;
+    case fulfilled(GET_RUN_API): {
+      const runInfo = RunInfo.fromJs(action.payload.run.info);
+      const runUuid = runInfo.getRunUuid();
       return {
         ...state,
-        [runUuid]: action.payload.root_uri,
+        [runUuid]: runInfo.getArtifactUri(),
       };
     }
     default:
@@ -353,7 +354,9 @@ export const getSharedMetricKeysByRunUuids = (runUuids, state) =>
   );
 
 export const getAllParamKeysByRunUuids = (runUuids, state) =>
-  _.union(...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])));
+  _.union(
+    ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
+  );
 
 export const getAllMetricKeysByRunUuids = (runUuids, state) =>
   _.union(

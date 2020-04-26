@@ -9,7 +9,7 @@ import { setTagApi } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 import { getUUID } from '../../../common/utils/ActionUtils';
 
-class RenameRunModalImpl extends Component {
+export class RenameRunModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
     runUuid: PropTypes.string.isRequired,

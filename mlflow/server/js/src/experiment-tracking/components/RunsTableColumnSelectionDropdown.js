@@ -26,6 +26,7 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
   };
 
   handleCheck = (checkedKeys, allKeys) => {
+    console.log('checkedKeys', checkedKeys);
     const { onCheck } = this.props;
     if (onCheck) {
       onCheck(getCategorizedUncheckedKeys(checkedKeys, allKeys));

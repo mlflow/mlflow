@@ -46,17 +46,18 @@ export class EditableNote extends Component {
     const { markdown } = this.state;
     this.setState({ confirmLoading: true });
     if (onSubmit) {
-      Promise.resolve(onSubmit(markdown))
+      return Promise.resolve(onSubmit(markdown))
         .then(() => {
           this.setState({ confirmLoading: false, error: null });
         })
         .catch((e) => {
           this.setState({
             confirmLoading: false,
-            error: e.getMessageField ? e.getMessageField() : 'Failed to submit',
+            error: e && e.getMessageField ? e.getMessageField() : 'Failed to submit',
           });
         });
     }
+    return null;
   };
 
   handleCancelClick = () => {
