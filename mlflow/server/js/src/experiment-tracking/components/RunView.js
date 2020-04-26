@@ -285,7 +285,7 @@ const getMetricValues = (latestMetrics, getMetricPagePath) => {
 };
 
 const shellEscape = (str) => {
-  if ((/["\r\n\t ]/).test(str)) {
+  if (/["\r\n\t ]/.test(str)) {
     return '"' + str.replace(/"/g, '\\"') + '"';
   }
   return str;
