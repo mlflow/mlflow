@@ -144,7 +144,8 @@ export class CompareModelVersionsView extends Component {
                           .map((info) => info.run_uuid)
                           .filter((uuid, idx) => data[idx] !== undefined),
                         key,
-                        // TODO: Refactor so that the breadcrumb on the linked page is for model registry
+                        // TODO: Refactor so that the breadcrumb on the linked page is
+                        // for model registry
                         this.props.runInfos[0].experiment_id,
                       )}
                       title='Plot chart'
