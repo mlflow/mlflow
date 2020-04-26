@@ -361,7 +361,7 @@ module.exports = {
     'valid-typeof': 2,
     'vars-on-top': 0,
     'wrap-iife': 2,
-    'wrap-regex': 2,
+    'wrap-regex': 0,
     'yield-star-spacing': 2,
     'yoda': 2,
     'function-paren-newline': 'off',
