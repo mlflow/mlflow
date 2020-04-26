@@ -226,7 +226,6 @@ export class ArtifactViewImpl extends Component {
   }
 }
 
-
 const mapStateToProps = (state, ownProps) => {
   const { runUuid } = ownProps;
   const { apis } = state;

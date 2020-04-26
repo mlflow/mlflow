@@ -23,6 +23,6 @@ export function deepFreeze(o) {
 // just want to prevent actual connection attempts from being made and throwing spurious errors.
 export function mockAjax() {
   $.ajax = jest.fn().mockImplementation(() => {
-    return Promise.resolve({value: ""});
+    return Promise.resolve({ value: '' });
   });
 }

@@ -37,18 +37,18 @@ describe('MyComponent', () => {
       openErrorModal: jest.fn(),
       deleteRunApi: getMockDeleteRunApiFn(false, []),
     };
-    wrapper = shallow(<DeleteRunModalImpl {...minimalProps}/>);
+    wrapper = shallow(<DeleteRunModalImpl {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<DeleteRunModalImpl {...minimalProps}/>);
+    wrapper = shallow(<DeleteRunModalImpl {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should delete each selected run on submission', (done) => {
     const deletedRunIds = [];
     const deleteRunApi = getMockDeleteRunApiFn(false, deletedRunIds);
-    wrapper = shallow(<DeleteRunModalImpl {...{ ...minimalProps, deleteRunApi }}/>);
+    wrapper = shallow(<DeleteRunModalImpl {...{ ...minimalProps, deleteRunApi }} />);
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {
       expect(deletedRunIds).toEqual(minimalProps.selectedRunIds);
@@ -59,7 +59,7 @@ describe('MyComponent', () => {
   test('should show error modal if deletion fails', (done) => {
     const deletedRunIds = [];
     const deleteRunApi = getMockDeleteRunApiFn(true, deletedRunIds);
-    wrapper = shallow(<DeleteRunModalImpl {...{ ...minimalProps, deleteRunApi }}/>);
+    wrapper = shallow(<DeleteRunModalImpl {...{ ...minimalProps, deleteRunApi }} />);
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {
       expect(deletedRunIds).toEqual([]);

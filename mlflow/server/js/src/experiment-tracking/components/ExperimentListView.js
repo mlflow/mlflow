@@ -177,7 +177,8 @@ export class ExperimentListView extends Component {
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
                     </Link>
                     {/* Edit/Rename Experiment Option */}
-                    <Button type="link"
+                    <Button
+                      type='link'
                       onClick={this.handleRenameExperiment}
                       data-experimentid={experiment_id}
                       data-experimentname={name}
@@ -186,7 +187,8 @@ export class ExperimentListView extends Component {
                       <Icon type='edit' />
                     </Button>
                     {/* Delete Experiment option */}
-                    <Button type="link"
+                    <Button
+                      type='link'
                       onClick={this.handleDeleteExperiment}
                       data-experimentid={experiment_id}
                       data-experimentname={name}

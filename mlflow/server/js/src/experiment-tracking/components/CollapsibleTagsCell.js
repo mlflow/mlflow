@@ -47,7 +47,7 @@ export class CollapsibleTagsCell extends React.Component {
           );
         })}
         {visibleTags.length > 3 ? (
-          <Button type="link" className='tag-cell-toggle-link' onClick={this.handleToggleCollapse}>
+          <Button type='link' className='tag-cell-toggle-link' onClick={this.handleToggleCollapse}>
             {this.state.collapsed
               ? `${visibleTags.length - NUM_TAGS_ON_COLLAPSED} more`
               : `Show less`}

@@ -4,23 +4,14 @@ import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import { modelListPageRoute, getCompareModelVersionsPageRoute } from '../routes';
-import {
-  Radio,
-  Icon,
-  Descriptions,
-  Menu,
-  Dropdown,
-  Modal,
-  Tooltip,
-  Button,
-} from 'antd';
+import { Radio, Icon, Descriptions, Menu, Dropdown, Modal, Tooltip, Button } from 'antd';
 import {
   ACTIVE_STAGES,
   REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT,
 } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
-import { Button as BootstrapButton } from "react-bootstrap";
+import { Button as BootstrapButton } from 'react-bootstrap';
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -38,9 +29,11 @@ export class ModelView extends React.Component {
       creation_timestamp: PropTypes.number.isRequired,
       last_updated_timestamp: PropTypes.number.isRequired,
     }),
-    modelVersions: PropTypes.arrayOf(PropTypes.shape({
-      current_stage: PropTypes.string.isRequired,
-    })),
+    modelVersions: PropTypes.arrayOf(
+      PropTypes.shape({
+        current_stage: PropTypes.string.isRequired,
+      }),
+    ),
     handleEditDescription: PropTypes.func.isRequired,
     handleDelete: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
@@ -75,11 +68,9 @@ export class ModelView extends React.Component {
   };
 
   handleSubmitEditDescription = (description) => {
-    return this.props
-      .handleEditDescription(description)
-      .then(() => {
-        this.setState({ showDescriptionEditor: false });
-      });
+    return this.props.handleEditDescription(description).then(() => {
+      this.setState({ showDescriptionEditor: false });
+    });
   };
 
   startEditingDescription = (e) => {
@@ -90,21 +81,22 @@ export class ModelView extends React.Component {
   renderBreadCrumbDropdown() {
     const menu = (
       <Menu>
-        {this.getActiveVersionsCount() > 0 ?
-          (
-            <Menu.Item disabled className='delete'>
-              <Tooltip title={REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>
-                Delete
-              </Tooltip>
-            </Menu.Item>
-          ) : (
-            <Menu.Item onClick={this.showDeleteModal} className='delete'>Delete</Menu.Item>
-          )}
+        {this.getActiveVersionsCount() > 0 ? (
+          <Menu.Item disabled className='delete'>
+            <Tooltip title={REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>
+              Delete
+            </Tooltip>
+          </Menu.Item>
+        ) : (
+          <Menu.Item onClick={this.showDeleteModal} className='delete'>
+            Delete
+          </Menu.Item>
+        )}
       </Menu>
     );
     return (
       <Dropdown overlay={menu} trigger={['click']} className='breadcrumb-dropdown'>
-        <Icon type='caret-down' className='breadcrumb-caret'/>
+        <Icon type='caret-down' className='breadcrumb-caret' />
       </Dropdown>
     );
   }
@@ -152,12 +144,17 @@ export class ModelView extends React.Component {
   };
 
   onCompare() {
-    this.props.history.push(getCompareModelVersionsPageRoute(
-        this.props.model.name, this.state.runsSelected));
+    this.props.history.push(
+      getCompareModelVersionsPageRoute(this.props.model.name, this.state.runsSelected),
+    );
   }
 
   renderDescriptionEditIcon() {
-    return <Button type="link" onClick={this.startEditingDescription}><Icon type='form' /></Button>;
+    return (
+      <Button type='link' onClick={this.startEditingDescription}>
+        <Icon type='form' />
+      </Button>
+    );
   }
 
   renderDetails = () => {
@@ -184,8 +181,12 @@ export class ModelView extends React.Component {
 
         {/* Page Sections */}
         <CollapsibleSection
-          title={<span>Description
-            {!showDescriptionEditor ? this.renderDescriptionEditIcon() : null}</span>}
+          title={
+            <span>
+              Description
+              {!showDescriptionEditor ? this.renderDescriptionEditIcon() : null}
+            </span>
+          }
           forceOpen={showDescriptionEditor}
         >
           <EditableNote
@@ -195,31 +196,32 @@ export class ModelView extends React.Component {
             showEditor={showDescriptionEditor}
           />
         </CollapsibleSection>
-        <CollapsibleSection title={(
-          <span>
-            <div className="ModelView-run-buttons">
-            Versions{' '}
-              <Radio.Group
-                className='active-toggle'
-                value={stageFilter}
-                onChange={this.handleStageFilterChange}
-              >
-                <Radio.Button value={StageFilters.ALL}>All</Radio.Button>
-                <Radio.Button value={StageFilters.ACTIVE}>
-                  Active({this.getActiveVersionsCount()})
-                </Radio.Button>
-              </Radio.Group>
-              <BootstrapButton
-                className="btn-primary"
-                disabled={compareDisabled}
-                onClick={this.onCompare}
-               >
-                Compare
-              </BootstrapButton>
-            </div>
-          </span>
-        )}>
-
+        <CollapsibleSection
+          title={
+            <span>
+              <div className='ModelView-run-buttons'>
+                Versions{' '}
+                <Radio.Group
+                  className='active-toggle'
+                  value={stageFilter}
+                  onChange={this.handleStageFilterChange}
+                >
+                  <Radio.Button value={StageFilters.ALL}>All</Radio.Button>
+                  <Radio.Button value={StageFilters.ACTIVE}>
+                    Active({this.getActiveVersionsCount()})
+                  </Radio.Button>
+                </Radio.Group>
+                <BootstrapButton
+                  className='btn-primary'
+                  disabled={compareDisabled}
+                  onClick={this.onCompare}
+                >
+                  Compare
+                </BootstrapButton>
+              </div>
+            </span>
+          }
+        >
           <ModelVersionTable
             activeStageOnly={stageFilter === StageFilters.ACTIVE}
             modelName={modelName}
@@ -230,7 +232,7 @@ export class ModelView extends React.Component {
 
         {/* Delete Model Dialog */}
         <Modal
-          title="Delete Model"
+          title='Delete Model'
           visible={isDeleteModalVisible}
           confirmLoading={isDeleteModalConfirmLoading}
           onOk={this.handleDeleteConfirm}
@@ -257,7 +259,9 @@ export class ModelView extends React.Component {
     return (
       <div className='model-view-content'>
         <h1 className='breadcrumb-header'>
-          <Link to={modelListPageRoute} className={breadcrumbItemClass}>Registered Models</Link>
+          <Link to={modelListPageRoute} className={breadcrumbItemClass}>
+            Registered Models
+          </Link>
           {chevron}
           <span className={breadcrumbItemClass}>{modelName}</span>
           {this.renderBreadCrumbDropdown()}
