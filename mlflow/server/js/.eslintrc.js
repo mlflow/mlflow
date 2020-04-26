@@ -123,7 +123,7 @@ module.exports = {
     'max-depth': [2, 4],
     'max-len': ['error', 100, 2, {
       'ignoreUrls': false,
-      'ignoreComments': true,
+      'ignoreComments': false,
       'ignoreRegExpLiterals': true,
       'ignoreStrings': false,
       'ignoreTemplateLiterals': false,
