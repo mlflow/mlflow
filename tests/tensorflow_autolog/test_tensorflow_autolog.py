@@ -52,7 +52,9 @@ def create_tf_keras_model():
     model.add(layers.Dense(64, activation='relu'))
     model.add(layers.Dense(10, activation='softmax'))
 
-    model.compile(optimizer=tf.train.AdamOptimizer(0.001),
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.002,
+                                                     epsilon=1e-08,
+                                                     name='Eve'),
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
     return model
@@ -131,7 +133,11 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert 'validation_data' not in data.params
     # Testing optimizer parameters are logged
     assert 'optimizer_name' in data.params
-    assert data.params['optimizer_name'] == 'AdamOptimizer'
+    assert data.params['optimizer_name'] == 'Eve'
+    assert 'learning_rate' in data.params
+    assert data.params['learning_rate'] == '0.002'
+    assert 'epsilon' in data.params
+    assert data.params['epsilon'] == '1e-08'
     client = mlflow.tracking.MlflowClient()
     all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'epoch_acc')
     assert all((x.step - 1) % 5 == 0 for x in all_epoch_acc)
