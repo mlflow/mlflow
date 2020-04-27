@@ -1,7 +1,7 @@
 import entrypoints
 import logging
 
-ENTRYPOINT_GROUP_NAME = "mlflow.mlproject_backend"
+ENTRYPOINT_GROUP_NAME = "mlflow.project_backend"
 
 __logger__ = logging.getLogger(__name__)
 
