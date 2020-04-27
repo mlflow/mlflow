@@ -203,7 +203,8 @@ def run(uri, entry_point="main", version=None, parameters=None,
 
     MLflow provides built-in support for running projects locally or remotely on a Databricks or
     Kubernetes cluster. You can also run projects against other targets by installing an appropriate
-    third-party plugin. See <../plugins.html#community-plugins> for more information.
+    third-party plugin. See `Community Plugins <../plugins.html#community-plugins>`_ for more
+    information.
 
     For information on using this method in chained workflows, see `Building Multistep Workflows
     <../projects.html#building-multistep-workflows>`_.

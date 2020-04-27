@@ -8,15 +8,22 @@ mlflow.projects
 
 
 mlflow.projects.utils
-=====================
+~~~~~~~~~~~~~~~~~~~~~
 .. automodule:: mlflow.projects.utils
     :members:
     :undoc-members:
     :show-inheritance:
 
 mlflow.projects.entities
-========================
+~~~~~~~~~~~~~~~~~~~~~~~~
 .. automodule:: mlflow.projects.entities
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+mlflow.projects.backend
+~~~~~~~~~~~~~~~~~~~~~~~
+.. automodule:: mlflow.projects.backend
     :members:
     :undoc-members:
     :show-inheritance:

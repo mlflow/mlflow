@@ -21,7 +21,8 @@ class Project(object):
     """
     def __init__(self, entry_points, name, conda_env_path, docker_env):
         """
-        Construct an in-memory representation of an MLflow project
+        Construct an in-memory representation of an MLflow project.
+
         :param entry_points: Dictionary mapping entry-point names (e.g. "main" or "training") to
                              :py:class:`mlflow.projects.entities.EntryPoint` objects.
         :param name: Name of the project, if any.
@@ -38,7 +39,8 @@ class Project(object):
     def get_entry_point(self, entry_point):
         """
         Returns the :py:class:`mlflow.projects.entities.EntryPoint` with the specified name
-        within the current project
+        within the current project.
+
         :param entry_point: Name of entry point
         :return: :py:class:`mlflow.projects.entities.EntryPoint` with the specified name
         """
@@ -67,6 +69,7 @@ class EntryPoint(object):
     def __init__(self, name, parameters, command):
         """
         Construct a new entry point.
+
         :param name: Entry point name, e.g. "main" or "training"
         :param parameters: Dictionary of parameter name to YAML object or string. If a YAML object,
                            should specify the parameter type and optionally a default value,

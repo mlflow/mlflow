@@ -1,7 +1,3 @@
-"""
-This module defines developer APIs for defining pluggable execution backends
-for MLflow projects. See `<../../plugins.html>`_ for more information.
-"""
 from abc import abstractmethod, ABCMeta
 
 
@@ -10,7 +6,8 @@ class AbstractBackend():
     Abstract plugin class defining the interface needed to execute MLflow projects. You can define
     subclasses of ``AbstractBackend`` and expose them as third-party plugins to enable running
     MLflow projects against custom execution backends (e.g. to run projects against your team's
-    in-house cluster or job scheduler). See `<../../plugins.html>`_ for more information.
+    in-house cluster or job scheduler). See `MLflow Plugins <../../plugins.html>`_ for more
+    information.
     """
     __metaclass__ = ABCMeta
 
