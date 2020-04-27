@@ -80,7 +80,8 @@ def test_model_save_load(fastai_model, model_path):
     reloaded_model.data.add_test(test_data)
 
     real_preds, real_target = map(lambda output: output.numpy(), model.get_preds(DatasetType.Test))
-    reloaded_preds, reloaded_target = map(lambda output: output.numpy(), reloaded_model.get_preds(DatasetType.Test))
+    reloaded_preds, reloaded_target = map(lambda output: output.numpy(),
+                                          reloaded_model.get_preds(DatasetType.Test))
 
     np.testing.assert_array_almost_equal(real_preds, reloaded_preds)
     np.testing.assert_array_almost_equal(real_target, reloaded_target)
