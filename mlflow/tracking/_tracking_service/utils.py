@@ -67,6 +67,10 @@ def get_tracking_uri():
         return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
 
 
+def _get_artifact_uri():
+    return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
+
+
 def _get_file_store(store_uri, **_):
     return FileStore(store_uri, store_uri)
 
@@ -74,7 +78,7 @@ def _get_file_store(store_uri, **_):
 def _get_sqlalchemy_store(store_uri, artifact_uri):
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
     if artifact_uri is None:
-        artifact_uri = get_tracking_uri()
+        artifact_uri = _get_artifact_uri()
     return SqlAlchemyStore(store_uri, artifact_uri)
 
 

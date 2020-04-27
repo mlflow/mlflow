@@ -22,7 +22,7 @@ from mlflow.server import _run_server
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.tracking import _get_store, get_tracking_uri
+from mlflow.tracking import _get_store, _get_artifact_uri
 from mlflow.utils import cli_args, experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
@@ -193,13 +193,13 @@ def ui(backend_store_uri, default_artifact_root, port, host):
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
-        backend_store_uri = get_tracking_uri()
+        backend_store_uri = _get_artifact_uri()
 
     if not default_artifact_root:
         if is_local_uri(backend_store_uri):
             default_artifact_root = backend_store_uri
         else:
-            default_artifact_root = get_tracking_uri()
+            default_artifact_root = _get_artifact_uri()
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
@@ -270,7 +270,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
-        backend_store_uri = get_tracking_uri()
+        backend_store_uri = _get_artifact_uri()
 
     if not default_artifact_root:
         if is_local_uri(backend_store_uri):
