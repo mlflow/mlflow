@@ -94,7 +94,7 @@ def test_run_context_provider_registry_with_installed_plugin(tmp_wkdir):
 
     reload(mlflow.tracking.context.registry)
 
-    from mlflow_test_plugin import PluginRunContextProvider
+    from mlflow_test_plugin.run_context_provider import PluginRunContextProvider
     assert PluginRunContextProvider in _currently_registered_run_context_provider_classes()
 
     # The test plugin's context provider always returns False from in_context

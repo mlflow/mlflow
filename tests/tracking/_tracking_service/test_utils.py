@@ -221,7 +221,7 @@ def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
     assert "file-plugin" in \
            mlflow.tracking._tracking_service.utils._tracking_store_registry._registry.keys()
 
-    from mlflow_test_plugin import PluginFileStore
+    from mlflow_test_plugin.file_store import PluginFileStore
 
     env = {
         _TRACKING_URI_ENV_VAR: "file-plugin:test-path",
