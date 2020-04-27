@@ -17,9 +17,6 @@ from __future__ import absolute_import
 
 import os
 import yaml
-import gorilla
-import tempfile
-import shutil
 import pandas as pd
 import numpy as np
 
