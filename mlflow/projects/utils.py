@@ -25,7 +25,7 @@ from mlflow.utils.mlflow_tags import (
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
-
+_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
 
 _logger = logging.getLogger(__name__)
 
