@@ -21,6 +21,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from fastai.tabular import DatasetType
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -64,6 +65,17 @@ def test_model_save_load(fastai_model, model_path):
     mlflow.fastai.save_model(fastai_learner=model, path=model_path)
     reloaded_model = mlflow.fastai.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    # Verify reloaded model computes same predictions as original model
+    test_data = TabularList.from_df(fastai_model.inference_dataframe)
+    model.data.add_test(test_data)
+    reloaded_model.data.add_test(test_data)
+
+    real_preds, real_target = map(lambda output: output.numpy(), model.get_preds(DatasetType.Test))
+    reloaded_preds, reloaded_target = map(lambda output: output.numpy(), reloaded_model.get_preds(DatasetType.Test))
+
+    np.testing.assert_array_almost_equal(real_preds, reloaded_preds)
+    np.testing.assert_array_almost_equal(real_target, reloaded_target)
 
     model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
     reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
