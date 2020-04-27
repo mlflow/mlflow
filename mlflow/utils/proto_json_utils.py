@@ -68,7 +68,7 @@ class NumpyEncoder(JSONEncoder):
                 return o.tolist(), True
 
         if isinstance(o, np.generic):
-            return np.asscalar(o), True
+            return o.item(), True
         if isinstance(o, bytes) or isinstance(o, bytearray):
             return encode_binary(o), True
         return o, False
