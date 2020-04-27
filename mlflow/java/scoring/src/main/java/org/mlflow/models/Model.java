@@ -15,6 +15,14 @@ import org.mlflow.utils.SerializationUtils;
  * model configuration (`MLModel`) as a {@link Model} object.
  */
 public class Model {
+
+  public static class Signature {
+    @JsonProperty("inputs")
+    private String inputsSchemaJson;
+    @JsonProperty("outputs")
+    private String outputSchemaJson;
+  }
+
   @JsonProperty("artifact_path")
   private String artifactPath;
 
@@ -26,6 +34,12 @@ public class Model {
 
   @JsonProperty("flavors")
   private Map<String, Object> flavors;
+
+  @JsonProperty("signature")
+  Signature signature;
+
+  @JsonProperty("input_example")
+  private Map<String, Object> input_example;
 
   private String rootPath;
 
