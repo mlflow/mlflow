@@ -109,7 +109,7 @@ The example package contains a ``setup.py`` that declares a number of
             "mlflow.model_registry_store":
                 "file-plugin=mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore",
             # Define a MLflow Project Backend plugin called 'dummy-backend'
-            "mlflow.mlproject_backend":
+            "mlflow.project_backend":
                 "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",
         },
     )
