@@ -14,6 +14,7 @@ from mlflow import tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
+from mlflow.projects.utils import _MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
@@ -250,7 +251,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
                                             "--entry-point", entry_point]))
     if run_id:
-        mlflow_run_arr.extend(["--run-id", run_id])
+        mlflow_run_arr.extend(["-C", json.dumps({_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
     if parameters:
         for key, value in parameters.items():
             mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])

@@ -14,7 +14,7 @@ directory the example code is found, i.e., it is located in `examples/new_exampl
 The `@pytest.mark.mark.parametrize` decorator for `def test_mlflow_run_example(directory, params):` 
 is updated.
 
-If the example is executed by `cd examples/new_example_dir && mflow run . -P parm1=99 -P parm2=3`, then
+If the example is executed by `cd examples/new_example_dir && mlflow run . -P parm1=99 -P parm2=3`, then
 this `tuple` is added to the decorator list
 ```
 ("new_example_dir", ["-P", "parm1=123", "-P", "parm2=99"])

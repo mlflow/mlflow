@@ -179,7 +179,7 @@ def test_catch_mlflow_exception():
 @pytest.mark.large
 def test_mlflow_server_with_installed_plugin(tmpdir):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-    from mlflow_test_plugin import PluginFileStore
+    from mlflow_test_plugin.file_store import PluginFileStore
 
     env = {
         BACKEND_STORE_URI_ENV_VAR: "file-plugin:%s" % tmpdir.strpath,

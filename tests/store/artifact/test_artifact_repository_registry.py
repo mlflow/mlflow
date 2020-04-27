@@ -46,7 +46,7 @@ def test_plugin_registration_via_installed_package():
         artifact_repository_registry._artifact_repository_registry._registry
     )
 
-    from mlflow_test_plugin import PluginLocalArtifactRepository
+    from mlflow_test_plugin.local_artifact import PluginLocalArtifactRepository
 
     test_uri = "file-plugin:test-path"
 
