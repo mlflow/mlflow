@@ -99,7 +99,10 @@ class Project(object):
         if entry_point in self._entry_points:
             return self._entry_points[entry_point]
         _, file_extension = os.path.splitext(entry_point)
-        ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash")}
+        ext_to_cmd = {
+            ".py": os.environ.get("PYTHON", "python3"),
+            ".sh": os.environ.get("SHELL", "bash"),
+        }
         if file_extension in ext_to_cmd:
             command = "%s %s" % (ext_to_cmd[file_extension], shlex_quote(entry_point))
             if not is_string_type(command):

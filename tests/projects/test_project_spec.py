@@ -29,7 +29,7 @@ def test_project_get_unspecified_entry_point():
     project = load_project()
     entry_point = project.get_entry_point("my_script.py")
     assert entry_point.name == "my_script.py"
-    assert entry_point.command == "python my_script.py"
+    assert entry_point.command == "python3 my_script.py"
     assert entry_point.parameters == {}
     entry_point = project.get_entry_point("my_script.sh")
     assert entry_point.name == "my_script.sh"
