@@ -6,7 +6,7 @@ import {
   Route,
   Link,
 } from 'react-router-dom';
-import RunPage from './RunPage';
+import { RunPage } from './RunPage';
 import Routes from '../routes';
 import { MetricPage } from './MetricPage';
 import CompareRunPage from './CompareRunPage';

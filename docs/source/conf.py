@@ -34,6 +34,7 @@ from languagesections import *
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'sphinx_click.ext',
 ]
@@ -311,6 +312,9 @@ nitpicky = True
 nitpick_ignore = [
     # Ignore "parent class reference not found" errors for subclasses of ``object``
     ('py:class', 'object'),
+    ('py:class', 'enum.Enum'),
+    ('py:class', 'bytes'),
+    ('py:class', 'bytearray')
 ]
 
 linkcheck_ignore = [

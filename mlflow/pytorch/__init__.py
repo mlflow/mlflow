@@ -23,7 +23,8 @@ import mlflow
 import mlflow.pyfunc.utils as pyfunc_utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature
+from mlflow.models.utils import ModelInputExample
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -64,7 +65,8 @@ def get_default_conda_env():
 
 
 def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
-              pickle_module=None, registered_model_name=None, **kwargs):
+              pickle_module=None, registered_model_name=None,
+              signature: ModelSignature = None, input_example: ModelInputExample = None, **kwargs):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
@@ -101,58 +103,81 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
                           ``pytorch_model``. This is passed as the ``pickle_module`` parameter
                           to ``torch.save()``. By default, this module is also used to
                           deserialize ("unpickle") the PyTorch model at load time.
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset) and valid
+                      model output (e.g. model predictions generated on the training dataset),
+                      for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        signature = infer_signature(train, model.predict(train))
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
+
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
-    >>> import torch
-    >>> import mlflow
-    >>> import mlflow.pytorch
-    >>> # X data
-    >>> x_data = torch.Tensor([[1.0], [2.0], [3.0]])
-    >>> # Y data with its expected value: labels
-    >>> y_data = torch.Tensor([[2.0], [4.0], [6.0]])
-    >>> # Partial Model example modified from Sung Kim
-    >>> # https://github.com/hunkim/PyTorchZeroToAll
-    >>> class Model(torch.nn.Module):
-    >>>    def __init__(self):
-    >>>       super(Model, self).__init__()
-    >>>       self.linear = torch.nn.Linear(1, 1)  # One in and one out
-    >>>    def forward(self, x):
-    >>>        y_pred = self.linear(x)
-    >>>        return y_pred
-    >>> # our model
-    >>> model = Model()
-    >>> criterion = torch.nn.MSELoss(size_average=False)
-    >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-    >>> # Training loop
-    >>> for epoch in range(500):
-    >>>    # Forward pass: Compute predicted y by passing x to the model
-    >>>    y_pred = model(x_data)
-    >>>    # Compute and print loss
-    >>>    loss = criterion(y_pred, y_data)
-    >>>    print(epoch, loss.data.item())
-    >>>    #Zero gradients, perform a backward pass, and update the weights.
-    >>>    optimizer.zero_grad()
-    >>>    loss.backward()
-    >>>    optimizer.step()
-    >>>
-    >>> # After training
-    >>> for hv in [4.0, 5.0, 6.0]:
-    >>>     hour_var = torch.Tensor([[hv]])
-    >>>     y_pred = model(hour_var)
-    >>>     print("predict (after training)",  hv, model(hour_var).data[0][0])
-    >>> # log the model
-    >>> with mlflow.start_run() as run:
-    >>>   mlflow.log_param("epochs", 500)
-    >>>   mlflow.pytorch.log_model(model, "models")
+    .. code-block:: python
+        :caption: Example
+
+        import torch
+        import mlflow
+        import mlflow.pytorch
+        # X data
+        x_data = torch.Tensor([[1.0], [2.0], [3.0]])
+        # Y data with its expected value: labels
+        y_data = torch.Tensor([[2.0], [4.0], [6.0]])
+        # Partial Model example modified from Sung Kim
+        # https://github.com/hunkim/PyTorchZeroToAll
+        class Model(torch.nn.Module):
+            def __init__(self):
+               super(Model, self).__init__()
+               self.linear = torch.nn.Linear(1, 1)  # One in and one out
+            def forward(self, x):
+                y_pred = self.linear(x)
+            return y_pred
+        # our model
+        model = Model()
+        criterion = torch.nn.MSELoss(size_average=False)
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        # Training loop
+        for epoch in range(500):
+            # Forward pass: Compute predicted y by passing x to the model
+            y_pred = model(x_data)
+            # Compute and print loss
+            loss = criterion(y_pred, y_data)
+            print(epoch, loss.data.item())
+            #Zero gradients, perform a backward pass, and update the weights.
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        # After training
+        for hv in [4.0, 5.0, 6.0]:
+            hour_var = torch.Tensor([[hv]])
+            y_pred = model(hour_var)
+            print("predict (after training)",  hv, model(hour_var).data[0][0])
+        # log the model
+        with mlflow.start_run() as run:
+            mlflow.log_param("epochs", 500)
+            mlflow.pytorch.log_model(model, "models")
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch, pytorch_model=pytorch_model,
               conda_env=conda_env, code_paths=code_paths, pickle_module=pickle_module,
-              registered_model_name=registered_model_name, **kwargs)
+              registered_model_name=registered_model_name,
+              signature=signature, input_example=input_example, **kwargs)
 
 
 def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_paths=None,
@@ -197,20 +222,23 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
                           deserialize ("unpickle") the PyTorch model at load time.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
-    >>> import torch
-    >>> import mlflow
-    >>> import mlflow.pytorch
-    >>> # create model and set values
-    >>> pytorch_model = Model()
-    >>> pytorch_model_path = ...
-    >>> #train our model
-    >>> for epoch in range(500):
-    >>>     y_pred = model(x_data)
-    >>>     ...
-    >>> #save the model
-    >>> with mlflow.start_run() as run:
-    >>>   mlflow.log_param("epochs", 500)
-    >>>   mlflow.pytorch.save_model(pytorch_model, pytorch_model_path)
+    .. code-block:: python
+        :caption: Example
+
+        import torch
+        import mlflow
+        import mlflow.pytorch
+        # Create model and set values
+        pytorch_model = Model()
+        pytorch_model_path = ...
+        # train our model
+        for epoch in range(500):
+            y_pred = pytorch_model(x_data)
+            ...
+        # Save the model
+        with mlflow.start_run() as run:
+            mlflow.log_param("epochs", 500)
+            mlflow.pytorch.save_model(pytorch_model, pytorch_model_path)
     """
     import torch
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
@@ -323,14 +351,17 @@ def load_model(model_uri, **kwargs):
     :param kwargs: kwargs to pass to ``torch.load`` method.
     :return: A PyTorch model.
 
-    >>> import torch
-    >>> import mlflow
-    >>> import mlflow.pytorch
-    >>> # set values
-    >>> model_path_dir = ...
-    >>> run_id="96771d893a5e46159d9f3b49bf9013e2"
-    >>> pytorch_model = mlflow.pytorch.load_model("runs:/" + run_id + "/" + model_path_dir)
-    >>> y_pred = pytorch_model(x_new_data)
+    .. code-block:: python
+        :caption: Example
+
+        import torch
+        import mlflow
+        import mlflow.pytorch
+        # Set values
+        model_path_dir = ...
+        run_id = "96771d893a5e46159d9f3b49bf9013e2"
+        pytorch_model = mlflow.pytorch.load_model("runs:/" + run_id + "/" + model_path_dir)
+        y_pred = pytorch_model(x_new_data)
     """
     import torch
 

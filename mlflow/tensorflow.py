@@ -20,6 +20,7 @@ import warnings
 import atexit
 import time
 import tempfile
+from collections import namedtuple
 
 import pandas
 
@@ -32,6 +33,8 @@ from tensorflow.keras.callbacks import Callback, TensorBoard  # pylint: disable=
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import keyword_only, experimental
@@ -73,7 +76,8 @@ def get_default_conda_env():
 
 @keyword_only
 def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,
-              conda_env=None, registered_model_name=None):
+              conda_env=None, signature: ModelSignature=None,
+              input_example: ModelInputExample=None, registered_model_name=None):
     """
     Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
     for the current run. This method operates on TensorFlow variables and graphs that have been
@@ -118,15 +122,34 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                                 'tensorflow=1.8.0'
                             ]
                         }
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset) and valid
+                      model output (e.g. model predictions generated on the training dataset),
+                      for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        signature = infer_signature(train, model.predict(train))
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.tensorflow,
                      tf_saved_model_dir=tf_saved_model_dir, tf_meta_graph_tags=tf_meta_graph_tags,
                      tf_signature_def_key=tf_signature_def_key, conda_env=conda_env,
-                     registered_model_name=registered_model_name)
+                     registered_model_name=registered_model_name,
+                     signature=signature,
+                     input_example=input_example)
 
 
 @keyword_only
@@ -250,17 +273,20 @@ def load_model(model_uri, tf_sess=None):
              For TensorFlow >= 2.0.0, A callable graph (tf.function) that takes inputs and
              returns inferences.
 
-    >>> import mlflow.tensorflow
-    >>> import tensorflow as tf
-    >>> tf_graph = tf.Graph()
-    >>> tf_sess = tf.Session(graph=tf_graph)
-    >>> with tf_graph.as_default():
-    >>>     signature_definition = mlflow.tensorflow.load_model(model_uri="model_uri",
-    >>>                            tf_sess=tf_sess)
-    >>>     input_tensors = [tf_graph.get_tensor_by_name(input_signature.name)
-    >>>                      for _, input_signature in signature_definition.inputs.items()]
-    >>>     output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
-    >>>                       for _, output_signature in signature_definition.outputs.items()]
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.tensorflow
+        import tensorflow as tf
+        tf_graph = tf.Graph()
+        tf_sess = tf.Session(graph=tf_graph)
+        with tf_graph.as_default():
+            signature_definition = mlflow.tensorflow.load_model(model_uri="model_uri",
+                                    tf_sess=tf_sess)
+            input_tensors = [tf_graph.get_tensor_by_name(input_signature.name)
+                                for _, input_signature in signature_definition.inputs.items()]
+            output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
+                                for _, output_signature in signature_definition.outputs.items()]
     """
 
     if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
@@ -467,13 +493,25 @@ class __MLflowTfKerasCallback(Callback):
 
     def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
         opt = self.model.optimizer
-        if hasattr(opt, 'optimizer'):
+        if hasattr(opt, '_name'):
+            try_mlflow_log(mlflow.log_param, 'optimizer_name', opt._name)
+        # Elif checks are if the optimizer is a TensorFlow optimizer rather than a Keras one.
+        elif hasattr(opt, 'optimizer'):
+            # TensorFlow optimizer parameters are associated with the inner optimizer variable.
+            # Therefore, we assign opt to be opt.optimizer for logging parameters.
             opt = opt.optimizer
             try_mlflow_log(mlflow.log_param, 'optimizer_name', type(opt).__name__)
-        if hasattr(opt, '_lr'):
+        if hasattr(opt, 'lr'):
+            lr = opt.lr if type(opt.lr) is float else tensorflow.keras.backend.eval(opt.lr)
+            try_mlflow_log(mlflow.log_param, 'learning_rate', lr)
+        elif hasattr(opt, '_lr'):
             lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
             try_mlflow_log(mlflow.log_param, 'learning_rate', lr)
-        if hasattr(opt, '_epsilon'):
+        if hasattr(opt, 'epsilon'):
+            epsilon = opt.epsilon if type(opt.epsilon) is float \
+                else tensorflow.keras.backend.eval(opt.epsilon)
+            try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
+        elif hasattr(opt, '_epsilon'):
             epsilon = opt._epsilon if type(opt._epsilon) is float \
                 else tensorflow.keras.backend.eval(opt._epsilon)
             try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
@@ -481,8 +519,6 @@ class __MLflowTfKerasCallback(Callback):
         sum_list = []
         self.model.summary(print_fn=sum_list.append)
         summary = '\n'.join(sum_list)
-        try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
-
         tempdir = tempfile.mkdtemp()
         try:
             summary_file = os.path.join(tempdir, "model_summary.txt")
@@ -521,8 +557,6 @@ class __MLflowTfKeras2Callback(Callback):
         sum_list = []
         self.model.summary(print_fn=sum_list.append)
         summary = '\n'.join(sum_list)
-        try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
-
         tempdir = tempfile.mkdtemp()
         try:
             summary_file = os.path.join(tempdir, "model_summary.txt")
@@ -607,6 +641,13 @@ def _get_tensorboard_callback(lst):
     return None
 
 
+# A representation of a TensorBoard event logging directory with two attributes:
+# :location - string: The filesystem location of the logging directory
+# :is_temp - boolean: `True` if the logging directory was created for temporary use by MLflow,
+#                     `False` otherwise
+_TensorBoardLogDir = namedtuple("_TensorBoardLogDir", ["location", "is_temp"])
+
+
 def _setup_callbacks(lst):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
@@ -614,10 +655,10 @@ def _setup_callbacks(lst):
     """
     tb = _get_tensorboard_callback(lst)
     if tb is None:
-        log_dir = tempfile.mkdtemp()
-        out_list = lst + [TensorBoard(log_dir)]
+        log_dir = _TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
+        out_list = lst + [TensorBoard(log_dir.location)]
     else:
-        log_dir = tb.log_dir
+        log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
     if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
         out_list += [__MLflowTfKerasCallback()]
@@ -814,8 +855,10 @@ def autolog(every_n_iter=100):
             _log_early_stop_callback_metrics(early_stop_callback, history)
 
             _flush_queue()
-            _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
-            shutil.rmtree(log_dir)
+            _log_artifacts_with_warning(
+                local_dir=log_dir.location, artifact_path='tensorboard_logs')
+            if log_dir.is_temp:
+                shutil.rmtree(log_dir.location)
 
             return history
 
@@ -839,8 +882,10 @@ def autolog(every_n_iter=100):
                 kwargs['callbacks'], log_dir = _setup_callbacks([])
             result = original(self, *args, **kwargs)
             _flush_queue()
-            _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
-            shutil.rmtree(log_dir)
+            _log_artifacts_with_warning(
+                local_dir=log_dir.location, artifact_path='tensorboard_logs')
+            if log_dir.is_temp:
+                shutil.rmtree(log_dir.location)
 
             return result
 

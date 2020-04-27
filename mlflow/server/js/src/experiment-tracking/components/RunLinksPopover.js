@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
-import { Popover } from 'antd';
+import { Popover, Button } from 'antd';
 import Routes from '../routes';
 import Utils from '../../common/utils/Utils';
 
@@ -50,9 +50,9 @@ export class RunLinksPopover extends React.Component {
     return (
       <div>
         <span>Jump to individual runs</span>
-        <a onClick={handleClose} style={{ float: 'right', marginLeft: '7px' }}>
+        <Button type="link" onClick={handleClose} style={{ float: 'right', marginLeft: '7px' }}>
           <i className="fas fa-times" />
-        </a>
+        </Button>
       </div>
     );
   };

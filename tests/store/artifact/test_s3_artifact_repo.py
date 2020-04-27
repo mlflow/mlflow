@@ -4,6 +4,7 @@ import posixpath
 import pytest
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -12,6 +13,11 @@ from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-impo
 @pytest.fixture
 def s3_artifact_root(mock_s3_bucket):
     return "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+
+
+def teardown_function():
+    if 'MLFLOW_S3_UPLOAD_EXTRA_ARGS' in os.environ:
+        del os.environ['MLFLOW_S3_UPLOAD_EXTRA_ARGS']
 
 
 def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmpdir):
@@ -127,3 +133,26 @@ def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
     downloaded_file_path = repo.download_artifacts(file_a_name)
     with open(downloaded_file_path, "r") as f:
         assert f.read() == file_a_text
+
+
+def test_get_s3_file_upload_extra_args():
+    os.environ.setdefault('MLFLOW_S3_UPLOAD_EXTRA_ARGS',
+                          '{"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "123456"}')
+
+    parsed_args = S3ArtifactRepository.get_s3_file_upload_extra_args()
+
+    assert parsed_args == {'ServerSideEncryption': 'aws:kms', 'SSEKMSKeyId': '123456'}
+
+
+def test_get_s3_file_upload_extra_args_env_var_not_present():
+    parsed_args = S3ArtifactRepository.get_s3_file_upload_extra_args()
+
+    assert parsed_args is None
+
+
+def test_get_s3_file_upload_extra_args_invalid_json():
+    os.environ.setdefault('MLFLOW_S3_UPLOAD_EXTRA_ARGS',
+                          '"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "123456"}')
+
+    with pytest.raises(ValueError):
+        S3ArtifactRepository.get_s3_file_upload_extra_args()
