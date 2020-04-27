@@ -182,11 +182,12 @@ plugin:
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
      - `SqlAlchemyStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/model_registry/sqlalchemy_store.py#L34>`_
 
-   * - Plugins for overridding MLflow Project Execution backend like databricks or kubernetes
+   * - Plugins for running MLflow projects against custom execution backends (e.g. to run projects
+       against your team's in-house cluster or job scheduler).
      - mlflow.project.backend
      - The entry point value (e.g. ``mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend``) specifies a custom subclass of
        ``mlflow.project.backend.AbstractBackend``)
-     - `DatabricksProjectBackend <https://github.com/mlflow/mlflow/blob/master/mlflow/projects/backend/databricks.py#L291>`_
+     - N/A (will be added soon)
 
 Testing Your Plugin
 ~~~~~~~~~~~~~~~~~~~
