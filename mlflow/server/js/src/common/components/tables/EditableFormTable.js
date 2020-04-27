@@ -1,5 +1,5 @@
 import React from 'react';
-import { Table, Input, Form, Icon, Popconfirm } from 'antd';
+import { Table, Input, Form, Icon, Popconfirm, Button } from 'antd';
 import PropTypes from 'prop-types';
 
 import './EditableFormTable.css';
@@ -96,29 +96,29 @@ export class EditableTable extends React.Component {
         }
         return editing ? (
           <span>
-            <a onClick={() => this.save(record.key)} style={{ marginRight: 10 }}>
+            <Button type="link" onClick={() => this.save(record.key)} style={{ marginRight: 10 }}>
               Save
-            </a>
-            <a onClick={() => this.cancel(record.key)}>Cancel</a>
+            </Button>
+            <Button type="link" onClick={() => this.cancel(record.key)}>Cancel</Button>
           </span>
         ) : (
           <span>
-            <a
+            <Button type="link"
               disabled={editingKey !== ''}
               onClick={() => this.edit(record.key)}
               style={{ marginRight: 10 }}
             >
               <Icon type="edit" />
-            </a>
+            </Button>
             <Popconfirm
               title="Are you sure you want to delete this tag？"
               okText="Confirm"
               cancelText="Cancel"
               onConfirm={() => this.delete(record.key)}
             >
-              <a disabled={editingKey !== ''}>
+              <Button type="link" disabled={editingKey !== ''}>
                 <i className="far fa-trash-alt"/>
-              </a>
+              </Button>
             </Popconfirm>
           </span>
         );

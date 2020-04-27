@@ -159,7 +159,7 @@ class _FastaiModelWrapper:
         test_data = TabularList.from_df(dataframe, cont_names=self.learner.data.cont_names)
         self.learner.data.add_test(test_data)
         preds, target = self.learner.get_preds(DatasetType.Test)
-        preds = pd.Series(map(tuple, preds.numpy()), name='predictions')
+        preds = pd.Series(map(np.array, preds.numpy()), name='predictions')
         target = pd.Series(target.numpy(), name='target')
         return pd.concat([preds, target], axis='columns')
 

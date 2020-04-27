@@ -262,7 +262,7 @@ def test_run_databricks_throws_exception_when_spec_uses_existing_cluster():
         }
         with pytest.raises(MlflowException) as exc:
             run_databricks_project(cluster_spec=existing_cluster_spec)
-        assert "execution against existing clusters is not currently supported" in str(exc)
+        assert "execution against existing clusters is not currently supported" in exc.value.message
         assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 

@@ -173,7 +173,8 @@ export const createDimension = (key, runUuids, entryByRunUuid) => {
       return isNaN(value) ? 0 : Number(value); // Default NaN to zero here
     });
     // For some reason, Plotly tries to plot these values with SI prefixes by default
-    attributes.tickformat = "f";
+    // Explicitly set to 5 fixed digits float here
+    attributes.tickformat = ".5f";
   }
   return {
     label: key,

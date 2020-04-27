@@ -5,11 +5,11 @@ import { connect } from 'react-redux';
 import { GenericInputModal } from './GenericInputModal';
 import { RenameForm, NEW_NAME_FIELD } from './RenameForm';
 
-import { setTagApi} from '../../actions';
+import { setTagApi } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 import { getUUID } from '../../../common/utils/ActionUtils';
 
-class RenameRunModalImpl extends Component {
+export class RenameRunModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
     runUuid: PropTypes.string.isRequired,
