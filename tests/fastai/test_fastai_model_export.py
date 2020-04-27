@@ -58,6 +58,14 @@ def fastai_custom_env(tmpdir):
     return conda_env
 
 
+def compare_wrapper_results(wrapper1_results, wrapper2_results):
+    samples = wrapper1_results['predictions'].shape[0]
+    predictions1 = np.concatenate(wrapper1_results['predictions'], axis=0).reshape((samples, -1))
+    predictions2 = np.concatenate(wrapper2_results['predictions'], axis=0).reshape((samples, -1))
+    np.testing.assert_array_almost_equal(wrapper1_results['target'], wrapper2_results['target'])
+    np.testing.assert_array_almost_equal(predictions1, predictions2)
+
+
 @pytest.mark.large
 def test_model_save_load(fastai_model, model_path):
     model = fastai_model.model
@@ -80,11 +88,12 @@ def test_model_save_load(fastai_model, model_path):
     model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
     reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
 
-    assert model_wrapper.predict(fastai_model.inference_dataframe).equals(
-            reloaded_model_wrapper.predict(fastai_model.inference_dataframe))
+    model_result = model_wrapper.predict(fastai_model.inference_dataframe)
+    reloaded_result = reloaded_model_wrapper.predict(fastai_model.inference_dataframe)
+    pyfunc_result = reloaded_pyfunc.predict(fastai_model.inference_dataframe)
 
-    assert reloaded_model_wrapper.predict(fastai_model.inference_dataframe).equals(
-            reloaded_pyfunc.predict(fastai_model.inference_dataframe))
+    compare_wrapper_results(model_result, reloaded_result)
+    compare_wrapper_results(reloaded_result, pyfunc_result)
 
 
 @pytest.mark.large
@@ -103,7 +112,8 @@ def test_model_load_from_remote_uri_succeeds(fastai_model, model_path, mock_s3_b
     model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
     reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
 
-    assert model_wrapper.predict(fastai_model.inference_dataframe).equals(
+    compare_wrapper_results(
+            model_wrapper.predict(fastai_model.inference_dataframe),
             reloaded_model_wrapper.predict(fastai_model.inference_dataframe))
 
 
@@ -136,8 +146,9 @@ def test_model_log(fastai_model, model_path):
                 model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
                 reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
 
-                assert model_wrapper.predict(fastai_model.inference_dataframe).equals(
-                        reloaded_model_wrapper.predict(fastai_model.inference_dataframe))
+                compare_wrapper_results(
+                    model_wrapper.predict(fastai_model.inference_dataframe),
+                    reloaded_model_wrapper.predict(fastai_model.inference_dataframe))
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
                 model_config = Model.load(os.path.join(model_path, "MLmodel"))

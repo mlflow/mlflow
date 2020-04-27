@@ -21,6 +21,7 @@ import gorilla
 import tempfile
 import shutil
 import pandas as pd
+import numpy as np
 
 from mlflow import pyfunc
 from mlflow.models import Model
