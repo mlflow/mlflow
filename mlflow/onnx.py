@@ -20,6 +20,8 @@ from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import experimental
@@ -217,7 +219,8 @@ def load_model(model_uri):
 
 
 @experimental
-def log_model(onnx_model, artifact_path, conda_env=None, registered_model_name=None):
+def log_model(onnx_model, artifact_path, conda_env=None, registered_model_name=None,
+              signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log an ONNX model as an MLflow artifact for the current run.
 
@@ -240,11 +243,31 @@ def log_model(onnx_model, artifact_path, conda_env=None, registered_model_name=N
                                 'onnxruntime=0.3.0'
                             ]
                         }
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset) and valid
+                      model output (e.g. model predictions generated on the training dataset),
+                      for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        signature = infer_signature(train, model.predict(train))
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
+
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.onnx,
               onnx_model=onnx_model, conda_env=conda_env,
-              registered_model_name=registered_model_name)
+              registered_model_name=registered_model_name,
+              signature=signature, input_example=input_example)
