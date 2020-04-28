@@ -36,7 +36,7 @@ def pytest_ignore_collect(path, config):
     relpath = os.path.relpath(str(path), config.rootdir)
     ignore = config.getoption("--ignore")
 
-    if relpath in ignore:
+    if ignore is not None and relpath in ignore:
         return True
 
     if not config.getoption("--ignore-flavors"):
