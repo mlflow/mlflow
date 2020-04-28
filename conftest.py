@@ -37,7 +37,6 @@ def pytest_ignore_collect(path, config):
         return False
 
     flavors_to_ignore = [
-        "tests/examples",
         "tests/h2o",
         "tests/keras",
         "tests/pytorch",
@@ -56,7 +55,6 @@ def pytest_ignore_collect(path, config):
         "tests/lightgbm",
         "tests/spacy",
         "tests/spark_autologging",
-        "tests/models",
     ]
 
     relpath = os.path.relpath(str(path), config.rootdir)
