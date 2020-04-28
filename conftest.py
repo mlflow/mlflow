@@ -58,6 +58,7 @@ def pytest_ignore_collect(path, config):
             "tests/lightgbm",
             "tests/spacy",
             "tests/spark_autologging",
+            "tests/fastai",
         ]
 
         relpath = os.path.relpath(str(path), config.rootdir)
