@@ -119,4 +119,3 @@ Contributing
 ------------
 We happily welcome contributions to MLflow. Please see our `contribution guide <CONTRIBUTING.rst>`_
 for details.
-
