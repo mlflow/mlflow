@@ -27,13 +27,13 @@ model registry
 - [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
 - [ ] `area/tracking`: Tracking service, tracking client APIs, autologging
 
-Interface Surface
+Interface 
 - [ ] `area/uiux`: Front-end, user experience, javascript, plotting
 - [ ] `area/docker`: Docker use anywhere, such as MLprojects and MLmodels
 - [ ] `area/sqlalchemy`: Use of SQL alchemy in tracking service or model registry
 - [ ] `area/windows`: Windows support
 
-Language Surface
+Language 
 - [ ] `language/r`: R APIs and clients
 - [ ] `language/java`: Java APIs and clients
 
