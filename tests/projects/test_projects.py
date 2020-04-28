@@ -1,10 +1,7 @@
 import os
 import git
 import shutil
-import tempfile
 import yaml
-
-from distutils import dir_util
 
 import mock
 import pytest
@@ -21,8 +18,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_S
     LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PROJECT_BACKEND, \
     MLFLOW_PROJECT_ENV
 
-from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
-    validate_exit_status, assert_dirs_equal
+from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, validate_exit_status
 
 
 MOCK_USER = "janebloggs"
@@ -30,14 +26,8 @@ MOCK_USER = "janebloggs"
 
 @pytest.fixture
 def patch_user():
-    with mock.patch("mlflow.projects._get_user", return_value=MOCK_USER):
+    with mock.patch("mlflow.projects.utils._get_user", return_value=MOCK_USER):
         yield
-
-
-def _build_uri(base_uri, subdirectory):
-    if subdirectory != "":
-        return "%s#%s" % (base_uri, subdirectory)
-    return base_uri
 
 
 def _get_version_local_git_repo(local_git_repo):
@@ -51,93 +41,6 @@ def clean_mlruns_dir():
     dir_path = os.path.join(TEST_PROJECT_DIR, "mlruns")
     if os.path.exists(dir_path):
         shutil.rmtree(dir_path)
-
-
-@pytest.fixture
-def local_git_repo(tmpdir):
-    local_git = tmpdir.join('git_repo').strpath
-    repo = git.Repo.init(local_git)
-    dir_util.copy_tree(src=TEST_PROJECT_DIR, dst=local_git)
-    dir_util.copy_tree(src=os.path.dirname(TEST_PROJECT_DIR), dst=local_git)
-    repo.git.add(A=True)
-    repo.index.commit("test")
-    yield os.path.abspath(local_git)
-
-
-@pytest.fixture
-def local_git_repo_uri(local_git_repo):
-    return "file://%s" % local_git_repo
-
-
-@pytest.fixture
-def zipped_repo(tmpdir):
-    import zipfile
-    zip_name = tmpdir.join('%s.zip' % TEST_PROJECT_NAME).strpath
-    with zipfile.ZipFile(zip_name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for root, _, files in os.walk(TEST_PROJECT_DIR):
-            for file_name in files:
-                file_path = os.path.join(root, file_name)
-                zip_file.write(file_path, file_path[len(TEST_PROJECT_DIR) + len(os.sep):])
-    return zip_name
-
-
-def test_is_zip_uri():
-    assert mlflow.projects._is_zip_uri('http://foo.bar/moo.zip')
-    assert mlflow.projects._is_zip_uri('https://foo.bar/moo.zip')
-    assert mlflow.projects._is_zip_uri('file:///moo.zip')
-    assert mlflow.projects._is_zip_uri('file://C:/moo.zip')
-    assert mlflow.projects._is_zip_uri('/moo.zip')
-    assert mlflow.projects._is_zip_uri('C:/moo.zip')
-    assert not mlflow.projects._is_zip_uri('http://foo.bar/moo')
-    assert not mlflow.projects._is_zip_uri('https://foo.bar/moo')
-    assert not mlflow.projects._is_zip_uri('file:///moo')
-    assert not mlflow.projects._is_zip_uri('file://C:/moo')
-    assert not mlflow.projects._is_zip_uri('/moo')
-    assert not mlflow.projects._is_zip_uri('C:/moo')
-
-
-def test_fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpserver):
-    httpserver.serve_content(open(zipped_repo, 'rb').read())
-    # The tests are as follows:
-    # 1. Fetching a locally saved project.
-    # 2. Fetching a project located in a Git repo root directory.
-    # 3. Fetching a project located in a Git repo subdirectory.
-    # 4. Passing a subdirectory works for local directories.
-    # 5. Fetching a remote ZIP file
-    # 6. Using a local ZIP file
-    # 7. Using a file:// URL to a local ZIP file
-    test_list = [
-        (TEST_PROJECT_DIR, '', TEST_PROJECT_DIR),
-        (local_git_repo_uri, '', local_git_repo),
-        (local_git_repo_uri, 'example_project', os.path.join(local_git_repo, 'example_project')),
-        (os.path.dirname(TEST_PROJECT_DIR), os.path.basename(TEST_PROJECT_DIR), TEST_PROJECT_DIR),
-        (httpserver.url + '/%s.zip' % TEST_PROJECT_NAME, '', TEST_PROJECT_DIR),
-        (zipped_repo, '', TEST_PROJECT_DIR),
-        ('file://%s' % zipped_repo, '', TEST_PROJECT_DIR),
-    ]
-    for base_uri, subdirectory, expected in test_list:
-        work_dir = mlflow.projects._fetch_project(
-            uri=_build_uri(base_uri, subdirectory), force_tempdir=False)
-        assert_dirs_equal(expected=expected, actual=work_dir)
-    # Test that we correctly determine the dest directory to use when fetching a project.
-    for force_tempdir, uri in [(True, TEST_PROJECT_DIR), (False, GIT_PROJECT_URI)]:
-        dest_dir = mlflow.projects._fetch_project(uri=uri, force_tempdir=force_tempdir)
-        assert os.path.commonprefix([dest_dir, tempfile.gettempdir()]) == tempfile.gettempdir()
-        assert os.path.exists(dest_dir)
-    for force_tempdir, uri in [(None, TEST_PROJECT_DIR), (False, TEST_PROJECT_DIR)]:
-        assert mlflow.projects._fetch_project(uri=uri, force_tempdir=force_tempdir) == \
-               os.path.abspath(TEST_PROJECT_DIR)
-
-
-def test_fetch_project_validations(local_git_repo_uri):
-    # Verify that runs fail if given incorrect subdirectories via the `#` character.
-    for base_uri in [TEST_PROJECT_DIR, local_git_repo_uri]:
-        with pytest.raises(ExecutionException):
-            mlflow.projects._fetch_project(uri=_build_uri(base_uri, "fake"), force_tempdir=False)
-
-    # Passing `version` raises an exception for local projects
-    with pytest.raises(ExecutionException):
-        mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, force_tempdir=False, version="version")
 
 
 @pytest.mark.parametrize('experiment_name,experiment_id,expected', [
@@ -158,29 +61,6 @@ def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
     with pytest.raises(MlflowException,
                        match="Specify only one of 'experiment_name' or 'experiment_id'."):
         _resolve_experiment_id(experiment_name='experiment_named', experiment_id="44")
-
-
-def test_dont_remove_mlruns(tmpdir):
-    # Fetching a directory containing an "mlruns" folder doesn't remove the "mlruns" folder
-    src_dir = tmpdir.mkdir("mlruns-src-dir")
-    src_dir.mkdir("mlruns").join("some-file.txt").write("hi")
-    src_dir.join("MLproject").write("dummy MLproject contents")
-    dst_dir = mlflow.projects._fetch_project(uri=src_dir.strpath, version=None,
-                                             force_tempdir=False)
-    assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir)
-
-
-def test_parse_subdirectory():
-    # Make sure the parsing works as intended.
-    test_uri = "uri#subdirectory"
-    parsed_uri, parsed_subdirectory = mlflow.projects._parse_subdirectory(test_uri)
-    assert parsed_uri == "uri"
-    assert parsed_subdirectory == "subdirectory"
-
-    # Make sure periods are restricted in Git repo subdirectory paths.
-    period_fail_uri = GIT_PROJECT_URI + "#.."
-    with pytest.raises(ExecutionException):
-        mlflow.projects._parse_subdirectory(period_fail_uri)
 
 
 def test_invalid_run_mode():
@@ -223,15 +103,10 @@ def test_expected_tags_logged_when_using_conda():
             )
 
 
-def test_is_valid_branch_name(local_git_repo):
-    assert mlflow.projects._is_valid_branch_name(local_git_repo, "master")
-    assert not mlflow.projects._is_valid_branch_name(local_git_repo, "dev")
-
-
+@pytest.mark.usefixtures("patch_user")
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 @pytest.mark.parametrize("version", [None, "master", "git-commit"])
-def test_run_local_git_repo(patch_user,  # pylint: disable=unused-argument
-                            local_git_repo,
+def test_run_local_git_repo(local_git_repo,
                             local_git_repo_uri,
                             use_start_run,
                             version):
@@ -290,9 +165,8 @@ def test_invalid_version_local_git_repo(local_git_repo_uri):
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-def test_run(tmpdir,  # pylint: disable=unused-argument
-             patch_user,  # pylint: disable=unused-argument
-             use_start_run):
+@pytest.mark.usefixtures("tmpdir", "patch_user")
+def test_run(use_start_run):
     submitted_run = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="test_tracking",
         parameters={"use_start_run": use_start_run},
@@ -384,15 +258,6 @@ def test_cancel_run():
     # Try cancelling after calling wait()
     submitted_run1.cancel()
     validate_exit_status(submitted_run1.get_status(), RunStatus.FINISHED)
-
-
-def test_storage_dir(tmpdir):
-    """
-    Test that we correctly handle the `storage_dir` argument, which specifies where to download
-    distributed artifacts passed to arguments of type `path`.
-    """
-    assert os.path.dirname(mlflow.projects._get_storage_dir(tmpdir.strpath)) == tmpdir.strpath
-    assert os.path.dirname(mlflow.projects._get_storage_dir(None)) == tempfile.gettempdir()
 
 
 def test_parse_kubernetes_config():

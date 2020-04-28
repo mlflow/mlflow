@@ -260,5 +260,5 @@ def _get_train_test_dataset(cats_to_fetch, limit=100):
 
 def _predict(spacy_model, test_x):
     return pd.DataFrame({
-        'predictions': test_x.ix[:, 0].apply(lambda text: spacy_model(text).cats)
+        'predictions': test_x.iloc[:, 0].apply(lambda text: spacy_model(text).cats)
     })
