@@ -250,6 +250,10 @@ latex_documents = [
      'Databricks', 'manual'),
 ]
 
+# Mock torch & fastai imports as per suggestion in
+# https://github.com/sphinx-doc/sphinx/issues/6521#issuecomment-505765893
+autodoc_mock_imports = ["torch", "fastai"]
+
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
 #latex_logo = None
