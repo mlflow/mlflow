@@ -1,4 +1,5 @@
 import os
+import pytest
 
 
 def pytest_addoption(parser):
@@ -32,35 +33,34 @@ def pytest_configure(config):
         setattr(config.option, 'markexpr', " and ".join(markexpr))
 
 
+@pytest.hookimpl(hookwrapper=True)
 def pytest_ignore_collect(path, config):
-    relpath = os.path.relpath(str(path), config.rootdir)
-    ignore = config.getoption("--ignore")
+    outcome = yield
+    if not outcome.get_result() and config.getoption("ignore_flavors"):
+        # If not ignored by the default hook and `--ignore-flavors` specified
 
-    if ignore is not None and relpath in ignore:
-        return True
+        model_flavors = [
+            "tests/h2o",
+            "tests/keras",
+            "tests/pytorch",
+            "tests/pyfunc",
+            "tests/sagemaker",
+            "tests/sklearn",
+            "tests/spark",
+            "tests/tensorflow",
+            "tests/azureml",
+            "tests/onnx",
+            "tests/keras_autolog",
+            "tests/tensorflow_autolog",
+            "tests/gluon",
+            "tests/gluon_autolog",
+            "tests/xgboost",
+            "tests/lightgbm",
+            "tests/spacy",
+            "tests/spark_autologging",
+        ]
 
-    if not config.getoption("--ignore-flavors"):
-        return False
+        relpath = os.path.relpath(str(path), config.rootdir)
 
-    flavors_to_ignore = [
-        "tests/h2o",
-        "tests/keras",
-        "tests/pytorch",
-        "tests/pyfunc",
-        "tests/sagemaker",
-        "tests/sklearn",
-        "tests/spark",
-        "tests/tensorflow",
-        "tests/azureml",
-        "tests/onnx",
-        "tests/keras_autolog",
-        "tests/tensorflow_autolog",
-        "tests/gluon",
-        "tests/gluon_autolog",
-        "tests/xgboost",
-        "tests/lightgbm",
-        "tests/spacy",
-        "tests/spark_autologging",
-    ]
-
-    return relpath in flavors_to_ignore
+        if relpath in model_flavors:
+            outcome.force_result(True)
