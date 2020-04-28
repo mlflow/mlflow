@@ -50,7 +50,7 @@ class FTPArtifactRepository(ArtifactRepository):
     @staticmethod
     def _mkdir(ftp, artifact_dir):
         if len(artifact_dir) > 1 and artifact_dir[0] in ['/', '\\']:
-            artifact_dir = artifact_dir[1:]        
+            artifact_dir = artifact_dir[1:]
         try:
             if not FTPArtifactRepository._is_dir(ftp, artifact_dir):
                 ftp.mkd(artifact_dir)
@@ -73,7 +73,7 @@ class FTPArtifactRepository(ArtifactRepository):
             self._mkdir(ftp, artifact_dir)
             with open(local_file, 'rb') as f:
                 if len(artifact_dir) > 1 and artifact_dir[0] in ['/', '\\']:
-                    artifact_dir = artifact_dir[1:]        
+                    artifact_dir = artifact_dir[1:]
                 ftp.cwd(artifact_dir)
                 ftp.storbinary('STOR ' + os.path.basename(local_file), f)
 
