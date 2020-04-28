@@ -27,22 +27,31 @@ The MLflow Community encourages new feature contributions. Would you or another 
 - Why is this use case valuable to support for your project(s) or organization?
 - Why is it currently difficult to achieve this use case? (please be as specific as possible about why related MLflow features and components are insufficient)
 
-## Which MLflow component(s) does this feature affect?
+### What component(s), interfaces, languages, and integrations does this PR affect?
+Components 
+- [ ] `area/artifacts`: Artifact stores and artifact logging
+- [ ] `area/docs`: MLflow documentation pages
+- [ ] `area/examples`: Example code
+- [ ] `area/model-registry`: Model registry, model registry APIs, and the fluent client calls for
+model registry
+- [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
+- [ ] `area/projects`: MLproject format, project running backends
+- [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
+- [ ] `area/tracking`: Tracking service, tracking client APIs, autologging
 
-- [ ] UI
-- [ ] Command Line Interface
-- [ ] API
-- [ ] Examples
-- [ ] Docs
-- [ ] Tracking
-- [ ] Projects
-- [ ] Artifacts
-- [ ] Models
-- [ ] Model Registry
-- [ ] Scoring
-- [ ] R
-- [ ] Java
-- [ ] Python
+Interfaces
+- [ ] `area/uiux`: Front-end, user experience, javascript, plotting
+- [ ] `area/docker`: Docker use anywhere, such as MLprojects and MLmodels
+- [ ] `area/sqlalchemy`: Use of SQL alchemy in tracking service or model registry
+- [ ] `area/windows`: Windows support
+
+Languages 
+- [ ] `language/r`: R APIs and clients
+- [ ] `language/java`: Java APIs and clients
+
+Integrations
+- [ ] `integrations/azure`: Azure and Azure ML integrations
+- [ ] `integrations/sagemaker`: Sagemaker integrations
 
 ## Details
 
