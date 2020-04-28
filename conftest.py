@@ -33,6 +33,12 @@ def pytest_configure(config):
 
 
 def pytest_ignore_collect(path, config):
+    relpath = os.path.relpath(str(path), config.rootdir)
+    ignore = config.getoption("--ignore")
+
+    if relpath in ignore:
+        return True
+
     if not config.getoption("--ignore-flavors"):
         return False
 
@@ -56,7 +62,5 @@ def pytest_ignore_collect(path, config):
         "tests/spacy",
         "tests/spark_autologging",
     ]
-
-    relpath = os.path.relpath(str(path), config.rootdir)
 
     return relpath in flavors_to_ignore
