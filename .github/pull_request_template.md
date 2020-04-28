@@ -15,22 +15,31 @@
 
 (Details in 1-2 sentences. You can just refer to another PR with a description if this PR is part of a larger change.)
 
-### What component(s) does this PR affect?
+### What component(s), interfaces, languages, and integrations does this PR affect?
+Components 
+- [ ] `area/artifacts`: Artifact stores and artifact logging
+- [ ] `area/docs`: MLflow documentation pages
+- [ ] `area/examples`: Example code
+- [ ] `area/model-registry`: Model registry, model registry APIs, and the fluent client calls for
+model registry
+- [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
+- [ ] `area/projects`: MLproject format, project running backends
+- [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
+- [ ] `area/tracking`: Tracking service, tracking client APIs, autologging
 
-- [ ] UI
-- [ ] Command Line Interface
-- [ ] API
-- [ ] Examples
-- [ ] Docs
-- [ ] Tracking
-- [ ] Projects
-- [ ] Artifacts
-- [ ] Models
-- [ ] Model Registry
-- [ ] Scoring
-- [ ] R
-- [ ] Java
-- [ ] Python
+Interface Surface
+- [ ] `area/uiux`: Front-end, user experience, javascript, plotting
+- [ ] `area/docker`: Docker use anywhere, such as MLprojects and MLmodels
+- [ ] `area/sqlalchemy`: Use of SQL alchemy in tracking service or model registry
+- [ ] `area/windows`: Windows support
+
+Language Surface
+- [ ] `language/r`: R APIs and clients
+- [ ] `language/java`: Java APIs and clients
+
+Integrations
+- [ ] `integrations/azure`: Azure and Azure ML integrations
+- [ ] `integrations/sagemaker`: Sagemaker integrations
 
 ### How should the PR be classified in the release notes? Choose one:
 
