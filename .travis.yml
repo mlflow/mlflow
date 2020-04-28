@@ -78,7 +78,7 @@ matrix:
         - pip install -r travis/small-requirements.txt
         - pip install -e .
       script:
-        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects --ignore=tests/xgboost --ignore=tests/lightgbm --ignore=tests/spark_autologging --ignore=tests/spacy --ignore=tests/fastai tests
+        - pytest --verbose --ignore-flavors tests
 
     - language: python
       python: 3.6
@@ -98,18 +98,17 @@ matrix:
         - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
         - make javadocs
 
-
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME";
   - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
-      echo "skipping this step on windows.";
+    echo "skipping this step on windows.";
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]] && ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
-      echo "skipping the nightly stage because this build is not nightly and there are no changed files associated with nightly tests.";
+    echo "skipping the nightly stage because this build is not nightly and there are no changed files associated with nightly tests.";
     else
-      INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
+    INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
     fi;
 
 script:
@@ -121,14 +120,15 @@ notifications:
   # https://docs.travis-ci.com/user/notifications/#changing-notification-frequency for more info.
   email:
     recipients:
-    - secure: "UFN6LLWRASxILSKY/hD5ugxP78Bhuq58X4H0ar6BnNl6SS70bhJFbJFuvkWBoLHAhydV876h2nBZLfTUCvf3\
-      RyOz4nvkGfRaFH3ZUnseSZSSXydFOixYjk+byDy7sjzjTKuqtQu2WKqZxT8cdtP2lWc7y/LPlLBR4cYKjQZZZWIGKef/Q\
-      JuHp50HwLq3LKqAsg9EpukBqkfxncDItvr2Fis9krRgc288BZkwQh+G5S9WNFY1Bu7G60bzfbOJJYTV3TQPnPpaMh+IsG\
-      0G+xC/gZV7bEPDHEIUFRDnnXK9msvhu55plkOnAbHWnAYiZruVWpmIj76wayjEafOiTKp8G6lVtfDZdQ+cX4c8pN4Lq37\
-      wolvZ+ZuxMt51D03iUQ5aWi0TXyV6ZMnB7r3k0yWlLr7faHt1b1bvtAPVasKKUHHjvoc0ehz+K2oaJ/my275L+gytZs6b\
-      nLUZQ0Qclcsv/Z5szquf5HwV76WKIy+nMceGYtmMwHMbQv0Z+CEGYqdeD/PwMT7HQc/NwsOQ2CL/WNRqI/7E7EZHY+8Xp\
-      anyvXFez3SsalJ8xJM7kmH2zAAHKciZQMin9ND7kWaqYOdhpPxhWcqUtyAI7N4YMKrnUap2H9OOLeKDyzhR/m9D9w5DoQ\
-      MotE8n5J3OtQQ8Yl304J/uR2QX4YwulMQKr/BmrQs="
+      - secure:
+          "UFN6LLWRASxILSKY/hD5ugxP78Bhuq58X4H0ar6BnNl6SS70bhJFbJFuvkWBoLHAhydV876h2nBZLfTUCvf3\
+          RyOz4nvkGfRaFH3ZUnseSZSSXydFOixYjk+byDy7sjzjTKuqtQu2WKqZxT8cdtP2lWc7y/LPlLBR4cYKjQZZZWIGKef/Q\
+          JuHp50HwLq3LKqAsg9EpukBqkfxncDItvr2Fis9krRgc288BZkwQh+G5S9WNFY1Bu7G60bzfbOJJYTV3TQPnPpaMh+IsG\
+          0G+xC/gZV7bEPDHEIUFRDnnXK9msvhu55plkOnAbHWnAYiZruVWpmIj76wayjEafOiTKp8G6lVtfDZdQ+cX4c8pN4Lq37\
+          wolvZ+ZuxMt51D03iUQ5aWi0TXyV6ZMnB7r3k0yWlLr7faHt1b1bvtAPVasKKUHHjvoc0ehz+K2oaJ/my275L+gytZs6b\
+          nLUZQ0Qclcsv/Z5szquf5HwV76WKIy+nMceGYtmMwHMbQv0Z+CEGYqdeD/PwMT7HQc/NwsOQ2CL/WNRqI/7E7EZHY+8Xp\
+          anyvXFez3SsalJ8xJM7kmH2zAAHKciZQMin9ND7kWaqYOdhpPxhWcqUtyAI7N4YMKrnUap2H9OOLeKDyzhR/m9D9w5DoQ\
+          MotE8n5J3OtQQ8Yl304J/uR2QX4YwulMQKr/BmrQs="
     on_success: "never"
     on_failure: "always"
 # TODO(sid): Reenable Slack notifications on build failures once we've de-noised them
