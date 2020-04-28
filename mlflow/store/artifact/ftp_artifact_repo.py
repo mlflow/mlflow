@@ -1,3 +1,12 @@
+############# Summary of edit ################
+# Fixes FTP bug, when you use FTP server for artifact storage
+# example: https://github.com/mlflow/mlflow/issues/2677
+# Artifact path has a leading '/' when making directory and 
+# changing into the newly created dir.
+# Edits are on line 60 and 85 of this code.
+# Rahul Raj - 2020-04-28
+##############################################
+
 import os
 import ftplib
 from ftplib import FTP
@@ -49,6 +58,10 @@ class FTPArtifactRepository(ArtifactRepository):
 
     @staticmethod
     def _mkdir(ftp, artifact_dir):
+        ########### Begin Edit ##############
+        if len(artifact_dir) > 1 and artifact_dir[0] in ['/', '\\']:
+            artifact_dir = artifact_dir[1:]        
+        ########### End Edit ##############
         try:
             if not FTPArtifactRepository._is_dir(ftp, artifact_dir):
                 ftp.mkd(artifact_dir)
@@ -70,6 +83,10 @@ class FTPArtifactRepository(ArtifactRepository):
                 if artifact_path else self.path
             self._mkdir(ftp, artifact_dir)
             with open(local_file, 'rb') as f:
+                ########### Begin Edit ##############
+                if len(artifact_dir) > 1 and artifact_dir[0] in ['/', '\\']:
+                    artifact_dir = artifact_dir[1:]        
+                ########### End Edit ##############
                 ftp.cwd(artifact_dir)
                 ftp.storbinary('STOR ' + os.path.basename(local_file), f)
 
