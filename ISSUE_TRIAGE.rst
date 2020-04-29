@@ -38,10 +38,11 @@ labels.
 - | ``priority/important-soon``: The issue is worked on by the community currently or will 
   | be very soon, ideally in time for the next release.
 - | ``priority/important-longterm``: Important over the long term, but may not be staffed or
-  | may need multiple releases to complete. Also used for things we know are in a 
-  | contributor's roadmap in the next few months. We can use this with ``help wanted`` to mark 
-  | issues we would like to get help from. If someone starts working on it actively and we 
-  | think it could make the next release, change the priority to ``priority/important-soon``.
+  | may need multiple releases to complete. Also used for things we know are on a 
+  | contributor's roadmap in the next few months. We can use this in conjunction with 
+  | ``help wanted`` to mark issues we would like to get help with. If someone begins actively
+  | working on an issue with this label and we think it may be merged by the next release, change
+  | the priority to ``priority/important-soon``.
 - | ``priority/backlog``: We believe it is useful, but don’t see it being prioritized in the 
   | next few months. Use this when it’s lower priority than ``priority/important-longterm``. We'd 
   | welcome someone in the community picking it up, but there may be some delay in getting support 
