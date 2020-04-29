@@ -1,4 +1,5 @@
 import os
+import posixpath
 import pytest
 
 
@@ -62,7 +63,7 @@ def pytest_ignore_collect(path, config):
         ]
 
         relpath = os.path.relpath(str(path))
-        print(relpath)
+        relpath = relpath.replace(os.sep, posixpath.sep)  # for Windows
 
         if relpath in model_flavors:
             outcome.force_result(True)
