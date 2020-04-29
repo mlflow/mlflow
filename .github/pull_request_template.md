@@ -29,7 +29,7 @@ model registry
 
 Interfaces 
 - [ ] `area/uiux`: Front-end, user experience, javascript, plotting
-- [ ] `area/docker`: Docker use anywhere, such as MLprojects and MLmodels
+- [ ] `area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
 - [ ] `area/sqlalchemy`: Use of SQLAlchemy in tracking service or model registry
 - [ ] `area/windows`: Windows support
 
