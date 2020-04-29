@@ -27,7 +27,7 @@ The MLflow Community encourages new feature contributions. Would you or another 
 - Why is this use case valuable to support for your project(s) or organization?
 - Why is it currently difficult to achieve this use case? (please be as specific as possible about why related MLflow features and components are insufficient)
 
-### What component(s), interfaces, languages, and integrations does this PR affect?
+### What component(s), interfaces, languages, and integrations does this feature affect?
 Components 
 - [ ] `area/artifacts`: Artifact stores and artifact logging
 - [ ] `area/docs`: MLflow documentation pages
