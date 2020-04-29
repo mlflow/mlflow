@@ -20,5 +20,6 @@ pytest --verbose tests/lightgbm --large
 pytest --verbose tests/gluon --large
 pytest --verbose tests/gluon_autolog --large
 pytest --verbose tests/spacy --large
+pytest --verbose tests/fastai --large
 
 test $err = 0
