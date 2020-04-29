@@ -47,12 +47,12 @@ Model Registry
 - [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
 - [ ] `area/projects`: MLproject format, project running backends
 - [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
-- [ ] `area/tracking`: Tracking service, tracking client APIs, autologging
+- [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
 
 Interface 
 - [ ] `area/uiux`: Front-end, user experience, javascript, plotting
 - [ ] `area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
-- [ ] `area/sqlalchemy`: Use of SQLAlchemy in tracking service or model registry
+- [ ] `area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry
 - [ ] `area/windows`: Windows support
 
 Language 
