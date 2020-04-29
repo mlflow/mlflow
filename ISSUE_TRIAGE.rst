@@ -59,8 +59,7 @@ Assign one more labels for relevant component or interface surface areas, langua
 integrations. As a principle, we aim to have the minimal set of labels needed to help route issues
 and PRs to appropriate contributors. For example, a ``language/python`` label would not be
 particularly helpful for routing issues to committers, since most PRs involve Python code.
-``language/java`` and ``language/r`` make sense to have, as the clients in these languages are 
-differ from the python client and aren't maintained by many people. As with process labels, we
+``language/java`` and ``language/r`` make sense to have, as the clients in these languages differ from the Python client and aren't maintained by many people. As with process labels, we
 take inspiration from Kubernetes on naming conventions.
 
 Components 
