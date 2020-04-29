@@ -20,6 +20,8 @@ import yaml
 import gorilla
 import tempfile
 import shutil
+import pandas as pd
+import numpy as np
 
 from mlflow import pyfunc
 from mlflow.models import Model
@@ -159,7 +161,10 @@ class _FastaiModelWrapper:
     def predict(self, dataframe):
         test_data = TabularList.from_df(dataframe, cont_names=self.learner.data.cont_names)
         self.learner.data.add_test(test_data)
-        return self.learner.get_preds(DatasetType.Test)[0].numpy()
+        preds, target = self.learner.get_preds(DatasetType.Test)
+        preds = pd.Series(map(np.array, preds.numpy()), name='predictions')
+        target = pd.Series(target.numpy(), name='target')
+        return pd.concat([preds, target], axis='columns')
 
 
 def _load_pyfunc(path):
