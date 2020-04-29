@@ -30,7 +30,7 @@ model registry
 Interfaces 
 - [ ] `area/uiux`: Front-end, user experience, javascript, plotting
 - [ ] `area/docker`: Docker use anywhere, such as MLprojects and MLmodels
-- [ ] `area/sqlalchemy`: Use of SQL alchemy in tracking service or model registry
+- [ ] `area/sqlalchemy`: Use of SQLAlchemy in tracking service or model registry
 - [ ] `area/windows`: Windows support
 
 Languages 
