@@ -49,7 +49,7 @@ labels.
   | delay in getting support through design review or pull request feedback. 
 - | ``priority/awaiting-more-evidence``: Lowest priority. Possibly useful, but not yet enough
   | support to actually get it done. This is a good place to put issues that could be useful but 
-  | that we don’t have clear enough evidence it has broad value. Don’t use it as a way to say no. 
+  | require more evidence to demonstrate broad value. Don’t use it as a way to say no. 
   | If we think it doesn’t fit in MLflow, we should just say that and why.
 
 Label relevant areas
