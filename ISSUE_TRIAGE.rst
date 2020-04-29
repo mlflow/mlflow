@@ -43,7 +43,7 @@ labels.
   | ``help wanted`` to mark issues we would like to get help with. If someone begins actively
   | working on an issue with this label and we think it may be merged by the next release, change
   | the priority to ``priority/important-soon``.
-- | ``priority/backlog``: We believe it is useful, but don’t see it being prioritized in the 
+- | ``priority/backlog``: We believe it is useful but don’t see it being prioritized in the 
   | next few months. Use this when it’s lower priority than ``priority/important-longterm``. We'd 
   | welcome someone in the community picking it up, but there may be some delay in getting support 
   | through design review or pull request feedback. 
