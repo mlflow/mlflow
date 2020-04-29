@@ -351,7 +351,6 @@ class _KerasModelWrapper:
         # In TensorFlow >= 2.0, we do not use a graph and session to predict
         else:
             predicted = pd.DataFrame(self.keras_model.predict(dataframe.values))
-        print(type(dataframe))
         predicted.index = dataframe.index
         return predicted
 
