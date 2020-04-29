@@ -94,13 +94,11 @@ def test_list_artifacts(oss_bucket_mock):
             key=artifact_root_path + file_path,
             last_modified='123', size=1, etag=None, type=None, storage_class=None)
     dir_name = "model"
-    dir_mock = oss2.models.SimplifiedObjectInfo(
-            key=artifact_root_path + dir_name + "/",
-            last_modified=None, size=None, etag=None, type=None, storage_class=None)
+    dir_path = artifact_root_path + dir_name + "/"
 
     mock_results = mock.MagicMock(autospec=oss2.models.ListObjectsResult)
-    mock_results.object_list = [obj_mock, dir_mock]
-    mock_results.prefix_list = []
+    mock_results.object_list = [obj_mock]
+    mock_results.prefix_list = [dir_path]
     repo.oss_bucket.list_objects.return_value = mock_results
 
     artifacts = repo.list_artifacts(path=None)
@@ -128,12 +126,11 @@ def test_list_artifacts_with_subdir(oss_bucket_mock):
             last_modified='123', size=1, etag=None, type=None, storage_class=None)
 
     subdir_name = dir_name + "/" + 'variables'
-    subdir_mock = oss2.models.SimplifiedObjectInfo(
-            key=artifact_root_path + subdir_name + "/",
-            last_modified=None, size=None, etag=None, type=None, storage_class=None)
+    subdir_path = artifact_root_path + subdir_name + "/"
 
     mock_results = mock.MagicMock(autospec=oss2.models.ListObjectsResult)
-    mock_results.object_list = [obj_mock, subdir_mock]
+    mock_results.object_list = [obj_mock]
+    mock_results.prefix_list = [subdir_path]
     repo.oss_bucket.list_objects.return_value = mock_results
 
     artifacts = repo.list_artifacts(path=dir_name)

@@ -42,7 +42,8 @@ class AliyunOssArtifactRepository(ArtifactRepository):
         import oss2
         if self.oss_bucket is not None:
             return self.oss_bucket
-        return oss2.Bucket(self.auth, self.oss_endpoint_url, bucket)
+        self.oss_bucket = oss2.Bucket(self.auth, self.oss_endpoint_url, bucket)
+        return self.oss_bucket
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_oss_uri(self.artifact_uri)
@@ -57,7 +58,7 @@ class AliyunOssArtifactRepository(ArtifactRepository):
         (bucket, dest_path) = self.parse_oss_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        oss_bucket = self._get_oss_bucket(bucket)
+        self._get_oss_bucket(bucket)
         local_dir = os.path.abspath(local_dir)
         for (root, _, filenames) in os.walk(local_dir):
             upload_path = dest_path
@@ -71,30 +72,33 @@ class AliyunOssArtifactRepository(ArtifactRepository):
 
     def list_artifacts(self, path=None):
         import oss2
+        print('list ----------', path)
         (bucket, artifact_path) = self.parse_oss_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)
         infos = []
         prefix = dest_path + "/" if dest_path else ""
-        oss_bucket = self._get_oss_bucket(bucket)
-        results = self.oss_bucket.list_objects(prefix=prefix, delimiter='/').object_list
+        self._get_oss_bucket(bucket)
+        results = self.oss_bucket.list_objects(prefix=prefix, delimiter='/')
 
-        for result in results:
-            if result.is_prefix():
-                subdir_path = result.key
-                self._verify_listed_object_contains_artifact_path_prefix(
-                    listed_object_path=subdir_path, artifact_path=artifact_path)
-                subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
-                infos.append(FileInfo(subdir_rel_path, True, None))
-            else:
-                file_path = result.key
-                self._verify_listed_object_contains_artifact_path_prefix(
-                    listed_object_path=file_path, artifact_path=artifact_path)
-                file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
-                file_size = result.size
-                infos.append(FileInfo(file_rel_path, False, file_size))
+        for obj in results.object_list:
+            # is file
+            file_path = obj.key
+            print(file_path, '-----------?')
+            self._verify_listed_object_contains_artifact_path_prefix(
+                listed_object_path=file_path, artifact_path=artifact_path)
+            file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
+            file_size = obj.size
+            infos.append(FileInfo(file_rel_path, False, file_size))
 
+        for subdir_path in results.prefix_list:
+            # is dir
+            print('-----------', subdir_path)
+            self._verify_listed_object_contains_artifact_path_prefix(
+                listed_object_path=subdir_path, artifact_path=artifact_path)
+            subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
+            infos.append(FileInfo(subdir_rel_path, True, None))
         return sorted(infos, key=lambda f: f.path)
 
     @staticmethod
