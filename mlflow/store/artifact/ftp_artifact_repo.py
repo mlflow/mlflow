@@ -49,11 +49,14 @@ class FTPArtifactRepository(ArtifactRepository):
 
     @staticmethod
     def _mkdir(ftp, artifact_dir):
+        changed = ""
         if len(artifact_dir) > 1 and artifact_dir[0] in ['/', '\\']:
+            changed = artifact_dir[0]
             artifact_dir = artifact_dir[1:]
         try:
             if not FTPArtifactRepository._is_dir(ftp, artifact_dir):
                 ftp.mkd(artifact_dir)
+            artifact_dir = changed + artifact_dir
         except ftplib.error_perm:
             head, _ = posixpath.split(artifact_dir)
             FTPArtifactRepository._mkdir(ftp, head)
@@ -68,14 +71,17 @@ class FTPArtifactRepository(ArtifactRepository):
 
     def log_artifact(self, local_file, artifact_path=None):
         with self.get_ftp_client() as ftp:
+            changed = ""
             artifact_dir = posixpath.join(self.path, artifact_path) \
                 if artifact_path else self.path
             self._mkdir(ftp, artifact_dir)
             with open(local_file, 'rb') as f:
                 if len(artifact_dir) > 1 and artifact_dir[0] in ['/', '\\']:
+                    changed = artifact_dir[0]
                     artifact_dir = artifact_dir[1:]
                 ftp.cwd(artifact_dir)
                 ftp.storbinary('STOR ' + os.path.basename(local_file), f)
+                artifact_dir = changed + artifact_dir
 
     def log_artifacts(self, local_dir, artifact_path=None):
         dest_path = posixpath.join(self.path, artifact_path) \
