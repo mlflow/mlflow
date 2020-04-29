@@ -61,7 +61,7 @@ def pytest_ignore_collect(path, config):
             "tests/fastai",
         ]
 
-        relpath = os.path.relpath(str(path), config.rootdir)
+        relpath = os.path.relpath(str(path))
 
         if relpath in model_flavors:
             outcome.force_result(True)
