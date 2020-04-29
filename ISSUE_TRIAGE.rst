@@ -79,7 +79,7 @@ Interface Surface
 """"""""
 - ``area/uiux``: Front-end, user experience, javascript, plotting
 - ``area/docker``: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
-- ``area/sqlalchemy``: Use of SQL alchemy in tracking service or model registry
+- ``area/sqlalchemy``: Use of SQLAlchemy in tracking service or model registry
 - ``area/windows``: Windows support
 
 Language Surface
