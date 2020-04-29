@@ -2,7 +2,6 @@
 import os
 import mock
 import pytest
-from functools import partial
 
 import oss2
 
@@ -88,7 +87,6 @@ def test_list_artifacts(oss_bucket_mock):
     artifact_root_path = "experiment_id/run_id/"
     repo = AliyunOssArtifactRepository("oss://test_bucket/" + artifact_root_path, oss_bucket_mock)
     repo._get_oss_bucket = repo.oss_bucket
-    MockSimplifiedObjectInfo = mock.MagicMock(autospec=oss2.models.SimplifiedObjectInfo)
     file_path = 'file'
     obj_mock = oss2.models.SimplifiedObjectInfo(
             key=artifact_root_path + file_path,
@@ -117,7 +115,6 @@ def test_list_artifacts_with_subdir(oss_bucket_mock):
     artifact_root_path = "experiment_id/run_id/"
     repo = AliyunOssArtifactRepository("oss://test_bucket/" + artifact_root_path, oss_bucket_mock)
     repo._get_oss_bucket = repo.oss_bucket
-    MockSimplifiedObjectInfo = mock.MagicMock(autospec=oss2.models.SimplifiedObjectInfo)
     # list artifacts at sub directory level
     dir_name = "model"
     file_path = dir_name + "/" + 'model.pb'
@@ -146,7 +143,7 @@ def test_list_artifacts_with_subdir(oss_bucket_mock):
 def test_download_file_artifact(oss_bucket_mock, tmpdir):
     repo = AliyunOssArtifactRepository("oss://test_bucket/some/path", oss_bucket_mock)
 
-    def mkfile(fname, temp=''):
+    def mkfile(fname, _):
         fname = os.path.basename(fname)
         f = tmpdir.join(fname)
         f.write("hello world!")
