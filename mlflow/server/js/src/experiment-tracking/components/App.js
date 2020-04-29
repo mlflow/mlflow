@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import './App.css';
 import logo from '../../common/static/home-logo.png';
 import {
-  HashRouter as Router,
+  BrowserRouter as Router,
   Route,
   Link,
 } from 'react-router-dom';
