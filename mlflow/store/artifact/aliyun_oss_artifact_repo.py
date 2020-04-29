@@ -3,7 +3,6 @@ import os
 import posixpath
 from six.moves import urllib
 
-from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -71,8 +70,6 @@ class AliyunOssArtifactRepository(ArtifactRepository):
                         posixpath.join(upload_path, f), os.path.join(root, f))
 
     def list_artifacts(self, path=None):
-        import oss2
-        print('list ----------', path)
         (bucket, artifact_path) = self.parse_oss_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
@@ -85,7 +82,6 @@ class AliyunOssArtifactRepository(ArtifactRepository):
         for obj in results.object_list:
             # is file
             file_path = obj.key
-            print(file_path, '-----------?')
             self._verify_listed_object_contains_artifact_path_prefix(
                 listed_object_path=file_path, artifact_path=artifact_path)
             file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
@@ -94,7 +90,6 @@ class AliyunOssArtifactRepository(ArtifactRepository):
 
         for subdir_path in results.prefix_list:
             # is dir
-            print('-----------', subdir_path)
             self._verify_listed_object_contains_artifact_path_prefix(
                 listed_object_path=subdir_path, artifact_path=artifact_path)
             subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
