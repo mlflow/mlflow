@@ -10,11 +10,11 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
-class AliyunArtifactRepository(ArtifactRepository):
+class AliyunOssArtifactRepository(ArtifactRepository):
     """Stores artifacts on Aliyun OSS."""
 
     def __init__(self, artifact_uri, oss_bucket=None):
-        super(AliyunArtifactRepository, self).__init__(artifact_uri)
+        super(AliyunOssArtifactRepository, self).__init__(artifact_uri)
 
         if oss_bucket is not None:
             self.oss_bucket = oss_bucket
@@ -27,7 +27,6 @@ class AliyunArtifactRepository(ArtifactRepository):
         self.auth = oss2.Auth(oss_access_key_id, oss_access_key_secret)
         self.oss_bucket = None
 
-
     @staticmethod
     def parse_oss_uri(uri):
         """Parse an OSS URI, returning (bucket, path)"""
@@ -39,12 +38,11 @@ class AliyunArtifactRepository(ArtifactRepository):
             path = path[1:]
         return parsed.netloc, path
 
-
     def _get_oss_bucket(self, bucket):
         import oss2
-        if self.oss_bucket is not None: return self.oss_bucket
+        if self.oss_bucket is not None:
+            return self.oss_bucket
         return oss2.Bucket(self.auth, self.oss_endpoint_url, bucket)
- 
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_oss_uri(self.artifact_uri)
@@ -54,7 +52,6 @@ class AliyunArtifactRepository(ArtifactRepository):
             dest_path, os.path.basename(local_file))
         self._get_oss_bucket(bucket)
         self.oss_bucket.put_object_from_file(dest_path, local_file)
-        
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (bucket, dest_path) = self.parse_oss_uri(self.artifact_uri)
@@ -69,8 +66,9 @@ class AliyunArtifactRepository(ArtifactRepository):
                 rel_path = relative_path_to_artifact_path(rel_path)
                 upload_path = posixpath.join(dest_path, rel_path)
             for f in filenames:
-                self.oss_bucket.put_object_from_file(posixpath.join(upload_path, f), os.path.join(root, f))
-    
+                self.oss_bucket.put_object_from_file(
+                        posixpath.join(upload_path, f), os.path.join(root, f))
+
     def list_artifacts(self, path=None):
         import oss2
         (bucket, artifact_path) = self.parse_oss_uri(self.artifact_uri)
@@ -80,7 +78,7 @@ class AliyunArtifactRepository(ArtifactRepository):
         infos = []
         prefix = dest_path + "/" if dest_path else ""
         oss_bucket = self._get_oss_bucket(bucket)
-        results = self.oss_bucket.list_objects(prefix=prefix, delimiter = '/').object_list
+        results = self.oss_bucket.list_objects(prefix=prefix, delimiter='/').object_list
 
         for result in results:
             if result.is_prefix():
