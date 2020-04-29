@@ -36,6 +36,7 @@ from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.artifact.aliyun_artifact_repo import AliyunArtifactRepository
 from mlflow.utils import databricks_utils, file_utils, process
 from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
@@ -738,6 +739,17 @@ def _get_gcs_artifact_cmd_and_envs(artifact_repo):
     return cmds, envs
 
 
+def _get_aliyun_artifact_cmd_and_envs(artifact_repo):
+    # pylint: disable=unused-argument
+    envs = {
+        "MLFLOW_OSS_ENDPOINT_URL": os.environ.get("MLFLOW_OSS_ENDPOINT_URL"),
+        "MLFLOW_OSS_KEY_ID": os.environ.get("MLFLOW_OSS_KEY_ID")
+        "MLFLOW_OSS_KEY_SECRET": os.environ.get("MLFLOW_OSS_KEY_SECRET")
+    }
+    envs = dict((k, v) for k, v in envs.items() if v is not None)
+    return [], envs
+
+
 def _get_hdfs_artifact_cmd_and_envs(artifact_repo):
     # pylint: disable=unused-argument
     cmds = []
@@ -761,6 +773,7 @@ _artifact_storages = {
     AzureBlobArtifactRepository: _get_azure_blob_artifact_cmd_and_envs,
     HdfsArtifactRepository: _get_hdfs_artifact_cmd_and_envs,
     GCSArtifactRepository: _get_gcs_artifact_cmd_and_envs,
+    AliyunArtifactRepository: _get_aliyun_artifact_cmd_and_envs,
 }
 
 

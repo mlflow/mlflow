@@ -554,7 +554,7 @@ Artifact Stores
   :depth: 1
 
 In addition to local file paths, MLflow supports the following storage systems as artifact
-stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
+stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, Aliyun OSS Storage, SFTP server, and NFS.
 
 Amazon S3
 ^^^^^^^^^
@@ -609,6 +609,17 @@ You should configure credentials for accessing the GCS container on the client a
 in the `GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
 Finally, you must run ``pip install google-cloud-storage`` (on both your client and the server)
 to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
+
+Aliyun OSS Storage
+^^^^^^^^^^^^^^^^^^^^
+
+To store artifacts in Aliyun OSS Storage, specify a URI of the form ``oss://<bucket>/<path>``.
+MLflow expects Aliyun Storage access credentials in the
+``MLFLOW_OSS_ENDPOINT_URL``, ``MLFLOW_OSS_KEY_ID`` and ``MLFLOW_OSS_KEY_SECRET`` environment variables,
+so you must set these variables on both your client
+application and your MLflow tracking server. Finally, you must run ``pip install oss2``
+separately (on both your client and the server) to access Aliyun OSS Storage; MLflow does not declare
+a dependency on this package by default.
 
 FTP server
 ^^^^^^^^^^^
