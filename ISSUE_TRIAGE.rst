@@ -72,7 +72,7 @@ Components
   | model registry 
 - ``area/models``: MLmodel format, model serialization/deserialization, flavors
 - ``area/projects``: MLproject format, project running backends
-- ``area/scoring``: Local serving, model deployment tools, spark UDFs
+- ``area/scoring``: Local serving, model deployment tools, Spark UDFs
 - ``area/tracking``: Tracking service, tracking client APIs, autologging
 
 Interface Surface
