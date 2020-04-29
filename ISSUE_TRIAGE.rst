@@ -67,8 +67,7 @@ Components
 - ``area/artifacts``: Artifact stores and artifact logging
 - ``area/docs``: MLflow documentation pages
 - ``area/examples``: Example code
-- | ``area/model-registry``: Model Registry service, APIs, and the fluent client calls for
-  | Model Registry 
+- ``area/model-registry``: Model Registry service, APIs, and the fluent client calls for Model Registry 
 - ``area/models``: MLmodel format, model serialization/deserialization, flavors
 - ``area/projects``: MLproject format, project execution backends
 - ``area/scoring``: Local serving, model deployment tools, Spark UDFs
