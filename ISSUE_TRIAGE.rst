@@ -71,7 +71,7 @@ Components
 - | ``area/model-registry``: Model registry, model registry APIs, and the fluent client calls for
   | model registry 
 - ``area/models``: MLmodel format, model serialization/deserialization, flavors
-- ``area/projects``: MLproject format, project running backends
+- ``area/projects``: MLproject format, project execution backends
 - ``area/scoring``: Local serving, model deployment tools, Spark UDFs
 - ``area/tracking``: Tracking service, tracking client APIs, autologging
 
