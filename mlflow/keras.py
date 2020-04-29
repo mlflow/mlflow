@@ -24,8 +24,6 @@ from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
-from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -150,6 +148,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
             keras_module = importlib.import_module("keras")
         elif _is_tf_keras(keras_model):
             keras_module = importlib.import_module("tensorflow.keras")
+            print("ZZZZZZZZZZZZZZZZZZZ")
         else:
             raise MlflowException("Unable to infer keras module from the model, please specify "
                                   "which keras module ('keras' or 'tensorflow.keras') is to be "
@@ -213,8 +212,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
 
 
 def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, keras_module=None,
-              registered_model_name=None, signature: ModelSignature=None,
-              input_example: ModelInputExample=None, **kwargs):
+              registered_model_name=None, **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
@@ -247,28 +245,10 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     :param keras_module: Keras module to be used to save / load the model
                          (``keras`` or ``tf.keras``). If not provided, MLflow will
                          attempt to infer the Keras module based on the given model.
-    :param registered_model_name: (Experimental) If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
-
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset) and valid
-                      model output (e.g. model predictions generated on the training dataset),
-                      for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-                        train = df.drop_column("target_label")
-                        signature = infer_signature(train, model.predict(train))
-    :param input_example: (Experimental) Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
-
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     .. code-block:: python
@@ -287,9 +267,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
               keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects,
-              keras_module=keras_module, registered_model_name=registered_model_name,
-              signature=signature, input_example=input_example,
-              **kwargs)
+              keras_module=keras_module, registered_model_name=registered_model_name, **kwargs)
 
 
 def _save_custom_objects(path, custom_objects):
@@ -347,10 +325,11 @@ class _KerasModelWrapper:
         if self._graph is not None:
             with self._graph.as_default():
                 with self._sess.as_default():
-                    predicted = pd.DataFrame(self.keras_model.predict(dataframe))
+                    predicted = pd.DataFrame(self.keras_model.predict(dataframe.values))
         # In TensorFlow >= 2.0, we do not use a graph and session to predict
         else:
             predicted = pd.DataFrame(self.keras_model.predict(dataframe))
+        print(type(dataframe))
         predicted.index = dataframe.index
         return predicted
 
