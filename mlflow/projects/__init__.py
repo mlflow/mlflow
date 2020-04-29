@@ -742,7 +742,6 @@ def _get_hdfs_artifact_cmd_and_envs(artifact_repo):
     # pylint: disable=unused-argument
     cmds = []
     envs = {
-        "MLFLOW_HDFS_DRIVER": os.environ.get("MLFLOW_HDFS_DRIVER"),
         "MLFLOW_KERBEROS_TICKET_CACHE": os.environ.get("MLFLOW_KERBEROS_TICKET_CACHE"),
         "MLFLOW_KERBEROS_USER": os.environ.get("MLFLOW_KERBEROS_USER"),
         "MLFLOW_PYARROW_EXTRA_CONF": os.environ.get("MLFLOW_PYARROW_EXTRA_CONF")

@@ -204,7 +204,6 @@ def test_docker_gcs_artifact_cmd_and_envs_from_home():
 
 def test_docker_hdfs_artifact_cmd_and_envs_from_home():
     mock_env = {
-        "MLFLOW_HDFS_DRIVER": "mock_libhdfs",
         "MLFLOW_KERBEROS_TICKET_CACHE": "/mock_ticket_cache",
         "MLFLOW_KERBEROS_USER": "mock_krb_user",
         "MLFLOW_PYARROW_EXTRA_CONF": "mock_pyarrow_extra_conf"

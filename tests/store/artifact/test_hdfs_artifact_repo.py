@@ -24,7 +24,7 @@ def test_log_artifact(hdfs_system_mock):
 
         repo.log_artifact(local_file, 'more_path/some')
 
-        hdfs_system_mock.assert_called_once_with(driver='libhdfs', extra_conf=None,
+        hdfs_system_mock.assert_called_once_with(extra_conf=None,
                                                  host='host_name',
                                                  kerb_ticket=None, port=8020,
                                                  user=None)
@@ -42,7 +42,6 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
         pytest.skip()
     os.environ['MLFLOW_KERBEROS_TICKET_CACHE'] = '/tmp/krb5cc_22222222'
     os.environ['MLFLOW_KERBEROS_USER'] = 'some_kerberos_user'
-    os.environ['MLFLOW_HDFS_DRIVER'] = 'libhdfs3'
 
     repo = HdfsArtifactRepository('hdfs:/some/maybe/path')
 
@@ -52,7 +51,7 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
 
         repo.log_artifact(tmp_local_file.name, 'test_hdfs/some/path')
 
-        hdfs_system_mock.assert_called_once_with(driver='libhdfs3', extra_conf=None,
+        hdfs_system_mock.assert_called_once_with(extra_conf=None,
                                                  host='default',
                                                  kerb_ticket='/tmp/krb5cc_22222222', port=0,
                                                  user='some_kerberos_user')
@@ -75,7 +74,6 @@ def test_log_artifact_with_invalid_local_dir(_):
 def test_log_artifacts(hdfs_system_mock):
     os.environ['MLFLOW_KERBEROS_TICKET_CACHE'] = '/tmp/krb5cc_22222222'
     os.environ['MLFLOW_KERBEROS_USER'] = 'some_kerberos_user'
-    os.environ['MLFLOW_HDFS_DRIVER'] = 'libhdfs3'
 
     repo = HdfsArtifactRepository('hdfs:/some_path/maybe/path')
 
@@ -89,7 +87,7 @@ def test_log_artifacts(hdfs_system_mock):
 
         repo.log_artifacts(root_dir._path)
 
-        hdfs_system_mock.assert_called_once_with(driver='libhdfs3', extra_conf=None,
+        hdfs_system_mock.assert_called_once_with(extra_conf=None,
                                                  host='default',
                                                  kerb_ticket='/tmp/krb5cc_22222222', port=0,
                                                  user='some_kerberos_user')
