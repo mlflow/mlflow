@@ -16,7 +16,7 @@ Assign appropriate process labels
 Assign at least one process label to every issue you triage. 
 
 - ``needs author feedback``: We need input from the author of the issue or PR to proceed.
-- | ``needs design``: This feature is large or tricky enough that we think it warrants design doc 
+- | ``needs design``: This feature is large or tricky enough that we think it warrants a design doc 
   | and review before someone begins implementation.
 - | ``needs review``: Use this label for issues that need a more detailed design review or pull 
   | requests ready for review (all questions answered, PR updated if requests have been addressed, 
