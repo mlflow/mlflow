@@ -6,7 +6,7 @@ The purpose of triage is to speed up issue management and get community members 
 Issue and pull request triage has three steps:
 
 - assign one or more process labels (e.g. ``needs design`` or ``help wanted``),
-- mark a priority, abd 
+- mark a priority, and 
 - label one or more relevant areas, languauges, or integrations to help route issues to appropriate contributors or reviewers.
 
 The remainder of the document describes the labels used in each of these steps and how to apply them.
