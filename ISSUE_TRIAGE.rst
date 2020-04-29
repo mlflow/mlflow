@@ -44,9 +44,9 @@ labels.
   | working on an issue with this label and we think it may be merged by the next release, change
   | the priority to ``priority/important-soon``.
 - | ``priority/backlog``: We believe it is useful but don’t see it being prioritized in the 
-  | next few months. Use this when it’s lower priority than ``priority/important-longterm``. We'd 
-  | welcome someone in the community picking it up, but there may be some delay in getting support 
-  | through design review or pull request feedback. 
+  | next few months. Use this for issues that are lower priority than ``priority/important-longterm``. 
+  | We welcome community members to pick up a ``priority/backlog`` issue, but there may be some 
+  | delay in getting support through design review or pull request feedback. 
 - | ``priority/awaiting-more-evidence``: Lowest priority. Possibly useful, but not yet enough
   | support to actually get it done. This is a good place to put issues that could be useful but 
   | that we don’t have clear enough evidence it has broad value. Don’t use it as a way to say no. 
