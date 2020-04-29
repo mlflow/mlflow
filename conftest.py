@@ -62,6 +62,7 @@ def pytest_ignore_collect(path, config):
         ]
 
         relpath = os.path.relpath(str(path))
+        print(relpath)
 
         if relpath in model_flavors:
             outcome.force_result(True)
