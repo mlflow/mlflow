@@ -39,7 +39,7 @@ Languages
 
 Integrations
 - [ ] `integrations/azure`: Azure and Azure ML integrations
-- [ ] `integrations/sagemaker`: Sagemaker integrations
+- [ ] `integrations/sagemaker`: SageMaker integrations
 
 ### How should the PR be classified in the release notes? Choose one:
 
