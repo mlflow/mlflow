@@ -28,6 +28,7 @@ def test_log_artifact(hdfs_system_mock):
         repo.log_artifact(local_file, 'more_path/some')
 
         hdfs_system_mock.assert_called_once_with(extra_conf=None,
+                                                 driver='libhdfs',
                                                  host='hdfs://host_name',
                                                  kerb_ticket=None, port=8020,
                                                  user=None)
@@ -51,6 +52,7 @@ def test_log_artifact_viewfs(hdfs_system_mock):
         repo.log_artifact(local_file, 'more_path/some')
 
         hdfs_system_mock.assert_called_once_with(extra_conf=None,
+                                                 driver='libhdfs',
                                                  host="viewfs://host_name",
                                                  kerb_ticket=None, port=0,
                                                  user=None)
@@ -78,6 +80,7 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
         repo.log_artifact(tmp_local_file.name, 'test_hdfs/some/path')
 
         hdfs_system_mock.assert_called_once_with(extra_conf=None,
+                                                 driver='libhdfs',
                                                  host='default',
                                                  kerb_ticket='/tmp/krb5cc_22222222', port=0,
                                                  user='some_kerberos_user')
@@ -114,6 +117,7 @@ def test_log_artifacts(hdfs_system_mock):
         repo.log_artifacts(root_dir._path)
 
         hdfs_system_mock.assert_called_once_with(extra_conf=None,
+                                                 driver='libhdfs',
                                                  host='default',
                                                  kerb_ticket='/tmp/krb5cc_22222222', port=0,
                                                  user='some_kerberos_user')
