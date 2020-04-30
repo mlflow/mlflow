@@ -27,7 +27,7 @@ describe('ArtifactView', () => {
     return mockStore({
       entities: {
         ...minimalEntities,
-        artifactsByRunUuid: {fakeUuid: rootNode},
+        artifactsByRunUuid: { fakeUuid: rootNode },
       },
     });
   };
@@ -36,7 +36,7 @@ describe('ArtifactView', () => {
     mockAjax();
     const node = getTestArtifactNode();
     minimalProps = {
-      runUuid: "fakeUuid",
+      runUuid: 'fakeUuid',
       artifactNode: node,
       listArtifactsApi: jest.fn(() => Promise.resolve({})),
       modelVersionsBySource: {},
@@ -44,8 +44,8 @@ describe('ArtifactView', () => {
     };
     minimalEntities = {
       modelByName: {},
-      artifactsByRunUuid: {fakeUuid: node},
-      artifactRootUriByRunUuid: {fakeUuid: 'test_root'},
+      artifactsByRunUuid: { fakeUuid: node },
+      artifactRootUriByRunUuid: { fakeUuid: 'test_root' },
       modelVersionsByModel: {},
     };
     minimalStore = mockStore({
@@ -56,41 +56,41 @@ describe('ArtifactView', () => {
   const getTestArtifactNode = () => {
     const rootNode = new ArtifactNode(true, undefined);
     rootNode.isLoaded = true;
-    const file1 = new ArtifactNode(false, { path: "file1", is_dir: false, file_size: "159" });
-    const dir1 = new ArtifactNode(false, { path: "dir1", is_dir: true });
-    const file2 = new ArtifactNode(false, { path: "dir1/file2", is_dir: false, file_size: "67" });
-    const file3 = new ArtifactNode(false, { path: "dir1/file3", is_dir: false, file_size: "123" });
+    const file1 = new ArtifactNode(false, { path: 'file1', is_dir: false, file_size: '159' });
+    const dir1 = new ArtifactNode(false, { path: 'dir1', is_dir: true });
+    const file2 = new ArtifactNode(false, { path: 'dir1/file2', is_dir: false, file_size: '67' });
+    const file3 = new ArtifactNode(false, { path: 'dir1/file3', is_dir: false, file_size: '123' });
     dir1.setChildren([file2.fileInfo, file3.fileInfo]);
     rootNode.children = { file1, dir1 };
     return rootNode;
   };
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ArtifactViewImpl {...minimalProps}/>);
+    wrapper = shallow(<ArtifactViewImpl {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render NoArtifactView when no artifacts are present', () => {
     const emptyNode = new ArtifactNode(true, undefined);
-    const props = {...minimalProps, artifactNode: emptyNode};
+    const props = { ...minimalProps, artifactNode: emptyNode };
     wrapper = mount(
       <Provider store={getMockStore(emptyNode)}>
         <BrowserRouter>
           <ArtifactView {...props} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     expect(wrapper.find('.no-artifacts')).toHaveLength(1);
   });
 
   test('should render selected file artifact', () => {
-    const props = {...minimalProps};
+    const props = { ...minimalProps };
     wrapper = mount(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ArtifactView {...props} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     const file1Element = wrapper.find('NodeHeader').at(0);
     file1Element.simulate('click');
@@ -103,10 +103,11 @@ describe('ArtifactView', () => {
   test('should render text file in text artifact view', () => {
     const rootNode = new ArtifactNode(true, undefined);
     rootNode.isLoaded = true;
-    const textFile = new ArtifactNode(
-      false,
-      { path: "file1.txt", is_dir: false, file_size: "159" }
-    );
+    const textFile = new ArtifactNode(false, {
+      path: 'file1.txt',
+      is_dir: false,
+      file_size: '159',
+    });
     rootNode.setChildren([textFile.fileInfo]);
 
     wrapper = mount(
@@ -114,7 +115,7 @@ describe('ArtifactView', () => {
         <BrowserRouter>
           <ArtifactView {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     const textFileElement = wrapper.find('NodeHeader').at(0);
     textFileElement.simulate('click');
@@ -124,10 +125,11 @@ describe('ArtifactView', () => {
   test('should render image file in image artifact view', () => {
     const rootNode = new ArtifactNode(true, undefined);
     rootNode.isLoaded = true;
-    const imageFile = new ArtifactNode(
-      false,
-      { path: "file1.png", is_dir: false, file_size: "159" }
-    );
+    const imageFile = new ArtifactNode(false, {
+      path: 'file1.png',
+      is_dir: false,
+      file_size: '159',
+    });
     rootNode.setChildren([imageFile.fileInfo]);
 
     wrapper = mount(
@@ -135,7 +137,7 @@ describe('ArtifactView', () => {
         <BrowserRouter>
           <ArtifactView {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     const imageFileElement = wrapper.find('NodeHeader').at(0);
     imageFileElement.simulate('click');
@@ -145,10 +147,11 @@ describe('ArtifactView', () => {
   test('should render HTML file in HTML artifact view', () => {
     const rootNode = new ArtifactNode(true, undefined);
     rootNode.isLoaded = true;
-    const htmlFile = new ArtifactNode(
-      false,
-      { path: "file1.html", is_dir: false, file_size: "159" }
-    );
+    const htmlFile = new ArtifactNode(false, {
+      path: 'file1.html',
+      is_dir: false,
+      file_size: '159',
+    });
     rootNode.setChildren([htmlFile.fileInfo]);
 
     wrapper = mount(
@@ -156,7 +159,7 @@ describe('ArtifactView', () => {
         <BrowserRouter>
           <ArtifactView {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     const htmlFileElement = wrapper.find('NodeHeader').at(0);
     htmlFileElement.simulate('click');
@@ -166,10 +169,11 @@ describe('ArtifactView', () => {
   test('should render geojson file in map artifact view', () => {
     const rootNode = new ArtifactNode(true, undefined);
     rootNode.isLoaded = true;
-    const geojsonFile = new ArtifactNode(
-      false,
-      { path: "file1.geojson", is_dir: false, file_size: "159" }
-    );
+    const geojsonFile = new ArtifactNode(false, {
+      path: 'file1.geojson',
+      is_dir: false,
+      file_size: '159',
+    });
     rootNode.setChildren([geojsonFile.fileInfo]);
 
     wrapper = mount(
@@ -177,7 +181,7 @@ describe('ArtifactView', () => {
         <BrowserRouter>
           <ArtifactView {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     const geojsonFileElement = wrapper.find('NodeHeader').at(0);
     geojsonFileElement.simulate('click');
@@ -185,13 +189,13 @@ describe('ArtifactView', () => {
   });
 
   test('should render selected directory artifact', () => {
-    const props = {...minimalProps};
+    const props = { ...minimalProps };
     wrapper = mount(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ArtifactView {...props} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     const dir1Element = wrapper.find('NodeHeader').at(1);
     dir1Element.simulate('click');
@@ -205,13 +209,13 @@ describe('ArtifactView', () => {
 
   test('should render register model button for directory when no versions exist', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
-    const props = {...minimalProps};
+    const props = { ...minimalProps };
     wrapper = mount(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ArtifactView {...props} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     const dir1Element = wrapper.find('NodeHeader').at(1);
     dir1Element.simulate('click');
@@ -222,13 +226,13 @@ describe('ArtifactView', () => {
   test('should not render register model button for directory when registry is disabled', () => {
     const enabledSpy = jest.spyOn(Utils, 'isModelRegistryEnabled').mockImplementation(() => false);
     expect(Utils.isModelRegistryEnabled()).toEqual(false);
-    const props = {...minimalProps};
+    const props = { ...minimalProps };
     wrapper = mount(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ArtifactView {...props} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     const dir1Element = wrapper.find('NodeHeader').at(1);
     dir1Element.simulate('click');
@@ -242,29 +246,18 @@ describe('ArtifactView', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
 
     const modelVersionsBySource = {
-      "test_root/dir1": [
-        mockModelVersionDetailed(
-          'Model A',
-          1,
-          Stages.PRODUCTION,
-          ModelVersionStatus.READY,
-          []
-        ),
+      'test_root/dir1': [
+        mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY, []),
       ],
     };
-    const props = {...minimalProps, modelVersionsBySource};
+    const props = { ...minimalProps, modelVersionsBySource };
     const entities = {
       ...minimalEntities,
       modelVersionsByModel: {
         'Model A': {
           '1': {
-            ...mockModelVersionDetailed(
-              'Model A',
-              1,
-              Stages.PRODUCTION,
-              ModelVersionStatus.READY,
-            ),
-            source: "test_root/dir1",
+            ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
+            source: 'test_root/dir1',
           },
         },
       },
@@ -277,7 +270,7 @@ describe('ArtifactView', () => {
         <BrowserRouter>
           <ArtifactView {...props} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
 
     const dir1Element = wrapper.find('NodeHeader').at(1);
@@ -285,6 +278,6 @@ describe('ArtifactView', () => {
     expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir1');
     expect(wrapper.find('.model-version-info')).toHaveLength(1);
     expect(wrapper.find('.model-version-link')).toHaveLength(1);
-    expect(wrapper.find('.model-version-link').props().title).toEqual("Model A, v1");
+    expect(wrapper.find('.model-version-link').props().title).toEqual('Model A, v1');
   });
 });

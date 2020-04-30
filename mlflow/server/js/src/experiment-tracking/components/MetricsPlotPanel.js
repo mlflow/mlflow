@@ -2,7 +2,7 @@ import React from 'react';
 import { connect } from 'react-redux';
 import Utils from '../../common/utils/Utils';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
-import { getMetricHistoryApi} from '../actions';
+import { getMetricHistoryApi } from '../actions';
 import PropTypes from 'prop-types';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
@@ -107,11 +107,31 @@ export class MetricsPlotPanel extends React.Component {
       ...this.getUrlState(),
       ...updatedState,
     };
-    const { selectedXAxis, selectedMetricKeys, showPoint, yAxisLogScale, lineSmoothness,
-      layout, deselectedCurves, lastLinearYAxisRange } = newState;
-    history.replace(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
-      layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint, deselectedCurves,
-      lastLinearYAxisRange));
+    const {
+      selectedXAxis,
+      selectedMetricKeys,
+      showPoint,
+      yAxisLogScale,
+      lineSmoothness,
+      layout,
+      deselectedCurves,
+      lastLinearYAxisRange,
+    } = newState;
+    history.replace(
+      Routes.getMetricPageRoute(
+        runUuids,
+        metricKey,
+        experimentId,
+        selectedMetricKeys,
+        layout,
+        selectedXAxis,
+        yAxisLogScale,
+        lineSmoothness,
+        showPoint,
+        deselectedCurves,
+        lastLinearYAxisRange,
+      ),
+    );
   };
 
   loadMetricHistory = (runUuids, metricKeys) => {
@@ -157,16 +177,15 @@ export class MetricsPlotPanel extends React.Component {
   handleYAxisLogScaleChange = (yAxisLogScale) => {
     const state = this.getUrlState();
     const newLayout = _.cloneDeep(state.layout);
-    const newAxisType = yAxisLogScale ? "log" : "linear";
+    const newAxisType = yAxisLogScale ? 'log' : 'linear';
 
     // Handle special case of a linear y-axis scale with negative values converted to log scale &
     // now being restored to linear scale, by restoring the old linear-axis range from
     // state.linearYAxisRange. In particular, we assume that if state.linearYAxisRange
     // is non-empty, it contains a linear y axis range with negative values.
-    if (!yAxisLogScale && state.lastLinearYAxisRange &&
-        state.lastLinearYAxisRange.length > 0) {
+    if (!yAxisLogScale && state.lastLinearYAxisRange && state.lastLinearYAxisRange.length > 0) {
       newLayout.yaxis = {
-        type: "linear",
+        type: 'linear',
         range: state.lastLinearYAxisRange,
       };
       this.updateUrlState({ layout: newLayout, lastLinearYAxisRange: [] });
@@ -231,11 +250,11 @@ export class MetricsPlotPanel extends React.Component {
     // Set axis value type, & reset axis scaling via autorange
     const state = this.getUrlState();
     const axisEnumToPlotlyType = {
-      [X_AXIS_WALL]: "date",
-      [X_AXIS_RELATIVE]: "linear",
-      [X_AXIS_STEP]: "linear",
+      [X_AXIS_WALL]: 'date',
+      [X_AXIS_RELATIVE]: 'linear',
+      [X_AXIS_STEP]: 'linear',
     };
-    const axisType = axisEnumToPlotlyType[e.target.value] || "linear";
+    const axisType = axisEnumToPlotlyType[e.target.value] || 'linear';
     const newLayout = {
       ...state.layout,
       xaxis: {
@@ -246,11 +265,11 @@ export class MetricsPlotPanel extends React.Component {
     this.updateUrlState({ selectedXAxis: e.target.value, layout: newLayout });
   };
 
-
   getAxisType() {
     const state = this.getUrlState();
-    return state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log' ?
-        "log" : "linear";
+    return state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log'
+      ? 'log'
+      : 'linear';
   }
 
   /**
@@ -267,14 +286,14 @@ export class MetricsPlotPanel extends React.Component {
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
     const {
-      "xaxis.range[0]": newXRange0,
-      "xaxis.range[1]": newXRange1,
-      "yaxis.range[0]": newYRange0,
-      "yaxis.range[1]": newYRange1,
-      "xaxis.autorange": xAxisAutorange,
-      "yaxis.autorange": yAxisAutorange,
-      "yaxis.showspikes": yAxisShowSpikes,
-      "xaxis.showspikes": xAxisShowSpikes,
+      'xaxis.range[0]': newXRange0,
+      'xaxis.range[1]': newXRange1,
+      'yaxis.range[0]': newYRange0,
+      'yaxis.range[1]': newYRange1,
+      'xaxis.autorange': xAxisAutorange,
+      'yaxis.autorange': yAxisAutorange,
+      'yaxis.showspikes': yAxisShowSpikes,
+      'xaxis.showspikes': xAxisShowSpikes,
       ...restFields
     } = newLayout;
 
@@ -307,8 +326,8 @@ export class MetricsPlotPanel extends React.Component {
     }
     if (yAxisAutorange) {
       lastLinearYAxisRange = [];
-      const axisType = state.layout && state.layout.yaxis &&
-      state.layout.yaxis.type === 'log' ? "log" : "linear";
+      const axisType =
+        state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log' ? 'log' : 'linear';
       newYAxis.autorange = true;
       newYAxis.type = axisType;
     }
@@ -326,7 +345,7 @@ export class MetricsPlotPanel extends React.Component {
   static getCurveKey(plotDataElem) {
     // In bar charts, each legend item consists of a single run ID (all bars for that run are
     // associated with & toggled by that legend item)
-    if (plotDataElem.type === "bar") {
+    if (plotDataElem.type === 'bar') {
       return plotDataElem.runId;
     } else {
       // In line charts, each (run, metricKey) tuple has its own legend item, so construct
@@ -343,9 +362,11 @@ export class MetricsPlotPanel extends React.Component {
     // If two clicks in short succession, trigger double-click event
     const state = this.getUrlState();
     const currentTime = Date.now();
-    if (currentTime - this.prevLegendClickTime < this.MAX_DOUBLE_CLICK_INTERVAL_MS &&
-      curveNumber === this.lastClickedLegendCurveId) {
-      this.handleLegendDoubleClick({curveNumber, data});
+    if (
+      currentTime - this.prevLegendClickTime < this.MAX_DOUBLE_CLICK_INTERVAL_MS &&
+      curveNumber === this.lastClickedLegendCurveId
+    ) {
+      this.handleLegendDoubleClick({ curveNumber, data });
       this.prevLegendClickTime = Math.inf;
     } else {
       // Otherwise, record time of current click & trigger click event
@@ -359,7 +380,7 @@ export class MetricsPlotPanel extends React.Component {
         } else {
           existingDeselectedCurves.add(curveKey);
         }
-        this.updateUrlState({deselectedCurves: Array.from(existingDeselectedCurves)});
+        this.updateUrlState({ deselectedCurves: Array.from(existingDeselectedCurves) });
       }, this.SINGLE_CLICK_EVENT_DELAY_MS);
       this.prevLegendClickTime = currentTime;
     }
@@ -372,25 +393,28 @@ export class MetricsPlotPanel extends React.Component {
    * Handle double-clicking on a single curve within the plot legend in order to toggle display
    * of the selected curve on (and disable display of all other curves).
    */
-  handleLegendDoubleClick = ({curveNumber, data}) => {
+  handleLegendDoubleClick = ({ curveNumber, data }) => {
     window.clearTimeout(this.legendClickTimeout);
     // Exclude everything besides the current curve key
     const curveKey = MetricsPlotPanel.getCurveKey(data[curveNumber]);
     const allCurveKeys = data.map((elem) => MetricsPlotPanel.getCurveKey(elem));
     const newDeselectedCurves = allCurveKeys.filter((curvePair) => curvePair !== curveKey);
-    this.updateUrlState({deselectedCurves: newDeselectedCurves});
+    this.updateUrlState({ deselectedCurves: newDeselectedCurves });
     return false;
   };
 
   handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
     const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
-    this.setState((prevState) => ({
-      historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
-    }), () => {
-      this.updateUrlState({
-        selectedMetricKeys: metricValues,
-      });
-    });
+    this.setState(
+      (prevState) => ({
+        historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
+      }),
+      () => {
+        this.updateUrlState({
+          selectedMetricKeys: metricValues,
+        });
+      },
+    );
   };
 
   handleShowPointChange = (showPoint) => this.updateUrlState({ showPoint });
@@ -411,11 +435,14 @@ export class MetricsPlotPanel extends React.Component {
       if (this.displayPopover) {
         this.displayPopover = false;
         const { popoverVisible, popoverX, popoverY } = this.state;
-        const { points, event: { clientX, clientY } } = data;
+        const {
+          points,
+          event: { clientX, clientY },
+        } = data;
         const samePointClicked = popoverX === clientX && popoverY === clientY;
         const runItems = points
           .sort((a, b) => b.y - a.y)
-          .map(point => ({
+          .map((point) => ({
             runId: point.data.runId,
             name: point.data.name,
             color: point.fullData.marker.color,
@@ -430,24 +457,14 @@ export class MetricsPlotPanel extends React.Component {
         });
       }
     }, 300);
-  }
+  };
 
   render() {
     const { experimentId, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
-    const {
-      popoverVisible,
-      popoverX,
-      popoverY,
-      popoverRunItems,
-    } = this.state;
+    const { popoverVisible, popoverX, popoverY, popoverRunItems } = this.state;
     const state = this.getUrlState();
-    const {
-      showPoint,
-      selectedXAxis,
-      selectedMetricKeys,
-      lineSmoothness,
-    } = state;
-    const yAxisLogScale = this.getAxisType() === "log";
+    const { showPoint, selectedXAxis, selectedMetricKeys, lineSmoothness } = state;
+    const yAxisLogScale = this.getAxisType() === 'log';
     const { historyRequestIds } = this.state;
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
@@ -468,11 +485,11 @@ export class MetricsPlotPanel extends React.Component {
           showPoint={showPoint}
         />
         <RequestStateWrapper
-            requestIds={historyRequestIds}
-            // In this case where there are no history request IDs (e.g. on the
-            // initial page load / before we try to load additional metrics),
-            // optimistically render the children
-            shouldOptimisticallyRender={historyRequestIds.length === 0}
+          requestIds={historyRequestIds}
+          // In this case where there are no history request IDs (e.g. on the
+          // initial page load / before we try to load additional metrics),
+          // optimistically render the children
+          shouldOptimisticallyRender={historyRequestIds.length === 0}
         >
           <RunLinksPopover
             experimentId={experimentId}
@@ -528,14 +545,14 @@ const mapStateToProps = (state, ownProps) => {
     const metricsHistory = metricsByRunUuid[runUuid];
     return metricsHistory
       ? Object.keys(metricsHistory).map((metricKey) => {
-        const history = metricsHistory[metricKey].map((entry) => ({
-          key: entry.key,
-          value: entry.value,
-          step: Number.parseInt(entry.step, 10) || 0, // default step to 0
-          timestamp: Number.parseFloat(entry.timestamp),
-        }));
-        return { metricKey, history, runUuid, runDisplayName };
-      })
+          const history = metricsHistory[metricKey].map((entry) => ({
+            key: entry.key,
+            value: entry.value,
+            step: Number.parseInt(entry.step, 10) || 0, // default step to 0
+            timestamp: Number.parseFloat(entry.timestamp),
+          }));
+          return { metricKey, history, runUuid, runDisplayName };
+        })
       : [];
   });
 
@@ -549,9 +566,4 @@ const mapStateToProps = (state, ownProps) => {
 
 const mapDispatchToProps = { getMetricHistoryApi };
 
-export default withRouter(
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  )(MetricsPlotPanel),
-);
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(MetricsPlotPanel));

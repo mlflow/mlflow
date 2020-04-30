@@ -11,7 +11,7 @@ describe('RunsTableCustomHeader', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<RunsTableCustomHeader {...minimalProps}/>);
+    wrapper = shallow(<RunsTableCustomHeader {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 

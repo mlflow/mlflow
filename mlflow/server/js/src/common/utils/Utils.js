@@ -61,7 +61,7 @@ class Utils {
    */
   static truncateString(string, maxLength) {
     if (string.length > maxLength) {
-      return string.slice(0, maxLength - 3) + "...";
+      return string.slice(0, maxLength - 3) + '...';
     }
     return string;
   }
@@ -128,25 +128,25 @@ class Utils {
    */
   static formatDuration(duration) {
     if (duration < 500) {
-      return duration + "ms";
+      return duration + 'ms';
     } else if (duration < 1000 * 60) {
-      return (duration / 1000).toFixed(1) + "s";
+      return (duration / 1000).toFixed(1) + 's';
     } else if (duration < 1000 * 60 * 60) {
-      return (duration / 1000 / 60).toFixed(1) + "min";
+      return (duration / 1000 / 60).toFixed(1) + 'min';
     } else if (duration < 1000 * 60 * 60 * 24) {
-      return (duration / 1000 / 60 / 60).toFixed(1) + "h";
+      return (duration / 1000 / 60 / 60).toFixed(1) + 'h';
     } else {
-      return (duration / 1000 / 60 / 60 / 24).toFixed(1) + "d";
+      return (duration / 1000 / 60 / 60 / 24).toFixed(1) + 'd';
     }
   }
 
   static baseName(path) {
-    const pieces = path.split("/");
+    const pieces = path.split('/');
     return pieces[pieces.length - 1];
   }
 
   static dropExtension(path) {
-    return path.replace(/(.*[^/])\.[^/.]+$/, "$1");
+    return path.replace(/(.*[^/])\.[^/.]+$/, '$1');
   }
 
   static getGitHubRegex() {
@@ -167,17 +167,17 @@ class Utils {
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
-      const baseUrl = gitHubMatch ? "https://github.com/" : "https://gitlab.com/";
+      const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
       const match = gitHubMatch || gitLabMatch;
-      url = baseUrl + match[1] + "/" + match[2].replace(/.git/, '');
+      url = baseUrl + match[1] + '/' + match[2].replace(/.git/, '');
       if (match[3]) {
-        url = url + "/tree/master/" + match[3];
+        url = url + '/tree/master/' + match[3];
       }
     } else if (bitbucketMatch) {
-      const baseUrl = "https://bitbucket.org/";
-      url = baseUrl + bitbucketMatch[1] + "/" + bitbucketMatch[2].replace(/.git/, '');
+      const baseUrl = 'https://bitbucket.org/';
+      url = baseUrl + bitbucketMatch[1] + '/' + bitbucketMatch[2].replace(/.git/, '');
       if (bitbucketMatch[3]) {
-        url = url + "/src/master/" + bitbucketMatch[3];
+        url = url + '/src/master/' + bitbucketMatch[3];
       }
     }
     return url;
@@ -189,14 +189,28 @@ class Utils {
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
-      const baseUrl = gitHubMatch ? "https://github.com/" : "https://gitlab.com/";
+      const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
       const match = gitHubMatch || gitLabMatch;
-      url = (baseUrl + match[1] + "/" + match[2].replace(/.git/, '') +
-        "/tree/" + sourceVersion) + "/" + match[3];
+      url =
+        baseUrl +
+        match[1] +
+        '/' +
+        match[2].replace(/.git/, '') +
+        '/tree/' +
+        sourceVersion +
+        '/' +
+        match[3];
     } else if (bitbucketMatch) {
-      const baseUrl = "https://bitbucket.org/";
-      url = (baseUrl + bitbucketMatch[1] + "/" + bitbucketMatch[2].replace(/.git/, '') +
-        "/src/" + sourceVersion) + "/" + bitbucketMatch[3];
+      const baseUrl = 'https://bitbucket.org/';
+      url =
+        baseUrl +
+        bitbucketMatch[1] +
+        '/' +
+        bitbucketMatch[2].replace(/.git/, '') +
+        '/src/' +
+        sourceVersion +
+        '/' +
+        bitbucketMatch[3];
     }
     return url;
   }
@@ -209,7 +223,7 @@ class Utils {
    */
   static setQueryParams(url, queryParams) {
     const urlObj = new URL(url);
-    urlObj.search = queryParams || "";
+    urlObj.search = queryParams || '';
     return urlObj.toString();
   }
 
@@ -222,13 +236,17 @@ class Utils {
     const sourceName = Utils.getSourceName(tags);
     const sourceType = Utils.getSourceType(tags);
     let res = Utils.formatSource(tags);
-    if (sourceType === "PROJECT") {
+    if (sourceType === 'PROJECT') {
       const url = Utils.getGitRepoUrl(sourceName);
       if (url) {
-        res = <a target="_top" href={url}>{res}</a>;
+        res = (
+          <a target='_top' href={url}>
+            {res}
+          </a>
+        );
       }
       return res;
-    } else if (sourceType === "NOTEBOOK") {
+    } else if (sourceType === 'NOTEBOOK') {
       const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
       const notebookIdTag = 'mlflow.databricks.notebookID';
       const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
@@ -239,12 +257,14 @@ class Utils {
         if (revisionId) {
           url += `/revision/${revisionId}`;
         }
-        res = (<a title={sourceName} href={url} target='_top'>
-          {Utils.baseName(sourceName)}
-        </a>);
+        res = (
+          <a title={sourceName} href={url} target='_top'>
+            {Utils.baseName(sourceName)}
+          </a>
+        );
       }
       return res;
-    } else if (sourceType === "JOB") {
+    } else if (sourceType === 'JOB') {
       const jobIdTag = 'mlflow.databricks.jobID';
       const jobRunIdTag = 'mlflow.databricks.jobRunID';
       const jobId = tags && tags[jobIdTag] && tags[jobIdTag].value;
@@ -252,7 +272,11 @@ class Utils {
       if (jobId && jobRunId) {
         let url = Utils.setQueryParams(window.location.origin, queryParams);
         url += `#job/${jobId}/run/${jobRunId}`;
-        res = (<a title={res} href={url} target='_top'>{res}</a>);
+        res = (
+          <a title={res} href={url} target='_top'>
+            {res}
+          </a>
+        );
       }
       return res;
     } else {
@@ -270,16 +294,16 @@ class Utils {
       top: '-3px',
       marginRight: '4px',
     };
-    if (sourceType === "NOTEBOOK") {
-      return <img alt="" title="Notebook" style={imageStyle} src={notebookSvg} />;
-    } else if (sourceType === "LOCAL") {
-      return <img alt="" title="Local Source" style={imageStyle} src={laptopSvg} />;
-    } else if (sourceType === "PROJECT") {
-      return <img alt="" title="Project" style={imageStyle} src={projectSvg} />;
-    } else if (sourceType === "JOB") {
-      return <img alt="" title="Job" style={imageStyle} src={jobSvg} />;
+    if (sourceType === 'NOTEBOOK') {
+      return <img alt='' title='Notebook' style={imageStyle} src={notebookSvg} />;
+    } else if (sourceType === 'LOCAL') {
+      return <img alt='' title='Local Source' style={imageStyle} src={laptopSvg} />;
+    } else if (sourceType === 'PROJECT') {
+      return <img alt='' title='Project' style={imageStyle} src={projectSvg} />;
+    } else if (sourceType === 'JOB') {
+      return <img alt='' title='Job' style={imageStyle} src={jobSvg} />;
     }
-    return <img alt="" style={imageStyle} src={emptySvg} />;
+    return <img alt='' style={imageStyle} src={emptySvg} />;
   }
 
   /**
@@ -290,13 +314,13 @@ class Utils {
     const sourceName = Utils.getSourceName(tags);
     const sourceType = Utils.getSourceType(tags);
     const entryPointName = Utils.getEntryPointName(tags);
-    if (sourceType === "PROJECT") {
+    if (sourceType === 'PROJECT') {
       let res = Utils.dropExtension(Utils.baseName(sourceName));
-      if (entryPointName && entryPointName !== "main") {
-        res += ":" + entryPointName;
+      if (entryPointName && entryPointName !== 'main') {
+        res += ':' + entryPointName;
       }
       return res;
-    } else if (sourceType === "JOB") {
+    } else if (sourceType === 'JOB') {
       const jobIdTag = 'mlflow.databricks.jobID';
       const jobRunIdTag = 'mlflow.databricks.jobRunID';
       const jobId = tags && tags[jobIdTag] && tags[jobIdTag].value;
@@ -315,7 +339,7 @@ class Utils {
    * @param runTags Object of tag name to MlflowMessages.RunTag instance
    */
   static getRunDisplayName(runTags, runUuid) {
-    return Utils.getRunName(runTags) || "Run " + runUuid;
+    return Utils.getRunName(runTags) || 'Run ' + runUuid;
   }
 
   static getRunName(runTags) {
@@ -323,7 +347,7 @@ class Utils {
     if (runNameTag) {
       return runNameTag.value;
     }
-    return "";
+    return '';
   }
 
   static getSourceName(runTags) {
@@ -331,7 +355,7 @@ class Utils {
     if (sourceNameTag) {
       return sourceNameTag.value;
     }
-    return "";
+    return '';
   }
 
   static getSourceType(runTags) {
@@ -339,7 +363,7 @@ class Utils {
     if (sourceTypeTag) {
       return sourceTypeTag.value;
     }
-    return "";
+    return '';
   }
 
   static getSourceVersion(runTags) {
@@ -347,7 +371,7 @@ class Utils {
     if (gitCommitTag) {
       return gitCommitTag.value;
     }
-    return "";
+    return '';
   }
 
   static getEntryPointName(runTags) {
@@ -355,7 +379,7 @@ class Utils {
     if (entryPointTag) {
       return entryPointTag.value;
     }
-    return "";
+    return '';
   }
 
   static getBackend(runTags) {
@@ -363,7 +387,7 @@ class Utils {
     if (backendTag) {
       return backendTag.value;
     }
-    return "";
+    return '';
   }
 
   // TODO(aaron) Remove runInfo when user_id deprecation is complete.
@@ -381,10 +405,14 @@ class Utils {
     const sourceType = Utils.getSourceType(tags);
     if (sourceVersion) {
       const versionString = shortVersion ? sourceVersion.substring(0, 6) : sourceVersion;
-      if (sourceType === "PROJECT") {
+      if (sourceType === 'PROJECT') {
         const url = Utils.getGitCommitUrl(sourceName, sourceVersion);
         if (url) {
-          return <a href={url} target='_top'>{versionString}</a>;
+          return (
+            <a href={url} target='_top'>
+              {versionString}
+            </a>
+          );
         }
         return versionString;
       } else {
@@ -411,8 +439,8 @@ class Utils {
   }
 
   static getCurveInfoFromKey(curvePair) {
-    const splitPair = curvePair.split("-");
-    return {runId: splitPair[0], metricName: splitPair.slice(1, splitPair.length).join("-")};
+    const splitPair = curvePair.split('-');
+    return { runId: splitPair[0], metricName: splitPair.slice(1, splitPair.length).join('-') };
   }
 
   /**
@@ -442,17 +470,19 @@ class Utils {
     }
 
     const selectedXAxis = params['x_axis'] || 'relative';
-    const selectedMetricKeys = JSON.parse(params['plot_metric_keys']) ||
-        defaultState.selectedMetricKeys;
+    const selectedMetricKeys =
+      JSON.parse(params['plot_metric_keys']) || defaultState.selectedMetricKeys;
     const showPoint = params['show_point'] === 'true';
     const yAxisLogScale = params['y_axis_scale'] === 'log';
     const lineSmoothness = params['line_smoothness'] ? parseFloat(params['line_smoothness']) : 0;
-    const layout = params['plot_layout'] ? JSON.parse(params['plot_layout']) : {autosize: true};
+    const layout = params['plot_layout'] ? JSON.parse(params['plot_layout']) : { autosize: true };
     // Default to displaying all runs, i.e. to deselectedCurves being empty
-    const deselectedCurves = params['deselected_curves'] ?
-        JSON.parse(params['deselected_curves']) : [];
-    const lastLinearYAxisRange = params['last_linear_y_axis_range'] ?
-        JSON.parse(params['last_linear_y_axis_range']) : [];
+    const deselectedCurves = params['deselected_curves']
+      ? JSON.parse(params['deselected_curves'])
+      : [];
+    const lastLinearYAxisRange = params['last_linear_y_axis_range']
+      ? JSON.parse(params['last_linear_y_axis_range'])
+      : [];
     return {
       selectedXAxis,
       selectedMetricKeys,
@@ -467,16 +497,15 @@ class Utils {
 
   static getPlotLayoutFromUrl(search) {
     const params = qs.parse(search);
-    const layout = params["plot_layout"];
+    const layout = params['plot_layout'];
     return layout ? JSON.parse(layout) : {};
   }
 
   static getSearchParamsFromUrl(search) {
-    const params = qs.parse(search, {ignoreQueryPrefix: true});
-    const str = JSON.stringify(params,
-      function replaceUndefined(key, value) {
-        return (value === undefined) ? "" : value;
-      });
+    const params = qs.parse(search, { ignoreQueryPrefix: true });
+    const str = JSON.stringify(params, function replaceUndefined(key, value) {
+      return value === undefined ? '' : value;
+    });
 
     return params ? JSON.parse(str) : [];
   }
@@ -499,16 +528,14 @@ class Utils {
 
   static compareByStepAndTimestamp(history1, history2) {
     const stepResult = history1.step - history2.step;
-    return stepResult === 0 ? (history1.timestamp - history2.timestamp) : stepResult;
+    return stepResult === 0 ? history1.timestamp - history2.timestamp : stepResult;
   }
 
   static getVisibleTagValues(tags) {
     // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
-    return Object.values(tags).map((t) =>
-      [t.getKey(), t.getValue()]
-    ).filter(t =>
-      !t[0].startsWith(MLFLOW_INTERNAL_PREFIX)
-    );
+    return Object.values(tags)
+      .map((t) => [t.getKey(), t.getValue()])
+      .filter((t) => !t[0].startsWith(MLFLOW_INTERNAL_PREFIX));
   }
 
   static getVisibleTagKeyList(tagsList) {
@@ -518,7 +545,7 @@ class Utils {
   }
 
   static getAjaxUrl(relativeUrl) {
-    if (process.env.USE_ABSOLUTE_AJAX_URLS === "true") {
+    if (process.env.USE_ABSOLUTE_AJAX_URLS === 'true') {
       return '/' + relativeUrl;
     }
     return relativeUrl;
@@ -537,11 +564,14 @@ class Utils {
   }
 
   static updatePageTitle(title) {
-    window.parent.postMessage({
-      // Please keep this type name in sync with PostMessage.js
-      type: 'UPDATE_TITLE',
-      title,
-    }, window.parent.location.origin);
+    window.parent.postMessage(
+      {
+        // Please keep this type name in sync with PostMessage.js
+        type: 'UPDATE_TITLE',
+        title,
+      },
+      window.parent.location.origin,
+    );
   }
 
   /**
@@ -555,9 +585,7 @@ class Utils {
   }
 
   static shouldRender404(requests, requestIdsToCheck) {
-    const requestsToCheck = requests.filter((request) =>
-      requestIdsToCheck.includes(request.id),
-    );
+    const requestsToCheck = requests.filter((request) => requestIdsToCheck.includes(request.id));
     return requestsToCheck.some((request) => {
       const { error } = request;
       return error && error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST;
@@ -565,8 +593,8 @@ class Utils {
   }
 
   static compareExperiments(a, b) {
-    const aId = typeof (a.getExperimentId) === "function" ? a.getExperimentId() : a.experiment_id;
-    const bId = typeof (b.getExperimentId) === "function" ? b.getExperimentId() : b.experiment_id;
+    const aId = typeof a.getExperimentId === 'function' ? a.getExperimentId() : a.experiment_id;
+    const bId = typeof b.getExperimentId === 'function' ? b.getExperimentId() : b.experiment_id;
 
     const aIntId = parseInt(aId, 10);
     const bIntId = parseInt(bId, 10);
