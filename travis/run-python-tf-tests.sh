@@ -6,6 +6,7 @@ err=0
 trap 'err=1' ERR
 export MLFLOW_HOME=$(pwd)
 
+pip install 'tensorflow==1.15.2'
 pytest --verbose tests/keras --large
 pytest --verbose tests/tensorflow/test_tensorflow_model_export.py --large
 pytest --verbose tests/tensorflow_autolog/test_tensorflow_autolog.py --large
