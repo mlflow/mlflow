@@ -103,6 +103,8 @@ def pyfunc_serve_from_docker_image_with_env_override(image_name,
     on the host machine. Returns a handle (Popen object) to the server process.
     """
     env = dict(os.environ)
+    print("LOOK!")
+    print(env)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     scoring_cmd = ['docker', 'run', "-e", "GUNICORN_CMD_ARGS=%s" % gunicorn_opts,
                    "-p", "%s:8080" % host_port, image_name]
