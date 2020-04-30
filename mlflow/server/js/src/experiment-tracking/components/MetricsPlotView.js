@@ -76,7 +76,13 @@ export class MetricsPlotView extends React.Component {
     const deselectedCurvesSet = new Set(deselectedCurves);
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
-      const isSingleHistory = history.length === 0;
+      const historyValues = history.map((entry) => entry.value);
+      // For metrics with exactly one non-NaN item, we set `isSingleHistory` to `true` in order
+      // to display the item as a point. For metrics with zero non-NaN items (i.e., empty metrics),
+      // we also set `isSingleHistory` to `true` in order to populate the plot legend with a
+      // point-style entry for each empty metric, although no data will be plotted for empty
+      // metrics
+      const isSingleHistory = historyValues.filter((value) => !isNaN(value)).length <= 1;
       const visible = !deselectedCurvesSet.has(Utils.getCurveKey(runUuid, metricKey))
         ? true
         : 'legendonly';
@@ -88,11 +94,8 @@ export class MetricsPlotView extends React.Component {
           }
           return MetricsPlotView.parseTimestamp(entry.timestamp, history, xAxis);
         }),
-        y: EMA(
-          history.map((entry) => entry.value),
-          lineSmoothness,
-        ),
-        text: history.map((entry) => (isNaN(entry.value) ? entry.value : entry.value.toFixed(5))),
+        y: isSingleHistory ? historyValues : EMA(historyValues, lineSmoothness),
+        text: historyValues.map((value) => (isNaN(value) ? value : value.toFixed(5))),
         type: 'scattergl',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
         marker: { opacity: isSingleHistory || showPoint ? 1 : 0 },

@@ -154,8 +154,8 @@ describe('unit tests', () => {
     });
   });
 
-  test('should render bar chart for metrics with single NaN value', () => {
-    const metricsForBar = [
+  test('should render bar chart successfully for metrics containiing NaN values', () => {
+    const metricsForNaNBar = [
       {
         metricKey: 'metric_0',
         history: [
@@ -184,8 +184,55 @@ describe('unit tests', () => {
       },
     ];
 
-    const singleNaNBarChartProps = {...minimalPropsForBarChart, metrics: metricsForBar};
-    wrapper = shallow(<MetricsPlotView {...singleNaNBarChartProps} />);
+    const nanBarChartProps = { ...minimalPropsForBarChart, metrics: metricsForNaNBar };
+    wrapper = shallow(<MetricsPlotView {...nanBarChartProps} />);
+    expect(wrapper.length).toBe(1);
+  });
+
+  test('should render line chart successfully for metrics containiing NaN values', () => {
+    const metricsForNaNLine = [
+      {
+        metricKey: 'metric_0',
+        history: [
+          {
+            key: 'metric_0',
+            value: 100,
+            step: 0,
+            timestamp: 1556662043000,
+          },
+          {
+            key: 'metric_0',
+            value: NaN,
+            step: 1,
+            timestamp: 1556662044000,
+          },
+        ],
+        runUuid: 'runUuid1',
+        runDisplayName: 'RunDisplayName1',
+      },
+      {
+        metricKey: 'metric_1',
+        history: [
+          {
+            key: 'metric_1',
+            value: 'NaN',
+            step: 0,
+            timestamp: 1556662043000,
+          },
+          {
+            key: 'metric_1',
+            value: 400,
+            step: 1,
+            timestamp: 1556662044000,
+          },
+        ],
+        runUuid: 'runUuid2',
+        runDisplayName: 'RunDisplayName2',
+      },
+    ];
+
+    const nanLineChartProps = { ...minimalPropsForLineChart, metrics: metricsForNaNLine };
+    wrapper = shallow(<MetricsPlotView {...nanLineChartProps} />);
     expect(wrapper.length).toBe(1);
   });
 
@@ -213,6 +260,86 @@ describe('unit tests', () => {
           runId: 'runUuid2',
           x: [0, 1],
           y: [300, 366.887417218543],
+          text: ['300.00000', '400.00000'],
+          type: 'scattergl',
+          visible: true,
+          mode: 'lines+markers',
+          hovertemplate: 'Value: %{text}<br>Smoothed: %{y}',
+          marker: { opacity: 0 },
+        },
+      ],
+      layout: {},
+    });
+  });
+
+  test('getPlotPropsForLineChart(lineSmoothness = 50) with metrics containing NaN values', () => {
+    const metricsForNaNLine = [
+      {
+        metricKey: 'metric_0',
+        history: [
+          {
+            key: 'metric_0',
+            value: 100,
+            step: 0,
+            timestamp: 1556662043000,
+          },
+          {
+            key: 'metric_0',
+            value: NaN,
+            step: 1,
+            timestamp: 1556662044000,
+          },
+        ],
+        runUuid: 'runUuid1',
+        runDisplayName: 'RunDisplayName1',
+      },
+      {
+        metricKey: 'metric_1',
+        history: [
+          {
+            key: 'metric_1',
+            value: 'NaN',
+            step: 0,
+            timestamp: 1556662043000,
+          },
+          {
+            key: 'metric_1',
+            value: 400,
+            step: 1,
+            timestamp: 1556662044000,
+          },
+        ],
+        runUuid: 'runUuid2',
+        runDisplayName: 'RunDisplayName2',
+      },
+    ];
+
+    const nanLineChartProps = { ...minimalPropsForLineChart, metrics: metricsForNaNLine };
+
+
+    wrapper = shallow(<MetricsPlotView {...nanLineChartProps} />);
+    instance = wrapper.instance();
+    expect(instance.getPlotPropsForLineChart()).toEqual({
+      data: [
+        {
+          metricName: 'metric_0',
+          name: 'metric_0',
+          runId: 'runUuid1',
+          x: [0, 1],
+          y: [100, 166.88741721854302],
+          text: ['100.00000', '200.00000'],
+          type: 'scattergl',
+          visible: true,
+          mode: 'lines+markers',
+          hovertemplate: 'Value: %{text}<br>Smoothed: %{y}',
+          marker: { opacity: 0 },
+        },
+        {
+          metricName: 'metric_1',
+          name: 'metric_1',
+          runId: 'runUuid2',
+          x: [0, 1],
+          y: [NaN, 400],
           text: ['300.00000', '400.00000'],
           type: 'scattergl',
           visible: true,
