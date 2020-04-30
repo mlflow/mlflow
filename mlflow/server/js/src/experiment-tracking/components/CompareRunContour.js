@@ -33,36 +33,36 @@ export class CompareRunContour extends Component {
     this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, true);
 
     if (this.paramKeys.length + this.metricKeys.length < 3) {
-      this.state = {disabled: true};
+      this.state = { disabled: true };
     } else {
-      const common = {disabled: false, reverseColor: false};
+      const common = { disabled: false, reverseColor: false };
       if (this.metricKeys.length === 0) {
         this.state = {
           ...common,
-          xaxis: {key: this.paramKeys[0], isMetric: false},
-          yaxis: {key: this.paramKeys[1], isMetric: false},
-          zaxis: {key: this.paramKeys[2], isMetric: false},
+          xaxis: { key: this.paramKeys[0], isMetric: false },
+          yaxis: { key: this.paramKeys[1], isMetric: false },
+          zaxis: { key: this.paramKeys[2], isMetric: false },
         };
       } else if (this.paramKeys.length === 0) {
         this.state = {
           ...common,
-          xaxis: {key: this.metricKeys[0], isMetric: true},
-          yaxis: {key: this.metricKeys[1], isMetric: true},
-          zaxis: {key: this.metricKeys[2], isMetric: true},
+          xaxis: { key: this.metricKeys[0], isMetric: true },
+          yaxis: { key: this.metricKeys[1], isMetric: true },
+          zaxis: { key: this.metricKeys[2], isMetric: true },
         };
       } else if (this.paramKeys.length === 1) {
         this.state = {
           ...common,
-          xaxis: {key: this.paramKeys[0], isMetric: false},
-          yaxis: {key: this.metricKeys[0], isMetric: true},
-          zaxis: {key: this.metricKeys[1], isMetric: true},
+          xaxis: { key: this.paramKeys[0], isMetric: false },
+          yaxis: { key: this.metricKeys[0], isMetric: true },
+          zaxis: { key: this.metricKeys[1], isMetric: true },
         };
       } else {
         this.state = {
           ...common,
-          xaxis: {key: this.paramKeys[0], isMetric: false},
-          yaxis: {key: this.paramKeys[1], isMetric: false},
-          zaxis: {key: this.metricKeys[0], isMetric: true},
+          xaxis: { key: this.paramKeys[0], isMetric: false },
+          yaxis: { key: this.paramKeys[1], isMetric: false },
+          zaxis: { key: this.metricKeys[0], isMetric: true },
         };
       }
     }
@@ -71,9 +71,11 @@ export class CompareRunContour extends Component {
   /**
    * Get the value of the metric/param described by {key, isMetric}, in run i
    */
-  getValue(i, {key, isMetric}) {
+  getValue(i, { key, isMetric }) {
     const value = CompareRunUtil.findInList(
-      (isMetric ? this.props.metricLists : this.props.paramLists)[i], key);
+      (isMetric ? this.props.metricLists : this.props.paramLists)[i],
+      key,
+    );
     return value === undefined ? value : value.value;
   }
 
@@ -86,13 +88,13 @@ export class CompareRunContour extends Component {
 
   getColorscale() {
     /*
-    * contour plot has an option named "reversescale" which
-    * reverses the color mapping if True, but it doesn't work properly now.
-    *
-    * https://github.com/plotly/plotly.js/issues/4430
-    *
-    * This function is a temporary workaround for the issue.
-    */
+     * contour plot has an option named "reversescale" which
+     * reverses the color mapping if True, but it doesn't work properly now.
+     *
+     * https://github.com/plotly/plotly.js/issues/4430
+     *
+     * This function is a temporary workaround for the issue.
+     */
     const colorscale = [
       [0, 'rgb(5,10,172)'],
       [0.35, 'rgb(40,60,190)'],
@@ -106,10 +108,7 @@ export class CompareRunContour extends Component {
       return colorscale;
     } else {
       // reverse only RGB values
-      return colorscale.map(([val], index) => [
-        val,
-        colorscale[colorscale.length - 1 - index][1],
-      ]);
+      return colorscale.map(([val], index) => [val, colorscale[colorscale.length - 1 - index][1]]);
     }
   }
 
@@ -155,122 +154,133 @@ export class CompareRunContour extends Component {
       z[yi][xi] = zs[index];
     });
 
-    return (<div className="responsive-table-container">
-      <div className="container-fluid">
-        <div className="row">
-          <form className="col-xs-3">
-            <div className="form-group">
-              <label htmlFor="x-axis-selector">X-axis:</label>
-              {this.renderSelect("xaxis")}
-            </div>
-            <div className="form-group">
-              <label htmlFor="y-axis-selector">Y-axis:</label>
-              {this.renderSelect("yaxis")}
-            </div>
-            <div className="form-group">
-              <label htmlFor="z-axis-selector">Z-axis:</label>
-              {this.renderSelect("zaxis")}
-            </div>
-            <div className='inline-control'>
-              <div className='control-label'>Reverse color:</div>
-              <Switch
-                className='show-point-toggle'
-                checkedChildren='On'
-                unCheckedChildren='Off'
-                onChange={checked => this.setState({reverseColor: checked})}
+    return (
+      <div className='responsive-table-container'>
+        <div className='container-fluid'>
+          <div className='row'>
+            <form className='col-xs-3'>
+              <div className='form-group'>
+                <label htmlFor='x-axis-selector'>X-axis:</label>
+                {this.renderSelect('xaxis')}
+              </div>
+              <div className='form-group'>
+                <label htmlFor='y-axis-selector'>Y-axis:</label>
+                {this.renderSelect('yaxis')}
+              </div>
+              <div className='form-group'>
+                <label htmlFor='z-axis-selector'>Z-axis:</label>
+                {this.renderSelect('zaxis')}
+              </div>
+              <div className='inline-control'>
+                <div className='control-label'>Reverse color:</div>
+                <Switch
+                  className='show-point-toggle'
+                  checkedChildren='On'
+                  unCheckedChildren='Off'
+                  onChange={(checked) => this.setState({ reverseColor: checked })}
+                />
+              </div>
+            </form>
+            <div className='col-xs-9'>
+              <Plot
+                data={[
+                  // contour plot
+                  {
+                    z,
+                    x: xsSorted,
+                    y: ysSorted,
+                    type: 'contour',
+                    hoverinfo: 'none',
+                    colorscale: this.getColorscale(),
+                    connectgaps: true,
+                    contours: {
+                      coloring: 'heatmap',
+                    },
+                  },
+                  // scatter plot
+                  {
+                    x: xs,
+                    y: ys,
+                    text: tooltips,
+                    hoverinfo: 'text',
+                    type: 'scattergl',
+                    mode: 'markers',
+                    marker: {
+                      size: 10,
+                      color: 'rgba(200, 50, 100, .75)',
+                    },
+                  },
+                ]}
+                layout={{
+                  margin: {
+                    t: 30,
+                  },
+                  hovermode: 'closest',
+                  xaxis: {
+                    title: this.encodeHtml(
+                      Utils.truncateString(this.state['xaxis'].key, keyLength),
+                    ),
+                    range: [Math.min(...xs), Math.max(...xs)],
+                  },
+                  yaxis: {
+                    title: this.encodeHtml(
+                      Utils.truncateString(this.state['yaxis'].key, keyLength),
+                    ),
+                    range: [Math.min(...ys), Math.max(...ys)],
+                  },
+                }}
+                className={'scatter-plotly'}
+                config={{
+                  responsive: true,
+                  displaylogo: false,
+                  scrollZoom: true,
+                  modeBarButtonsToRemove: [
+                    'sendDataToCloud',
+                    'select2d',
+                    'lasso2d',
+                    'resetScale2d',
+                    'hoverClosestCartesian',
+                    'hoverCompareCartesian',
+                  ],
+                }}
+                useResizeHandler
               />
             </div>
-          </form>
-          <div className="col-xs-9">
-            <Plot
-              data={[
-                // contour plot
-                {
-                  z,
-                  x: xsSorted,
-                  y: ysSorted,
-                  type: 'contour',
-                  hoverinfo: 'none',
-                  colorscale: this.getColorscale(),
-                  connectgaps: true,
-                  contours: {
-                    coloring: 'heatmap',
-                  },
-                },
-                // scatter plot
-                {
-                  x: xs,
-                  y: ys,
-                  text: tooltips,
-                  hoverinfo: "text",
-                  type: 'scattergl',
-                  mode: 'markers',
-                  marker: {
-                    size: 10,
-                    color: "rgba(200, 50, 100, .75)",
-                  },
-                },
-              ]}
-              layout={{
-                margin: {
-                  t: 30,
-                },
-                hovermode: "closest",
-                xaxis: {
-                  title: this.encodeHtml(Utils.truncateString(this.state["xaxis"].key, keyLength)),
-                  range: [Math.min(...xs), Math.max(...xs)],
-                },
-                yaxis: {
-                  title: this.encodeHtml(Utils.truncateString(this.state["yaxis"].key, keyLength)),
-                  range: [Math.min(...ys), Math.max(...ys)],
-                },
-              }}
-              className={"scatter-plotly"}
-              config={{
-                responsive: true,
-                displaylogo: false,
-                scrollZoom: true,
-                modeBarButtonsToRemove: [
-                  "sendDataToCloud",
-                  "select2d",
-                  "lasso2d",
-                  "resetScale2d",
-                  "hoverClosestCartesian",
-                  "hoverCompareCartesian",
-                ],
-              }}
-              useResizeHandler
-            />
           </div>
         </div>
       </div>
-    </div>);
+    );
   }
 
   renderSelect(axis) {
     return (
       <select
-        className="form-control"
-        id={axis + "-axis-selector"}
+        className='form-control'
+        id={axis + '-axis-selector'}
         onChange={(e) => {
-          const [prefix, ...keyParts] = e.target.value.split("-");
-          const key = keyParts.join("-");
-          const isMetric = prefix === "metric";
-          this.setState({[axis]: {isMetric, key}});
+          const [prefix, ...keyParts] = e.target.value.split('-');
+          const key = keyParts.join('-');
+          const isMetric = prefix === 'metric';
+          this.setState({ [axis]: { isMetric, key } });
         }}
-        value={(this.state[axis].isMetric ? "metric-" : "param-") + this.state[axis].key}
+        value={(this.state[axis].isMetric ? 'metric-' : 'param-') + this.state[axis].key}
       >
-        <optgroup label="Parameter">
-          {this.paramKeys.map((p) =>
-            <option key={"param-" + p} value={"param-" + p}>{p}</option>
-          )}
+        <optgroup label='Parameter'>
+          {this.paramKeys.map((p) => (
+            <option key={'param-' + p} value={'param-' + p}>
+              {p}
+            </option>
+          ))}
         </optgroup>
-        <optgroup label="Metric">
-          {this.metricKeys.map((m) =>
-            <option key={"metric-" + m} value={"metric-" + m}>{m}</option>
-          )}
+        <optgroup label='Metric'>
+          {this.metricKeys.map((m) => (
+            <option key={'metric-' + m} value={'metric-' + m}>
+              {m}
+            </option>
+          ))}
         </optgroup>
-      </select>);
+      </select>
+    );
   }
 
   getPlotlyTooltip(index) {
@@ -279,16 +289,22 @@ export class CompareRunContour extends Component {
     const runName = this.props.runDisplayNames[index];
     let result = `<b>${this.encodeHtml(runName)}</b><br>`;
     const paramList = this.props.paramLists[index];
-    paramList.forEach(p => {
-      result += this.encodeHtml(Utils.truncateString(p.key, keyLength)) + ': '
-        + this.encodeHtml(Utils.truncateString(p.value, valueLength)) + '<br>';
+    paramList.forEach((p) => {
+      result +=
+        this.encodeHtml(Utils.truncateString(p.key, keyLength)) +
+        ': ' +
+        this.encodeHtml(Utils.truncateString(p.value, valueLength)) +
+        '<br>';
     });
     const metricList = this.props.metricLists[index];
     if (metricList.length > 0) {
-      result += (paramList.length > 0) ? '<br>' : '';
-      metricList.forEach(m => {
-        result += this.encodeHtml(Utils.truncateString(m.key, keyLength)) + ': '
-          + Utils.formatMetric(m.value) + '<br>';
+      result += paramList.length > 0 ? '<br>' : '';
+      metricList.forEach((m) => {
+        result +=
+          this.encodeHtml(Utils.truncateString(m.key, keyLength)) +
+          ': ' +
+          Utils.formatMetric(m.value) +
+          '<br>';
       });
     }
     return result;

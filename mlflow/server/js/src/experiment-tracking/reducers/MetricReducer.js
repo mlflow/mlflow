@@ -28,7 +28,7 @@ export const getLatestMetrics = (runUuid, state) => {
 export const latestMetricsByRunUuid = (state = {}, action) => {
   const metricArrToObject = (metrics) => {
     const metricObj = {};
-    metrics.forEach((m) => metricObj[m.key] = Metric.fromJs(m));
+    metrics.forEach((m) => (metricObj[m.key] = Metric.fromJs(m)));
     return metricObj;
   };
   switch (action.type) {
@@ -63,7 +63,7 @@ export const latestMetricsByRunUuid = (state = {}, action) => {
         if (newState[runUuid]) {
           newState[runUuid][key] = lastMetric;
         } else {
-          newState[runUuid] = {[key]: lastMetric};
+          newState[runUuid] = { [key]: lastMetric };
         }
       }
       return newState;

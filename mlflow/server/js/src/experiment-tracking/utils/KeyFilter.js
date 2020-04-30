@@ -10,10 +10,10 @@
  */
 export default class KeyFilter {
   constructor(filterString) {
-    this.filterString = filterString || "";
+    this.filterString = filterString || '';
     this.keyList = [];
-    this.filterString.split(',').forEach(key => {
-      if (key.trim() !== "") {
+    this.filterString.split(',').forEach((key) => {
+      if (key.trim() !== '') {
         this.keyList.push(key.trim());
       }
     });
@@ -30,11 +30,11 @@ export default class KeyFilter {
    */
   apply(inputKeys) {
     if (this.keyList.length === 0) {
-      return inputKeys.slice().sort();  // Just return them in sorted order
+      return inputKeys.slice().sort(); // Just return them in sorted order
     } else {
       const inputKeysAsSet = new Set(inputKeys);
       const outputKeys = [];
-      this.keyList.forEach(key => {
+      this.keyList.forEach((key) => {
         if (inputKeysAsSet.has(key)) {
           outputKeys.push(key);
         }

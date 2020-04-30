@@ -1,22 +1,40 @@
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import {
-  experimentsById, runInfosByUuid, paramsByRunUuid, tagsByRunUuid, artifactsByRunUuid,
-  artifactRootUriByRunUuid, experimentTagsByExperimentId, getParams, getRunTags, getRunInfo,
-  getExperiments, getExperiment, getExperimentTags, apis, rootReducer, getApis, getArtifacts,
-  getSharedParamKeysByRunUuids, getAllParamKeysByRunUuids, getArtifactRootUri,
+  experimentsById,
+  runInfosByUuid,
+  paramsByRunUuid,
+  tagsByRunUuid,
+  artifactsByRunUuid,
+  artifactRootUriByRunUuid,
+  experimentTagsByExperimentId,
+  getParams,
+  getRunTags,
+  getRunInfo,
+  getExperiments,
+  getExperiment,
+  getExperimentTags,
+  apis,
+  rootReducer,
+  getApis,
+  getArtifacts,
+  getSharedParamKeysByRunUuids,
+  getAllParamKeysByRunUuids,
+  getArtifactRootUri,
 } from './Reducers';
 import { mockExperiment, mockRunInfo } from '../utils/test-utils/ReduxStoreFixtures';
-import { RunTag, RunInfo, Param, Experiment, ExperimentTag } from "../sdk/MlflowMessages";
+import { RunTag, RunInfo, Param, Experiment, ExperimentTag } from '../sdk/MlflowMessages';
 import {
-  LIST_EXPERIMENTS_API, GET_EXPERIMENT_API, GET_RUN_API, SEARCH_RUNS_API,
-  LOAD_MORE_RUNS_API, SET_TAG_API, DELETE_TAG_API, LIST_ARTIFACTS_API,
+  LIST_EXPERIMENTS_API,
+  GET_EXPERIMENT_API,
+  GET_RUN_API,
+  SEARCH_RUNS_API,
+  LOAD_MORE_RUNS_API,
+  SET_TAG_API,
+  DELETE_TAG_API,
+  LIST_ARTIFACTS_API,
   SET_EXPERIMENT_TAG_API,
 } from '../actions';
-import {
-  fulfilled,
-  pending,
-  rejected,
-} from '../../common/utils/ActionUtils';
+import { fulfilled, pending, rejected } from '../../common/utils/ActionUtils';
 import { deepFreeze } from '../../common/utils/TestUtils';
 
 describe('test experimentsById', () => {
@@ -109,25 +127,28 @@ describe('test experimentsById', () => {
   });
 });
 
-
 describe('test runInfosByUuid', () => {
   test('should set up initial state correctly', () => {
     expect(runInfosByUuid(undefined, {})).toEqual({});
   });
   test('search api with no payload', () => {
-    expect(runInfosByUuid(undefined, {
-      type: fulfilled(SEARCH_RUNS_API),
-    })).toEqual({});
+    expect(
+      runInfosByUuid(undefined, {
+        type: fulfilled(SEARCH_RUNS_API),
+      }),
+    ).toEqual({});
   });
   test('load more with no payload', () => {
-    expect(runInfosByUuid(undefined, {
-      type: fulfilled(LOAD_MORE_RUNS_API),
-    })).toEqual({});
+    expect(
+      runInfosByUuid(undefined, {
+        type: fulfilled(LOAD_MORE_RUNS_API),
+      }),
+    ).toEqual({});
   });
 
   test('getRunApi correctly updates state', () => {
-    const runA = mockRunInfo('run01', "1");
-    const runB = mockRunInfo('run01', "2");
+    const runA = mockRunInfo('run01', '1');
+    const runB = mockRunInfo('run01', '2');
     const actionA = {
       type: fulfilled(GET_RUN_API),
       payload: {
@@ -162,10 +183,7 @@ describe('test runInfosByUuid', () => {
     const action = {
       type: fulfilled(SEARCH_RUNS_API),
       payload: {
-        runs: [
-          { info: runA.toJSON() },
-          { info: runB.toJSON() },
-        ],
+        runs: [{ info: runA.toJSON() }, { info: runB.toJSON() }],
       },
     };
     const new_state = deepFreeze(runInfosByUuid(state, action));
@@ -178,8 +196,8 @@ describe('test runInfosByUuid', () => {
 
   test('searchRunApi correctly updates state', () => {
     const preserved = mockRunInfo('still exists');
-    const replacedOld = mockRunInfo('replaced', "old");
-    const replacedNew = mockRunInfo('replaced', "new");
+    const replacedOld = mockRunInfo('replaced', 'old');
+    const replacedNew = mockRunInfo('replaced', 'new');
     const removed = mockRunInfo('removed');
     const newRun = mockRunInfo('new');
     const state = deepFreeze({
@@ -209,7 +227,7 @@ describe('test runInfosByUuid', () => {
 
   test('searchRunApi correctly handles rejected search call', () => {
     const preserved = mockRunInfo('still exists');
-    const replacedOld = mockRunInfo('replaced', "old");
+    const replacedOld = mockRunInfo('replaced', 'old');
     const removed = mockRunInfo('removed');
     const state = deepFreeze({
       [preserved.getRunUuid()]: preserved,
@@ -228,8 +246,8 @@ describe('test runInfosByUuid', () => {
 
   test('test load more runs', () => {
     const preserved = mockRunInfo('still exists');
-    const replacedOld = mockRunInfo('replaced', "old");
-    const replacedNew = mockRunInfo('replaced', "new");
+    const replacedOld = mockRunInfo('replaced', 'old');
+    const replacedNew = mockRunInfo('replaced', 'new');
     const removed = mockRunInfo('removed');
     const newRun = mockRunInfo('new');
     const state = deepFreeze({
@@ -260,9 +278,9 @@ describe('test runInfosByUuid', () => {
 });
 
 describe('test params(tags)ByRunUuid', () => {
-  const key1 = "key1";
-  const key2 = "key2";
-  const key3 = "key3";
+  const key1 = 'key1';
+  const key2 = 'key2';
+  const key3 = 'key3';
 
   test('should set up initial state correctly', () => {
     expect(paramsByRunUuid(undefined, {})).toEqual({});
@@ -270,7 +288,7 @@ describe('test params(tags)ByRunUuid', () => {
   });
 
   function newParamOrTag(tagOrParam, props) {
-    if (tagOrParam === "params") {
+    if (tagOrParam === 'params') {
       return Param.fromJs(props);
     } else {
       return RunTag.fromJs(props);
@@ -291,19 +309,19 @@ describe('test params(tags)ByRunUuid', () => {
 
   const val1 = {
     key: key1,
-    value: "abc",
+    value: 'abc',
   };
   const val1_2 = {
     key: key1,
-    value: "xyz",
+    value: 'xyz',
   };
   const val2 = {
     key: key2,
-    value: "efg",
+    value: 'efg',
   };
   const val3 = {
     key: key3,
-    value: "ijk",
+    value: 'ijk',
   };
 
   function reduceAndTest(reducer, initial_state, expected_state, action) {
@@ -327,7 +345,7 @@ describe('test params(tags)ByRunUuid', () => {
         type: fulfilled(GET_RUN_API),
         payload: {
           run: {
-            info: mockRunInfo("run01", "experiment01").toJSON(),
+            info: mockRunInfo('run01', 'experiment01').toJSON(),
             data: {
               [paramOrTag]: vals,
             },
@@ -336,10 +354,31 @@ describe('test params(tags)ByRunUuid', () => {
       };
     }
 
-    reduceAndTest(paramsByRunUuid, undefined, newState("params", empty_state), new_action("params", undefined));
-    reduceAndTest(tagsByRunUuid, undefined, newState("tags", empty_state), new_action("tags"), undefined);
-    reduceAndTest(paramsByRunUuid, undefined, newState("params", expected_state), new_action("params", [val1, val2, val3]));
-    reduceAndTest(tagsByRunUuid, undefined, newState("tags", expected_state), new_action("tags", [val1, val2, val3]));
+    reduceAndTest(
+      paramsByRunUuid,
+      undefined,
+      newState('params', empty_state),
+      new_action('params', undefined),
+    );
+    reduceAndTest(
+      tagsByRunUuid,
+      undefined,
+      newState('tags', empty_state),
+      new_action('tags'),
+      undefined,
+    );
+    reduceAndTest(
+      paramsByRunUuid,
+      undefined,
+      newState('params', expected_state),
+      new_action('params', [val1, val2, val3]),
+    );
+    reduceAndTest(
+      tagsByRunUuid,
+      undefined,
+      newState('tags', expected_state),
+      new_action('tags', [val1, val2, val3]),
+    );
   });
 
   test('getRunApi updates non empty state correctly', () => {
@@ -370,7 +409,7 @@ describe('test params(tags)ByRunUuid', () => {
         type: fulfilled(GET_RUN_API),
         payload: {
           run: {
-            info: mockRunInfo("run01", "experiment01").toJSON(),
+            info: mockRunInfo('run01', 'experiment01').toJSON(),
             data: {
               [paramOrTag]: [val1, val3],
             },
@@ -379,8 +418,18 @@ describe('test params(tags)ByRunUuid', () => {
       };
     }
 
-    reduceAndTest(paramsByRunUuid, newState("params", initial_state), newState("params", expected_state), new_action("params"));
-    reduceAndTest(tagsByRunUuid, newState("tags", initial_state), newState("tags", expected_state), new_action("tags"));
+    reduceAndTest(
+      paramsByRunUuid,
+      newState('params', initial_state),
+      newState('params', expected_state),
+      new_action('params'),
+    );
+    reduceAndTest(
+      tagsByRunUuid,
+      newState('tags', initial_state),
+      newState('tags', expected_state),
+      new_action('tags'),
+    );
   });
 
   test('search runs and load more apis updates non empty state correctly', () => {
@@ -416,15 +465,15 @@ describe('test params(tags)ByRunUuid', () => {
         payload: {
           runs: [
             {
-              info: mockRunInfo("run01").toJSON(),
+              info: mockRunInfo('run01').toJSON(),
               data: { [paramOrTag]: [val1_2, val3] },
             },
             {
-              info: mockRunInfo("run03").toJSON(),
+              info: mockRunInfo('run03').toJSON(),
               data: { [paramOrTag]: [val3] },
             },
             {
-              info: mockRunInfo("run04").toJSON(),
+              info: mockRunInfo('run04').toJSON(),
               data: { [paramOrTag]: undefined },
             },
           ],
@@ -436,12 +485,14 @@ describe('test params(tags)ByRunUuid', () => {
       params: paramsByRunUuid,
       tags: tagsByRunUuid,
     };
-    for (const paramOrTag of ["params", "tags"]) {
+    for (const paramOrTag of ['params', 'tags']) {
       for (const action_type of [SEARCH_RUNS_API, LOAD_MORE_RUNS_API]) {
-        reduceAndTest(reducers[paramOrTag],
+        reduceAndTest(
+          reducers[paramOrTag],
           newState(paramOrTag, initial_state),
           newState(paramOrTag, expected_state),
-          new_action(paramOrTag, action_type));
+          new_action(paramOrTag, action_type),
+        );
       }
     }
   });
@@ -457,14 +508,14 @@ describe('test params(tags)ByRunUuid', () => {
       return {
         type: fulfilled(SET_TAG_API),
         meta: {
-          runUuid: "run01",
+          runUuid: 'run01',
           key: key1,
           value: val1.value,
         },
       };
     }
 
-    reduceAndTest(tagsByRunUuid, undefined, newState("tags", expected_state), new_action("tags"));
+    reduceAndTest(tagsByRunUuid, undefined, newState('tags', expected_state), new_action('tags'));
   });
 
   test('setTagApi updates non empty state correctly', () => {
@@ -493,14 +544,19 @@ describe('test params(tags)ByRunUuid', () => {
       return {
         type: fulfilled(SET_TAG_API),
         meta: {
-          runUuid: "run01",
+          runUuid: 'run01',
           key: key1,
           value: val1_2.value,
         },
       };
     }
 
-    reduceAndTest(tagsByRunUuid, newState("tags", initial_state), newState("tags", expected_state), new_action());
+    reduceAndTest(
+      tagsByRunUuid,
+      newState('tags', initial_state),
+      newState('tags', expected_state),
+      new_action(),
+    );
   });
 
   test('deleteTagApi works with empty state', () => {
@@ -510,13 +566,13 @@ describe('test params(tags)ByRunUuid', () => {
       return {
         type: fulfilled(DELETE_TAG_API),
         meta: {
-          runUuid: "run01",
+          runUuid: 'run01',
           key: key1,
         },
       };
     }
 
-    reduceAndTest(tagsByRunUuid, undefined, newState("tags", expected_state), new_action());
+    reduceAndTest(tagsByRunUuid, undefined, newState('tags', expected_state), new_action());
   });
 
   test('setTagApi updates non empty state correctly', () => {
@@ -544,36 +600,43 @@ describe('test params(tags)ByRunUuid', () => {
       return {
         type: fulfilled(DELETE_TAG_API),
         meta: {
-          runUuid: "run01",
+          runUuid: 'run01',
           key: key1,
         },
       };
     }
 
-    reduceAndTest(tagsByRunUuid, newState("tags", initial_state), newState("tags", expected_state), new_action());
+    reduceAndTest(
+      tagsByRunUuid,
+      newState('tags', initial_state),
+      newState('tags', expected_state),
+      new_action(),
+    );
   });
 });
 
 describe('test artifactsByRunUuid', () => {
-  test("artifacts get populated with empty query path", () => {
+  test('artifacts get populated with empty query path', () => {
     const action0 = {
       type: fulfilled(LIST_ARTIFACTS_API),
       meta: {
-        runUuid: "run01",
+        runUuid: 'run01',
       },
       payload: {
-        files: [{
-          path: "root/dir1/file1",
-          is_dir: false,
-        },
-        {
-          path: "root/dir1",
-          is_dir: true,
-        },
-        {
-          path: "root/dir2/file2",
-          is_dir: false,
-        }],
+        files: [
+          {
+            path: 'root/dir1/file1',
+            is_dir: false,
+          },
+          {
+            path: 'root/dir1',
+            is_dir: true,
+          },
+          {
+            path: 'root/dir2/file2',
+            is_dir: false,
+          },
+        ],
       },
     };
     const state1 = artifactsByRunUuid(undefined, action0);
@@ -582,7 +645,7 @@ describe('test artifactsByRunUuid', () => {
       children: [],
       fileInfo: {
         is_dir: true,
-        path: "root/dir1",
+        path: 'root/dir1',
       },
       isLoaded: false,
       isRoot: false,
@@ -592,7 +655,7 @@ describe('test artifactsByRunUuid', () => {
       children: undefined,
       fileInfo: {
         is_dir: false,
-        path: "root/dir1/file1",
+        path: 'root/dir1/file1',
       },
       isLoaded: false,
       isRoot: false,
@@ -602,12 +665,11 @@ describe('test artifactsByRunUuid', () => {
       children: undefined,
       fileInfo: {
         is_dir: false,
-        path: "root/dir2/file2",
+        path: 'root/dir2/file2',
       },
       isLoaded: false,
       isRoot: false,
-    }
-    );
+    });
     const expected_root = Object.assign(new ArtifactNode(), {
       children: {
         dir1: dir1,
@@ -624,7 +686,7 @@ describe('test artifactsByRunUuid', () => {
     const action1 = {
       type: fulfilled(LIST_ARTIFACTS_API),
       meta: {
-        runUuid: "run02",
+        runUuid: 'run02',
       },
       payload: {
         files: [],
@@ -643,17 +705,19 @@ describe('test artifactsByRunUuid', () => {
     const action2 = {
       type: fulfilled(LIST_ARTIFACTS_API),
       meta: {
-        runUuid: "run01",
+        runUuid: 'run01',
       },
       payload: {
-        files: [{
-          path: "root/dir1/file1",
-          is_dir: false,
-        },
-        {
-          path: "root/dir1",
-          is_dir: true,
-        }],
+        files: [
+          {
+            path: 'root/dir1/file1',
+            is_dir: false,
+          },
+          {
+            path: 'root/dir1',
+            is_dir: true,
+          },
+        ],
       },
     };
     const state3 = artifactsByRunUuid(state2, action2);
@@ -675,12 +739,12 @@ describe('test artifactsByRunUuid', () => {
       }),
     });
   });
-  test("artifacts get populated with query path", () => {
+  test('artifacts get populated with query path', () => {
     const file2 = Object.assign(new ArtifactNode(), {
       children: undefined,
       fileInfo: {
         is_dir: false,
-        path: "dir1/dir2/file2",
+        path: 'dir1/dir2/file2',
       },
       isLoaded: false,
       isRoot: false,
@@ -689,7 +753,7 @@ describe('test artifactsByRunUuid', () => {
       children: { file2: file2 },
       fileInfo: {
         is_dir: true,
-        path: "dir1/dir2",
+        path: 'dir1/dir2',
       },
       isLoaded: false,
       isRoot: false,
@@ -698,7 +762,7 @@ describe('test artifactsByRunUuid', () => {
       children: undefined,
       fileInfo: {
         is_dir: false,
-        path: "dir1/file1",
+        path: 'dir1/file1',
       },
       isLoaded: false,
       isRoot: false,
@@ -707,7 +771,7 @@ describe('test artifactsByRunUuid', () => {
       children: { dir2: dir2, file1: file1 },
       fileInfo: {
         is_dir: true,
-        path: "dir1",
+        path: 'dir1',
       },
       isLoaded: true,
       isRoot: false,
@@ -727,22 +791,24 @@ describe('test artifactsByRunUuid', () => {
     const action0 = {
       type: fulfilled(LIST_ARTIFACTS_API),
       meta: {
-        runUuid: "run01",
-        path: "dir1/dir2",
+        runUuid: 'run01',
+        path: 'dir1/dir2',
       },
       payload: {
-        files: [{
-          path: "dir1/dir2/file3",
-          is_dir: false,
-        },
-        {
-          path: "dir1/dir2/file4",
-          is_dir: false,
-        },
-        {
-          path: "dir1/dir2/dir3",
-          is_dir: true,
-        }],
+        files: [
+          {
+            path: 'dir1/dir2/file3',
+            is_dir: false,
+          },
+          {
+            path: 'dir1/dir2/file4',
+            is_dir: false,
+          },
+          {
+            path: 'dir1/dir2/dir3',
+            is_dir: true,
+          },
+        ],
       },
     };
     const next_state = artifactsByRunUuid(initial_state, action0);
@@ -750,7 +816,7 @@ describe('test artifactsByRunUuid', () => {
     const file3 = Object.assign(new ArtifactNode(), {
       fileInfo: {
         is_dir: false,
-        path: "dir1/dir2/file3",
+        path: 'dir1/dir2/file3',
       },
       isLoaded: false,
       isRoot: false,
@@ -758,7 +824,7 @@ describe('test artifactsByRunUuid', () => {
     const file4 = Object.assign(new ArtifactNode(), {
       fileInfo: {
         is_dir: false,
-        path: "dir1/dir2/file4",
+        path: 'dir1/dir2/file4',
       },
       isLoaded: false,
       isRoot: false,
@@ -768,7 +834,7 @@ describe('test artifactsByRunUuid', () => {
       children: [],
       fileInfo: {
         is_dir: true,
-        path: "dir1/dir2/dir3",
+        path: 'dir1/dir2/dir3',
       },
       isLoaded: false,
       isRoot: false,
@@ -777,7 +843,7 @@ describe('test artifactsByRunUuid', () => {
       children: { dir3: dir3, file3: file3, file4: file4 },
       fileInfo: {
         is_dir: true,
-        path: "dir1/dir2",
+        path: 'dir1/dir2',
       },
       isLoaded: true,
       isRoot: false,
@@ -786,7 +852,7 @@ describe('test artifactsByRunUuid', () => {
       children: { dir2: dir2_2, file1: file1 },
       fileInfo: {
         is_dir: true,
-        path: "dir1",
+        path: 'dir1',
       },
       isLoaded: true,
       isRoot: false,
@@ -804,82 +870,82 @@ describe('test artifactsByRunUuid', () => {
   });
 });
 describe('test artifactRootUriByRunUuid', () => {
-  test("artifactRootUriByRunUuid", () => {
+  test('artifactRootUriByRunUuid', () => {
     const state1 = artifactRootUriByRunUuid(undefined, {
       type: fulfilled(GET_RUN_API),
       meta: {
-        id: "a",
-        runUuid: "run01",
+        id: 'a',
+        runUuid: 'run01',
       },
       payload: {
         run: {
           info: {
             run_uuid: 'run01',
-            experiment_id: "1",
-            artifact_uri: "some/path",
+            experiment_id: '1',
+            artifact_uri: 'some/path',
           },
           data: {},
         },
       },
     });
     expect(state1).toEqual({
-      run01: "some/path",
+      run01: 'some/path',
     });
     const state2 = artifactRootUriByRunUuid(state1, {
       type: fulfilled(GET_RUN_API),
       meta: {
-        id: "a",
-        runUuid: "run02",
+        id: 'a',
+        runUuid: 'run02',
       },
       payload: {
         run: {
           info: {
             run_uuid: 'run02',
-            experiment_id: "1",
-            artifact_uri: "some/other/path",
+            experiment_id: '1',
+            artifact_uri: 'some/other/path',
           },
           data: {},
         },
       },
     });
     expect(state2).toEqual({
-      run01: "some/path",
-      run02: "some/other/path",
+      run01: 'some/path',
+      run02: 'some/other/path',
     });
     const state3 = artifactRootUriByRunUuid(state2, {
       type: fulfilled(GET_RUN_API),
       meta: {
-        id: "a",
-        runUuid: "run02",
+        id: 'a',
+        runUuid: 'run02',
       },
       payload: {
         run: {
           info: {
             run_uuid: 'run02',
-            experiment_id: "1",
-            artifact_uri: "some/other/updated/path",
+            experiment_id: '1',
+            artifact_uri: 'some/other/updated/path',
           },
           data: {},
         },
       },
     });
     expect(state3).toEqual({
-      run01: "some/path",
-      run02: "some/other/updated/path",
+      run01: 'some/path',
+      run02: 'some/other/updated/path',
     });
   });
 });
 
 describe('test experimentTagsByExperimentId', () => {
-  const tag1 = { key: "key1", value: "value1" };
-  const tag2 = { key: "key2", value: "value2" };
-  const tag1_2 = { key: "key1", value: "value1_2" };
-  test("get experiment api", () => {
+  const tag1 = { key: 'key1', value: 'value1' };
+  const tag2 = { key: 'key2', value: 'value2' };
+  const tag1_2 = { key: 'key1', value: 'value1_2' };
+  test('get experiment api', () => {
     const empty_state = experimentTagsByExperimentId(undefined, {
       type: fulfilled(GET_EXPERIMENT_API),
       payload: {
         experiment: {
-          experiment_id: "experiment01",
+          experiment_id: 'experiment01',
         },
       },
     });
@@ -890,7 +956,7 @@ describe('test experimentTagsByExperimentId', () => {
       type: fulfilled(GET_EXPERIMENT_API),
       payload: {
         experiment: {
-          experiment_id: "experiment01",
+          experiment_id: 'experiment01',
           tags: [tag1, tag2],
         },
       },
@@ -905,7 +971,7 @@ describe('test experimentTagsByExperimentId', () => {
       type: fulfilled(GET_EXPERIMENT_API),
       payload: {
         experiment: {
-          experiment_id: "experiment02",
+          experiment_id: 'experiment02',
           tags: [tag1],
         },
       },
@@ -923,7 +989,7 @@ describe('test experimentTagsByExperimentId', () => {
       type: fulfilled(GET_EXPERIMENT_API),
       payload: {
         experiment: {
-          experiment_id: "experiment01",
+          experiment_id: 'experiment01',
           tags: [tag1_2],
         },
       },
@@ -937,7 +1003,7 @@ describe('test experimentTagsByExperimentId', () => {
       },
     });
   });
-  test("set experiment tag api", () => {
+  test('set experiment tag api', () => {
     const initial_state = deepFreeze({
       experiment01: {
         key1: ExperimentTag.fromJs(tag1),
@@ -947,9 +1013,9 @@ describe('test experimentTagsByExperimentId', () => {
     const state0 = experimentTagsByExperimentId(initial_state, {
       type: fulfilled(SET_EXPERIMENT_TAG_API),
       meta: {
-        experimentId: "experiment02",
-        key: "key1",
-        value: "value1",
+        experimentId: 'experiment02',
+        key: 'key1',
+        value: 'value1',
       },
     });
     expect(state0).toEqual({
@@ -964,9 +1030,9 @@ describe('test experimentTagsByExperimentId', () => {
     const state1 = experimentTagsByExperimentId(state0, {
       type: fulfilled(SET_EXPERIMENT_TAG_API),
       meta: {
-        experimentId: "experiment01",
-        key: "key1",
-        value: "value1_2",
+        experimentId: 'experiment01',
+        key: 'key1',
+        value: 'value1_2',
       },
     });
     expect(state1).toEqual({
@@ -981,8 +1047,8 @@ describe('test experimentTagsByExperimentId', () => {
   });
 });
 
-describe("test public accessors", () => {
-  function new_action({ type, id = "a", runUuid = "run01", payload = "data" }) {
+describe('test public accessors', () => {
+  function new_action({ type, id = 'a', runUuid = 'run01', payload = 'data' }) {
     return {
       type: type,
       meta: {
@@ -993,11 +1059,11 @@ describe("test public accessors", () => {
     };
   }
 
-  test("Experiments", () => {
+  test('Experiments', () => {
     const A = Experiment.fromJs({
       experiment_id: 'a',
       name: 'A',
-      tags: [{ name: "a", value: "A" }, "b"],
+      tags: [{ name: 'a', value: 'A' }, 'b'],
     });
     const B = Experiment.fromJs({
       experiment_id: 'b',
@@ -1016,47 +1082,47 @@ describe("test public accessors", () => {
     expect(getExperimentTags(A.experiment_id, state)).toEqual({});
   });
 
-  test("tags, params and runinfo", () => {
-    const key1 = "key1";
-    const key2 = "key2";
-    const key3 = "key3";
+  test('tags, params and runinfo', () => {
+    const key1 = 'key1';
+    const key2 = 'key2';
+    const key3 = 'key3';
     const val1 = {
       key: key1,
-      value: "abc",
+      value: 'abc',
     };
     const val2 = {
       key: key2,
-      value: "efg",
+      value: 'efg',
     };
 
     const val3 = {
       key: key3,
-      value: "ijk",
+      value: 'ijk',
     };
     const action0 = new_action({
-      type: fulfilled(GET_RUN_API), payload: {
+      type: fulfilled(GET_RUN_API),
+      payload: {
         run: {
           info: RunInfo.fromJs({
-            runUuid: "run05",
-            experiment_id: "experiment01",
-            artifact_uri: "artifact_uri",
-
+            runUuid: 'run05',
+            experiment_id: 'experiment01',
+            artifact_uri: 'artifact_uri',
           }).toJSON(),
           data: {},
         },
       },
     });
     const state0 = rootReducer(undefined, action0);
-    expect(getParams("run01", state0)).toEqual({});
-    expect(getRunTags("run01", state0)).toEqual({});
+    expect(getParams('run01', state0)).toEqual({});
+    expect(getRunTags('run01', state0)).toEqual({});
     const action1 = {
       type: fulfilled(GET_RUN_API),
       meta: {
-        id: "a",
+        id: 'a',
       },
       payload: {
         run: {
-          info: mockRunInfo("run01", "experiment01", "articfact_uri").toJSON(),
+          info: mockRunInfo('run01', 'experiment01', 'articfact_uri').toJSON(),
           data: {
             params: [val1, val2],
             tags: [val2, val3],
@@ -1065,125 +1131,149 @@ describe("test public accessors", () => {
       },
     };
     const state = rootReducer(undefined, action1);
-    expect(getParams("run01", state)).toEqual({
-      key1: Param.fromJs({ key: "key1", value: "abc" }),
-      key2: Param.fromJs({ key: "key2", value: "efg" }),
+    expect(getParams('run01', state)).toEqual({
+      key1: Param.fromJs({ key: 'key1', value: 'abc' }),
+      key2: Param.fromJs({ key: 'key2', value: 'efg' }),
     });
-    expect(getRunTags("run01", state)).toEqual({
-      key2: RunTag.fromJs({ key: "key2", value: "efg" }),
-      key3: RunTag.fromJs({ key: "key3", value: "ijk" }),
+    expect(getRunTags('run01', state)).toEqual({
+      key2: RunTag.fromJs({ key: 'key2', value: 'efg' }),
+      key3: RunTag.fromJs({ key: 'key3', value: 'ijk' }),
     });
-    expect(getRunInfo("run05", state)).toEqual(undefined);
-    expect(getRunInfo("run01", state)).toEqual(RunInfo.fromJs({
-      artifact_uri: "articfact_uri",
-      end_time: undefined,
-      experiment_id: "experiment01",
-      lifecycle_stage: undefined,
-      run_uuid: "run01",
-      start_time: undefined,
-      status: undefined,
-      user_id: undefined,
-    }));
+    expect(getRunInfo('run05', state)).toEqual(undefined);
+    expect(getRunInfo('run01', state)).toEqual(
+      RunInfo.fromJs({
+        artifact_uri: 'articfact_uri',
+        end_time: undefined,
+        experiment_id: 'experiment01',
+        lifecycle_stage: undefined,
+        run_uuid: 'run01',
+        start_time: undefined,
+        status: undefined,
+        user_id: undefined,
+      }),
+    );
   });
 
-
-  test("get apis", () => {
-    const state0 = rootReducer(undefined, new_action({
-      type: pending(GET_RUN_API), id: "a",
-    }));
-    const state1 = rootReducer(state0, new_action({
-      type: pending(GET_RUN_API), id: "b",
-    }));
-    const state2 = rootReducer(state1, new_action({
-      type: pending(GET_RUN_API), id: "c",
-    }));
+  test('get apis', () => {
+    const state0 = rootReducer(
+      undefined,
+      new_action({
+        type: pending(GET_RUN_API),
+        id: 'a',
+      }),
+    );
+    const state1 = rootReducer(
+      state0,
+      new_action({
+        type: pending(GET_RUN_API),
+        id: 'b',
+      }),
+    );
+    const state2 = rootReducer(
+      state1,
+      new_action({
+        type: pending(GET_RUN_API),
+        id: 'c',
+      }),
+    );
     expect(getApis([], undefined)).toEqual([]);
-    expect(getApis(["a", "b"], state2)).toEqual([
-      { id: "a", active: true }, { id: "b", active: true },
+    expect(getApis(['a', 'b'], state2)).toEqual([
+      { id: 'a', active: true },
+      { id: 'b', active: true },
     ]);
-    expect(getApis(["a", "b", "c"], state2)).toEqual([
-      { id: "a", active: true }, { id: "b", active: true }, { id: "c", active: true },
+    expect(getApis(['a', 'b', 'c'], state2)).toEqual([
+      { id: 'a', active: true },
+      { id: 'b', active: true },
+      { id: 'c', active: true },
     ]);
-    expect(getApis(["c", "a"], state2)).toEqual([
-      { id: "c", active: true }, { id: "a", active: true },
+    expect(getApis(['c', 'a'], state2)).toEqual([
+      { id: 'c', active: true },
+      { id: 'a', active: true },
     ]);
   });
 
-  test("get artifact root", () => {
+  test('get artifact root', () => {
     const state0 = rootReducer(undefined, {
       type: fulfilled(GET_RUN_API),
       meta: {
-        id: "a",
-        runUuid: "run01",
+        id: 'a',
+        runUuid: 'run01',
       },
       payload: {
         run: {
           info: {
             run_uuid: 'run01',
-            experiment_id: "1",
-            artifact_uri: "some/path",
+            experiment_id: '1',
+            artifact_uri: 'some/path',
           },
           data: {},
         },
       },
     });
-    expect(getArtifactRootUri("run01", state0)).toEqual("some/path");
+    expect(getArtifactRootUri('run01', state0)).toEqual('some/path');
   });
 
-  test("get artifacts", () => {
-    const state0 = rootReducer(undefined, new_action(
-      {
+  test('get artifacts', () => {
+    const state0 = rootReducer(
+      undefined,
+      new_action({
         type: fulfilled(LIST_ARTIFACTS_API),
-        runUuid: "run01",
+        runUuid: 'run01',
         payload: {
-          files: [{
-            path: "file1",
-            is_dir: false,
-          }],
+          files: [
+            {
+              path: 'file1',
+              is_dir: false,
+            },
+          ],
         },
-      }
-    ));
-    expect(getArtifacts("run01", state0)).toEqual(Object.assign(new ArtifactNode(), {
-      children: {
-        file1: Object.assign(new ArtifactNode(), {
-          children: undefined,
-          fileInfo: { is_dir: false, path: "file1" },
-          isLoaded: false,
-          isRoot: false,
-        }),
-      },
-      fileInfo: undefined,
-      isLoaded: true,
-      isRoot: true,
-    }));
+      }),
+    );
+    expect(getArtifacts('run01', state0)).toEqual(
+      Object.assign(new ArtifactNode(), {
+        children: {
+          file1: Object.assign(new ArtifactNode(), {
+            children: undefined,
+            fileInfo: { is_dir: false, path: 'file1' },
+            isLoaded: false,
+            isRoot: false,
+          }),
+        },
+        fileInfo: undefined,
+        isLoaded: true,
+        isRoot: true,
+      }),
+    );
   });
 
-  test("getSharedParamKeysByRunUuids", () => {
+  test('getSharedParamKeysByRunUuids', () => {
     const runA = RunInfo.fromJs({
       run_uuid: 'run01',
-      experiment_id: "1",
+      experiment_id: '1',
     });
     const runB = RunInfo.fromJs({
       run_uuid: 'run02',
-      experiment_id: "1",
+      experiment_id: '1',
     });
     const actionA = {
       type: fulfilled(GET_RUN_API),
       meta: {
-        id: "a",
+        id: 'a',
       },
       payload: {
         run: {
           info: runA.toJSON(),
           data: {
-            params: [{
-              key: "A",
-              value: "a",
-            },
-            {
-              key: "B",
-              value: "b",
-            }],
+            params: [
+              {
+                key: 'A',
+                value: 'a',
+              },
+              {
+                key: 'B',
+                value: 'b',
+              },
+            ],
           },
         },
       },
@@ -1191,64 +1281,66 @@ describe("test public accessors", () => {
     const actionB = {
       type: fulfilled(GET_RUN_API),
       meta: {
-        id: "a",
+        id: 'a',
       },
       payload: {
         run: {
           info: runB.toJSON(),
           data: {
-            params: [{
-              key: "B",
-              value: "b",
-            },
-            {
-              key: "C",
-              value: "c",
-            }],
+            params: [
+              {
+                key: 'B',
+                value: 'b',
+              },
+              {
+                key: 'C',
+                value: 'c',
+              },
+            ],
           },
         },
       },
     };
     const state0 = rootReducer(undefined, actionA);
     const state1 = rootReducer(state0, actionB);
-    expect(getSharedParamKeysByRunUuids(["run01", "run02"], state1)).toEqual(["B"]);
-    expect(getAllParamKeysByRunUuids(["run01", "run02"], state1)).toEqual(["A", "B", "C"]);
+    expect(getSharedParamKeysByRunUuids(['run01', 'run02'], state1)).toEqual(['B']);
+    expect(getAllParamKeysByRunUuids(['run01', 'run02'], state1)).toEqual(['A', 'B', 'C']);
   });
 });
 
-describe("test apis", () => {
-  function new_action(t, id = "a") {
+describe('test apis', () => {
+  function new_action(t, id = 'a') {
     return {
       type: t,
       meta: {
         id: id,
       },
-      payload: "payload",
+      payload: 'payload',
     };
   }
 
-  test("all action states", () => {
+  test('all action states', () => {
     const state0 = apis(undefined, new_action(pending(GET_RUN_API)));
     expect(state0).toEqual({
       a: {
-        id: "a",
+        id: 'a',
         active: true,
       },
     });
     const state1 = apis(state0, new_action(fulfilled(GET_RUN_API)));
     expect(state1).toEqual({
       a: {
-        id: "a",
+        id: 'a',
         active: false,
-        data: "payload",
+        data: 'payload',
       },
     });
     const state2 = apis(state0, new_action(rejected(GET_RUN_API)));
     expect(state2).toEqual({
       a: {
-        id: "a",
+        id: 'a',
         active: false,
-        error: "payload",
+        error: 'payload',
       },
     });
   });
