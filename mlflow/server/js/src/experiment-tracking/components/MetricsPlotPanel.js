@@ -81,7 +81,7 @@ export class MetricsPlotPanel extends React.Component {
   }
 
   static predictChartType(metrics) {
-    // Show bar chart when every metric has exactly 1 non-NaN metric history
+    // Show bar chart when every metric has exactly 1 metric history
     if (
       metrics &&
       metrics.length &&
