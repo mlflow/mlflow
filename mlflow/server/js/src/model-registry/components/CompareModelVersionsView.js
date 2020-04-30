@@ -12,9 +12,8 @@ import { getLatestMetrics } from '../../experiment-tracking/reducers/MetricReduc
 import CompareRunUtil from '../../experiment-tracking/components/CompareRunUtil';
 import Utils from '../../common/utils/Utils';
 import { Tabs } from 'antd';
-import ParallelCoordinatesPlotPanel from
-    '../../experiment-tracking/components/ParallelCoordinatesPlotPanel';
-import {modelListPageRoute, getModelPageRoute, getModelVersionPageRoute} from "../routes";
+import ParallelCoordinatesPlotPanel from '../../experiment-tracking/components/ParallelCoordinatesPlotPanel';
+import { modelListPageRoute, getModelPageRoute, getModelVersionPageRoute } from '../routes';
 
 const TabPane = Tabs.TabPane;
 
@@ -36,119 +35,146 @@ export class CompareModelVersionsView extends Component {
   };
 
   render() {
-    const { runInfos, runNames, modelName} = this.props;
+    const { runInfos, runNames, modelName } = this.props;
     const chevron = <i className='fas fa-chevron-right breadcrumb-chevron' />;
     const breadcrumbItemClass = 'truncate-text single-line breadcrumb-title';
     return (
-      <div className="CompareModelVersionsView">
+      <div className='CompareModelVersionsView'>
         <h1 className='breadcrumb-header'>
-          <Link to={modelListPageRoute} className={breadcrumbItemClass}>Registered Models</Link>
+          <Link to={modelListPageRoute} className={breadcrumbItemClass}>
+            Registered Models
+          </Link>
           {chevron}
-          <Link to={getModelPageRoute(modelName)} className={breadcrumbItemClass}>{modelName}</Link>
+          <Link to={getModelPageRoute(modelName)} className={breadcrumbItemClass}>
+            {modelName}
+          </Link>
           {chevron}
           <span className={breadcrumbItemClass}>
-            {"Comparing " + this.props.runInfos.length + " Versions"}</span>
+            {'Comparing ' + this.props.runInfos.length + ' Versions'}
+          </span>
         </h1>
-        <div className="responsive-table-container">
-          <table className="compare-table table">
+        <div className='responsive-table-container'>
+          <table className='compare-table table'>
             <thead>
-            <tr>
-              <th scope="row" className="row-header">Run ID:</th>
-              {this.props.runInfos.map(r =>
-                <th scope="column" className="data-value" key={r.getRunUuid()}>
-                  <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
-                    {r.getRunUuid()}
-                  </Link>
+              <tr>
+                <th scope='row' className='row-header'>
+                  Run ID:
                 </th>
-              )}
-            </tr>
+                {this.props.runInfos.map((r) => (
+                  <th scope='column' className='data-value' key={r.getRunUuid()}>
+                    <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
+                      {r.getRunUuid()}
+                    </Link>
+                  </th>
+                ))}
+              </tr>
             </thead>
             <tbody>
-            <tr>
-              <th scope="row" className="data-value">Model Version:</th>
-              {Object.keys(this.props.runsToVersions).map((run) => {
-                const version = this.props.runsToVersions[run];
-                return (<td className="meta-info" key={run}>
-                  <Link to={getModelVersionPageRoute(modelName, version)}>
-                    {version}
-                  </Link>
-                </td>);
-              }
-              )}
-            </tr>
-            <tr>
-              <th scope="row" className="data-value">Run Name:</th>
-              {runNames.map((runName, i) => {
-                return (<td
-                  className="meta-info"
-                  key={runInfos[i].getRunUuid()}
-                  >
-                    <div
-                      className="truncate-text single-line"
-                      style={styles.compareRunTableCellContents}
+              <tr>
+                <th scope='row' className='data-value'>
+                  Model Version:
+                </th>
+                {Object.keys(this.props.runsToVersions).map((run) => {
+                  const version = this.props.runsToVersions[run];
+                  return (
+                    <td className='meta-info' key={run}>
+                      <Link to={getModelVersionPageRoute(modelName, version)}>{version}</Link>
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <th scope='row' className='data-value'>
+                  Run Name:
+                </th>
+                {runNames.map((runName, i) => {
+                  return (
+                    <td className='meta-info' key={runInfos[i].getRunUuid()}>
+                      <div
+                        className='truncate-text single-line'
+                        style={styles.compareRunTableCellContents}
+                      >
+                        {runName}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <th scope='row' className='data-value'>
+                  Start Time:
+                </th>
+                {this.props.runInfos.map((run) => {
+                  const startTime = run.getStartTime()
+                    ? Utils.formatTimestamp(run.getStartTime())
+                    : '(unknown)';
+                  return (
+                    <td className='meta-info' key={run.getRunUuid()}>
+                      {startTime}
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <th
+                  scope='rowgroup'
+                  className='inter-title'
+                  colSpan={this.props.runInfos.length + 1}
+                >
+                  <h2>Parameters</h2>
+                </th>
+              </tr>
+              {this.renderDataRows(this.props.paramLists)}
+              <tr>
+                <th
+                  scope='rowgroup'
+                  className='inter-title'
+                  colSpan={this.props.runInfos.length + 1}
+                >
+                  <h2>Metrics</h2>
+                </th>
+              </tr>
+              {this.renderDataRows(
+                this.props.metricLists,
+                (key, data) => {
+                  return (
+                    <Link
+                      to={Routes.getMetricPageRoute(
+                        this.props.runInfos
+                          .map((info) => info.run_uuid)
+                          .filter((uuid, idx) => data[idx] !== undefined),
+                        key,
+                        // TODO: Refactor so that the breadcrumb on the linked page is
+                        // for model registry
+                        this.props.runInfos[0].experiment_id,
+                      )}
+                      title='Plot chart'
                     >
-                      {runName}
-                    </div>
-                  </td>);
-              }
+                      {key}
+                      <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
+                    </Link>
+                  );
+                },
+                Utils.formatMetric,
               )}
-
-            </tr>
-            <tr>
-              <th scope="row" className="data-value">Start Time:</th>
-              {this.props.runInfos.map((run) => {
-                const startTime =
-                  run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
-                return <td className="meta-info" key={run.getRunUuid()}>{startTime}</td>;
-              }
-              )}
-            </tr>
-            <tr>
-              <th scope="rowgroup"
-                  className="inter-title"
-                  colSpan={this.props.runInfos.length + 1}>
-                <h2>Parameters</h2>
-              </th>
-            </tr>
-            {this.renderDataRows(this.props.paramLists)}
-            <tr>
-              <th scope="rowgroup"
-                  className="inter-title"
-                  colSpan={this.props.runInfos.length + 1}>
-                <h2>Metrics</h2>
-              </th>
-            </tr>
-            {this.renderDataRows(this.props.metricLists, (key, data) => {
-              return <Link
-                to={Routes.getMetricPageRoute(
-                  this.props.runInfos.map(info => info.run_uuid)
-                    .filter((uuid, idx) => data[idx] !== undefined),
-                  key,
-                  // TODO: Refactor so that the breadcrumb on the linked page is for model registry
-                  this.props.runInfos[0].experiment_id)}
-                title="Plot chart">
-                {key}
-                <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
-              </Link>;
-            }, Utils.formatMetric)}
             </tbody>
           </table>
         </div>
         <Tabs>
-          <TabPane tab="Scatter Plot" key="1">
+          <TabPane tab='Scatter Plot' key='1'>
             <CompareRunScatter
               runUuids={this.props.runUuids}
               runDisplayNames={this.props.runDisplayNames}
             />
           </TabPane>
-          <TabPane tab="Contour Plot" key="2">
+          <TabPane tab='Contour Plot' key='2'>
             <CompareRunContour
               runUuids={this.props.runUuids}
               runDisplayNames={this.props.runDisplayNames}
             />
           </TabPane>
-          <TabPane tab="Parallel Coordinates Plot" key="3">
-            <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids}/>
+          <TabPane tab='Parallel Coordinates Plot' key='3'>
+            <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
           </TabPane>
         </Tabs>
       </div>
@@ -159,23 +185,30 @@ export class CompareModelVersionsView extends Component {
   renderDataRows(list, headerMap = (key, data) => key, formatter = (value) => value) {
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
-    keys.forEach(k => data[k] = []);
+    keys.forEach((k) => (data[k] = []));
     list.forEach((records, i) => {
-      keys.forEach(k => data[k].push(undefined));
-      records.forEach(r => data[r.key][i] = r.value);
+      keys.forEach((k) => data[k].push(undefined));
+      records.forEach((r) => (data[r.key][i] = r.value));
     });
 
-    return keys.map(k => {
-      return <tr key={k}>
-        <th scope="row" className="rowHeader">{headerMap(k, data[k])}</th>
-        {data[k].map((value, i) =>
-          <td className="data-value" key={this.props.runInfos[i].getRunUuid()}>
-            <span className="truncate-text single-line" style={styles.compareRunTableCellContents}>
-              {value === undefined ? "" : formatter(value)}
-            </span>
-          </td>
-        )}
-      </tr>;
+    return keys.map((k) => {
+      return (
+        <tr key={k}>
+          <th scope='row' className='rowHeader'>
+            {headerMap(k, data[k])}
+          </th>
+          {data[k].map((value, i) => (
+            <td className='data-value' key={this.props.runInfos[i].getRunUuid()}>
+              <span
+                className='truncate-text single-line'
+                style={styles.compareRunTableCellContents}
+              >
+                {value === undefined ? '' : formatter(value)}
+              </span>
+            </td>
+          ))}
+        </tr>
+      );
     });
   }
 }

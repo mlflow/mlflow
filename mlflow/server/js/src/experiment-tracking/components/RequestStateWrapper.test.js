@@ -2,7 +2,7 @@ import React from 'react';
 import { RequestStateWrapper } from '../../common/components/RequestStateWrapper';
 import { ErrorCodes } from '../../common/constants';
 import { shallow } from 'enzyme';
-import {Spinner} from "../../common/components/Spinner";
+import { Spinner } from '../../common/components/Spinner';
 import { ErrorWrapper } from '../../common/utils/ActionUtils';
 
 const activeRequest = {
@@ -13,7 +13,7 @@ const activeRequest = {
 const completeRequest = {
   id: 'a',
   active: false,
-  data: { run_id: "run_id" },
+  data: { run_id: 'run_id' },
 };
 
 const errorRequest = {
@@ -24,44 +24,38 @@ const errorRequest = {
   }),
 };
 
-test("Renders loading page when requests are not complete", () => {
+test('Renders loading page when requests are not complete', () => {
   const wrapper = shallow(
-    <RequestStateWrapper
-      requests={[activeRequest, completeRequest]}
-    >
+    <RequestStateWrapper requests={[activeRequest, completeRequest]}>
       <div>I am the child</div>
-    </RequestStateWrapper>
+    </RequestStateWrapper>,
   );
   expect(wrapper.find(Spinner)).toHaveLength(1);
 });
 
-test("Renders children when requests are complete", () => {
+test('Renders children when requests are complete', () => {
   const wrapper = shallow(
-    <RequestStateWrapper
-      requests={[completeRequest]}
-    >
+    <RequestStateWrapper requests={[completeRequest]}>
       <div className='child'>I am the child</div>
-    </RequestStateWrapper>
+    </RequestStateWrapper>,
   );
   expect(wrapper.find('div.child')).toHaveLength(1);
-  expect(wrapper.find('div.child').text()).toContain("I am the child");
+  expect(wrapper.find('div.child').text()).toContain('I am the child');
 });
 
-test("Throws exception if child is a React element and wrapper has bad request.", () => {
+test('Throws exception if child is a React element and wrapper has bad request.', () => {
   try {
     shallow(
-      <RequestStateWrapper
-        requests={[errorRequest]}
-      >
+      <RequestStateWrapper requests={[errorRequest]}>
         <div className='child'>I am the child</div>
-      </RequestStateWrapper>
+      </RequestStateWrapper>,
     );
   } catch (e) {
-    expect(e.message).toContain("GOTO error boundary");
+    expect(e.message).toContain('GOTO error boundary');
   }
 });
 
-test("Throws exception if errorRenderFunc returns undefined and wrapper has bad request.", () => {
+test('Throws exception if errorRenderFunc returns undefined and wrapper has bad request.', () => {
   try {
     shallow(
       <RequestStateWrapper
@@ -71,15 +65,15 @@ test("Throws exception if errorRenderFunc returns undefined and wrapper has bad 
         }}
       >
         <div className='child'>I am the child</div>
-      </RequestStateWrapper>
+      </RequestStateWrapper>,
     );
     assert.fail();
   } catch (e) {
-    expect(e.message).toContain("GOTO error boundary");
+    expect(e.message).toContain('GOTO error boundary');
   }
 });
 
-test("Render func works if wrapper has bad request.", () => {
+test('Render func works if wrapper has bad request.', () => {
   const wrapper = shallow(
     <RequestStateWrapper requests={[activeRequest, completeRequest, errorRequest]}>
       {(isLoading, shouldRenderError, requests) => {
@@ -89,8 +83,8 @@ test("Render func works if wrapper has bad request.", () => {
         }
         return <div className='child'>I am the child</div>;
       }}
-    </RequestStateWrapper>
+    </RequestStateWrapper>,
   );
   expect(wrapper.find('div.error')).toHaveLength(1);
-  expect(wrapper.find('div.error').text()).toContain("Error!");
+  expect(wrapper.find('div.error').text()).toContain('Error!');
 });

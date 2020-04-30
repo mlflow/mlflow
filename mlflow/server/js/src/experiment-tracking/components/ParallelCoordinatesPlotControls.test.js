@@ -18,7 +18,7 @@ describe('unit tests', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotControls {...mininumProps}/>);
+    wrapper = shallow(<ParallelCoordinatesPlotControls {...mininumProps} />);
     expect(wrapper.length).toBe(1);
   });
 });

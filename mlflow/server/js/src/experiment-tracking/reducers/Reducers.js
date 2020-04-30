@@ -354,9 +354,7 @@ export const getSharedMetricKeysByRunUuids = (runUuids, state) =>
   );
 
 export const getAllParamKeysByRunUuids = (runUuids, state) =>
-  _.union(
-    ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
-  );
+  _.union(...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])));
 
 export const getAllMetricKeysByRunUuids = (runUuids, state) =>
   _.union(

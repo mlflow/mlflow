@@ -14,19 +14,19 @@ describe('unit tests', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<LoadMoreBar {...mininumProps}/>);
+    wrapper = shallow(<LoadMoreBar {...mininumProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render load-more button by default', () => {
     const props = { ...mininumProps, loadingMore: false };
-    wrapper = shallow(<LoadMoreBar {...props}/>);
+    wrapper = shallow(<LoadMoreBar {...props} />);
     expect(wrapper.find('.load-more-button').length).toBe(1);
   });
 
   test('should render loading icon when loadingMore is true', () => {
     const props = { ...mininumProps, loadingMore: true };
-    wrapper = shallow(<LoadMoreBar {...props}/>);
+    wrapper = shallow(<LoadMoreBar {...props} />);
     expect(wrapper.find('.loading-more-wrapper').length).toBe(1);
   });
 });

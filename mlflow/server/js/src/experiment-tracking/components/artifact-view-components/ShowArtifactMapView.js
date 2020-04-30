@@ -32,7 +32,7 @@ class ShowArtifactMapView extends Component {
 
   static defaultProps = {
     getArtifact: getArtifactContent,
-  }
+  };
 
   state = {
     loading: true,
@@ -122,12 +122,15 @@ class ShowArtifactMapView extends Component {
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
     const artifactLocation = getSrc(this.props.path, this.props.runUuid);
-    this.props.getArtifact(artifactLocation).then((rawFeatures) => {
-      const parsedFeatures = JSON.parse(rawFeatures);
-      this.setState({ features: parsedFeatures, loading: false });
-    }).catch((error) => {
-      this.setState({ error: error, loading: false, features: undefined });
-    });
+    this.props
+      .getArtifact(artifactLocation)
+      .then((rawFeatures) => {
+        const parsedFeatures = JSON.parse(rawFeatures);
+        this.setState({ features: parsedFeatures, loading: false });
+      })
+      .catch((error) => {
+        this.setState({ error: error, loading: false, features: undefined });
+      });
   }
 }
 

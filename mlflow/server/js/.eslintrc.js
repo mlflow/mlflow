@@ -2,9 +2,11 @@ module.exports = {
   'extends': [
     'airbnb-base',
     'react-app',
+    'prettier',
   ],
   'parser': 'babel-eslint',
   'plugins': [
+    'prettier',
     'react',
   ],
   'parserOptions': {
@@ -41,6 +43,7 @@ module.exports = {
     },
   },
   'rules': {
+    "prettier/prettier": "error",
     'accessor-pairs': 2,
     'array-bracket-spacing': 2,
     'array-callback-return': 2,
@@ -110,9 +113,7 @@ module.exports = {
     'import/prefer-default-export': 0,
     'import/unambiguous': 0,
     'indent': 0,
-    'indent-legacy': ['error', 2, {
-      'SwitchCase': 1,
-    }],
+    'indent-legacy': 0,
     'init-declarations': 0,
     'jsx-quotes': "off",
     'key-spacing': 2,
@@ -126,6 +127,7 @@ module.exports = {
       'ignoreRegExpLiterals': true,
       'ignoreStrings': false,
       'ignoreTemplateLiterals': false,
+      'ignorePattern': "^import\\s.+\\sfrom\\s'.+';",  // ignore import statements
     }],
     'max-lines': [2, 1000],
     'max-nested-callbacks': 2,
@@ -146,7 +148,7 @@ module.exports = {
     'no-catch-shadow': "off",
     'no-class-assign': 2,
     'no-cond-assign': 2,
-    'no-confusing-arrow': [2, { 'allowParens': true }],
+    'no-confusing-arrow': 0,
     'no-console': 0,
     'no-const-assign': 2,
     'no-constant-condition': 2,
@@ -193,7 +195,7 @@ module.exports = {
     'no-lonely-if': 2,
     'no-loop-func': 2,
     'no-magic-numbers': 0,
-    'no-mixed-operators': [2, { 'allowSamePrecedence': true }],
+    'no-mixed-operators': 2,
     'no-mixed-requires': 0,
     'no-mixed-spaces-and-tabs': 2,
     'no-multi-spaces': ['error', { 'ignoreEOLComments': true }],
@@ -359,7 +361,7 @@ module.exports = {
     'valid-typeof': 2,
     'vars-on-top': 0,
     'wrap-iife': 2,
-    'wrap-regex': 2,
+    'wrap-regex': 0,
     'yield-star-spacing': 2,
     'yoda': 2,
     'function-paren-newline': 'off',

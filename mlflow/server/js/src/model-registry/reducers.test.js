@@ -3,10 +3,7 @@ import ModelRegistryReducers, {
   getModelVersion,
   getModelVersions,
 } from './reducers';
-import {
-  mockModelVersionDetailed,
-  mockRegisteredModelDetailed,
-} from './test-utils';
+import { mockModelVersionDetailed, mockRegisteredModelDetailed } from './test-utils';
 import {
   DELETE_MODEL_VERSION,
   DELETE_REGISTERED_MODEL,
@@ -17,11 +14,7 @@ import {
 } from './actions';
 import { fulfilled } from '../common/utils/ActionUtils';
 
-const {
-  modelByName,
-  modelVersionsByModel,
-} = ModelRegistryReducers;
-
+const { modelByName, modelVersionsByModel } = ModelRegistryReducers;
 
 describe('test modelByName', () => {
   test('initial state', () => {
@@ -105,12 +98,12 @@ describe('test modelByName', () => {
         registered_model: modelA,
       },
     };
-    expect(modelByName(state, action)).toEqual({ 'modelA': modelA });
+    expect(modelByName(state, action)).toEqual({ modelA: modelA });
   });
 
   test('GET_REGISTERED_MODEL updates incorrect state', () => {
     const modelA = mockRegisteredModelDetailed('modelA');
-    const state = { 'modelA': undefined };
+    const state = { modelA: undefined };
     const action = {
       type: fulfilled(GET_REGISTERED_MODEL),
       meta: { modelName: 'modelA' },
@@ -118,13 +111,13 @@ describe('test modelByName', () => {
         registered_model: modelA,
       },
     };
-    expect(modelByName(state, action)).toEqual({ 'modelA': modelA });
+    expect(modelByName(state, action)).toEqual({ modelA: modelA });
   });
 
   test('GET_REGISTERED_MODEL does not affect other models', () => {
     const modelA = mockRegisteredModelDetailed('modelA');
     const modelB = mockRegisteredModelDetailed('modelA');
-    const state = { 'modelB': modelB };
+    const state = { modelB: modelB };
     const action = {
       type: fulfilled(GET_REGISTERED_MODEL),
       meta: { modelName: 'modelA' },
@@ -132,7 +125,7 @@ describe('test modelByName', () => {
         registered_model: modelA,
       },
     };
-    expect(modelByName(state, action)).toEqual({ 'modelA': modelA, 'modelB': modelB });
+    expect(modelByName(state, action)).toEqual({ modelA: modelA, modelB: modelB });
   });
 
   test('DELETE_REGISTERED_MODEL should handle empty state correctly', () => {
@@ -147,7 +140,7 @@ describe('test modelByName', () => {
 
   test('DELETE_REGISTERED_MODEL cleans out state correctly', () => {
     const modelA = mockRegisteredModelDetailed('modelA');
-    const state = { 'modelA': modelA };
+    const state = { modelA: modelA };
     const action = {
       type: fulfilled(DELETE_REGISTERED_MODEL),
       meta: { model: modelA },
@@ -158,23 +151,23 @@ describe('test modelByName', () => {
   test('DELETE_REGISTERED_MODEL does not remove other models from state', () => {
     const modelA = mockRegisteredModelDetailed('modelA');
     const modelB = mockRegisteredModelDetailed('modelB');
-    const state = { 'modelA': modelA, 'modelB': modelB };
+    const state = { modelA: modelA, modelB: modelB };
     const action = {
       type: fulfilled(DELETE_REGISTERED_MODEL),
       meta: { model: modelA },
     };
-    expect(modelByName(state, action)).toEqual({ 'modelB': modelB });
+    expect(modelByName(state, action)).toEqual({ modelB: modelB });
   });
 
   test('DELETE_REGISTERED_MODEL does not remove other models with similar name from state', () => {
     const modelA = mockRegisteredModelDetailed('modelA');
     const modelAA = mockRegisteredModelDetailed('modelAA');
-    const state = { 'modelA': modelA, 'modelAA': modelAA };
+    const state = { modelA: modelA, modelAA: modelAA };
     const action = {
       type: fulfilled(DELETE_REGISTERED_MODEL),
       meta: { model: modelA },
     };
-    expect(modelByName(state, action)).toEqual({ 'modelAA': modelAA });
+    expect(modelByName(state, action)).toEqual({ modelAA: modelAA });
   });
 });
 
@@ -184,12 +177,12 @@ describe('test modelVersionsByModel', () => {
   });
 
   test('initial state (2)', () => {
-    const versionA = mockModelVersionDetailed('modelA', 1, "Production", "READY");
+    const versionA = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
     expect(modelVersionsByModel({ 1: versionA }, {})).toEqual({ 1: versionA });
   });
 
   test('GET_MODEL_VERSION updates empty state correctly', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
+    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
     const state = {};
     const action = {
       type: fulfilled(GET_MODEL_VERSION),
@@ -198,13 +191,13 @@ describe('test modelVersionsByModel', () => {
         model_version: version1,
       },
     };
-    expect(modelVersionsByModel(state, action)).toEqual({ 'modelA': { 1: version1 } });
+    expect(modelVersionsByModel(state, action)).toEqual({ modelA: { 1: version1 } });
   });
 
   test('GET_MODEL_VERSION updates non-empty state correctly', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
-    const version2 = mockModelVersionDetailed('modelA', 2, "Staging", "READY");
-    const state = { 'modelA': { 1: version1 } };
+    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const version2 = mockModelVersionDetailed('modelA', 2, 'Staging', 'READY');
+    const state = { modelA: { 1: version1 } };
     const action = {
       type: fulfilled(GET_MODEL_VERSION),
       meta: { modelName: 'modelA' },
@@ -213,7 +206,7 @@ describe('test modelVersionsByModel', () => {
       },
     };
     expect(modelVersionsByModel(state, action)).toEqual({
-      'modelA': {
+      modelA: {
         1: version1,
         2: version2,
       },
@@ -221,7 +214,7 @@ describe('test modelVersionsByModel', () => {
   });
 
   test('DELETE_MODEL_VERSION handles missing versions correctly', () => {
-    const state = { 'modelA': {} };
+    const state = { modelA: {} };
     const action = {
       meta: { modelName: 'modelA', version: 1 },
       type: fulfilled(DELETE_MODEL_VERSION),
@@ -230,38 +223,38 @@ describe('test modelVersionsByModel', () => {
   });
 
   test('DELETE_MODEL_VERSION updates state correctly (1)', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
-    const state = { 'modelA': { 1: version1 } };
+    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const state = { modelA: { 1: version1 } };
     const action = {
       meta: { modelName: 'modelA', version: 1 },
       type: fulfilled(DELETE_MODEL_VERSION),
     };
-    expect(modelVersionsByModel(state, action)).toEqual({ 'modelA': {} });
+    expect(modelVersionsByModel(state, action)).toEqual({ modelA: {} });
   });
 
   test('DELETE_MODEL_VERSION updates state correctly (2)', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
-    const version2 = mockModelVersionDetailed('modelA', 2, "Staging", "READY");
-    const state = { 'modelA': { 1: version1, 2: version2 } };
+    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const version2 = mockModelVersionDetailed('modelA', 2, 'Staging', 'READY');
+    const state = { modelA: { 1: version1, 2: version2 } };
     const action = {
       meta: { modelName: 'modelA', version: 1 },
       type: fulfilled(DELETE_MODEL_VERSION),
     };
-    expect(modelVersionsByModel(state, action)).toEqual({ 'modelA': { 2: version2 } });
+    expect(modelVersionsByModel(state, action)).toEqual({ modelA: { 2: version2 } });
   });
 
   test('DELETE_MODEL_VERSION does not mess with other registered models', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
-    const version2 = mockModelVersionDetailed('modelA', 2, "Staging", "READY");
-    const version3 = mockModelVersionDetailed('modelB', 2, "Staging", "READY");
-    const state = { 'modelA': { 1: version1, 2: version2 }, 'modelB': { 2: version3 } };
+    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const version2 = mockModelVersionDetailed('modelA', 2, 'Staging', 'READY');
+    const version3 = mockModelVersionDetailed('modelB', 2, 'Staging', 'READY');
+    const state = { modelA: { 1: version1, 2: version2 }, modelB: { 2: version3 } };
     const action = {
       meta: { modelName: 'modelA', version: 2 },
       type: fulfilled(DELETE_MODEL_VERSION),
     };
     expect(modelVersionsByModel(state, action)).toEqual({
-      'modelA': { 1: version1 },
-      'modelB': { 2: version3 },
+      modelA: { 1: version1 },
+      modelB: { 2: version3 },
     });
   });
 
@@ -277,8 +270,8 @@ describe('test modelVersionsByModel', () => {
   });
 
   test('SEARCH_MODEL_VERSION handles empty state (2)', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
-    const version2 = mockModelVersionDetailed('modelA', 2, "Staging", "READY");
+    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const version2 = mockModelVersionDetailed('modelA', 2, 'Staging', 'READY');
     const state = {};
     const action = {
       type: fulfilled(SEARCH_MODEL_VERSIONS),
@@ -287,7 +280,7 @@ describe('test modelVersionsByModel', () => {
       },
     };
     expect(modelVersionsByModel(state, action)).toEqual({
-      'modelA': {
+      modelA: {
         1: version1,
         2: version2,
       },
@@ -295,9 +288,9 @@ describe('test modelVersionsByModel', () => {
   });
 
   test('SEARCH_MODEL_VERSION updates states correctly', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
-    const version2 = mockModelVersionDetailed('modelA', 2, "Staging", "READY");
-    const state = { 'modelX': {} };
+    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const version2 = mockModelVersionDetailed('modelA', 2, 'Staging', 'READY');
+    const state = { modelX: {} };
     const action = {
       type: fulfilled(SEARCH_MODEL_VERSIONS),
       payload: {
@@ -305,18 +298,19 @@ describe('test modelVersionsByModel', () => {
       },
     };
     expect(modelVersionsByModel(state, action)).toEqual({
-      'modelA': {
+      modelA: {
         1: version1,
         2: version2,
-      }, 'modelX': {},
+      },
+      modelX: {},
     });
   });
 
   test('SEARCH_MODEL_VERSION refreshes state with new models', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
-    const version2 = mockModelVersionDetailed('modelA', 2, "Staging", "READY");
-    const version3 = mockModelVersionDetailed('modelA', 3, "Staging", "READY");
-    const state = { 'modelA': { 1: version1, 2: version2 } };
+    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const version2 = mockModelVersionDetailed('modelA', 2, 'Staging', 'READY');
+    const version3 = mockModelVersionDetailed('modelA', 3, 'Staging', 'READY');
+    const state = { modelA: { 1: version1, 2: version2 } };
     const action = {
       type: fulfilled(SEARCH_MODEL_VERSIONS),
       payload: {
@@ -324,7 +318,7 @@ describe('test modelVersionsByModel', () => {
       },
     };
     expect(modelVersionsByModel(state, action)).toEqual({
-      'modelA': {
+      modelA: {
         1: version1,
         2: version2,
         3: version3,
@@ -340,49 +334,49 @@ describe('test getModelVersion', () => {
         modelVersionsByModel: { undefined: {} },
       },
     };
-    expect(getModelVersion(state, "modelA", 1)).toEqual(undefined);
+    expect(getModelVersion(state, 'modelA', 1)).toEqual(undefined);
   });
 
   test('getModelVersion handles missing model', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
+    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
     const state = {
       entities: {
-        modelVersionsByModel: { 'modelX': { 1: version1 } },
+        modelVersionsByModel: { modelX: { 1: version1 } },
       },
     };
-    expect(getModelVersion(state, "modelA", 1)).toEqual(undefined);
+    expect(getModelVersion(state, 'modelA', 1)).toEqual(undefined);
   });
 
   test('getModelVersion handles missing version', () => {
-    const version2 = mockModelVersionDetailed('modelA', 2, "Production", "READY");
+    const version2 = mockModelVersionDetailed('modelA', 2, 'Production', 'READY');
     const state = {
       entities: {
-        modelVersionsByModel: { 'modelA': { 2: version2 } },
+        modelVersionsByModel: { modelA: { 2: version2 } },
       },
     };
-    expect(getModelVersion(state, "modelA", 1)).toEqual(undefined);
+    expect(getModelVersion(state, 'modelA', 1)).toEqual(undefined);
   });
 
   test('getModelVersion returns correct version (1)', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
-    const version2 = mockModelVersionDetailed('modelA', 2, "Staging", "READY");
+    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const version2 = mockModelVersionDetailed('modelA', 2, 'Staging', 'READY');
     const state = {
       entities: {
-        modelVersionsByModel: { 'modelA': { 1: version1, 2: version2 } },
+        modelVersionsByModel: { modelA: { 1: version1, 2: version2 } },
       },
     };
-    expect(getModelVersion(state, "modelA", 1)).toEqual(version1);
+    expect(getModelVersion(state, 'modelA', 1)).toEqual(version1);
   });
 
   test('getModelVersion returns correct version (2)', () => {
-    const versionA1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
-    const versionB1 = mockModelVersionDetailed('modelB', 1, "Staging", "READY");
+    const versionA1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const versionB1 = mockModelVersionDetailed('modelB', 1, 'Staging', 'READY');
     const state = {
       entities: {
-        modelVersionsByModel: { 'modelA': { 1: versionA1 }, 'modelB': { 1: versionB1 } },
+        modelVersionsByModel: { modelA: { 1: versionA1 }, modelB: { 1: versionB1 } },
       },
     };
-    expect(getModelVersion(state, "modelA", 1)).toEqual(versionA1);
+    expect(getModelVersion(state, 'modelA', 1)).toEqual(versionA1);
   });
 });
 
@@ -393,49 +387,49 @@ describe('test getModelVersions', () => {
         modelVersionsByModel: { undefined: {} },
       },
     };
-    expect(getModelVersions(state, "modelA", 1)).toEqual(undefined);
+    expect(getModelVersions(state, 'modelA', 1)).toEqual(undefined);
   });
 
   test('getModelVersions handles missing model', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
+    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
     const state = {
       entities: {
-        modelVersionsByModel: { 'modelX': { 1: version1 } },
+        modelVersionsByModel: { modelX: { 1: version1 } },
       },
     };
-    expect(getModelVersions(state, "modelA")).toEqual(undefined);
+    expect(getModelVersions(state, 'modelA')).toEqual(undefined);
   });
 
   test('getModelVersions returns correct versions (1)', () => {
-    const version2 = mockModelVersionDetailed('modelA', 2, "Production", "READY");
+    const version2 = mockModelVersionDetailed('modelA', 2, 'Production', 'READY');
     const state = {
       entities: {
-        modelVersionsByModel: { 'modelA': { 2: version2 } },
+        modelVersionsByModel: { modelA: { 2: version2 } },
       },
     };
-    expect(getModelVersions(state, "modelA")).toEqual([version2]);
+    expect(getModelVersions(state, 'modelA')).toEqual([version2]);
   });
 
   test('getModelVersions returns correct versions (2)', () => {
-    const version1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
-    const version2 = mockModelVersionDetailed('modelA', 2, "Staging", "READY");
+    const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const version2 = mockModelVersionDetailed('modelA', 2, 'Staging', 'READY');
     const state = {
       entities: {
-        modelVersionsByModel: { 'modelA': { 1: version1, 2: version2 } },
+        modelVersionsByModel: { modelA: { 1: version1, 2: version2 } },
       },
     };
-    expect(getModelVersions(state, "modelA")).toEqual([version1, version2]);
+    expect(getModelVersions(state, 'modelA')).toEqual([version1, version2]);
   });
 
   test('getModelVersions returns correct versions (3)', () => {
-    const versionA1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
-    const versionB1 = mockModelVersionDetailed('modelB', 1, "Staging", "READY");
+    const versionA1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const versionB1 = mockModelVersionDetailed('modelB', 1, 'Staging', 'READY');
     const state = {
       entities: {
-        modelVersionsByModel: { 'modelA': { 1: versionA1 }, 'modelB': { 1: versionB1 } },
+        modelVersionsByModel: { modelA: { 1: versionA1 }, modelB: { 1: versionB1 } },
       },
     };
-    expect(getModelVersions(state, "modelA")).toEqual([versionA1]);
+    expect(getModelVersions(state, 'modelA')).toEqual([versionA1]);
   });
 });
 
@@ -450,14 +444,13 @@ describe('test getAllModelVersions', () => {
   });
 
   test('getAllModelVersions returns versions of all models', () => {
-    const versionA1 = mockModelVersionDetailed('modelA', 1, "Production", "READY");
-    const versionB1 = mockModelVersionDetailed('modelB', 1, "Staging", "READY");
+    const versionA1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const versionB1 = mockModelVersionDetailed('modelB', 1, 'Staging', 'READY');
     const state = {
       entities: {
-        modelVersionsByModel: { 'modelA': { 1: versionA1 }, 'modelB': { 1: versionB1 } },
+        modelVersionsByModel: { modelA: { 1: versionA1 }, modelB: { 1: versionB1 } },
       },
     };
     expect(getAllModelVersions(state)).toEqual([versionA1, versionB1]);
   });
 });
-

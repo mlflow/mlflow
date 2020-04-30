@@ -33,26 +33,30 @@ export class CompareRunScatterImpl extends Component {
     this.paramKeys = CompareRunUtil.getKeys(this.props.paramLists, false);
 
     if (this.paramKeys.length + this.metricKeys.length < 2) {
-      this.state = {disabled: true};
+      this.state = { disabled: true };
     } else {
       this.state = {
         disabled: false,
-        x: this.paramKeys.length > 0 ?
-        {
-          key: this.paramKeys[0],
-          isMetric: false,
-        } : {
-          key: this.metricKeys[1],
-          isMetric: true,
-        },
-        y: this.metricKeys.length > 0 ?
-        {
-          key: this.metricKeys[0],
-          isMetric: true,
-        } : {
-          key: this.paramKeys[1],
-          isMetric: false,
-        },
+        x:
+          this.paramKeys.length > 0
+            ? {
+                key: this.paramKeys[0],
+                isMetric: false,
+              }
+            : {
+                key: this.metricKeys[1],
+                isMetric: true,
+              },
+        y:
+          this.metricKeys.length > 0
+            ? {
+                key: this.metricKeys[0],
+                isMetric: true,
+              }
+            : {
+                key: this.paramKeys[1],
+                isMetric: false,
+              },
       };
     }
   }
@@ -60,9 +64,11 @@ export class CompareRunScatterImpl extends Component {
   /**
    * Get the value of the metric/param described by {key, isMetric}, in run i
    */
-  getValue(i, {key, isMetric}) {
+  getValue(i, { key, isMetric }) {
     const value = CompareRunUtil.findInList(
-      (isMetric ? this.props.metricLists : this.props.paramLists)[i], key);
+      (isMetric ? this.props.metricLists : this.props.paramLists)[i],
+      key,
+    );
     return value === undefined ? value : value.value;
   }
 
@@ -75,7 +81,7 @@ export class CompareRunScatterImpl extends Component {
 
   render() {
     if (this.state.disabled) {
-      return <div/>;
+      return <div />;
     }
 
     const keyLength = CompareRunScatterImpl.MAX_PLOT_KEY_LENGTH;
@@ -95,93 +101,100 @@ export class CompareRunScatterImpl extends Component {
       tooltips.push(this.getPlotlyTooltip(index));
     });
 
-    return (<div className="responsive-table-container">
-      <div className="container-fluid">
-        <div className="row">
-          <form className="col-xs-3">
-            <div className="form-group">
-              <label htmlFor="y-axis-selector">X-axis:</label>
-              {this.renderSelect("x")}
-            </div>
-            <div className="form-group">
-              <label htmlFor="y-axis-selector">Y-axis:</label>
-              {this.renderSelect("y")}
-            </div>
-          </form>
-          <div className="col-xs-9">
-            <Plot
-              data={[
-                {
-                  x: xs,
-                  y: ys,
-                  text: tooltips,
-                  hoverinfo: "text",
-                  type: 'scattergl',
-                  mode: 'markers',
-                  marker: {
-                    size: 10,
-                    color: "rgba(200, 50, 100, .75)",
+    return (
+      <div className='responsive-table-container'>
+        <div className='container-fluid'>
+          <div className='row'>
+            <form className='col-xs-3'>
+              <div className='form-group'>
+                <label htmlFor='y-axis-selector'>X-axis:</label>
+                {this.renderSelect('x')}
+              </div>
+              <div className='form-group'>
+                <label htmlFor='y-axis-selector'>Y-axis:</label>
+                {this.renderSelect('y')}
+              </div>
+            </form>
+            <div className='col-xs-9'>
+              <Plot
+                data={[
+                  {
+                    x: xs,
+                    y: ys,
+                    text: tooltips,
+                    hoverinfo: 'text',
+                    type: 'scattergl',
+                    mode: 'markers',
+                    marker: {
+                      size: 10,
+                      color: 'rgba(200, 50, 100, .75)',
+                    },
                   },
-                },
-              ]}
-              layout={{
-                margin: {
-                  t: 30,
-                },
-                hovermode: "closest",
-                xaxis: {
-                  title: this.encodeHtml(Utils.truncateString(this.state["x"].key, keyLength)),
-                },
-                yaxis: {
-                  title: this.encodeHtml(Utils.truncateString(this.state["y"].key, keyLength)),
-                },
-              }}
-              className={"scatter-plotly"}
-              config={{
-                responsive: true,
-                displaylogo: false,
-                scrollZoom: true,
-                modeBarButtonsToRemove: [
-                  "sendDataToCloud",
-                  "select2d",
-                  "lasso2d",
-                  "resetScale2d",
-                  "hoverClosestCartesian",
-                  "hoverCompareCartesian",
-                ],
-              }}
-              useResizeHandler
-            />
+                ]}
+                layout={{
+                  margin: {
+                    t: 30,
+                  },
+                  hovermode: 'closest',
+                  xaxis: {
+                    title: this.encodeHtml(Utils.truncateString(this.state['x'].key, keyLength)),
+                  },
+                  yaxis: {
+                    title: this.encodeHtml(Utils.truncateString(this.state['y'].key, keyLength)),
+                  },
+                }}
+                className={'scatter-plotly'}
+                config={{
+                  responsive: true,
+                  displaylogo: false,
+                  scrollZoom: true,
+                  modeBarButtonsToRemove: [
+                    'sendDataToCloud',
+                    'select2d',
+                    'lasso2d',
+                    'resetScale2d',
+                    'hoverClosestCartesian',
+                    'hoverCompareCartesian',
+                  ],
+                }}
+                useResizeHandler
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>);
+    );
   }
 
   renderSelect(axis) {
     return (
       <select
-        className="form-control"
-        id={axis + "-axis-selector"}
+        className='form-control'
+        id={axis + '-axis-selector'}
         onChange={(e) => {
-          const [prefix, ...keyParts] = e.target.value.split("-");
-          const key = keyParts.join("-");
-          const isMetric = prefix === "metric";
-          this.setState({[axis]: {isMetric, key}});
+          const [prefix, ...keyParts] = e.target.value.split('-');
+          const key = keyParts.join('-');
+          const isMetric = prefix === 'metric';
+          this.setState({ [axis]: { isMetric, key } });
         }}
-        value={(this.state[axis].isMetric ? "metric-" : "param-") + this.state[axis].key}
+        value={(this.state[axis].isMetric ? 'metric-' : 'param-') + this.state[axis].key}
       >
-        <optgroup label="Parameter">
-          {this.paramKeys.map((p) =>
-            <option key={"param-" + p} value={"param-" + p}>{p}</option>
-          )}
+        <optgroup label='Parameter'>
+          {this.paramKeys.map((p) => (
+            <option key={'param-' + p} value={'param-' + p}>
+              {p}
+            </option>
+          ))}
         </optgroup>
-        <optgroup label="Metric">
-          {this.metricKeys.map((m) =>
-            <option key={"metric-" + m} value={"metric-" + m}>{m}</option>
-          )}
+        <optgroup label='Metric'>
+          {this.metricKeys.map((m) => (
+            <option key={'metric-' + m} value={'metric-' + m}>
+              {m}
+            </option>
+          ))}
         </optgroup>
-      </select>);
+      </select>
+    );
   }
 
   getPlotlyTooltip(index) {
@@ -190,16 +203,22 @@ export class CompareRunScatterImpl extends Component {
     const runName = this.props.runDisplayNames[index];
     let result = `<b>${this.encodeHtml(runName)}</b><br>`;
     const paramList = this.props.paramLists[index];
-    paramList.forEach(p => {
-      result += this.encodeHtml(Utils.truncateString(p.key, keyLength)) + ': '
-        + this.encodeHtml(Utils.truncateString(p.value, valueLength)) + '<br>';
+    paramList.forEach((p) => {
+      result +=
+        this.encodeHtml(Utils.truncateString(p.key, keyLength)) +
+        ': ' +
+        this.encodeHtml(Utils.truncateString(p.value, valueLength)) +
+        '<br>';
     });
     const metricList = this.props.metricLists[index];
     if (metricList.length > 0) {
-      result += (paramList.length > 0) ? '<br>' : '';
-      metricList.forEach(m => {
-        result += this.encodeHtml(Utils.truncateString(m.key, keyLength)) + ': '
-          + Utils.formatMetric(m.value) + '<br>';
+      result += paramList.length > 0 ? '<br>' : '';
+      metricList.forEach((m) => {
+        result +=
+          this.encodeHtml(Utils.truncateString(m.key, keyLength)) +
+          ': ' +
+          Utils.formatMetric(m.value) +
+          '<br>';
       });
     }
     return result;

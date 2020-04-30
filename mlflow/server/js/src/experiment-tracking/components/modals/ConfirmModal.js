@@ -48,9 +48,7 @@ export class ConfirmModal extends Component {
         onCancel={this.onRequestCloseHandler}
         centered
       >
-        <div className='modal-explanatory-text'>
-          {this.props.helpText}
-        </div>
+        <div className='modal-explanatory-text'>{this.props.helpText}</div>
       </Modal>
     );
   }

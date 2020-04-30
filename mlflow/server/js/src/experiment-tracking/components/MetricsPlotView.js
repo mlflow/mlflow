@@ -20,7 +20,7 @@ const EMA = (mArray, smoothingWeight) => {
   const smoothedArray = [];
   let biasedElement = 0;
   for (let i = 0; i < mArray.length; i++) {
-    biasedElement = (biasedElement * smoothness) + ((1 - smoothness) * mArray[i]);
+    biasedElement = biasedElement * smoothness + (1 - smoothness) * mArray[i];
     // To avoid biasing earlier elements toward smaller-than-accurate values, we divide
     // all elements by a `debiasedWeight` that asymptotically increases and approaches
     // 1 as the element index increases
@@ -68,14 +68,14 @@ export class MetricsPlotView extends React.Component {
   };
 
   getPlotPropsForLineChart = () => {
-    const { metrics, xAxis, showPoint, lineSmoothness, isComparing,
-      deselectedCurves } = this.props;
+    const { metrics, xAxis, showPoint, lineSmoothness, isComparing, deselectedCurves } = this.props;
     const deselectedCurvesSet = new Set(deselectedCurves);
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
       const isSingleHistory = history.length === 0;
-      const visible = !deselectedCurvesSet.has(Utils.getCurveKey(runUuid, metricKey)) ?
-          true : "legendonly";
+      const visible = !deselectedCurvesSet.has(Utils.getCurveKey(runUuid, metricKey))
+        ? true
+        : 'legendonly';
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
         x: history.map((entry) => {
@@ -84,13 +84,16 @@ export class MetricsPlotView extends React.Component {
           }
           return MetricsPlotView.parseTimestamp(entry.timestamp, history, xAxis);
         }),
-        y: EMA(history.map((entry) => entry.value), lineSmoothness),
+        y: EMA(
+          history.map((entry) => entry.value),
+          lineSmoothness,
+        ),
         text: history.map((entry) => entry.value.toFixed(5)),
         type: 'scattergl',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
-        marker: {opacity: isSingleHistory || showPoint ? 1 : 0 },
-        hovertemplate: (isSingleHistory || (lineSmoothness === 1)) ?
-            '%{y}' : 'Value: %{text}<br>Smoothed: %{y}',
+        marker: { opacity: isSingleHistory || showPoint ? 1 : 0 },
+        hovertemplate:
+          isSingleHistory || lineSmoothness === 1 ? '%{y}' : 'Value: %{text}<br>Smoothed: %{y}',
         visible: visible,
         runId: runUuid,
         metricName: metricKey,
@@ -128,8 +131,7 @@ export class MetricsPlotView extends React.Component {
     const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map((history) => history.metricKey);
     const deselectedCurvesSet = new Set(deselectedCurves);
     const data = runUuids.map((runUuid, i) => {
-      const visibility = deselectedCurvesSet.has(runUuid) ?
-        { visible: 'legendonly' } : {};
+      const visibility = deselectedCurvesSet.has(runUuid) ? { visible: 'legendonly' } : {};
       return {
         name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
         x: sortedMetricKeys,

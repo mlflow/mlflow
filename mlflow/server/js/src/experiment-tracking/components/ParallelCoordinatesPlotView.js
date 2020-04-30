@@ -96,9 +96,8 @@ export class ParallelCoordinatesPlotView extends React.Component {
   maybeUpdateStateForColorScale = (currentSequenceFromPlotly) => {
     const rightmostMetricKeyFromState = this.findLastKeyFromState(this.props.metricKeys);
     const metricsKeySet = new Set(this.props.metricKeys);
-    const rightmostMetricKeyFromPlotly = _.findLast(
-      currentSequenceFromPlotly,
-      (key) => metricsKeySet.has(key),
+    const rightmostMetricKeyFromPlotly = _.findLast(currentSequenceFromPlotly, (key) =>
+      metricsKeySet.has(key),
     );
     // Currently we always render color scale based on the rightmost metric axis, so if that changes
     // we need to setState with the new axes sequence to trigger a rerender.
@@ -153,11 +152,11 @@ export const generateAttributesForCategoricalDimension = (labels) => {
 export const inferType = (key, runUuids, entryByRunUuid) => {
   for (let i = 0; i < runUuids.length; i++) {
     const value = entryByRunUuid[runUuids[i]][key].value;
-    if (typeof(value) === "string" && isNaN(Number(value)) && value !== "NaN") {
-      return "string";
+    if (typeof value === 'string' && isNaN(Number(value)) && value !== 'NaN') {
+      return 'string';
     }
   }
-  return "number";
+  return 'number';
 };
 
 export const createDimension = (key, runUuids, entryByRunUuid) => {
@@ -174,7 +173,7 @@ export const createDimension = (key, runUuids, entryByRunUuid) => {
     });
     // For some reason, Plotly tries to plot these values with SI prefixes by default
     // Explicitly set to 5 fixed digits float here
-    attributes.tickformat = ".5f";
+    attributes.tickformat = '.5f';
   }
   return {
     label: key,
@@ -188,8 +187,10 @@ const mapStateToProps = (state, ownProps) => {
   // Show only runs that have all the parameters/metrics we chose to plot, since the parallel
   // coordinates plot can't easily handle data points that are missing a dimension.
   const validRunUuids = runUuids.filter((uuid) => {
-    return paramKeys.every((key) => paramsByRunUuid[uuid][key] !== undefined) &&
-      metricKeys.every((key) => latestMetricsByRunUuid[uuid][key] !== undefined);
+    return (
+      paramKeys.every((key) => paramsByRunUuid[uuid][key] !== undefined) &&
+      metricKeys.every((key) => latestMetricsByRunUuid[uuid][key] !== undefined)
+    );
   });
   const paramDimensions = paramKeys.map((paramKey) =>
     createDimension(paramKey, validRunUuids, paramsByRunUuid),

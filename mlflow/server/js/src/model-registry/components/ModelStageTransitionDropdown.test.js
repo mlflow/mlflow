@@ -1,9 +1,7 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import {
-  Stages,
-} from '../constants';
+import { Stages } from '../constants';
 import { Dropdown } from 'antd';
 
 describe('ModelStageTransitionDropdown', () => {
@@ -21,7 +19,7 @@ describe('ModelStageTransitionDropdown', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ModelStageTransitionDropdown {...minimalProps}/>);
+    wrapper = shallow(<ModelStageTransitionDropdown {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 

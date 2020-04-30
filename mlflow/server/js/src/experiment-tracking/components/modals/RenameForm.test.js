@@ -8,7 +8,7 @@ describe('Render test', () => {
     name: 'Test',
     visible: true,
     // eslint-disable-next-line no-unused-vars
-    form: { getFieldDecorator: jest.fn(opts => c => c) },
+    form: { getFieldDecorator: jest.fn((opts) => (c) => c) },
   };
 
   it('should render with minimal props without exploding', () => {

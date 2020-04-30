@@ -11,7 +11,7 @@ describe('CreateExperimentModal', () => {
   const fakeExperimentId = 'fakeExpId';
 
   beforeEach(() => {
-    location = {search: 'initialSearchValue'};
+    location = { search: 'initialSearchValue' };
     const history = {
       push: (url) => {
         location.search = url;
@@ -28,19 +28,20 @@ describe('CreateExperimentModal', () => {
       listExperimentsApi: () => Promise.resolve([]),
       history: history,
     };
-    wrapper = shallow(<CreateExperimentModalImpl {...minimalProps}/>);
+    wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<CreateExperimentModalImpl {...minimalProps}/>);
+    wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} />);
     expect(wrapper.find(GenericInputModal).length).toBe(1);
     expect(wrapper.length).toBe(1);
   });
 
   test('handleCreateExperiment redirects user to newly-created experiment page', (done) => {
     instance = wrapper.instance();
-    instance.handleCreateExperiment(
-      {experimentName: 'myNewExp', artifactLocation: 'artifactLoc'}).then(() => {
+    instance
+      .handleCreateExperiment({ experimentName: 'myNewExp', artifactLocation: 'artifactLoc' })
+      .then(() => {
         expect(location.search).toEqual('/experiments/fakeExpId');
         done();
       });
@@ -59,9 +60,9 @@ describe('CreateExperimentModal', () => {
     ];
     const testPromises = [];
     propsVals.forEach((props) => {
-      wrapper = shallow(<CreateExperimentModalImpl {...props}/>);
+      wrapper = shallow(<CreateExperimentModalImpl {...props} />);
       instance = wrapper.instance();
-      const payload = {experimentName: 'myNewExp', artifactLocation: 'artifactLoc'};
+      const payload = { experimentName: 'myNewExp', artifactLocation: 'artifactLoc' };
       testPromises.push(expect(instance.handleCreateExperiment(payload)).rejects);
     });
     Promise.all(testPromises).then(() => {

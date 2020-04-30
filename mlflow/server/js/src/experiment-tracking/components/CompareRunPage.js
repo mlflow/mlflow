@@ -30,7 +30,7 @@ class CompareRunPage extends Component {
     return (
       <div className='App-content'>
         <RequestStateWrapper requestIds={this.requestIds}>
-          <CompareRunView runUuids={this.props.runUuids} experimentId={this.props.experimentId}/>
+          <CompareRunView runUuids={this.props.runUuids} experimentId={this.props.experimentId} />
         </RequestStateWrapper>
       </div>
     );
@@ -40,8 +40,8 @@ class CompareRunPage extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { location } = ownProps;
   const searchValues = qs.parse(location.search);
-  const runUuids = JSON.parse(searchValues["?runs"]);
-  const experimentId = searchValues["experiment"];
+  const runUuids = JSON.parse(searchValues['?runs']);
+  const experimentId = searchValues['experiment'];
   return { experimentId, runUuids };
 };
 

@@ -20,7 +20,12 @@ describe('RunPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    const modelVersion = mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY);
+    const modelVersion = mockModelVersionDetailed(
+      'Model A',
+      1,
+      Stages.PRODUCTION,
+      ModelVersionStatus.READY,
+    );
     const versions = [modelVersion];
     minimalProps = {
       match: {
@@ -45,14 +50,14 @@ describe('RunPage', () => {
             run_uuid: 'uuid-1234-5678-9012',
             experiment_id: '12345',
             user_id: 'me@me.com',
-            status: "RUNNING",
+            status: 'RUNNING',
             start_time: 12345678990,
             end_time: 12345678999,
             artifact_uri: 'dbfs:/databricks/abc/uuid-1234-5678-9012',
             lifecycle_stage: 'active',
           },
         },
-        artifactsByRunUuid: {'uuid-1234-5678-9012': new ArtifactNode(true) },
+        artifactsByRunUuid: { 'uuid-1234-5678-9012': new ArtifactNode(true) },
         experimentsById: {
           12345: {
             experiment_id: 12345,
@@ -69,7 +74,7 @@ describe('RunPage', () => {
             '1': modelVersion,
           },
         },
-        tagsByRunUuid: {'uuid-1234-5678-9012': {}},
+        tagsByRunUuid: { 'uuid-1234-5678-9012': {} },
       },
       apis: {},
     });
@@ -81,7 +86,7 @@ describe('RunPage', () => {
         <BrowserRouter>
           <RunPage {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     expect(wrapper.find(RunPage).length).toBe(1);
   });
@@ -92,7 +97,7 @@ describe('RunPage', () => {
         <BrowserRouter>
           <RunPage {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     ).find(RunPage);
     const runPageInstance = wrapper.find(RunPageImpl).instance();
     const responseErrorWrapper = new ErrorWrapper({
@@ -103,8 +108,8 @@ describe('RunPage', () => {
       active: false,
       error: responseErrorWrapper,
     };
-    expect(
-      runPageInstance.renderRunView(false, true, [getRunErrorRequest]).type
-    ).toBe(RunNotFoundView);
+    expect(runPageInstance.renderRunView(false, true, [getRunErrorRequest]).type).toBe(
+      RunNotFoundView,
+    );
   });
 });

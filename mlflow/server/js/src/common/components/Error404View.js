@@ -5,7 +5,6 @@ import Colors from '../../experiment-tracking/styles/Colors';
 import Routes from '../../experiment-tracking/routes';
 import { Link } from 'react-router-dom';
 
-
 export class Error404View extends Component {
   static propTypes = {
     resourceName: PropTypes.string.isRequired,
@@ -18,14 +17,14 @@ export class Error404View extends Component {
       <div>
         <img
           className='center'
-          alt="404 Not Found"
+          alt='404 Not Found'
           style={{ height: '300px', marginTop: '80px' }}
           src={error404Img}
         />
-        <h1 className="center" style={{ paddingTop: '10px' }}>
+        <h1 className='center' style={{ paddingTop: '10px' }}>
           Page not found
         </h1>
-        <h2 className="center" style={{ color: Colors.secondaryText }}>
+        <h2 className='center' style={{ color: Colors.secondaryText }}>
           {resourceName} does not exist, go back to{' '}
           <Link to={fallbackHomePageReactRoute || Routes.rootRoute}>the home page.</Link>
         </h2>

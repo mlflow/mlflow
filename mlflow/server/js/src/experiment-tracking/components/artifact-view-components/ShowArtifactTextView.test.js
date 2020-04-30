@@ -10,31 +10,31 @@ describe('ShowArtifactTextView', () => {
 
   beforeEach(() => {
     minimalProps = {
-      path: "fakepath",
-      runUuid: "fakeUuid",
+      path: 'fakepath',
+      runUuid: 'fakeUuid',
     };
     // Mock the `getArtifact` function to avoid spurious network errors
     // during testing
     const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.resolve("some content");
+      return Promise.resolve('some content');
     });
     commonProps = { ...minimalProps, getArtifact: getArtifact };
-    wrapper = shallow(<ShowArtifactTextView {...commonProps}/>);
+    wrapper = shallow(<ShowArtifactTextView {...commonProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ShowArtifactTextView {...minimalProps}/>);
+    wrapper = shallow(<ShowArtifactTextView {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render error message when error occurs', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.reject(new Error("my error text"));
+      return Promise.reject(new Error('my error text'));
     });
     const props = { ...minimalProps, getArtifact: getArtifact };
-    wrapper = shallow(<ShowArtifactTextView {...props}/>);
+    wrapper = shallow(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
-      expect(wrapper.find(".artifact-text-view-error").length).toBe(1);
+      expect(wrapper.find('.artifact-text-view-error').length).toBe(1);
       expect(wrapper.instance().state.loading).toBe(false);
       expect(wrapper.instance().state.html).toBeUndefined();
       expect(wrapper.instance().state.error).toBeDefined();
@@ -45,7 +45,7 @@ describe('ShowArtifactTextView', () => {
   test('should render loading text when view is loading', () => {
     instance = wrapper.instance();
     instance.setState({ loading: true });
-    expect(wrapper.find(".artifact-text-view-loading").length).toBe(1);
+    expect(wrapper.find('.artifact-text-view-loading').length).toBe(1);
   });
 
   test('should render text content when available', (done) => {
@@ -53,7 +53,7 @@ describe('ShowArtifactTextView', () => {
       return Promise.resolve('my text');
     });
     const props = { ...minimalProps, getArtifact: getArtifact };
-    wrapper = mount(<ShowArtifactTextView {...props}/>);
+    wrapper = mount(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       instance = wrapper.instance();
       wrapper.update();

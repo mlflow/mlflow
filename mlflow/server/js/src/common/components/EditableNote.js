@@ -6,7 +6,7 @@ import { getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import PropTypes from 'prop-types';
 
 const PROMPT_MESSAGE =
-  "Are you sure you want to navigate away? Your pending text changes will be lost.";
+  'Are you sure you want to navigate away? Your pending text changes will be lost.';
 
 export class EditableNote extends Component {
   static propTypes = {
@@ -99,9 +99,7 @@ export class EditableNote extends Component {
 
   getSanitizedHtmlContent() {
     const { markdown } = this.state;
-    return markdown
-      ? sanitizeConvertedHtml(this.converter.makeHtml(markdown))
-      : null;
+    return markdown ? sanitizeConvertedHtml(this.converter.makeHtml(markdown)) : null;
   }
 
   render() {
@@ -118,9 +116,7 @@ export class EditableNote extends Component {
                 onChange={this.handleMdeValueChange}
                 selectedTab={selectedTab}
                 onTabChange={this.handleTabChange}
-                generateMarkdownPreview={(md) =>
-                  Promise.resolve(this.getSanitizedHtmlContent(md))
-                }
+                generateMarkdownPreview={(md) => Promise.resolve(this.getSanitizedHtmlContent(md))}
                 getIcon={(name) => <TooltipIcon name={name} />}
               />
             </div>
@@ -136,7 +132,7 @@ export class EditableNote extends Component {
             <Prompt when={this.contentHasChanged()} message={PROMPT_MESSAGE} />
           </React.Fragment>
         ) : (
-          <HTMLNoteContent content={htmlContent}/>
+          <HTMLNoteContent content={htmlContent} />
         )}
       </div>
     );
@@ -146,7 +142,7 @@ export class EditableNote extends Component {
 function TooltipIcon(props) {
   const { name } = props;
   return (
-    <Tooltip position="top" title={name}>
+    <Tooltip position='top' title={name}>
       <span>
         <SvgIcon icon={name} />
       </span>
@@ -157,13 +153,14 @@ function TooltipIcon(props) {
 function HTMLNoteContent(props) {
   const { content } = props;
   return content ? (
-    <div className="note-view-outer-container">
-      <div className="note-view-text-area">
-        <div className="note-view-preview note-editor-preview">
-          <div className="note-editor-preview-content"
+    <div className='note-view-outer-container'>
+      <div className='note-view-text-area'>
+        <div className='note-view-preview note-editor-preview'>
+          <div
+            className='note-editor-preview-content'
             // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: props.content }}>
-          </div>
+            dangerouslySetInnerHTML={{ __html: props.content }}
+          ></div>
         </div>
       </div>
     </div>

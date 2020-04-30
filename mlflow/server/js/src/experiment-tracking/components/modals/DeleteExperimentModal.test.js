@@ -11,7 +11,7 @@ describe('DeleteExperimentModal', () => {
   const fakeExperimentId = 'fakeExpId';
 
   beforeEach(() => {
-    location = {search: 'initialSearchValue'};
+    location = { search: 'initialSearchValue' };
     const history = {
       push: (url) => {
         location.search = url;
@@ -31,17 +31,16 @@ describe('DeleteExperimentModal', () => {
       listExperimentsApi: () => Promise.resolve([]),
       history: history,
     };
-    wrapper = shallow(<DeleteExperimentModalImpl {...minimalProps}/>);
+    wrapper = shallow(<DeleteExperimentModalImpl {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<DeleteExperimentModalImpl {...minimalProps}/>);
+    wrapper = shallow(<DeleteExperimentModalImpl {...minimalProps} />);
     expect(wrapper.find(ConfirmModal).length).toBe(1);
     expect(wrapper.length).toBe(1);
   });
 
-  test('handleSubmit redirects user to root page if active experiment is current ' +
-    'experiment', (done) => {
+  test('handleSubmit redirects user to root page if active experiment is current experiment', (done) => {
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {
       expect(location.search).toEqual('/');
@@ -54,7 +53,7 @@ describe('DeleteExperimentModal', () => {
       ...minimalProps,
       deleteExperimentApi: () => Promise.reject(new Error('DeleteExperiment failed!')),
     };
-    wrapper = shallow(<DeleteExperimentModalImpl {...props}/>);
+    wrapper = shallow(<DeleteExperimentModalImpl {...props} />);
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {
       expect(location.search).toEqual('initialSearchValue');
@@ -62,11 +61,10 @@ describe('DeleteExperimentModal', () => {
     });
   });
 
-  test('handleSubmit does not perform redirection if deleted experiment is not active ' +
-    'experiment', (done) => {
-    wrapper = shallow(<DeleteExperimentModalImpl
-      {...{...minimalProps, activeExperimentId: undefined}}
-    />);
+  test('handleSubmit does not perform redirection if deleted experiment is not active experiment', (done) => {
+    wrapper = shallow(
+      <DeleteExperimentModalImpl {...{ ...minimalProps, activeExperimentId: undefined }} />,
+    );
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {
       expect(location.search).toEqual('initialSearchValue');

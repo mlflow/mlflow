@@ -8,16 +8,17 @@ export class NoExperimentView extends Component {
       <div>
         <img
           className='center'
-          alt="No experiments found."
+          alt='No experiments found.'
           style={{ height: '200px', marginTop: '80px' }}
           src={noExperiments}
         />
-        <h1 className="center" style={{ paddingTop: '10px' }}>
+        <h1 className='center' style={{ paddingTop: '10px' }}>
           No Experiments Exist
         </h1>
-        <h2 className="center" style={{ color: Colors.secondaryText }}>
+        <h2 className='center' style={{ color: Colors.secondaryText }}>
+          {/* prettier-ignore */}
           To create an experiment use the{' '}
-          <a href={"https://www.mlflow.org/docs/latest/cli.html#experiments"}>
+          <a href={'https://www.mlflow.org/docs/latest/cli.html#experiments'}>
             mlflow experiments
           </a>{' '}
           CLI.

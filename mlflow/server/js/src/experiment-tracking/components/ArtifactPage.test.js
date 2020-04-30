@@ -7,12 +7,12 @@ import { BrowserRouter } from 'react-router-dom';
 import { ErrorWrapper, pending } from '../../common/utils/ActionUtils';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import {
-  ModelVersionStatus, Stages, MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL,
+  ModelVersionStatus,
+  Stages,
+  MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL,
 } from '../../model-registry/constants';
 import Utils from '../../common/utils/Utils';
-import {
-  mockModelVersionDetailed,
-} from '../../model-registry/test-utils';
+import { mockModelVersionDetailed } from '../../model-registry/test-utils';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -30,9 +30,9 @@ describe('ArtifactPage', () => {
     mockAjax();
     const node = getTestArtifactNode();
     minimalProps = {
-      runUuid: "fakeUuid",
+      runUuid: 'fakeUuid',
       artifactNode: node,
-      artifactRootUri: "test_root",
+      artifactRootUri: 'test_root',
       listArtifactsApi: jest.fn(() => Promise.resolve({})),
     };
 
@@ -40,10 +40,10 @@ describe('ArtifactPage', () => {
       apis: {},
       entities: {
         artifactsByRunUuid: {
-          "fakeUuid": node,
+          fakeUuid: node,
         },
         artifactRootUriByRunUuid: {
-          "fakeUuid": "8",
+          fakeUuid: '8',
         },
         modelVersionsByModel: {
           'Model A': {
@@ -63,8 +63,8 @@ describe('ArtifactPage', () => {
   const getTestArtifactNode = () => {
     const rootNode = new ArtifactNode(true, undefined);
     rootNode.isLoaded = true;
-    const dir1 = new ArtifactNode(false, { path: "dir1", is_dir: true });
-    const file1 = new ArtifactNode(false, { path: "file1", is_dir: false, file_size: "159" });
+    const dir1 = new ArtifactNode(false, { path: 'dir1', is_dir: true });
+    const file1 = new ArtifactNode(false, { path: 'file1', is_dir: false, file_size: '159' });
     rootNode.children = { dir1, file1 };
     return rootNode;
   };
@@ -75,7 +75,7 @@ describe('ArtifactPage', () => {
         <BrowserRouter>
           <ArtifactPage {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     expect(wrapper.length).toBe(1);
   });
@@ -86,13 +86,13 @@ describe('ArtifactPage', () => {
         <BrowserRouter>
           <ArtifactPage {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     expect(wrapper.find('.Spinner').length).toBe(1);
   });
 
   test('ArtifactPage renders error message when listArtifacts request fails', () => {
-    const props = {...minimalProps, apis: {}, searchModelVersionsApi: jest.fn()};
+    const props = { ...minimalProps, apis: {}, searchModelVersionsApi: jest.fn() };
     wrapper = shallow(<ArtifactPageImpl {...props} />);
     const responseErrorWrapper = new ErrorWrapper({
       responseText: `{'error_code': '${ErrorCodes.PERMISSION_DENIED}', 'message': 'request failed'}`,
@@ -103,16 +103,14 @@ describe('ArtifactPage', () => {
       active: false,
       error: responseErrorWrapper,
     };
-    const artifactViewInstance = shallow(artifactPageInstance.renderArtifactView(
-      false,
-      true,
-      [listArtifactsErrorRequest],
-    ));
+    const artifactViewInstance = shallow(
+      artifactPageInstance.renderArtifactView(false, true, [listArtifactsErrorRequest]),
+    );
     expect(artifactViewInstance.find('.mlflow-artifact-error').length).toBe(1);
   });
 
   test('ArtifactPage renders ArtifactView when listArtifacts request succeeds', () => {
-    const props = {...minimalProps, apis: {}, searchModelVersionsApi: jest.fn()};
+    const props = { ...minimalProps, apis: {}, searchModelVersionsApi: jest.fn() };
     wrapper = shallow(<ArtifactPageImpl {...props} />);
     const artifactPageInstance = wrapper.instance();
     const listArtifactsSuccessRequest = {
@@ -123,10 +121,10 @@ describe('ArtifactPage', () => {
     const artifactViewInstance = shallow(
       <Provider store={minimalStore}>
         <BrowserRouter>
-          {artifactPageInstance.renderArtifactView(
-            false, false, [listArtifactsSuccessRequest])}
+          {artifactPageInstance.renderArtifactView(false, false, [listArtifactsSuccessRequest])}
         </BrowserRouter>
-      </Provider>);
+      </Provider>,
+    );
     expect(artifactViewInstance.find(ArtifactView).length).toBe(1);
   });
 
@@ -134,10 +132,8 @@ describe('ArtifactPage', () => {
     jest.useFakeTimers();
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
 
-    const props = {...minimalProps, store: minimalStore};
-    wrapper = shallow(
-      <ArtifactPage {...props} />
-    ).dive();
+    const props = { ...minimalProps, store: minimalStore };
+    wrapper = shallow(<ArtifactPage {...props} />).dive();
     wrapper.instance().handleActiveNodeChange(true);
     jest.runTimersToTime(POLL_INTERVAL * 3);
     const expectedActions = minimalStore.getActions().filter((action) => {
@@ -151,10 +147,8 @@ describe('ArtifactPage', () => {
     const enabledSpy = jest.spyOn(Utils, 'isModelRegistryEnabled').mockImplementation(() => false);
     expect(Utils.isModelRegistryEnabled()).toEqual(false);
 
-    const props = {...minimalProps, store: minimalStore};
-    wrapper = shallow(
-      <ArtifactPage {...props} />
-    ).dive();
+    const props = { ...minimalProps, store: minimalStore };
+    wrapper = shallow(<ArtifactPage {...props} />).dive();
     wrapper.instance().handleActiveNodeChange(true);
     jest.runTimersToTime(POLL_INTERVAL * 3);
     const expectedActions = minimalStore.getActions().filter((action) => {
@@ -168,10 +162,8 @@ describe('ArtifactPage', () => {
   test('should not poll for model versions if active node is not directory', () => {
     jest.useFakeTimers();
 
-    const props = {...minimalProps, store: minimalStore};
-    wrapper = shallow(
-      <ArtifactPage {...props} />
-    ).dive();
+    const props = { ...minimalProps, store: minimalStore };
+    wrapper = shallow(<ArtifactPage {...props} />).dive();
     expect(wrapper.instance().state.activeNodeIsDirectory).toEqual(false);
 
     jest.runTimersToTime(POLL_INTERVAL * 3);
@@ -180,5 +172,4 @@ describe('ArtifactPage', () => {
     });
     expect(expectedActions).toHaveLength(0);
   });
-
 });

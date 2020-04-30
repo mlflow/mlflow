@@ -5,10 +5,12 @@ export const NOOP = () => {};
 export function deepFreeze(o) {
   Object.freeze(o);
   Object.getOwnPropertyNames(o).forEach((prop) => {
-    if (o.hasOwnProperty(prop)
-      && o[prop] !== null
-      && (typeof o[prop] === "object" || typeof o[prop] === "function")
-      && !Object.isFrozen(o[prop])) {
+    if (
+      o.hasOwnProperty(prop) &&
+      o[prop] !== null &&
+      (typeof o[prop] === 'object' || typeof o[prop] === 'function') &&
+      !Object.isFrozen(o[prop])
+    ) {
       deepFreeze(o[prop]);
     }
   });
@@ -21,6 +23,6 @@ export function deepFreeze(o) {
 // just want to prevent actual connection attempts from being made and throwing spurious errors.
 export function mockAjax() {
   $.ajax = jest.fn().mockImplementation(() => {
-    return Promise.resolve({value: ""});
+    return Promise.resolve({ value: '' });
   });
 }

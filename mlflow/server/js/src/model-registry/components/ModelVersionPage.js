@@ -8,16 +8,12 @@ import {
 } from '../actions';
 import { getRunApi } from '../../experiment-tracking/actions';
 import PropTypes from 'prop-types';
-import {
-  getModelVersion,
-} from '../reducers';
+import { getModelVersion } from '../reducers';
 import { ModelVersionView } from './ModelVersionView';
-import { ActivityTypes, MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL} from '../constants';
+import { ActivityTypes, MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../constants';
 import Utils from '../../common/utils/Utils';
 import { getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
-import RequestStateWrapper, {
-  triggerError,
-} from '../../common/components/RequestStateWrapper';
+import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
 import { Error404View } from '../../common/components/Error404View';
 import { Spinner } from '../../common/components/Spinner';
 import { getModelPageRoute, modelListPageRoute } from '../routes';
@@ -49,9 +45,7 @@ export class ModelVersionPageImpl extends React.Component {
   transitionModelVersionStageRequestId = getUUID();
   getModelVersionDetailsRequestId = getUUID();
 
-  criticalInitialRequestIds = [
-    this.initGetModelVersionDetailsRequestId,
-  ];
+  criticalInitialRequestIds = [this.initGetModelVersionDetailsRequestId];
 
   pollingRelatedRequestIds = [
     this.listTransitionRequestId,
@@ -60,15 +54,14 @@ export class ModelVersionPageImpl extends React.Component {
     this.getRunRequestId,
   ];
 
-  hasPendingPollingRequest = () => this.pollingRelatedRequestIds.every((requestId) => {
-    const request = this.props.apis[requestId];
-    return Boolean(request && request.active);
-  });
+  hasPendingPollingRequest = () =>
+    this.pollingRelatedRequestIds.every((requestId) => {
+      const request = this.props.apis[requestId];
+      return Boolean(request && request.active);
+    });
 
   loadData = (isInitialLoading) => {
-    return Promise.all([
-      this.getModelVersionDetailAndRunInfo(isInitialLoading),
-    ]);
+    return Promise.all([this.getModelVersionDetailAndRunInfo(isInitialLoading)]);
   };
 
   // We need to do this because currently the ModelVersionDetailed we got does not contain
@@ -86,10 +79,7 @@ export class ModelVersionPageImpl extends React.Component {
       )
       .then(({ value }) => {
         if (value) {
-          this.props.getRunApi(
-            value[getProtoField("model_version")].run_id,
-            this.getRunRequestId,
-          );
+          this.props.getRunApi(value[getProtoField('model_version')].run_id, this.getRunRequestId);
         }
       });
   }
@@ -113,12 +103,7 @@ export class ModelVersionPageImpl extends React.Component {
   handleEditDescription = (description) => {
     const { modelName, version } = this.props;
     return this.props
-      .updateModelVersionApi(
-        modelName,
-        version,
-        description,
-        this.updateModelVersionRequestId,
-      )
+      .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
       .then(this.loadData)
       .catch(console.error);
   };
@@ -126,16 +111,15 @@ export class ModelVersionPageImpl extends React.Component {
   pollData = () => {
     const { modelName, version, history } = this.props;
     if (!this.hasPendingPollingRequest() && Utils.isBrowserTabVisible()) {
-      return this.loadData()
-        .catch((e) => {
-          if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
-            Utils.logErrorAndNotifyUser(e);
-            this.props.deleteModelVersionApi(modelName, version, undefined, true);
-            history.push(getModelPageRoute(modelName));
-          } else {
-            console.error(e);
-          }
-        });
+      return this.loadData().catch((e) => {
+        if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
+          Utils.logErrorAndNotifyUser(e);
+          this.props.deleteModelVersionApi(modelName, version, undefined, true);
+          history.push(getModelPageRoute(modelName));
+        } else {
+          console.error(e);
+        }
+      });
     }
     return Promise.resolve();
   };
@@ -150,14 +134,7 @@ export class ModelVersionPageImpl extends React.Component {
   }
 
   render() {
-    const {
-      modelName,
-      version,
-      modelVersion,
-      runInfo,
-      runDisplayName,
-      history,
-    } = this.props;
+    const { modelName, version, modelVersion, runInfo, runDisplayName, history } = this.props;
 
     return (
       <div className='App-content'>
@@ -177,7 +154,8 @@ export class ModelVersionPageImpl extends React.Component {
               triggerError(requests);
             } else if (loading) {
               return <Spinner />;
-            } else if (modelVersion) { // Null check to prevent NPE after delete operation
+            } else if (modelVersion) {
+              // Null check to prevent NPE after delete operation
               return (
                 <ModelVersionView
                   modelName={modelName}

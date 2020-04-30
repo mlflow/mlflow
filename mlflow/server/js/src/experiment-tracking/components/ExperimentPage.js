@@ -1,21 +1,17 @@
 import React, { Component } from 'react';
 import './ExperimentPage.css';
 import PropTypes from 'prop-types';
-import {
-  getExperimentApi,
-  searchRunsApi,
-  loadMoreRunsApi,
-} from '../actions';
+import { getExperimentApi, searchRunsApi, loadMoreRunsApi } from '../actions';
 import { connect } from 'react-redux';
 import ExperimentView from './ExperimentView';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import KeyFilter from '../utils/KeyFilter';
 import { ViewType } from '../sdk/MlflowEnums';
-import { ExperimentPagePersistedState } from "../sdk/MlflowLocalStorageMessages";
-import Utils from "../../common/utils/Utils";
+import { ExperimentPagePersistedState } from '../sdk/MlflowLocalStorageMessages';
+import Utils from '../../common/utils/Utils';
 import { ErrorCodes } from '../../common/constants';
-import { PermissionDeniedView } from "./PermissionDeniedView";
-import { Spinner } from "../../common/components/Spinner";
+import { PermissionDeniedView } from './PermissionDeniedView';
+import { Spinner } from '../../common/components/Spinner';
 import { withRouter } from 'react-router-dom';
 import { getUUID } from '../../common/utils/ActionUtils';
 
@@ -28,11 +24,11 @@ export class ExperimentPage extends Component {
     this.state = {
       ...ExperimentPage.getDefaultUnpersistedState(),
       persistedState: {
-        paramKeyFilterString: urlState.params === undefined ? "" : urlState.params,
-        metricKeyFilterString: urlState.metrics === undefined ? "" : urlState.metrics,
-        searchInput: urlState.search === undefined ? "" : urlState.search,
+        paramKeyFilterString: urlState.params === undefined ? '' : urlState.params,
+        metricKeyFilterString: urlState.metrics === undefined ? '' : urlState.metrics,
+        searchInput: urlState.search === undefined ? '' : urlState.search,
         orderByKey: urlState.orderByKey === undefined ? null : urlState.orderByKey,
-        orderByAsc: urlState.orderByAsc === undefined ? true : urlState.orderByAsc === "true",
+        orderByAsc: urlState.orderByAsc === undefined ? true : urlState.orderByAsc === 'true',
       },
       nextPageToken: null,
       loadingMore: false,
@@ -50,11 +46,9 @@ export class ExperimentPage extends Component {
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
 
-    this.props
-      .getExperimentApi(experimentId, this.getExperimentRequestId)
-      .catch((e) => {
-        console.error(e);
-      });
+    this.props.getExperimentApi(experimentId, this.getExperimentRequestId).catch((e) => {
+      console.error(e);
+    });
     this.props
       .searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId)
       .then(this.updateNextPageToken)
@@ -127,8 +121,10 @@ export class ExperimentPage extends Component {
     if (props.experimentId !== state.lastExperimentId) {
       return {
         ...ExperimentPage.getDefaultUnpersistedState(),
-        persistedState: state.lastExperimentId === undefined ?
-          state.persistedState : (new ExperimentPagePersistedState()).toJSON(),
+        persistedState:
+          state.lastExperimentId === undefined
+            ? state.persistedState
+            : new ExperimentPagePersistedState().toJSON(),
         lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
       };
@@ -148,7 +144,7 @@ export class ExperimentPage extends Component {
     searchInput,
     lifecycleFilterInput,
     orderByKey,
-    orderByAsc
+    orderByAsc,
   ) => {
     this.setState({
       persistedState: new ExperimentPagePersistedState({
@@ -189,16 +185,21 @@ export class ExperimentPage extends Component {
     let orderBy = [];
     if (orderByKey) {
       if (orderByAsc) {
-        orderBy = [orderByKey + " ASC"];
+        orderBy = [orderByKey + ' ASC'];
       } else {
-        orderBy = [orderByKey + " DESC"];
+        orderBy = [orderByKey + ' DESC'];
       }
     }
     return orderBy;
   }
 
-  updateUrlWithSearchFilter(
-    { paramKeyFilterString, metricKeyFilterString, searchInput, orderByKey, orderByAsc }) {
+  updateUrlWithSearchFilter({
+    paramKeyFilterString,
+    metricKeyFilterString,
+    searchInput,
+    orderByKey,
+    orderByAsc,
+  }) {
     const state = {};
     if (paramKeyFilterString) {
       state['params'] = paramKeyFilterString;
@@ -216,27 +217,25 @@ export class ExperimentPage extends Component {
     if (orderByAsc === false) {
       state['orderByAsc'] = orderByAsc;
     }
-    const newUrl = `/experiments/${this.props.experimentId}` +
-      `/s?${Utils.getSearchUrlFromState(state)}`;
-    if (newUrl !== (this.props.history.location.pathname
-      + this.props.history.location.search)) {
+    const newUrl = `/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(
+      state,
+    )}`;
+    if (newUrl !== this.props.history.location.pathname + this.props.history.location.search) {
       this.props.history.push(newUrl);
     }
   }
 
   renderExperimentView = (isLoading, shouldRenderError, requests) => {
     let searchRunsError;
-    const getExperimentRequest = Utils.getRequestWithId(
-      requests, this.getExperimentRequestId);
+    const getExperimentRequest = Utils.getRequestWithId(requests, this.getExperimentRequestId);
 
     if (shouldRenderError) {
-      const searchRunsRequest = Utils.getRequestWithId(
-        requests, this.searchRunsRequestId);
-      if (getExperimentRequest.error &&
-        getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
-        return (<PermissionDeniedView
-          errorMessage={getExperimentRequest.error.getMessageField()}
-        />);
+      const searchRunsRequest = Utils.getRequestWithId(requests, this.searchRunsRequestId);
+      if (
+        getExperimentRequest.error &&
+        getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED
+      ) {
+        return <PermissionDeniedView errorMessage={getExperimentRequest.error.getMessageField()} />;
       } else if (searchRunsRequest.error) {
         searchRunsError = searchRunsRequest.error.getMessageField();
       } else {
@@ -244,30 +243,32 @@ export class ExperimentPage extends Component {
       }
     }
     if (!getExperimentRequest || getExperimentRequest.active) {
-      return <Spinner/>;
+      return <Spinner />;
     }
 
-    return <ExperimentView
-      paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
-      metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
-      experimentId={this.props.experimentId}
-      searchRunsRequestId={this.searchRunsRequestId}
-      lifecycleFilter={this.state.lifecycleFilter}
-      onSearch={this.onSearch}
-      searchRunsError={searchRunsError}
-      searchInput={this.state.persistedState.searchInput}
-      isLoading={isLoading && !searchRunsError}
-      orderByKey={this.state.persistedState.orderByKey}
-      orderByAsc={this.state.persistedState.orderByAsc}
-      nextPageToken={this.state.nextPageToken}
-      handleLoadMoreRuns={this.handleLoadMoreRuns}
-      loadingMore={this.state.loadingMore}
-    />;
-  }
+    return (
+      <ExperimentView
+        paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
+        metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
+        experimentId={this.props.experimentId}
+        searchRunsRequestId={this.searchRunsRequestId}
+        lifecycleFilter={this.state.lifecycleFilter}
+        onSearch={this.onSearch}
+        searchRunsError={searchRunsError}
+        searchInput={this.state.persistedState.searchInput}
+        isLoading={isLoading && !searchRunsError}
+        orderByKey={this.state.persistedState.orderByKey}
+        orderByAsc={this.state.persistedState.orderByAsc}
+        nextPageToken={this.state.nextPageToken}
+        handleLoadMoreRuns={this.handleLoadMoreRuns}
+        loadingMore={this.state.loadingMore}
+      />
+    );
+  };
 
   render() {
     return (
-      <div className="ExperimentPage runs-table-flex-container" style={{ height: "100%" }}>
+      <div className='ExperimentPage runs-table-flex-container' style={{ height: '100%' }}>
         <RequestStateWrapper shouldOptimisticallyRender requestIds={this.getRequestIds()}>
           {this.renderExperimentView}
         </RequestStateWrapper>

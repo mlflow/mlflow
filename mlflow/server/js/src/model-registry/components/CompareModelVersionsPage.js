@@ -4,10 +4,9 @@ import qs from 'qs';
 import { connect } from 'react-redux';
 import { getRunApi } from '../../experiment-tracking/actions';
 import { getUUID } from '../../common/utils/ActionUtils';
-import { getRegisteredModelApi, getModelVersionApi } from "../actions";
+import { getRegisteredModelApi, getModelVersionApi } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import CompareModelVersionsView from './CompareModelVersionsView';
-
 
 // TODO: Write integration tests for this component
 class CompareModelVersionsPage extends Component {
@@ -29,8 +28,13 @@ class CompareModelVersionsPage extends Component {
         this.props.dispatch(getRunApi(runUuid, runRequestId));
         const versionRequestId = getUUID();
         this.requestIds.push(versionRequestId);
-        this.props.dispatch(getModelVersionApi(this.props.modelName,
-          this.props.runsToVersions[runUuid], versionRequestId));
+        this.props.dispatch(
+          getModelVersionApi(
+            this.props.modelName,
+            this.props.runsToVersions[runUuid],
+            versionRequestId,
+          ),
+        );
       }
     }
   }
@@ -39,8 +43,10 @@ class CompareModelVersionsPage extends Component {
     return (
       <div className='App-content'>
         <RequestStateWrapper requestIds={this.requestIds}>
-          <CompareModelVersionsView modelName={this.props.modelName}
-                                    runsToVersions={this.props.runsToVersions}/>
+          <CompareModelVersionsView
+            modelName={this.props.modelName}
+            runsToVersions={this.props.runsToVersions}
+          />
         </RequestStateWrapper>
       </div>
     );
@@ -50,8 +56,8 @@ class CompareModelVersionsPage extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { location } = ownProps;
   const searchValues = qs.parse(location.search);
-  const modelName = JSON.parse(searchValues["?name"]);
-  const runsToVersions = JSON.parse(searchValues["runs"]);
+  const modelName = JSON.parse(searchValues['?name']);
+  const runsToVersions = JSON.parse(searchValues['runs']);
   return { modelName, runsToVersions };
 };
 

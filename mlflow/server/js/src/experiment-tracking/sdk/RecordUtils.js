@@ -19,10 +19,14 @@ export class RecordUtils {
         // Record an event when the value is null, since if it's null and we still create the
         // object, it might cause some bug CJ-18735
         if (pojo[key] === null) {
-          window.recordEvent('clientsideEvent', {
-            eventType: 'nullValueForNestedProto',
-            property: key,
-          }, pojo);
+          window.recordEvent(
+            'clientsideEvent',
+            {
+              eventType: 'nullValueForNestedProto',
+              property: key,
+            },
+            pojo,
+          );
         }
         record[key] = fromJsReviver(key, pojo[key]);
       }

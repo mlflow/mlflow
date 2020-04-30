@@ -11,37 +11,37 @@ describe('ShowArtifactHtmlView', () => {
 
   beforeEach(() => {
     minimalProps = {
-      path: "fakepath",
-      runUuid: "fakeUuid",
+      path: 'fakepath',
+      runUuid: 'fakeUuid',
     };
     // Mock the `getArtifact` function to avoid spurious network errors
     // during testing
     const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.resolve("some content");
+      return Promise.resolve('some content');
     });
     commonProps = { ...minimalProps, getArtifact: getArtifact };
-    wrapper = shallow(<ShowArtifactHtmlView {...commonProps}/>);
+    wrapper = shallow(<ShowArtifactHtmlView {...commonProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ShowArtifactHtmlView {...minimalProps}/>);
+    wrapper = shallow(<ShowArtifactHtmlView {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render loading text when view is loading', () => {
     instance = wrapper.instance();
     instance.setState({ loading: true });
-    expect(wrapper.find(".artifact-html-view-loading").length).toBe(1);
+    expect(wrapper.find('.artifact-html-view-loading').length).toBe(1);
   });
 
   test('should render error message when error occurs', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.reject(new Error("my error text"));
+      return Promise.reject(new Error('my error text'));
     });
     const props = { ...minimalProps, getArtifact: getArtifact };
-    wrapper = shallow(<ShowArtifactHtmlView {...props}/>);
+    wrapper = shallow(<ShowArtifactHtmlView {...props} />);
     setImmediate(() => {
-      expect(wrapper.find(".artifact-html-view-error").length).toBe(1);
+      expect(wrapper.find('.artifact-html-view-error').length).toBe(1);
       expect(wrapper.instance().state.loading).toBe(false);
       expect(wrapper.instance().state.html).toBeUndefined();
       expect(wrapper.instance().state.error).toBeDefined();
@@ -54,13 +54,19 @@ describe('ShowArtifactHtmlView', () => {
       return Promise.resolve('my text');
     });
     const props = { ...minimalProps, getArtifact: getArtifact };
-    wrapper = shallow(<ShowArtifactHtmlView {...props}/>);
+    wrapper = shallow(<ShowArtifactHtmlView {...props} />);
     setImmediate(() => {
       expect(wrapper.instance().state.loading).toBe(false);
       expect(wrapper.instance().state.html).toBeDefined();
       expect(wrapper.instance().state.error).toBeUndefined();
       expect(wrapper.find(Iframe).length).toBe(1);
-      expect(wrapper.find(Iframe).first().dive().prop('id')).toEqual('html');
+      expect(
+        wrapper
+          .find(Iframe)
+          .first()
+          .dive()
+          .prop('id'),
+      ).toEqual('html');
       done();
     });
   });

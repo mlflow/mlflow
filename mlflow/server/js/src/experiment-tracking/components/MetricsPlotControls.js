@@ -63,7 +63,7 @@ export class MetricsPlotControls extends React.Component {
             </div>
             <div className='block-control'>
               <div className='control-label'>
-                Line Smoothness {' '}
+                Line Smoothness{' '}
                 <Tooltip title={lineSmoothnessTooltipText}>
                   <Icon type='question-circle' />
                 </Tooltip>

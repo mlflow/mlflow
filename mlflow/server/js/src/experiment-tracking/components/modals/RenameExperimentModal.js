@@ -67,5 +67,7 @@ const mapDispatchToProps = {
   getExperimentApi,
 };
 
-export const RenameExperimentModal = connect(mapStateToProps,
-  mapDispatchToProps)(RenameExperimentModalImpl);
+export const RenameExperimentModal = connect(
+  mapStateToProps,
+  mapDispatchToProps,
+)(RenameExperimentModalImpl);

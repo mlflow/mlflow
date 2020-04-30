@@ -39,21 +39,13 @@ export class ErrorModalImpl extends Component {
         onRequestClose={this.props.onClose}
       >
         <Modal.Header>
-          <Modal.Title>
-            Oops!
-          </Modal.Title>
+          <Modal.Title>Oops!</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p style={{ marginBottom: '10px' }}>
-            {this.props.text}
-          </p>
+          <p style={{ marginBottom: '10px' }}>{this.props.text}</p>
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            bsStyle="default"
-            onClick={this.props.onClose}
-            className="mlflow-form-button"
-          >
+          <Button bsStyle='default' onClick={this.props.onClose} className='mlflow-form-button'>
             Close
           </Button>
         </Modal.Footer>

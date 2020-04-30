@@ -6,9 +6,7 @@ import { listArtifactsApi } from '../actions';
 import { searchModelVersionsApi } from '../../model-registry/actions';
 import { connect } from 'react-redux';
 import { getArtifactRootUri } from '../reducers/Reducers';
-import {
-  MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL,
-} from '../../model-registry/constants';
+import { MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../../model-registry/constants';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
@@ -89,10 +87,7 @@ export class ArtifactPageImpl extends Component {
               <div>
                 <div className='artifact-load-error-header'>Loading Artifacts Failed</div>
                 <div className='artifact-load-error-info'>
-                  <i
-                    className='far fa-times-circle artifact-load-error-icon'
-                    aria-hidden='true'
-                  />
+                  <i className='far fa-times-circle artifact-load-error-icon' aria-hidden='true' />
                   {this.getFailedtoListArtifactsMsg()}
                 </div>
               </div>
@@ -101,14 +96,15 @@ export class ArtifactPageImpl extends Component {
         </div>
       );
     }
-    return <ArtifactView {...this.props} handleActiveNodeChange={this.handleActiveNodeChange}/>;
-
+    return <ArtifactView {...this.props} handleActiveNodeChange={this.handleActiveNodeChange} />;
   };
 
   render() {
-    return <RequestStateWrapper requestIds={[this.listArtifactRequestId]}>
-      {this.renderArtifactView}
-    </RequestStateWrapper>;
+    return (
+      <RequestStateWrapper requestIds={[this.listArtifactRequestId]}>
+        {this.renderArtifactView}
+      </RequestStateWrapper>
+    );
   }
 }
 
@@ -118,7 +114,6 @@ const mapStateToProps = (state, ownProps) => {
   const artifactRootUri = getArtifactRootUri(runUuid, state);
   return { artifactRootUri, apis };
 };
-
 
 const mapDispatchToProps = {
   listArtifactsApi,

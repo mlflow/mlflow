@@ -3,7 +3,6 @@ import { HtmlTableView } from './HtmlTableView';
 import React from 'react';
 import { Table } from 'react-bootstrap';
 
-
 describe('HtmlTableView', () => {
   let wrapper;
   let minimalProps;
@@ -16,17 +15,20 @@ describe('HtmlTableView', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<HtmlTableView {...minimalProps}/>);
+    wrapper = shallow(<HtmlTableView {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render column and values', () => {
     const props = {
       columns: ['one', 'two', 'three'],
-      values: [[1, 2, 3], [4, 5, 6]],
+      values: [
+        [1, 2, 3],
+        [4, 5, 6],
+      ],
     };
 
-    wrapper = shallow(<HtmlTableView {...props}/>);
+    wrapper = shallow(<HtmlTableView {...props} />);
     expect(wrapper.find(Table).length).toBe(1);
 
     const rows = wrapper.find('tr');
@@ -59,7 +61,7 @@ describe('HtmlTableView', () => {
       },
     };
 
-    wrapper = shallow(<HtmlTableView {...props}/>);
+    wrapper = shallow(<HtmlTableView {...props} />);
     const tableStlye = wrapper.find(Table).get(0).props.style;
     expect(tableStlye).toHaveProperty('width', 'auto');
     expect(tableStlye).toHaveProperty('minWidth', '400px');

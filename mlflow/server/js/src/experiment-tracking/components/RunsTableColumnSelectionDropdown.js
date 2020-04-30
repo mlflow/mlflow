@@ -87,12 +87,15 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
         Object.values(ExperimentViewUtil.AttributeColumnLabels),
         categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES],
       ).map((key) => `${ColumnTypes.ATTRIBUTES}-${key}`),
-      ..._.difference(paramKeyList, categorizedUncheckedKeys[ColumnTypes.PARAMS])
-        .map((key) => `${ColumnTypes.PARAMS}-${key}`),
-      ..._.difference(metricKeyList, categorizedUncheckedKeys[ColumnTypes.METRICS])
-        .map((key) => `${ColumnTypes.METRICS}-${key}`),
-      ..._.difference(visibleTagKeyList, categorizedUncheckedKeys[ColumnTypes.TAGS])
-        .map((key) => `${ColumnTypes.TAGS}-${key}`),
+      ..._.difference(paramKeyList, categorizedUncheckedKeys[ColumnTypes.PARAMS]).map(
+        (key) => `${ColumnTypes.PARAMS}-${key}`,
+      ),
+      ..._.difference(metricKeyList, categorizedUncheckedKeys[ColumnTypes.METRICS]).map(
+        (key) => `${ColumnTypes.METRICS}-${key}`,
+      ),
+      ..._.difference(visibleTagKeyList, categorizedUncheckedKeys[ColumnTypes.TAGS]).map(
+        (key) => `${ColumnTypes.TAGS}-${key}`,
+      ),
     ];
   }
 

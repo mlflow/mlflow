@@ -59,9 +59,7 @@ class RegisterModelFormComponent extends React.Component {
         {/* "+ Create new model" OR "Select existing model" */}
         <Form.Item label='Model'>
           {getFieldDecorator(SELECTED_MODEL_FIELD, {
-            rules: [
-              { required: true, message: 'Please select a model or create a new one.' },
-            ],
+            rules: [{ required: true, message: 'Please select a model or create a new one.' }],
           })(
             <Select
               dropdownClassName='model-select-dropdown'
@@ -93,13 +91,13 @@ class RegisterModelFormComponent extends React.Component {
         ) : null}
 
         {/* Model/Model Version Description */}
-        { ENABLE_DESCRIPTION && selectedModel ? (
+        {ENABLE_DESCRIPTION && selectedModel ? (
           <Form.Item label='Description'>
             {getFieldDecorator(DESCRIPTION_FIELD)(
               <TextArea
                 rows={3}
                 placeholder={`Description for the new ${creatingNewModel ? 'model' : 'version'}`}
-              />
+              />,
             )}
           </Form.Item>
         ) : null}

@@ -31,7 +31,7 @@ describe('ExperimentRunsTableCompactView', () => {
       loadingMore: false,
       categorizedUncheckedKeys: {},
     };
-    wrapper = shallow(<ExperimentRunsTableCompactView {...minimalProps}/>);
+    wrapper = shallow(<ExperimentRunsTableCompactView {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {

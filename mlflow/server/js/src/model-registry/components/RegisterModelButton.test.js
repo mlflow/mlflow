@@ -26,7 +26,7 @@ describe('RegisterModelButton', () => {
   });
 
   test('should render with minimal props and store without exploding', () => {
-    wrapper = mount(<RegisterModelButton {...minimalProps} store={minimalStore}/>);
+    wrapper = mount(<RegisterModelButton {...minimalProps} store={minimalStore} />);
     expect(wrapper.find('button').length).toBe(1);
   });
 });

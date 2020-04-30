@@ -18,7 +18,7 @@ class ShowArtifactTextView extends Component {
 
   static defaultProps = {
     getArtifact: getArtifactContent,
-  }
+  };
 
   state = {
     loading: true,
@@ -38,11 +38,7 @@ class ShowArtifactTextView extends Component {
 
   render() {
     if (this.state.loading) {
-      return (
-        <div className='artifact-text-view-loading'>
-          Loading...
-        </div>
-      );
+      return <div className='artifact-text-view-loading'>Loading...</div>;
     }
     if (this.state.error) {
       return (
@@ -52,9 +48,9 @@ class ShowArtifactTextView extends Component {
       );
     } else {
       return (
-        <div className="ShowArtifactPage">
-          <div className="text-area-border-box">
-            <textarea className={"text-area"} readOnly value={this.state.text}/>
+        <div className='ShowArtifactPage'>
+          <div className='text-area-border-box'>
+            <textarea className={'text-area'} readOnly value={this.state.text} />
           </div>
         </div>
       );
@@ -64,11 +60,14 @@ class ShowArtifactTextView extends Component {
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
     const artifactLocation = getSrc(this.props.path, this.props.runUuid);
-    this.props.getArtifact(artifactLocation).then((text) => {
-      this.setState({ text: text, loading: false });
-    }).catch((error) => {
-      this.setState({ error: error, loading: false });
-    });
+    this.props
+      .getArtifact(artifactLocation)
+      .then((text) => {
+        this.setState({ text: text, loading: false });
+      })
+      .catch((error) => {
+        this.setState({ error: error, loading: false });
+      });
   }
 }
 

@@ -26,8 +26,9 @@ export class MetricPageImpl extends Component {
     this.props.runUuids.forEach((runUuid) => {
       const getMetricHistoryReqId = getUUID();
       this.requestIds.push(getMetricHistoryReqId);
-      this.props.dispatch(getMetricHistoryApi(runUuid, this.props.metricKey,
-        getMetricHistoryReqId));
+      this.props.dispatch(
+        getMetricHistoryApi(runUuid, this.props.metricKey, getMetricHistoryReqId),
+      );
       // Fetch tags for each run. TODO: it'd be nice if we could just fetch the tags directly
       const getRunRequestId = getUUID();
       this.requestIds.push(getRunRequestId);
@@ -37,13 +38,15 @@ export class MetricPageImpl extends Component {
 
   renderPageContent() {
     const { runUuids } = this.props;
-    return runUuids.length >= 1
-      ? <MetricView
-          runUuids={this.props.runUuids}
-          metricKey={this.props.metricKey}
-          experimentId={this.props.experimentId}
+    return runUuids.length >= 1 ? (
+      <MetricView
+        runUuids={this.props.runUuids}
+        metricKey={this.props.metricKey}
+        experimentId={this.props.experimentId}
       />
-      : <NotFoundPage/>;
+    ) : (
+      <NotFoundPage />
+    );
   }
 
   render() {
@@ -60,10 +63,10 @@ export class MetricPageImpl extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { match, location } = ownProps;
   const searchValues = qs.parse(location.search);
-  const runUuids = JSON.parse(searchValues["?runs"]);
+  const runUuids = JSON.parse(searchValues['?runs']);
   let experimentId = null;
-  if (searchValues.hasOwnProperty("experiment")) {
-    experimentId = searchValues["experiment"];
+  if (searchValues.hasOwnProperty('experiment')) {
+    experimentId = searchValues['experiment'];
   }
   const { metricKey } = match.params;
   return {

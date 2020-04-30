@@ -20,12 +20,12 @@ describe('unit tests', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotPanel {...mininumProps}/>);
+    wrapper = shallow(<ParallelCoordinatesPlotPanel {...mininumProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render empty component when no dimension is selected', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotPanel {...mininumProps}/>);
+    wrapper = shallow(<ParallelCoordinatesPlotPanel {...mininumProps} />);
     instance = wrapper.instance();
     expect(wrapper.find(ParallelCoordinatesPlotView)).toHaveLength(1);
     expect(wrapper.find(Empty)).toHaveLength(0);

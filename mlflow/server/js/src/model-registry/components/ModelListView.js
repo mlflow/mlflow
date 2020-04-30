@@ -37,7 +37,7 @@ export class ModelListView extends React.Component {
   };
 
   componentDidMount() {
-    const pageTitle = "MLflow Models";
+    const pageTitle = 'MLflow Models';
     Utils.updatePageTitle(pageTitle);
   }
 
@@ -48,11 +48,7 @@ export class ModelListView extends React.Component {
         className: 'model-name',
         dataIndex: 'name',
         render: (text, row) => {
-          return (
-            <Link to={getModelPageRoute(row.name)}>
-              {text}
-            </Link>
-          );
+          return <Link to={getModelPageRoute(row.name)}>{text}</Link>;
         },
         sorter: (a, b) => a.name.localeCompare(b.name),
         defaultSortOrder: 'ascend',
@@ -66,7 +62,9 @@ export class ModelListView extends React.Component {
             <Link to={getModelVersionPageRoute(name, versionNumber)}>
               {`Version ${versionNumber}`}
             </Link>
-          ) : EMPTY_CELL_PLACEHOLDER;
+          ) : (
+            EMPTY_CELL_PLACEHOLDER
+          );
         },
       },
       {
@@ -78,7 +76,9 @@ export class ModelListView extends React.Component {
             <Link to={getModelVersionPageRoute(name, versionNumber)}>
               {`Version ${versionNumber}`}
             </Link>
-          ) : EMPTY_CELL_PLACEHOLDER;
+          ) : (
+            EMPTY_CELL_PLACEHOLDER
+          );
         },
       },
       {
@@ -90,15 +90,15 @@ export class ModelListView extends React.Component {
             <Link to={getModelVersionPageRoute(name, versionNumber)}>
               {`Version ${versionNumber}`}
             </Link>
-          ) : EMPTY_CELL_PLACEHOLDER;
+          ) : (
+            EMPTY_CELL_PLACEHOLDER
+          );
         },
       },
       {
         title: LAST_MODIFIED_COLUMN,
         dataIndex: 'last_updated_timestamp',
-        render: (text, row) => (
-          <span>{Utils.formatTimestamp(row.last_updated_timestamp)}</span>
-        ),
+        render: (text, row) => <span>{Utils.formatTimestamp(row.last_updated_timestamp)}</span>,
         sorter: (a, b) => a.last_updated_timestamp - b.last_updated_timestamp,
       },
     ];
@@ -109,9 +109,7 @@ export class ModelListView extends React.Component {
   getFilteredModels() {
     const { models } = this.props;
     const { nameFilter } = this.state;
-    return models.filter((model) =>
-      model.name.toLowerCase().includes(nameFilter.toLowerCase()),
-    );
+    return models.filter((model) => model.name.toLowerCase().includes(nameFilter.toLowerCase()));
   }
 
   handleSearchByName = (e) => {
@@ -137,9 +135,12 @@ export class ModelListView extends React.Component {
       <div>
         <div>No models yet.</div>
         <div>
-          MLflow Model Registry is a centralized model store that enables
-          you to manage the full lifecycle of MLflow Models.{' '}
-          <a target='_blank' href={learnMoreLinkUrl}>Learn more</a>{'.'}
+          MLflow Model Registry is a centralized model store that enables you to manage the full
+          lifecycle of MLflow Models.{' '}
+          <a target='_blank' href={learnMoreLinkUrl}>
+            Learn more
+          </a>
+          {'.'}
         </div>
       </div>
     );

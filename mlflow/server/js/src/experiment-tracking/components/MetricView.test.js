@@ -14,29 +14,40 @@ describe('MetricView', () => {
 
   const createLocation = (experimentId, runUuids, metricKey) => {
     return {
-      search: '?' + qs.stringify({
-        experiment: experimentId,
-        runs: JSON.stringify(runUuids),
-        plot_metric_keys: JSON.stringify([metricKey]),
-      }),
+      search:
+        '?' +
+        qs.stringify({
+          experiment: experimentId,
+          runs: JSON.stringify(runUuids),
+          plot_metric_keys: JSON.stringify([metricKey]),
+        }),
     };
   };
 
   beforeEach(() => {
-    experiment = Fixtures.createExperiment({ experiment_id: '2', name: '2', lifecycle_stage: 'active'});
+    experiment = Fixtures.createExperiment({
+      experiment_id: '2',
+      name: '2',
+      lifecycle_stage: 'active',
+    });
     minimalProps = {
       experiment,
       runUuids: [],
       runNames: [],
       metricKey: 'metricKey',
-      location: createLocation(experiment.experiment_id, [""], 'metricKey'),
+      location: createLocation(experiment.experiment_id, [''], 'metricKey'),
     };
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<MetricViewImpl {...minimalProps}/>);
+    wrapper = shallow(<MetricViewImpl {...minimalProps} />);
     expect(wrapper.length).toBe(1);
-    expect(wrapper.find(BreadcrumbTitle).dive().text()).toContain('metricKey');
+    expect(
+      wrapper
+        .find(BreadcrumbTitle)
+        .dive()
+        .text(),
+    ).toContain('metricKey');
   });
 
   test('should render sub-components', () => {
@@ -50,7 +61,7 @@ describe('MetricView', () => {
       return { selectedMetricKeys: ['selectedKey'] };
     });
 
-    wrapper = shallow(<MetricViewImpl {...props}/>);
+    wrapper = shallow(<MetricViewImpl {...props} />);
 
     const breadcrumbTitle = wrapper.find(BreadcrumbTitle);
     const titleSpan = shallow(breadcrumbTitle.props().title);

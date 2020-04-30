@@ -1,21 +1,21 @@
-import { X_AXIS_RELATIVE } from "./components/MetricsPlotControls";
+import { X_AXIS_RELATIVE } from './components/MetricsPlotControls';
 
 class Routes {
-  static rootRoute = "/";
+  static rootRoute = '/';
 
   static getExperimentPageRoute(experimentId) {
     return `/experiments/${experimentId}`;
   }
 
-  static experimentPageRoute = "/experiments/:experimentId";
+  static experimentPageRoute = '/experiments/:experimentId';
 
-  static experimentPageSearchRoute = "/experiments/:experimentId/:searchString";
+  static experimentPageSearchRoute = '/experiments/:experimentId/:searchString';
 
   static getRunPageRoute(experimentId, runUuid) {
     return `/experiments/${experimentId}/runs/${runUuid}`;
   }
 
-  static runPageRoute = "/experiments/:experimentId/runs/:runUuid";
+  static runPageRoute = '/experiments/:experimentId/runs/:runUuid';
   /**
    * Get route to the metric plot page
    * @param runUuids - Array of string run IDs to plot
@@ -42,16 +42,26 @@ class Routes {
    *   that we can restore them when converting from log back to linear scale)
    * @returns {string}
    */
-  static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys = null,
-                            plotLayout = {}, selectedXAxis = X_AXIS_RELATIVE, yAxisLogScale = false,
-                            lineSmoothness = 1, showPoint = false, deselectedCurves = [],
-                            lastLinearYAxisRange = []) {
+  static getMetricPageRoute(
+    runUuids,
+    metricKey,
+    experimentId,
+    plotMetricKeys = null,
+    plotLayout = {},
+    selectedXAxis = X_AXIS_RELATIVE,
+    yAxisLogScale = false,
+    lineSmoothness = 1,
+    showPoint = false,
+    deselectedCurves = [],
+    lastLinearYAxisRange = [],
+  ) {
     // If runs to display are specified (e.g. if user filtered to specific runs in a metric
     // comparison plot), embed them in the URL, otherwise default to metricKey
     const finalPlotMetricKeys = plotMetricKeys || [metricKey];
     // Convert boolean to enum to keep URL format extensible to adding new types of y axis scales
-    const yAxisScale = yAxisLogScale ? "log" : "linear";
-    return `/metric/${encodeURIComponent(metricKey)}?runs=${JSON.stringify(runUuids)}&` +
+    const yAxisScale = yAxisLogScale ? 'log' : 'linear';
+    return (
+      `/metric/${encodeURIComponent(metricKey)}?runs=${JSON.stringify(runUuids)}&` +
       `experiment=${experimentId}` +
       `&plot_metric_keys=${JSON.stringify(finalPlotMetricKeys)}` +
       `&plot_layout=${JSON.stringify(plotLayout)}` +
@@ -60,16 +70,17 @@ class Routes {
       `&line_smoothness=${lineSmoothness}` +
       `&show_point=${showPoint}` +
       `&deselected_curves=${JSON.stringify(deselectedCurves)}` +
-      `&last_linear_y_axis_range=${JSON.stringify(lastLinearYAxisRange)}`;
+      `&last_linear_y_axis_range=${JSON.stringify(lastLinearYAxisRange)}`
+    );
   }
 
-  static metricPageRoute = "/metric/:metricKey";
+  static metricPageRoute = '/metric/:metricKey';
 
   static getCompareRunPageRoute(runUuids, experimentId) {
     return `/compare-runs?runs=${JSON.stringify(runUuids)}&experiment=${experimentId}`;
   }
 
-  static compareRunPageRoute = "/compare-runs"
+  static compareRunPageRoute = '/compare-runs';
 }
 
 export default Routes;

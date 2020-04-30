@@ -17,7 +17,7 @@ describe('ModelVersionTable', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ModelVersionTable {...minimalProps}/>);
+    wrapper = shallow(<ModelVersionTable {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
@@ -25,34 +25,10 @@ describe('ModelVersionTable', () => {
     const props = {
       ...minimalProps,
       modelVersions: [
-        mockModelVersionDetailed(
-          'Model A',
-          1,
-          Stages.NONE,
-          ModelVersionStatus.READY,
-          [],
-        ),
-        mockModelVersionDetailed(
-          'Model A',
-          2,
-          Stages.PRODUCTION,
-          ModelVersionStatus.READY,
-          [],
-        ),
-        mockModelVersionDetailed(
-          'Model A',
-          3,
-          Stages.STAGING,
-          ModelVersionStatus.READY,
-          [],
-        ),
-        mockModelVersionDetailed(
-          'Model A',
-          4,
-          Stages.ARCHIVED,
-          ModelVersionStatus.READY,
-          [],
-        ),
+        mockModelVersionDetailed('Model A', 1, Stages.NONE, ModelVersionStatus.READY, []),
+        mockModelVersionDetailed('Model A', 2, Stages.PRODUCTION, ModelVersionStatus.READY, []),
+        mockModelVersionDetailed('Model A', 3, Stages.STAGING, ModelVersionStatus.READY, []),
+        mockModelVersionDetailed('Model A', 4, Stages.ARCHIVED, ModelVersionStatus.READY, []),
       ],
     };
     wrapper = shallow(<ModelVersionTable {...props} />);

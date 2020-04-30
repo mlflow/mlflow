@@ -42,7 +42,7 @@ describe('ModelListPage', () => {
         <BrowserRouter>
           <ModelListPage {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     expect(wrapper.find(ModelListPage).length).toBe(1);
   });

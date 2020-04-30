@@ -1,5 +1,5 @@
-import React from "react";
-import PropTypes from "prop-types";
+import React from 'react';
+import PropTypes from 'prop-types';
 
 export default class ExperimentRunsSortToggle extends React.Component {
   static propTypes = {
@@ -10,11 +10,7 @@ export default class ExperimentRunsSortToggle extends React.Component {
 
   render() {
     // eslint-disable-next-line no-unused-vars
-    const {bsRole, bsClass, ...otherProps} = this.props;
-    return (
-      <span {...otherProps}>
-        {this.props.children}
-      </span>
-    );
+    const { bsRole, bsClass, ...otherProps } = this.props;
+    return <span {...otherProps}>{this.props.children}</span>;
   }
 }
