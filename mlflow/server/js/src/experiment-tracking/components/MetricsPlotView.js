@@ -6,7 +6,7 @@ import { X_AXIS_STEP, X_AXIS_RELATIVE, MAX_LINE_SMOOTHNESS } from './MetricsPlot
 import { CHART_TYPE_BAR } from './MetricsPlotPanel';
 import Plot from '../../../node_modules/react-plotly.js/react-plotly';
 
-const MAX_RUN_NAME_DISPLAY_LENGTH = 36;
+const MAX_RUN_NAME_DISPLAY_LENGTH = 24;
 
 const EMA = (mArray, smoothingWeight) => {
   // If all elements in the set of metric values are constant, or if
