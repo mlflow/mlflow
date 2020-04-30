@@ -20,13 +20,17 @@ const EMA = (mArray, smoothingWeight) => {
   const smoothedArray = [];
   let biasedElement = 0;
   for (let i = 0; i < mArray.length; i++) {
-    biasedElement = biasedElement * smoothness + (1 - smoothness) * mArray[i];
-    // To avoid biasing earlier elements toward smaller-than-accurate values, we divide
-    // all elements by a `debiasedWeight` that asymptotically increases and approaches
-    // 1 as the element index increases
-    const debiasWeight = 1.0 - Math.pow(smoothness, i + 1);
-    const debiasedElement = biasedElement / debiasWeight;
-    smoothedArray.push(debiasedElement);
+    if (!isNaN(mArray[i])) {
+      biasedElement = biasedElement * smoothness + (1 - smoothness) * mArray[i];
+      // To avoid biasing earlier elements toward smaller-than-accurate values, we divide
+      // all elements by a `debiasedWeight` that asymptotically increases and approaches
+      // 1 as the element index increases
+      const debiasWeight = 1.0 - Math.pow(smoothness, i + 1);
+      const debiasedElement = biasedElement / debiasWeight;
+      smoothedArray.push(debiasedElement);
+    } else {
+      smoothedArray.push(mArray[i]);
+    }
   }
   return smoothedArray;
 };
@@ -88,7 +92,7 @@ export class MetricsPlotView extends React.Component {
           history.map((entry) => entry.value),
           lineSmoothness,
         ),
-        text: history.map((entry) => entry.value.toFixed(5)),
+        text: history.map((entry) => (isNaN(entry.value) ? entry.value : entry.value.toFixed(5))),
         type: 'scattergl',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
         marker: { opacity: isSingleHistory || showPoint ? 1 : 0 },
