@@ -154,6 +154,41 @@ describe('unit tests', () => {
     });
   });
 
+  test('should render bar chart for metrics with single NaN value', () => {
+    const metricsForBar = [
+      {
+        metricKey: 'metric_0',
+        history: [
+          {
+            key: 'metric_0',
+            value: 'NaN',
+            step: 0,
+            timestamp: 1556662043000,
+          },
+        ],
+        runUuid: 'runUuid1',
+        runDisplayName: 'RunDisplayName1',
+      },
+      {
+        metricKey: 'metric_0',
+        history: [
+          {
+            key: 'metric_0',
+            value: NaN,
+            step: 0,
+            timestamp: 1556662043000,
+          },
+        ],
+        runUuid: 'runUuid2',
+        runDisplayName: 'RunDisplayName2',
+      },
+    ];
+
+    const singleNaNBarChartProps = {...minimalPropsForBarChart, metrics: metricsForBar};
+    wrapper = shallow(<MetricsPlotView {...singleNaNBarChartProps} />);
+    expect(wrapper.length).toBe(1);
+  });
+
   test('getPlotPropsForLineChart(lineSmoothness = 50)', () => {
     wrapper = shallow(<MetricsPlotView {...minimalPropsForSmoothedLineChart} />);
     instance = wrapper.instance();
