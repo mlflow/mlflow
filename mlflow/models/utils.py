@@ -88,8 +88,8 @@ class _Example(object):
             except ImportError:
                 pass
             raise TypeError("Unexpected type of input_example. Expected one of "
-                            "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
-                              type(input_example)))
+                            "(pandas.DataFrame, numpy.ndarray, dict, list), "
+                            "got {}".format(type(input_example)))
         example_filename = "input_example.json"
         self.data = input_example.to_dict(orient="split")
         # Do not include row index
