@@ -13,6 +13,10 @@ from six.moves.urllib.parse import unquote
 from six.moves import urllib
 
 import yaml
+try:
+    from yaml import CSafeLoader as YamlSafeLoader, CSafeDumper as YamlSafeDumper
+except ImportError:
+    from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
@@ -137,7 +141,10 @@ def write_yaml(root, file_name, data, overwrite=False):
 
     try:
         with codecs.open(yaml_file_name, mode='w', encoding=ENCODING) as yaml_file:
-            yaml.safe_dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
+            yaml.dump(data, yaml_file,
+                      default_flow_style=False,
+                      allow_unicode=True,
+                      Dumper=YamlSafeDumper)
     except Exception as e:
         raise e
 
@@ -160,7 +167,7 @@ def read_yaml(root, file_name):
         raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
     try:
         with codecs.open(file_path, mode='r', encoding=ENCODING) as yaml_file:
-            return yaml.safe_load(yaml_file)
+            return yaml.load(yaml_file, Loader=YamlSafeLoader)
     except Exception as e:
         raise e
 

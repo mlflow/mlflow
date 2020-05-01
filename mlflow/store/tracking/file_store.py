@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import sys
+import shutil
 
 import uuid
 
@@ -236,9 +237,13 @@ class FileStore(AbstractStore):
     def create_experiment(self, name, artifact_location=None):
         self._check_root_dir()
         self._validate_experiment_name(name)
-        # Get all existing experiments and find the one with largest ID.
+        # Get all existing experiments and find the one with largest numerical ID.
         # len(list_all(..)) would not work when experiments are deleted.
-        experiments_ids = [int(e.experiment_id) for e in self.list_experiments(ViewType.ALL)]
+        experiments_ids = [
+            int(e.experiment_id)
+            for e in self.list_experiments(ViewType.ALL)
+            if e.experiment_id.isdigit()
+        ]
         experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location)
 
@@ -323,6 +328,20 @@ class FileStore(AbstractStore):
         check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
         self._overwrite_run_info(new_info)
+
+    def _hard_delete_run(self, run_id):
+        """
+        Permanently delete a run (metadata and metrics, tags, parameters).
+        This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
+        """
+        _, run_dir = self._find_run_root(run_id)
+        shutil.rmtree(run_dir)
+
+    def _get_deleted_runs(self):
+        experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
+        deleted_runs = self.search_runs(experiment_ids=experiment_ids, filter_string='',
+                                        run_view_type=ViewType.DELETED_ONLY)
+        return [deleted_run.info.run_uuid for deleted_run in deleted_runs]
 
     def restore_run(self, run_id):
         run_info = self._get_run_info(run_id)

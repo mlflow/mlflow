@@ -512,6 +512,38 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             deleted_run = self.store.get_run(run.info.run_id)
             self.assertEqual(actual.run_uuid, deleted_run.info.run_id)
 
+    def test_hard_delete_run(self):
+        run = self._run_factory()
+        metric = entities.Metric('blahmetric', 100.0, int(1000 * time.time()), 0)
+        self.store.log_metric(run.info.run_id, metric)
+        param = entities.Param('blahparam', '100.0')
+        self.store.log_param(run.info.run_id, param)
+        tag = entities.RunTag('test tag', 'a boogie')
+        self.store.set_tag(run.info.run_id, tag)
+
+        self.store._hard_delete_run(run.info.run_id)
+
+        with self.store.ManagedSessionMaker() as session:
+            actual_run = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
+            self.assertEqual(None, actual_run)
+            actual_metric = session.query(models.SqlMetric)\
+                .filter_by(run_uuid=run.info.run_id).first()
+            self.assertEqual(None, actual_metric)
+            actual_param = session.query(models.SqlParam)\
+                .filter_by(run_uuid=run.info.run_id).first()
+            self.assertEqual(None, actual_param)
+            actual_tag = session.query(models.SqlTag).filter_by(run_uuid=run.info.run_id).first()
+            self.assertEqual(None, actual_tag)
+
+    def test_get_deleted_runs(self):
+        run = self._run_factory()
+        deleted_run_ids = self.store._get_deleted_runs()
+        self.assertEqual([], deleted_run_ids)
+
+        self.store.delete_run(run.info.run_uuid)
+        deleted_run_ids = self.store._get_deleted_runs()
+        self.assertEqual([run.info.run_uuid], deleted_run_ids)
+
     def test_log_metric(self):
         run = self._run_factory()
 
@@ -1031,6 +1063,24 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         filter_string = "params.p_b = 'ABC'"
         six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
 
+        filter_string = "params.generic_2 LIKE '%other%'"
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+
+        filter_string = "params.generic_2 LIKE 'other%'"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+
+        filter_string = "params.generic_2 LIKE '%other'"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+
+        filter_string = "params.generic_2 LIKE 'other'"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+
+        filter_string = "params.generic_2 LIKE '%Other%'"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+
+        filter_string = "params.generic_2 ILIKE '%Other%'"
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+
     def test_search_tags(self):
         experiment_id = self._experiment_factory('search_tags')
         r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
@@ -1072,6 +1122,32 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                                                       filter_string="tags.p_a = 'abc'"))
         six.assertCountEqual(self, [r2], self._search(experiment_id,
                                                       filter_string="tags.p_b = 'ABC'"))
+        six.assertCountEqual(self, [r2],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 LIKE '%other%'"))
+        six.assertCountEqual(self, [],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 LIKE '%Other%'"))
+        six.assertCountEqual(self, [],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 LIKE 'other%'"))
+        six.assertCountEqual(self, [],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 LIKE '%other'"))
+        six.assertCountEqual(self, [],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 LIKE 'other'"))
+        six.assertCountEqual(self, [r2],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 ILIKE '%Other%'"))
+        six.assertCountEqual(self, [r2],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 ILIKE '%Other%' "
+                                                        "and tags.generic_tag = 'p_val'"))
+        six.assertCountEqual(self, [r2],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 ILIKE '%Other%' and "
+                                                        "tags.generic_tag ILIKE 'p_val'"))
 
     def test_search_metrics(self):
         experiment_id = self._experiment_factory('search_metric')
@@ -1197,6 +1273,27 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.artifact_uri != 'random_artifact_path'"
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
+        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1)
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:4])
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[-4:])
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1.upper())
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1.upper())
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[:4].upper())
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-4:].upper())
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
         for (k, v) in {"experiment_id": e1,
                        "lifecycle_stage": "ACTIVE",
                        "run_id": r1,
@@ -1228,17 +1325,29 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
         # all params and metrics match
-        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0"
+        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
                          "and metrics.m_a > 1.0")
         six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
 
+        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
+                         "and metrics.m_a > 1.0 and params.p_a LIKE 'a%'")
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+
+        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
+                         "and metrics.m_a > 1.0 and params.p_a LIKE 'A%'")
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+
+        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
+                         "and metrics.m_a > 1.0 and params.p_a ILIKE 'A%'")
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+
         # test with mismatch param
-        filter_string = ("params.random_bad_name = 'p_val' and metrics.common = 1.0"
+        filter_string = ("params.random_bad_name = 'p_val' and metrics.common = 1.0 "
                          "and metrics.m_a > 1.0")
         six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
         # test with mismatch metric
-        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0"
+        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
                          "and metrics.m_a > 100.0")
         six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
@@ -1616,6 +1725,22 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                                              None,
                                              ViewType.ALL, max_results=1000, order_by=["tag.t1"])
         assert len(run_results) == 2
+
+
+def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
+    store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
+    experiment_id = store.create_experiment(name="exp1")
+    run = store.create_run(
+        experiment_id=experiment_id, user_id="user", start_time=0, tags=[])
+    run_id = run.info.run_id
+    metric = entities.Metric("mymetric", 1, 0, 0)
+    store.log_metric(run_id=run_id, metric=metric)
+    param = entities.Param("myparam", "A")
+    store.log_param(run_id=run_id, param=param)
+    fetched_run = store.get_run(run_id=run_id)
+    assert fetched_run.info.run_id == run_id
+    assert metric.key in fetched_run.data.metrics
+    assert param.key in fetched_run.data.params
 
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):

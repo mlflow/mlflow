@@ -147,6 +147,11 @@ class HdfsArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         raise MlflowException('This is not implemented. Should never be called.')
 
+    def delete_artifacts(self, artifact_path=None):
+        path = posixpath.join(self.path, artifact_path) if artifact_path else self.path
+        with hdfs_system(host=self.host, port=self.port) as hdfs:
+            hdfs.delete(path, recursive=True)
+
 
 @contextmanager
 def hdfs_system(host, port):
@@ -159,7 +164,6 @@ def hdfs_system(host, port):
     """
     import pyarrow as pa
 
-    driver = os.getenv('MLFLOW_HDFS_DRIVER') or 'libhdfs'
     kerb_ticket = os.getenv('MLFLOW_KERBEROS_TICKET_CACHE')
     kerberos_user = os.getenv('MLFLOW_KERBEROS_USER')
     extra_conf = _parse_extra_conf(os.getenv('MLFLOW_PYARROW_EXTRA_CONF'))
@@ -167,7 +171,6 @@ def hdfs_system(host, port):
     connected = pa.hdfs.connect(host=host or 'default',
                                 port=port or 0,
                                 user=kerberos_user,
-                                driver=driver,
                                 kerb_ticket=kerb_ticket,
                                 extra_conf=extra_conf)
     yield connected

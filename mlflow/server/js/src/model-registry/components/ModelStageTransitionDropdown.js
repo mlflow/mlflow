@@ -2,6 +2,7 @@ import React from 'react';
 import { Dropdown, Menu, Icon, Modal } from 'antd';
 import PropTypes from 'prop-types';
 import { Stages, StageTagComponents, ActivityTypes } from '../constants';
+
 import _ from 'lodash';
 
 export class ModelStageTransitionDropdown extends React.Component {
@@ -55,9 +56,7 @@ export class ModelStageTransitionDropdown extends React.Component {
             onClick={() =>
               this.handleMenuItemClick({
                 type: ActivityTypes.APPLIED_TRANSITION,
-                model_registry_data: {
-                  transition: { to_stage: stage },
-                },
+                to_stage: stage,
               })
             }
           >
@@ -109,13 +108,15 @@ export class ModelStageTransitionDropdown extends React.Component {
 }
 
 export const renderActivityDescription = (activity) => {
-  return activity ? (
-    <div>
-      Transition to
-      &nbsp;&nbsp;&nbsp;
-      <i className='fas fa-long-arrow-alt-right' />
-      &nbsp;&nbsp;&nbsp;&nbsp;
-      {StageTagComponents[activity.model_registry_data.transition.to_stage]}
-    </div>
-  ) : null;
+  if (activity) {
+    return (
+      <div>
+        Transition to &nbsp;&nbsp;&nbsp;
+        <i className='fas fa-long-arrow-alt-right' />
+        &nbsp;&nbsp;&nbsp;&nbsp;
+        {StageTagComponents[activity.to_stage]}
+      </div>
+    );
+  }
+  return null;
 };

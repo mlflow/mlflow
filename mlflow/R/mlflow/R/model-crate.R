@@ -1,6 +1,6 @@
 #' @rdname mlflow_save_model
 #' @export
-mlflow_save_model.crate <- function(model, path, ...) {
+mlflow_save_model.crate <- function(model, path, model_spec=list(), ...) {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
@@ -11,14 +11,14 @@ mlflow_save_model.crate <- function(model, path, ...) {
     file.path(path, "crate.bin")
   )
 
-  res <- list(
+  model_spec$flavors <- append(model_spec$flavors, list(
     crate = list(
       version = "0.1.0",
       model = "crate.bin"
     )
-  )
-
-  mlflow_write_model_spec(path, list(flavors = res))
+  ))
+  mlflow_write_model_spec(path, model_spec)
+  model_spec
 }
 
 #' @export

@@ -14,6 +14,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 * `MLflow Models <https://mlflow.org/docs/latest/models.html>`_: A model packaging format and tools that let
   you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms such as
   Docker, Apache Spark, Azure ML and AWS SageMaker.
+* `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
 |docs| |travis| |pypi| |conda-forge| |cran| |maven| |license| |downloads|
 
@@ -62,7 +63,7 @@ or `Stack Overflow <https://stackoverflow.com/questions/tagged/mlflow>`_.
 To report a bug, file a documentation issue, or submit a feature request, please open a GitHub issue.
 
 For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
-or join us on Slack at https://tinyurl.com/mlflow-slack.
+or join us on `Slack <https://mlflow-users.slack.com/join/shared_invite/enQtMzkxMTAwNTcyODM5LTkzMDFhNzliNjExOGQ1ZGI1ZmFlMGE5YWE1OTI4ZGM1ZWZmYzc3NGNiZTM3YjgwOTdlODAzMjJhZTdiN2Y3MWY>`_.
 
 Running a Sample App With the Tracking API
 ------------------------------------------

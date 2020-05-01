@@ -29,7 +29,7 @@ class LocalArtifactRepository(ArtifactRepository):
             self.artifact_dir
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
-        shutil.copy(local_file, artifact_dir)
+        shutil.copyfile(local_file, os.path.join(artifact_dir, os.path.basename(local_file)))
 
     def _is_directory(self, artifact_path):
         # NOTE: The path is expected to be in posix format.
@@ -48,7 +48,7 @@ class LocalArtifactRepository(ArtifactRepository):
             self.artifact_dir
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
-        dir_util.copy_tree(src=local_dir, dst=artifact_dir)
+        dir_util.copy_tree(src=local_dir, dst=artifact_dir, preserve_mode=0, preserve_times=0)
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
@@ -93,3 +93,8 @@ class LocalArtifactRepository(ArtifactRepository):
         # Posix paths work fine on windows but just in case we normalize it here.
         remote_file_path = os.path.join(self.artifact_dir, os.path.normpath(remote_file_path))
         shutil.copyfile(remote_file_path, local_path)
+
+    def delete_artifacts(self, artifact_path=None):
+        artifact_path = os.path.join(self._artifact_dir, artifact_path) if artifact_path \
+            else self._artifact_dir
+        shutil.rmtree(local_file_uri_to_path(artifact_path))

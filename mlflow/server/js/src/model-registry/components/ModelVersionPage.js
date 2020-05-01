@@ -1,48 +1,67 @@
 import React from 'react';
 import { connect } from 'react-redux';
 import {
-  getModelVersionDetailsApi,
+  getModelVersionApi,
   updateModelVersionApi,
   deleteModelVersionApi,
+  transitionModelVersionStageApi,
 } from '../actions';
-import { getRunApi, getUUID } from '../../Actions';
+import { getRunApi } from '../../experiment-tracking/actions';
 import PropTypes from 'prop-types';
 import { getModelVersion } from '../reducers';
 import { ModelVersionView } from './ModelVersionView';
 import { ActivityTypes, MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../constants';
-import Utils from '../../utils/Utils';
-import { getRunInfo, getRunTags } from '../../reducers/Reducers';
-import RequestStateWrapper, { triggerError } from '../../components/RequestStateWrapper';
-import { shouldRender404 } from '../../common/utils';
+import Utils from '../../common/utils/Utils';
+import { getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
+import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
 import { Error404View } from '../../common/components/Error404View';
-import { Spinner } from '../../components/Spinner';
-import { modelListPageRoute } from '../routes';
-import { ComponentOverrides } from '../overrides/component-overrides';
+import { Spinner } from '../../common/components/Spinner';
+import { getModelPageRoute, modelListPageRoute } from '../routes';
+import { getProtoField } from '../utils';
+import { getUUID } from '../../common/utils/ActionUtils';
 
-class ModelVersionPage extends React.Component {
+export class ModelVersionPageImpl extends React.Component {
   static propTypes = {
+    // own props
+    history: PropTypes.object.isRequired,
+    match: PropTypes.object.isRequired,
+    // connected props
     modelName: PropTypes.string.isRequired,
     version: PropTypes.number.isRequired,
     modelVersion: PropTypes.object,
     runInfo: PropTypes.object,
     runDisplayName: PropTypes.string,
-    getModelVersionDetailsApi: PropTypes.func.isRequired,
+    getModelVersionApi: PropTypes.func.isRequired,
     updateModelVersionApi: PropTypes.func.isRequired,
+    transitionModelVersionStageApi: PropTypes.func.isRequired,
     deleteModelVersionApi: PropTypes.func.isRequired,
     getRunApi: PropTypes.func.isRequired,
-    history: PropTypes.object.isRequired,
     apis: PropTypes.object.isRequired,
   };
 
   initGetModelVersionDetailsRequestId = getUUID();
   getRunRequestId = getUUID();
   updateModelVersionRequestId = getUUID();
+  transitionModelVersionStageRequestId = getUUID();
   getModelVersionDetailsRequestId = getUUID();
 
   criticalInitialRequestIds = [this.initGetModelVersionDetailsRequestId];
 
+  pollingRelatedRequestIds = [
+    this.listTransitionRequestId,
+    this.getActivitiesRequestId,
+    this.getModelVersionDetailsRequestId,
+    this.getRunRequestId,
+  ];
+
+  hasPendingPollingRequest = () =>
+    this.pollingRelatedRequestIds.every((requestId) => {
+      const request = this.props.apis[requestId];
+      return Boolean(request && request.active);
+    });
+
   loadData = (isInitialLoading) => {
-    this.getModelVersionDetailAndRunInfo(isInitialLoading).catch(console.error);
+    return Promise.all([this.getModelVersionDetailAndRunInfo(isInitialLoading)]);
   };
 
   // We need to do this because currently the ModelVersionDetailed we got does not contain
@@ -51,7 +70,7 @@ class ModelVersionPage extends React.Component {
   getModelVersionDetailAndRunInfo(isInitialLoading) {
     const { modelName, version } = this.props;
     return this.props
-      .getModelVersionDetailsApi(
+      .getModelVersionApi(
         modelName,
         version,
         isInitialLoading === true
@@ -60,51 +79,54 @@ class ModelVersionPage extends React.Component {
       )
       .then(({ value }) => {
         if (value) {
-          this.props.getRunApi(value.model_version_detailed.run_id, this.getRunRequestId);
+          this.props.getRunApi(value[getProtoField('model_version')].run_id, this.getRunRequestId);
         }
       });
   }
 
   handleStageTransitionDropdownSelect = (activity) => {
-    const { modelVersion } = this.props;
-    const toStage = activity.model_registry_data.transition.to_stage;
+    const { modelName, version } = this.props;
+    const toStage = activity.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {
       this.props
-        .updateModelVersionApi(
-          modelVersion.model_version,
+        .transitionModelVersionStageApi(
+          modelName,
+          version.toString(),
           toStage,
-          undefined,
-          this.updateModelVersionRequestId,
+          this.transitionModelVersionStageRequestId,
         )
-        .then(this.loadData);
+        .then(this.loadData)
+        .catch(Utils.logErrorAndNotifyUser);
     }
   };
 
   handleEditDescription = (description) => {
-    const { modelVersion } = this.props;
+    const { modelName, version } = this.props;
     return this.props
-      .updateModelVersionApi(
-        modelVersion.model_version,
-        undefined,
-        description,
-        this.updateModelVersionRequestId,
-      )
-      .then(this.loadData);
+      .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
+      .then(this.loadData)
+      .catch(console.error);
   };
 
-  pollModelVersionDetails = () => {
-    const { modelName, version, apis } = this.props;
-    const pollRequest = apis[this.getModelVersionDetailsRequestId];
-    if (!(pollRequest && pollRequest.active)) {
-      this.props
-        .getModelVersionDetailsApi(modelName, version, this.getModelVersionDetailsRequestId)
-        .catch(console.error);
+  pollData = () => {
+    const { modelName, version, history } = this.props;
+    if (!this.hasPendingPollingRequest() && Utils.isBrowserTabVisible()) {
+      return this.loadData().catch((e) => {
+        if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
+          Utils.logErrorAndNotifyUser(e);
+          this.props.deleteModelVersionApi(modelName, version, undefined, true);
+          history.push(getModelPageRoute(modelName));
+        } else {
+          console.error(e);
+        }
+      });
     }
+    return Promise.resolve();
   };
 
   componentDidMount() {
-    this.loadData(true);
-    this.pollIntervalId = setInterval(this.pollModelVersionDetails, POLL_INTERVAL);
+    this.loadData(true).catch(console.error);
+    this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
   }
 
   componentWillUnmount() {
@@ -112,14 +134,7 @@ class ModelVersionPage extends React.Component {
   }
 
   render() {
-    const {
-      modelName,
-      version,
-      modelVersion,
-      runInfo,
-      runDisplayName,
-      history,
-    } = this.props;
+    const { modelName, version, modelVersion, runInfo, runDisplayName, history } = this.props;
 
     return (
       <div className='App-content'>
@@ -127,7 +142,7 @@ class ModelVersionPage extends React.Component {
           {(loading, hasError, requests) => {
             if (hasError) {
               clearInterval(this.pollIntervalId);
-              if (shouldRender404(requests, this.criticalInitialRequestIds)) {
+              if (Utils.shouldRender404(requests, this.criticalInitialRequestIds)) {
                 return (
                   <Error404View
                     resourceName={`Model ${modelName} v${version}`}
@@ -147,10 +162,10 @@ class ModelVersionPage extends React.Component {
                   modelVersion={modelVersion}
                   runInfo={runInfo}
                   runDisplayName={runDisplayName}
-                  handleStageTransitionDropdownSelect={this.handleStageTransitionDropdownSelect}
                   handleEditDescription={this.handleEditDescription}
                   deleteModelVersionApi={this.props.deleteModelVersionApi}
                   history={history}
+                  handleStageTransitionDropdownSelect={this.handleStageTransitionDropdownSelect}
                 />
               );
             }
@@ -180,14 +195,11 @@ const mapStateToProps = (state, ownProps) => {
 };
 
 const mapDispatchToProps = {
-  getModelVersionDetailsApi,
+  getModelVersionApi,
   updateModelVersionApi,
+  transitionModelVersionStageApi,
   deleteModelVersionApi,
   getRunApi,
 };
 
-export default ComponentOverrides.ModelVersionPage ||
-connect(
-  mapStateToProps,
-  mapDispatchToProps,
-)(ModelVersionPage);
+export const ModelVersionPage = connect(mapStateToProps, mapDispatchToProps)(ModelVersionPageImpl);

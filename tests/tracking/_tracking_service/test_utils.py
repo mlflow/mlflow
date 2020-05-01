@@ -16,6 +16,13 @@ from mlflow.tracking._tracking_service.utils import _get_store, _TRACKING_URI_EN
 
 # pylint: disable=unused-argument
 
+# Disable mocking tracking URI here, as we want to test setting the tracking URI via
+# environment variable. See
+# http://doc.pytest.org/en/latest/skipping.html#skip-all-test-functions-of-a-class-or-module
+# and https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#writing-python-tests
+# for more information.
+pytestmark = pytest.mark.notrackingurimock
+
 
 def test_get_store_file_store(tmp_wkdir):
     env = {}
@@ -214,7 +221,7 @@ def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
     assert "file-plugin" in \
            mlflow.tracking._tracking_service.utils._tracking_store_registry._registry.keys()
 
-    from mlflow_test_plugin import PluginFileStore
+    from mlflow_test_plugin.file_store import PluginFileStore
 
     env = {
         _TRACKING_URI_ENV_VAR: "file-plugin:test-path",

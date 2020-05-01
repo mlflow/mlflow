@@ -10,28 +10,9 @@ matrix:
     # Nightly builds run the tests/examples end-to-end test suite.
     # Does not include Windows since Projects/Models are mostly not compatible with Windows as of now.
     - stage: Nightly
-    - language: python
-      python: 2.7
-      install:
-        # CHANGED_FILES detects whether or not files related to the nightly build are changed.
-        # True is so that the command returns a 0 exit code whether or not CHANGED_FILES is empty.
-        - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples\|Dockerfile") || true;
-        - if [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
-            INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
-          fi;
-      script:
-        - ./travis/stage-python2-nightly.sh
-    - stage: small
+      if: type == cron
+    - stage: Large
       if: type != cron
-    - language: python
-      name: "Lint (Python 3.6)"
-      if: type != cron
-      python: 3.6
-      install:
-        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-        - pip install -r ./travis/lint-requirements.txt
-      script:
-        - ./lint.sh
     - language: r
       name: "R"
       if: type != cron
@@ -59,34 +40,30 @@ matrix:
         - Rscript -e 'covr::codecov()'
       after_failure:
         - "[ -r /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log ] && cat /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
-    - language: java
-      name: "Java"
-      if: type != cron
-      install:
-        - source ./travis/install-common-deps.sh
-      script:
-        - cd mlflow/java
-        - mvn clean package -q
-    - language: node_js
-      node_js:
-        - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
-      install:
-      name: "Node.js"
-      if: type != cron
-      script:
-        - cd mlflow/server/js
-        - npm i
-        - npm run lint
-        - npm test -- --coverage
-    - stage: large
-      if: type != cron
     - language: python
-      python: 2.7
+      python: 3.6
+      name: "Flavors"
       if: type != cron
       install:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
-        - ./travis/run-large-python-tests.sh
+        - ./travis/run-python-flavor-tests.sh;
+    - language: python
+      python: 3.6
+      name: "TensorFlow"
+      if: type != cron
+      install:
+        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-python-tf-tests.sh;
+    - language: python
+      python: 3.6
+      name: "SageMaker"
+      if: type != cron
+      install:
+        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-python-sagemaker-tests.sh;
     # Run Windows tests in the "large" test builder so that we don't spend Travis executor
     # time running Windows tests if Python 3 small tests fail.
     - os: windows
@@ -101,27 +78,25 @@ matrix:
         - pip install -r travis/small-requirements.txt
         - pip install -e .
       script:
-        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects --ignore=tests/xgboost --ignore=tests/lightgbm --ignore=tests/spark_autologging tests
-    # Run small Python 2.7 tests in the "large" test builder so that we don't spend Travis executor
-    # time running Python 2.7 tests if Python 3 small tests fail.
-    - language: python
-      name: "Python 2.7 Small Tests"
-      if: type != cron
-      python: 2.7
-      install:
-        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-      script:
-        - ./travis/run-small-python-tests.sh
+        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects --ignore=tests/xgboost --ignore=tests/lightgbm --ignore=tests/spark_autologging --ignore=tests/spacy --ignore=tests/fastai tests
+
     - language: python
       python: 3.6
-      name: "Docs (rsthtml)"
+      name: "Docs (rsthtml, javadocs)"
       if: type != cron
       install:
+        # Install Java & Maven
+        - sudo apt-get update
+        - sudo apt-get install default-jdk -y
+        - sudo apt-get install maven -y
+        - java -version
+        # Install Python doc deps
         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
         - pip install sphinx==2.2.1 sphinx-click==2.3.0
       script:
         - cd docs
         - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
+        - make javadocs
 
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
@@ -131,10 +106,6 @@ install:
   - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
       echo "skipping this step on windows.";
-    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh &&
-      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
-      sudo unzip /travis-install/protoc.zip -d /usr;
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]] && ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
       echo "skipping the nightly stage because this build is not nightly and there are no changed files associated with nightly tests.";
     else

@@ -1,5 +1,5 @@
-import Services from './services';
-import { getUUID, wrapDeferred } from '../Actions';
+import { Services } from './services';
+import { getUUID, wrapDeferred } from '../common/utils/ActionUtils';
 
 export const CREATE_REGISTERED_MODEL = 'CREATE_REGISTERED_MODEL';
 export const createRegisteredModelApi = (name, id = getUUID()) => ({
@@ -16,10 +16,9 @@ export const listRegisteredModelsApi = (id = getUUID()) => ({
 });
 
 export const UPDATE_REGISTERED_MODEL = 'UPDATE_REGISTERED_MODEL';
-export const updateRegisteredModelApi = (model, name, description, id = getUUID()) => ({
+export const updateRegisteredModelApi = (name, description, id = getUUID()) => ({
   type: UPDATE_REGISTERED_MODEL,
   payload: wrapDeferred(Services.updateRegisteredModel, {
-    registered_model: model,
     name,
     description,
   }),
@@ -27,11 +26,13 @@ export const updateRegisteredModelApi = (model, name, description, id = getUUID(
 });
 
 export const DELETE_REGISTERED_MODEL = 'DELETE_REGISTERED_MODEL';
-export const deleteRegisteredModelApi = (model, id = getUUID()) => ({
+export const deleteRegisteredModelApi = (model, id = getUUID(), localUpdateOnly) => ({
   type: DELETE_REGISTERED_MODEL,
-  payload: wrapDeferred(Services.deleteRegisteredModel, {
-    registered_model: model,
-  }),
+  payload: localUpdateOnly
+    ? Promise.resolve()
+    : wrapDeferred(Services.deleteRegisteredModel, {
+        name: model,
+      }),
   meta: { id, model },
 });
 
@@ -44,7 +45,9 @@ export const createModelVersionApi = (name, source, runId, id = getUUID()) => ({
 
 export const SEARCH_MODEL_VERSIONS = 'SEARCH_MODEL_VERSIONS';
 export const searchModelVersionsApi = (filterObj, id = getUUID()) => {
-  const filter = Object.keys(filterObj).map((key) => `${key}='${filterObj[key]}'`).join('&');
+  const filter = Object.keys(filterObj)
+    .map((key) => `${key}='${filterObj[key]}'`)
+    .join('&');
   return {
     type: SEARCH_MODEL_VERSIONS,
     payload: wrapDeferred(Services.searchModelVersions, { filter }),
@@ -53,49 +56,54 @@ export const searchModelVersionsApi = (filterObj, id = getUUID()) => {
 };
 
 export const UPDATE_MODEL_VERSION = 'UPDATE_MODEL_VERSION';
-export const updateModelVersionApi = (
-  modelVersion,
-  stage,
-  description,
-  id = getUUID(),
-) => ({
+export const updateModelVersionApi = (modelName, version, description, id = getUUID()) => ({
   type: UPDATE_MODEL_VERSION,
   payload: wrapDeferred(Services.updateModelVersion, {
-    model_version: modelVersion,
-    stage,
+    name: modelName,
+    version: version,
     description,
   }),
   meta: { id },
 });
 
-export const DELETE_MODEL_VERSION = 'DELETE_MODEL_VERSION';
-export const deleteModelVersionApi = (modelVersion, id = getUUID()) => ({
-  type: DELETE_MODEL_VERSION,
-  payload: wrapDeferred(Services.deleteModelVersion, {
-    model_version: modelVersion,
+export const TRANSITION_MODEL_VERSION_STAGE = 'TRANSITION_MODEL_VERSION_STAGE';
+export const transitionModelVersionStageApi = (modelName, version, stage, id = getUUID()) => ({
+  type: TRANSITION_MODEL_VERSION_STAGE,
+  payload: wrapDeferred(Services.transitionModelVersionStage, {
+    name: modelName,
+    version,
+    stage,
   }),
-  meta: { id, modelVersion },
+  meta: { id },
 });
 
-export const GET_REGISTERED_MODEL_DETAILS = 'GET_REGISTERED_MODEL_DETAILS';
-export const getRegisteredModelDetailsApi = (modelName, id = getUUID()) => ({
-  type: GET_REGISTERED_MODEL_DETAILS,
-  payload: wrapDeferred(Services.getRegisteredModelDetails, {
-    registered_model: { name: modelName },
+export const DELETE_MODEL_VERSION = 'DELETE_MODEL_VERSION';
+export const deleteModelVersionApi = (modelName, version, id = getUUID(), localUpdateOnly) => ({
+  type: DELETE_MODEL_VERSION,
+  payload: localUpdateOnly
+    ? Promise.resolve()
+    : wrapDeferred(Services.deleteModelVersion, {
+        name: modelName,
+        version: version,
+      }),
+  meta: { id, modelName, version },
+});
+
+export const GET_REGISTERED_MODEL = 'GET_REGISTERED_MODEL';
+export const getRegisteredModelApi = (modelName, id = getUUID()) => ({
+  type: GET_REGISTERED_MODEL,
+  payload: wrapDeferred(Services.getRegisteredModel, {
+    name: modelName,
   }),
   meta: { id, modelName },
 });
 
-export const GET_MODEL_VERSION_DETAILS = 'GET_MODEL_VERSION_DETAILS';
-export const getModelVersionDetailsApi = (modelName, version, id = getUUID()) => ({
-  type: GET_MODEL_VERSION_DETAILS,
-  payload: wrapDeferred(Services.getModelVersionDetails, {
-    model_version: {
-      registered_model: {
-        name: modelName,
-      },
-      version,
-    },
+export const GET_MODEL_VERSION = 'GET_MODEL_VERSION';
+export const getModelVersionApi = (modelName, version, id = getUUID()) => ({
+  type: GET_MODEL_VERSION,
+  payload: wrapDeferred(Services.getModelVersion, {
+    name: modelName,
+    version: version,
   }),
   meta: { id, modelName, version },
 });

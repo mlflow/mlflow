@@ -1,10 +1,12 @@
 """
 File containing all of the run tags in the mlflow. namespace.
 
-See the REST API documentation for information on the meaning of these tags.
+See the System Tags section in the MLflow Tracking documentation for information on the
+meaning of these tags.
 """
 
 MLFLOW_RUN_NAME = "mlflow.runName"
+MLFLOW_RUN_NOTE = "mlflow.note.content"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 MLFLOW_USER = "mlflow.user"
 MLFLOW_SOURCE_TYPE = "mlflow.source.type"
@@ -12,7 +14,7 @@ MLFLOW_SOURCE_NAME = "mlflow.source.name"
 MLFLOW_GIT_COMMIT = "mlflow.source.git.commit"
 MLFLOW_GIT_BRANCH = "mlflow.source.git.branch"
 MLFLOW_GIT_REPO_URL = "mlflow.source.git.repoURL"
-MLFLOW_LOGGED_MODELS = "mlflow.models"
+MLFLOW_LOGGED_MODELS = "mlflow.log-model.history"
 MLFLOW_PROJECT_ENV = "mlflow.project.env"
 MLFLOW_PROJECT_ENTRY_POINT = "mlflow.project.entryPoint"
 MLFLOW_DOCKER_IMAGE_URI = "mlflow.docker.image.uri"
