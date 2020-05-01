@@ -89,7 +89,7 @@ class _Example(object):
                 pass
             raise TypeError("Unexpected type of input_example. Expected one of "
                             "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
-                type(input_example)))
+                              type(input_example)))
         example_filename = "input_example.json"
         self.data = input_example.to_dict(orient="split")
         # Do not include row index
@@ -108,12 +108,32 @@ class _Example(object):
 
 
 def save_example(mlflow_model: Model, input_example: ModelInputExample, path: str):
+    """
+    Save example to a file on the given path and updates passed Model with example metadata.
+
+    The metadata is a dictionary with the following fields:
+      - 'artifact_path': example path relative to the model directory.
+      - 'type': Type of example. Currently the only supported value is 'dataframe'
+      - 'pandas_orient': Determines the json encoding for dataframe examples in terms of pandas
+                         orient convention. Defaults to 'split'.
+    :param mlflow_model: Model metadata that will get updated with the example metadata.
+    :param path: Where to store the example file. Should be model the model directory.
+    """
     example = _Example(input_example)
     example.save(path)
     mlflow_model.input_example = example.info
 
 
 def read_example(mlflow_model: Model, path: str):
+    """
+    Read example from a model directory. Returns None if there is no example metadata (i.e. the
+    model was saved without example). Raises IO Exception if there is model metadata but the example
+    file is missing.
+
+    :param mlflow_model: Model metadata.
+    :param path: Path to the model directory.
+    :return: Input example or None if the model has no example.
+    """
     if mlflow_model.input_example is None:
         return None
     example_type = mlflow_model.input_example["type"]
