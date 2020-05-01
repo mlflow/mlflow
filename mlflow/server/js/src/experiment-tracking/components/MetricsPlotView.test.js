@@ -257,18 +257,33 @@ describe('unit tests', () => {
     };
   });
 
-  test('should render with minimal props without exploding', () => {
+  test('should render line chart with minimal props without exploding', () => {
     wrapper = shallow(<MetricsPlotView {...minimalPropsForLineChart} />);
     expect(wrapper.length).toBe(1);
   });
 
-  test('should render bar chart successfully for metrics containing NaN values', () => {
-    wrapper = shallow(<MetricsPlotView {...minimalPropsForBarChartWithNaNs} />);
+  test('should render smoothed line chart successfully', () => {
+    wrapper = shallow(<MetricsPlotView {...minimalPropsForSmoothedLineChart} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render line chart successfully for metrics containing NaN values', () => {
     wrapper = shallow(<MetricsPlotView {...minimalPropsForLineChartWithNaNs} />);
+    expect(wrapper.length).toBe(1);
+  });
+
+  test('should render smoothed line chart successfully for metrics containing NaN values', () => {
+    wrapper = shallow(<MetricsPlotView {...minimalPropsForSmoothedLineChartWithNaNs} />);
+    expect(wrapper.length).toBe(1);
+  });
+
+  test('should render bar chart with minimal props without exploding', () => {
+    wrapper = shallow(<MetricsPlotView {...minimalPropsForBarChart} />);
+    expect(wrapper.length).toBe(1);
+  });
+
+  test('should render bar chart successfully for metrics containing NaN values', () => {
+    wrapper = shallow(<MetricsPlotView {...minimalPropsForBarChartWithNaNs} />);
     expect(wrapper.length).toBe(1);
   });
 
