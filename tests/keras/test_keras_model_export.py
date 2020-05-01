@@ -153,11 +153,11 @@ def test_that_keras_module_arg_works(model_path):
             return MyModel(file.get("x").value)
 
     from importlib import import_module as import_module_
+
     def _import_module(name, **kwargs):
         if name.startswith(FakeKerasModule.__name__):
             return FakeKerasModule
         else:
-            print("importing module", name)
             return import_module_(name, **kwargs)
 
     with mock.patch("importlib.import_module") as import_module_mock:
@@ -238,6 +238,7 @@ def test_signature_and_examples_are_saved_correctly(model, data):
                     assert mlflow_model.input_example is None
                 else:
                     assert all((read_example(mlflow_model, path) == example).all())
+
 
 @pytest.mark.large
 def test_custom_model_save_load(custom_model, custom_layer, data, custom_predicted, model_path):

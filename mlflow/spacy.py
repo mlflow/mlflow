@@ -108,7 +108,6 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=None,
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
-        print("saving example")
         save_example(mlflow_model, input_example, path)
 
     # Save spacy-model
@@ -137,7 +136,6 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=None,
             "component that is an instance of spacy.pipeline.TextCategorizer.")
 
     mlflow_model.add_flavor(FLAVOR_NAME, spacy_version=spacy.__version__, data=model_data_subpath)
-    print("saving model", mlflow_model)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 

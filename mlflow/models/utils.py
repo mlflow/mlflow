@@ -12,6 +12,7 @@ from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json
 
 ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list]
 
+
 class _Example(object):
     """
     Represents an input example for MLflow model.
@@ -88,7 +89,7 @@ class _Example(object):
                 pass
             raise TypeError("Unexpected type of input_example. Expected one of "
                             "(pandas.DataFrame, numpy.ndarray, dict, list), got {}".format(
-                              type(input_example)))
+                type(input_example)))
         example_filename = "input_example.json"
         self.data = input_example.to_dict(orient="split")
         # Do not include row index
@@ -104,9 +105,6 @@ class _Example(object):
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`.  """
         with open(os.path.join(parent_dir_path, self.info["artifact_path"]), "w") as f:
             json.dump(self.data, f, cls=NumpyEncoder)
-
-
-
 
 
 def save_example(mlflow_model: Model, input_example: ModelInputExample, path: str):
@@ -125,5 +123,3 @@ def read_example(mlflow_model: Model, path: str):
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
     return _dataframe_from_json(os.path.join(path, mlflow_model.input_example["artifact_path"]),
                                 schema=input_schema, precise_float=True)
-
-

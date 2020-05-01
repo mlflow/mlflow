@@ -159,4 +159,3 @@ class Model(object):
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
                 mlflow.register_model("runs:/%s/%s" % (run_id, artifact_path),
                                       registered_model_name)
-

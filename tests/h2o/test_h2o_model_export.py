@@ -27,7 +27,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 
-
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
@@ -56,9 +55,9 @@ def model_path(tmpdir):
 def h2o_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
-            conda_env,
-            additional_conda_deps=["pytest"],
-            additional_pip_deps=["h2o"])
+        conda_env,
+        additional_conda_deps=["pytest"],
+        additional_pip_deps=["h2o"])
     return conda_env
 
 
@@ -70,14 +69,15 @@ def test_model_save_load(h2o_iris_model, model_path):
     # Loading h2o model
     h2o_model_loaded = mlflow.h2o.load_model(model_path)
     assert all(
-            h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame() ==
-            h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
+        h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame() ==
+        h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
 
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
     assert all(
-            pyfunc_loaded.predict(h2o_iris_model.inference_data.as_data_frame()) ==
-            h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
+        pyfunc_loaded.predict(h2o_iris_model.inference_data.as_data_frame()) ==
+        h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
+
 
 def test_signature_and_examples_are_saved_correctly(h2o_iris_model):
     model = h2o_iris_model.model
@@ -118,8 +118,8 @@ def test_model_log(h2o_iris_model):
                 # Load model
                 h2o_model_loaded = mlflow.h2o.load_model(model_uri=model_uri)
                 assert all(
-                        h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame() ==
-                        h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
+                    h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame() ==
+                    h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
             finally:
                 mlflow.end_run()
                 mlflow.set_tracking_uri(old_uri)
@@ -144,8 +144,8 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
 
     h2o_model_loaded = mlflow.h2o.load_model(model_path)
     assert all(
-            h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame() ==
-            h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
+        h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame() ==
+        h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
 
 
 @pytest.mark.large
@@ -239,10 +239,10 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(h2o_iris_model, m
     reloaded_h2o_pyfunc = mlflow.pyfunc.load_pyfunc(model_path)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_uri=model_path,
-            data=h2o_iris_model.inference_data.as_data_frame(),
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-            flavor=mlflow.pyfunc.FLAVOR_NAME)
+        model_uri=model_path,
+        data=h2o_iris_model.inference_data.as_data_frame(),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        flavor=mlflow.pyfunc.FLAVOR_NAME)
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 
     pandas.testing.assert_frame_equal(

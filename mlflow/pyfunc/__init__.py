@@ -755,7 +755,6 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
     :return: Model configuration containing model info.
     """
 
-
     code = None
     data = None
 

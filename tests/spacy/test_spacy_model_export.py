@@ -76,7 +76,6 @@ def test_model_save_load(spacy_model_with_data, model_path):
                pyfunc_loaded.predict(spacy_model_with_data.inference_data))
 
 
-
 @pytest.mark.large
 def test_model_export_with_schema_and_examples(spacy_model_with_data):
     spacy_model = spacy_model_with_data.model
