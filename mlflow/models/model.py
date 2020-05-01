@@ -30,6 +30,8 @@ class Model(object):
             self.artifact_path = artifact_path
         self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
+        self._signature = None
+        self._input_example = None
         self.signature = signature
         self.input_example = input_example
         self.__dict__.update(kwargs)
