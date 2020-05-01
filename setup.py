@@ -30,7 +30,7 @@ setup(
     install_requires=[
         'alembic',
         'click>=7.0',
-        'cloudpickle',
+        'cloudpickle == 1.4.1',  # Pinned default version: issues-2429
         'databricks-cli>=0.8.7',
         'requests>=2.17.3',
         'six>=1.10.0',
