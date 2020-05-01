@@ -189,7 +189,7 @@ def test_model_save_load(onnx_model, model_path, onnx_custom_env):
 
 
 @pytest.mark.large
-def test_signature_and_examples_are_saved_correctly(onnx_model, data):
+def test_signature_and_examples_are_saved_correctly(onnx_model, data, onnx_custom_env):
     import mlflow.onnx
     model = onnx_model
     signature_ = infer_signature(*data)
@@ -198,7 +198,7 @@ def test_signature_and_examples_are_saved_correctly(onnx_model, data):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
-                mlflow.onnx.save_model(model, path=path,
+                mlflow.onnx.save_model(model, path=path, conda_env=onnx_custom_env,
                                        signature=signature,
                                        input_example=example)
                 mlflow_model = Model.load(path)

@@ -568,18 +568,6 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 
                       If ``None``, no artifacts are added to the model.
     """
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path),
-            error_code=RESOURCE_ALREADY_EXISTS)
-    os.makedirs(path)
-    if mlflow_model is None:
-        mlflow_model = Model()
-    if signature is not None:
-        mlflow_model.signature = signature
-    if input_example is not None:
-        save_example(mlflow_model, input_example, path)
-
     mlflow_model = kwargs.pop('model', mlflow_model)
     if len(kwargs) > 0:
         raise TypeError("save_model() got unexpected keyword arguments: {}".format(kwargs))
@@ -614,6 +602,18 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
         raise MlflowException(
             message=msg,
             error_code=INVALID_PARAMETER_VALUE)
+
+    if os.path.exists(path):
+        raise MlflowException(
+            message="Path '{}' already exists".format(path),
+            error_code=RESOURCE_ALREADY_EXISTS)
+    os.makedirs(path)
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        save_example(mlflow_model, input_example, path)
 
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
