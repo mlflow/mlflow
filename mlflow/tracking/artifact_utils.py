@@ -45,7 +45,8 @@ def get_artifact_uri(run_id, artifact_path=None):
         return append_to_uri_path(run.info.artifact_uri, artifact_path)
 
 
-# TODO: This would be much simpler if artifact_repo.download_artifacts could take the absolute path or no path.
+# TODO: This would be much simpler if artifact_repo.download_artifacts could take the absolute path
+# or no path.
 def _download_artifact_from_uri(artifact_uri, output_path=None):
     """
     :param artifact_uri: The *absolute* URI of the artifact to download.

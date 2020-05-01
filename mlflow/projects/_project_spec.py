@@ -200,7 +200,8 @@ class Parameter(object):
         basename = os.path.basename(user_param_value)
         dest_path = os.path.join(storage_dir, basename)
         if dest_path != user_param_value:
-            artifact_utils._download_artifact_from_uri(artifact_uri=user_param_value, output_path=dest_path)
+            artifact_utils._download_artifact_from_uri(artifact_uri=user_param_value,
+                                                       output_path=dest_path)
         return os.path.abspath(dest_path)
 
     def compute_value(self, param_value, storage_dir):
