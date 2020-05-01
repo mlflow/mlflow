@@ -20,8 +20,9 @@ import mlflow.utils
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import read_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -41,10 +42,11 @@ def xgb_model():
     X = pd.DataFrame(iris.data[:, :2],  # we only take the first two features.
                      columns=iris.feature_names[:2])
     y = iris.target
-
     dtrain = xgb.DMatrix(X, y)
     model = xgb.train({'objective': 'multi:softprob', 'num_class': 3}, dtrain)
     return ModelWithData(model=model, inference_dataframe=X, inference_dmatrix=dtrain)
+
+
 
 
 @pytest.fixture
@@ -76,6 +78,24 @@ def test_model_save_load(xgb_model, model_path):
     np.testing.assert_array_almost_equal(
             reloaded_model.predict(xgb_model.inference_dmatrix),
             reloaded_pyfunc.predict(xgb_model.inference_dataframe))
+
+@pytest.mark.large
+def test_signature_and_examples_are_saved_correctly(xgb_model):
+    model = xgb_model.model
+    for signature in (None, infer_signature(xgb_model.inference_dataframe)):
+        for example in (None, xgb_model.inference_dataframe.head(3)):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                mlflow.xgboost.save_model(xgb_model=model,
+                                          path=path,
+                                          signature=signature,
+                                          input_example=example)
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.input_example is None
+                else:
+                    assert all((read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large

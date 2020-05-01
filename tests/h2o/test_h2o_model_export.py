@@ -18,7 +18,8 @@ import mlflow.h2o
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
+from mlflow.models.utils import read_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -77,6 +78,24 @@ def test_model_save_load(h2o_iris_model, model_path):
     assert all(
             pyfunc_loaded.predict(h2o_iris_model.inference_data.as_data_frame()) ==
             h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
+
+def test_signature_and_examples_are_saved_correctly(h2o_iris_model):
+    model = h2o_iris_model.model
+    signature_ = infer_signature(h2o_iris_model.inference_data.as_data_frame())
+    example_ = h2o_iris_model.inference_data.as_data_frame().head(3)
+    for signature in (None, signature_):
+        for example in (None, example_):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                mlflow.h2o.save_model(model, path=path,
+                                      signature=signature,
+                                      input_example=example)
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.input_example is None
+                else:
+                    assert all((read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large

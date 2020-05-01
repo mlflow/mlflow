@@ -126,12 +126,6 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
                        path before the model is loaded.
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
     """
-    if os.path.exists(path):
-        raise MlflowException(
-                message="Path '{}' already exists".format(path),
-                error_code=RESOURCE_ALREADY_EXISTS)
-    os.makedirs(path)
-
     custom_model_config_kwargs = {
         CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
     }

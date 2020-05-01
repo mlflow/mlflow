@@ -22,7 +22,8 @@ import mlflow.tracking
 from mlflow import pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
+from mlflow.models.utils import read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -99,6 +100,7 @@ def spark_model_iris(iris_df):
                               spark_df=iris_spark_df,
                               pandas_df=iris_pandas_df,
                               predictions=preds)
+
 
 
 @pytest.fixture(scope="session")
@@ -192,6 +194,26 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     preds3 = score_model_as_udf(model_uri=model_path, pandas_df=spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds3
     assert os.path.exists(sparkm.DFS_TMP)
+
+
+@pytest.mark.large
+def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
+    _, _, iris_spark_df = iris_df
+    signature_ = infer_signature(iris_spark_df)
+    example_ = iris_spark_df.toPandas().head(3)
+    for signature in (None, signature_):
+        for example in (None, example_):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                sparkm.save_model(spark_model_iris.model, path=path,
+                                  signature=signature,
+                                  input_example=example)
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.input_example is None
+                else:
+                    assert all((read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large

@@ -34,7 +34,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample
+from mlflow.models.utils import ModelInputExample, save_example
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import keyword_only, experimental
@@ -154,7 +154,8 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
 
 @keyword_only
 def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, path,
-               mlflow_model=Model(), conda_env=None):
+               mlflow_model=None, conda_env=None,
+               signature: ModelSignature = None, input_example: ModelInputExample = None):
     """
     Save a *serialized* collection of TensorFlow graphs and variables as an MLflow model
     to a local path. This method operates on TensorFlow variables and graphs that have been
@@ -190,6 +191,23 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
                                 'tensorflow=1.8.0'
                             ]
                         }
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset) and valid
+                      model output (e.g. model predictions generated on the training dataset),
+                      for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        signature = infer_signature(train, model.predict(train))
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
 
     """
     _logger.info(
@@ -203,6 +221,12 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path), DIRECTORY_NOT_EMPTY)
     os.makedirs(path)
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        save_example(mlflow_model, input_example, path)
     root_relative_path = _copy_file_or_tree(src=tf_saved_model_dir, dst=path, dst_dir=None)
     model_dir_subpath = "tfmodel"
     shutil.move(os.path.join(path, root_relative_path), os.path.join(path, model_dir_subpath))

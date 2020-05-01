@@ -1,16 +1,16 @@
 import json
 import os
-from typing import Union
+from typing import Union, Dict, Any
 
 import numpy as np
 import pandas as pd
 
 from mlflow.exceptions import MlflowException
+from mlflow.models import Model
 from mlflow.types.utils import TensorsNotSupportedException
-from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json
 
 ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list]
-
 
 class _Example(object):
     """
@@ -104,3 +104,26 @@ class _Example(object):
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`.  """
         with open(os.path.join(parent_dir_path, self.info["artifact_path"]), "w") as f:
             json.dump(self.data, f, cls=NumpyEncoder)
+
+
+
+
+
+def save_example(mlflow_model: Model, input_example: ModelInputExample, path: str):
+    example = _Example(input_example)
+    example.save(path)
+    mlflow_model.input_example = example.info
+
+
+def read_example(mlflow_model: Model, path: str):
+    if mlflow_model.input_example is None:
+        return None
+    example_type = mlflow_model.input_example["type"]
+    if example_type != "dataframe":
+        raise MlflowException("This version of mlflow can not load example of type {}".format(
+            example_type))
+    input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
+    return _dataframe_from_json(os.path.join(path, mlflow_model.input_example["artifact_path"]),
+                                schema=input_schema, precise_float=True)
+
+
