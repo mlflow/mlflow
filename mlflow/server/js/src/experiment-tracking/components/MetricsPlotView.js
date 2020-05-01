@@ -20,13 +20,17 @@ const EMA = (mArray, smoothingWeight) => {
   const smoothedArray = [];
   let biasedElement = 0;
   for (let i = 0; i < mArray.length; i++) {
-    biasedElement = biasedElement * smoothness + (1 - smoothness) * mArray[i];
-    // To avoid biasing earlier elements toward smaller-than-accurate values, we divide
-    // all elements by a `debiasedWeight` that asymptotically increases and approaches
-    // 1 as the element index increases
-    const debiasWeight = 1.0 - Math.pow(smoothness, i + 1);
-    const debiasedElement = biasedElement / debiasWeight;
-    smoothedArray.push(debiasedElement);
+    if (!isNaN(mArray[i])) {
+      biasedElement = biasedElement * smoothness + (1 - smoothness) * mArray[i];
+      // To avoid biasing earlier elements toward smaller-than-accurate values, we divide
+      // all elements by a `debiasedWeight` that asymptotically increases and approaches
+      // 1 as the element index increases
+      const debiasWeight = 1.0 - Math.pow(smoothness, i + 1);
+      const debiasedElement = biasedElement / debiasWeight;
+      smoothedArray.push(debiasedElement);
+    } else {
+      smoothedArray.push(mArray[i]);
+    }
   }
   return smoothedArray;
 };
@@ -72,7 +76,13 @@ export class MetricsPlotView extends React.Component {
     const deselectedCurvesSet = new Set(deselectedCurves);
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history, runUuid } = metric;
-      const isSingleHistory = history.length === 0;
+      const historyValues = history.map((entry) => entry.value);
+      // For metrics with exactly one non-NaN item, we set `isSingleHistory` to `true` in order
+      // to display the item as a point. For metrics with zero non-NaN items (i.e., empty metrics),
+      // we also set `isSingleHistory` to `true` in order to populate the plot legend with a
+      // point-style entry for each empty metric, although no data will be plotted for empty
+      // metrics
+      const isSingleHistory = historyValues.filter((value) => !isNaN(value)).length <= 1;
       const visible = !deselectedCurvesSet.has(Utils.getCurveKey(runUuid, metricKey))
         ? true
         : 'legendonly';
@@ -84,11 +94,8 @@ export class MetricsPlotView extends React.Component {
           }
           return MetricsPlotView.parseTimestamp(entry.timestamp, history, xAxis);
         }),
-        y: EMA(
-          history.map((entry) => entry.value),
-          lineSmoothness,
-        ),
-        text: history.map((entry) => entry.value.toFixed(5)),
+        y: isSingleHistory ? historyValues : EMA(historyValues, lineSmoothness),
+        text: historyValues.map((value) => (isNaN(value) ? value : value.toFixed(5))),
         type: 'scattergl',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
         marker: { opacity: isSingleHistory || showPoint ? 1 : 0 },
