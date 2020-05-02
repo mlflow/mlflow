@@ -2,7 +2,7 @@ import React from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import ParallelCoordinatesPlotView from './ParallelCoordinatesPlotView';
-import { ParallelCoordinatesPlotControls } from './ParallelCoordinatesPlotControls';
+import ParallelCoordinatesPlotControls from './ParallelCoordinatesPlotControls';
 import {
   getAllParamKeysByRunUuids,
   getAllMetricKeysByRunUuids,
@@ -25,6 +25,8 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     sharedParamKeys: PropTypes.arrayOf(String).isRequired,
     // An array of metric keys shared by all runs
     sharedMetricKeys: PropTypes.arrayOf(String).isRequired,
+    // An array of missing parameter keys across runs
+    missingParamKeys: PropTypes.arrayOf(String).isRequired,
   };
 
   state = {
@@ -44,7 +46,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
   };
 
   render() {
-    const { runUuids, allParamKeys, allMetricKeys } = this.props;
+    const { runUuids, allParamKeys, allMetricKeys, sharedParamKeys, missingParamKeys } = this.props;
     const { selectedParamKeys, selectedMetricKeys } = this.state;
     return (
       <div className='parallel-coorinates-plot-panel'>
@@ -52,6 +54,8 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
           paramKeys={allParamKeys}
           metricKeys={allMetricKeys}
           selectedParamKeys={selectedParamKeys}
+          sharedParamKeys={sharedParamKeys}
+          missingParamKeys={missingParamKeys}
           selectedMetricKeys={selectedMetricKeys}
           handleMetricsSelectChange={this.handleMetricsSelectChange}
           handleParamsSelectChange={this.handleParamsSelectChange}
@@ -76,7 +80,8 @@ const mapStateToProps = (state, ownProps) => {
   const allMetricKeys = getAllMetricKeysByRunUuids(runUuids, state);
   const sharedParamKeys = getSharedParamKeysByRunUuids(runUuids, state);
   const sharedMetricKeys = getSharedMetricKeysByRunUuids(runUuids, state);
-  return { allParamKeys, allMetricKeys, sharedParamKeys, sharedMetricKeys };
+  const missingParamKeys = _.difference(allParamKeys, sharedParamKeys);
+  return { allParamKeys, allMetricKeys, sharedParamKeys, sharedMetricKeys, missingParamKeys };
 };
 
 export default connect(mapStateToProps)(ParallelCoordinatesPlotPanel);
