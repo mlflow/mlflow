@@ -6,6 +6,7 @@ import _ from 'lodash';
 
 export class ParallelCoordinatesPlotControls extends React.Component {
   static propTypes = {
+    runUuids: PropTypes.arrayOf(String).isRequired,
     // An array of available parameter keys to select
     paramKeys: PropTypes.arrayOf(String).isRequired,
     // An array of available metric keys to select
@@ -53,16 +54,10 @@ export class ParallelCoordinatesPlotControls extends React.Component {
           treeDefaultExpandAll
           treeData={[
             {
-              title: 'Missing Parameters',
-              value: 'missing',
-              key: 'missing',
-              children: missingParamKeys.map(keyToNode),
-            },
-            {
               title: 'Different Parameters',
               value: 'diff',
               key: 'diff',
-              children: diffParamKeys.map(keyToNode),
+              children: [...diffParamKeys, ...missingParamKeys].map(keyToNode),
             },
             {
               title: 'Constant Parameters',
@@ -91,14 +86,13 @@ export class ParallelCoordinatesPlotControls extends React.Component {
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const { sharedParamKeys } = ownProps;
+  const { runUuids, sharedParamKeys } = ownProps;
   const { paramsByRunUuid: params } = state.entities;
-  const runUuids = Object.keys(params);
 
-  const diffParamKeys = sharedParamKeys.filter((key) => {
-    return runUuids
-      .slice(1)
-      .some((runUuid) => params[runUuid][key].value !== params[runUuids[0]][key].value);
+  const diffParamKeys = sharedParamKeys.filter((paramKey) => {
+    return runUuids.some(
+      (runUuid) => params[runUuid][paramKey].value !== params[runUuids[0]][paramKey].value,
+    );
   });
 
   const constParamKeys = _.difference(sharedParamKeys, diffParamKeys);

@@ -51,6 +51,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     return (
       <div className='parallel-coorinates-plot-panel'>
         <ParallelCoordinatesPlotControls
+          runUuids={runUuids}
           paramKeys={allParamKeys}
           metricKeys={allMetricKeys}
           selectedParamKeys={selectedParamKeys}
