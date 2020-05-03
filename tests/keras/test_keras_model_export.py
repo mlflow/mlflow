@@ -1,7 +1,5 @@
 # pep8: disable=E501
 
-from __future__ import print_function
-
 import h5py
 import os
 import json
