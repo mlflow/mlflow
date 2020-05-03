@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -ex
 
 FWDIR="$(cd "`dirname $0`"; pwd)"
 cd "$FWDIR"
