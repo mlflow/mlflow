@@ -1,5 +1,6 @@
-prospector[with_pyroma]==0.12.7
-pep8==1.7.1
+# prospector[with_pyroma]==0.12.7
+# pep8==1.7.1
+pycodestyle==2.5.0
 pyarrow==0.17.0
 pylint==1.8.2
 rstcheck==3.2
