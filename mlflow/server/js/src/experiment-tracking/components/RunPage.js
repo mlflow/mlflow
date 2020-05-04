@@ -49,7 +49,7 @@ export class RunPageImpl extends Component {
     if (shouldRenderError) {
       const getRunRequest = Utils.getRequestWithId(requests, this.getRunRequestId);
       if (getRunRequest.error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
-        return <RunNotFoundView runId={this.props.runUuid}/>;
+        return <RunNotFoundView runId={this.props.runUuid} />;
       }
       return null;
     }
@@ -59,31 +59,25 @@ export class RunPageImpl extends Component {
     const artifactsLoading = getArtifactsRequest === undefined ?
       true :
       getArtifactsRequest.active === true;
-    return <RunView
-      runUuid={this.props.runUuid}
-      getMetricPagePath={(key) =>
-        Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
-      }
-      experimentId={this.props.experimentId}
-      artifactsAreLoading={artifactsLoading}
-      modelVersions={this.props.modelVersions}
-      handleSetRunTag={this.handleSetRunTag}
-    />;
+
+    return (
+      <RunView
+        runUuid={this.props.runUuid}
+        getMetricPagePath={(key) =>
+          Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
+        }
+        experimentId={this.props.experimentId}
+        modelVersions={this.props.modelVersions}
+        handleSetRunTag={this.handleSetRunTag}
+      />
+    );
   };
 
   render() {
-    const requestIds = [
-      this.getRunRequestId,
-      this.getExperimentRequestId,
-    ];
-    const asyncRequestIds = [
-      this.listArtifactRequestId,
-    ];
+    const requestIds = [this.getRunRequestId, this.getExperimentRequestId];
     return (
       <div className='App-content'>
-        <RequestStateWrapper requestIds={requestIds} asyncRequestIds={asyncRequestIds}>
-          {this.renderRunView}
-        </RequestStateWrapper>
+        <RequestStateWrapper requestIds={requestIds}>{this.renderRunView}</RequestStateWrapper>
       </div>
     );
   }

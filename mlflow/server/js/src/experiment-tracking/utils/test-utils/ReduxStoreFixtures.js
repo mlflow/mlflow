@@ -1,5 +1,4 @@
-import {RunTag, Experiment, RunInfo, Metric, Param, ExperimentTag} from "../../sdk/MlflowMessages";
-
+import { RunTag, Experiment, RunInfo, Metric, Param, ExperimentTag } from '../../sdk/MlflowMessages';
 
 export const emptyState = {
   apis: {},
@@ -99,15 +98,20 @@ export const mockExperiment = (eid, name) => {
   return Experiment.fromJs({ experiment_id: eid, name: name });
 };
 
-export const mockRunInfo = (run_id, experiment_id = undefined,
-                            artifact_uri = undefined, lifecycle_stage = undefined) => {
+export const mockRunInfo = (
+  run_id,
+  experiment_id = undefined,
+  artifact_uri = undefined,
+  lifecycle_stage = undefined,
+) => {
   return RunInfo.fromJs({
-    run_uuid: run_id, experiment_id: experiment_id,
-    artifact_uri: artifact_uri, lifecycle_stage: lifecycle_stage,
+    run_uuid: run_id,
+    experiment_id: experiment_id,
+    artifact_uri: artifact_uri,
+    lifecycle_stage: lifecycle_stage,
   });
 };
 
 export const mockMetric = (params) => {
   return Metric.fromJs(params);
 };
-

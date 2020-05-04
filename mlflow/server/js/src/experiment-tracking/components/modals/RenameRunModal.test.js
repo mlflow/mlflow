@@ -4,7 +4,6 @@ import { RenameRunModalImpl } from './RenameRunModal';
 import { GenericInputModal } from './GenericInputModal';
 import Utils from '../../../common/utils/Utils';
 
-
 describe('RenameRunModal', () => {
   let wrapper;
   let minimalProps;
@@ -20,7 +19,7 @@ describe('RenameRunModal', () => {
       setTagApi: mockSetTagApi,
     };
 
-    wrapper = shallow(<RenameRunModalImpl {...minimalProps}/>);
+    wrapper = shallow(<RenameRunModalImpl {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
@@ -33,21 +32,34 @@ describe('RenameRunModal', () => {
     const promise = wrapper.find(GenericInputModal).prop('handleSubmit')(values);
     promise.finally(() => {
       expect(mockSetTagApi).toHaveBeenCalledTimes(1);
-      expect(mockSetTagApi).toHaveBeenCalledWith('testUuid', Utils.runNameTag, 'renamed', expect.any(String));
+      expect(mockSetTagApi).toHaveBeenCalledWith(
+        'testUuid',
+        Utils.runNameTag,
+        'renamed',
+        expect.any(String),
+      );
       done();
     });
 
-    const mockFailSetTagApi = jest.fn(() => new Promise((resolve, reject) => {
-      window.setTimeout(() => {
-        reject();
-      }, 100);
-    }));
-    const failProps = {...minimalProps, setTagApi: mockFailSetTagApi};
-    const failWrapper = shallow(<RenameRunModalImpl {...failProps}/>);
+    const mockFailSetTagApi = jest.fn(
+      () =>
+        new Promise((resolve, reject) => {
+          window.setTimeout(() => {
+            reject();
+          }, 100);
+        }),
+    );
+    const failProps = { ...minimalProps, setTagApi: mockFailSetTagApi };
+    const failWrapper = shallow(<RenameRunModalImpl {...failProps} />);
     const failPromise = failWrapper.find(GenericInputModal).prop('handleSubmit')(values);
     failPromise.finally(() => {
       expect(mockFailSetTagApi).toHaveBeenCalledTimes(1);
-      expect(mockFailSetTagApi).toHaveBeenCalledWith('testUuid', Utils.runNameTag, 'renamed', expect.any(String));
+      expect(mockFailSetTagApi).toHaveBeenCalledWith(
+        'testUuid',
+        Utils.runNameTag,
+        'renamed',
+        expect.any(String),
+      );
       done();
     });
   });
