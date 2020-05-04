@@ -50,7 +50,7 @@ Model Registry
 - [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
 
 Interface 
-- [ ] `area/uiux`: Front-end, user experience, javascript, plotting
+- [ ] `area/uiux`: Front-end, user experience, JavaScript, plotting
 - [ ] `area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
 - [ ] `area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry
 - [ ] `area/windows`: Windows support
