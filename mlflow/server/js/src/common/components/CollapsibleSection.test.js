@@ -15,7 +15,7 @@ describe('CollapsibleSection', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<CollapsibleSection {...minimalProps}/>);
+    wrapper = shallow(<CollapsibleSection {...minimalProps} />);
     expect(wrapper.find(Collapse)).toHaveLength(1);
     expect(wrapper.find(Collapse.Panel)).toHaveLength(1);
   });
@@ -26,12 +26,12 @@ describe('CollapsibleSection', () => {
       children: 'testChild',
       forceOpen: true,
     };
-    wrapper = shallow(<CollapsibleSection {...minimalProps}/>);
+    wrapper = shallow(<CollapsibleSection {...minimalProps} />);
     expect(wrapper.prop('activeKey')).toEqual(['1']);
   });
 
   test('should render mounted, and child should exist when clicked', () => {
-    wrapper = mount(<CollapsibleSection {...minimalProps}/>);
+    wrapper = mount(<CollapsibleSection {...minimalProps} />);
     expect(wrapper.text()).toMatch('testTitle');
     const header = wrapper.find('.collapsible-panel').first();
     expect(header.text()).toMatch('testChild');

@@ -1,7 +1,7 @@
 export const modelListPageRoute = '/models';
 export const modelPageRoute = '/models/:modelName';
 export const modelVersionPageRoute = '/models/:modelName/versions/:version';
-export const compareModelVersionsPageRoute = "/compare-model-versions";
+export const compareModelVersionsPageRoute = '/compare-model-versions';
 export const getModelPageRoute = (modelName) => `/models/${modelName}`;
 export const getModelVersionPageRoute = (modelName, version) =>
   `/models/${modelName}/versions/${version}`;

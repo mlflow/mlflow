@@ -17,12 +17,12 @@ describe('CompareRunPage', () => {
     minimalProps = {
       location: {
         search: {
-          "?runs": '["runn-1234-5678-9012", "runn-1234-5678-9034"]',
-          experiment: "12345",
+          '?runs': '["runn-1234-5678-9012", "runn-1234-5678-9034"]',
+          experiment: '12345',
         },
       },
-      experimentId: "12345",
-      runUuids: ["runn-1234-5678-9012", "runn-1234-5678-9034"],
+      experimentId: '12345',
+      runUuids: ['runn-1234-5678-9012', 'runn-1234-5678-9034'],
       dispatch: jest.fn(),
     };
     minimalStore = mockStore({
@@ -39,7 +39,7 @@ describe('CompareRunPage', () => {
         <BrowserRouter>
           <CompareRunPage {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     expect(wrapper.find(CompareRunPage).length).toBe(1);
   });

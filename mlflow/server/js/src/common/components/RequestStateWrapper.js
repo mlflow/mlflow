@@ -3,7 +3,7 @@ import './RequestStateWrapper.css';
 import { connect } from 'react-redux';
 import { getApis } from '../../experiment-tracking/reducers/Reducers';
 import PropTypes from 'prop-types';
-import {Spinner} from "./Spinner";
+import { Spinner } from './Spinner';
 
 export class RequestStateWrapper extends Component {
   static propTypes = {
@@ -41,9 +41,11 @@ export class RequestStateWrapper extends Component {
   }
 
   static getDerivedStateFromProps(nextProps) {
-    const shouldRender = nextProps.requests.length ? nextProps.requests.every((r) => {
-      return r && r.active === false;
-    }) : false;
+    const shouldRender = nextProps.requests.length
+      ? nextProps.requests.every((r) => {
+          return r && r.active === false;
+        })
+      : false;
     return {
       shouldRender,
       shouldRenderError: RequestStateWrapper.getErrorRequests(nextProps.requests).length > 0,
@@ -54,7 +56,7 @@ export class RequestStateWrapper extends Component {
     const { children, requests, asyncRequests } = this.props;
     const { shouldRender, shouldRenderError } = this.state;
     if (shouldRender || shouldRenderError || this.props.shouldOptimisticallyRender) {
-      if (typeof children === "function") {
+      if (typeof children === 'function') {
         return children(!shouldRender, shouldRenderError, requests, asyncRequests);
       }
       if (shouldRenderError) {
@@ -62,21 +64,20 @@ export class RequestStateWrapper extends Component {
       }
       return children;
     }
-    return <Spinner/>;
+    return <Spinner />;
   }
 }
 
 export const triggerError = (requests) => {
   // This triggers the OOPS error boundary.
-  console.error("ERROR", requests);
-  throw Error("GOTO error boundary");
+  console.error('ERROR', requests);
+  throw Error('GOTO error boundary');
 };
 
 const mapStateToProps = (state, ownProps) => ({
   requests: getApis(ownProps.requestIds, state),
-  asyncRequests: ownProps.asyncRequestIds !== undefined ?
-    getApis(ownProps.asyncRequestIds, state) :
-    [],
+  asyncRequests:
+    ownProps.asyncRequestIds !== undefined ? getApis(ownProps.asyncRequestIds, state) : [],
 });
 
 export default connect(mapStateToProps)(RequestStateWrapper);

@@ -35,15 +35,18 @@ export class EditableTagsTableView extends React.Component {
 
   requestId = getUUID();
 
-  getData = () => _.sortBy(Utils.getVisibleTagValues(this.props.tags).map((values) => ({
-    key: values[0],
-    name: values[0],
-    value: values[1],
-  })), 'name');
+  getData = () =>
+    _.sortBy(
+      Utils.getVisibleTagValues(this.props.tags).map((values) => ({
+        key: values[0],
+        name: values[0],
+        value: values[1],
+      })),
+      'name',
+    );
 
-  getTagNamesAsSet = () => new Set(
-    Utils.getVisibleTagValues(this.props.tags).map((values) => values[0])
-  );
+  getTagNamesAsSet = () =>
+    new Set(Utils.getVisibleTagValues(this.props.tags).map((values) => values[0]));
 
   handleAddTag = (e) => {
     e.preventDefault();
@@ -67,20 +70,18 @@ export class EditableTagsTableView extends React.Component {
 
   handleSaveEdit = ({ name, value }) => {
     const { runUuid, setTagApi: setTag } = this.props;
-    return setTag(runUuid, name, value, this.requestId)
-      .catch((ex) => {
-        console.error(ex);
-        message.error('Failed to set tag. Error: ' + ex.getUserVisibleError());
-      });
+    return setTag(runUuid, name, value, this.requestId).catch((ex) => {
+      console.error(ex);
+      message.error('Failed to set tag. Error: ' + ex.getUserVisibleError());
+    });
   };
 
   handleDeleteTag = ({ name }) => {
     const { runUuid, deleteTagApi: deleteTag } = this.props;
-    return deleteTag(runUuid, name, this.requestId)
-      .catch((ex) => {
-        console.error(ex);
-        message.error('Failed to delete tag. Error: ' + ex.getUserVisibleError());
-      });
+    return deleteTag(runUuid, name, this.requestId).catch((ex) => {
+      console.error(ex);
+      message.error('Failed to delete tag. Error: ' + ex.getUserVisibleError());
+    });
   };
 
   tagNameValidator = (rule, value, callback) => {
@@ -107,22 +108,20 @@ export class EditableTagsTableView extends React.Component {
             <Form.Item>
               {getFieldDecorator('name', {
                 rules: [
-                  { required: true, message: 'Name is required.'},
+                  { required: true, message: 'Name is required.' },
                   { validator: this.tagNameValidator },
                 ],
-              })(
-                <Input placeholder='Name' style={styles.addTagForm.nameInput}/>
-              )}
+              })(<Input placeholder='Name' style={styles.addTagForm.nameInput} />)}
             </Form.Item>
             <Form.Item>
               {getFieldDecorator('value', {
                 rules: [],
-              })(
-                <Input placeholder='Value' style={styles.addTagForm.valueInput}/>
-              )}
+              })(<Input placeholder='Value' style={styles.addTagForm.valueInput} />)}
             </Form.Item>
             <Form.Item>
-              <Button loading={isRequestPending} htmlType='submit'>Add</Button>
+              <Button loading={isRequestPending} htmlType='submit'>
+                Add
+              </Button>
             </Form.Item>
           </Form>
         </div>

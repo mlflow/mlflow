@@ -30,9 +30,10 @@ const MAX_METRICS_COLS = 3;
 const MAX_TAG_COLS = 3;
 const EMPTY_CELL_PLACEHOLDER = '-';
 
-
 const MAP_COLUMNNAMES_TO_MLFLOW_NAMES = new Map([
-  [PARAM_PREFIX, "params"], [TAG_PREFIX, "tags"], [METRIC_PREFIX, "metrics"],
+  [PARAM_PREFIX, 'params'],
+  [TAG_PREFIX, 'tags'],
+  [METRIC_PREFIX, 'metrics'],
 ]);
 
 export class ExperimentRunsTableMultiColumnView2 extends React.Component {
@@ -109,10 +110,11 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     return rowNode.data.isFullWidth;
   }
 
-  getLocalStore = () => LocalStorageUtils.getStoreForComponent(
-    "ExperimentRunsTableMultiColumnView2",
-    this.props.experimentId,
-  );
+  getLocalStore = () =>
+    LocalStorageUtils.getStoreForComponent(
+      'ExperimentRunsTableMultiColumnView2',
+      this.props.experimentId,
+    );
 
   applyingRowSelectionFromProps = false;
 
@@ -235,7 +237,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
             // happens to be inside this column group.
             columnGroupShow: i >= MAX_METRICS_COLS && columnKey !== orderByKey ? 'open' : null,
             sortable: true,
-            filter: "agNumberColumnFilter",
+            filter: 'agNumberColumnFilter',
             filterParams: {
               filterOptions: [
                 {
@@ -303,9 +305,10 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds }) => {
       const tags = tagsList[idx];
       const params = paramsList[idx];
-      const metrics = metricsList[idx].map(
-        ({ key, value }) => ({ key, value: Utils.formatMetric(value) }),
-      );
+      const metrics = metricsList[idx].map(({ key, value }) => ({
+        key,
+        value: Utils.formatMetric(value),
+      }));
       const runInfo = runInfos[idx];
 
       const user = Utils.getUser(runInfo, tags);
@@ -422,23 +425,25 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
 
   persistGridState = () => {
     if (!this.columnApi) return;
-    this.getLocalStore().saveComponentState(new AgGridPersistedState({
-      columnGroupState: this.columnApi.getColumnGroupState(),
-    }));
+    this.getLocalStore().saveComponentState(
+      new AgGridPersistedState({
+        columnGroupState: this.columnApi.getColumnGroupState(),
+      }),
+    );
   };
-
 
   onFilterChanged = (event) => {
     const filters = {};
-    this.columnApi.getAllDisplayedColumns().forEach(column => {
+    this.columnApi.getAllDisplayedColumns().forEach((column) => {
       const filterInstance = this.gridApi.getFilterInstance(column.colId);
       if (filterInstance.getModel() !== undefined && filterInstance.getModel() !== null) {
         const columnSplitId = column.colDef.field.split('-');
         if (MAP_COLUMNNAMES_TO_MLFLOW_NAMES.has(columnSplitId[0])) {
           const columnType = MAP_COLUMNNAMES_TO_MLFLOW_NAMES.get(columnSplitId[0]);
           const columnName = columnSplitId[1];
-          filters[columnType + ".\"" + columnName + "\""] = [
-            filterInstance.getModel().type, filterInstance.getModel().filter,
+          filters[columnType + '."' + columnName + '"'] = [
+            filterInstance.getModel().type,
+            filterInstance.getModel().filter,
           ];
         }
       }
@@ -558,7 +563,9 @@ function SourceCellRenderer(props) {
       {Utils.renderSourceTypeIcon(Utils.getSourceType(tags))}
       {sourceType}
     </React.Fragment>
-  ) : <React.Fragment>{EMPTY_CELL_PLACEHOLDER}</React.Fragment>;
+  ) : (
+    <React.Fragment>{EMPTY_CELL_PLACEHOLDER}</React.Fragment>
+  );
 }
 SourceCellRenderer.propTypes = { data: PropTypes.object };
 

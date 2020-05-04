@@ -22,22 +22,20 @@ describe('ExperimentViewUtil', () => {
       false,
       'div',
       () => {},
-      []
+      [],
     );
-    const renderedCells = runInfoCells.map((c) => mount(
-      <BrowserRouter>
-        {c}
-      </BrowserRouter>
-    ));
-    expect(renderedCells[0].find('.run-table-container').filter({title: 'FINISHED'}).length).toBe(1);
+    const renderedCells = runInfoCells.map((c) => mount(<BrowserRouter>{c}</BrowserRouter>));
+    expect(renderedCells[0].find('.run-table-container').filter({ title: 'FINISHED' }).length).toBe(
+      1,
+    );
     const allText = renderedCells.map((c) => c.text()).join();
     expect(allText).toContain('user1');
     // The start_time is localized, so it may be anywhere from -12 to +14 hours, based on the
     // client's timezone.
     expect(
       allText.includes('2020-01-01') ||
-      allText.includes('2020-01-02') ||
-      allText.includes('2020-01-03')
+        allText.includes('2020-01-02') ||
+        allText.includes('2020-01-03'),
     ).toBeTruthy();
   });
 
@@ -87,16 +85,16 @@ describe('ExperimentViewUtil', () => {
 
     // As a sanity check, let's make sure the headers contain some other column
     const userHeaders = headers.filter(
-      (h) => h.text() === ExperimentViewUtil.AttributeColumnLabels.USER
+      (h) => h.text() === ExperimentViewUtil.AttributeColumnLabels.USER,
     );
     expect(userHeaders.length).toBe(1);
   });
 
   test('computeMetricRanges returns the correct min and max value for a metric', () => {
     const metrics = [
-      {'key': 'foo', 'value': 1},
-      {'key': 'foo', 'value': 2},
-      {'key': 'foo', 'value': 0},
+      { key: 'foo', value: 1 },
+      { key: 'foo', value: 2 },
+      { key: 'foo', value: 0 },
     ];
     const metricsByRun = [metrics];
     const ranges = ExperimentViewUtil.computeMetricRanges(metricsByRun);

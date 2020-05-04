@@ -4,7 +4,7 @@ import { ModelListView } from './ModelListView';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
 import { BrowserRouter } from 'react-router-dom';
-import Utils from "../../common/utils/Utils";
+import Utils from '../../common/utils/Utils';
 import { ModelRegistryDocUrl } from '../../common/constants';
 
 const ANTD_TABLE_PLACEHOLDER_CLS = '.ant-table-placeholder';
@@ -21,16 +21,16 @@ describe('ModelListView', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ModelListView {...minimalProps}/>);
+    wrapper = shallow(<ModelListView {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should show correct empty message', () => {
-    wrapper = mount(<ModelListView {...minimalProps}/>);
+    wrapper = mount(<ModelListView {...minimalProps} />);
     expect(wrapper.find(`a[href="${ModelRegistryDocUrl}"]`)).toHaveLength(1);
 
     instance = wrapper.instance();
-    instance.setState({ nameFilter: 'xyz'});
+    instance.setState({ nameFilter: 'xyz' });
     expect(wrapper.find(ANTD_TABLE_PLACEHOLDER_CLS).text()).toBe('No models found.');
   });
 
@@ -45,8 +45,8 @@ describe('ModelListView', () => {
     const props = { ...minimalProps, models };
     wrapper = mount(
       <BrowserRouter>
-        <ModelListView {...props}/>
-      </BrowserRouter>
+        <ModelListView {...props} />
+      </BrowserRouter>,
     );
     expect(wrapper.find('td.latest-version').text()).toBe('Version 3');
     expect(wrapper.find('td.latest-staging').text()).toBe('Version 2');
@@ -62,8 +62,8 @@ describe('ModelListView', () => {
     const props = { ...minimalProps, models };
     wrapper = mount(
       <BrowserRouter>
-        <ModelListView {...props}/>
-      </BrowserRouter>
+        <ModelListView {...props} />
+      </BrowserRouter>,
     );
     expect(wrapper.find('td.latest-version').text()).toBe('Version 1');
     expect(wrapper.find('td.latest-staging').text()).toBe('_');
@@ -78,12 +78,22 @@ describe('ModelListView', () => {
     const props = { ...minimalProps, models };
     wrapper = mount(
       <BrowserRouter>
-        <ModelListView {...props}/>
-      </BrowserRouter>
+        <ModelListView {...props} />
+      </BrowserRouter>,
     );
     expect(wrapper.find('td.model-name').length).toBe(2);
-    expect(wrapper.find('td.model-name').first().text()).toBe('Model A');
-    expect(wrapper.find('td.model-name').last().text()).toBe('Model B');
+    expect(
+      wrapper
+        .find('td.model-name')
+        .first()
+        .text(),
+    ).toBe('Model A');
+    expect(
+      wrapper
+        .find('td.model-name')
+        .last()
+        .text(),
+    ).toBe('Model B');
 
     instance = wrapper.find(ModelListView).instance();
     instance.setState({ nameFilter: 'a' }); // apply name search 'a'
@@ -102,19 +112,34 @@ describe('ModelListView', () => {
     const props = { ...minimalProps, models };
     wrapper = mount(
       <BrowserRouter>
-        <ModelListView {...props}/>
-      </BrowserRouter>
+        <ModelListView {...props} />
+      </BrowserRouter>,
     );
     expect(wrapper.find('td.model-name').length).toBe(3);
-    expect(wrapper.find('td.model-name').at(0).text()).toBe('Model a');
-    expect(wrapper.find('td.model-name').at(1).text()).toBe('Model B');
-    expect(wrapper.find('td.model-name').at(2).text()).toBe('model c');
+    expect(
+      wrapper
+        .find('td.model-name')
+        .at(0)
+        .text(),
+    ).toBe('Model a');
+    expect(
+      wrapper
+        .find('td.model-name')
+        .at(1)
+        .text(),
+    ).toBe('Model B');
+    expect(
+      wrapper
+        .find('td.model-name')
+        .at(2)
+        .text(),
+    ).toBe('model c');
   });
 
-  test("Page title is set", () => {
+  test('Page title is set', () => {
     const mockUpdatePageTitle = jest.fn();
     Utils.updatePageTitle = mockUpdatePageTitle;
-    wrapper = shallow(<ModelListView {...minimalProps}/>);
-    expect(mockUpdatePageTitle.mock.calls[0][0]).toBe("MLflow Models");
+    wrapper = shallow(<ModelListView {...minimalProps} />);
+    expect(mockUpdatePageTitle.mock.calls[0][0]).toBe('MLflow Models');
   });
 });
