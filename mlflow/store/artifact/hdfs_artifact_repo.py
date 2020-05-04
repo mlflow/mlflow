@@ -189,6 +189,7 @@ def _resolve_connection_params(artifact_uri):
 
     return parsed.scheme, parsed.hostname, parsed.port, parsed.path
 
+
 def _resolve_base_path(path, artifact_path):
     if path == artifact_path:
         return path
