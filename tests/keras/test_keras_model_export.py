@@ -150,11 +150,13 @@ def test_that_keras_module_arg_works(model_path):
         def load_model(file, **kwars):
             return MyModel(file.get("x").value)
 
+    original_import = importlib.import_module
+
     def _import_module(name, **kwargs):
         if name.startswith(FakeKerasModule.__name__):
             return FakeKerasModule
         else:
-            return importlib.import_module(name, **kwargs)
+            return original_import(name, **kwargs)
 
     with mock.patch("importlib.import_module") as import_module_mock:
         import_module_mock.side_effect = _import_module

@@ -67,13 +67,10 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     # The Keras pyfunc representation requires the TensorFlow
     # backend for Keras. Therefore, the conda environment must
     # include TensorFlow
-    if LooseVersion(tf.__version__) < LooseVersion('2.0.0'):
+    if LooseVersion(tf.__version__) <= LooseVersion('1.13.2'):
         conda_deps.append("tensorflow=={}".format(tf.__version__))
     else:
-        if pip_deps is not None:
-            pip_deps.append("tensorflow=={}".format(tf.__version__))
-        else:
-            pip_deps.append("tensorflow=={}".format(tf.__version__))
+        pip_deps.append("tensorflow=={}".format(tf.__version__))
 
     return _mlflow_conda_env(
         additional_conda_deps=conda_deps,
@@ -347,10 +344,10 @@ class _KerasModelWrapper:
         if self._graph is not None:
             with self._graph.as_default():
                 with self._sess.as_default():
-                    predicted = pd.DataFrame(self.keras_model.predict(dataframe))
+                    predicted = pd.DataFrame(self.keras_model.predict(dataframe.values))
         # In TensorFlow >= 2.0, we do not use a graph and session to predict
         else:
-            predicted = pd.DataFrame(self.keras_model.predict(dataframe))
+            predicted = pd.DataFrame(self.keras_model.predict(dataframe.values))
         predicted.index = dataframe.index
         return predicted
 
