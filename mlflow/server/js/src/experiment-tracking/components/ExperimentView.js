@@ -555,33 +555,33 @@ export class ExperimentView extends Component {
           ) : isLoading ? (
             <Spinner showImmediately />
           ) : (
-                <ExperimentRunsTableCompactView
-                  onCheckbox={this.onCheckbox}
-                  runInfos={this.props.runInfos}
-                  // Bagged param and metric keys
-                  paramKeyList={filteredParamKeys}
-                  metricKeyList={filteredMetricKeys}
-                  paramsList={this.props.paramsList}
-                  metricsList={this.props.metricsList}
-                  tagsList={this.props.tagsList}
-                  categorizedUncheckedKeys={categorizedUncheckedKeys}
-                  onCheckAll={this.onCheckAll}
-                  isAllChecked={this.isAllChecked()}
-                  onSortBy={this.onSortBy}
-                  orderByKey={this.props.orderByKey}
-                  orderByAsc={this.props.orderByAsc}
-                  runsSelected={this.state.runsSelected}
-                  runsExpanded={this.state.persistedState.runsExpanded}
-                  onExpand={this.onExpand}
-                  unbaggedMetrics={filteredUnbaggedMetricKeys}
-                  unbaggedParams={filteredUnbaggedParamKeys}
-                  onAddBagged={this.addBagged}
-                  onRemoveBagged={this.removeBagged}
-                  nextPageToken={nextPageToken}
-                  handleLoadMoreRuns={handleLoadMoreRuns}
-                  loadingMore={loadingMore}
-                />
-              )}
+            <ExperimentRunsTableCompactView
+              onCheckbox={this.onCheckbox}
+              runInfos={this.props.runInfos}
+              // Bagged param and metric keys
+              paramKeyList={filteredParamKeys}
+              metricKeyList={filteredMetricKeys}
+              paramsList={this.props.paramsList}
+              metricsList={this.props.metricsList}
+              tagsList={this.props.tagsList}
+              categorizedUncheckedKeys={categorizedUncheckedKeys}
+              onCheckAll={this.onCheckAll}
+              isAllChecked={this.isAllChecked()}
+              onSortBy={this.onSortBy}
+              orderByKey={this.props.orderByKey}
+              orderByAsc={this.props.orderByAsc}
+              runsSelected={this.state.runsSelected}
+              runsExpanded={this.state.persistedState.runsExpanded}
+              onExpand={this.onExpand}
+              unbaggedMetrics={filteredUnbaggedMetricKeys}
+              unbaggedParams={filteredUnbaggedParamKeys}
+              onAddBagged={this.addBagged}
+              onRemoveBagged={this.removeBagged}
+              nextPageToken={nextPageToken}
+              handleLoadMoreRuns={handleLoadMoreRuns}
+              loadingMore={loadingMore}
+            />
+          )}
         </div>
       </div>
     );
@@ -591,14 +591,13 @@ export class ExperimentView extends Component {
     this.initiateSearch({ orderByKey, orderByAsc });
   }
 
-
   onFilter(filters) {
     const mapFilters = Object.entries(filters);
-    const conditions = mapFilters.map(
-      (entry) => {
+    const conditions = mapFilters
+      .map((entry) => {
         return entry[0] + translateQuery(entry[1]);
-      }
-    ).join(' AND ');
+      })
+      .join(' AND ');
 
     const all_conditions = [];
     if (this.state.searchInput !== undefined && this.state.searchInput.length > 0) {
@@ -929,10 +928,10 @@ export const mapStateToProps = (state, ownProps) => {
   }
 
   const paramsList = runInfos.map((runInfo) =>
-    Object.values(getParams(runInfo.getRunUuid(), state))
+    Object.values(getParams(runInfo.getRunUuid(), state)),
   );
-  paramsList.forEach(paramByRunId => {
-    paramByRunId.forEach(param => paramKeysSet.add(param.key));
+  paramsList.forEach((paramByRunId) => {
+    paramByRunId.forEach((param) => paramKeysSet.add(param.key));
   });
 
   if (Array.isArray(paramKeysList) && paramKeysList.length) {
@@ -942,8 +941,8 @@ export const mapStateToProps = (state, ownProps) => {
   }
 
   const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
-  tagsList.forEach(tagMap => {
-    Object.values(tagMap).forEach(tag => tagKeysSet.add(tag.key));
+  tagsList.forEach((tagMap) => {
+    Object.values(tagMap).forEach((tag) => tagKeysSet.add(tag.key));
   });
 
   if (Array.isArray(tagKeysList) && tagKeysList.length) {
@@ -986,7 +985,7 @@ const translateQuery = (entry) => {
   const filter = entry[0];
   const value = entry[1];
   if (filter === 'contains') {
-    return ' LIKE \'%' + value + '%\'';
+    return " LIKE '%" + value + "%'";
   }
   if (filter === 'greaterThan') {
     return ' >= ' + value;
@@ -994,7 +993,7 @@ const translateQuery = (entry) => {
   if (filter === 'lessThan') {
     return ' <= ' + value;
   }
-  return "";
+  return '';
 };
 
 export default withRouter(connect(mapStateToProps, mapDispatchToProps)(ExperimentView));

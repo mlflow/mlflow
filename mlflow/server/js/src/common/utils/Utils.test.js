@@ -352,7 +352,7 @@ test('getPrivateVcsRegex', () => {
     open: jest.fn(),
     send: jest.fn(),
     status: 200,
-    responseText: JSON.stringify({"vcs_regex": "some_regex"}),
+    responseText: JSON.stringify({ vcs_regex: 'some_regex' }),
   }));
   expect(Utils.getPrivateVcsRegex()).toEqual(new RegExp('some_regex'));
 
@@ -361,7 +361,7 @@ test('getPrivateVcsRegex', () => {
     open: jest.fn(),
     send: jest.fn(),
     status: 404,
-    responseText: JSON.stringify({"vcs_regex": "some_regex"}),
+    responseText: JSON.stringify({ vcs_regex: 'some_regex' }),
   }));
   expect(Utils.getPrivateVcsRegex()).toEqual(null);
   teardown_mock();
@@ -374,26 +374,26 @@ test('getPrivateVcsUrl', () => {
     open: jest.fn(),
     send: jest.fn(),
     status: 200,
-    responseText: JSON.stringify({"vcs_url": "repo_url"}),
+    responseText: JSON.stringify({ vcs_url: 'repo_url' }),
   }));
-  expect(Utils.getPrivateVcsUrl("repo")).toEqual("repo_url");
+  expect(Utils.getPrivateVcsUrl('repo')).toEqual('repo_url');
 
   // with commit url returned
   XMLHttpRequest.mockImplementation(() => ({
     open: jest.fn(),
     send: jest.fn(),
     status: 200,
-    responseText: JSON.stringify({"vcs_url": "commit_url"}),
+    responseText: JSON.stringify({ vcs_url: 'commit_url' }),
   }));
-  expect(Utils.getPrivateVcsUrl("commit")).toEqual("commit_url");
+  expect(Utils.getPrivateVcsUrl('commit')).toEqual('commit_url');
 
   // with 404
   XMLHttpRequest.mockImplementation(() => ({
     open: jest.fn(),
     send: jest.fn(),
     status: 404,
-    responseText: JSON.stringify({"vcs_url": "commit_url"}),
+    responseText: JSON.stringify({ vcs_url: 'commit_url' }),
   }));
-  expect(Utils.getPrivateVcsUrl("commit")).toEqual(null);
+  expect(Utils.getPrivateVcsUrl('commit')).toEqual(null);
   teardown_mock();
 });

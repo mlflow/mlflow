@@ -30,9 +30,10 @@ const MAX_METRICS_COLS = 3;
 const MAX_TAG_COLS = 3;
 const EMPTY_CELL_PLACEHOLDER = '-';
 
-
 const MAP_COLUMNNAMES_TO_MLFLOW_NAMES = new Map([
-  [PARAM_PREFIX, "params"], [TAG_PREFIX, "tags"], [METRIC_PREFIX, "metrics"],
+  [PARAM_PREFIX, 'params'],
+  [TAG_PREFIX, 'tags'],
+  [METRIC_PREFIX, 'metrics'],
 ]);
 
 export class ExperimentRunsTableMultiColumnView2 extends React.Component {
@@ -236,7 +237,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
             // happens to be inside this column group.
             columnGroupShow: i >= MAX_METRICS_COLS && columnKey !== orderByKey ? 'open' : null,
             sortable: true,
-            filter: "agNumberColumnFilter",
+            filter: 'agNumberColumnFilter',
             filterParams: {
               filterOptions: [
                 {
@@ -431,18 +432,18 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     );
   };
 
-
   onFilterChanged = (event) => {
     const filters = {};
-    this.columnApi.getAllDisplayedColumns().forEach(column => {
+    this.columnApi.getAllDisplayedColumns().forEach((column) => {
       const filterInstance = this.gridApi.getFilterInstance(column.colId);
       if (filterInstance.getModel() !== undefined && filterInstance.getModel() !== null) {
         const columnSplitId = column.colDef.field.split('-');
         if (MAP_COLUMNNAMES_TO_MLFLOW_NAMES.has(columnSplitId[0])) {
           const columnType = MAP_COLUMNNAMES_TO_MLFLOW_NAMES.get(columnSplitId[0]);
           const columnName = columnSplitId[1];
-          filters[columnType + ".\"" + columnName + "\""] = [
-            filterInstance.getModel().type, filterInstance.getModel().filter,
+          filters[columnType + '."' + columnName + '"'] = [
+            filterInstance.getModel().type,
+            filterInstance.getModel().filter,
           ];
         }
       }

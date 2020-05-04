@@ -67,8 +67,7 @@ export class ExperimentPage extends Component {
           tagsList: response.value.tags,
           paramsList: response.value.params,
         });
-      }
-      )
+      })
       .catch((e) => {
         Utils.logErrorAndNotifyUser(e);
       });
@@ -189,16 +188,17 @@ export class ExperimentPage extends Component {
         this.setState({ nextPageToken: null, loadingMore: false });
       });
     this.props
-      .listAllColumnsApi(this.props.experimentId,
-        lifecycleFilterToRunViewType(lifecycleFilterInput))
+      .listAllColumnsApi(
+        this.props.experimentId,
+        lifecycleFilterToRunViewType(lifecycleFilterInput),
+      )
       .then((response = {}) => {
         this.setState({
           metricsList: response.value.metrics,
           tagsList: response.value.tags,
           paramsList: response.value.params,
         });
-      }
-      )
+      })
       .catch((e) => {
         Utils.logErrorAndNotifyUser(e);
       });

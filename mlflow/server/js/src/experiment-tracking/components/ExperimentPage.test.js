@@ -23,8 +23,9 @@ beforeEach(() => {
   searchRunsApi = jest.fn(() => Promise.resolve());
   getExperimentApi = jest.fn(() => Promise.resolve());
   loadMoreRunsApi = jest.fn(() => Promise.resolve());
-  listAllColumnsApi = jest.fn(() => Promise.resolve(
-    { value: { metrics: [], params: [], tags: [] } }));
+  listAllColumnsApi = jest.fn(() =>
+    Promise.resolve({ value: { metrics: [], params: [], tags: [] } }),
+  );
   location = {};
 
   history = {};
@@ -201,7 +202,7 @@ test('should update next page token to null when load-more response has no token
 test('should ask all columns with the correct lifecycle state', () => {
   const wrapper = getExperimentPageMock();
   const instance = wrapper.instance();
-  instance.onSearch(null, null, null, "Deleted", null, null);
+  instance.onSearch(null, null, null, 'Deleted', null, null);
   const listAllColumnsApiCalls = listAllColumnsApi.mock.calls[1];
   expect(listAllColumnsApiCalls[1]).toEqual(ViewType.DELETED_ONLY);
 });

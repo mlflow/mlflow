@@ -43,8 +43,8 @@ export class RequestStateWrapper extends Component {
   static getDerivedStateFromProps(nextProps) {
     const shouldRender = nextProps.requests.length
       ? nextProps.requests.every((r) => {
-        return r && r.active === false;
-      })
+          return r && r.active === false;
+        })
       : false;
     return {
       shouldRender,
@@ -56,7 +56,7 @@ export class RequestStateWrapper extends Component {
     const { children, requests, asyncRequests } = this.props;
     const { shouldRender, shouldRenderError } = this.state;
     if (shouldRender || shouldRenderError || this.props.shouldOptimisticallyRender) {
-      if (typeof children === "function") {
+      if (typeof children === 'function') {
         return children(!shouldRender, shouldRenderError, requests, asyncRequests);
       }
       if (shouldRenderError) {
@@ -76,9 +76,8 @@ export const triggerError = (requests) => {
 
 const mapStateToProps = (state, ownProps) => ({
   requests: getApis(ownProps.requestIds, state),
-  asyncRequests: ownProps.asyncRequestIds !== undefined ?
-    getApis(ownProps.asyncRequestIds, state) :
-    [],
+  asyncRequests:
+    ownProps.asyncRequestIds !== undefined ? getApis(ownProps.asyncRequestIds, state) : [],
 });
 
 export default connect(mapStateToProps)(RequestStateWrapper);

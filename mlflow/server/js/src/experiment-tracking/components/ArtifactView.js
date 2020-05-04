@@ -205,10 +205,9 @@ export class ArtifactViewImpl extends Component {
   render() {
     if (this.props.artifactsAreLoading) {
       return (
-        <div className="empty-artifact-outer-container">
-          <div className="empty-artifact-container">
-            <img alt="" className="loading-spinner" src={spinner}/>
-            {' '} &nbsp; Loading artifacts...
+        <div className='empty-artifact-outer-container'>
+          <div className='empty-artifact-container'>
+            <img alt='' className='loading-spinner' src={spinner} /> &nbsp; Loading artifacts...
           </div>
         </div>
       );

@@ -30,7 +30,6 @@ export class RunPageImpl extends Component {
 
   setTagRequestId = getUUID();
 
-
   componentWillMount() {
     const { experimentId, runUuid } = this.props;
     this.props.getRunApi(runUuid, this.getRunRequestId);
@@ -53,12 +52,6 @@ export class RunPageImpl extends Component {
       }
       return null;
     }
-    const getArtifactsRequest = Utils.getRequestWithId(
-      asyncRequests, this.listArtifactRequestId
-    );
-    const artifactsLoading = getArtifactsRequest === undefined ?
-      true :
-      getArtifactsRequest.active === true;
 
     return (
       <RunView

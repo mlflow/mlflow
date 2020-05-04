@@ -257,7 +257,16 @@ const mapStateToProps = (state, ownProps) => {
   const latestMetrics = getLatestMetrics(runUuid, state);
   const runDisplayName = Utils.getRunDisplayName(tags, runUuid);
   const runName = Utils.getRunName(tags, runUuid);
-  return { run, experiment, params, tags, latestMetrics, runDisplayName, runName, artifactsAreLoading };
+  return {
+    run,
+    experiment,
+    params,
+    tags,
+    latestMetrics,
+    runDisplayName,
+    runName,
+    artifactsAreLoading,
+  };
 };
 
 export const RunView = connect(mapStateToProps)(RunViewImpl);

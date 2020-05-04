@@ -182,7 +182,7 @@ class Utils {
     } else if (!url && Utils.getPrivateVcsConfig()) {
       const privateVcsMatch = sourceName.match(window.privateVcsRegex);
       if (privateVcsMatch) {
-        url = window.privateVcsRepo.replace("privateVcsMatch", privateVcsMatch[2]);
+        url = window.privateVcsRepo.replace('privateVcsMatch', privateVcsMatch[2]);
       }
     }
     return url;
@@ -219,11 +219,11 @@ class Utils {
     } else if (!url && Utils.getPrivateVcsConfig()) {
       const privateVcsMatch = sourceName.match(window.privateVcsRegex);
       if (privateVcsMatch) {
-        url = window.privateVcsCommit.replace("privateVcsMatch", privateVcsMatch[2]);
-        url = url.replace("sourceVersion", sourceVersion);
+        url = window.privateVcsCommit.replace('privateVcsMatch', privateVcsMatch[2]);
+        url = url.replace('sourceVersion', sourceVersion);
       }
-      return url;
     }
+    return url;
   }
 
   /**
@@ -626,12 +626,12 @@ class Utils {
   }
 
   /**
-  * Fetch private vcs regex
-  */
+   * Fetch private vcs regex
+   */
   static getPrivateVcsRegex() {
     const req = new XMLHttpRequest();
     let ret = null;
-    req.open("GET", "/api/2.0/mlflow/private_vcs/regex", false);
+    req.open('GET', '/api/2.0/mlflow/private_vcs/regex', false);
     req.send();
     if (req.status === 200 && req.responseText) {
       const jsonData = JSON.parse(req.responseText);
@@ -650,7 +650,7 @@ class Utils {
   static getPrivateVcsUrl(url_type) {
     const req = new XMLHttpRequest();
     let ret = null;
-    req.open("GET", "/api/2.0/mlflow/private_vcs/url?type=" + url_type, false);
+    req.open('GET', '/api/2.0/mlflow/private_vcs/url?type=' + url_type, false);
     req.send();
     if (req.status === 200 && req.responseText) {
       const jsonData = JSON.parse(req.responseText);
