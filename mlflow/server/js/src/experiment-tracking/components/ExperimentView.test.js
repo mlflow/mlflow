@@ -120,25 +120,25 @@ test("mapStateToProps doesn't blow up if the searchRunsApi is pending", () => {
   });
 });
 
-test("params, metrics and tags computation in mapStateToProps", () => {
+test('params, metrics and tags computation in mapStateToProps', () => {
   const searchRunsId = getUUID();
   let state = emptyState;
   const experiment = Fixtures.createExperiment();
   const run_info = {
-    run_uuid: "0",
+    run_uuid: '0',
     experiment_id: experiment.experiment_id.toString(),
-    lifecycle_stage: "active",
+    lifecycle_stage: 'active',
   };
   const run_data = {
     metrics: [
       {
-        key: "metric0",
+        key: 'metric0',
         step: 0,
         value: 0.0,
         timestamp: 0,
       },
       {
-        key: "metric1",
+        key: 'metric1',
         step: 0,
         value: 1.0,
         timestamp: 0,
@@ -146,14 +146,14 @@ test("params, metrics and tags computation in mapStateToProps", () => {
     ],
     params: [
       {
-        key: "param0",
-        value: "val0",
+        key: 'param0',
+        value: 'val0',
       },
     ],
     tags: [
       {
-        key: "tag0",
-        value: "val1",
+        key: 'tag0',
+        value: 'val1',
       },
     ],
   };
@@ -175,17 +175,18 @@ test("params, metrics and tags computation in mapStateToProps", () => {
   expect(newProps.tagKeyList).toEqual(['tag0', 'tag1']);
 });
 
-test("test on filter changes call the correct !search on backend", () => {
+test('test on filter changes call the correct !search on backend', () => {
   const wrapper = getExperimentViewMock();
   const instance = wrapper.instance();
   instance.initiateSearch = jest.fn();
   //  Set current search
-  instance.state = { searchInput: "params.foo == \"bar\" AND metrics.acc > 42" };
-  const filters = { "params.method": ["contains", "adam"], "metrics.it": ["lessThan", "0.3"] };
+  instance.state = { searchInput: 'params.foo == "bar" AND metrics.acc > 42' };
+  const filters = { 'params.method': ['contains', 'adam'], 'metrics.it': ['lessThan', '0.3'] };
 
   instance.onFilter(filters);
 
-  expect(instance.initiateSearch).toHaveBeenCalledWith(
-    { searchInput: "params.foo == \"bar\" AND metrics.acc > 42 AND params.method LIKE '%adam%' AND metrics.it <= 0.3" }
-  );
+  expect(instance.initiateSearch).toHaveBeenCalledWith({
+    searchInput:
+      'params.foo == "bar" AND metrics.acc > 42 AND params.method LIKE \'%adam%\' AND metrics.it <= 0.3',
+  });
 });

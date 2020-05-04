@@ -1,4 +1,11 @@
-import { RunTag, Experiment, RunInfo, Metric, Param, ExperimentTag } from '../../sdk/MlflowMessages';
+import {
+  RunTag,
+  Experiment,
+  RunInfo,
+  Metric,
+  Param,
+  ExperimentTag,
+} from '../../sdk/MlflowMessages';
 
 export const emptyState = {
   apis: {},
@@ -28,7 +35,7 @@ export const addRunToState = (state, runInfo, run_data) => {
   const oldTags = state.entities.tagsByRunUuid;
   const createObjFromList = (objs, fromJSBuilder) => {
     const mapObj = {};
-    objs.forEach(obj => {
+    objs.forEach((obj) => {
       mapObj[obj.key] = fromJSBuilder(obj);
     });
     return mapObj;
