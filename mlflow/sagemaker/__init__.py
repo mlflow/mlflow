@@ -1,8 +1,6 @@
 """
 The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to Amazon SageMaker.
 """
-from __future__ import print_function
-
 import os
 from subprocess import Popen, PIPE, STDOUT
 from six.moves import urllib

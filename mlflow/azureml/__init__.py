@@ -2,8 +2,6 @@
 The ``mlflow.azureml`` module provides an API for deploying MLflow models to Azure
 Machine Learning.
 """
-from __future__ import print_function
-
 import sys
 import os
 import shutil
