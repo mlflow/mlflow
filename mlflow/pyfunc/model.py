@@ -4,6 +4,7 @@ models with a user-defined ``PythonModel`` subclass.
 """
 
 import os
+import posixpath
 import shutil
 import yaml
 from abc import ABCMeta, abstractmethod
@@ -156,7 +157,7 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
                 tmp_artifact_path = _download_artifact_from_uri(
                     artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path())
                 tmp_artifacts_config[artifact_name] = tmp_artifact_path
-                saved_artifact_subpath = os.path.join(
+                saved_artifact_subpath = posixpath.join(
                     saved_artifacts_dir_subpath,
                     os.path.relpath(path=tmp_artifact_path, start=tmp_artifacts_dir.path()))
                 saved_artifacts_config[artifact_name] = {
