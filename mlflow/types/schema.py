@@ -107,7 +107,7 @@ class Schema(object):
                 or all(map(lambda x: x.name is not None, cols))):
             raise MlflowException("Creating Schema with a combination of named and unnamed columns "
                                   "is not allowed. Got column names {}".format(
-                                    [x.name for x in cols]))
+                [x.name for x in cols]))
         self._cols = cols
 
     @property
@@ -151,8 +151,6 @@ class Schema(object):
     def from_json(cls, json_str: str):
         """ Deserialize from a json string."""
         return cls([ColSpec(**x) for x in json.loads(json_str)])
-
-
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Schema):

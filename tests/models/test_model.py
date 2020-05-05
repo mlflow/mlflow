@@ -23,7 +23,7 @@ def test_model_save_load():
               input_example={"x": 1, "y": 2})
     assert m.get_input_schema() == m.signature.inputs
     assert m.get_output_schema() == m.signature.outputs
-    x = Model(artifact_path="some/other/path",run_id="1234")
+    x = Model(artifact_path="some/other/path", run_id="1234")
     assert x.get_input_schema() is None
     assert x.get_output_schema() is None
 
