@@ -145,7 +145,7 @@ def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
 
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
     np.testing.assert_array_equal(
-        loaded_pyfunc_model.predict(model_input=iris_data[0]),
+        loaded_pyfunc_model.predict(iris_data[0]),
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
 
 
@@ -171,7 +171,7 @@ def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_mode
         artifact_path=pyfunc_artifact_path)
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_uri)
     np.testing.assert_array_equal(
-        loaded_pyfunc_model.predict(model_input=iris_data[0]),
+        loaded_pyfunc_model.predict(iris_data[0]),
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
     mlflow.end_run()
 
@@ -205,7 +205,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_uri)
     assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
     np.testing.assert_array_equal(
-        loaded_pyfunc_model.predict(model_input=iris_data[0]),
+        loaded_pyfunc_model.predict(iris_data[0]),
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
 
 
@@ -286,7 +286,7 @@ def test_model_load_from_remote_uri_succeeds(
     model_uri = artifact_root + "/" + pyfunc_artifact_path
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
     np.testing.assert_array_equal(
-        loaded_pyfunc_model.predict(model_input=iris_data[0]),
+        loaded_pyfunc_model.predict(iris_data[0]),
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
 
 
