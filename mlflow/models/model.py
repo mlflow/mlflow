@@ -58,7 +58,7 @@ class Model(object):
         return self.signature.inputs if self.signature is not None else None
 
     def get_output_schema(self):
-        return self.signature.inputs if self.signature is not None else None
+        return self.signature.outputs if self.signature is not None else None
 
     @property
     def input_example(self):
