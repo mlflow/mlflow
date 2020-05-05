@@ -9,8 +9,9 @@ import databricks_cli
 import pytest
 
 import mlflow
+from mlflow import cli
 from mlflow.exceptions import MlflowException
-from mlflow.projects.databricks import DatabricksJobRunner
+from mlflow.projects.databricks import DatabricksJobRunner, _get_cluster_mlflow_run_cmd
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
@@ -22,6 +23,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, \
     MLFLOW_DATABRICKS_WEBAPP_URL
 from mlflow.utils.rest_utils import _DEFAULT_HEADERS
 from tests import helper_functions
+from tests.integration.utils import invoke_cli_runner
 
 from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR
 
@@ -50,6 +52,14 @@ def runs_get_mock():
     with mock.patch("mlflow.projects.databricks.DatabricksJobRunner.jobs_runs_get") \
             as runs_get_mock:
         yield runs_get_mock
+
+
+@pytest.fixture()
+def databricks_cluster_mlflow_run_cmd_mock():
+    """Mocks the Jobs Runs Get API request"""
+    with mock.patch("mlflow.projects.databricks._get_cluster_mlflow_run_cmd") \
+            as mlflow_run_cmd_mock:
+        yield mlflow_run_cmd_mock
 
 
 @pytest.fixture()
@@ -214,8 +224,9 @@ def test_run_databricks_validations(
 
 
 @pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
-                         "dbfs_mocks")
-def test_run_databricks(runs_submit_mock, runs_get_mock, cluster_spec_mock, set_tag_mock):
+                         "dbfs_mocks", "databricks_cluster_mlflow_run_cmd_mock")
+def test_run_databricks(runs_submit_mock, runs_get_mock, cluster_spec_mock, set_tag_mock,
+                        databricks_cluster_mlflow_run_cmd_mock):
     """Test running on Databricks with mocks."""
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         # Test that MLflow gets the correct run status when performing a Databricks run
@@ -225,6 +236,7 @@ def test_run_databricks(runs_submit_mock, runs_get_mock, cluster_spec_mock, set_
             assert submitted_run.wait() == run_succeeded
             assert submitted_run.run_id is not None
             assert runs_submit_mock.call_count == 1
+            assert databricks_cluster_mlflow_run_cmd_mock.call_count == 1
             tags = {}
             for call_args, _ in set_tag_mock.call_args_list:
                 tags[call_args[1]] = call_args[2]
@@ -233,6 +245,7 @@ def test_run_databricks(runs_submit_mock, runs_get_mock, cluster_spec_mock, set_
             assert tags[MLFLOW_DATABRICKS_WEBAPP_URL] == 'test-host'
             set_tag_mock.reset_mock()
             runs_submit_mock.reset_mock()
+            databricks_cluster_mlflow_run_cmd_mock.reset_mock()
             validate_exit_status(submitted_run.get_status(), expect_status)
 
 
@@ -347,3 +360,11 @@ def test_run_databricks_failed(_):
         runner = DatabricksJobRunner('profile')
         with pytest.raises(MlflowException):
             runner._run_shell_command_job('/project', 'command', {}, {})
+
+
+def test_run_databricks_generates_valid_mlflow_run_cmd():
+    cmd = _get_cluster_mlflow_run_cmd(
+        project_dir="my_project_dir", run_id="hi", entry_point="main", parameters={"a": "b"})
+    assert cmd[0] == "mlflow"
+    with mock.patch("mlflow.projects.run"):
+        invoke_cli_runner(cli.cli, cmd[1:])
