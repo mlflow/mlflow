@@ -516,7 +516,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                 if len(args) != len(input_schema.columns):
                     raise MlflowException("Model input is not compatible with model schema. "
                                           "Expected  {0} input columns, got {1}".format(
-                        len(input_schema.columns), len(args)))
+                                            len(input_schema.columns), len(args)))
                 names = input_schema.column_names()
                 types = input_schema.numpy_types()
                 data = dict([(names[i], convert_type(x, types[i])) for i, x in enumerate(args)])
