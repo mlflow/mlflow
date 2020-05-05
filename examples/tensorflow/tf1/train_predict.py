@@ -1,8 +1,4 @@
 # in case this is run outside of conda environment with python2
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import mlflow
 from mlflow import pyfunc
 import pandas as pd

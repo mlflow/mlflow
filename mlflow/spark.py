@@ -18,9 +18,6 @@ Spark MLlib (native) format
     ``mlflow/java`` package. This flavor is produced only if you specify
     MLeap-compatible arguments.
 """
-
-from __future__ import absolute_import
-
 import os
 import yaml
 import logging

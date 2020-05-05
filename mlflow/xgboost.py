@@ -16,9 +16,6 @@ XGBoost (native) format
 .. _scikit-learn API:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
-
-from __future__ import absolute_import
-
 import os
 import shutil
 import json

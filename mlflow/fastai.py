@@ -12,9 +12,6 @@ fastai (native) format
 .. _fastai.Learner.export:
     https://docs.fast.ai/basic_train.html#Learner.export
 """
-
-from __future__ import absolute_import
-
 import os
 import yaml
 import pandas as pd

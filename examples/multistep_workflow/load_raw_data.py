@@ -1,10 +1,6 @@
 """
 Downloads the MovieLens dataset and saves it as an artifact
 """
-
-
-from __future__ import print_function
-
 import requests
 import tempfile
 import os

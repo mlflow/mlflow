@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 import time
 import json
 from collections import namedtuple

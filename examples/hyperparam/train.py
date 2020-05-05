@@ -6,8 +6,6 @@ Validation data is used to select the best hyperparameters, test set performance
 at epochs which improved performance on the validation dataset. The model with best validation set
 performance is logged with MLflow.
 """
-from __future__ import print_function
-
 import warnings
 
 import math

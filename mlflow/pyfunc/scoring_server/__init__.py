@@ -10,8 +10,6 @@ Defines two endpoints:
     /ping used for health check
     /invocations used for scoring
 """
-from __future__ import print_function
-
 from collections import OrderedDict
 import flask
 import json
