@@ -25,21 +25,48 @@ class Model(object):
                  signature: ModelSignature = None, input_example: ModelInputExample = None,
                  **kwargs):
         # store model id instead of run_id and path to avoid confusion when model gets exported
-        if run_id:
-            self.run_id = run_id
-            self.artifact_path = artifact_path
+        self._run_id = run_id
+        self._artifact_path = artifact_path
         self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
-        if signature is not None:
-            self.signature = signature
-        if input_example is not None:
-            self.input_example = input_example
+        self._signature = signature
+        self._input_example = input_example
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
         if not isinstance(other, Model):
             return False
         return self.__dict__ == other.__dict__
+
+    @property
+    def run_id(self):
+        return self._run_id
+
+    @property
+    def artifact_path(self):
+        return self._artifact_path
+
+    @property
+    def signature(self):
+        return self._signature
+
+    @signature.setter
+    def signature(self, value):
+        self._signature = value
+
+    def get_input_schema(self):
+        return self.signature.inputs if self.signature is not None else None
+
+    def get_output_schema(self):
+        return self.signature.inputs if self.signature is not None else None
+
+    @property
+    def input_example(self):
+        return self._input_example
+
+    @input_example.setter
+    def input_example(self, value):
+        self._input_example = value
 
     def add_flavor(self, name, **params):
         """Add an entry for how to serve the model in a given format."""
@@ -48,9 +75,14 @@ class Model(object):
 
     def to_dict(self):
         """Serialize the model to a dictionary."""
-        res = self.__dict__.copy()
-        if res.get("signature") is not None:
-            res["signature"] = res["signature"].to_dict()
+        res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+        if self.run_id is not None:
+            res["run_id"] = self.run_id
+            res["artifact_path"] = self.artifact_path
+        if self.signature is not None:
+            res["signature"] = self.signature.to_dict()
+        if self.input_example is not None:
+            res["input_example"] = self.input_example
         return res
 
     def to_yaml(self, stream=None):
@@ -66,6 +98,8 @@ class Model(object):
 
     def save(self, path):
         """Write the model as a local YAML file."""
+        if os.path.isdir(path):
+            path = os.path.join(path, "MLmodel")
         with open(path, 'w') as out:
             self.to_yaml(out)
 

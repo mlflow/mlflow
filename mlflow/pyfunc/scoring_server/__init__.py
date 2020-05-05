@@ -29,7 +29,8 @@ import traceback
 # dependencies to the minimum here.
 # ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
-from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.types import Schema
+from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json
 
 try:
     from mlflow.pyfunc import load_model
@@ -62,16 +63,17 @@ CONTENT_TYPES = [
 _logger = logging.getLogger(__name__)
 
 
-def parse_json_input(json_input, orient="split"):
+def parse_json_input(json_input, orient="split", schema: Schema=None):
     """
     :param json_input: A JSON-formatted string representation of a Pandas DataFrame, or a stream
                        containing such a string representation.
     :param orient: The Pandas DataFrame orientation of the JSON input. This is either 'split'
                    or 'records'.
+    :param schema: Optional schema specification to be used during parsing.
     """
     # pylint: disable=broad-except
     try:
-        return pd.read_json(json_input, orient=orient, dtype=False)
+        return _dataframe_from_json(json_input, pandas_orient=orient, schema=schema)
     except Exception:
         _handle_serving_error(
             error_message=(
@@ -146,10 +148,12 @@ def _handle_serving_error(error_message, error_code):
 
 
 def init(model):
+
     """
     Initialize the server. Loads pyfunc model from the path.
     """
     app = flask.Flask(__name__)
+    input_schema = model.metadata.get_input_schema()
 
     @app.route('/ping', methods=['GET'])
     def ping():  # pylint: disable=unused-variable
@@ -176,10 +180,10 @@ def init(model):
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="split")
+                                    orient="split", schema=input_schema)
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="records")
+                                    orient="records", schema=input_schema)
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
             data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
         else:

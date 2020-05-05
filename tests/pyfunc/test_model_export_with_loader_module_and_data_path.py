@@ -16,9 +16,11 @@ import mlflow.pyfunc
 import mlflow.pyfunc.model
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types import Schema, ColSpec
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 
@@ -90,7 +92,6 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0]))
 
 
-@pytest.mark.large
 def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -109,6 +110,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
     assert mlflow.pyfunc.PY_VERSION in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
     reloaded_model = mlflow.pyfunc.load_pyfunc(pyfunc_model_path)
+    assert model_config.to_yaml() == reloaded_model.metadata.to_yaml()
     np.testing.assert_array_equal(
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0]))
 

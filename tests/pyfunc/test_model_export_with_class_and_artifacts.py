@@ -21,11 +21,13 @@ import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import get_artifact_uri as utils_get_artifact_uri, \
     _download_artifact_from_uri
+from mlflow.types import Schema, ColSpec
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 import tests
@@ -165,12 +167,12 @@ def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_mode
                             artifacts={"sk_model": sklearn_model_uri},
                             python_model=main_scoped_model_class(test_predict))
     pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id,
-            artifact_path=pyfunc_artifact_path)
+        run_id=mlflow.active_run().info.run_id,
+        artifact_path=pyfunc_artifact_path)
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_uri)
     np.testing.assert_array_equal(
-            loaded_pyfunc_model.predict(model_input=iris_data[0]),
-            test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
+        loaded_pyfunc_model.predict(model_input=iris_data[0]),
+        test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
     mlflow.end_run()
 
 
@@ -196,8 +198,12 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
         pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id,
             artifact_path=pyfunc_artifact_path)
+        pyfunc_model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path))
+        model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
 
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_uri)
+    assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
     np.testing.assert_array_equal(
         loaded_pyfunc_model.predict(model_input=iris_data[0]),
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))

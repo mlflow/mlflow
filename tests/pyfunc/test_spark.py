@@ -7,15 +7,19 @@ import numpy as np
 import pandas as pd
 import pytest
 import pyspark
+from py4j.protocol import Py4JJavaError
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 
 import mlflow
 import mlflow.pyfunc
 import mlflow.sklearn
-from mlflow.pyfunc import spark_udf
+from mlflow.models import ModelSignature
+from mlflow.pyfunc import spark_udf, PythonModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 
 import tests
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types import Schema, ColSpec
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
 types = [np.int32, np.int, np.str, np.float32, np.double]
@@ -56,9 +60,9 @@ def get_spark_session(conf):
     # compatibiliy-setting-for-pyarrow--0150-and-spark-23x-24x
     os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     conf.set(key="spark_session.python.worker.reuse", value=True)
-    return pyspark.sql.SparkSession.builder\
-        .config(conf=conf)\
-        .master("local-cluster[2, 1, 1024]")\
+    return pyspark.sql.SparkSession.builder \
+        .config(conf=conf) \
+        .master("local-cluster[2, 1, 1024]") \
         .getOrCreate()
 
 
@@ -114,6 +118,40 @@ def test_spark_udf(spark, model_path):
                 new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
                 actual = list(new_df.select("prediction").toPandas()['prediction'])
                 assert expected == actual
+
+
+def test_spark_udf_autofills_column_names_with_schema(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return [model_input.columns] * len(model_input)
+    signature = ModelSignature(
+        inputs=Schema([
+            ColSpec("integer", "a"),
+            ColSpec("integer", "b"),
+            ColSpec("integer", "c"),
+        ]),
+        outputs=Schema([ColSpec("integer")])
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
+        udf = mlflow.pyfunc.spark_udf(spark, "runs:/{}/model".format(run.info.run_id),
+                                      result_type=ArrayType(StringType()))
+        data = spark.createDataFrame(pd.DataFrame(
+            columns=["a", "b", "c", "d"],
+            data={
+                "a": [1],
+                "b": [2],
+                "c": [3],
+                "d": [4]
+            }
+        ))
+        res = data.withColumn("res1", udf("a")).withColumn("res2", udf("a", "b"))\
+            .withColumn("res3", udf("a", "b", "c")).select("res1", "res2", "res3").toPandas()
+        assert res["res1"][0] == ["a"]
+        assert res["res2"][0] == ["a", "b"]
+        assert res["res3"][0] == ["a", "b", "c"]
+        with pytest.raises(Py4JJavaError):
+            res = data.withColumn("res4", udf("a", "b", "c", "d")).select("res4").toPandas()
 
 
 @pytest.mark.large

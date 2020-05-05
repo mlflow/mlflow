@@ -1,10 +1,12 @@
 import base64
+
 from json import JSONEncoder
 
 from google.protobuf.json_format import MessageToJson, ParseDict
 import numpy as np
 import pandas as pd
 
+from mlflow.exceptions import MlflowException
 from mlflow.types import DataType
 from mlflow.types.schema import Schema
 
@@ -81,10 +83,6 @@ class NumpyEncoder(JSONEncoder):
             return super().default(o)
 
 
-def _base64decode(x):
-    return base64.decodebytes(x.encode("ascii"))
-
-
 def _dataframe_from_json(path_or_str, schema: Schema = None,
                          pandas_orient: str = "split") -> pd.DataFrame:
     """
@@ -97,13 +95,26 @@ def _dataframe_from_json(path_or_str, schema: Schema = None,
     :return: pandas.DataFrame.
     """
     if schema is not None:
-        dtypes = dict(zip(schema.column_names(), schema.column_types()))
-        df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes)[schema.column_names()]
+        dtypes = dict(zip(schema.column_names(), schema.numpy_types()))
+        df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes)
+
+        names = schema.column_names()
+        expected_names = set(names)
+        actual_names = set(df.columns)
+        if actual_names != expected_names:
+            missing_cols = expected_names - actual_names
+            extra_columns = actual_names - expected_names
+            raise MlflowException("Incompatible data. {0} {1}".format(
+                "{}.".format("Missing columns {}".format(missing_cols) if missing_cols else ""),
+                "{}".format("Extra columns {}.".format(extra_columns) if extra_columns else ""),
+            ))
+        df = df[names]
         binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
 
         for i in binary_cols:
             col = df.columns[i]
-            df[col] = np.array(df[col].map(_base64decode), dtype=np.bytes_)
-            return df
+            df[col] = np.array(df[col].map(base64.decodebytes), dtype=np.bytes_)
+
+        return df
     else:
         return pd.read_json(path_or_str, orient=pandas_orient, dtype=False)
