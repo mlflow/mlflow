@@ -23,10 +23,7 @@ export function CollapsibleSection(props) {
 }
 
 CollapsibleSection.propTypes = {
-  title: PropTypes.oneOfType([
-    PropTypes.string,
-    PropTypes.object,
-  ]).isRequired,
+  title: PropTypes.oneOfType([PropTypes.string, PropTypes.object]).isRequired,
   forceOpen: PropTypes.bool,
   children: PropTypes.object,
 };

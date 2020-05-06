@@ -8,8 +8,6 @@
 #
 # Code based on https://github.com/lanpa/tensorboard-pytorch-examples/blob/master/mnist/main.py.
 #
-
-from __future__ import print_function
 import argparse
 import os
 import mlflow

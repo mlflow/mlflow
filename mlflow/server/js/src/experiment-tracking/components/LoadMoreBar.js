@@ -22,13 +22,10 @@ export class LoadMoreBar extends React.PureComponent {
   render() {
     const { loadingMore, onLoadMore, style } = this.props;
     return (
-      <div
-        className='load-more-row'
-        style={{ ...styles.loadMoreRows, ...style }}
-      >
+      <div className='load-more-row' style={{ ...styles.loadMoreRows, ...style }}>
         {loadingMore ? (
           <div className='loading-more-wrapper' style={styles.loadingMoreWrapper}>
-            <Icon type='sync' spin style={styles.loadingMoreIcon}/>
+            <Icon type='sync' spin style={styles.loadingMoreIcon} />
           </div>
         ) : (
           <Button

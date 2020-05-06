@@ -11,15 +11,18 @@ export function getArtifactContent(artifactLocation) {
       redirect: 'follow',
       headers: new Headers(getRequestHeaders(document.cookie)),
     });
-    fetch(getArtifactRequest).then((response) => {
-      return response.blob();
-    }).then((blob) => {
-      const fileReader = new FileReader();
-      fileReader.onload = (event) => {
-        // Resolve promise with artifact contents
-        resolve(event.target.result);
-      };
-      fileReader.readAsText(blob);
-    }).catch((error) => reject(error));
+    fetch(getArtifactRequest)
+      .then((response) => {
+        return response.blob();
+      })
+      .then((blob) => {
+        const fileReader = new FileReader();
+        fileReader.onload = (event) => {
+          // Resolve promise with artifact contents
+          resolve(event.target.result);
+        };
+        fileReader.readAsText(blob);
+      })
+      .catch((error) => reject(error));
   });
 }

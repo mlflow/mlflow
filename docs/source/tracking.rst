@@ -652,13 +652,7 @@ There are also two ways to authenticate to HDFS:
 Most of the cluster contest settings are read from ``hdfs-site.xml`` accessed by the HDFS native
 driver using the ``CLASSPATH`` environment variable.
 
-Optionally you can select a different version of the HDFS driver library using:
-
-.. code-block:: bash
-
-  export MLFLOW_HDFS_DRIVER=libhdfs3
-
-The default driver is ``libhdfs``.
+The used HDFS driver is ``libhdfs``.
 
 
 Networking

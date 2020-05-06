@@ -17,9 +17,6 @@ LightGBM (native) format
 .. _scikit-learn API:
     https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api
 """
-
-from __future__ import absolute_import
-
 import os
 import yaml
 import json

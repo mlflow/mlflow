@@ -2,14 +2,13 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import AppErrorBoundary from './AppErrorBoundary';
 
-
 describe('AppErrorBoundary', () => {
   let wrapper;
   let minimalProps;
 
   beforeEach(() => {
     minimalProps = { children: 'testChild' };
-    wrapper = shallow(<AppErrorBoundary {...minimalProps}/>);
+    wrapper = shallow(<AppErrorBoundary {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
@@ -23,6 +22,6 @@ describe('AppErrorBoundary', () => {
     instance.forceUpdate();
     expect(wrapper.find('.error-image').length).toBe(1);
     expect(wrapper.text()).not.toMatch('testChild');
-    expect(wrapper.find({ href: "https://github.com/mlflow/mlflow/issues" }).length).toBe(1);
+    expect(wrapper.find({ href: 'https://github.com/mlflow/mlflow/issues' }).length).toBe(1);
   });
 });

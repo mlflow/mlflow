@@ -10,7 +10,7 @@ setupAjaxHeaders();
 
 const root = (
   <Provider store={store}>
-    <App/>
+    <App />
   </Provider>
 );
 ReactDOM.render(root, document.getElementById('root'));

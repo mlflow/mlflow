@@ -13,18 +13,17 @@ describe('PermissionDeniedView', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<PermissionDeniedView {...minimalProps}/>);
+    wrapper = shallow(<PermissionDeniedView {...minimalProps} />);
   });
 
   test('should render correct h2 text when error message is passed', () => {
-    wrapper = shallow(<PermissionDeniedView {...minimalProps}/>);
+    wrapper = shallow(<PermissionDeniedView {...minimalProps} />);
     expect(wrapper.childAt(2).text()).toBe(mockErrorMessage);
   });
 
   test('should render default message in h2 when no error message is passed', () => {
-    wrapper = shallow(<PermissionDeniedView {...minimalProps}/>);
+    wrapper = shallow(<PermissionDeniedView {...minimalProps} />);
     wrapper.setProps({ errorMessage: '' });
     expect(wrapper.childAt(2).text()).toBe(defaultMessage);
   });
 });
-
