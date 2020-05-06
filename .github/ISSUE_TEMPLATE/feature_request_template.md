@@ -30,6 +30,7 @@ The MLflow Community encourages new feature contributions. Would you or another 
 ### What component(s), interfaces, languages, and integrations does this feature affect?
 Components 
 - [ ] `area/artifacts`: Artifact stores and artifact logging
+- [ ] `area/build`: Build and test infrastructure for MLflow
 - [ ] `area/docs`: MLflow documentation pages
 - [ ] `area/examples`: Example code
 - [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for
