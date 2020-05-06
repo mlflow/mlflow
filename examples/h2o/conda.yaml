@@ -3,8 +3,8 @@ channels:
   - defaults
   - anaconda
 dependencies:
-  - python==3.6
-  - numpy==1.14.2
+  - python=3.6
+  - numpy=1.14.2
   - pandas
   - pip:
     - h2o
