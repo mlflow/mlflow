@@ -64,6 +64,7 @@ def get_spark_session(conf):
         .master("local-cluster[2, 1, 1024]") \
         .getOrCreate()
 
+
 @pytest.fixture(scope="session")
 def spark():
     conf = pyspark.SparkConf()
@@ -122,6 +123,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             return [model_input.columns] * len(model_input)
+
     signature = ModelSignature(
         inputs=Schema([
             ColSpec("integer", "a"),
@@ -175,7 +177,7 @@ def test_model_cache(spark, model_path):
     # Request the model on all executors, and see how many times we got cache hits.
     def get_model(_):
         model = SparkModelCache.get_or_load(archive_path)
-        assert(isinstance(model, PyFuncModel))
+        assert (isinstance(model, PyFuncModel))
         # NB: Can not use instanceof test as remote does not know about ConstantPyfuncWrapper class.
         assert type(model._model_impl).__name__ == constant_model_name
         return SparkModelCache._cache_hits
