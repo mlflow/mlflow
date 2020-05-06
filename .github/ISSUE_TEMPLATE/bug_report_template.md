@@ -40,6 +40,7 @@ please include the full traceback. Large logs and files should be attached.
 ### What component(s), interfaces, languages, and integrations does this bug affect?
 Components 
 - [ ] `area/artifacts`: Artifact stores and artifact logging
+- [ ] `area/build`: Build and test infrastructure for MLflow
 - [ ] `area/docs`: MLflow documentation pages
 - [ ] `area/examples`: Example code
 - [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for
