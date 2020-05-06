@@ -18,7 +18,6 @@ from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 
 import tests
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import Schema, ColSpec
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
@@ -65,8 +64,7 @@ def get_spark_session(conf):
         .master("local-cluster[2, 1, 1024]") \
         .getOrCreate()
 
-
-@pytest.fixture
+@pytest.fixture(scope="session")
 def spark():
     conf = pyspark.SparkConf()
     return get_spark_session(conf)

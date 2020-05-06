@@ -290,7 +290,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
 
     schema = Schema([ColSpec(c, c) for c in pandas_df_with_all_types.columns])
     df = _shuffle_pdf(pandas_df_with_all_types)
-    with TempDir(chdr=True) as tmp:
+    with TempDir(chdr=True):
         with mlflow.start_run() as run:
             mlflow.pyfunc.log_model("model", python_model=TestModel(),
                                     signature=ModelSignature(schema))
@@ -321,7 +321,6 @@ def test_split_oriented_json_to_numpy_array():
 
 def test_get_jsonnable_obj():
     from mlflow.pyfunc.scoring_server import _get_jsonable_obj
-    from mlflow.pyfunc.scoring_server import NumpyEncoder
     py_ary = [["a", "b", "c"], ["e", "f", "g"]]
     np_ary = _get_jsonable_obj(np.array(py_ary))
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)

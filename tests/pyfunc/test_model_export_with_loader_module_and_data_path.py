@@ -16,11 +16,9 @@ import mlflow.pyfunc
 import mlflow.pyfunc.model
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature
+from mlflow.models import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types import Schema, ColSpec
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 
