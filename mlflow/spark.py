@@ -32,7 +32,7 @@ from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample
+from mlflow.models.utils import ModelInputExample, _Example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 import mlflow.types
