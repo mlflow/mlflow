@@ -18,6 +18,9 @@ Assign at least one process label to every issue you triage.
 - ``needs author feedback``: We need input from the author of the issue or PR to proceed.
 - | ``needs design``: This feature is large or tricky enough that we think it warrants a design doc 
   | and review before someone begins implementation.
+- | ``needs committer feedback``: The issue has a design that is ready for committer review, or there is
+  | an issue or pull request that needs feedback from a committer about the approach or appropriateness 
+  | of the contribution.
 - | ``needs review``: Use this label for issues that need a more detailed design review or pull 
   | requests ready for review (all questions answered, PR updated if requests have been addressed, 
   | tests passing).
