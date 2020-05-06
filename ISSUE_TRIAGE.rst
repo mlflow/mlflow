@@ -68,6 +68,7 @@ take inspiration from Kubernetes on naming conventions.
 Components 
 """"""""
 - ``area/artifacts``: Artifact stores and artifact logging
+- ``area/build``: Build and test infrastructure for MLflow
 - ``area/docs``: MLflow documentation pages
 - ``area/examples``: Example code
 - ``area/model-registry``: Model Registry service, APIs, and the fluent client calls for Model Registry 
