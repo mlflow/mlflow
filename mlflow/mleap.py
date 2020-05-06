@@ -8,9 +8,6 @@ NOTE:
     Java API method ``downloadArtifacts(String runId)`` and load the model
     using the method ``MLeapLoader.loadPipeline(String modelRootPath)``.
 """
-
-from __future__ import absolute_import
-
 import os
 import sys
 import traceback
