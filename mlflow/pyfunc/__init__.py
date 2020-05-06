@@ -290,8 +290,7 @@ class PyFuncModel(object):
         """
         Generate model predictions.
         :param data: Model input as pandas.DataFrame.
-        :return: Model predictions as one of pandas.DataFrame or pandas.Series or numpy.ndarray or
-                 list.
+        :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         return self._model_impl.predict(data)
 

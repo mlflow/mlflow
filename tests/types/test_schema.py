@@ -149,6 +149,7 @@ def test_spark_schema_inference(pandas_df_with_all_types):
     assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
 
 
+@pytest.mark.large
 def test_spark_type_mapping(pandas_df_with_all_types):
     import pyspark
     from pyspark.sql.types import BooleanType, IntegerType, LongType, FloatType, DoubleType, \
