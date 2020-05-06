@@ -308,12 +308,10 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
 
     model_pyfunc_conf, model = _load_pyfunc_conf_with_model(model_path=absolute_model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
-    run_id = None
-    run_id_tag = None
-    try:
-        run_id = model.run_id
-        run_id_tag = run_id
-    except AttributeError:
+
+    run_id = model.run_id
+    run_id_tag = run_id
+    if run_id is None:
         run_id = str(uuid.uuid4())
     if model_python_version is not None and\
             StrictVersion(model_python_version) < StrictVersion("3.0.0"):
