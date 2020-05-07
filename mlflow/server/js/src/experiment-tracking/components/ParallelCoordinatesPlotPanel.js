@@ -168,11 +168,11 @@ const mapStateToProps = (state, ownProps) => {
   const sharedMetricKeys = getSharedMetricKeysByRunUuids(runUuids, state);
   const missingParamKeys = _.difference(allParamKeys, sharedParamKeys);
 
-  const { paramsByRunUuid: params } = state.entities;
-
+  const { paramsByRunUuid } = state.entities;
   const diffParamKeys = sharedParamKeys.filter((paramKey) => {
     return runUuids.some(
-      (runUuid) => params[runUuid][paramKey].value !== params[runUuids[0]][paramKey].value,
+      (runUuid) =>
+        paramsByRunUuid[runUuid][paramKey].value !== paramsByRunUuid[runUuids[0]][paramKey].value,
     );
   });
 
