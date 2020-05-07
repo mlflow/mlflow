@@ -37,12 +37,6 @@ export class ParallelCoordinatesPlotControls extends React.Component {
       selectDiff,
     } = this.props;
 
-    const keyToNode = (k) => ({
-      title: k,
-      value: k,
-      label: k,
-    });
-
     return (
       <div className='plot-controls'>
         <div>Parameters:</div>
@@ -70,7 +64,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
           showCheckedStrategy={TreeSelect.SHOW_CHILD}
           treeCheckable
           treeDefaultExpandAll
-          treeData={paramKeys.map(keyToNode)}
+          treeData={paramKeys.map((k) => ({ title: k, value: k, label: k }))}
           onChange={handleParamsSelectChange}
           filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
         />
