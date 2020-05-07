@@ -4,7 +4,6 @@ import { Checkbox, TreeSelect } from 'antd';
 
 export class ParallelCoordinatesPlotControls extends React.Component {
   static propTypes = {
-    runUuids: PropTypes.arrayOf(String).isRequired,
     // An array of available parameter keys to select
     paramKeys: PropTypes.arrayOf(String).isRequired,
     // An array of available metric keys to select
