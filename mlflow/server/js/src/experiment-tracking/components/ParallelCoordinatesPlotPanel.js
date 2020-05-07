@@ -79,16 +79,16 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
   };
 
   handleSelectAllChange = () => {
+    const { indeterminate, checked } = this.state.selectAll;
     const { allParamKeys } = this.props;
-    const { selectAll } = this.state;
 
-    if (selectAll.indeterminate) {
+    if (indeterminate) {
       this.setState({
         selectedParamKeys: allParamKeys,
         selectAll: { checked: true },
         selectDiff: this.getSelectDiffState(allParamKeys),
       });
-    } else if (selectAll.checked) {
+    } else if (checked) {
       this.setState({
         selectedParamKeys: [],
         selectAll: { checked: false },
@@ -104,16 +104,16 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
   };
 
   handleSelectDiffChange = () => {
-    const { selectDiff } = this.state;
+    const { indeterminate, checked } = this.state.selectDiff;
     const { diffParamKeys } = this.props;
 
-    if (selectDiff.indeterminate) {
+    if (indeterminate) {
       this.setState({
         selectedParamKeys: diffParamKeys,
         selectAll: this.getSelectAllState(diffParamKeys),
         selectDiff: { indeterminate: false, checked: true },
       });
-    } else if (selectDiff.checked) {
+    } else if (checked) {
       this.setState({
         selectedParamKeys: [],
         selectAll: this.getSelectAllState([]),
