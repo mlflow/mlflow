@@ -2,13 +2,14 @@ name: flower_classifier
 channels:
   - defaults
   - anaconda
+  - conda-forge
 dependencies:
-  - python==3.7
-  - pandas==1.0.3
-  - scikit-learn==0.22.1
-  - tensorflow==1.13.1
-  - keras==2.3.1
-  - pillow==7.0.0
-  - pip==20.0.2
+  - python=3.7
+  - pandas=1.0.3
+  - scikit-learn=0.22.1
+  - tensorflow=1.13.1
+  - keras=2.3.1
+  - pillow=7.0.0
+  - pip=20.0.2
   - pip:
     - mlflow>=1.6
