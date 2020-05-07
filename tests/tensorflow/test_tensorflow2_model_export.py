@@ -24,7 +24,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow import pyfunc
 from mlflow.models import infer_signature, Model
-from mlflow.models.utils import read_example
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -280,9 +280,9 @@ def test_schema_and_examples_are_save_correctly(saved_tf_iris_model, model_path)
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
                 if example is None:
-                    assert mlflow_model.input_example is None
+                    assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((read_example(mlflow_model, path) == example).all())
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large

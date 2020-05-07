@@ -22,7 +22,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
-from mlflow.models.utils import read_example
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import get_artifact_uri as utils_get_artifact_uri, \
     _download_artifact_from_uri
@@ -224,9 +224,9 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
                 if example is None:
-                    assert mlflow_model.input_example is None
+                    assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((read_example(mlflow_model, path) == example).all())
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_class):

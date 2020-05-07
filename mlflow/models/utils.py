@@ -107,7 +107,7 @@ class _Example(object):
             json.dump(self.data, f, cls=NumpyEncoder)
 
 
-def save_example(mlflow_model: Model, input_example: ModelInputExample, path: str):
+def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: str):
     """
     Save example to a file on the given path and updates passed Model with example metadata.
 
@@ -121,10 +121,10 @@ def save_example(mlflow_model: Model, input_example: ModelInputExample, path: st
     """
     example = _Example(input_example)
     example.save(path)
-    mlflow_model.input_example = example.info
+    mlflow_model.saved_input_example_info = example.info
 
 
-def read_example(mlflow_model: Model, path: str):
+def _read_example(mlflow_model: Model, path: str):
     """
     Read example from a model directory. Returns None if there is no example metadata (i.e. the
     model was saved without example). Raises IO Exception if there is model metadata but the example
@@ -134,12 +134,12 @@ def read_example(mlflow_model: Model, path: str):
     :param path: Path to the model directory.
     :return: Input example or None if the model has no example.
     """
-    if mlflow_model.input_example is None:
+    if mlflow_model.saved_input_example_info is None:
         return None
-    example_type = mlflow_model.input_example["type"]
+    example_type = mlflow_model.saved_input_example_info["type"]
     if example_type != "dataframe":
         raise MlflowException("This version of mlflow can not load example of type {}".format(
             example_type))
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
-    return _dataframe_from_json(os.path.join(path, mlflow_model.input_example["artifact_path"]),
+    return _dataframe_from_json(os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"]),
                                 schema=input_schema, precise_float=True)

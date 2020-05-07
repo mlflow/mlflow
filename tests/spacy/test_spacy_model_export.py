@@ -15,7 +15,7 @@ from sklearn.datasets import fetch_20newsgroups
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
-from mlflow.models.utils import read_example
+from mlflow.models.utils import _read_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -92,9 +92,9 @@ def test_model_export_with_schema_and_examples(spacy_model_with_data):
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
                 if example is None:
-                    assert mlflow_model.input_example is None
+                    assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((read_example(mlflow_model, path) == example).all())
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large

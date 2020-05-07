@@ -18,7 +18,7 @@ import mlflow.keras
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import infer_signature, Model
-from mlflow.models.utils import read_example
+from mlflow.models.utils import _read_example
 from mlflow.utils.file_utils import TempDir
 from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -204,9 +204,9 @@ def test_signature_and_examples_are_saved_correctly(onnx_model, data, onnx_custo
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
                 if example is None:
-                    assert mlflow_model.input_example is None
+                    assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((read_example(mlflow_model, path) == example).all())
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library

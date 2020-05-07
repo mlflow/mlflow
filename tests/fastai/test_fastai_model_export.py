@@ -16,7 +16,7 @@ import mlflow.fastai
 import mlflow.utils
 from mlflow import pyfunc
 from mlflow.models import Model, infer_signature
-from mlflow.models.utils import read_example
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -112,9 +112,9 @@ def test_signature_and_examples_are_saved_correctly(fastai_model):
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
                 if example is None:
-                    assert mlflow_model.input_example is None
+                    assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((read_example(mlflow_model, path) == example).all())
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large

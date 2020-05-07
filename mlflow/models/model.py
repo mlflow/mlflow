@@ -22,7 +22,7 @@ class Model(object):
     """
 
     def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None,
-                 signature: ModelSignature=None, input_example: Dict[str, Any]=None,
+                 signature: ModelSignature=None, saved_input_example_info: Dict[str, Any]=None,
                  **kwargs):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:
@@ -30,10 +30,8 @@ class Model(object):
             self.artifact_path = artifact_path
         self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
-        self._signature = None
-        self._input_example = None
         self.signature = signature
-        self.input_example = input_example
+        self.saved_input_example_info = saved_input_example_info
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -55,11 +53,11 @@ class Model(object):
         self._signature = value
 
     @property
-    def input_example(self) -> Optional[Dict[str, Any]]:
+    def saved_input_example_info(self) -> Optional[Dict[str, Any]]:
         return self._input_example
 
-    @input_example.setter
-    def input_example(self, value: Dict[str, Any]):
+    @saved_input_example_info.setter
+    def saved_input_example_info(self, value: Dict[str, Any]):
         self._input_example = value
 
     def to_dict(self):
@@ -68,8 +66,8 @@ class Model(object):
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
 
-        if self.input_example is not None:
-            res["input_example"] = self.input_example
+        if self.saved_input_example_info is not None:
+            res["saved_input_example_info"] = self.saved_input_example_info
 
         return res
 
@@ -103,6 +101,7 @@ class Model(object):
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
             model_dict = model_dict.copy()
             model_dict["signature"] = ModelSignature.from_dict(model_dict["signature"])
+
         return cls(**model_dict)
 
     @classmethod

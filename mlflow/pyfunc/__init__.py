@@ -205,7 +205,7 @@ import mlflow
 import mlflow.pyfunc.model
 import mlflow.pyfunc.utils
 from mlflow.models import Model, ModelSignature, ModelInputExample
-from mlflow.models.utils import save_example
+from mlflow.models.utils import _save_example
 from mlflow.pyfunc.model import PythonModel, PythonModelContext, get_default_conda_env
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import PYTHON_VERSION, deprecated, get_major_minor_py_version
@@ -567,6 +567,25 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
                       path via ``context.artifacts["my_file"]``.
 
                       If ``None``, no artifacts are added to the model.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
     """
     mlflow_model = kwargs.pop('model', mlflow_model)
     if len(kwargs) > 0:
@@ -613,7 +632,7 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
-        save_example(mlflow_model, input_example, path)
+        _save_example(mlflow_model, input_example, path)
 
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
@@ -708,15 +727,16 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
     :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset) and valid
-                      model output (e.g. model predictions generated on the training dataset),
-                      for example:
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
 
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
                         train = df.drop_column("target_label")
-                        signature = infer_signature(train, model.predict(train))
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
