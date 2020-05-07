@@ -13,8 +13,8 @@ export class ParallelCoordinatesPlotControls extends React.Component {
     sharedParamKeys: PropTypes.arrayOf(String).isRequired,
     handleParamsSelectChange: PropTypes.func.isRequired,
     handleMetricsSelectChange: PropTypes.func.isRequired,
-    handleSelectAll: PropTypes.func.isRequired,
-    handleSelectDiff: PropTypes.func.isRequired,
+    handleSelectAllChange: PropTypes.func.isRequired,
+    handleSelectDiffChange: PropTypes.func.isRequired,
     selectAll: PropTypes.object.isRequired,
     selectDiff: PropTypes.object.isRequired,
   };
@@ -30,8 +30,8 @@ export class ParallelCoordinatesPlotControls extends React.Component {
       selectedMetricKeys,
       handleParamsSelectChange,
       handleMetricsSelectChange,
-      handleSelectAll,
-      handleSelectDiff,
+      handleSelectAllChange,
+      handleSelectDiffChange,
       selectAll,
       selectDiff,
     } = this.props;
@@ -42,14 +42,14 @@ export class ParallelCoordinatesPlotControls extends React.Component {
         <div style={{ marginTop: 5, marginBottom: 5 }}>
           <Checkbox
             indeterminate={selectAll.indeterminate}
-            onChange={handleSelectAll}
+            onChange={handleSelectAllChange}
             checked={selectAll.checked}
           >
             Select All
           </Checkbox>
           <Checkbox
             indeterminate={selectDiff.indeterminate}
-            onChange={handleSelectDiff}
+            onChange={handleSelectDiffChange}
             checked={selectDiff.checked}
             disabled={selectDiff.disabled}
           >

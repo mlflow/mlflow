@@ -78,7 +78,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     this.setState({ selectedMetricKeys: metricValues });
   };
 
-  handleSelectAll = () => {
+  handleSelectAllChange = () => {
     const { allParamKeys } = this.props;
     const { selectAll } = this.state;
 
@@ -103,7 +103,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     }
   };
 
-  handleSelectDiff = () => {
+  handleSelectDiffChange = () => {
     const { selectDiff } = this.state;
     const { diffParamKeys } = this.props;
 
@@ -141,8 +141,8 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
           selectedMetricKeys={selectedMetricKeys}
           handleMetricsSelectChange={this.handleMetricsSelectChange}
           handleParamsSelectChange={this.handleParamsSelectChange}
-          handleSelectAll={this.handleSelectAll}
-          handleSelectDiff={this.handleSelectDiff}
+          handleSelectAllChange={this.handleSelectAllChange}
+          handleSelectDiffChange={this.handleSelectDiffChange}
           selectAll={selectAll}
           selectDiff={selectDiff}
         />
