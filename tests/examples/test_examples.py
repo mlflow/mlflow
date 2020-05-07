@@ -24,6 +24,7 @@ EXAMPLES_DIR = 'examples'
     ('sklearn_logistic_regression', []),
     ('sklearn_elasticnet_wine', ['-P', 'alpha=0.5']),
     (os.path.join('sklearn_elasticnet_diabetes', 'linux'), []),
+    ('spacy', []),
     (os.path.join('tensorflow', 'tf1'), ['-P', 'steps=10']),
     ('xgboost', ['-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9'])
 ])
