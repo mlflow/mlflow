@@ -141,5 +141,5 @@ def _read_example(mlflow_model: Model, path: str):
         raise MlflowException("This version of mlflow can not load example of type {}".format(
             example_type))
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
-    return _dataframe_from_json(os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"]),
-                                schema=input_schema, precise_float=True)
+    path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
+    return _dataframe_from_json(path, schema=input_schema, precise_float=True)

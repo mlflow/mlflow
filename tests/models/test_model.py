@@ -78,6 +78,6 @@ def test_model_log():
             "flavor2": {"x": 1, "y": 2},
         }
         assert loaded_model.signature == sig
-        x = _dataframe_from_json(os.path.join(local_path,
-                                              loaded_model.saved_input_example_info["artifact_path"]))
+        path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
+        x = _dataframe_from_json(path)
         assert x.to_dict(orient="records")[0] == input_example
