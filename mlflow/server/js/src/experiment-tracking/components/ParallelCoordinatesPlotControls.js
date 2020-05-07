@@ -1,8 +1,6 @@
 import React from 'react';
-import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import { TreeSelect } from 'antd';
-import _ from 'lodash';
+import { Checkbox, TreeSelect } from 'antd';
 
 export class ParallelCoordinatesPlotControls extends React.Component {
   static propTypes = {
@@ -14,11 +12,12 @@ export class ParallelCoordinatesPlotControls extends React.Component {
     selectedParamKeys: PropTypes.arrayOf(String).isRequired,
     selectedMetricKeys: PropTypes.arrayOf(String).isRequired,
     sharedParamKeys: PropTypes.arrayOf(String).isRequired,
-    missingParamKeys: PropTypes.arrayOf(String).isRequired,
-    diffParamKeys: PropTypes.arrayOf(String).isRequired,
-    constParamKeys: PropTypes.arrayOf(String).isRequired,
     handleParamsSelectChange: PropTypes.func.isRequired,
     handleMetricsSelectChange: PropTypes.func.isRequired,
+    handleSelectAll: PropTypes.func.isRequired,
+    handleSelectDiff: PropTypes.func.isRequired,
+    selectAll: PropTypes.object.isRequired,
+    selectDiff: PropTypes.object.isRequired,
   };
 
   static handleFilterChange = (text, option) =>
@@ -26,14 +25,16 @@ export class ParallelCoordinatesPlotControls extends React.Component {
 
   render() {
     const {
+      paramKeys,
       metricKeys,
       selectedParamKeys,
       selectedMetricKeys,
-      missingParamKeys,
-      diffParamKeys,
-      constParamKeys,
       handleParamsSelectChange,
       handleMetricsSelectChange,
+      handleSelectAll,
+      handleSelectDiff,
+      selectAll,
+      selectDiff,
     } = this.props;
 
     const keyToNode = (k) => ({
@@ -45,6 +46,23 @@ export class ParallelCoordinatesPlotControls extends React.Component {
     return (
       <div className='plot-controls'>
         <div>Parameters:</div>
+        <div style={{ marginTop: 5, marginBottom: 5 }}>
+          <Checkbox
+            indeterminate={selectAll.indeterminate}
+            onChange={handleSelectAll}
+            checked={selectAll.checked}
+          >
+            Select All
+          </Checkbox>
+          <Checkbox
+            indeterminate={selectDiff.indeterminate}
+            onChange={handleSelectDiff}
+            checked={selectDiff.checked}
+            disabled={selectDiff.disabled}
+          >
+            Select Diff Only
+          </Checkbox>
+        </div>
         <TreeSelect
           className='metrics-select'
           searchPlaceholder='Please select parameters'
@@ -52,20 +70,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
           showCheckedStrategy={TreeSelect.SHOW_CHILD}
           treeCheckable
           treeDefaultExpandAll
-          treeData={[
-            {
-              title: 'Different Parameters',
-              value: 'diff',
-              key: 'diff',
-              children: [...diffParamKeys, ...missingParamKeys].map(keyToNode),
-            },
-            {
-              title: 'Constant Parameters',
-              value: 'constant',
-              key: 'constant',
-              children: constParamKeys.map(keyToNode),
-            },
-          ]}
+          treeData={paramKeys.map(keyToNode)}
           onChange={handleParamsSelectChange}
           filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
         />
@@ -84,19 +89,3 @@ export class ParallelCoordinatesPlotControls extends React.Component {
     );
   }
 }
-
-const mapStateToProps = (state, ownProps) => {
-  const { runUuids, sharedParamKeys } = ownProps;
-  const { paramsByRunUuid: params } = state.entities;
-
-  const diffParamKeys = sharedParamKeys.filter((paramKey) => {
-    return runUuids.some(
-      (runUuid) => params[runUuid][paramKey].value !== params[runUuids[0]][paramKey].value,
-    );
-  });
-
-  const constParamKeys = _.difference(sharedParamKeys, diffParamKeys);
-  return { diffParamKeys, constParamKeys };
-};
-
-export default connect(mapStateToProps)(ParallelCoordinatesPlotControls);

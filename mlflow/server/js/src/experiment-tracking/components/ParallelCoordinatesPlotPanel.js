@@ -2,7 +2,7 @@ import React from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import ParallelCoordinatesPlotView from './ParallelCoordinatesPlotView';
-import ParallelCoordinatesPlotControls from './ParallelCoordinatesPlotControls';
+import { ParallelCoordinatesPlotControls } from './ParallelCoordinatesPlotControls';
 import {
   getAllParamKeysByRunUuids,
   getAllMetricKeysByRunUuids,
@@ -25,29 +25,112 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     sharedParamKeys: PropTypes.arrayOf(String).isRequired,
     // An array of metric keys shared by all runs
     sharedMetricKeys: PropTypes.arrayOf(String).isRequired,
-    // An array of missing parameter keys across runs
-    missingParamKeys: PropTypes.arrayOf(String).isRequired,
+    // An array of different parameter keys across runs
+    diffParamKeys: PropTypes.arrayOf(String).isRequired,
   };
 
-  state = {
-    // Default to select all parameters
-    selectedParamKeys: this.props.sharedParamKeys,
-    // Default to select the first metric key.
-    // Note that there will be no color scaling if no metric is selected.
-    selectedMetricKeys: this.props.sharedMetricKeys.slice(0, 1),
+  constructor(props) {
+    super(props);
+    const { sharedParamKeys, sharedMetricKeys } = props;
+
+    this.state = {
+      // Default to select all parameters
+      selectedParamKeys: sharedParamKeys,
+      // Default to select the first metric key.
+      // Note that there will be no color scaling if no metric is selected.
+      selectedMetricKeys: sharedMetricKeys.slice(0, 1),
+      selectAll: this.getSelectAllState(sharedParamKeys),
+      selectDiff: this.getSelectDiffState(sharedParamKeys),
+    };
+  }
+
+  getSelectAllState = (selectedParamKeys) => {
+    const { allParamKeys } = this.props;
+
+    const allParamsSelected = _.isEqual(selectedParamKeys, allParamKeys);
+    return {
+      indeterminate: !allParamsSelected && selectedParamKeys.length > 0,
+      checked: allParamsSelected,
+    };
+  };
+
+  getSelectDiffState = (selectedParamKeys) => {
+    const { diffParamKeys } = this.props;
+
+    const allDiffParamsSelected = _.isEqual(selectedParamKeys, diffParamKeys);
+    const diffParamsSelected = _.intersection(selectedParamKeys, diffParamKeys).length > 0;
+    return {
+      indeterminate: !allDiffParamsSelected && diffParamsSelected,
+      checked: allDiffParamsSelected,
+      disabled: diffParamKeys.length === 0,
+    };
   };
 
   handleParamsSelectChange = (paramValues) => {
-    this.setState({ selectedParamKeys: paramValues });
+    this.setState({
+      selectedParamKeys: paramValues,
+      selectAll: this.getSelectAllState(paramValues),
+      selectDiff: this.getSelectDiffState(paramValues),
+    });
   };
 
   handleMetricsSelectChange = (metricValues) => {
     this.setState({ selectedMetricKeys: metricValues });
   };
 
+  handleSelectAll = () => {
+    const { allParamKeys } = this.props;
+    const { selectAll } = this.state;
+
+    if (selectAll.indeterminate) {
+      this.setState({
+        selectedParamKeys: allParamKeys,
+        selectAll: { checked: true },
+        selectDiff: this.getSelectDiffState(allParamKeys),
+      });
+    } else if (selectAll.checked) {
+      this.setState({
+        selectedParamKeys: [],
+        selectAll: { checked: false },
+        selectDiff: this.getSelectDiffState([]),
+      });
+    } else {
+      this.setState({
+        selectedParamKeys: allParamKeys,
+        selectAll: { checked: true },
+        selectDiff: this.getSelectDiffState(allParamKeys),
+      });
+    }
+  };
+
+  handleSelectDiff = () => {
+    const { selectDiff } = this.state;
+    const { diffParamKeys } = this.props;
+
+    if (selectDiff.indeterminate) {
+      this.setState({
+        selectedParamKeys: diffParamKeys,
+        selectAll: this.getSelectAllState(diffParamKeys),
+        selectDiff: { indeterminate: false, checked: true },
+      });
+    } else if (selectDiff.checked) {
+      this.setState({
+        selectedParamKeys: [],
+        selectAll: this.getSelectAllState([]),
+        selectDiff: { checked: false },
+      });
+    } else {
+      this.setState({
+        selectedParamKeys: diffParamKeys,
+        selectAll: this.getSelectAllState(diffParamKeys),
+        selectDiff: { checked: true },
+      });
+    }
+  };
+
   render() {
-    const { runUuids, allParamKeys, allMetricKeys, sharedParamKeys, missingParamKeys } = this.props;
-    const { selectedParamKeys, selectedMetricKeys } = this.state;
+    const { runUuids, allParamKeys, allMetricKeys, sharedParamKeys } = this.props;
+    const { selectedParamKeys, selectedMetricKeys, selectAll, selectDiff } = this.state;
     return (
       <div className='parallel-coorinates-plot-panel'>
         <ParallelCoordinatesPlotControls
@@ -56,10 +139,13 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
           metricKeys={allMetricKeys}
           selectedParamKeys={selectedParamKeys}
           sharedParamKeys={sharedParamKeys}
-          missingParamKeys={missingParamKeys}
           selectedMetricKeys={selectedMetricKeys}
           handleMetricsSelectChange={this.handleMetricsSelectChange}
           handleParamsSelectChange={this.handleParamsSelectChange}
+          handleSelectAll={this.handleSelectAll}
+          handleSelectDiff={this.handleSelectDiff}
+          selectAll={selectAll}
+          selectDiff={selectDiff}
         />
         {!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys) ? (
           <ParallelCoordinatesPlotView
@@ -82,7 +168,23 @@ const mapStateToProps = (state, ownProps) => {
   const sharedParamKeys = getSharedParamKeysByRunUuids(runUuids, state);
   const sharedMetricKeys = getSharedMetricKeysByRunUuids(runUuids, state);
   const missingParamKeys = _.difference(allParamKeys, sharedParamKeys);
-  return { allParamKeys, allMetricKeys, sharedParamKeys, sharedMetricKeys, missingParamKeys };
+
+  const { paramsByRunUuid: params } = state.entities;
+
+  const diffParamKeys = sharedParamKeys.filter((paramKey) => {
+    return runUuids.some(
+      (runUuid) => params[runUuid][paramKey].value !== params[runUuids[0]][paramKey].value,
+    );
+  });
+
+  return {
+    allParamKeys,
+    allMetricKeys,
+    sharedParamKeys,
+    sharedMetricKeys,
+    missingParamKeys,
+    diffParamKeys: [...missingParamKeys, ...diffParamKeys],
+  };
 };
 
 export default connect(mapStateToProps)(ParallelCoordinatesPlotPanel);
