@@ -50,6 +50,7 @@ class Model(object):
 
     @signature.setter
     def signature(self, value):
+        # pylint: disable=attribute-defined-outside-init
         self._signature = value
 
     @property
@@ -58,6 +59,7 @@ class Model(object):
 
     @saved_input_example_info.setter
     def saved_input_example_info(self, value: Dict[str, Any]):
+        # pylint: disable=attribute-defined-outside-init
         self._input_example = value
 
     def to_dict(self):
