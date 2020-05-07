@@ -42,16 +42,16 @@ export class ParallelCoordinatesPlotControls extends React.Component {
         <div style={{ marginTop: 5, marginBottom: 5 }}>
           <Checkbox
             indeterminate={selectAll.indeterminate}
-            onChange={handleSelectAllChange}
             checked={selectAll.checked}
+            onChange={handleSelectAllChange}
           >
             Select All
           </Checkbox>
           <Checkbox
             indeterminate={selectDiff.indeterminate}
-            onChange={handleSelectDiffChange}
             checked={selectDiff.checked}
             disabled={selectDiff.disabled}
+            onChange={handleSelectDiffChange}
           >
             Select Diff Only
           </Checkbox>
