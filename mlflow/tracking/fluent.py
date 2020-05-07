@@ -167,6 +167,31 @@ def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
 atexit.register(end_run)
 
 
+def clear_run():
+    """Clear active MLFlow run, without sending termination signal.
+
+    The recommended way to terminate an active MLFlow run is to use
+    ``end_run()``.
+
+    It removes the active run from the global variable keeping track of
+    active runs, unset the ``MLFLOW_RUN_ID`` environment variable, but
+    DOES NOT SEND a termination signal to the client.
+
+    In distributed situations, your master node may sequentially launch
+    experiments. For each experiment, your master node may start a new
+    MLFlow run, forward the MLFlow ``run_id`` to an executor (using the
+    environment variable ``MLFLOW_RUN_ID`` for example), and move to the
+    next. To be able to start a new run for the next experiment, your
+    master node can call ``clear_run()`` instead of ``end_run()`` to
+    avoid unwanted early termination of the MLFlow run.
+    """
+    global _active_run_stack
+    if len(_active_run_stack) > 0:
+        # Clear out the global existing run environment variable as well.
+        env.unset_variable(_RUN_ID_ENV_VAR)
+        _active_run_stack.pop()
+
+
 def active_run():
     """Get the currently active ``Run``, or None if no such run exists.
 
