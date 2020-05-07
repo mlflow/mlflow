@@ -73,8 +73,7 @@ def is_uri(string):
     return len(parsed_uri.scheme) > 0
 
 
-@deprecated(alternative="mlflow.store.artifact.artifact_repo.ArtifactRepo.download_artifacts",
-            since="1.8.2")
+@deprecated(alternative="mlflow.tracking.MlflowClient.download_artifacts", since="1.9")
 def download_uri(uri, output_path):
     if DBFS_REGEX.match(uri):
         _fetch_dbfs(uri, output_path)
