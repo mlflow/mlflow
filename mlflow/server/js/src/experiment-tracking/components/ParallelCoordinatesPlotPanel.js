@@ -181,7 +181,6 @@ const mapStateToProps = (state, ownProps) => {
     allMetricKeys,
     sharedParamKeys,
     sharedMetricKeys,
-    missingParamKeys,
     diffParamKeys: [...missingParamKeys, ...diffParamKeys],
   };
 };
