@@ -202,10 +202,8 @@ class Parameter(object):
                 raise ExecutionException("Got value %s for parameter %s, but no such file or "
                                          "directory was found." % (user_param_value, self.name))
             return os.path.abspath(local_path)
-        basename = os.path.basename(user_param_value)
-        artifact_utils._download_artifact_from_uri(artifact_uri=user_param_value,
-                                                   output_path=storage_dir)
-        return os.path.abspath(os.path.join(storage_dir, basename))
+        return artifact_utils._download_artifact_from_uri(artifact_uri=user_param_value,
+                                                          output_path=storage_dir)
 
     def compute_value(self, param_value, storage_dir):
         if storage_dir and self.type == "path":
