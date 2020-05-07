@@ -275,7 +275,7 @@ class PyFuncModel(object):
     """
     MLflow 'python function' model.
 
-    Wrapper around model implementation and metadata loaded with py:func:`mlflow.pyfunc.load_model`.
+    Wrapper around model implementation and metadata. This class is not meant to be constructed directly. Instead, instances of this class are constructed and returned from py:func:`mlflow.pyfunc.load_model`.
     The model implementation can be arbitrary python object returned by the loader_module.
     The metadata is loaded from the model metadata (MLmodel) file .
     """
