@@ -2,6 +2,7 @@ name: flower_classifier
 channels:
   - defaults
   - anaconda
+  - conda-forge
 dependencies:
   - python=3.7
   - pandas=1.0.3
