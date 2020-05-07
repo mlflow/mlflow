@@ -85,7 +85,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     if (indeterminate) {
       this.setState({
         selectedParamKeys: allParamKeys,
-        selectAll: { checked: true },
+        selectAll: { indeterminate: false, checked: true },
         selectDiff: this.getSelectDiffState(allParamKeys),
       });
     } else if (checked) {
