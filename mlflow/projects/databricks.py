@@ -239,6 +239,17 @@ def _get_tracking_uri_for_run():
     return uri
 
 
+def _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters):
+    mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
+                                            "--entry-point", entry_point]))
+    if run_id:
+        mlflow_run_arr.extend(["-c", json.dumps({_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
+    if parameters:
+        for key, value in parameters.items():
+            mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
+    return mlflow_run_arr
+
+
 def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     """
     Generate MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks.
@@ -248,14 +259,9 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     container_tar_path = posixpath.abspath(posixpath.join(DB_TARFILE_BASE,
                                            posixpath.basename(dbfs_fuse_tar_uri)))
     project_dir = posixpath.join(DB_PROJECTS_BASE, tar_hash)
-    mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
-                                            "--entry-point", entry_point]))
-    if run_id:
-        mlflow_run_arr.extend(["-C", json.dumps({_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
-    if parameters:
-        for key, value in parameters.items():
-            mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
-    mlflow_run_cmd = " ".join(mlflow_run_arr)
+
+    mlflow_run_cmd = " ".join(_get_cluster_mlflow_run_cmd(
+        project_dir, run_id, entry_point, parameters))
     shell_command = textwrap.dedent("""
     export PATH=$PATH:$DB_HOME/python/bin &&
     mlflow --version &&

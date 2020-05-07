@@ -1,9 +1,6 @@
 """
 The ``mlflow.projects`` module provides an API for running MLflow projects locally or remotely.
 """
-
-from __future__ import print_function
-
 import hashlib
 import json
 import yaml
