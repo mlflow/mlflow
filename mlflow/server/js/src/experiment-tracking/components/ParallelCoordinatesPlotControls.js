@@ -61,9 +61,8 @@ export class ParallelCoordinatesPlotControls extends React.Component {
           className='metrics-select'
           searchPlaceholder='Please select parameters'
           value={selectedParamKeys}
-          showCheckedStrategy={TreeSelect.SHOW_CHILD}
+          showCheckedStrategy={TreeSelect.SHOW_PARENT}
           treeCheckable
-          treeDefaultExpandAll
           treeData={paramKeys.map((k) => ({ title: k, value: k, label: k }))}
           onChange={handleParamsSelectChange}
           filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
