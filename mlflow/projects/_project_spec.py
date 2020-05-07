@@ -155,7 +155,12 @@ class EntryPoint(object):
 
         for key, param_obj in self.parameters.items():
             value = user_parameters[key] if key in user_parameters else self.parameters[key].default
-            final_params[key] = param_obj.compute_value(value, storage_dir)
+            target_sub_dir = 'param_{}'.format(list(self.parameters.keys()).index(key))
+            download_dir = None
+            if storage_dir:
+                download_dir = os.path.join(storage_dir, target_sub_dir)
+                os.mkdir(download_dir)
+            final_params[key] = param_obj.compute_value(value, download_dir)
         for key in user_parameters:
             if key not in final_params:
                 extra_params[key] = user_parameters[key]
@@ -198,11 +203,9 @@ class Parameter(object):
                                          "directory was found." % (user_param_value, self.name))
             return os.path.abspath(local_path)
         basename = os.path.basename(user_param_value)
-        dest_path = os.path.join(storage_dir, basename)
-        if dest_path != user_param_value:
-            artifact_utils._download_artifact_from_uri(artifact_uri=user_param_value,
-                                                       output_path=dest_path)
-        return os.path.abspath(dest_path)
+        artifact_utils._download_artifact_from_uri(artifact_uri=user_param_value,
+                                                   output_path=storage_dir)
+        return os.path.abspath(os.path.join(storage_dir, basename))
 
     def compute_value(self, param_value, storage_dir):
         if storage_dir and self.type == "path":
