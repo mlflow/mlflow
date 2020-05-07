@@ -14,10 +14,11 @@ categories of issues: feature requests, bug reports, documentation fixes, and in
 Details about each issue type and the issue lifecycle are discussed in the `MLflow Issue Policy
 <https://github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md>`_.
 
-MLflow committers actively triage and respond to GitHub issues. In general, we recommend waiting
-for feebdack from an MLflow committer or community member before proceeding to implement a feature
-or patch. This is particularly important for
-`significant changes <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#write-designs-for-significant-changes>`_.
+MLflow committers actively `triage <ISSUE_TRIAGE.rst>`_ and respond to GitHub issues. In general, we
+recommend waiting for feebdack from an MLflow committer or community member before proceeding to 
+implement a feature or patch. This is particularly important for
+`significant changes <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#write-designs-for-significant-changes>`_,
+and will typically be labeled during triage with ``needs design``.
 
 After you have agreed upon an implementation strategy for your feature or patch with an MLflow
 committer, the next step is to introduce your changes (see `developing changes
@@ -39,8 +40,9 @@ Write designs for significant changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For significant changes to MLflow, we recommend outlining a design for the feature or patch and discussing it with
-an MLflow committer before investing heavily in implementation. This is particularly important if your proposed
-implementation:
+an MLflow committer before investing heavily in implementation. During issue triage, we try to proactively
+identify issues require design by labeling them with ``needs design``. This is particularly important if your 
+proposed implementation:
 
 - Introduces changes or additions to the `MLflow REST API <https://mlflow.org/docs/latest/rest-api.html>`_
 

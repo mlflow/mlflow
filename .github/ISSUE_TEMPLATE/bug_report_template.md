@@ -35,3 +35,31 @@ Provide a reproducible test case that is the bare minimum necessary to generate 
 ### Other info / logs
 Include any logs or source code that would be helpful to diagnose the problem. If including tracebacks,
 please include the full traceback. Large logs and files should be attached.
+
+
+### What component(s), interfaces, languages, and integrations does this bug affect?
+Components 
+- [ ] `area/artifacts`: Artifact stores and artifact logging
+- [ ] `area/build`: Build and test infrastructure for MLflow
+- [ ] `area/docs`: MLflow documentation pages
+- [ ] `area/examples`: Example code
+- [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for
+Model Registry
+- [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
+- [ ] `area/projects`: MLproject format, project running backends
+- [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
+- [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
+
+Interface 
+- [ ] `area/uiux`: Front-end, user experience, JavaScript, plotting
+- [ ] `area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
+- [ ] `area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry
+- [ ] `area/windows`: Windows support
+
+Language 
+- [ ] `language/r`: R APIs and clients
+- [ ] `language/java`: Java APIs and clients
+
+Integrations
+- [ ] `integrations/azure`: Azure and Azure ML integrations
+- [ ] `integrations/sagemaker`: SageMaker integrations

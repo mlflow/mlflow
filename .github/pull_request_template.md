@@ -15,22 +15,32 @@
 
 (Details in 1-2 sentences. You can just refer to another PR with a description if this PR is part of a larger change.)
 
-### What component(s) does this PR affect?
+### What component(s), interfaces, languages, and integrations does this PR affect?
+Components 
+- [ ] `area/artifacts`: Artifact stores and artifact logging
+- [ ] `area/build`: Build and test infrastructure for MLflow
+- [ ] `area/docs`: MLflow documentation pages
+- [ ] `area/examples`: Example code
+- [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for
+Model Registry
+- [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
+- [ ] `area/projects`: MLproject format, project running backends
+- [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
+- [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
 
-- [ ] UI
-- [ ] Command Line Interface
-- [ ] API
-- [ ] Examples
-- [ ] Docs
-- [ ] Tracking
-- [ ] Projects
-- [ ] Artifacts
-- [ ] Models
-- [ ] Model Registry
-- [ ] Scoring
-- [ ] R
-- [ ] Java
-- [ ] Python
+Interface 
+- [ ] `area/uiux`: Front-end, user experience, JavaScript, plotting
+- [ ] `area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
+- [ ] `area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry
+- [ ] `area/windows`: Windows support
+
+Language 
+- [ ] `language/r`: R APIs and clients
+- [ ] `language/java`: Java APIs and clients
+
+Integrations
+- [ ] `integrations/azure`: Azure and Azure ML integrations
+- [ ] `integrations/sagemaker`: SageMaker integrations
 
 ### How should the PR be classified in the release notes? Choose one:
 
