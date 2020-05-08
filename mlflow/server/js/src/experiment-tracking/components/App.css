@@ -92,11 +92,34 @@ div.docs {
   color: #ffffff;
 }
 
+.header-nav-link-experiments {
+  display: inline-block;
+  height: 39px;
+}
+
+.header-nav-link-models {
+  display: inline-block;
+  margin-left: 24px;
+  height: 39px;
+}
+
+.experiments, .models {
+  display: inline-block;
+  color: #ffffff;
+}
+
 div.header-links {
   display: inline-block;
   float: right;
   padding-top: 21px;
   margin-right: 64px;
+  font-size: 16px;
+}
+
+div.header-route-links {
+  display: inline-block;
+  padding-top: 21px;
+  margin-left: 48px;
   font-size: 16px;
 }
 
