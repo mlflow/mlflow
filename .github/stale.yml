@@ -25,7 +25,7 @@ exemptMilestones: false
 exemptAssignees: false
 
 # Label to use when marking as stale
-staleLabel: Needs-Author-Feedback
+staleLabel: needs author feedback
 
 # Comment to post when marking as stale. Set to `false` to disable
 markComment: >
