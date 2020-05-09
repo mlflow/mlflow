@@ -38,20 +38,24 @@ class App extends Component {
               </div>
               <div className='header-route-links'>
                 <NavLink
-                strict to={Routes.rootRoute}
-                activeStyle={{borderBottom: "4px solid #43C9ED"}}
-                isActive={(match, location) => {
-                  return match && !location.pathname.includes('models');
-                }}
-                className='header-nav-link-experiments'>
+                  strict
+                  to={Routes.rootRoute}
+                  activeStyle={{ borderBottom: '4px solid #43C9ED' }}
+                  isActive={(match, location) => {
+                    return match && !location.pathname.includes('models');
+                  }}
+                  className='header-nav-link-experiments'
+                >
                   <div className='experiments'>
                     <span>Experiments</span>
                   </div>
                 </NavLink>
                 <NavLink
-                strict to={modelListPageRoute}
-                activeStyle={{borderBottom: "4px solid #43C9ED"}}
-                className='header-nav-link-models'>
+                  strict
+                  to={modelListPageRoute}
+                  activeStyle={{ borderBottom: '4px solid #43C9ED' }}
+                  className='header-nav-link-models'
+                >
                   <div className='models'>
                     <span>Models</span>
                   </div>
