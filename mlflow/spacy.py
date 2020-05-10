@@ -17,7 +17,7 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
-from mlflow.models.utils import ModelInputExample
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -42,7 +42,8 @@ def get_default_conda_env():
         additional_conda_channels=None)
 
 
-def save_model(spacy_model, path, conda_env=None, mlflow_model=Model()):
+def save_model(spacy_model, path, conda_env=None, mlflow_model=None,
+               signature: ModelSignature = None, input_example: ModelInputExample = None):
     """
     Save a spaCy model to a path on the local file system.
 
@@ -68,6 +69,26 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=Model()):
                         }
 
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
     """
     import spacy
 
@@ -79,6 +100,13 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=Model()):
     model_data_subpath = "model.spacy"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
+
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
 
     # Save spacy-model
     spacy_model.to_disk(path=model_data_path)
@@ -141,15 +169,16 @@ def log_model(spacy_model, artifact_path, conda_env=None, registered_model_name=
     :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset) and valid
-                      model output (e.g. model predictions generated on the training dataset),
-                      for example:
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
 
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
                         train = df.drop_column("target_label")
-                        signature = infer_signature(train, model.predict(train))
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then

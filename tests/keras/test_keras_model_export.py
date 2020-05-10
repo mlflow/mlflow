@@ -20,10 +20,12 @@ import mlflow.keras
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import score_model_in_sagemaker_docker_container
@@ -215,6 +217,25 @@ def test_model_save_load(build_model, model_path, data):
                                          result_type="float")
     np.allclose(
         np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)))
+
+
+@pytest.mark.large
+def test_signature_and_examples_are_saved_correctly(model, data):
+    signature_ = infer_signature(*data)
+    example_ = data[0].head(3)
+    for signature in (None, signature_):
+        for example in (None, example_):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                mlflow.keras.save_model(model, path=path,
+                                        signature=signature,
+                                        input_example=example)
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.saved_input_example_info is None
+                else:
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large
