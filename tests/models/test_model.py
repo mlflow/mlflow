@@ -1,6 +1,7 @@
 import os
 
 import mlflow
+from mlflow.models.utils import _save_example
 
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models import Model
@@ -20,7 +21,7 @@ def test_model_save_load():
               signature=ModelSignature(
                   inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
                   outputs=Schema([ColSpec(name=None, type="double")])),
-              input_example={"x": 1, "y": 2})
+              saved_input_example_info={"x": 1, "y": 2})
     n = Model(artifact_path="some/path",
               run_id="123",
               flavors={
@@ -30,7 +31,7 @@ def test_model_save_load():
               signature=ModelSignature(
                   inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
                   outputs=Schema([ColSpec(name=None, type="double")])),
-              input_example={"x": 1, "y": 2})
+              saved_input_example_info={"x": 1, "y": 2})
     n.utc_time_created = m.utc_time_created
     assert m == n
     n.run_id = "124"
@@ -45,13 +46,14 @@ def test_model_save_load():
 
 class TestFlavor(object):
     @classmethod
-    def save_model(cls, path, mlflow_model, *args, **kwargs):  # pylint: disable=unused-argument
+    def save_model(cls, path, mlflow_model, signature=None, input_example=None):
         mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
         mlflow_model.flavors["flavor2"] = {"x": 1, "y": 2}
-        print()
-        print("creating dirs for path", path)
-        print()
         os.makedirs(path)
+        if signature is not None:
+            mlflow_model.signature = signature
+        if input_example is not None:
+            _save_example(mlflow_model, input_example, path)
         mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
@@ -76,6 +78,6 @@ def test_model_log():
             "flavor2": {"x": 1, "y": 2},
         }
         assert loaded_model.signature == sig
-        x = _dataframe_from_json(os.path.join(local_path,
-                                              loaded_model.input_example["artifact_path"]))
+        path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
+        x = _dataframe_from_json(path)
         assert x.to_dict(orient="records")[0] == input_example

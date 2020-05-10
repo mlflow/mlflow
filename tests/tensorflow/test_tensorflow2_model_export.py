@@ -21,9 +21,12 @@ import mlflow.tensorflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow import pyfunc
+from mlflow.models import infer_signature, Model
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
@@ -255,6 +258,29 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
 
     with tf.device("/CPU:0"):
         load_and_evaluate()
+
+
+def test_schema_and_examples_are_save_correctly(saved_tf_iris_model, model_path):
+    (train_x, train_y), _ = iris_data_utils.load_data()
+    X = pd.DataFrame(train_x)
+    y = pd.Series(train_y)
+    for signature in (None, infer_signature(X, y)):
+        for example in (None, X.head(3)):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                             tf_signature_def_key=saved_tf_iris_model.
+                                             signature_def_key,
+                                             path=path,
+                                             signature=signature,
+                                             input_example=example)
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.saved_input_example_info is None
+                else:
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large

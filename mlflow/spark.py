@@ -29,7 +29,7 @@ from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample, _Example
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -121,15 +121,16 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset) and valid
-                      model output (e.g. model predictions generated on the training dataset),
-                      for example:
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
 
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
                         train = df.drop_column("target_label")
-                        signature = infer_signature(train, model.predict(train))
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
@@ -317,13 +318,10 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
     if sample_input is not None:
         mleap.add_to_model(mlflow_model=mlflow_model, path=dst_dir, spark_model=spark_model,
                            sample_input=sample_input)
-    if input_example is not None:
-        example = _Example(input_example)
-        example.save(dst_dir)
-        mlflow_model.example_input = example.info
-
     if signature is not None:
         mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, dst_dir)
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
         conda_env = get_default_conda_env()
@@ -352,8 +350,9 @@ def _validate_model(spark_model):
             INVALID_PARAMETER_VALUE)
 
 
-def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
-               dfs_tmpdir=None, sample_input=None):
+def save_model(spark_model, path, mlflow_model=None, conda_env=None,
+               dfs_tmpdir=None, sample_input=None,
+               signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Save a Spark MLlib Model to a local path.
 
@@ -391,6 +390,27 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
                          This must be a PySpark DataFrame that the model can evaluate. If
                          ``sample_input`` is ``None``, the MLeap flavor is not added.
 
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
+
+
     .. code-block:: python
         :caption: Example
 
@@ -405,6 +425,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
     from pyspark.ml import PipelineModel
     if not isinstance(spark_model, PipelineModel):
         spark_model = PipelineModel([spark_model])
+    if mlflow_model is None:
+        mlflow_model = Model()
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
     if dfs_tmpdir is None:
@@ -415,7 +437,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
     _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     _save_model_metadata(
         dst_dir=path, spark_model=spark_model, mlflow_model=mlflow_model,
-        sample_input=sample_input, conda_env=conda_env)
+        sample_input=sample_input, conda_env=conda_env,
+        signature=signature, input_example=input_example)
 
 
 def _load_model(model_uri, dfs_tmpdir=None):

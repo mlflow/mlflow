@@ -13,7 +13,8 @@ from fastai.metrics import accuracy
 import mlflow.fastai
 import mlflow.utils
 from mlflow import pyfunc
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -93,6 +94,25 @@ def test_model_save_load(fastai_model, model_path):
 
     compare_wrapper_results(model_result, reloaded_result)
     compare_wrapper_results(reloaded_result, pyfunc_result)
+
+
+def test_signature_and_examples_are_saved_correctly(fastai_model):
+    model = fastai_model.model
+    signature_ = infer_signature(fastai_model.inference_dataframe)
+    example_ = fastai_model.inference_dataframe.head(3)
+    for signature in (None, signature_):
+        for example in (None, example_):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                mlflow.fastai.save_model(model, path=path,
+                                         signature=signature,
+                                         input_example=example)
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.saved_input_example_info is None
+                else:
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large

@@ -22,7 +22,7 @@ from mlflow.models import Model
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -75,8 +75,10 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
         additional_conda_channels=None)
 
 
-def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_objects=None,
-               keras_module=None, **kwargs):
+def save_model(keras_model, path, conda_env=None, mlflow_model=None, custom_objects=None,
+               keras_module=None,
+               signature: ModelSignature = None, input_example: ModelInputExample = None,
+               **kwargs):
     """
     Save a Keras model to a path on the local file system.
 
@@ -109,6 +111,25 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
                          (``keras`` or ``tf.keras``). If not provided, MLflow will
                          attempt to infer the Keras module based on the given model.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
 
     .. code-block:: python
         :caption: Example
@@ -160,6 +181,13 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
     data_subpath = "data"
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)
+
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
 
     # save custom objects if there are custom objects
     if custom_objects is not None:
@@ -248,15 +276,16 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset) and valid
-                      model output (e.g. model predictions generated on the training dataset),
-                      for example:
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
 
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
                         train = df.drop_column("target_label")
-                        signature = infer_signature(train, model.predict(train))
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then

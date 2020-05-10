@@ -19,11 +19,13 @@ import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import get_artifact_uri as utils_get_artifact_uri, \
     _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 import tests
@@ -199,6 +201,30 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     np.testing.assert_array_equal(
         loaded_pyfunc_model.predict(model_input=iris_data[0]),
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
+
+
+@pytest.mark.large
+def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class):
+    def test_predict(sk_model, model_input):
+        return sk_model.predict(model_input) * 2
+    data = iris_data
+    signature_ = infer_signature(*data)
+    example_ = data[0][:3, ]
+    for signature in (None, signature_):
+        for example in (None, example_):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                mlflow.pyfunc.save_model(path=path,
+                                         artifacts={},
+                                         python_model=main_scoped_model_class(test_predict),
+                                         signature=signature,
+                                         input_example=example)
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.saved_input_example_info is None
+                else:
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_class):

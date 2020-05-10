@@ -86,7 +86,7 @@ def _base64decode(x):
 
 
 def _dataframe_from_json(path_or_str, schema: Schema = None,
-                         pandas_orient: str = "split") -> pd.DataFrame:
+                         pandas_orient: str = "split", precise_float=False) -> pd.DataFrame:
     """
     Parse json into pandas.DataFrame. User can pass schema to ensure correct type parsing and to
     make any necessary conversions (e.g. string -> binary for binary columns).
@@ -98,12 +98,14 @@ def _dataframe_from_json(path_or_str, schema: Schema = None,
     """
     if schema is not None:
         dtypes = dict(zip(schema.column_names(), schema.column_types()))
-        df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes)[schema.column_names()]
+        df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes,
+                          precise_float=precise_float)[schema.column_names()]
         binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
 
         for i in binary_cols:
             col = df.columns[i]
             df[col] = np.array(df[col].map(_base64decode), dtype=np.bytes_)
-            return df
+        return df
     else:
-        return pd.read_json(path_or_str, orient=pandas_orient, dtype=False)
+        return pd.read_json(path_or_str, orient=pandas_orient, dtype=False,
+                            precise_float=precise_float)

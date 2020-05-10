@@ -19,8 +19,11 @@ import mlflow
 import mlflow.gluon
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+from mlflow.models import infer_signature, Model
+from mlflow.models.utils import _read_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -87,6 +90,26 @@ def test_model_save_load(gluon_model, model_data, model_path):
     assert all(
         np.argmax(pyfunc_preds.values, axis=1)
         == expected.asnumpy())
+
+
+@pytest.mark.large
+def test_signature_and_examples_are_saved_correctly(gluon_model, model_data):
+    model = gluon_model
+    signature_ = infer_signature(model_data[0].asnumpy())
+    example_ = model_data[0].asnumpy()[:3, ]
+    for signature in (None, signature_):
+        for example in (None, example_):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                mlflow.gluon.save_model(model, path=path,
+                                        signature=signature,
+                                        input_example=example)
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.saved_input_example_info is None
+                else:
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large
@@ -182,7 +205,7 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
         model_uri=model_uri,
         data=pd.DataFrame(test_data.asnumpy()),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    response_values =\
+    response_values = \
         pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
     assert all(
         np.argmax(response_values, axis=1)

@@ -18,8 +18,9 @@ import mlflow.utils
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _read_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -39,7 +40,6 @@ def xgb_model():
     X = pd.DataFrame(iris.data[:, :2],  # we only take the first two features.
                      columns=iris.feature_names[:2])
     y = iris.target
-
     dtrain = xgb.DMatrix(X, y)
     model = xgb.train({'objective': 'multi:softprob', 'num_class': 3}, dtrain)
     return ModelWithData(model=model, inference_dataframe=X, inference_dmatrix=dtrain)
@@ -54,8 +54,8 @@ def model_path(tmpdir):
 def xgb_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
-            conda_env,
-            additional_pip_deps=["xgboost", "pytest"])
+        conda_env,
+        additional_pip_deps=["xgboost", "pytest"])
     return conda_env
 
 
@@ -68,12 +68,31 @@ def test_model_save_load(xgb_model, model_path):
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
-            model.predict(xgb_model.inference_dmatrix),
-            reloaded_model.predict(xgb_model.inference_dmatrix))
+        model.predict(xgb_model.inference_dmatrix),
+        reloaded_model.predict(xgb_model.inference_dmatrix))
 
     np.testing.assert_array_almost_equal(
-            reloaded_model.predict(xgb_model.inference_dmatrix),
-            reloaded_pyfunc.predict(xgb_model.inference_dataframe))
+        reloaded_model.predict(xgb_model.inference_dmatrix),
+        reloaded_pyfunc.predict(xgb_model.inference_dataframe))
+
+
+@pytest.mark.large
+def test_signature_and_examples_are_saved_correctly(xgb_model):
+    model = xgb_model.model
+    for signature in (None, infer_signature(xgb_model.inference_dataframe)):
+        for example in (None, xgb_model.inference_dataframe.head(3)):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                mlflow.xgboost.save_model(xgb_model=model,
+                                          path=path,
+                                          signature=signature,
+                                          input_example=example)
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.saved_input_example_info is None
+                else:
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large
@@ -88,8 +107,8 @@ def test_model_load_from_remote_uri_succeeds(xgb_model, model_path, mock_s3_buck
     model_uri = artifact_root + "/" + artifact_path
     reloaded_model = mlflow.xgboost.load_model(model_uri=model_uri)
     np.testing.assert_array_almost_equal(
-            xgb_model.model.predict(xgb_model.inference_dmatrix),
-            reloaded_model.predict(xgb_model.inference_dmatrix))
+        xgb_model.model.predict(xgb_model.inference_dmatrix),
+        reloaded_model.predict(xgb_model.inference_dmatrix))
 
 
 @pytest.mark.large
@@ -108,17 +127,17 @@ def test_model_log(xgb_model, model_path):
                 _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
 
                 mlflow.xgboost.log_model(
-                        xgb_model=model,
-                        artifact_path=artifact_path,
-                        conda_env=conda_env)
+                    xgb_model=model,
+                    artifact_path=artifact_path,
+                    conda_env=conda_env)
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id,
                     artifact_path=artifact_path)
 
                 reloaded_model = mlflow.xgboost.load_model(model_uri=model_uri)
                 np.testing.assert_array_almost_equal(
-                        model.predict(xgb_model.inference_dmatrix),
-                        reloaded_model.predict(xgb_model.inference_dmatrix))
+                    model.predict(xgb_model.inference_dmatrix),
+                    reloaded_model.predict(xgb_model.inference_dmatrix))
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
                 model_config = Model.load(os.path.join(model_path, "MLmodel"))
@@ -160,7 +179,7 @@ def test_log_model_no_registered_model_name(xgb_model):
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         xgb_model, model_path, xgb_custom_env):
     mlflow.xgboost.save_model(
-            xgb_model=xgb_model.model, path=model_path, conda_env=xgb_custom_env)
+        xgb_model=xgb_model.model, path=model_path, conda_env=xgb_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -179,7 +198,7 @@ def test_model_save_accepts_conda_env_as_dict(xgb_model, model_path):
     conda_env = dict(mlflow.xgboost.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
     mlflow.xgboost.save_model(
-            xgb_model=xgb_model.model, path=model_path, conda_env=conda_env)
+        xgb_model=xgb_model.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -254,10 +273,10 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(xgb_model, model_
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_uri=model_path,
-            data=xgb_model.inference_dataframe,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            flavor=mlflow.pyfunc.FLAVOR_NAME)
+        model_uri=model_path,
+        data=xgb_model.inference_dataframe,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        flavor=mlflow.pyfunc.FLAVOR_NAME)
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 
     pandas.testing.assert_frame_equal(
