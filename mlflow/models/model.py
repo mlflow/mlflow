@@ -5,12 +5,12 @@ import logging
 import yaml
 import os
 
+from typing import Any, Dict, Optional
+
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample, _Example
 from mlflow.utils.file_utils import TempDir
-
 
 _logger = logging.getLogger(__name__)
 
@@ -22,15 +22,15 @@ class Model(object):
     """
 
     def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None,
-                 signature: ModelSignature = None, input_example: ModelInputExample = None,
+                 signature: ModelSignature=None, saved_input_example_info: Dict[str, Any]=None,
                  **kwargs):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         self._run_id = run_id
         self._artifact_path = artifact_path
         self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
-        self._signature = signature
-        self._input_example = input_example
+        self.signature = signature
+        self.saved_input_example_info = saved_input_example_info
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -52,6 +52,7 @@ class Model(object):
 
     @signature.setter
     def signature(self, value):
+        # pylint: disable=attribute-defined-outside-init
         self._signature = value
 
     def get_input_schema(self):
@@ -66,12 +67,31 @@ class Model(object):
 
     @input_example.setter
     def input_example(self, value):
+        # pylint: disable=attribute-defined-outside-init
         self._input_example = value
 
     def add_flavor(self, name, **params):
         """Add an entry for how to serve the model in a given format."""
         self.flavors[name] = params
         return self
+
+    @property
+    def signature(self) -> Optional[ModelSignature]:
+        return self._signature
+
+    @signature.setter
+    def signature(self, value):
+        # pylint: disable=attribute-defined-outside-init
+        self._signature = value
+
+    @property
+    def saved_input_example_info(self) -> Optional[Dict[str, Any]]:
+        return self._input_example
+
+    @saved_input_example_info.setter
+    def saved_input_example_info(self, value: Dict[str, Any]):
+        # pylint: disable=attribute-defined-outside-init
+        self._input_example = value
 
     def to_dict(self):
         """Serialize the model to a dictionary."""
@@ -117,12 +137,11 @@ class Model(object):
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
             model_dict = model_dict.copy()
             model_dict["signature"] = ModelSignature.from_dict(model_dict["signature"])
+
         return cls(**model_dict)
 
     @classmethod
-    def log(cls, artifact_path, flavor, registered_model_name=None,
-            signature: ModelSignature = None, input_example: ModelInputExample = None,
-            **kwargs):
+    def log(cls, artifact_path, flavor, registered_model_name=None, **kwargs):
         """
         Log model using supplied flavor module. If no run is active, this method will create a new
         active run.
@@ -158,15 +177,8 @@ class Model(object):
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
-            if signature is not None:
-                mlflow_model.signature = signature
-
-            if input_example is not None:
-                input_example = _Example(input_example)
-                mlflow_model.input_example = input_example.info
-            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-            if input_example is not None:
-                input_example.save(local_path)
+            flavor.save_model(path=local_path, mlflow_model=mlflow_model,
+                              **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)

@@ -6,6 +6,7 @@ _conda_header = """\
 name: mlflow-env
 channels:
   - defaults
+  - conda-forge
 """
 
 

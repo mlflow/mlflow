@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import os
 import pickle
 import yaml
@@ -16,9 +14,11 @@ import mlflow.pyfunc
 import mlflow.pyfunc.model
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
+from mlflow.models.utils import _read_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 
@@ -90,6 +90,32 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0]))
 
 
+@pytest.mark.large
+def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data):
+    data = iris_data
+    signature_ = infer_signature(*data)
+    example_ = data[0][:3, ]
+    for signature in (None, signature_):
+        for example in (None, example_):
+            with TempDir() as tmp:
+                with open(tmp.path("skmodel"), "wb") as f:
+                    pickle.dump(sklearn_knn_model, f)
+                path = tmp.path("model")
+                mlflow.pyfunc.save_model(path=path,
+                                         data_path=tmp.path("skmodel"),
+                                         loader_module=os.path.basename(__file__)[:-3],
+                                         code_path=[__file__],
+                                         signature=signature,
+                                         input_example=example)
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.saved_input_example_info is None
+                else:
+                    assert all((_read_example(mlflow_model, path) == example).all())
+
+
+@pytest.mark.large
 def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
