@@ -87,10 +87,12 @@ def test_path_parameter():
         for i, prefix in enumerate(["dbfs:/", "s3://", "gs://"]):
             with TempDir() as tmp:
                 dst_dir = tmp.path()
+                file_to_download = 'images.tgz'
+                download_path = "%s/%s" % dst_dir, file_to_download
                 params, _ = entry_point.compute_parameters(
-                    user_parameters={"path": os.path.join(prefix, "some/path")},
+                    user_parameters={"path": os.path.join(prefix, file_to_download)},
                     storage_dir=dst_dir)
-                assert os.path.dirname(params["path"]) == dst_dir
+                assert params["path"] == download_path
                 assert download_uri_mock.call_count == i + 1
 
 
@@ -187,18 +189,22 @@ def test_path_params():
 
         with mock.patch("mlflow.tracking.artifact_utils._download_artifact_from_uri") \
                 as download_uri_mock:
+            download_path = "%s/data_file.csv" % dest_path
+            download_uri_mock.return_value = download_path
             user_3 = {"alpha": 0.001}
             final_3, extra_3 = entry_point.compute_parameters(user_3, dest_path)
             assert (final_3 == {"constants": "s3://path.test/b1",
-                                "data": "%s/data_file.csv" % dest_path})
+                                "data": download_path})
             assert (extra_3 == {"alpha": "0.001"})
             assert download_uri_mock.call_count == 1
 
         with mock.patch("mlflow.tracking.artifact_utils._download_artifact_from_uri") \
                 as download_uri_mock:
+            download_path = "%s/images.tgz" % dest_path
+            download_uri_mock.return_value = download_path
             user_4 = {"data": "s3://another.example.test/data_stash/images.tgz"}
             final_4, extra_4 = entry_point.compute_parameters(user_4, dest_path)
             assert (final_4 == {"constants": "s3://path.test/b1",
-                                "data": "%s/images.tgz" % dest_path})
+                                "data": download_path})
             assert (extra_4 == {})
             assert download_uri_mock.call_count == 1
