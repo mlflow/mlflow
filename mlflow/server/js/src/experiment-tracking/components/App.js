@@ -23,6 +23,10 @@ import ModelListPage from '../../model-registry/components/ModelListPage';
 import { ModelPage } from '../../model-registry/components/ModelPage';
 import CompareModelVersionsPage from '../../model-registry/components/CompareModelVersionsPage';
 
+const classNames = {
+  activeNavLink: { borderBottom: '4px solid #43C9ED' },
+};
+
 class App extends Component {
   render() {
     return (
@@ -40,11 +44,9 @@ class App extends Component {
                 <NavLink
                   strict
                   to={Routes.rootRoute}
-                  activeStyle={{ borderBottom: '4px solid #43C9ED' }}
-                  isActive={(match, location) => {
-                    return match && !location.pathname.includes('models');
-                  }}
-                  className='header-nav-link-experiments'
+                  activeStyle={classNames.activeNavLink}
+                  isActive={(match, location) => match && !location.pathname.includes('models')}
+                  className='header-nav-link'
                 >
                   <div className='experiments'>
                     <span>Experiments</span>
@@ -53,8 +55,8 @@ class App extends Component {
                 <NavLink
                   strict
                   to={modelListPageRoute}
-                  activeStyle={{ borderBottom: '4px solid #43C9ED' }}
-                  className='header-nav-link-models'
+                  activeStyle={classNames.activeNavLink}
+                  className='header-nav-link header-nav-link-models'
                 >
                   <div className='models'>
                     <span>Models</span>
