@@ -44,7 +44,6 @@ setup(
         'gitpython>=2.1.0',
         'pyyaml',
         'querystring_parser',
-        'simplejson',
         'docker>=4.0.0',
         'entrypoints',
         'sqlparse',
