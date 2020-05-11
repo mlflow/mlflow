@@ -418,6 +418,7 @@ export class ExperimentView extends Component {
                   <div className='filter-wrapper'>
                     <input
                       className='ExperimentView-searchInput'
+                      aria-label='search runs'
                       type='text'
                       placeholder={
                         'metrics.rmse < 1 and params.model = "tree" and ' +

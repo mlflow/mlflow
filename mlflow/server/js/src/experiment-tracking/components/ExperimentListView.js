@@ -146,6 +146,7 @@ export class ExperimentListView extends Component {
             className='experiment-list-search-input'
             type='text'
             placeholder='Search Experiments'
+            aria-label='search experiments'
             value={searchInput}
             onChange={this.handleSearchInputChange}
           />
