@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import './App.css';
 import logo from '../../common/static/home-logo.png';
-import { HashRouter as Router, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Link } from 'react-router-dom';
 import { RunPage } from './RunPage';
 import Routes from '../routes';
 import { MetricPage } from './MetricPage';

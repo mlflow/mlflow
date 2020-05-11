@@ -545,10 +545,7 @@ class Utils {
   }
 
   static getAjaxUrl(relativeUrl) {
-    if (process.env.USE_ABSOLUTE_AJAX_URLS === 'true') {
-      return '/' + relativeUrl;
-    }
-    return relativeUrl;
+    return '/' + relativeUrl;
   }
 
   static logErrorAndNotifyUser(e) {

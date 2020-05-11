@@ -70,7 +70,7 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
   },
-  "homepage": "static-files",
+  "homepage": "/static-files",
   "jest": {
     "collectCoverageFrom": [
       "src/**/*.{js,jsx}",
