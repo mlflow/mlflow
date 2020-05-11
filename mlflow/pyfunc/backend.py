@@ -5,6 +5,7 @@ import subprocess
 import posixpath
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
+from mlflow.models.flavor_backend import SchemaEnforcement
 from mlflow.pyfunc import ENV
 from mlflow.pyfunc import scoring_server
 
@@ -36,7 +37,7 @@ class PyFuncBackend(FlavorBackend):
         command = 'python -c ""'
         return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
 
-    def predict(self, model_uri, input_path, output_path, content_type, json_format, ):
+    def predict(self, model_uri, input_path, output_path, content_type, json_format):
         """
         Generate predictions using generic python model saved with MLflow.
         Return the prediction results as a JSON.
@@ -64,7 +65,8 @@ class PyFuncBackend(FlavorBackend):
             scoring_server._predict(local_uri, input_path, output_path, content_type,
                                     json_format)
 
-    def serve(self, model_uri, port, host):
+    def serve(self, model_uri, port, host,
+              schema_enforcement: SchemaEnforcement=SchemaEnforcement.LOOSE):
         """
         Serve pyfunc model locally.
         """
@@ -74,15 +76,20 @@ class PyFuncBackend(FlavorBackend):
         local_uri = path_to_local_file_uri(local_path)
         if os.name != "nt":
             command = ("gunicorn --timeout=60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
-                       " -- mlflow.pyfunc.scoring_server.wsgi:app").format(
-                host=host,
-                port=port,
-                nworkers=self._nworkers)
+                       " -- "
+                       "mlflow.pyfunc.scoring_server.wsgi:build_app({schema_enforcement})").format(
+                         host=host,
+                         port=port,
+                         nworkers=self._nworkers,
+                         schema_enforcement=schema_enforcement
+            )
         else:
             command = ("waitress-serve --host={host} --port={port} "
-                       "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app").format(
-                host=host,
-                port=port)
+                       "mlflow.pyfunc.scoring_server.wsgi:build_app({schema_enforcement})").format(
+                         host=host,
+                         port=port,
+                         schema_enforcement=schema_enforcement
+            )
 
         command_env = os.environ.copy()
         command_env[scoring_server._SERVER_MODEL_PATH] = local_uri

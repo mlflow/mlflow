@@ -95,24 +95,14 @@ def _dataframe_from_json(path_or_str, schema: Schema = None,
     :return: pandas.DataFrame.
     """
     if schema is not None:
-        dtypes = dict(zip(schema.column_names(), schema.numpy_types()))
+        dtypes = dict(zip(schema.column_names(), schema.pandas_types()))
         df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes)
+        actual_cols = set(df.columns)
 
-        names = schema.column_names()
-        expected_names = set(names)
-        actual_names = set(df.columns)
-        if actual_names != expected_names:
-            missing_cols = expected_names - actual_names
-            extra_columns = actual_names - expected_names
-            raise MlflowException("Incompatible data. {0} {1}".format(
-                "{}.".format("Missing columns {}".format(missing_cols) if missing_cols else ""),
-                "{}".format("Extra columns {}.".format(extra_columns) if extra_columns else ""),
-            ))
-        df = df[names]
-        binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
+        binary_cols = [name for name, t in dtypes.items()
+                       if t == DataType.binary.to_pandas() and name in actual_cols]
 
-        for i in binary_cols:
-            col = df.columns[i]
+        for col in binary_cols:
             df[col] = np.array(df[col].map(base64.decodebytes), dtype=np.bytes_)
 
         return df

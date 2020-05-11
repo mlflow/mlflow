@@ -3,6 +3,7 @@ import pickle
 import yaml
 
 import numpy as np
+import pandas as pd
 import pytest
 import six
 import sklearn.datasets
@@ -11,12 +12,14 @@ import sklearn.neighbors
 
 import mlflow
 import mlflow.pyfunc
+from mlflow.pyfunc import PyFuncModel
 import mlflow.pyfunc.model
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, infer_signature, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types import Schema, ColSpec, DataType
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -113,6 +116,84 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data
                     assert mlflow_model.saved_input_example_info is None
                 else:
                     assert all((_read_example(mlflow_model, path) == example).all())
+
+
+def test_schema_enforcement():
+    class TestModel(object):
+        @staticmethod
+        def predict(pdf):
+            return pdf
+    m = Model()
+    m.signature = ModelSignature(
+        inputs=Schema([
+            ColSpec("integer", "a"),
+            ColSpec("double", "b"),
+            ColSpec("string", "c"),
+            ColSpec("integer", "d")
+        ])
+    )
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    pdf = pd.DataFrame(data=[[1, "NaN", 2, {}, "3"]], columns=["b", "d", "a", "e", "c"])
+    res = pyfunc_model.predict(pdf, 'NONE')
+    assert all(res.columns == pdf.columns)
+
+    assert (res.dtypes == pdf.dtypes).all()
+    assert all((res == pdf).all())
+    res1 = pyfunc_model.predict(pdf, 'LOOSE')
+    assert all(res1.columns == ["a", "b", "c", "d", "e"])
+
+    assert (res1[["a", "b", "c"]].dtypes.to_dict() == {
+        "a": DataType.integer.to_pandas(),
+        "b": DataType.double.to_pandas(),
+        "c": DataType.string.to_pandas()
+    })
+
+    assert res.dtypes["d"] == pdf.dtypes["d"]
+    assert res.dtypes["e"] == pdf.dtypes["e"]
+
+    res1 = pyfunc_model.predict(pdf, 'LOOSE')
+    assert all(res1.columns == ["a", "b", "c", "d", "e"])
+    assert res1[["a", "c"]].dtypes.to_dict() == {
+        "a": DataType.integer.to_pandas(),
+        "c": DataType.string.to_pandas()
+    }
+    assert res.dtypes["d"] == pdf.dtypes["d"]
+    assert res.dtypes["e"] == pdf.dtypes["e"]
+
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf, 'STRICT') # extra column
+    print(ex.value)
+    print(dir(ex))
+    assert "Model input does not match the expected schema." in ex.value.message
+    with pytest.raises(MlflowException) as ex2:
+        pyfunc_model.predict(pdf[["d", "a", "c"]], 'STRICT')  # missing column
+    print(ex2)
+    assert "Model input does not match the expected schema." in ex2.value.message
+    with pytest.raises(MlflowException) as ex3:
+        # type mismatch
+        pyfunc_model.predict(pdf[["b", "d", "a", "c"]], 'STRICT')
+    print(ex3)
+    assert "Failed to convert column d" in ex3.value.message
+    pyfunc_model._model_meta.signature = ModelSignature(
+        inputs=Schema([
+            ColSpec("integer", "a"),
+            ColSpec("double", "b"),
+            ColSpec("string", "c"),
+        ])
+    )
+    res2 = pyfunc_model.predict(pdf[["b", "a", "c"]], 'STRICT')
+    assert all(res2.columns == ["a", "b", "c"])
+    assert res2[["a", "b", "c"]].dtypes.to_dict() == {
+        "a": DataType.integer.to_pandas(),
+        "b": DataType.double.to_pandas(),
+        "c": DataType.string.to_pandas()
+    }
+
+
+
+
+
+
 
 
 @pytest.mark.large

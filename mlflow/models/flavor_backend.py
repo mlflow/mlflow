@@ -1,5 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
+from mlflow.models.signature import SchemaEnforcement
+
 
 class FlavorBackend(object):
     """
@@ -35,13 +37,15 @@ class FlavorBackend(object):
         pass
 
     @abstractmethod
-    def serve(self, model_uri, port, host):
+    def serve(self, model_uri, port, host,
+              schema_enforcement: SchemaEnforcement):
         """
         Serve the specified MLflow model locally.
 
         :param model_uri: URI pointing to the MLflow model to be used for scoring.
         :param port: Port to use for the model deployment.
         :param host: Host to use for the model deployment. Defaults to ``localhost``.
+        :param schema_enforcement:
         """
         pass
 

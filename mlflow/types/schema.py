@@ -2,9 +2,18 @@ import json
 from enum import Enum
 
 import numpy as np
+import pandas as pd
 from typing import Dict, Any, List, Union, Optional
 
+from pandas.core.dtypes.dtypes import PandasExtensionDtype
+
 from mlflow.exceptions import MlflowException
+
+try:
+    pandas_str = pd.StringDtype()
+except AttributeError:
+    pandas_str = None
+
 
 
 class DataType(Enum):
@@ -12,11 +21,12 @@ class DataType(Enum):
     MLflow data types.
     """
 
-    def __new__(cls, value, numpy_type, spark_type):
+    def __new__(cls, value, numpy_type, spark_type, pandas_type=None):
         res = object.__new__(cls)
         res._value_ = value
         res._numpy_type = numpy_type
         res._spark_type = spark_type
+        res._pandas_type = pandas_type if pandas_type is not None else numpy_type
         return res
 
     boolean = (1, np.bool, "BooleanType")
@@ -29,7 +39,7 @@ class DataType(Enum):
     """32b floating point numbers. """
     double = (5, np.float64, "DoubleType")
     """64b floating point numbers. """
-    string = (6, np.str, "StringType")
+    string = (6, np.str, "StringType", pandas_str)
     """Text data."""
     binary = (7, np.bytes_, "BinaryType")
     """Sequence of raw bytes."""
@@ -43,6 +53,10 @@ class DataType(Enum):
     def to_numpy(self) -> np.dtype:
         """Get equivalent numpy data type. """
         return self._numpy_type
+
+    def to_pandas(self) -> Union[np.dtype, PandasExtensionDtype]:
+        """Get equivalent pandas data type. """
+        return self._pandas_type
 
     def to_spark(self):
         import pyspark.sql.types
@@ -126,6 +140,10 @@ class Schema(object):
     def numpy_types(self) -> List[np.dtype]:
         """ Convenience shortcut to get the datatypes as numpy types."""
         return [x.type.to_numpy() for x in self.columns]
+
+    def pandas_types(self) -> List[np.dtype]:
+        """ Convenience shortcut to get the datatypes as pandas types."""
+        return [x.type.to_pandas() for x in self.columns]
 
     def as_spark_schema(self):
         """Convert to Spark schema. If this schema is a single unnamed column, it is converted

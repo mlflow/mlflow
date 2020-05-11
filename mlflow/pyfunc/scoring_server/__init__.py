@@ -27,11 +27,12 @@ import traceback
 # dependencies to the minimum here.
 # ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
+from mlflow.models.flavor_backend import SchemaEnforcement
 from mlflow.types import Schema
 from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json
 
 try:
-    from mlflow.pyfunc import load_model
+    from mlflow.pyfunc import load_model, PyFuncModel
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
@@ -145,7 +146,7 @@ def _handle_serving_error(error_message, error_code):
                 stack_trace=traceback_buf.getvalue()))
 
 
-def init(model):
+def init(model: PyFuncModel, schema_enforcement: SchemaEnforcement):
 
     """
     Initialize the server. Loads pyfunc model from the path.
@@ -196,7 +197,7 @@ def init(model):
         # Do the prediction
         # pylint: disable=broad-except
         try:
-            raw_predictions = model.predict(data)
+            raw_predictions = model.predict(data, schema_enforcement)
         except Exception:
             _handle_serving_error(
                 error_message=(

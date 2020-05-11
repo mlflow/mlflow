@@ -4,6 +4,7 @@ The :py:mod:`mlflow.models.signature` module provides an API for specification o
 Model signature defines schema of model input and output. See :py:class:`mlflow.types.schema.Schema`
 for more details on Schema and data types.
 """
+from enum import Enum
 from typing import Dict, Any, Union
 
 import pandas as pd
@@ -111,3 +112,20 @@ def infer_signature(model_input: Any, model_output: MlflowInferableDataset=None)
     inputs = _infer_schema(model_input)
     outputs = _infer_schema(model_output) if model_output is not None else None
     return ModelSignature(inputs, outputs)
+
+
+class SchemaEnforcement(Enum):
+    """
+    Schema enforcement policies for pyfunc models.
+    """
+    NONE = 1, "Do not use schema at all. Input is passed to the model as is."
+    LOOSE = 2, ("Make best effort to preserve schema column ordering and types but "
+                "do not raise error if the input does not match schema.")
+    STRICT = 3, "Attempt to convert the input to match the expected schema, raise error if " \
+                "not successful."
+
+    def __new__(cls, value, docstring):
+        res = object.__new__(cls)
+        res._value_ = value
+        res.__doc__ = docstring
+        return res
