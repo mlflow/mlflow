@@ -111,12 +111,24 @@ export class EditableTagsTableView extends React.Component {
                   { required: true, message: 'Name is required.' },
                   { validator: this.tagNameValidator },
                 ],
-              })(<Input placeholder='Name' style={styles.addTagForm.nameInput} />)}
+              })(
+                <Input
+                  aria-label='tag name'
+                  placeholder='Name'
+                  style={styles.addTagForm.nameInput}
+                />,
+              )}
             </Form.Item>
             <Form.Item>
               {getFieldDecorator('value', {
                 rules: [],
-              })(<Input placeholder='Value' style={styles.addTagForm.valueInput} />)}
+              })(
+                <Input
+                  aria-label='tag value'
+                  placeholder='Value'
+                  style={styles.addTagForm.valueInput}
+                />,
+              )}
             </Form.Item>
             <Form.Item>
               <Button loading={isRequestPending} htmlType='submit'>

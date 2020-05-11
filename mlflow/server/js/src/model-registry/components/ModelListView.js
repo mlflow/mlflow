@@ -157,7 +157,8 @@ export class ModelListView extends React.Component {
         <div style={{ display: 'flex' }}>
           <h1>Registered Models</h1>
           <Search
-            placeholder='search model name'
+            aria-label='search model name'
+            placeholder='Search Model Name'
             onChange={this.handleSearchByName}
             style={{ width: 200, height: 32, marginLeft: 'auto' }}
           />

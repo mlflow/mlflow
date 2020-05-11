@@ -257,6 +257,7 @@ export class CompareRunContour extends Component {
       <select
         className='form-control'
         id={axis + '-axis-selector'}
+        aria-label={`${axis} axis`}
         onChange={(e) => {
           const [prefix, ...keyParts] = e.target.value.split('-');
           const key = keyParts.join('-');
