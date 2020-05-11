@@ -20,7 +20,8 @@ import mlflow.pytorch
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import tracking
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
+from mlflow.models.utils import _read_example
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -175,6 +176,26 @@ def _predict(model, data):
 @pytest.fixture(scope='module')
 def sequential_predicted(sequential_model, data):
     return _predict(sequential_model, data)
+
+
+@pytest.mark.large
+def test_signature_and_examples_are_saved_correctly(sequential_model, data):
+    model = sequential_model
+    signature_ = infer_signature(*data)
+    example_ = data[0].head(3)
+    for signature in (None, signature_):
+        for example in (None, example_):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                mlflow.pytorch.save_model(model, path=path,
+                                          signature=signature,
+                                          input_example=example)
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.saved_input_example_info is None
+                else:
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large
