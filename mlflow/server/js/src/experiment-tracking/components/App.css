@@ -71,7 +71,8 @@ a:hover, a:focus {
 }
 
 div.mlflow-logo {
-  display: inline-block;
+  display: flex;
+  float: left;
 }
 
 img.mlflow-logo {
@@ -82,21 +83,43 @@ img.mlflow-logo {
 }
 
 div.github {
-  display: inline-block;
   padding-right: 24px;
   color: #ffffff;
 }
 
 div.docs {
-  display: inline-block;
+  color: #ffffff;
+}
+
+.header-nav-link {
+  height: 40px;
+}
+
+.header-nav-link:link {
+  text-decoration: none;
+}
+
+.header-nav-link-models {
+  margin-left: 24px;
+}
+
+div.experiments, div.models {
   color: #ffffff;
 }
 
 div.header-links {
-  display: inline-block;
+  display: flex;
   float: right;
-  padding-top: 21px;
+  padding-top: 20px;
   margin-right: 64px;
+  font-size: 16px;
+}
+
+div.header-route-links {
+  display: flex;
+  float: left;
+  padding-top: 20px;
+  margin-left: 40px;
   font-size: 16px;
 }
 
