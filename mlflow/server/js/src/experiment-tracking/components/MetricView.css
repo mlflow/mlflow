@@ -30,7 +30,6 @@ div.MetricView h1 {
 .metrics-plot-container .plot-controls {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   min-height: 500px;
 }
 

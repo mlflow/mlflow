@@ -43,12 +43,13 @@ export class MetricsPlotControls extends React.Component {
 
   render() {
     const { chartType, yAxisLogScale, initialLineSmoothness, showPoint } = this.props;
+    const wrapperStyle = chartType === CHART_TYPE_LINE ? styles.linechartControlsWrapper : {};
     const lineSmoothnessTooltipText =
       'Make the line between points "smoother" based on Exponential Moving Average. ' +
       'Smoothing can be useful for displaying the ' +
       'overall trend when the logging frequency is high.';
     return (
-      <div className='plot-controls'>
+      <div className='plot-controls' style={wrapperStyle}>
         {chartType === CHART_TYPE_LINE ? (
           <div>
             <div className='inline-control'>
@@ -118,3 +119,10 @@ export class MetricsPlotControls extends React.Component {
     );
   }
 }
+
+const styles = {
+  linechartControlsWrapper: {
+    // Make controls aligned to plotly line chart
+    justifyContent: 'center',
+  },
+};
