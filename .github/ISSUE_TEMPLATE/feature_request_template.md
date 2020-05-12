@@ -4,9 +4,7 @@ about: Use this template for feature and enhancement proposals.
 labels: 'enhancement'
 title: "[FR]"
 ---
-Thank you for submitting a feature request. **Before proceeding, please review MLflow's
-[Issue Policy for feature requests](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md#feature-requests)
-and the [MLflow Contributing Guide](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst)**.
+Thank you for submitting a feature request. **Before proceeding, please review MLflow's [Issue Policy for feature requests](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md#feature-requests) and the [MLflow Contributing Guide](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst)**.
 
 **Please fill in this feature request template to ensure a timely and thorough response.**
 
@@ -56,6 +54,4 @@ Integrations
 
 ## Details
 
-(Use this section to include any additional information about the feature. If you have a proposal
-for how to implement this feature, please include it here. For implementation guidelines, please
-refer to the [Contributing Guide](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#contribution-guidelines).)
+(Use this section to include any additional information about the feature. If you have a proposal for how to implement this feature, please include it here. For implementation guidelines, please refer to the [Contributing Guide](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#contribution-guidelines).)
