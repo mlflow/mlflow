@@ -1,6 +1,6 @@
 /**
-* Format a string for insertion into a CSV file.
-*/
+ * Format a string for insertion into a CSV file.
+ */
 
 const csvEscape = (str) => {
   if (str === undefined) {
@@ -13,11 +13,11 @@ const csvEscape = (str) => {
 };
 
 /**
-* Convert a table to a CSV string.
-*
-* @param columns Names of columns
-* @param data Array of rows, each of which are an array of field values
-*/
+ * Convert a table to a CSV string.
+ *
+ * @param columns Names of columns
+ * @param data Array of rows, each of which are an array of field values
+ */
 export const tableToCsv = (columns, data) => {
   let csv = '';
   let i;
