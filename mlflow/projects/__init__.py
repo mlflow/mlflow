@@ -116,7 +116,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     active_run = get_or_create_run(existing_run_id, uri, experiment_id, work_dir, version,
                                    entry_point, parameters)
 
-    tracking.MlflowClient().set_tag(active_run.run_id, MLFLOW_RUN_NAME,
+    tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_RUN_NAME,
                                     run_name)
 
     if backend_name == "databricks":
