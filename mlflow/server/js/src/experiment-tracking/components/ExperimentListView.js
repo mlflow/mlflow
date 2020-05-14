@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
+import { IconButton } from '../../common/components/IconButton';
 import Utils from '../../common/utils/Utils';
 
 export class ExperimentListView extends Component {
@@ -178,24 +179,23 @@ export class ExperimentListView extends Component {
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
                     </Link>
                     {/* Edit/Rename Experiment Option */}
-                    <Button
-                      type='link'
+                    <IconButton
                       onClick={this.handleRenameExperiment}
                       data-experimentid={experiment_id}
                       data-experimentname={name}
                       style={{ marginRight: 10 }}
                     >
                       <Icon type='edit' />
-                    </Button>
+                    </IconButton>
                     {/* Delete Experiment option */}
-                    <Button
+                    <IconButton
                       type='link'
                       onClick={this.handleDeleteExperiment}
                       data-experimentid={experiment_id}
                       data-experimentname={name}
                     >
                       <i className='far fa-trash-alt' />
-                    </Button>
+                    </IconButton>
                   </div>
                 );
               })}
