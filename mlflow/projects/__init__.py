@@ -36,7 +36,11 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils import databricks_utils, file_utils, process
 from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID, MLFLOW_PROJECT_BACKEND,
+    MLFLOW_PROJECT_ENV,
+    MLFLOW_DOCKER_IMAGE_URI,
+    MLFLOW_DOCKER_IMAGE_ID,
+    MLFLOW_PROJECT_BACKEND,
+    MLFLOW_RUN_NAME
 )
 from mlflow.utils.uri import get_db_profile_from_uri, is_databricks_uri
 
@@ -85,7 +89,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
          docker_args=None, backend_name=None, backend_config=None, use_conda=True,
-         storage_dir=None, synchronous=True):
+         storage_dir=None, synchronous=True, run_name=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
@@ -98,6 +102,8 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                         version, backend_config, experiment_id, tracking_store_uri)
             tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_PROJECT_BACKEND,
                                             backend_name)
+            tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_RUN_NAME,
+                                            run_name)
             return submitted_run
 
     work_dir = fetch_and_validate_project(uri, version, entry_point, parameters)
@@ -109,6 +115,9 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         existing_run_id = backend_config[_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG]
     active_run = get_or_create_run(existing_run_id, uri, experiment_id, work_dir, version,
                                    entry_point, parameters)
+
+    tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_RUN_NAME,
+                                    run_name)
 
     if backend_name == "databricks":
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,

@@ -83,8 +83,10 @@ def cli():
               help="If specified, the given run ID will be used instead of creating a new run. "
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
+@click.option("--run-name", metavar="RUN_NAME",
+              help="If specified, the given name will be associated with run created during project execution.")
 def run(uri, entry_point, version, param_list, docker_args, experiment_name, experiment_id, backend,
-        backend_config, no_conda, storage_dir, run_id):
+        backend_config, no_conda, storage_dir, run_id, run_name):
     """
     Run an MLflow project from the given URI.
 
@@ -128,7 +130,8 @@ def run(uri, entry_point, version, param_list, docker_args, experiment_name, exp
             use_conda=(not no_conda),
             storage_dir=storage_dir,
             synchronous=backend in ("local", "kubernetes") or backend is None,
-            run_id=run_id
+            run_id=run_id,
+            run_name=run_name
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)
