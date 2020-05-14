@@ -116,7 +116,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     active_run = get_or_create_run(existing_run_id, uri, experiment_id, work_dir, version,
                                    entry_point, parameters)
 
-    tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_RUN_NAME,
+    tracking.MlflowClient().set_tag(active_run.run_id, MLFLOW_RUN_NAME,
                                     run_name)
 
     if backend_name == "databricks":
@@ -203,7 +203,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
 def run(uri, entry_point="main", version=None, parameters=None,
         docker_args=None, experiment_name=None, experiment_id=None,
         backend=None, backend_config=None, use_conda=True,
-        storage_dir=None, synchronous=True, run_id=None):
+        storage_dir=None, synchronous=True, run_id=None, run_name=None):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
 
@@ -284,7 +284,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
         parameters=parameters, docker_args=docker_args, backend_name=backend,
         backend_config=cluster_spec_dict, use_conda=use_conda, storage_dir=storage_dir,
-        synchronous=synchronous)
+        synchronous=synchronous, run_name=run_name)
     if synchronous:
         _wait_for(submitted_run_obj)
     return submitted_run_obj

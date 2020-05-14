@@ -84,7 +84,8 @@ def cli():
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
 @click.option("--run-name", metavar="RUN_NAME",
-              help="If specified, the given name will be associated with run created during project execution.")
+              help="If specified, the given name will be associated with run "
+                   "created during project execution.")
 def run(uri, entry_point, version, param_list, docker_args, experiment_name, experiment_id, backend,
         backend_config, no_conda, storage_dir, run_id, run_name):
     """
