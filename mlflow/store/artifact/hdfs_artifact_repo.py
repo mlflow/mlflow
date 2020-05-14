@@ -20,7 +20,8 @@ class HdfsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        self.host, self.port, self.path = _resolve_connection_params(artifact_uri)
+        self.scheme, self.host, self.port, self.path = _resolve_connection_params(
+            artifact_uri)
         super(HdfsArtifactRepository, self).__init__(artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -31,7 +32,7 @@ class HdfsArtifactRepository(ArtifactRepository):
         """
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
 
-        with hdfs_system(host=self.host, port=self.port) as hdfs:
+        with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
             _, file_name = os.path.split(local_file)
             destination = posixpath.join(hdfs_base_path, file_name)
             with hdfs.open(destination, 'wb') as output:
@@ -46,7 +47,7 @@ class HdfsArtifactRepository(ArtifactRepository):
         """
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
 
-        with hdfs_system(host=self.host, port=self.port) as hdfs:
+        with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
 
             if not hdfs.exists(hdfs_base_path):
                 hdfs.mkdir(hdfs_base_path)
@@ -78,7 +79,7 @@ class HdfsArtifactRepository(ArtifactRepository):
         """
         hdfs_base_path = _resolve_base_path(self.path, path)
 
-        with hdfs_system(host=self.host, port=self.port) as hdfs:
+        with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
             paths = []
             if hdfs.exists(hdfs_base_path):
                 for file_detail in hdfs.ls(hdfs_base_path, detail=True):
@@ -125,7 +126,7 @@ class HdfsArtifactRepository(ArtifactRepository):
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
         local_dir = _tmp_dir(dst_path)
 
-        with hdfs_system(host=self.host, port=self.port) as hdfs:
+        with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
 
             if not hdfs.isdir(hdfs_base_path):
                 local_path = os.path.join(local_dir, os.path.normpath(artifact_path))
@@ -149,16 +150,17 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def delete_artifacts(self, artifact_path=None):
         path = posixpath.join(self.path, artifact_path) if artifact_path else self.path
-        with hdfs_system(host=self.host, port=self.port) as hdfs:
+        with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
             hdfs.delete(path, recursive=True)
 
 
 @contextmanager
-def hdfs_system(host, port):
+def hdfs_system(scheme, host, port):
     """
         hdfs system context - Attempt to establish the connection to hdfs
         and yields HadoopFileSystem
 
+    :param scheme: scheme or use hdfs:// as default
     :param host: hostname or when relaying on the core-site.xml config use 'default'
     :param port: port or when relaying on the core-site.xml config use 0
     """
@@ -168,7 +170,12 @@ def hdfs_system(host, port):
     kerberos_user = os.getenv('MLFLOW_KERBEROS_USER')
     extra_conf = _parse_extra_conf(os.getenv('MLFLOW_PYARROW_EXTRA_CONF'))
 
-    connected = pa.hdfs.connect(host=host or 'default',
+    if host:
+        host = scheme + "://" + host
+    else:
+        host = 'default'
+
+    connected = pa.hdfs.connect(host=host,
                                 port=port or 0,
                                 user=kerberos_user,
                                 kerb_ticket=kerb_ticket,
@@ -179,7 +186,8 @@ def hdfs_system(host, port):
 
 def _resolve_connection_params(artifact_uri):
     parsed = urllib.parse.urlparse(artifact_uri)
-    return parsed.hostname, parsed.port, parsed.path
+
+    return parsed.scheme, parsed.hostname, parsed.port, parsed.path
 
 
 def _resolve_base_path(path, artifact_path):
