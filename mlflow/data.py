@@ -8,6 +8,7 @@ from mlflow.utils import process
 DBFS_PREFIX = "dbfs:/"
 S3_PREFIX = "s3://"
 GS_PREFIX = "gs://"
+ACTION_REGEX = re.compile(r"^-{1,2}[^\d\W]\w*\Z")
 DBFS_REGEX = re.compile("^%s" % re.escape(DBFS_PREFIX))
 S3_REGEX = re.compile("^%s" % re.escape(S3_PREFIX))
 GS_REGEX = re.compile("^%s" % re.escape(GS_PREFIX))
@@ -68,6 +69,12 @@ def parse_gs_uri(uri):
 def is_uri(string):
     parsed_uri = urllib.parse.urlparse(string)
     return len(parsed_uri.scheme) > 0
+
+
+def is_action(action_string):
+    if len(action_string.strip()) > 0:
+        return ACTION_REGEX.match(action_string)
+    return True
 
 
 def download_uri(uri, output_path):

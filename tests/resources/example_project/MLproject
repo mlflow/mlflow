@@ -7,7 +7,8 @@ entry_points:
     parameters:
       greeting: {type: string, default: "hi"}
       name: string
-    command: "python greeter.py {greeting} {name}"
+      args: {type: action, default: "--goodbye"}
+    command: "python greeter.py {greeting} {name} {args}"
   line_count:
     parameters:
       path: path
