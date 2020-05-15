@@ -4,6 +4,7 @@ import re
 from six.moves import urllib
 
 from mlflow.utils import process
+from mlflow.utils import deprecated
 
 DBFS_PREFIX = "dbfs:/"
 S3_PREFIX = "s3://"
@@ -70,6 +71,7 @@ def is_uri(string):
     return len(parsed_uri.scheme) > 0
 
 
+@deprecated(alternative="mlflow.tracking.MlflowClient.download_artifacts", since="1.9")
 def download_uri(uri, output_path):
     if DBFS_REGEX.match(uri):
         _fetch_dbfs(uri, output_path)

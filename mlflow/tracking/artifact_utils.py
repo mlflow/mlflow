@@ -45,9 +45,7 @@ def get_artifact_uri(run_id, artifact_path=None):
         return append_to_uri_path(run.info.artifact_uri, artifact_path)
 
 
-# TODO: This method does not require a Run and its internals should be moved to
-#  data.download_uri (requires confirming that Projects will not break with this change).
-# Also this would be much simpler if artifact_repo.download_artifacts could take the absolute path
+# TODO: This would be much simpler if artifact_repo.download_artifacts could take the absolute path
 # or no path.
 def _download_artifact_from_uri(artifact_uri, output_path=None):
     """

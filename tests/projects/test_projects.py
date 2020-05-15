@@ -216,6 +216,18 @@ def test_run_with_parent(tmpdir):  # pylint: disable=unused-argument
     assert run.data.tags[MLFLOW_PARENT_RUN_ID] == parent_run_id
 
 
+def test_run_with_artifact_path(tmpdir):
+    artifact_file = tmpdir.join("model.pkl")
+    artifact_file.write("Hello world")
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(artifact_file)
+        submitted_run = mlflow.projects.run(
+            TEST_PROJECT_DIR, entry_point="test_artifact_path",
+            parameters={"model": "runs:/%s/model.pkl" % run.info.run_id},
+            use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
+        validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
+
+
 def test_run_async():
     submitted_run0 = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},

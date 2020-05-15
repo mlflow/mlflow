@@ -7,6 +7,7 @@ from six.moves import shlex_quote
 
 from mlflow import data
 from mlflow.exceptions import ExecutionException
+from mlflow.tracking import artifact_utils
 from mlflow.utils.file_utils import get_local_path_or_none
 from mlflow.utils.string_utils import is_string_type
 
@@ -152,9 +153,12 @@ class EntryPoint(object):
         final_params = {}
         extra_params = {}
 
-        for key, param_obj in self.parameters.items():
+        parameter_keys = list(self.parameters.keys())
+        for key in parameter_keys:
+            param_obj = self.parameters[key]
+            key_position = parameter_keys.index(key)
             value = user_parameters[key] if key in user_parameters else self.parameters[key].default
-            final_params[key] = param_obj.compute_value(value, storage_dir)
+            final_params[key] = param_obj.compute_value(value, storage_dir, key_position)
         for key in user_parameters:
             if key not in final_params:
                 extra_params[key] = user_parameters[key]
@@ -189,22 +193,22 @@ class Parameter(object):
                                      "%s" % (self.name, user_param_value))
         return user_param_value
 
-    def _compute_path_value(self, user_param_value, storage_dir):
+    def _compute_path_value(self, user_param_value, storage_dir, key_position):
         local_path = get_local_path_or_none(user_param_value)
         if local_path:
             if not os.path.exists(local_path):
                 raise ExecutionException("Got value %s for parameter %s, but no such file or "
                                          "directory was found." % (user_param_value, self.name))
             return os.path.abspath(local_path)
-        basename = os.path.basename(user_param_value)
-        dest_path = os.path.join(storage_dir, basename)
-        if dest_path != user_param_value:
-            data.download_uri(uri=user_param_value, output_path=dest_path)
-        return os.path.abspath(dest_path)
+        target_sub_dir = 'param_{}'.format(key_position)
+        download_dir = os.path.join(storage_dir, target_sub_dir)
+        os.mkdir(download_dir)
+        return artifact_utils._download_artifact_from_uri(artifact_uri=user_param_value,
+                                                          output_path=download_dir)
 
-    def compute_value(self, param_value, storage_dir):
+    def compute_value(self, param_value, storage_dir, key_position):
         if storage_dir and self.type == "path":
-            return self._compute_path_value(param_value, storage_dir)
+            return self._compute_path_value(param_value, storage_dir, key_position)
         elif self.type == "uri":
             return self._compute_uri_value(param_value)
         else:
