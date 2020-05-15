@@ -260,8 +260,8 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
                                            posixpath.basename(dbfs_fuse_tar_uri)))
     project_dir = posixpath.join(DB_PROJECTS_BASE, tar_hash)
 
-    mlflow_run_cmd = " ".join(_get_cluster_mlflow_run_cmd(
-        project_dir, run_id, entry_point, parameters))
+    mlflow_run_arr = _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters)
+    mlflow_run_cmd = " ".join([shlex_quote(elem) for elem in mlflow_run_arr])
     shell_command = textwrap.dedent("""
     export PATH=$PATH:$DB_HOME/python/bin &&
     mlflow --version &&
