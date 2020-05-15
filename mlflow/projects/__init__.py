@@ -105,7 +105,8 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     _validate_execution_environment(project, backend_name)
 
     existing_run_id = None
-    if backend_name == "local" and _MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG in backend_config:
+    # Default backend is local
+    if backend_name is None and _MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG in backend_config:
         existing_run_id = backend_config[_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG]
     active_run = get_or_create_run(existing_run_id, uri, experiment_id, work_dir, version,
                                    entry_point, parameters)
