@@ -15,7 +15,7 @@ mpl.use('Agg')
 
 def parse_args():
     parser = argparse.ArgumentParser(description='XGBoost example')
-    parser.add_argument('--eta', type=float, default=0.3,
+    parser.add_argument('--learning_rate', type=float, default=0.3,
                         help='learning rate to update step size at each boosting step (default=0.3)')
     parser.add_argument('--colsample-bytree', type=float, default=1.0,
                         help='subsample ratio of columns when constructing each tree (default: 1.0)')
@@ -45,7 +45,7 @@ def main():
         params = {
             'objective': 'multi:softprob',
             'num_class': 3,
-            'learning_rate': args.eta,
+            'learning_rate': args.learning_rate,
             'eval_metric': 'mlogloss',
             'colsample_bytree': args.colsample_bytree,
             'subsample': args.subsample,
