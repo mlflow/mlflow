@@ -83,15 +83,17 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
     return _get_experiment_id()
 
 
-def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
-         docker_args=None, backend_name=None, backend_config=None, use_conda=True,
-         storage_dir=None, synchronous=True):
+def _run(uri, experiment_id, entry_point, version, parameters,
+         docker_args, backend_name, backend_config, use_conda,
+         storage_dir, synchronous):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
     tracking_store_uri = tracking.get_tracking_uri()
-    if backend_name:
+    # TODO: remove this check once local, databricks, kubernetes execution have been refactored
+    # into their own built-in project execution backends.
+    if backend_name not in {"local", "databricks", "kubernetes"}:
         backend = loader.load_backend(backend_name)
         if backend:
             submitted_run = backend.run(uri, entry_point, parameters,
@@ -119,7 +121,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
             experiment_id=experiment_id, cluster_spec=backend_config)
 
-    elif backend_name == "local" or backend_name is None:
+    elif backend_name == "local":
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "local")
         command_args = []
         command_separator = " "
@@ -193,7 +195,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
 
 def run(uri, entry_point="main", version=None, parameters=None,
         docker_args=None, experiment_name=None, experiment_id=None,
-        backend=None, backend_config=None, use_conda=True,
+        backend="local", backend_config=None, use_conda=True,
         storage_dir=None, synchronous=True, run_id=None):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -250,13 +252,12 @@ def run(uri, entry_point="main", version=None, parameters=None,
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
     """
-
-    cluster_spec_dict = backend_config
+    backend_config_dict = backend_config if backend_config is not None else {}
     if (backend_config and type(backend_config) != dict
             and os.path.splitext(backend_config)[-1] == ".json"):
         with open(backend_config, 'r') as handle:
             try:
-                cluster_spec_dict = json.load(handle)
+                backend_config_dict = json.load(handle)
             except ValueError:
                 _logger.error(
                     "Error when attempting to load and parse JSON cluster spec from file %s",
@@ -266,7 +267,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
     if backend == "databricks":
         mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), backend_config)
     elif backend == "local" and run_id is not None:
-        backend_config[_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG] = run_id
+        backend_config_dict[_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG] = run_id
 
     experiment_id = _resolve_experiment_id(experiment_name=experiment_name,
                                            experiment_id=experiment_id)
@@ -274,7 +275,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
     submitted_run_obj = _run(
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
         parameters=parameters, docker_args=docker_args, backend_name=backend,
-        backend_config=cluster_spec_dict, use_conda=use_conda, storage_dir=storage_dir,
+        backend_config=backend_config_dict, use_conda=use_conda, storage_dir=storage_dir,
         synchronous=synchronous)
     if synchronous:
         _wait_for(submitted_run_obj)
