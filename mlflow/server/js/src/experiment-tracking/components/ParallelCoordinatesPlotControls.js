@@ -10,7 +10,6 @@ export class ParallelCoordinatesPlotControls extends React.Component {
     metricKeys: PropTypes.arrayOf(String).isRequired,
     selectedParamKeys: PropTypes.arrayOf(String).isRequired,
     selectedMetricKeys: PropTypes.arrayOf(String).isRequired,
-    sharedParamKeys: PropTypes.arrayOf(String).isRequired,
     handleParamsSelectChange: PropTypes.func.isRequired,
     handleMetricsSelectChange: PropTypes.func.isRequired,
     handleSelectAllChange: PropTypes.func.isRequired,
@@ -35,7 +34,6 @@ export class ParallelCoordinatesPlotControls extends React.Component {
       selectAll,
       selectDiff,
     } = this.props;
-
     return (
       <div className='plot-controls'>
         <div>Parameters:</div>
