@@ -56,8 +56,8 @@ And its ``MLmodel`` file describes two flavors:
         loader_module: mlflow.sklearn
 
 This model can then be used with any tool that supports either the ``sklearn`` or
-``python_function`` model flavor. However, to serve a model flavor, the ``mlflow models serve`` command
-supports only the ``python_function`` flavor:
+``python_function`` model flavor. For example, the ``mlflow models serve`` command
+can serve a model with the ``python_function`` or the ``crate`` (R Function) flavor:
 
 .. code-block:: bash
 
