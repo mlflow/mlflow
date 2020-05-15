@@ -59,7 +59,7 @@ def cli():
 @click.option("--experiment-id", envvar=tracking._EXPERIMENT_ID_ENV_VAR, type=click.STRING,
               help="ID of the experiment under which to launch the run.")
 # TODO: Add tracking server argument once we have it working.
-@click.option("--backend", "-b", metavar="BACKEND",
+@click.option("--backend", "-b", metavar="BACKEND", default="local",
               help="Execution backend to use for run. Supported values: 'local', 'databricks', "
                    "kubernetes (experimental). Defaults to 'local'. If running against "
                    "Databricks, will run against a Databricks workspace determined as follows: "
@@ -97,6 +97,8 @@ def run(uri, entry_point, version, param_list, docker_args, experiment_name, exp
     By default, Git projects run in a new working directory with the given parameters, while
     local projects run from the project's root directory.
     """
+    if backend is None:
+        backend = "local"
     if experiment_id is not None and experiment_name is not None:
         eprint("Specify only one of 'experiment-name' or 'experiment-id' options.")
         sys.exit(1)
