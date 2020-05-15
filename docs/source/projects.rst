@@ -299,7 +299,7 @@ float
 path
     A path on the local file system. MLflow converts any relative ``path`` parameters to absolute 
     paths. MLflow also downloads any paths passed as distributed storage URIs 
-    (``s3://`` and ``dbfs://``) to local files. Use this type for programs that can only read local 
+    (``s3://``, ``dbfs://``, gs://, etc.) to local files. Use this type for programs that can only read local
     files.
 
 uri
