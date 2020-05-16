@@ -40,7 +40,8 @@ def test_mlflow_run_example(directory, params):
     ('lightgbm', ['python', 'train.py', '--colsample-bytree', '0.8', '--subsample', '0.9']),
     ('quickstart', ['python', 'mlflow_tracking.py']),
     ('remote_store', ['python', 'remote_server.py']),
-    ('xgboost', ['python', 'train.py', '--learning_rate', '0.2', '--colsample-bytree', '0.8', '--subsample', '0.9'])
+    ('xgboost', ['python', 'train.py', '--learning_rate', '0.2', '--colsample-bytree', '0.8', \
+     '--subsample', '0.9'])
 ])
 def test_command_example(directory, command):
     cwd_dir = os.path.join(EXAMPLES_DIR, directory)
