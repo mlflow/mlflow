@@ -237,7 +237,7 @@ Docker container environment
   .. rubric:: Example 3: Image in a remote registry
 
   .. code-block:: yaml
-
+  
     docker_env:
       image: 012345678910.dkr.ecr.us-west-2.amazonaws.com/mlflow-docker-example-environment:7.0
 
@@ -392,6 +392,7 @@ simpler "new cluster specification" format. For example:
 If you do need to install libraries on the worker, use the "cluster specification" format. For example:
 
   .. code-block:: json
+
     {
       "new-cluster: {
         "spark_version": "6.4.x-scala2.11",
@@ -412,10 +413,11 @@ If you do need to install libraries on the worker, use the "cluster specificatio
     }
 
 If you need those same libraries available on the driver, you will also need to specify them in the
-Conda environment YAML file. You can reference wheels on DBFS using the "pip" section of the environment
+Conda environment YAML file. You can reference wheels on DBFS using the ``pip`` section of the environment
 file. For example:
 
   .. code-block:: yaml
+  
     dependencies:
       - tensorflow
       - pip:
