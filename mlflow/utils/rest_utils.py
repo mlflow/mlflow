@@ -45,7 +45,13 @@ def http_request(host_creds, endpoint, retries=3, retry_interval=3,
     if auth_str:
         headers['Authorization'] = auth_str
 
-    verify = not host_creds.ignore_tls_verification
+    if host_creds.server_cert_path is None:
+        verify = not host_creds.ignore_tls_verification
+    else:
+        verify = host_creds.server_cert_path
+
+    if host_creds.client_cert_path is not None:
+        kwargs['cert'] = host_creds.client_cert_path
 
     def request_with_ratelimit_retries(max_rate_limit_interval, **kwargs):
         response = requests.request(**kwargs)
@@ -155,11 +161,16 @@ class MlflowHostCreds(object):
         true in production.
     """
     def __init__(self, host, username=None, password=None, token=None,
-                 ignore_tls_verification=False):
+                 ignore_tls_verification=False, client_cert_path=None, server_cert_path=None):
         if not host:
             raise MlflowException("host is a required parameter for MlflowHostCreds")
+        if ignore_tls_verification and (server_cert_path is not None):
+            raise MlflowException("if 'MLFLOW_TRACKING_INSECURE_TLS' is set to true "
+                                  "'MLFLOW_TRACKING_SERVER_CERT_PATH' must not be set")
         self.host = host
         self.username = username
         self.password = password
         self.token = token
         self.ignore_tls_verification = ignore_tls_verification
+        self.client_cert_path = client_cert_path
+        self.server_cert_path = server_cert_path
