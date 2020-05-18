@@ -602,7 +602,9 @@ def spark_udf(spark, model_uri, result_type="double"):
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
     from pyspark.sql.types import ArrayType, DataType as SparkDataType
-    from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType, StructType
+    from pyspark.sql.types import ArrayType, DataType
+    from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType, \
+        StructType
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
