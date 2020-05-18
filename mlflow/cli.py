@@ -59,7 +59,7 @@ def cli():
 @click.option("--experiment-id", envvar=tracking._EXPERIMENT_ID_ENV_VAR, type=click.STRING,
               help="ID of the experiment under which to launch the run.")
 # TODO: Add tracking server argument once we have it working.
-@click.option("--backend", "-b", metavar="BACKEND",
+@click.option("--backend", "-b", metavar="BACKEND", default="local",
               help="Execution backend to use for run. Supported values: 'local', 'databricks', "
                    "kubernetes (experimental). Defaults to 'local'. If running against "
                    "Databricks, will run against a Databricks workspace determined as follows: "

@@ -202,6 +202,7 @@ class HdfsArtifactRepositoryException(Exception):
 
 def _resolve_connection_params(artifact_uri):
     parsed = urllib.parse.urlparse(artifact_uri)
+
     if parsed.scheme == "har":
         return _parse_har_filesystem(artifact_uri)
 
