@@ -8,6 +8,6 @@ entry_points:
       subsample: {type: float, default: 1.0}
     command: |
         python train.py \
-          --learning_rate={learning_rate} \
+          --learning-rate={learning_rate} \
           --colsample-bytree={colsample-bytree} \
           --subsample={subsample}
