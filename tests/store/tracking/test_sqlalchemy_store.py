@@ -987,6 +987,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             run_id = create_run(start_time, end)
             self.store.update_run_info(run_id, run_status=RunStatus.FINISHED, end_time=end)
             start_time += 1
+            start_time += 1
 
         # asc
         self.assertListEqual(["-123", "123", "234", "456", "789", None],
@@ -1137,6 +1138,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         six.assertCountEqual(self, [],
                              self._search(experiment_id,
                                           filter_string="tags.generic_2 LIKE 'other'"))
+
         six.assertCountEqual(self, [r2],
                              self._search(experiment_id,
                                           filter_string="tags.generic_2 ILIKE '%Other%'"))
@@ -1391,6 +1393,43 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                                         page_token=result.token)
         assert [r.info.run_id for r in result] == runs[8:]
         assert result.token is None
+
+    def test_list_all_columns(self):
+        experiment_id = self._experiment_factory('list_all_columns')
+        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+        r3 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+
+        self.store.set_tag(r1, entities.RunTag('tag1', 'p_val'))
+        self.store.set_tag(r2, entities.RunTag('tag2', 'p_val'))
+        self.store.set_tag(r3, entities.RunTag('tag3', 'p_val'))
+
+        self.store.log_param(r1, entities.Param('param1', 'p_val'))
+        self.store.log_param(r2, entities.Param('param2', 'p_val'))
+        self.store.log_param(r3, entities.Param('param3', 'p_val'))
+
+        self.store.log_metric(r1, entities.Metric("metric1", 1.0, 1, 0))
+        self.store.log_metric(r2, entities.Metric("metric2", 1.0, 1, 0))
+        self.store.log_metric(r3, entities.Metric("metric3", 1.0, 1, 0))
+        self.store.delete_run(r3)
+
+        columns_active = self.store.list_all_columns(experiment_id=experiment_id,
+                                                     run_view_type=ViewType.ACTIVE_ONLY)
+        assert set(columns_active.tags) == {"tag1", "tag2"}
+        assert set(columns_active.params) == {"param1", "param2"}
+        assert set(columns_active.metrics) == {"metric1", "metric2"}
+
+        columns_deleted = self.store.list_all_columns(experiment_id=experiment_id,
+                                                      run_view_type=ViewType.DELETED_ONLY)
+        assert set(columns_deleted.tags) == {"tag3"}
+        assert set(columns_deleted.params) == {"param3"}
+        assert set(columns_deleted.metrics) == {"metric3"}
+
+        columns_all = self.store.list_all_columns(experiment_id=experiment_id,
+                                                  run_view_type=ViewType.ALL)
+        assert set(columns_all.tags) == {"tag1", "tag2", "tag3"}
+        assert set(columns_all.params) == {"param1", "param2", "param3"}
+        assert set(columns_all.metrics) == {"metric1", "metric2", "metric3"}
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')
@@ -1726,6 +1765,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                                              ViewType.ALL, max_results=1000, order_by=["tag.t1"])
         assert len(run_results) == 2
 
+    def test_get_attribute_name(self):
+        assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
+        assert(models.SqlRun.get_attribute_name("status") == "status")
+        assert(models.SqlRun.get_attribute_name("start_time") == "start_time")
+        assert(models.SqlRun.get_attribute_name("end_time") == "end_time")
+
+        # we want this to break if a searchable or orderable attribute has been added
+        # and not referred to in this test
+        # searchable attibutes are also orderable
+        assert(len(entities.RunInfo.get_orderable_attributes()) == 4)
+
 
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
     store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
@@ -1805,6 +1855,13 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
             self.store.log_metric(run.info.run_id, entities.Metric("key", i, i * 2, i * 3))
             self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i, "pval-%s" % i))
             self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i, "tval-%s" % i))
+
+    def test_set_status_scheduled(self):
+        """
+        Constraints are not tested by sqlite. Use mysql to test it
+        """
+        run = self._run_factory()
+        self.store.update_run_info(run.info.run_id, 'KILLED', 10)
 
 
 @mock.patch('sqlalchemy.orm.session.Session', spec=True)

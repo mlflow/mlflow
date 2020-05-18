@@ -2,9 +2,13 @@ name: MLflow tests
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+      - criteo-master
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
+      - criteo-master
 
 jobs:
   lint:
