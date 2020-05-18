@@ -394,7 +394,7 @@ If you do need to install libraries on the worker, use the "cluster specificatio
   .. code-block:: json
 
     {
-      "new-cluster": {
+      "new_cluster": {
         "spark_version": "6.4.x-scala2.11",
         "node_type_id": "i3.xlarge",
         "aws_attributes": {"availability": "ON_DEMAND"},
