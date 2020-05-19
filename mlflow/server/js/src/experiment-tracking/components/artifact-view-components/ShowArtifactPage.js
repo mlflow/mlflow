@@ -48,7 +48,7 @@ class ShowArtifactPage extends Component {
           <div className='select-preview-text'>
             <span className='select-preview-header'>Select a file to preview</span>
             <span className='select-preview-supported-formats'>
-              Supported formats: image, text, html, geojson files
+              Supported formats: image, text, html, pdf, geojson files
             </span>
           </div>
         </div>

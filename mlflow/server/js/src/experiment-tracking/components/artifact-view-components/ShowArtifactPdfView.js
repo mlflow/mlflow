@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import './ShowArtifactImageView.css';
 import { getSrc } from './ShowArtifactPage';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { Pagination, Row, Col, Spin } from 'antd';
+import { Pagination, Spin } from 'antd';
 import {getArtifactBytesContent} from "./ShowArtifactUtils";
 import './ShowArtifactPdfView.css';
 class ShowArtifactPdfView extends Component {
