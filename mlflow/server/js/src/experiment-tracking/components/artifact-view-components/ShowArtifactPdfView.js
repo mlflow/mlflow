@@ -89,11 +89,11 @@ class ShowArtifactPdfView extends Component {
 
     render() {
         if (this.state.loading) {
-            return <div className='artifact-text-view-loading'>Loading...</div>;
+            return <div className='artifact-pdf-view-loading'>Loading...</div>;
         }
         if (this.state.error) {
             return (
-                <div className='artifact-text-view-error'>
+                <div className='artifact-pdf-view-error'>
                     Oops we couldn't load your file because of an error.
                 </div>
             );
