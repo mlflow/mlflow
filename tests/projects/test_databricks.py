@@ -268,6 +268,58 @@ def test_run_databricks_cluster_spec_json(
         assert req_body["new_cluster"] == cluster_spec
 
 
+@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
+                         "dbfs_mocks", "cluster_spec_mock", "set_tag_mock")
+def test_run_databricks_extended_cluster_spec_json(
+        runs_submit_mock, runs_get_mock):
+    with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
+        runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
+        new_cluster_spec = {
+            "spark_version": "6.5.x-scala2.11",
+            "num_workers": 2,
+            "node_type_id": "i3.xlarge",
+        }
+        extra_library = {"pypi": {"package": "tensorflow"}}
+
+        cluster_spec = {
+            "new_cluster": new_cluster_spec,
+            "libraries": [extra_library]
+        }
+
+        # Run project synchronously, verify that it succeeds (doesn't throw)
+        run_databricks_project(cluster_spec=cluster_spec, synchronous=True)
+        assert runs_submit_mock.call_count == 1
+        runs_submit_args, _ = runs_submit_mock.call_args_list[0]
+        req_body = runs_submit_args[0]
+        assert req_body["new_cluster"] == new_cluster_spec
+        # This does test deep object equivalence
+        assert extra_library in req_body["libraries"]
+
+
+@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
+                         "dbfs_mocks", "cluster_spec_mock", "set_tag_mock")
+def test_run_databricks_extended_cluster_spec_json_without_libraries(
+        runs_submit_mock, runs_get_mock):
+    with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
+        runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
+        new_cluster_spec = {
+            "spark_version": "6.5.x-scala2.11",
+            "num_workers": 2,
+            "node_type_id": "i3.xlarge",
+        }
+
+        cluster_spec = {
+            "new_cluster": new_cluster_spec,
+        }
+
+        # Run project synchronously, verify that it succeeds (doesn't throw)
+        run_databricks_project(cluster_spec=cluster_spec, synchronous=True)
+        assert runs_submit_mock.call_count == 1
+        runs_submit_args, _ = runs_submit_mock.call_args_list[0]
+        req_body = runs_submit_args[0]
+        assert req_body["new_cluster"] == new_cluster_spec
+
+
 def test_run_databricks_throws_exception_when_spec_uses_existing_cluster():
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         existing_cluster_spec = {
