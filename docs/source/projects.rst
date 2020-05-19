@@ -377,7 +377,7 @@ of how to use the feature is as follows:
 1. Create a JSON file containing the
 `new cluster specification <https://docs.databricks.com/dev-tools/api/latest/jobs.html#jobsclusterspecnewcluster>`_
 or `cluster specification <https://docs.databricks.com/dev-tools/api/latest/jobs.html#clusterspec>`_
-for your run. If you do not need to specify libraries installed on the Spark worker nodes, you can use the
+for your run. Note that running projects against an existing cluster is not supported. If you do not need to specify libraries installed on the Spark worker nodes, you can use the
 simpler "new cluster specification" format. For example:
 
   .. code-block:: json
