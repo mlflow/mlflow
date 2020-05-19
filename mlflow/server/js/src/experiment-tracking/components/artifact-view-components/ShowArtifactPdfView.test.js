@@ -49,22 +49,6 @@ describe('ShowArtifactPdfView', () => {
     });
   });
 
-  test('should render text content when available', (done) => {
-    const getArtifact = jest.fn((artifactLocation) => {
-      return Promise.resolve('my text');
-    });
-    const props = { ...minimalProps, getArtifact: getArtifact };
-    wrapper = mount(<ShowArtifactTextView {...props} />);
-    setImmediate(() => {
-      instance = wrapper.instance();
-      wrapper.update();
-      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
-      expect(wrapper.find('.text-area').length).toBe(1);
-      expect(wrapper.find('.text-area').prop('value')).toEqual('my text');
-      done();
-    });
-  });
-
   test('should render PDF in container', () => {
     wrapper.setState({ loading: false });
     wrapper.setProps({ path: 'fake.pdf', runUuid: 'fakeRunId' });
