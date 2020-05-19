@@ -5,13 +5,14 @@ import {
   IMAGE_EXTENSIONS,
   TEXT_EXTENSIONS,
   MAP_EXTENSIONS,
-  HTML_EXTENSIONS, PDF_EXTENSIONS,
+  HTML_EXTENSIONS,
+  PDF_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import ShowArtifactImageView from './ShowArtifactImageView';
 import ShowArtifactTextView from './ShowArtifactTextView';
 import ShowArtifactMapView from './ShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
-import ShowArtifactPdfView from "./ShowArtifactPdfView";
+import ShowArtifactPdfView from './ShowArtifactPdfView';
 import previewIcon from '../../../common/static/preview-icon.png';
 import './ShowArtifactPage.css';
 
