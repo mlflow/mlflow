@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import { Icon, Button } from 'antd';
+import { Icon } from 'antd';
 import './ExperimentListView.css';
 import { getExperiments } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
