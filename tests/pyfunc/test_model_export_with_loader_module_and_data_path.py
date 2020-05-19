@@ -19,7 +19,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types import Schema, ColSpec, DataType
+from mlflow.types import Schema, ColSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -124,70 +124,62 @@ def test_schema_enforcement():
         def predict(pdf):
             return pdf
     m = Model()
-    m.signature = ModelSignature(
-        inputs=Schema([
-            ColSpec("integer", "a"),
-            ColSpec("double", "b"),
-            ColSpec("string", "c"),
-            ColSpec("integer", "d")
-        ])
-    )
+    input_schema = Schema([
+        ColSpec("integer", "a"),
+        ColSpec("long", "b"),
+        ColSpec("float", "c"),
+        ColSpec("double", "d"),
+        ColSpec("boolean", "e"),
+        ColSpec("string", "g"),
+        ColSpec("binary", "f"),
+    ])
+    m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
-    pdf = pd.DataFrame(data=[[1, "NaN", 2, {}, "3"]], columns=["b", "d", "a", "e", "c"])
-    res = pyfunc_model.predict(pdf, 'NONE')
-    assert all(res.columns == pdf.columns)
+    pdf = pd.DataFrame(data=[[1, 2, 3, 4, True, "x", bytes([1])]],
+                       columns=["b", "d", "a", "c", "e", "g", "f"])
+    # test that columns are reordered, extra column is ignored
+    res = pyfunc_model.predict(pdf)
+    assert all((res == pdf[input_schema.column_names()]).all())
 
-    assert (res.dtypes == pdf.dtypes).all()
-    assert all((res == pdf).all())
-    res1 = pyfunc_model.predict(pdf, 'LOOSE')
-    assert all(res1.columns == ["a", "b", "c", "d", "e"])
+    expected_types = dict(zip(input_schema.column_names(),
+                              input_schema.pandas_types()))
+    expected_types["f"] = np.object
 
-    assert (res1[["a", "b", "c"]].dtypes.to_dict() == {
-        "a": DataType.integer.to_pandas(),
-        "b": DataType.double.to_pandas(),
-        "c": DataType.string.to_pandas()
-    })
+    print()
+    print(res.dtypes.to_dict())
+    print()
+    print(expected_types)
+    print()
+    assert res.dtypes.to_dict() == expected_types
+    # Test conversions
+    # 1. integer <-> long
 
-    assert res.dtypes["d"] == pdf.dtypes["d"]
-    assert res.dtypes["e"] == pdf.dtypes["e"]
 
-    res1 = pyfunc_model.predict(pdf, 'LOOSE')
-    assert all(res1.columns == ["a", "b", "c", "d", "e"])
-    assert res1[["a", "c"]].dtypes.to_dict() == {
-        "a": DataType.integer.to_pandas(),
-        "c": DataType.string.to_pandas()
-    }
-    assert res.dtypes["d"] == pdf.dtypes["d"]
-    assert res.dtypes["e"] == pdf.dtypes["e"]
-
-    with pytest.raises(MlflowException) as ex:
-        pyfunc_model.predict(pdf, 'STRICT') # extra column
-    print(ex.value)
-    print(dir(ex))
-    assert "Model input does not match the expected schema." in ex.value.message
-    with pytest.raises(MlflowException) as ex2:
-        pyfunc_model.predict(pdf[["d", "a", "c"]], 'STRICT')  # missing column
-    print(ex2)
-    assert "Model input does not match the expected schema." in ex2.value.message
-    with pytest.raises(MlflowException) as ex3:
-        # type mismatch
-        pyfunc_model.predict(pdf[["b", "d", "a", "c"]], 'STRICT')
-    print(ex3)
-    assert "Failed to convert column d" in ex3.value.message
-    pyfunc_model._model_meta.signature = ModelSignature(
-        inputs=Schema([
-            ColSpec("integer", "a"),
-            ColSpec("double", "b"),
-            ColSpec("string", "c"),
-        ])
-    )
-    res2 = pyfunc_model.predict(pdf[["b", "a", "c"]], 'STRICT')
-    assert all(res2.columns == ["a", "b", "c"])
-    assert res2[["a", "b", "c"]].dtypes.to_dict() == {
-        "a": DataType.integer.to_pandas(),
-        "b": DataType.double.to_pandas(),
-        "c": DataType.string.to_pandas()
-    }
+    #
+    # with pytest.raises(MlflowException) as ex:
+    #     pyfunc_model.predict(pdf[["d", "a", "c"]], 'STRICT')  # missing column
+    # print(ex)
+    # assert "Model input is missing columns {}".format(set(['b'])) in ex.value.message
+    #
+    # with pytest.raises(MlflowException) as ex3:
+    #     # type mismatch
+    #     pyfunc_model.predict(pdf[["b", "d", "a", "c"]], 'STRICT')
+    # print(ex3)
+    # assert "Failed to convert column d" in ex3.value.message
+    # pyfunc_model._model_meta.signature = ModelSignature(
+    #     inputs=Schema([
+    #         ColSpec("integer", "a"),
+    #         ColSpec("double", "b"),
+    #         ColSpec("string", "c"),
+    #     ])
+    # )
+    # res2 = pyfunc_model.predict(pdf[["b", "a", "c"]], 'STRICT')
+    # assert all(res2.columns == ["a", "b", "c"])
+    # assert res2[["a", "b", "c"]].dtypes.to_dict() == {
+    #     "a": DataType.integer.to_pandas(),
+    #     "b": DataType.double.to_pandas(),
+    #     "c": DataType.string.to_pandas()
+    # }
 
 
 

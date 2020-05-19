@@ -206,7 +206,6 @@ import mlflow
 import mlflow.pyfunc.model
 import mlflow.pyfunc.utils
 from mlflow.models import Model, ModelSignature, ModelInputExample
-from mlflow.models.signature import SchemaEnforcement
 
 from mlflow.models.utils import _save_example
 from mlflow.pyfunc.model import PythonModel, PythonModelContext, get_default_conda_env
@@ -296,100 +295,70 @@ class PyFuncModel(object):
         self._model_meta = model_meta
         self._model_impl = model_impl
 
-    def predict(self, data: pandas.DataFrame,
-                schema_enforcement: SchemaEnforcement=SchemaEnforcement.LOOSE) -> PyFuncOutput:
+    def predict(self, data: pandas.DataFrame) -> PyFuncOutput:
         """
         Generate model predictions.
         :param data: Model input as pandas.DataFrame.
-        :param schema_enforcement: The desired level of input schema enforcement (column matching
-                                   and type checking). Can be one of:
-
-                                     'NONE': Do not use schema at all. Input is passed to the model
-                                             as is.
-                                     'LOOSE': Make best effort to preserve schema column ordering
-                                              and types but  do not raise error if the input does
-                                              not match schema."
-                                     'STRICT': Attempt to convert the input to match the expected
-                                               schema, raise error if not successful.
-
-                                   Only applies if the model has signature.
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         print("data", data)
         input_schema = self._model_meta.get_input_schema()
-        if not isinstance(schema_enforcement, SchemaEnforcement):
-            schema_enforcement = SchemaEnforcement[schema_enforcement]
-        if schema_enforcement != SchemaEnforcement.NONE and input_schema is not None:
-            errors_policy = "raise" if schema_enforcement == SchemaEnforcement.STRICT else "ignore"
 
-            def convert_type(name, values: pandas.Series, t):
-                print("---")
-                print(name, values, t)
-                print("===")
-                print(values.dtype)
-                print(t)
-                if t != values.dtype:
-                    if t == DataType.binary.to_pandas() and values.dtype == np.object:
-                        # binary passed as numpy objects is assumed to be in correct format.
-                        return values
-                    print("converting {0} from type {1} to {2}.".format(
-                        name, values.dtype, t
-                    ))
-                    _logger.debug("converting {0} from type {1} to {2}.".format(
-                        name, values.dtype, t
-                    ))
-                    print("astype", t)
-                    print("values", "start", values, "end")
-                    print("error policy", errors_policy)
-                    try:
-                        res = values.astype(t, errors=errors_policy)
-                    except ValueError:
-                        raise MlflowException(
-                            "Failed to convert column {0} from type {1} to {2}.".format(
-                              name, values.dtype, t)
-                        )
-                    if t != res.dtype:
-                        print("conversion failed")
-                        _logger.warning("Failed to convert column {0} from type {1} to {2}.".format(
-                            name, values.dtype, t
-                        ))
-                    print("result type is ", res.dtype, "values ", res)
-
-                    return res
-                else:
-                    print("not converting", name)
+        if input_schema is not None:
+            def convert_type(name, values: pandas.Series, t: DataType):
+                print()
+                print(name, values.dtype, t)
+                print(values)
+                if values.dtype == np.object:
+                    if t in (DataType.string, DataType.binary):
+                        try:
+                            return values.astype(t.to_pandas(), errors="raise")
+                        except ValueError:
+                            raise MlflowException(
+                                "Failed to convert column {0} from type {1} to {2}.".format(
+                                  name, values.dtype, t)
+                            )
+                    else:
+                        values = values.infer_objects()
+                if t.to_pandas() == values.dtype:
+                    print("no need to convert")
                     return values
+                numpy_type = t.to_numpy()
+                print("converting ", values.dtype, "to", numpy_type)
+                if values.dtype.kind == numpy_type.kind \
+                        or values.dtype.kind == "i" and numpy_type.kind == "f":
+                    # conversions between compatible types and ints -> floats are allowed.
+                    print("converting ")
+                    res = values.astype(numpy_type, errors="raise")
+                    if values.dtype.kind == "i" and numpy_type.kind == "i" and any(res != values):
+                        raise MlflowException("Incompatible input types. "
+                                              "Can not safely convert {0} to {1}. "
+                                              "Some of the values are out of bounds.".format(
+                                                numpy_type,
+                                                values.dtype))
+                    return res
+                # NB: conversion between incompatible types (e.g. floats -> ints or
+                # boolean -> numeric) are not allowed. While supported by pandas and numpy, these
+                # conversions alter the values significantly.
+                raise MlflowException("Incompatible input types. "
+                                      "Can not safely convert {0} to {1}.".format(values.dtype,
+                                                                                  numpy_type,))
 
             col_names = input_schema.column_names()
-            col_types = input_schema.pandas_types()
+            col_types = input_schema.column_types()
             expected_names = set(input_schema.column_names())
             actual_names = set(data.columns)
-            if expected_names != actual_names:
-                missing_cols = expected_names - actual_names
-                extra_cols = actual_names - expected_names
-                message = "Model input does not match the expected schema. {0} {1} {2}.".format(
-                    "Expected columns {}, ".format(input_schema.column_names()),
-                    " got missing columns {}, ". format(missing_cols) if missing_cols else "",
-                    " got extra columns {}".format(extra_cols) if missing_cols else "",
-
-                )
-                if schema_enforcement == SchemaEnforcement.STRICT:
-                    raise MlflowException(message)
-                else:
-                    _logger.warning(message)
-            new_data = {}
-            new_columns = []
-            for i, x in enumerate(col_names):
-                if x in actual_names:
-                    print("converting column ", x, " to type", col_types[i], "values", data[x].values)
-                    new_data[x] = convert_type(x, data[x], col_types[i])
-                    new_columns.append(x)
-            for x in data.columns:
-                if x not in expected_names:
-                    new_data[x] = data[x]
-                    new_columns.append(x)
-            data = pandas.DataFrame(data=new_data, columns=new_columns)
-
+            missing_cols = expected_names - actual_names
+            extra_columns = actual_names - expected_names
+            if missing_cols:
+                message = "Model input is missing columns {0}.".format(missing_cols)
+                raise MlflowException(message)
+            if extra_columns:
+                _logger.warning("Ignoring unexpected columns {}".format(extra_columns))
+            new_data = {x: convert_type(x, data[x], col_types[i]) for i, x in enumerate(col_names)}
+            print("new_data", new_data)
+            data = pandas.DataFrame(data=new_data, columns=col_names)
+        print("data", data)
         return self._model_impl.predict(data)
 
     @property
@@ -493,7 +462,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
             model_py_version, PYTHON_VERSION)
 
 
-def spark_udf(spark, model_uri, result_type="double", schema_enforcement=SchemaEnforcement.LOOSE):
+def spark_udf(spark, model_uri, result_type="double"):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
@@ -557,19 +526,6 @@ def spark_udf(spark, model_uri, result_type="double", schema_enforcement=SchemaE
 
         - ``ArrayType(StringType)``: All columns converted to ``string``.
 
-    :param schema_enforcement: The desired level of input schema enforcement (column matching
-                               and type checking). Can be one of:
-
-                                 'NONE': Do not use schema at all. Input is passed to the model
-                                         as is.
-                                 'LOOSE': Make best effort to preserve schema column ordering
-                                          and types but  do not raise error if the input does
-                                          not match schema."
-                                 'STRICT': Attempt to convert the input to match the expected
-                                           schema, raise error if not successful.
-
-                               Only applies if the model has signature.
-
     :return: Spark UDF that applies the model's ``predict`` method to the data and returns a
              type specified by ``result_type``, which by default is a double.
     """
@@ -621,7 +577,7 @@ def spark_udf(spark, model_uri, result_type="double", schema_enforcement=SchemaE
                         [str(i) for i in range(len(args) - len(input_schema.columns))]
             pdf = pandas.DataFrame(data=args, columns=names[:len(args)])
 
-        result = model.predict(pdf, schema_enforcement)
+        result = model.predict(pdf)
 
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame(data=result)

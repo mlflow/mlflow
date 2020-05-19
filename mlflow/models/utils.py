@@ -65,13 +65,16 @@ class _Example(object):
             else:
                 input_example = pd.DataFrame.from_dict(input_example)
         elif isinstance(input_example, list):
-            for i, x in enumerate(input_example):
-                if isinstance(x, np.ndarray) and len(x.shape) > 1:
-                    raise TensorsNotSupportedException("Row '{0}' has shape {1}".format(i, x.shape))
+            # for i, x in enumerate(input_example):
+            #     if isinstance(x, np.ndarray) and len(x.shape) > 1:
+            #         raise TensorsNotSupportedException("Row '{0}' has shape {1}".format(i, x.shape))
             if all([_is_scalar(x) for x in input_example]):
-                input_example = pd.DataFrame([input_example])
+                print("all scalar, creating df")
+                input_example = pd.DataFrame([input_example], columns=range(len(input_example)))
             else:
+                print("creating df")
                 input_example = pd.DataFrame(input_example)
+            print("done")
         elif isinstance(input_example, np.ndarray):
             if len(input_example.shape) > 2:
                 raise TensorsNotSupportedException("Input array has shape {}".format(
@@ -119,8 +122,11 @@ def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: s
     :param mlflow_model: Model metadata that will get updated with the example metadata.
     :param path: Where to store the example file. Should be model the model directory.
     """
+    print("saving example")
     example = _Example(input_example)
+    print("example size is ", len(example.data))
     example.save(path)
+    print("example saved.")
     mlflow_model.saved_input_example_info = example.info
 
 

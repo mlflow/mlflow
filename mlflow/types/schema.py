@@ -29,19 +29,19 @@ class DataType(Enum):
         res._pandas_type = pandas_type if pandas_type is not None else numpy_type
         return res
 
-    boolean = (1, np.bool, "BooleanType")
+    boolean = (1, np.dtype("bool"), "BooleanType")
     """Logical data (True, False) ."""
-    integer = (2, np.int32, "IntegerType")
+    integer = (2, np.dtype("int32"), "IntegerType")
     """32b signed integer numbers."""
-    long = (3, np.int64, "LongType")
+    long = (3, np.dtype("int64"), "LongType")
     """64b signed integer numbers. """
-    float = (4, np.float32, "FloatType")
+    float = (4, np.dtype("float32"), "FloatType")
     """32b floating point numbers. """
-    double = (5, np.float64, "DoubleType")
+    double = (5, np.dtype("float64"), "DoubleType")
     """64b floating point numbers. """
-    string = (6, np.str, "StringType", pandas_str)
+    string = (6, np.dtype("str"), "StringType", pandas_str)
     """Text data."""
-    binary = (7, np.bytes_, "BinaryType")
+    binary = (7, np.dtype("bytes"), "BinaryType")
     """Sequence of raw bytes."""
 
     def __repr__(self):

@@ -3,7 +3,7 @@ Definitions of click options shared by several CLI commands.
 """
 import click
 
-from mlflow.models.signature import SchemaEnforcement
+
 
 MODEL_PATH = click.option("--model-path", "-m", default=None, metavar="PATH", required=True,
                           help="Path to the model. The path is relative to the run with the given "
@@ -33,18 +33,6 @@ INSTALL_MLFLOW = click.option("--install-mlflow", is_flag=True, default=False,
                                    "mlflow will be installed into the environment after it has been"
                                    " activated. The version of installed mlflow will be the same as"
                                    "the one used to invoke this command.")
-
-SCHEMA_ENFORCEMENT = click.option("--schema-enforcement", default="LOOSE",
-                                  help="The desired level of input schema enforcement (column "
-                                       "matching and type checking). Can be one of:\n\n{}"
-                                       "\n\nOnly applies if the model has signature.".format(
-                                         "\n\n".join(["  '{name}': {doc}".format(
-                                             name=name,
-                                             doc=value.__doc__)
-                                          for name, value in SchemaEnforcement.__members__.items()])
-                                       )
-                                  )
-
 
 HOST = click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
                     help="The network address to listen on (default: 127.0.0.1). "
