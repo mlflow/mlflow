@@ -13,7 +13,7 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
 import mlflow.utils.databricks_utils
-from mlflow.utils.uri import is_artifact_acled_uri
+from mlflow.utils.uri import is_databricks_acled_artifacts_uri
 
 LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
 GET_STATUS_ENDPOINT = '/api/2.0/dbfs/get-status'
@@ -165,7 +165,7 @@ def dbfs_artifact_repo_factory(artifact_uri):
     :return: Subclass of ArtifactRepository capable of storing artifacts on DBFS.
     """
     cleaned_artifact_uri = artifact_uri.rstrip('/')
-    if is_artifact_acled_uri(artifact_uri):
+    if is_databricks_acled_artifacts_uri(artifact_uri):
         return DatabricksArtifactRepository(artifact_uri)
     elif mlflow.utils.databricks_utils.is_dbfs_fuse_available() \
             and os.environ.get(USE_FUSE_ENV_VAR, "").lower() != "false" \
