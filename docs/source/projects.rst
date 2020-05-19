@@ -237,7 +237,7 @@ Docker container environment
   .. rubric:: Example 3: Image in a remote registry
 
   .. code-block:: yaml
-    
+  
     docker_env:
       image: 012345678910.dkr.ecr.us-west-2.amazonaws.com/mlflow-docker-example-environment:7.0
 
@@ -375,17 +375,58 @@ in the Databricks docs
 of how to use the feature is as follows:
 
 1. Create a JSON file containing the
-`new cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
-for your run. For example:
+`new cluster specification <https://docs.databricks.com/dev-tools/api/latest/jobs.html#jobsclusterspecnewcluster>`_
+or `cluster specification <https://docs.databricks.com/dev-tools/api/latest/jobs.html#clusterspec>`_
+for your run. Note that running projects against an existing cluster is not supported. If you do not need to specify libraries installed on the Spark worker nodes, you can use the
+simpler "new cluster specification" format. For example:
 
   .. code-block:: json
 
     {
-      "spark_version": "5.5.x-scala2.11",
+      "spark_version": "6.4.x-scala2.11",
       "node_type_id": "i3.xlarge",
       "aws_attributes": {"availability": "ON_DEMAND"},
       "num_workers": 4
     }
+
+If you do need to install libraries on the worker, use the "cluster specification" format. For example:
+
+  .. code-block:: json
+
+    {
+      "new_cluster": {
+        "spark_version": "6.4.x-scala2.11",
+        "node_type_id": "i3.xlarge",
+        "aws_attributes": {"availability": "ON_DEMAND"},
+        "num_workers": 4
+      },
+      "libraries": [
+        {
+          "pypi": {
+            "package": "tensorflow"
+          }
+        },
+        {
+          "whl": "dbfs:/path_to_my_lib.whl"
+        }
+      ]
+    }
+
+If you need those same libraries available on the driver, you will also need to specify them in the
+Conda environment YAML file. You can reference wheels on DBFS using the ``pip`` section of the environment
+file. For example:
+
+  .. code-block:: yaml
+  
+    dependencies:
+      - tensorflow
+      - pip:
+        - /dbfs/path_to_ml_lib.whl
+
+The path to the wheel is different in the Conda environment YAML file than the JSON specification used
+to install libraries on the Spark workers. This is because Conda does not support DBFS; you must instead
+use the `DBFS FUSE mount <https://docs.databricks.com/data/databricks-file-system.html#local-file-apis>`_
+to read the file as if it were a local file.
 
 2. Run your project using the following command:
 
