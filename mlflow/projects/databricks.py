@@ -162,12 +162,28 @@ class DatabricksJobRunner(object):
         :param command: Shell command to run.
         :param env_vars: Environment variables to set in the process running ``command``.
         :param cluster_spec: Dictionary containing a `Databricks cluster specification
-                             <https://docs.databricks.com/api/latest/jobs.html#clusterspec>`_
-                             to use when launching a run.
+                             <https://docs.databricks.com/dev-tools/api/latest/jobs.html#clusterspec>`_
+                             or a `Databricks new cluster specification
+                             <https://docs.databricks.com/dev-tools/api/latest/jobs.html#jobsclusterspecnewcluster>`_
+                             to use when launching a run. If you specify libraries, this function
+                             will add MLflow to the library list. This function does not support
+                             installation of conda environment libraries on the workers.
         :return: ID of the Databricks job run. Can be used to query the run's status via the
                  Databricks
                  `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
         """
+        # NB: We use <= on the version specifier to allow running projects on pre-release
+        # versions, where we will select the most up-to-date mlflow version available.
+        # Also note, that we escape this so '<' is not treated as a shell pipe.
+        libraries = [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
+
+        # Check syntax of JSON - if it contains libraries and new_cluster, pull those out
+        if 'new_cluster' in cluster_spec:
+            # Libraries are optional, so we don't require that this be specified
+            if 'libraries' in cluster_spec:
+                libraries.extend(cluster_spec['libraries'])
+            cluster_spec = cluster_spec['new_cluster']
+
         # Make jobs API request to launch run.
         req_body_json = {
             'run_name': 'MLflow Run for %s' % project_uri,
@@ -176,10 +192,7 @@ class DatabricksJobRunner(object):
                 'command': command,
                 "env_vars": env_vars
             },
-            # NB: We use <= on the version specifier to allow running projects on pre-release
-            # versions, where we will select the most up-to-date mlflow version available.
-            # Also note, that we escape this so '<' is not treated as a shell pipe.
-            "libraries": [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}],
+            "libraries": libraries,
         }
         run_submit_res = self._jobs_runs_submit(req_body_json)
         databricks_run_id = run_submit_res["run_id"]
