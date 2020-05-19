@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { modelListPageRoute, getModelPageRoute } from '../routes';
 import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import { Dropdown, Icon, Menu, Modal, Alert, Descriptions, Tooltip, Button } from 'antd';
+import { Dropdown, Icon, Menu, Modal, Alert, Descriptions, Tooltip } from 'antd';
 import {
   ModelVersionStatus,
   StageTagComponents,
@@ -16,6 +16,7 @@ import {
 import Routers from '../../experiment-tracking/routes';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
+import { IconButton } from '../../common/components/IconButton';
 
 export class ModelVersionView extends React.Component {
   static propTypes = {
@@ -127,9 +128,9 @@ export class ModelVersionView extends React.Component {
 
   renderDescriptionEditIcon() {
     return (
-      <Button type='link' onClick={this.startEditingDescription}>
+      <IconButton onClick={this.startEditingDescription}>
         <Icon type='form' />
-      </Button>
+      </IconButton>
     );
   }
 
