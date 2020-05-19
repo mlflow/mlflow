@@ -177,9 +177,11 @@ class DatabricksJobRunner(object):
         # Also note, that we escape this so '<' is not treated as a shell pipe.
         libraries = [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
 
-        # Check syntax of JSON - if it contains a libraries and a cluster_spec, pull those out
-        if 'libraries' in cluster_spec and 'new_cluster' in cluster_spec:
-            libraries.extend(cluster_spec['libraries'])
+        # Check syntax of JSON - if it contains libraries and new_cluster, pull those out
+        if 'new_cluster' in cluster_spec:
+            # Libraries are optional, so we don't require that this be specified
+            if 'libraries' in cluster_spec:
+                libraries.extend(cluster_spec['libraries'])
             cluster_spec = cluster_spec['new_cluster']
 
         # Make jobs API request to launch run.
