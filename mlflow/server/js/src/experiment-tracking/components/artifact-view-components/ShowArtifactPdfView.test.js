@@ -1,7 +1,6 @@
 import React from 'react';
-import { mount, shallow } from 'enzyme';
+import { shallow } from 'enzyme';
 import ShowArtifactPdfView from './ShowArtifactPdfView';
-import ShowArtifactTextView from './ShowArtifactTextView';
 
 describe('ShowArtifactPdfView', () => {
   let wrapper;
