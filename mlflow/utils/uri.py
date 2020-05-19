@@ -8,7 +8,7 @@ from mlflow.utils.validation import _validate_db_type_string
 
 _INVALID_DB_URI_MSG = "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for " \
                       "format specifications."
-
+_ACLED_ARTIFACT_URI = "dbfs:/databricks/mlflow-tracking/"
 
 def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
@@ -129,3 +129,7 @@ def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     # joined path
     suffix_path = suffix_path.lstrip(posixpath.sep)
     return posixpath.join(prefix_path, suffix_path)
+
+
+def is_artifact_acled_uri(artifact_uri):
+    return artifact_uri.startswith(_ACLED_ARTIFACT_URI.lstrip('/'))

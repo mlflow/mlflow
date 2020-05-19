@@ -6,7 +6,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
 from databricks_cli.configure import provider
 
-
 _logger = logging.getLogger(__name__)
 
 
