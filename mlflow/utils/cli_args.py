@@ -43,3 +43,10 @@ PORT = click.option("--port", "-p", default=5000,
 # We use None to disambiguate manually selecting "4"
 WORKERS = click.option("--workers", "-w", default=None,
                        help="Number of gunicorn worker processes to handle requests (default: 4).")
+
+# default disable
+CONFIG = click.option("--config", "-c", default=None, metavar="FILE",
+                      help="The Gunicorn config file is a .py file (default: None). "
+                           "You'd better add the file by absolute root. "
+                           "What can you write in this file reference: https://www.jianshu.com/p/260f18aa5462. "
+                           "This option has higher priority than any other gunicorn option.")
