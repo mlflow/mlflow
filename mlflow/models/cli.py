@@ -31,7 +31,8 @@ def commands():
 @cli_args.WORKERS
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
-def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
+@cli_args.CONFIG
+def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False, config=None):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port. For
     information about the input data formats accepted by the webserver, see the following
@@ -54,7 +55,7 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
                                no_conda=no_conda,
                                workers=workers,
                                install_mlflow=install_mlflow).serve(model_uri=model_uri, port=port,
-                                                                    host=host)
+                                                                    host=host, config=config)
 
 
 @commands.command("predict")
