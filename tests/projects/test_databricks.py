@@ -295,6 +295,7 @@ def test_run_databricks_extended_cluster_spec_json(
         # This does test deep object equivalence
         assert extra_library in req_body["libraries"]
 
+
 @pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
                          "dbfs_mocks", "cluster_spec_mock", "set_tag_mock")
 def test_run_databricks_extended_cluster_spec_json_without_libraries(
@@ -317,6 +318,7 @@ def test_run_databricks_extended_cluster_spec_json_without_libraries(
         runs_submit_args, _ = runs_submit_mock.call_args_list[0]
         req_body = runs_submit_args[0]
         assert req_body["new_cluster"] == new_cluster_spec
+
 
 def test_run_databricks_throws_exception_when_spec_uses_existing_cluster():
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
