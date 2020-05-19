@@ -25,18 +25,18 @@ class ShowArtifactPdfView extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     path: PropTypes.string.isRequired,
-    getArtifactContent: PropTypes.func,
+    getArtifact: PropTypes.func,
   };
 
   static defaultProps = {
-    getArtifactContent: getArtifactBytesContent,
+    getArtifact: getArtifactBytesContent,
   };
 
   /** Fetches artifacts and updates component state with the result */
   fetchPdf() {
     const artifactLocation = getSrc(this.props.path, this.props.runUuid);
     this.props
-      .getArtifactContent(artifactLocation)
+      .getArtifact(artifactLocation)
       .then((artifactPdfData) => {
         this.setState({ pdfData: { data: artifactPdfData }, loading: false });
       })
