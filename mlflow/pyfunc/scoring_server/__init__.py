@@ -44,7 +44,7 @@ except ImportError:
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 
 CONTENT_TYPE_CSV = "text/csv"
-CONTENT_TYPE_JSON = "application/json"
+CONTENT_TYPE_JSON = "application/json"  # UME-Lab users may use this type.
 CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; format=pandas-records"
 CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; format=pandas-split"
 CONTENT_TYPE_JSON_SPLIT_NUMPY = "application/json-numpy-split"
@@ -172,22 +172,49 @@ def init(model):
             data = flask.request.data.decode('utf-8')
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
-        elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
+
+        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
                                     orient="split")
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
                                     orient="records")
+        elif flask.request.content_type == CONTENT_TYPE_JSON:
+            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
+                                    orient="records")  # UME-Lab users may use this type. Json orient will be divided later.
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
             data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
         else:
             return flask.Response(
                 response=("This predictor only supports the following content types,"
                           " {supported_content_types}. Got '{received_content_type}'.".format(
-                            supported_content_types=CONTENT_TYPES,
-                            received_content_type=flask.request.content_type)),
+                    supported_content_types=CONTENT_TYPES,
+                    received_content_type=flask.request.content_type)),
                 status=415,
                 mimetype='text/plain')
+
+        # do feature engineering if need.
+        need_feature = False  # feature engineering flag: need or not
+        try:
+            from dependency.feature_engineering import FeatureEngineering
+            need_feature = True
+        except ImportError:
+            print("There is no need to do feature engineering! ")
+            pass
+        if need_feature:
+            if FeatureEngineering.UDF_output:  # user define out put or not.
+                try:
+                    _result = FeatureEngineering.do_feature(data, model=model)
+                except Exception:
+                    _handle_serving_error(
+                        error_message=(
+                            "Encountered an unexpected error while evaluating the model. Verify"
+                            " that the serialized input Dataframe is compatible with the model for"
+                            " inference."),
+                        error_code=BAD_REQUEST)
+                return flask.Response(response=_result, status=200, mimetype='application/json')
+            else:
+                data = FeatureEngineering.do_feature(data)  # only return data after feature engineering.
 
         # Do the prediction
         # pylint: disable=broad-except
