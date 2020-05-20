@@ -11,6 +11,7 @@ from mlflow.protos.databricks_artifacts_pb2 import GetCredentialsForWrite, GetCr
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.protos.service_pb2 import MlflowService, ListArtifacts
 from mlflow.utils.uri import extract_and_normalize_path
+from mlflow.utils.proto_json_utils import message_to_json
 
 _PATH_PREFIX = "/api/2.0"
 
@@ -19,7 +20,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on Azure/AWS with access control.
 
-    The artifact_uri is expected to be of the form dbfs:/databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts/..
+    The artifact_uri is expected to be of the form
+    dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/
     """
 
     def __init__(self, artifact_uri):
@@ -49,12 +51,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
         }
 
     def _get_write_credentials(self, run_id, path=None):
-        return self._call_endpoint(DatabricksMlflowArtifactsService, GetCredentialsForWrite,
-                                   self._create_json_body(run_id, path))
+        json_body = message_to_json(GetCredentialsForWrite(run_id=run_id, path=path))
+        return self._call_endpoint(DatabricksMlflowArtifactsService, GetCredentialsForWrite, json_body)
 
     def _get_read_credentials(self, run_id, path=None):
-        return self._call_endpoint(DatabricksMlflowArtifactsService, GetCredentialsForRead,
-                                   self._create_json_body(run_id, path))
+        json_body = message_to_json(GetCredentialsForRead(run_id=run_id, path=path))
+        return self._call_endpoint(DatabricksMlflowArtifactsService, GetCredentialsForRead, json_body)
 
     def _azure_upload_file(self, credentials, local_file):
         signed_write_uri = credentials.signed_uri
@@ -82,6 +84,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
         pass
 
     def log_artifact(self, local_file, artifact_path=None):
+        basename = os.path.basename(local_file)
+        artifact_path = artifact_path or ""
+        artifact_path = os.path.join(artifact_path, basename)
         run_id = self._extract_run_id(self.artifact_uri)
         write_credentials = self._get_write_credentials(run_id, artifact_path)
         if write_credentials.credentials.type == 1:
@@ -105,13 +110,14 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def list_artifacts(self, path=None):
         run_id = self._extract_run_id(self.artifact_uri)
-        return self._call_endpoint(MlflowService, ListArtifacts, self._create_json_body(run_id, path))
+        json_body = message_to_json(ListArtifacts(run_id=run_id, path=path))
+        return self._call_endpoint(MlflowService, ListArtifacts, json_body).files
 
     def _download_file(self, remote_file_path, local_path):
         run_id = self._extract_run_id(self.artifact_uri)
         read_credentials = self._get_read_credentials(run_id, remote_file_path)
         if read_credentials.credentials.type == 1:
-            self._azure_upload_file(read_credentials.credentials, local_path)
+            self._azure_download_file(read_credentials.credentials, local_path)
         else:
             raise MlflowException('Not implemented yet')
 

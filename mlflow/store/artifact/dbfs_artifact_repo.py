@@ -13,7 +13,7 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
 import mlflow.utils.databricks_utils
-from mlflow.utils.uri import is_databricks_acled_artifacts_uri
+from mlflow.utils.uri import is_databricks_acled_artifacts_uri, get_uri_scheme
 
 LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
 GET_STATUS_ENDPOINT = '/api/2.0/dbfs/get-status'
@@ -161,10 +161,19 @@ def dbfs_artifact_repo_factory(artifact_uri):
 
     This factory method is used with URIs of the form ``dbfs:/<path>``. DBFS-backed artifact
     storage can only be used together with the RestStore.
+
+    In the special case where the URI is of the form ``dbfs:/databricks/mlflow-tracking/<Exp-ID>/<Run-ID>/<path>,
+    a DatabricksArtifactRepository is returned. This is capable of storing access controlled artifacts.
+
+
     :param artifact_uri: DBFS root artifact URI (string).
     :return: Subclass of ArtifactRepository capable of storing artifacts on DBFS.
     """
     cleaned_artifact_uri = artifact_uri.rstrip('/')
+    uri_scheme = get_uri_scheme(artifact_uri)
+    if uri_scheme != 'dbfs':
+        raise Exception("DBFS URI must be of the form "
+                        "dbfs:/<path>, but received {uri}".format(uri=artifact_uri))
     if is_databricks_acled_artifacts_uri(artifact_uri):
         return DatabricksArtifactRepository(artifact_uri)
     elif mlflow.utils.databricks_utils.is_dbfs_fuse_available() \

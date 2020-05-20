@@ -29,6 +29,7 @@ setup(
     package_data={"mlflow": js_files + models_container_server_files + alembic_files},
     install_requires=[
         'alembic',
+        'azure-storage-blob>=12.0',
         'click>=7.0',
         'cloudpickle',
         'databricks-cli>=0.8.7',
@@ -59,7 +60,6 @@ setup(
             "scikit-learn==0.20; python_version < '3.5'",
             'boto3>=1.7.12',
             'mleap>=0.8.1',
-            'azure-storage-blob>=12.0',
             'google-cloud-storage',
             'azureml-core>=1.2.0'
         ],
