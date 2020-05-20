@@ -10,8 +10,6 @@ import './ShowArtifactPdfView.css';
 class ShowArtifactPdfView extends Component {
   constructor(props) {
     super(props);
-    this.onPageChange = this.onPageChange.bind(this);
-    this.onDocumentLoadSuccess = this.onDocumentLoadSuccess.bind(this);
   }
 
   state = {
