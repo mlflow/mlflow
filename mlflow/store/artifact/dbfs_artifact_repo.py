@@ -162,9 +162,10 @@ def dbfs_artifact_repo_factory(artifact_uri):
     This factory method is used with URIs of the form ``dbfs:/<path>``. DBFS-backed artifact
     storage can only be used together with the RestStore.
 
-    In the special case where the URI is of the form ``dbfs:/databricks/mlflow-tracking/<Exp-ID>/<Run-ID>/<path>,
-    a DatabricksArtifactRepository is returned. This is capable of storing access controlled artifacts.
-
+    In the special case where the URI is of the form
+    ``dbfs:/databricks/mlflow-tracking/<Exp-ID>/<Run-ID>/<path>,
+    a DatabricksArtifactRepository is returned. This is capable of storing access controlled
+    artifacts.
 
     :param artifact_uri: DBFS root artifact URI (string).
     :return: Subclass of ArtifactRepository capable of storing artifacts on DBFS.

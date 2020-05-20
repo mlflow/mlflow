@@ -30,9 +30,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
             service: extract_api_info_for_service(service, _PATH_PREFIX)
             for service in [MlflowService, DatabricksMlflowArtifactsService]
         }
-        self.credential_type_to_cloud_service = {
-
-        }
 
     def _extract_run_id(self, artifact_uri):
         artifact_path = extract_and_normalize_path(artifact_uri)
@@ -41,7 +38,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def _call_endpoint(self, service, api, json_body):
         endpoint, method = self._SERVICE_AND_METHOD_TO_INFO[service][api]
         response_proto = api.Response()
-        return call_endpoint(get_databricks_host_creds(), endpoint, method, json_body, response_proto)
+        return call_endpoint(get_databricks_host_creds(),
+                             endpoint, method, json_body, response_proto)
 
     def _create_json_body(self, run_id, path=None):
         path = path or ""
@@ -52,11 +50,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def _get_write_credentials(self, run_id, path=None):
         json_body = message_to_json(GetCredentialsForWrite(run_id=run_id, path=path))
-        return self._call_endpoint(DatabricksMlflowArtifactsService, GetCredentialsForWrite, json_body)
+        return self._call_endpoint(DatabricksMlflowArtifactsService,
+                                   GetCredentialsForWrite, json_body)
 
     def _get_read_credentials(self, run_id, path=None):
         json_body = message_to_json(GetCredentialsForRead(run_id=run_id, path=path))
-        return self._call_endpoint(DatabricksMlflowArtifactsService, GetCredentialsForRead, json_body)
+        return self._call_endpoint(DatabricksMlflowArtifactsService,
+                                   GetCredentialsForRead, json_body)
 
     def _azure_upload_file(self, credentials, local_file):
         signed_write_uri = credentials.signed_uri
@@ -83,16 +83,25 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def _aws_download_file(self, credentials, local_path):
         pass
 
+    def _upload_to_cloud(self, cloud_credentials, local_file):
+        if cloud_credentials.credentials.type == 1:
+            self._azure_upload_file(cloud_credentials.credentials, local_file)
+        else:
+            raise MlflowException('Not implemented yet')
+
+    def _download_from_cloud(self, cloud_credentials, local_path):
+        if cloud_credentials.credentials.type == 1:
+            self._azure_download_file(cloud_credentials.credentials, local_path)
+        else:
+            raise MlflowException('Not implemented yet')
+
     def log_artifact(self, local_file, artifact_path=None):
         basename = os.path.basename(local_file)
         artifact_path = artifact_path or ""
         artifact_path = os.path.join(artifact_path, basename)
         run_id = self._extract_run_id(self.artifact_uri)
         write_credentials = self._get_write_credentials(run_id, artifact_path)
-        if write_credentials.credentials.type == 1:
-            self._azure_upload_file(write_credentials.credentials, local_file)
-        else:
-            raise MlflowException('Not implemented yet')
+        self._upload_to_cloud(write_credentials, local_file)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         artifact_path = artifact_path or ''
@@ -116,10 +125,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         run_id = self._extract_run_id(self.artifact_uri)
         read_credentials = self._get_read_credentials(run_id, remote_file_path)
-        if read_credentials.credentials.type == 1:
-            self._azure_download_file(read_credentials.credentials, local_path)
-        else:
-            raise MlflowException('Not implemented yet')
+        self._download_from_cloud(read_credentials, local_path)
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException('Not implemented yet')
