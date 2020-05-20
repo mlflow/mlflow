@@ -100,6 +100,7 @@ class ShowArtifactPdfView extends Component {
       return (
         <div className='artifact-pdf-view-error'>
           Oops we couldn't load your file because of an error.
+          Please reload the page to try again.
         </div>
       );
     } else {
