@@ -8,10 +8,6 @@ import { getArtifactBytesContent } from './ShowArtifactUtils';
 import './ShowArtifactPdfView.css';
 
 class ShowArtifactPdfView extends Component {
-  constructor(props) {
-    super(props);
-  }
-
   state = {
     loading: true,
     error: undefined,
@@ -97,8 +93,7 @@ class ShowArtifactPdfView extends Component {
     if (this.state.error) {
       return (
         <div className='artifact-pdf-view-error'>
-          Oops we couldn't load your file because of an error.
-          Please reload the page to try again.
+          Oops we couldn't load your file because of an error. Please reload the page to try again.
         </div>
       );
     } else {
