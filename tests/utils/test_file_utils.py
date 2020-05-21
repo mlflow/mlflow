@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 import codecs
 import filecmp
-import hashlib
 import os
-import shutil
 import pytest
 import six
-import tarfile
+# TODO: reinclude these imports when reenabling the failing test_make_tarfile test
+# import hashlib
+# import shutil
+# import tarfile
 
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import get_parent_dir, _copy_file_or_tree, TempDir
