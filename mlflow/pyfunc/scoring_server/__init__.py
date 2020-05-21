@@ -136,6 +136,12 @@ def _handle_serving_error(error_message, error_code):
     """
     traceback_buf = StringIO()
     traceback.print_exc(file=traceback_buf)
+
+    # return bad request to console.
+    _logger.error(error_code)
+    _logger.error(error_message)
+    _logger.error(traceback_buf.getvalue())
+
     reraise(MlflowException,
             MlflowException(
                 message=error_message,
@@ -198,8 +204,11 @@ def init(model):
         try:
             from dependency.feature_engineering import FeatureEngineering
             need_feature = True
-        except ImportError:
-            print("There is no need to do feature engineering! ")
+        except ImportError as ie:
+            if ie.__str__() == "No module named 'dependency'":
+                _logger.warning("There is no need to do feature engineering! ")
+            else:
+                _logger.error(ie)
             pass
         if need_feature:
             if FeatureEngineering.UDF_output:  # user define out put or not.
