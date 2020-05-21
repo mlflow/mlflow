@@ -9,6 +9,7 @@
 .pdf-viewer {
     display: flex;
     flex-direction: column;
+    overflow-y: scroll;
     height: 100%;
 }
 
@@ -16,6 +17,10 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    position: sticky;
+    z-index: 1001;
+    top: 0px;
+    background: #fafafa;
 }
 
 .document {

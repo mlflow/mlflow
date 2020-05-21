@@ -45,11 +45,11 @@ class ShowArtifactPdfView extends Component {
       });
   }
 
-  componentDidMount = () => {
+  componentDidMount() {
     // eslint-disable-next-line max-len
     pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
     this.fetchPdf();
-  };
+  }
 
   componentDidUpdate(prevProps) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
