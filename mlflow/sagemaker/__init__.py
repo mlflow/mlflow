@@ -842,7 +842,6 @@ def _create_sagemaker_model(model_name, model_s3_path, model_uri, flavor, vpc_co
     create_model_args = {
         "ModelName": model_name,
         "PrimaryContainer": {
-            'ContainerHostname': 'mfs-%s' % model_name,
             'Image': image_url,
             'ModelDataUrl': model_s3_path,
             'Environment': _get_deployment_config(flavor_name=flavor),
