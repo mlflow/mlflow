@@ -7,7 +7,7 @@ MLflow Model Registry
 The MLflow Model Registry component is a centralized model store, set of APIs, and UI, to
 collaboratively manage the full lifecycle of an MLflow Model. It provides model lineage (which
 MLflow experiment and run produced the model), model versioning, stage transitions (for example from
-staging to productƒion), and annotations.
+staging to production), and annotations.
 
 .. contents:: Table of Contents
   :local:
@@ -35,6 +35,9 @@ Annotations and Descriptions
 
 Model Registry Workflows
 ========================
+In order to use model registry functionality via the UI or API, ensure you're running
+an MLflow server using a database-backed backend store. `See here <../tracking.html#backend-stores>`_
+for more information.
 
 Before you can add a model to the Model Registry, you must log it using the ``log_model`` methods
 of the corresponding model flavors. Once a model has been logged, you can add, modify, update, transition,
