@@ -78,10 +78,15 @@ def test_make_tarfile(tmpdir):
         output_filename=tarfile1, source_dir=dst_dir, archive_name="some-archive")
     # Compare the archives & explicitly verify their SHA256 hashes match (i.e. that
     # changes in file modification timestamps don't affect the archive contents)
-    assert filecmp.cmp(tarfile0, tarfile1, shallow=False)
     with open(tarfile0, 'rb') as first_tar, open(tarfile1, 'rb') as second_tar:
-        assert hashlib.sha256(first_tar.read()).hexdigest()\
-               == hashlib.sha256(second_tar.read()).hexdigest()
+        first_tar_contents = first_tar.read()
+        second_tar_contents = second_tar.read()
+        if first_tar_contents != second_tar_contents:
+            import difflib
+            print("Tar contents differed:\n%s" % "\n".join(difflib.unified_diff(first_tar_contents, second_tar_contents)))
+        assert hashlib.sha256(first_tar_contents).hexdigest()\
+               == hashlib.sha256(second_tar_contents).hexdigest()
+    assert filecmp.cmp(tarfile0, tarfile1)
     # Extract the TAR and check that its contents match the original directory
     extract_dir = str(tmpdir.join("extracted-tar"))
     os.makedirs(extract_dir)
