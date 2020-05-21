@@ -9,7 +9,7 @@ describe('IconButton', () => {
   let minimalProps;
 
   beforeEach(() => {
-    minimalProps = { children: <Icon type='edit' /> };
+    minimalProps = { icon: <Icon type='edit' /> };
   });
 
   test('should render with minimal props without exploding', () => {
@@ -22,8 +22,13 @@ describe('IconButton', () => {
     expect(wrapper.find(Button).get(0).props.style).toHaveProperty('padding', 0);
   });
 
-  test('should pass style to Button', () => {
-    wrapper = shallow(<IconButton {...minimalProps} style={{ margin: 5 }} />);
+  test('should propagate props to Button', () => {
+    const props = {
+      className: 'class',
+      style: { margin: 5 },
+    };
+    wrapper = shallow(<IconButton {...{ ...minimalProps, ...props }} />);
+    expect(wrapper.find(Button).get(0).props).toHaveProperty('className', 'class');
     expect(wrapper.find(Button).get(0).props.style).toHaveProperty('margin', 5);
   });
 
