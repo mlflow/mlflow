@@ -151,11 +151,7 @@ export class ModelView extends React.Component {
   }
 
   renderDescriptionEditIcon() {
-    return (
-      <IconButton onClick={this.startEditingDescription}>
-        <Icon type='form' />
-      </IconButton>
-    );
+    return <IconButton icon={<Icon type='form' />} onClick={this.startEditingDescription} />;
   }
 
   renderDetails = () => {

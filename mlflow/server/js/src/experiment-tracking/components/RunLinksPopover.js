@@ -51,9 +51,11 @@ export class RunLinksPopover extends React.Component {
     return (
       <div>
         <span>Jump to individual runs</span>
-        <IconButton onClick={handleClose} style={{ float: 'right', marginLeft: '7px' }}>
-          <i className='fas fa-times' />
-        </IconButton>
+        <IconButton
+          icon={<i className='fas fa-times' />}
+          onClick={handleClose}
+          style={{ float: 'right', marginLeft: '7px' }}
+        />
       </div>
     );
   };

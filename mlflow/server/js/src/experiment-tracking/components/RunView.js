@@ -122,9 +122,10 @@ export class RunViewImpl extends Component {
     };
     const runCommand = this.getRunCommand();
     const editIcon = (
-      <IconButton onClick={this.startEditingDescription}>
-        <Icon className='edit-icon' type='form' />
-      </IconButton>
+      <IconButton
+        icon={<Icon className='edit-icon' type='form' />}
+        onClick={this.startEditingDescription}
+      />
     );
     return (
       <div className='RunView'>

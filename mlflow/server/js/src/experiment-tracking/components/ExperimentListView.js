@@ -180,22 +180,19 @@ export class ExperimentListView extends Component {
                     </Link>
                     {/* Edit/Rename Experiment Option */}
                     <IconButton
+                      icon={<Icon type='edit' />}
                       onClick={this.handleRenameExperiment}
                       data-experimentid={experiment_id}
                       data-experimentname={name}
                       style={{ marginRight: 10 }}
-                    >
-                      <Icon type='edit' />
-                    </IconButton>
+                    />
                     {/* Delete Experiment option */}
                     <IconButton
-                      type='link'
+                      icon={<i className='far fa-trash-alt' />}
                       onClick={this.handleDeleteExperiment}
                       data-experimentid={experiment_id}
                       data-experimentname={name}
-                    >
-                      <i className='far fa-trash-alt' />
-                    </IconButton>
+                    />
                   </div>
                 );
               })}
