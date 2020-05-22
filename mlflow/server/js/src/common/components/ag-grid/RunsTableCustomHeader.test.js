@@ -36,6 +36,6 @@ describe('RunsTableCustomHeader', () => {
 
   test('should contain child accessibility role since ag-grid has aria parent', () => {
     wrapper = shallow(<RunsTableCustomHeader {...minimalProps} />);
-    expect(wrapper.find("[role='columnheader']")).toBe(1);
+    expect(wrapper.find("[role='columnheader']").length).toBe(1);
   });
 });
