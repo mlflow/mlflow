@@ -75,14 +75,14 @@ class PyFuncBackend(FlavorBackend):
         if os.name != "nt":
             command = ("gunicorn --timeout=60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
                        " -- "
-                       "mlflow.pyfunc.scoring_server.wsgi:build_app({schema_enforcement})").format(
+                       "mlflow.pyfunc.scoring_server.wsgi:app").format(
                          host=host,
                          port=port,
                          nworkers=self._nworkers
             )
         else:
             command = ("waitress-serve --host={host} --port={port} "
-                       "mlflow.pyfunc.scoring_server.wsgi:build_app({schema_enforcement})").format(
+                       "mlflow.pyfunc.scoring_server.wsgi:app)").format(
                          host=host,
                          port=port
             )

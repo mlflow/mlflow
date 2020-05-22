@@ -469,7 +469,6 @@ def spark_udf(spark, model_uri, result_type="double"):
     matching type is returned.
 
     .. code-block:: python
-        :param schema_enforcement:
         :caption: Example
 
         predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")

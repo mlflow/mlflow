@@ -133,8 +133,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(spark, "runs:/{}/model".format(run.info.run_id),
-                                      result_type=ArrayType(StringType()),
-                                      schema_enforcement='STRICT')
+                                      result_type=ArrayType(StringType()))
         data = spark.createDataFrame(pd.DataFrame(
             columns=["a", "b", "c", "d"],
             data={
