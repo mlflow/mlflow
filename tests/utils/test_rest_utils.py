@@ -115,6 +115,15 @@ def test_http_request_with_insecure(request):
     )
 
 
+def test_ignore_tls_verification_not_server_cert_path():
+    with pytest.raises(MlflowException):
+        MlflowHostCreds(
+            "http://my-host",
+            ignore_tls_verification=True,
+            server_cert_path='/some/path',
+        )
+
+
 @mock.patch('requests.request')
 def test_429_retries(request):
     host_only = MlflowHostCreds("http://my-host", ignore_tls_verification=True)
