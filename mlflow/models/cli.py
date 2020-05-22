@@ -3,7 +3,6 @@ import click
 import os
 
 from mlflow.models import Model
-from mlflow.models.flavor_backend import SchemaEnforcement
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -55,9 +54,7 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
                                no_conda=no_conda,
                                workers=workers,
                                install_mlflow=install_mlflow).serve(model_uri=model_uri, port=port,
-                                                                    host=host,
-                                                                    schema_enforcement=
-                                                                    schema_enforcement)
+                                                                    host=host)
 
 
 @commands.command("predict")

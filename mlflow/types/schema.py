@@ -15,7 +15,6 @@ except AttributeError:
     pandas_str = None
 
 
-
 class DataType(Enum):
     """
     MLflow data types.
@@ -121,7 +120,7 @@ class Schema(object):
                 or all(map(lambda x: x.name is not None, cols))):
             raise MlflowException("Creating Schema with a combination of named and unnamed columns "
                                   "is not allowed. Got column names {}".format(
-                                    [x.name for x in cols]))
+                [x.name for x in cols]))
         self._cols = cols
 
     @property

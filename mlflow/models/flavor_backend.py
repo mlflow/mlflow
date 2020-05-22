@@ -1,8 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
 
-
-
 class FlavorBackend(object):
     """
         Abstract class for Flavor Backend.

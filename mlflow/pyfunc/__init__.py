@@ -284,7 +284,7 @@ class PyFuncModel(object):
     ``model_impl`` can be any Python object that implements the `Pyfunc interface
     <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#pyfunc-inference-api>`_, and is
     by invoking the model's ``loader_module``.
-    
+
     ``model_meta`` is loaded by `:py:func:load_model` from the model metadata (MLmodel) file
     The metadata is loaded from the model metadata (MLmodel) file .
     """
@@ -301,14 +301,10 @@ class PyFuncModel(object):
         :param data: Model input as pandas.DataFrame.
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
-        print("data", data)
         input_schema = self._model_meta.get_input_schema()
 
         if input_schema is not None:
             def convert_type(name, values: pandas.Series, t: DataType):
-                print()
-                print(name, values.dtype, t)
-                print(values)
                 if values.dtype == np.object:
                     if t in (DataType.string, DataType.binary):
                         try:
@@ -321,14 +317,11 @@ class PyFuncModel(object):
                     else:
                         values = values.infer_objects()
                 if t.to_pandas() == values.dtype:
-                    print("no need to convert")
                     return values
                 numpy_type = t.to_numpy()
-                print("converting ", values.dtype, "to", numpy_type)
                 if values.dtype.kind == numpy_type.kind \
                         or values.dtype.kind == "i" and numpy_type.kind == "f":
                     # conversions between compatible types and ints -> floats are allowed.
-                    print("converting ")
                     res = values.astype(numpy_type, errors="raise")
                     if values.dtype.kind == "i" and numpy_type.kind == "i" and any(res != values):
                         raise MlflowException("Incompatible input types. "
@@ -342,7 +335,7 @@ class PyFuncModel(object):
                 # conversions alter the values significantly.
                 raise MlflowException("Incompatible input types. "
                                       "Can not safely convert {0} to {1}.".format(values.dtype,
-                                                                                  numpy_type,))
+                                                                                  numpy_type))
 
             col_names = input_schema.column_names()
             col_types = input_schema.column_types()
@@ -356,9 +349,7 @@ class PyFuncModel(object):
             if extra_columns:
                 _logger.warning("Ignoring unexpected columns {}".format(extra_columns))
             new_data = {x: convert_type(x, data[x], col_types[i]) for i, x in enumerate(col_names)}
-            print("new_data", new_data)
             data = pandas.DataFrame(data=new_data, columns=col_names)
-        print("data", data)
         return self._model_impl.predict(data)
 
     @property

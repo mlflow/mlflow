@@ -123,6 +123,7 @@ def test_schema_enforcement():
         @staticmethod
         def predict(pdf):
             return pdf
+
     m = Model()
     input_schema = Schema([
         ColSpec("integer", "a"),
@@ -154,7 +155,6 @@ def test_schema_enforcement():
     # Test conversions
     # 1. integer <-> long
 
-
     #
     # with pytest.raises(MlflowException) as ex:
     #     pyfunc_model.predict(pdf[["d", "a", "c"]], 'STRICT')  # missing column
@@ -180,12 +180,6 @@ def test_schema_enforcement():
     #     "b": DataType.double.to_pandas(),
     #     "c": DataType.string.to_pandas()
     # }
-
-
-
-
-
-
 
 
 @pytest.mark.large
