@@ -119,11 +119,8 @@ def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: s
     :param mlflow_model: Model metadata that will get updated with the example metadata.
     :param path: Where to store the example file. Should be model the model directory.
     """
-    print("saving example")
     example = _Example(input_example)
-    print("example size is ", len(example.data))
     example.save(path)
-    print("example saved.")
     mlflow_model.saved_input_example_info = example.info
 
 

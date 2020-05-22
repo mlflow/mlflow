@@ -35,8 +35,15 @@ class Model(object):
 
     def __eq__(self, other):
         if not isinstance(other, Model):
+            print("not a model: " + type(other))
             return False
+        print()
+        print(self.__dict__)
+        print("=====")
+        print(other.__dict__)
+        print()
         return self.__dict__ == other.__dict__
+
 
     @property
     def run_id(self):
@@ -61,15 +68,6 @@ class Model(object):
     def get_output_schema(self):
         return self.signature.outputs if self.signature is not None else None
 
-    @property
-    def input_example(self):
-        return self._input_example
-
-    @input_example.setter
-    def input_example(self, value):
-        # pylint: disable=attribute-defined-outside-init
-        self._input_example = value
-
     def add_flavor(self, name, **params):
         """Add an entry for how to serve the model in a given format."""
         self.flavors[name] = params
@@ -86,12 +84,12 @@ class Model(object):
 
     @property
     def saved_input_example_info(self) -> Optional[Dict[str, Any]]:
-        return self._input_example
+        return self._saved_input_example_info
 
     @saved_input_example_info.setter
     def saved_input_example_info(self, value: Dict[str, Any]):
         # pylint: disable=attribute-defined-outside-init
-        self._input_example = value
+        self._saved_input_example_info = value
 
     def to_dict(self):
         """Serialize the model to a dictionary."""
@@ -101,8 +99,8 @@ class Model(object):
             res["artifact_path"] = self.artifact_path
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
-        if self.input_example is not None:
-            res["input_example"] = self.input_example
+        if self.saved_input_example_info is not None:
+            res["saved_input_example_info"] = self.saved_input_example_info
         return res
 
     def to_yaml(self, stream=None):

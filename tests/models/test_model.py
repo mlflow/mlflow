@@ -21,7 +21,7 @@ def test_model_save_load():
               signature=ModelSignature(
                   inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
                   outputs=Schema([ColSpec(name=None, type="double")])),
-              input_example={"x": 1, "y": 2})
+              saved_input_example_info={"x": 1, "y": 2})
     assert m.get_input_schema() == m.signature.inputs
     assert m.get_output_schema() == m.signature.outputs
     x = Model(artifact_path="some/other/path", run_id="1234")
@@ -39,6 +39,11 @@ def test_model_save_load():
                   outputs=Schema([ColSpec(name=None, type="double")])),
               saved_input_example_info={"x": 1, "y": 2})
     n.utc_time_created = m.utc_time_created
+    print()
+    print(m)
+    print("=========")
+    print(n)
+    print()
     assert m == n
     n.signature = None
     assert m != n
@@ -84,6 +89,7 @@ def test_model_log():
             "flavor2": {"x": 1, "y": 2},
         }
         assert loaded_model.signature == sig
+        print(loaded_model)
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
         x = _dataframe_from_json(path)
         assert x.to_dict(orient="records")[0] == input_example
