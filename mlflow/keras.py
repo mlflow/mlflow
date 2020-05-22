@@ -500,7 +500,7 @@ def autolog():
         # autolog your metrics, parameters, and model
         mlflow.keras.autolog()
         results = keras_model.fit(
-            x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
+            x_train, y_train, epochs=20, batch_size=128, validation_data=(x_val, y_val))
     """
     import keras
 
