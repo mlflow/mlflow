@@ -454,12 +454,22 @@ def load_model(model_uri, **kwargs):
 @experimental
 def autolog():
     """
-    Enable automatic logging from Keras to MLflow.
-    Logs loss and any other metrics specified in the fit
+    Enables automatic logging from Keras to MLflow. This method logs loss and any other metrics specified in the fit
     function, and optimizer data as parameters. Model checkpoints
-    are logged as artifacts to a 'models' directory.
+    are logged as artifacts to a 'models' directory. In short, autologging captures the following
+    information:
 
-    EarlyStopping Integration with Keras Automatic Logging
+    +-------------------------------------------------------------------------+----------------------------------------------------------------------------------+-------+----------------------------------------------------------------------------------------------------------------------------+
+    | Metrics                                                                 | Parameters                                                                       | Tags  | Artifacts                                                                                                                  |
+    +-------------------------------------------------------------------------+----------------------------------------------------------------------------------+-------+----------------------------------------------------------------------------------------------------------------------------+
+    | Training loss; validation loss; user-specified metrics                  | ``fit() or fit_generator()`` parameters; optimizer name; learning rate; epsilon  | --    | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end|
+    +-------------------------------------------------------------------------+----------------------------------------------------------------------------------+-------+----------------------------------------------------------------------------------------------------------------------------+
+    | Metrics associated with the ``EarlyStopping`` callbacks.                | ``fit() or fit_generator()`` parameters associated with ``EarlyStopping``.       | --    | --                                                                                                                         |
+    | For example, stopped_epoch, restored_epoch, restore_best_weight, an     | For example, min_delta, patience, baseline, restore_best_weights, etc            |       |                                                                                                                            |
+    | last_epoch, etc.                                                        |                                                                                  |       |                                                                                                                            |
+    +-------------------------------------------------------------------------+----------------------------------------------------------------------------------+-------+----------------------------------------------------------------------------------------------------------------------------+
+
+    ``EarlyStopping Integration with Keras AutoLogging``
 
     MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()``/``fit_generator()``
     call, and if the ``restore_best_weights`` parameter is set to be ``True``, then MLflow will
@@ -476,8 +486,21 @@ def autolog():
 
     If training does not end due to early stopping, then ``stopped_epoch`` will be logged as ``0``.
 
-    MLflow will also log the parameters of the EarlyStopping callback,
+    MLflow will also log the parameters of the ``EarlyStopping`` callback,
     excluding ``mode`` and ``verbose``.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        import mlflow.keras
+        # Build, compile, enable autologging, and train your model
+        keras_model = ...
+        keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
+        # autolog your metrics, parameters, and model
+        mlflow.keras.autolog()
+        results = keras_model.fit(
+            x_train, y_train, epochs=20, batch_size = 128, validation_data=(x_val, y_val))
     """
     import keras
 
