@@ -5,7 +5,6 @@ import subprocess
 from six.moves import shlex_quote
 
 from mlflow.models import FlavorBackend
-from mlflow.models.flavor_backend import SchemaEnforcement
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 
 _logger = logging.getLogger(__name__)
@@ -33,13 +32,10 @@ class RFuncBackend(FlavorBackend):
                                  _str_optional(json_format))
         _execute(command)
 
-    def serve(self, model_uri, port, host, schema_enforcement: SchemaEnforcement=None):
+    def serve(self, model_uri, port, host):
         """
         Generate R model locally.
         """
-        if schema_enforcement == SchemaEnforcement.STRICT:
-            raise NotImplemented("Schema enforcement for R models is not implemented. "
-                                 "Please set schema enforcement to 'NONE' or 'LOOSE'.")
         model_path = _download_artifact_from_uri(model_uri)
         command = "mlflow::mlflow_rfunc_serve('{0}', port = {1}, host = '{2}')".format(
             shlex_quote(model_path), port, host)
