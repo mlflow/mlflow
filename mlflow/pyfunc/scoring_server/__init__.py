@@ -153,6 +153,19 @@ def init(model):
     """
     Initialize the server. Loads pyfunc model from the path.
     """
+
+    # do feature engineering if need.
+    need_feature = False  # feature engineering flag: need or not
+    try:
+        from dependency.feature_engineering import FeatureEngineering
+        need_feature = True
+    except ImportError as ie:
+        if ie.__str__() == "No module named 'dependency'":
+            _logger.warning("There is no need to do feature engineering! ")
+        else:
+            _logger.error(ie)
+        pass
+
     app = flask.Flask(__name__)
 
     @app.route('/ping', methods=['GET'])
@@ -200,16 +213,6 @@ def init(model):
                 mimetype='text/plain')
 
         # do feature engineering if need.
-        need_feature = False  # feature engineering flag: need or not
-        try:
-            from dependency.feature_engineering import FeatureEngineering
-            need_feature = True
-        except ImportError as ie:
-            if ie.__str__() == "No module named 'dependency'":
-                _logger.warning("There is no need to do feature engineering! ")
-            else:
-                _logger.error(ie)
-            pass
         if need_feature:
             if FeatureEngineering.UDF_output:  # user define out put or not.
                 try:
