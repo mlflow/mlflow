@@ -159,6 +159,12 @@ class MlflowHostCreds(object):
     :param ignore_tls_verification: If true, we will not verify the server's hostname or TLS
         certificate. This is useful for certain testing situations, but should never be
         true in production.
+        If this is set to true ``server_cert_path`` must not be set.
+    :param client_cert_path: Sets the cert param of the ``requests.request``
+        function (see https://requests.readthedocs.io/en/master/api/).
+    :param server_cert_path: Sets the verify param of the ``requests.request``
+        function (see https://requests.readthedocs.io/en/master/api/).
+        If this is set ``ignore_tls_verification`` must be false.
     """
     def __init__(self, host, username=None, password=None, token=None,
                  ignore_tls_verification=False, client_cert_path=None, server_cert_path=None):
