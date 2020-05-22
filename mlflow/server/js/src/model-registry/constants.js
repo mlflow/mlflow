@@ -22,7 +22,7 @@ export const StageLabels = {
 export const StageTagComponents = {
   [Stages.NONE]: <Tag key='none'>{StageLabels[Stages.NONE]}</Tag>,
   [Stages.STAGING]: (
-    <Tag key='staging' color='orange'>
+    <Tag key='staging' className='staging-tag'>
       {StageLabels[Stages.STAGING]}
     </Tag>
   ),
@@ -32,7 +32,7 @@ export const StageTagComponents = {
     </Tag>
   ),
   [Stages.ARCHIVED]: (
-    <Tag key='archived' color='#eee' style={{ color: '#333' }}>
+    <Tag key='archived' className='production-tag'>
       {StageLabels[Stages.ARCHIVED]}
     </Tag>
   ),
