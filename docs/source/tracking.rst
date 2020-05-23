@@ -711,9 +711,14 @@ allow passing HTTP authentication to the tracking server:
 - ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD`` - username and password to use with HTTP
   Basic authentication. To use Basic authentication, you must set `both` environment variables .
 - ``MLFLOW_TRACKING_TOKEN`` - token to use with HTTP Bearer authentication. Basic authentication takes precedence if set.
-- ``MLFLOW_TRACKING_INSECURE_TLS`` - if set to the literal ``true``, MLflow does not verify the TLS connection,
+- ``MLFLOW_TRACKING_INSECURE_TLS`` - If set to the literal ``true``, MLflow does not verify the TLS connection,
   meaning it does not validate certificates or hostnames for ``https://`` tracking URIs. This flag is not recommended for
-  production environments.
+  production environments. If this is set to ``true`` then ``MLFLOW_TRACKING_SERVER_CERT_PATH`` must not be set.
+- ``MLFLOW_TRACKING_SERVER_CERT_PATH`` - Sets the ``verify`` param of the ``requests.request`` function
+  (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_). If this is set
+  ``MLFLOW_TRACKING_INSECURE_TLS`` must not be set (false).
+- ``MLFLOW_TRACKING_CLIENT_CERT_PATH`` - Sets the ``cert`` param of the ``requests.request`` function
+  (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
 
 .. _system_tags:
 
