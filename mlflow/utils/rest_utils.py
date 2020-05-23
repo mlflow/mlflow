@@ -160,9 +160,11 @@ class MlflowHostCreds(object):
         certificate. This is useful for certain testing situations, but should never be
         true in production.
         If this is set to true ``server_cert_path`` must not be set.
-    :param client_cert_path: Sets the cert param of the ``requests.request``
+    :param client_cert_path: Path to ssl client cert file (.pem).
+        Sets the cert param of the ``requests.request``
         function (see https://requests.readthedocs.io/en/master/api/).
-    :param server_cert_path: Sets the verify param of the ``requests.request``
+    :param server_cert_path: Path to a CA bundle to use.
+        Sets the verify param of the ``requests.request``
         function (see https://requests.readthedocs.io/en/master/api/).
         If this is set ``ignore_tls_verification`` must be false.
     """
