@@ -714,10 +714,12 @@ allow passing HTTP authentication to the tracking server:
 - ``MLFLOW_TRACKING_INSECURE_TLS`` - If set to the literal ``true``, MLflow does not verify the TLS connection,
   meaning it does not validate certificates or hostnames for ``https://`` tracking URIs. This flag is not recommended for
   production environments. If this is set to ``true`` then ``MLFLOW_TRACKING_SERVER_CERT_PATH`` must not be set.
-- ``MLFLOW_TRACKING_SERVER_CERT_PATH`` - Sets the ``verify`` param of the ``requests.request`` function
-  (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_). If this is set
-  ``MLFLOW_TRACKING_INSECURE_TLS`` must not be set (false).
-- ``MLFLOW_TRACKING_CLIENT_CERT_PATH`` - Sets the ``cert`` param of the ``requests.request`` function
+- ``MLFLOW_TRACKING_SERVER_CERT_PATH`` - Path to a CA bundle to use. Sets the ``verify`` param of the
+  ``requests.request`` function
+  (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
+  If this is set ``MLFLOW_TRACKING_INSECURE_TLS`` must not be set (false).
+- ``MLFLOW_TRACKING_CLIENT_CERT_PATH`` - Path to ssl client cert file (.pem). Sets the ``cert`` param
+  of the ``requests.request`` function
   (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
 
 .. _system_tags:
