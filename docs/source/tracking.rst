@@ -717,10 +717,12 @@ allow passing HTTP authentication to the tracking server:
 - ``MLFLOW_TRACKING_SERVER_CERT_PATH`` - Path to a CA bundle to use. Sets the ``verify`` param of the
   ``requests.request`` function
   (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
+  When you use a self-signed server certificate you can use this to verify it on client side.
   If this is set ``MLFLOW_TRACKING_INSECURE_TLS`` must not be set (false).
 - ``MLFLOW_TRACKING_CLIENT_CERT_PATH`` - Path to ssl client cert file (.pem). Sets the ``cert`` param
   of the ``requests.request`` function
   (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
+  This can be used to use a (self-signed) client certificate.
 
 .. _system_tags:
 
