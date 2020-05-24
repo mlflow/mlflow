@@ -100,8 +100,7 @@ def save_model(gen_model, path, conda_env=None, mlflow_model=Model()):
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(gen_model, artifact_path, conda_env=None, registered_model_name=None,
-              input_example: ModelInputExample = None):
+def log_model(gen_model, artifact_path, conda_env=None, registered_model_name=None):
     """
     Log an Gensim model as an MLflow artifact for the current run.
 
@@ -135,19 +134,13 @@ def log_model(gen_model, artifact_path, conda_env=None, registered_model_name=No
                         from mlflow.models.signature import infer_signature
                         train = df.drop_column("target_label")
                         signature = infer_signature(train, model.predict(train))
-    :param input_example: (Experimental) Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
 
     """
     Model.log(artifact_path=artifact_path,
               flavor=mlflow.gensim,
               registered_model_name=registered_model_name,
               gen_model=gen_model,
-              conda_env=conda_env,
-              input_example=input_example)
+              conda_env=conda_env)
 
 
 def _load_model_from_local_file(path):
