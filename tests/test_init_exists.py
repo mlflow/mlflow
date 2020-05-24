@@ -7,6 +7,7 @@ import pytest
 def test_init_exists(top_dir):
     dirs = []
     ignores = ["mlflow/server/js"]
+
     for root, _, files in os.walk(top_dir):
         if any(root.startswith(d) for d in ignores):
             continue
