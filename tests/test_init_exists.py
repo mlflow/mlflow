@@ -12,8 +12,7 @@ def test_init_exists(top_dir):
         if any(root.startswith(d) for d in ignores):
             continue
 
-        if any(f.endswith(".py") for f in files):
-            if "__init__.py" not in files:
-                dirs.append(root)
+        if any(f.endswith(".py") for f in files) and ("__init__.py" not in files):
+            dirs.append(root)
 
     assert len(dirs) == 0, "`__init__.py` does not exist in `{}`".format(dirs)
