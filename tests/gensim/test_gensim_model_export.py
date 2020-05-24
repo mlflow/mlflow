@@ -97,8 +97,10 @@ def test_model_log(gensim_word2vec_model):
                     artifact_path=artifact_path)
 
                 reloaded_word2vec_model = mlflow.gensim.load_model(model_uri=model_uri)
-                assert all([a == b for a, b in zip(gensim_word2vec_model.model.wv.most_similar('tree'),
-                                                   reloaded_word2vec_model.wv.most_similar('tree'))])
+                assert all(
+                    [a == b for a, b in zip(gensim_word2vec_model.model.wv.most_similar('tree'),
+                                            reloaded_word2vec_model.wv.most_similar('tree'))]
+                )
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
                 model_config = Model.load(os.path.join(model_path, "MLmodel"))
@@ -217,7 +219,10 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     artifact_path = "model"
     word2vec_model = gensim_word2vec_model.model
     with mlflow.start_run():
-        mlflow.gensim.log_model(gen_model=word2vec_model, artifact_path=artifact_path, conda_env=None)
+        mlflow.gensim.log_model(gen_model=word2vec_model,
+                                artifact_path=artifact_path,
+                                conda_env=None)
+
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id,
             artifact_path=artifact_path)
@@ -229,4 +234,3 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.gensim.get_default_conda_env()
-
