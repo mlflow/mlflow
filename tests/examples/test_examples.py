@@ -26,7 +26,7 @@ EXAMPLES_DIR = 'examples'
     (os.path.join('sklearn_elasticnet_diabetes', 'linux'), []),
     ('spacy', []),
     (os.path.join('tensorflow', 'tf1'), ['-P', 'steps=10']),
-    ('xgboost', ['-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9'])
+    ('xgboost', ['-P', 'learning-rate=0.3', '-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9'])
 ])
 def test_mlflow_run_example(directory, params):
     cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params
@@ -41,7 +41,8 @@ def test_mlflow_run_example(directory, params):
     ('lightgbm', ['python', 'train.py', '--colsample-bytree', '0.8', '--subsample', '0.9']),
     ('quickstart', ['python', 'mlflow_tracking.py']),
     ('remote_store', ['python', 'remote_server.py']),
-    ('xgboost', ['python', 'train.py', '--colsample-bytree', '0.8', '--subsample', '0.9'])
+    ('xgboost', ['python', 'train.py', '--learning-rate', '0.2', '--colsample-bytree', '0.8',
+                 '--subsample', '0.9'])
 ])
 def test_command_example(directory, command):
     cwd_dir = os.path.join(EXAMPLES_DIR, directory)
