@@ -33,4 +33,9 @@ describe('RunsTableCustomHeader', () => {
     wrapper = mount(<RunsTableCustomHeader {...props} />);
     expect(wrapper.find(SortByIcon).length).toBe(0);
   });
+
+  test('should contain child accessibility role since ag-grid has aria parent', () => {
+    wrapper = shallow(<RunsTableCustomHeader {...minimalProps} />);
+    expect(wrapper.find("[role='columnheader']").length).toBe(1);
+  });
 });
