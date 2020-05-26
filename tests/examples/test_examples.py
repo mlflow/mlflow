@@ -38,10 +38,10 @@ def test_mlflow_run_example(directory, params):
     ('docker', ['docker', 'build', '-t', 'mlflow-docker-example', '-f', 'Dockerfile', '.']),
     ('gluon', ['python', 'train.py']),
     ('keras', ['python', 'train.py']),
-    ('lightgbm', ['python', 'train.py', '--colsample_bytree', '0.8', '--subsample', '0.9']),
+    ('lightgbm', ['python', 'train.py', '--colsample-bytree', '0.8', '--subsample', '0.9']),
     ('quickstart', ['python', 'mlflow_tracking.py']),
     ('remote_store', ['python', 'remote_server.py']),
-    ('xgboost', ['python', 'train.py', '--learning_rate', '0.2', '--colsample_bytree', '0.8',
+    ('xgboost', ['python', 'train.py', '--learning-rate', '0.2', '--colsample-bytree', '0.8',
                  '--subsample', '0.9'])
 ])
 def test_command_example(directory, command):
