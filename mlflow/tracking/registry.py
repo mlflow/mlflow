@@ -10,9 +10,11 @@ from mlflow.utils.uri import get_uri_scheme
 class UnsupportedModelRegistryStoreURIException(MlflowException):
     """Exception thrown when building a model registry store with an unsupported URI"""
     def __init__(self, unsupported_uri, supported_uri_schemes):
-        message = ("Unsupported URI '{}' for model registry store. Supported schemes are: {}."
-                   " See https://www.mlflow.org/docs/latest/tracking.html#storage for how to"
-                   " setup a compatible server.").format(
+        message = (" Model registry functionality is unavailable; got unsupported URI '{}' for"
+                   " model registry data storage. Supported URI schemes are: {}."
+                   " See https://www.mlflow.org/docs/latest/tracking.html#storage for"
+                   " how to run an MLflow server against one of the supported backend storage"
+                   " locations.").format(
             unsupported_uri, supported_uri_schemes)
         super(UnsupportedModelRegistryStoreURIException, self).__init__(
             message, error_code=INVALID_PARAMETER_VALUE)
