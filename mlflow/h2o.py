@@ -101,7 +101,7 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=None, settings=None
         _save_example(mlflow_model, input_example, path)
 
     # Save h2o-model
-    h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
+    h2o_save_location = h2o.download_model(model=h2o_model, path=model_data_path)
     model_file = os.path.basename(h2o_save_location)
 
     # Save h2o-settings
