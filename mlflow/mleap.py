@@ -8,6 +8,7 @@ NOTE:
     Java API method ``downloadArtifacts(String runId)`` and load the model
     using the method ``MLeapLoader.loadPipeline(String modelRootPath)``.
 """
+import logging
 import os
 import sys
 import traceback
@@ -21,6 +22,8 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.utils import keyword_only
 
 FLAVOR_NAME = "mleap"
+
+_logger = logging.getLogger(__name__)
 
 
 @keyword_only
@@ -223,8 +226,16 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                 "MLeap encountered an error while serializing the model. Ensure that the model is"
                 " compatible with MLeap (i.e does not contain any custom transformers).")
 
+    try:
+        mleap_version = mleap.version.__version__
+        _logger.warning(
+            "Detected old mleap version %s. Support for logging models in mleap format with "
+            "mleap versions 0.15.0 and below is deprecated and will be removed in a future "
+            "MLflow release. Please upgrade to a newer mleap version.", mleap_version)
+    except AttributeError:
+        mleap_version = mleap.version
     mlflow_model.add_flavor(FLAVOR_NAME,
-                            mleap_version=mleap.version.__version__,
+                            mleap_version=mleap_version,
                             model_data=mleap_datapath_sub)
 
 
