@@ -215,7 +215,6 @@ def test_schema_enforcement():
     assert res.dtypes.to_dict() == expected_types
 
 
-
 @pytest.mark.large
 def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
