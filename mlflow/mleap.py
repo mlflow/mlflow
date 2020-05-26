@@ -25,6 +25,7 @@ FLAVOR_NAME = "mleap"
 
 _logger = logging.getLogger(__name__)
 
+
 @keyword_only
 def log_model(spark_model, sample_input, artifact_path, registered_model_name=None,
               signature: ModelSignature=None, input_example: ModelInputExample=None):
