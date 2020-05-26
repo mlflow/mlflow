@@ -75,7 +75,6 @@ class TestDatabricksArtifactRepository(object):
             write_credentials_response_proto = GetCredentialsForWrite.Response(
                 credentials=mock_credentials)
             write_credentials_mock.return_value = write_credentials_response_proto
-            # get_run_id_mock.return_value = MOCK_RUN_ID
             azure_upload_mock.return_value = None
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
