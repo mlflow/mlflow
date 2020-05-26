@@ -231,7 +231,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
         _logger.warning(
             "Detected old mleap version %s. Support for logging models in mleap format with "
             "mleap versions 0.15.0 and below is deprecated and will be removed in a future "
-            "MLflow release. Please upgrade to a newer mleap version." % mleap_version)
+            "MLflow release. Please upgrade to a newer mleap version.", mleap_version)
     except AttributeError:
         mleap_version = mleap.version
     mlflow_model.add_flavor(FLAVOR_NAME,
