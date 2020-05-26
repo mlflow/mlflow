@@ -124,7 +124,6 @@ def _infer_numpy_array(col: np.ndarray) -> DataType:
             else:
                 return False
 
-    np.dtype
     if col.dtype.kind == "O":
         is_binary_test = IsInstanceOrNone(bytes, bytearray)
         if all(map(is_binary_test, col)) and is_binary_test.seen_instances > 0:

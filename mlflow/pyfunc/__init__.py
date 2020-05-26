@@ -319,23 +319,19 @@ class PyFuncModel(object):
                 if t.to_pandas() == values.dtype:
                     return values
                 numpy_type = t.to_numpy()
-                if values.dtype.kind == numpy_type.kind \
-                        or values.dtype.kind == "i" and numpy_type.kind == "f":
+                is_compatible_type = values.dtype.kind == numpy_type.kind
+                is_upcast = values.dtype.itemsize <= numpy_type.itemsize
+                if is_compatible_type and is_upcast:
                     # conversions between compatible types and ints -> floats are allowed.
-                    res = values.astype(numpy_type, errors="raise")
-                    if values.dtype.kind == "i" and numpy_type.kind == "i" and any(res != values):
-                        raise MlflowException("Incompatible input types. "
-                                              "Can not safely convert {0} to {1}. "
-                                              "Some of the values are out of bounds.".format(
-                                                numpy_type,
-                                                values.dtype))
-                    return res
-                # NB: conversion between incompatible types (e.g. floats -> ints or
-                # boolean -> numeric) are not allowed. While supported by pandas and numpy, these
-                # conversions alter the values significantly.
-                raise MlflowException("Incompatible input types. "
-                                      "Can not safely convert {0} to {1}.".format(values.dtype,
-                                                                                  numpy_type))
+                    return values.astype(numpy_type, errors="raise")
+
+                else:
+                    # NB: conversion between incompatible types (e.g. floats -> ints or
+                    # boolean -> numeric) are not allowed. While supported by pandas and numpy,
+                    # these conversions alter the values significantly.
+                    raise MlflowException("Incompatible input types. "
+                                          "Can not safely convert {0} to {1}.".format(values.dtype,
+                                                                                      numpy_type))
 
             col_names = input_schema.column_names()
             col_types = input_schema.column_types()

@@ -138,6 +138,11 @@ def test_schema_enforcement():
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
     pdf = pd.DataFrame(data=[[1, 2, 3, 4, True, "x", bytes([1])]],
                        columns=["b", "d", "a", "c", "e", "g", "f"])
+    pdf["a"] = pdf["a"].astype(np.int32)
+    pdf["b"] = pdf["b"].astype(np.int64)
+    pdf["c"] = pdf["c"].astype(np.float32)
+    pdf["d"] = pdf["d"].astype(np.float64)
+
     # test that columns are reordered, extra column is ignored
     res = pyfunc_model.predict(pdf)
     assert all((res == pdf[input_schema.column_names()]).all())
@@ -145,41 +150,70 @@ def test_schema_enforcement():
     expected_types = dict(zip(input_schema.column_names(),
                               input_schema.pandas_types()))
     expected_types["f"] = np.object
-
-    print()
-    print(res.dtypes.to_dict())
-    print()
-    print(expected_types)
-    print()
     assert res.dtypes.to_dict() == expected_types
     # Test conversions
-    # 1. integer <-> long
+    # 1. long -> integer raises
+    pdf["a"] = pdf["a"].astype(np.int64)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["a"] = pdf["a"].astype(np.int32)
+    # 2. integer -> long works
+    pdf["b"] = pdf["b"].astype(np.int32)
+    res = pyfunc_model.predict(pdf)
+    assert all((res == pdf[input_schema.column_names()]).all())
+    assert res.dtypes.to_dict() == expected_types
+    pdf["b"] = pdf["b"].astype(np.int64)
 
-    #
-    # with pytest.raises(MlflowException) as ex:
-    #     pyfunc_model.predict(pdf[["d", "a", "c"]], 'STRICT')  # missing column
-    # print(ex)
-    # assert "Model input is missing columns {}".format(set(['b'])) in ex.value.message
-    #
-    # with pytest.raises(MlflowException) as ex3:
-    #     # type mismatch
-    #     pyfunc_model.predict(pdf[["b", "d", "a", "c"]], 'STRICT')
-    # print(ex3)
-    # assert "Failed to convert column d" in ex3.value.message
-    # pyfunc_model._model_meta.signature = ModelSignature(
-    #     inputs=Schema([
-    #         ColSpec("integer", "a"),
-    #         ColSpec("double", "b"),
-    #         ColSpec("string", "c"),
-    #     ])
-    # )
-    # res2 = pyfunc_model.predict(pdf[["b", "a", "c"]], 'STRICT')
-    # assert all(res2.columns == ["a", "b", "c"])
-    # assert res2[["a", "b", "c"]].dtypes.to_dict() == {
-    #     "a": DataType.integer.to_pandas(),
-    #     "b": DataType.double.to_pandas(),
-    #     "c": DataType.string.to_pandas()
-    # }
+    # 3. double -> float raises
+    pdf["c"] = pdf["c"].astype(np.float64)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["c"] = pdf["c"].astype(np.float32)
+
+    # 4. float -> double works
+    pdf["d"] = pdf["d"].astype(np.float32)
+    res = pyfunc_model.predict(pdf)
+    assert res.dtypes.to_dict() == expected_types
+    assert "Incompatible input types" in str(ex)
+    pdf["d"] = pdf["d"].astype(np.int64)
+
+    # 5. floats -> ints raises
+    pdf["c"] = pdf["c"].astype(np.int32)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["c"] = pdf["c"].astype(np.float32)
+
+    pdf["d"] = pdf["d"].astype(np.int64)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["d"] = pdf["d"].astype(np.float64)
+
+    # 6. ints -> floats raises
+    pdf["a"] = pdf["a"].astype(np.float32)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["a"] = pdf["a"].astype(np.int32)
+
+    pdf["b"] = pdf["b"].astype(np.float64)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["d"] = pdf["d"].astype(np.int64)
+
+    # 7. objects work
+    pdf = pd.DataFrame(data=[[1, 2, 3, 4, True, "x", bytes([1])]],
+                       columns=["b", "d", "a", "c", "e", "g", "f"], dtype=np.object)
+    pdf["a"] = pdf["a"].astype(np.int32)
+    pdf["c"] = pdf["c"].astype(np.float32)
+    pdf["d"] = pdf["d"].astype(np.float64)
+    res = pyfunc_model.predict(pdf)
+    assert res.dtypes.to_dict() == expected_types
+
 
 
 @pytest.mark.large

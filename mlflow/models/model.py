@@ -44,7 +44,6 @@ class Model(object):
         print()
         return self.__dict__ == other.__dict__
 
-
     @property
     def run_id(self):
         return self._run_id
