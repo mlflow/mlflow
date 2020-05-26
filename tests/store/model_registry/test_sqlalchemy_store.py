@@ -103,7 +103,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_delete_registered_model(self):
         name = "model_for_delete_RM"
-        rm = self._rm_maker(name)
         rmd1 = self.store.get_registered_model(name=name)
         self.assertEqual(rmd1.name, name)
 

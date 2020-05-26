@@ -282,7 +282,7 @@ def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_
 @pytest.mark.parametrize('callback', ['not-early'])
 @pytest.mark.parametrize('patience', [5])
 def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_run_with_callback):
-    run, history, callback = keras_random_data_run_with_callback
+    run, history, _ = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
     assert 'patience' not in params

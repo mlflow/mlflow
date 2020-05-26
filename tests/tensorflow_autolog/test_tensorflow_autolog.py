@@ -270,7 +270,7 @@ def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_
 @pytest.mark.parametrize('callback', ['not-early'])
 @pytest.mark.parametrize('patience', [5])
 def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_run_with_callback):
-    run, history, callback = tf_keras_random_data_run_with_callback
+    run, history, _ = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
     assert 'patience' not in params
@@ -384,15 +384,11 @@ def test_tf_core_autolog_logs_scalars(tf_core_random_tensors):
 
 def create_tf_estimator_model(dir, export):
     CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
-    SPECIES = ['Setosa', 'Versicolor', 'Virginica']
 
     train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
                         names=CSV_COLUMN_NAMES, header=0)
-    test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
-                       names=CSV_COLUMN_NAMES, header=0)
 
     train_y = train.pop('Species')
-    test_y = test.pop('Species')
 
     def input_fn(features, labels, training=True, batch_size=256):
         """An input function for training or evaluating"""
@@ -476,7 +472,7 @@ def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_d
     artifacts = map(lambda x: x.path, artifacts)
     assert 'model' in artifacts
     session = tf.Session()
-    model = mlflow.tensorflow.load_model("runs:/" + tf_estimator_random_data_run.info.run_id +
+    mlflow.tensorflow.load_model("runs:/" + tf_estimator_random_data_run.info.run_id +
                                          "/model", session)
 
 

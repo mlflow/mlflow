@@ -6,8 +6,7 @@ from mock import ANY
 import pytest
 import mock
 
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel, \
-    RegisteredModel
+from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 

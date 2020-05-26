@@ -1,7 +1,5 @@
-import sys
 import mock
 import os
-import pickle
 import pytest
 import yaml
 import json
@@ -17,9 +15,7 @@ import mlflow.lightgbm
 import mlflow.utils
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _read_example
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.models import Model, infer_signature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
