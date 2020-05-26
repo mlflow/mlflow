@@ -14,7 +14,7 @@ mpl.use('Agg')
 
 def parse_args():
     parser = argparse.ArgumentParser(description='LightGBM example')
-    parser.add_argument('--colsample_bytree', type=float, default=1.0,
+    parser.add_argument('--colsample-bytree', type=float, default=1.0,
                         help='subsample ratio of columns when constructing each tree (default: 1.0)')
     parser.add_argument('--subsample', type=float, default=1.0,
                         help='subsample ratio of the training instances (default: 1.0)')
