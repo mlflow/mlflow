@@ -441,7 +441,7 @@ def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_d
     artifacts = map(lambda x: x.path, artifacts)
     assert 'model' in artifacts
     mlflow.tensorflow.load_model("runs:/" + tf_estimator_random_data_run.info.run_id +
-                                         "/model")
+                                 "/model")
 
 
 @pytest.mark.large

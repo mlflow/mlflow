@@ -473,7 +473,7 @@ def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_d
     assert 'model' in artifacts
     session = tf.Session()
     mlflow.tensorflow.load_model("runs:/" + tf_estimator_random_data_run.info.run_id +
-                                         "/model", session)
+                                 "/model", session)
 
 
 @pytest.mark.large
