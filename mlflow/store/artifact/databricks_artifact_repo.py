@@ -4,10 +4,13 @@ from azure.core.exceptions import ClientAuthenticationError
 import os
 import uuid
 import base64
+import logging
+import requests
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.protos.databricks_artifacts_pb2 import DatabricksMlflowArtifactsService, GetCredentialsForWrite, \
+from mlflow.protos.databricks_artifacts_pb2 import DatabricksMlflowArtifactsService, \
+    GetCredentialsForWrite, \
     GetCredentialsForRead, ArtifactCredentialType
 from mlflow.protos.service_pb2 import MlflowService, ListArtifacts
 from mlflow.utils.uri import extract_and_normalize_path, is_databricks_acled_artifacts_uri
@@ -16,8 +19,9 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path, yield_file_i
 from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
+_logger = logging.getLogger(__name__)
 _PATH_PREFIX = "/api/2.0"
-_AZURE_MAX_BLOCK_CHUNK_SIZE = 100000000  # Maximum size of each block allowed is 100 MB in stage_block
+_AZURE_MAX_BLOCK_CHUNK_SIZE = 100000000  # Max. size of each block allowed is 100 MB in stage_block
 _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
@@ -42,6 +46,17 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self.run_id = self._extract_run_id()
 
     def _extract_run_id(self):
+        """
+        The artifact_uri is expected to be
+        dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
+        Once the path from the inputted uri is extracted and normalized, is is
+        expected to be of the form
+        databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
+
+        Hence the run_id is the 4th element of the normalized path.
+
+        :return: run_id extracted from the artifact_uri
+        """
         artifact_path = extract_and_normalize_path(self.artifact_uri)
         return artifact_path.split('/')[3]
 
@@ -65,39 +80,54 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         Uploads a file to a given Azure storage location.
 
-        The function uses a file chunking generator, with 100 MB being the size limit for each chunk.
+        The function uses a file chunking generator with 100 MB being the size limit for each chunk.
         This limit is imposed by the stage_block API in azure-storage-blob.
-        In the case the file size is large and the upload takes longer than the validity of the given credentials,
-        a new credential is generated and the operation continues.
+        In the case the file size is large and the upload takes longer than the validity of the
+        given credentials, a new set of credentials are generated and the operation continues. This
+        is the reason for the first nested try-except block
 
-        Finally, a set of credentials is generated before the commit, since the prevailing credentials could
-        expire in the time between the last stage_block and the actually commit.
+        Finally, since the prevailing credentials could expire in the time between the last
+        stage_block and the commit, a second try-except block refreshes credentials if needed.
         """
-        service = BlobClient.from_blob_url(blob_url=credentials.signed_uri, credential=None)
         try:
+            service = BlobClient.from_blob_url(blob_url=credentials.signed_uri, credential=None)
             uploading_block_list = list()
             for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
                 block_id = base64.b64encode(uuid.uuid4().hex.encode())
                 try:
                     service.stage_block(block_id, chunk)
                 except ClientAuthenticationError:
-                    new_credential = self._get_write_credentials(self.run_id, artifact_path).credentials.signed_uri
-                    service = BlobClient.from_blob_url(blob_url=new_credential, credential=None)
+                    _logger.warning(
+                        "Failed to authorize request, possibly due to credential expiration."
+                        "Refreshing credentials and trying again..")
+                    credentials = self._get_write_credentials(self.run_id,
+                                                              artifact_path).credentials.signed_uri
+                    service = BlobClient.from_blob_url(blob_url=credentials, credential=None)
                     service.stage_block(block_id, chunk)
                 uploading_block_list.append(block_id)
-            signed_write_uri = self._get_write_credentials(self.run_id, artifact_path).credentials.signed_uri
-            service = BlobClient.from_blob_url(blob_url=signed_write_uri, credential=None)
-            service.commit_block_list(uploading_block_list)
+            try:
+                service.commit_block_list(uploading_block_list)
+            except ClientAuthenticationError:
+                _logger.warning(
+                    "Failed to authorize request, possibly due to credential expiration."
+                    "Refreshing credentials and trying again..")
+                credentials = self._get_write_credentials(self.run_id,
+                                                          artifact_path).credentials.signed_uri
+                service = BlobClient.from_blob_url(blob_url=credentials, credential=None)
+                service.commit_block_list(uploading_block_list)
         except Exception as err:
             raise MlflowException(err)
 
     def _azure_download_file(self, credentials, local_path):
-        signed_read_uri = credentials.signed_uri
-        service = BlobClient.from_blob_url(blob_url=signed_read_uri, credential=None)
         try:
+            signed_read_uri = credentials.signed_uri
+            response = requests.get(signed_read_uri)
+            response.raise_for_status()
             with open(local_path, "wb") as output_file:
-                blob = service.download_blob()
-                output_file.write(blob.readall())
+                for chunk in response.iter_content(_AZURE_MAX_BLOCK_CHUNK_SIZE):
+                    if not chunk:
+                        break
+                    output_file.write(chunk)
         except Exception as err:
             raise MlflowException(err)
 
@@ -127,7 +157,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self._upload_to_cloud(write_credentials, local_file, artifact_path)
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        artifact_path = artifact_path or ''
+        artifact_path = artifact_path or ""
         for (dirpath, _, filenames) in os.walk(local_dir):
             artifact_subdir = artifact_path
             if dirpath != local_dir:
@@ -144,7 +174,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # If `path` is a file, ListArtifacts returns a single list element with the
         # same name as `path`. The list_artifacts API expects us to return an empty list in this
         # case, so we do so here.
-        if len(artifact_list) == 1 and artifact_list[0].path == path:
+        if len(artifact_list) == 1 and artifact_list[0].path == path \
+                and not artifact_list[0].is_dir:
             return []
         return artifact_list
 

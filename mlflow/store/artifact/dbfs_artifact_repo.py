@@ -163,7 +163,7 @@ def dbfs_artifact_repo_factory(artifact_uri):
     storage can only be used together with the RestStore.
 
     In the special case where the URI is of the form
-    ``dbfs:/databricks/mlflow-tracking/<Exp-ID>/<Run-ID>/<path>,
+    `dbfs:/databricks/mlflow-tracking/<Exp-ID>/<Run-ID>/<path>',
     a DatabricksArtifactRepository is returned. This is capable of storing access controlled
     artifacts.
 

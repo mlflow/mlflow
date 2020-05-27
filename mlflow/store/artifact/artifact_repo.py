@@ -81,12 +81,12 @@ class ArtifactRepository:
         # TODO: Probably need to add a more efficient method to stream just a single artifact
         #       without downloading it, or to get a pre-signed URL for cloud storage.
         def download_file(fullpath):
+            fullpath = fullpath.rstrip('/')
             dirpath, _ = posixpath.split(fullpath)
             local_dir_path = os.path.join(dst_path, dirpath)
             local_file_path = os.path.join(dst_path, fullpath)
             if not os.path.exists(local_dir_path):
                 os.makedirs(local_dir_path)
-            print (fullpath)
             self._download_file(remote_file_path=fullpath, local_path=local_file_path)
             return local_file_path
 
