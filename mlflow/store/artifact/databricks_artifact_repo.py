@@ -118,16 +118,16 @@ class DatabricksArtifactRepository(ArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
-    def _azure_download_file(self, credentials, local_path):
+    def _azure_download_file(self, credentials, local_file):
         try:
             signed_read_uri = credentials.signed_uri
-            response = requests.get(signed_read_uri)
-            response.raise_for_status()
-            with open(local_path, "wb") as output_file:
-                for chunk in response.iter_content(_AZURE_MAX_BLOCK_CHUNK_SIZE):
-                    if not chunk:
-                        break
-                    output_file.write(chunk)
+            with requests.get(signed_read_uri, stream=True) as response:
+                response.raise_for_status()
+                with open(local_file, "wb") as output_file:
+                    for chunk in response.iter_content(chunk_size=_AZURE_MAX_BLOCK_CHUNK_SIZE):
+                        if not chunk:
+                            break
+                        output_file.write(chunk)
         except Exception as err:
             raise MlflowException(err)
 
