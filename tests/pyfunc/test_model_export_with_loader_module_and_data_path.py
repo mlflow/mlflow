@@ -142,6 +142,13 @@ def test_schema_enforcement():
     pdf["b"] = pdf["b"].astype(np.int64)
     pdf["c"] = pdf["c"].astype(np.float32)
     pdf["d"] = pdf["d"].astype(np.float64)
+    # test that missing column raises
+    with pytest.raises(MlflowException) as ex:
+        res = pyfunc_model.predict(pdf[["b", "d", "a", "e", "g", "f"]])
+    assert "Model input is missing columns" in str(ex)
+
+    # test that extra column is ignored
+    pdf["x"] = 1
 
     # test that columns are reordered, extra column is ignored
     res = pyfunc_model.predict(pdf)

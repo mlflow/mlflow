@@ -25,8 +25,9 @@ class Model(object):
                  signature: ModelSignature=None, saved_input_example_info: Dict[str, Any]=None,
                  **kwargs):
         # store model id instead of run_id and path to avoid confusion when model gets exported
-        self._run_id = run_id
-        self._artifact_path = artifact_path
+        if run_id:
+            self.run_id = run_id
+            self.artifact_path = artifact_path
         self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
@@ -35,31 +36,8 @@ class Model(object):
 
     def __eq__(self, other):
         if not isinstance(other, Model):
-            print("not a model: " + type(other))
             return False
-        print()
-        print(self.__dict__)
-        print("=====")
-        print(other.__dict__)
-        print()
         return self.__dict__ == other.__dict__
-
-    @property
-    def run_id(self):
-        return self._run_id
-
-    @property
-    def artifact_path(self):
-        return self._artifact_path
-
-    @property
-    def signature(self):
-        return self._signature
-
-    @signature.setter
-    def signature(self, value):
-        # pylint: disable=attribute-defined-outside-init
-        self._signature = value
 
     def get_input_schema(self):
         return self.signature.inputs if self.signature is not None else None
