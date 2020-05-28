@@ -1,0 +1,31 @@
+.pdf-outer-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 500px;
+    width: 100%;
+    padding-left: 16px;
+}
+.pdf-viewer {
+    display: flex;
+    flex-direction: column;
+    overflow-y: scroll;
+    height: 100%;
+}
+
+.paginator {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: sticky;
+    z-index: 1001;
+    top: 0px;
+    background: #fafafa;
+    padding-bottom: 15px;
+}
+
+.document {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
