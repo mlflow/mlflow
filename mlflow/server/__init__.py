@@ -64,13 +64,14 @@ def serve():
     package.
 
     If you are a developer making MLflow source code changes and intentionally running a source
-    installation of MLflow, you can view the UI by running the Javascript dev server: 
+    installation of MLflow, you can view the UI by running the Javascript dev server:
     https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#running-the-javascript-dev-server
 
-    Otherwise, uninstall MLflow via 'pip uninstall mlflow', reinstall an official MLflow release from
-    PyPI via 'pip install mlflow', and rerun the MLflow server. 
+    Otherwise, uninstall MLflow via 'pip uninstall mlflow', reinstall an official MLflow release
+    from PyPI via 'pip install mlflow', and rerun the MLflow server.
     ''')
     return Response(text, mimetype='text/plain')
+
 
 def _build_waitress_command(waitress_opts, host, port):
     opts = shlex.split(waitress_opts) if waitress_opts else []
