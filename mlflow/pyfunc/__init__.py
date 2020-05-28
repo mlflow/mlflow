@@ -285,8 +285,7 @@ class PyFuncModel(object):
     <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#pyfunc-inference-api>`_, and is
     by invoking the model's ``loader_module``.
 
-    ``model_meta`` is loaded by `:py:func:load_model` from the model metadata (MLmodel) file
-    The metadata is loaded from the model metadata (MLmodel) file .
+    ``model_meta`` contains model metadata loaded from the MLmodel file.
     """
 
     def __init__(self, model_meta: Model, model_impl: Any):
@@ -559,8 +558,9 @@ def spark_udf(spark, model_uri, result_type="double"):
             if input_schema is None:
                 names = [str(i) for i in range(len(args))]
             else:
-                names = input_schema.column_names() + \
-                        [str(i) for i in range(len(args) - len(input_schema.columns))]
+                names = input_schema.column_names()
+                if len(args) > len(names):
+                    args = args[:len(names)]
             pdf = pandas.DataFrame(data=args, columns=names[:len(args)])
 
         result = model.predict(pdf)

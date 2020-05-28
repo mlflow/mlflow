@@ -66,12 +66,9 @@ class _Example(object):
                 input_example = pd.DataFrame.from_dict(input_example)
         elif isinstance(input_example, list):
             if all([_is_scalar(x) for x in input_example]):
-                print("all scalar, creating df")
                 input_example = pd.DataFrame([input_example], columns=range(len(input_example)))
             else:
-                print("creating df")
                 input_example = pd.DataFrame(input_example)
-            print("done")
         elif isinstance(input_example, np.ndarray):
             if len(input_example.shape) > 2:
                 raise TensorsNotSupportedException("Input array has shape {}".format(
