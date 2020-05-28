@@ -30,6 +30,7 @@
     "react-iframe": "1.8.0",
     "react-mde": "^7.6.2",
     "react-modal": "^3.4.4",
+    "react-pdf": "^4.1.0",
     "react-plotly.js": "2.2.0",
     "react-redux": "5.0.7",
     "react-router": "4.2.0",
