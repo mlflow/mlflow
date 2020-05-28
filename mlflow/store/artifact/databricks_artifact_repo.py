@@ -7,6 +7,7 @@ import base64
 import logging
 import requests
 
+from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.protos.databricks_artifacts_pb2 import DatabricksMlflowArtifactsService, \
@@ -177,7 +178,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
         if len(artifact_list) == 1 and artifact_list[0].path == path \
                 and not artifact_list[0].is_dir:
             return []
-        return artifact_list
+        infos = list()
+        for file in artifact_list:
+            artifact_size = None if file.is_dir else file.file_size
+            infos.append(FileInfo(file.path, file.is_dir, artifact_size))
+        return infos
 
     def _download_file(self, remote_file_path, local_path):
         read_credentials = self._get_read_credentials(self.run_id, remote_file_path)

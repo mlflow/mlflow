@@ -82,7 +82,7 @@ class TestDatabricksArtifactRepository(object):
         with mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '._get_write_credentials') \
                 as write_credentials_mock, \
                 mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '._azure_upload_file') \
-                        as azure_upload_mock:
+                as azure_upload_mock:
             mock_credentials = ArtifactCredentialInfo(signed_uri=MOCK_AZURE_SIGNED_URI,
                                                       type=ArtifactCredentialType.AZURE_SAS_URI)
             write_credentials_response_proto = GetCredentialsForWrite.Response(
@@ -135,13 +135,14 @@ class TestDatabricksArtifactRepository(object):
                 ListArtifacts.Response(root_uri='', files=list_artifacts_dir_proto_mock)
             call_endpoint_mock.return_value = list_artifact_response_proto
             artifacts = databricks_artifact_repo.list_artifacts('test/')
+            print (artifacts)
             assert len(artifacts) == 2
             assert artifacts[0].path == 'test/a.txt'
             assert artifacts[0].is_dir is False
             assert artifacts[0].file_size == 100
             assert artifacts[1].path == 'test/dir'
             assert artifacts[1].is_dir is True
-            assert artifacts[1].file_size is 0
+            assert artifacts[1].file_size is None
 
             # Calling list_artifacts() on a path that's a file should return an empty list
             list_artifact_response_proto = \
@@ -162,7 +163,7 @@ class TestDatabricksArtifactRepository(object):
                 as read_credentials_mock, \
                 mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '.list_artifacts') as get_list_mock, \
                 mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '._azure_download_file') \
-                        as azure_download_mock:
+                as azure_download_mock:
             mock_credentials = ArtifactCredentialInfo(signed_uri=MOCK_AZURE_SIGNED_URI,
                                                       type=ArtifactCredentialType.AZURE_SAS_URI)
             read_credentials_response_proto = GetCredentialsForRead.Response(
