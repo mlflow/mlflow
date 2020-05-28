@@ -1,8 +1,9 @@
 import os
 import shlex
 import sys
+import textwrap
 
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, Response
 
 from mlflow.server import handlers
 from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, _add_static_prefix
@@ -53,7 +54,23 @@ def serve_static_file(path):
 # Serve the index.html for the React App for all other routes.
 @app.route(_add_static_prefix('/'))
 def serve():
-    return send_from_directory(STATIC_DIR, 'index.html')
+    if os.path.exists(os.path.join(STATIC_DIR, "index.html")):
+        return send_from_directory(STATIC_DIR, 'index.html')
+
+    text = textwrap.dedent('''
+    Unable to display MLflow UI - landing page (index.html) not found.
+
+    You are very likely running the MLflow server using a source installation of the Python MLflow
+    package.
+
+    If you are a developer making MLflow source code changes and intentionally running a source
+    installation of MLflow, you can view the UI by running the Javascript dev server:
+    https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#running-the-javascript-dev-server
+
+    Otherwise, uninstall MLflow via 'pip uninstall mlflow', reinstall an official MLflow release
+    from PyPI via 'pip install mlflow', and rerun the MLflow server.
+    ''')
+    return Response(text, mimetype='text/plain')
 
 
 def _build_waitress_command(waitress_opts, host, port):
