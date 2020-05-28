@@ -47,7 +47,7 @@ setup(
         'docker>=4.0.0',
         'entrypoints',
         'sqlparse',
-        'sqlalchemy>=1.3.0',
+        'sqlalchemy',
         'gorilla',
         'prometheus-flask-exporter',
     ],
