@@ -71,9 +71,6 @@ class Model(object):
     def to_dict(self):
         """Serialize the model to a dictionary."""
         res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
-        if self.run_id is not None:
-            res["run_id"] = self.run_id
-            res["artifact_path"] = self.artifact_path
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
         if self.saved_input_example_info is not None:
