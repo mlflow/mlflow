@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import './ShowArtifactImageView.css';
 import { getSrc } from './ShowArtifactPage';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import { Pagination, Spin } from 'antd';
 import { getArtifactBytesContent } from './ShowArtifactUtils';
 import './ShowArtifactPdfView.css';
@@ -40,8 +40,6 @@ class ShowArtifactPdfView extends Component {
   }
 
   componentDidMount() {
-    // eslint-disable-next-line max-len
-    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
     this.fetchPdf();
   }
 

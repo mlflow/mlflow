@@ -21,11 +21,11 @@
     z-index: 1001;
     top: 0px;
     background: #fafafa;
+    padding-bottom: 15px;
 }
 
 .document {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding-top: 15px;
 }

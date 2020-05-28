@@ -18,7 +18,7 @@ describe('ShowArtifactPdfView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('some content');
     });
-    commonProps = { ...minimalProps, getArtifact: getArtifact };
+    commonProps = { ...minimalProps, getArtifact };
     wrapper = shallow(<ShowArtifactPdfView {...commonProps} />);
   });
 
@@ -61,6 +61,6 @@ describe('ShowArtifactPdfView', () => {
     instance = wrapper.instance();
     instance.fetchPdf = jest.fn();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
-    expect(instance.fetchPdf).toBeCalled();
+    expect(instance.fetchPdf).toHaveBeenCalledTimes(1);
   });
 });
