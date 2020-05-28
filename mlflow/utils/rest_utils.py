@@ -173,8 +173,10 @@ class MlflowHostCreds(object):
         if not host:
             raise MlflowException("host is a required parameter for MlflowHostCreds")
         if ignore_tls_verification and (server_cert_path is not None):
-            raise MlflowException("if 'MLFLOW_TRACKING_INSECURE_TLS' is set to true "
-                                  "'MLFLOW_TRACKING_SERVER_CERT_PATH' must not be set")
+            raise MlflowException("When 'ignore_tls_verification' is true then 'client_cert_path' "
+                                  "must not be set! You might have to fix the environment variables "
+                                  "called 'MLFLOW_TRACKING_INSECURE_TLS' and "
+                                  "'MLFLOW_TRACKING_SERVER_CERT_PATH'.")
         self.host = host
         self.username = username
         self.password = password
