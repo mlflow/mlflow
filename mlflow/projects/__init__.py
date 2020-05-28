@@ -322,6 +322,8 @@ def _get_conda_bin_executable(executable_name):
     ``mlflow.projects.MLFLOW_CONDA_HOME`` is unspecified, this method simply returns the passed-in
     executable name.
     """
+    if MLFLOW_CONDA_HOME != "MLFLOW_CONDA_HOME":
+        return os.path.join(MLFLOW_CONDA_HOME, "/bin/%s" % executable_name)
     conda_home = os.environ.get(MLFLOW_CONDA_HOME)
     if conda_home:
         return os.path.join(conda_home, "bin/%s" % executable_name)
@@ -353,7 +355,8 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
                                  "user-guide/install/index.html. "
                                  "You can also configure MLflow to look for a specific "
                                  "Conda executable by setting the {1} environment variable "
-                                 "to the path of the Conda executable"
+                                 "to the path of the Conda executable, by doing "
+                                 "os.environ['MLFLOW_CONDA_HOME']= '/path/to/anaconda3/'" 
                                  .format(conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
