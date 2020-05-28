@@ -114,7 +114,7 @@ def train(epoch):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.data.item()))
-            step = epoch * len(train_loader) + batch_idx
+            step = epoch * len(train_loader) + batch_idx * len(data)
             log_scalar('train_loss', loss.data.item(), step)
             model.log_weights(step)
 
