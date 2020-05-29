@@ -180,7 +180,7 @@ class MlflowHostCreds(object):
             raise MlflowException(
                 message=("When 'ignore_tls_verification' is true then 'server_cert_path' "
                          "must not be set! This error may have occurred because the "
-                         "'MLFLOW_TRACKING_INSECURE_TLS' and 'MLFLOW_TRACKING_SERVER_CERT_PATH'. "
+                         "'MLFLOW_TRACKING_INSECURE_TLS' and 'MLFLOW_TRACKING_SERVER_CERT_PATH' "
                          "environment variables are both set - only one of these environment "
                          "variables may be set."),
                 error_code=INVALID_PARAMETER_VALUE,
