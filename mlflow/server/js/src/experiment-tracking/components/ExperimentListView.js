@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import { Icon, Button } from 'antd';
+import { Icon } from 'antd';
 import './ExperimentListView.css';
 import { getExperiments } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
+import { IconButton } from '../../common/components/IconButton';
 import Utils from '../../common/utils/Utils';
 
 export class ExperimentListView extends Component {
@@ -178,24 +179,20 @@ export class ExperimentListView extends Component {
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
                     </Link>
                     {/* Edit/Rename Experiment Option */}
-                    <Button
-                      type='link'
+                    <IconButton
+                      icon={<Icon type='edit' />}
                       onClick={this.handleRenameExperiment}
                       data-experimentid={experiment_id}
                       data-experimentname={name}
                       style={{ marginRight: 10 }}
-                    >
-                      <Icon type='edit' />
-                    </Button>
+                    />
                     {/* Delete Experiment option */}
-                    <Button
-                      type='link'
+                    <IconButton
+                      icon={<i className='far fa-trash-alt' />}
                       onClick={this.handleDeleteExperiment}
                       data-experimentid={experiment_id}
                       data-experimentname={name}
-                    >
-                      <i className='far fa-trash-alt' />
-                    </Button>
+                    />
                   </div>
                 );
               })}

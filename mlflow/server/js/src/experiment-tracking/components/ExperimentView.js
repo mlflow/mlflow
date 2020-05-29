@@ -26,7 +26,7 @@ import RestoreRunModal from './modals/RestoreRunModal';
 import { NoteInfo, NOTE_CONTENT_TAG } from '../utils/NoteUtils';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { ExperimentViewPersistedState } from '../sdk/MlflowLocalStorageMessages';
-import { Icon, Popover, Descriptions, Button as AntdButton } from 'antd';
+import { Icon, Popover, Descriptions } from 'antd';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import classNames from 'classnames';
@@ -36,6 +36,7 @@ import { RunsTableColumnSelectionDropdown } from './RunsTableColumnSelectionDrop
 import _ from 'lodash';
 import { ColumnTypes } from '../constants';
 import { getUUID } from '../../common/utils/ActionUtils';
+import { IconButton } from '../../common/components/IconButton';
 
 export const DEFAULT_EXPANDED_VALUE = false;
 
@@ -310,9 +311,7 @@ export class ExperimentView extends Component {
     const { showNotesEditor } = this.state;
 
     const editIcon = (
-      <AntdButton type='link' onClick={this.startEditingDescription}>
-        <Icon type='form' />
-      </AntdButton>
+      <IconButton icon={<Icon type='form' />} onClick={this.startEditingDescription} />
     );
 
     return (

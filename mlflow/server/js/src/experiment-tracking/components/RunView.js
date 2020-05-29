@@ -15,9 +15,10 @@ import { NOTE_CONTENT_TAG, NoteInfo } from '../utils/NoteUtils';
 import { BreadcrumbTitle } from './BreadcrumbTitle';
 import { RenameRunModal } from './modals/RenameRunModal';
 import EditableTagsTableView from './EditableTagsTableView';
-import { Icon, Descriptions, Button } from 'antd';
+import { Icon, Descriptions } from 'antd';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
+import { IconButton } from '../../common/components/IconButton';
 
 export class RunViewImpl extends Component {
   static propTypes = {
@@ -121,9 +122,10 @@ export class RunViewImpl extends Component {
     };
     const runCommand = this.getRunCommand();
     const editIcon = (
-      <Button type='link' onClick={this.startEditingDescription}>
-        <Icon className='edit-icon' type='form' />
-      </Button>
+      <IconButton
+        icon={<Icon className='edit-icon' type='form' />}
+        onClick={this.startEditingDescription}
+      />
     );
     return (
       <div className='RunView'>
