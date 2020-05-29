@@ -7,6 +7,7 @@ import requests
 
 from mlflow import __version__
 from mlflow.protos import databricks_pb2
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException, RestException
@@ -171,12 +172,19 @@ class MlflowHostCreds(object):
     def __init__(self, host, username=None, password=None, token=None,
                  ignore_tls_verification=False, client_cert_path=None, server_cert_path=None):
         if not host:
-            raise MlflowException("host is a required parameter for MlflowHostCreds")
+            raise MlflowException(
+                message="host is a required parameter for MlflowHostCreds",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         if ignore_tls_verification and (server_cert_path is not None):
-            raise MlflowException("When 'ignore_tls_verification' is true then 'client_cert_path' "
-                                  "must not be set! You might have to fix the environment "
-                                  "variables called 'MLFLOW_TRACKING_INSECURE_TLS' and "
-                                  "'MLFLOW_TRACKING_SERVER_CERT_PATH'.")
+            raise MlflowException(
+                message=("When 'ignore_tls_verification' is true then 'server_cert_path' "
+                         "must not be set! This error may have occurred because the "
+                         "'MLFLOW_TRACKING_INSECURE_TLS' and 'MLFLOW_TRACKING_SERVER_CERT_PATH'. "
+                         "environment variables are both set - only one of these environment "
+                         "variables may be set."),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.host = host
         self.username = username
         self.password = password
