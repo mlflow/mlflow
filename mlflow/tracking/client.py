@@ -14,7 +14,7 @@ from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
-from mlflow.utils import experimental, deprecated
+from mlflow.utils import experimental
 
 _logger = logging.getLogger(__name__)
 
