@@ -103,8 +103,7 @@ def _dataframe_from_json(path_or_str, schema: Schema = None,
                        if t == DataType.binary.to_pandas() and name in actual_cols]
 
         for col in binary_cols:
-            df[col] = np.array(df[col].map(base64.decodebytes), dtype=np.bytes_)
-
+            df[col] = df[col].map(lambda x: np.bytes_(base64.decodebytes(x)))
         return df
     else:
         return pd.read_json(path_or_str, orient=pandas_orient, dtype=False,
