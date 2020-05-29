@@ -422,7 +422,6 @@ class MlflowClient(object):
         """
         return self._get_registry_client().list_registered_models()
 
-
     @experimental
     def get_registered_model(self, name):
         """
