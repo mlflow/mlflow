@@ -6,7 +6,6 @@ from google.protobuf.json_format import MessageToJson, ParseDict
 import numpy as np
 import pandas as pd
 
-from mlflow.exceptions import MlflowException
 from mlflow.types import DataType
 from mlflow.types.schema import Schema
 

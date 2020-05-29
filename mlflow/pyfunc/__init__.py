@@ -342,7 +342,7 @@ class PyFuncModel(object):
                 message = "Model input is missing columns {0}.".format(missing_cols)
                 raise MlflowException(message)
             if extra_columns:
-                _logger.warning("Ignoring unexpected columns %s" % extra_columns)
+                _logger.warning("Ignoring unexpected columns %s", extra_columns)
             new_data = {x: convert_type(x, data[x], col_types[i]) for i, x in enumerate(col_names)}
             data = pandas.DataFrame(data=new_data, columns=col_names)
         return self._model_impl.predict(data)
