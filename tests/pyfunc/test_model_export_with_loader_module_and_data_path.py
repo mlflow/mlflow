@@ -156,8 +156,17 @@ def test_schema_enforcement():
 
     expected_types = dict(zip(input_schema.column_names(),
                               input_schema.pandas_types()))
-    expected_types["f"] = np.object
-    assert res.dtypes.to_dict() == expected_types
+    actual_types = res.dtypes.to_dict()
+    # string nad binary may be represented as objects
+    # for string, this depends on the version of pandas, binary is always object(at least for now)
+    if actual_types["f"] == np.object:
+        del actual_types["f"]
+        del expected_types["f"]
+    if actual_types["g"] == np.object:
+        del actual_types["g"]
+        del expected_types["g"]
+    # The rest must match exactly
+    assert expected_types == actual_types
     # Test conversions
     # 1. long -> integer raises
     pdf["a"] = pdf["a"].astype(np.int64)

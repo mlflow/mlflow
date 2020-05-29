@@ -342,7 +342,7 @@ class PyFuncModel(object):
                 message = "Model input is missing columns {0}.".format(missing_cols)
                 raise MlflowException(message)
             if extra_columns:
-                _logger.warning("Ignoring unexpected columns {}".format(extra_columns))
+                _logger.warning("Ignoring unexpected columns %s" % extra_columns)
             new_data = {x: convert_type(x, data[x], col_types[i]) for i, x in enumerate(col_names)}
             data = pandas.DataFrame(data=new_data, columns=col_names)
         return self._model_impl.predict(data)
@@ -520,10 +520,10 @@ def spark_udf(spark, model_uri, result_type="double"):
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
-    from pyspark.sql.types import ArrayType, DataType
+    from pyspark.sql.types import ArrayType, DataType as SparkDataType
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
 
-    if not isinstance(result_type, DataType):
+    if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
 
     elem_type = result_type
@@ -555,13 +555,20 @@ def spark_udf(spark, model_uri, result_type="double"):
                                     "input column, but got %d" % len(args))
                 pdf = x
         if pdf is None:
+            args = list(args)
             if input_schema is None:
                 names = [str(i) for i in range(len(args))]
             else:
                 names = input_schema.column_names()
                 if len(args) > len(names):
                     args = args[:len(names)]
-            pdf = pandas.DataFrame(data=args, columns=names[:len(args)])
+                if len(args) < len(names):
+                    message = ("Model input is missing columns. Expected input columns {0}, "
+                               "but the model received only {1} unnamed input columns"
+                               "(Since the columns were passed unnamed they are expected to be in "
+                               "in the order specified by the schema).".format(names, len(args)))
+                    raise MlflowException(message)
+            pdf = pandas.DataFrame(data=args, columns=names)
 
         result = model.predict(pdf)
 
