@@ -568,7 +568,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                                "(Since the columns were passed unnamed they are expected to be in "
                                "in the order specified by the schema).".format(names, len(args)))
                     raise MlflowException(message)
-            pdf = pandas.DataFrame(data=args, columns=names)
+            pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
         result = model.predict(pdf)
 
