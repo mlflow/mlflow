@@ -422,9 +422,6 @@ class MlflowClient(object):
         """
         return self._get_registry_client().list_registered_models()
 
-    @deprecated(alternative="mlflow.tracking.client.get_registered_model", since="1.7")
-    def get_registered_model_details(self, name):
-        return self.get_registered_model(name)
 
     @experimental
     def get_registered_model(self, name):
@@ -514,15 +511,6 @@ class MlflowClient(object):
         :param version: Version number of the model version.
         """
         self._get_registry_client().delete_model_version(name, version)
-
-    @deprecated("mlflow.tracking.client.get_model_version", "1.7")
-    def get_model_version_details(self, name, version):
-        """
-        :param name: Name of the containing registered model.
-        :param version: Version number of the model version.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
-        """
-        return self._get_registry_client().get_model_version(name, version)
 
     @experimental
     def get_model_version(self, name, version):
