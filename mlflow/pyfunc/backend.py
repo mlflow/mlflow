@@ -36,7 +36,7 @@ class PyFuncBackend(FlavorBackend):
         command = 'python -c ""'
         return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
 
-    def predict(self, model_uri, input_path, output_path, content_type, json_format):
+    def predict(self, model_uri, input_path, output_path, content_type, json_format, ):
         """
         Generate predictions using generic python model saved with MLflow.
         Return the prediction results as a JSON.
@@ -74,18 +74,15 @@ class PyFuncBackend(FlavorBackend):
         local_uri = path_to_local_file_uri(local_path)
         if os.name != "nt":
             command = ("gunicorn --timeout=60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
-                       " -- "
-                       "mlflow.pyfunc.scoring_server.wsgi:app").format(
-                         host=host,
-                         port=port,
-                         nworkers=self._nworkers
-            )
+                       " -- mlflow.pyfunc.scoring_server.wsgi:app").format(
+                host=host,
+                port=port,
+                nworkers=self._nworkers)
         else:
             command = ("waitress-serve --host={host} --port={port} "
-                       "mlflow.pyfunc.scoring_server.wsgi:app)").format(
-                         host=host,
-                         port=port
-            )
+                       "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app").format(
+                host=host,
+                port=port)
 
         command_env = os.environ.copy()
         command_env[scoring_server._SERVER_MODEL_PATH] = local_uri

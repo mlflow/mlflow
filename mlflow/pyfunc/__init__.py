@@ -767,7 +767,7 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 
 def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
               python_model=None, artifacts=None, registered_model_name=None,
-              signature: ModelSignature = None, input_example: ModelInputExample = None):
+              signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
     artifact for the current run.
