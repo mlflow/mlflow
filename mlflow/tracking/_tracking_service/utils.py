@@ -18,7 +18,15 @@ _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 _TRACKING_USERNAME_ENV_VAR = "MLFLOW_TRACKING_USERNAME"
 _TRACKING_PASSWORD_ENV_VAR = "MLFLOW_TRACKING_PASSWORD"
 _TRACKING_TOKEN_ENV_VAR = "MLFLOW_TRACKING_TOKEN"
+
+# sets verify param of 'requests.request' function
+# see https://requests.readthedocs.io/en/master/api/
 _TRACKING_INSECURE_TLS_ENV_VAR = "MLFLOW_TRACKING_INSECURE_TLS"
+_TRACKING_SERVER_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_SERVER_CERT_PATH"
+
+# sets cert param of 'requests.request' function
+# see https://requests.readthedocs.io/en/master/api/
+_TRACKING_CLIENT_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_CLIENT_CERT_PATH"
 
 _tracking_uri = None
 
@@ -84,6 +92,8 @@ def _get_rest_store(store_uri, **_):
             password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
             token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
             ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == 'true',
+            client_cert_path=os.environ.get(_TRACKING_CLIENT_CERT_PATH_ENV_VAR),
+            server_cert_path=os.environ.get(_TRACKING_SERVER_CERT_PATH_ENV_VAR),
         )
 
     return RestStore(get_default_host_creds)
