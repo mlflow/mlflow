@@ -110,7 +110,7 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
                                  build-essential \
                                  cmake \
                                  openjdk-8-jdk \
-                                 maven \
+                                 maven
                             ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
         """
         if no_java:
