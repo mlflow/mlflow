@@ -55,13 +55,13 @@ And its ``MLmodel`` file describes two flavors:
       python_function:
         loader_module: mlflow.sklearn
 
-This model can then be used with any tool that supports *either* the ``sklearn`` or
-``python_function`` model flavor. For example, the ``mlflow models serve`` command can serve a
-model with the ``sklearn`` flavor:
+This model can then be used with any tool that supports either the ``sklearn`` or
+``python_function`` model flavor. For example, the ``mlflow models serve`` command
+can serve a model with the ``python_function`` or the ``crate`` (R Function) flavor:
 
 .. code-block:: bash
 
-    mlflow models serve my_model
+    mlflow models serve -m my_model
 
 In addition, the ``mlflow sagemaker`` command-line tool can package and deploy models to AWS
 SageMaker as long as they support the ``python_function`` flavor:
@@ -561,7 +561,10 @@ Example requests:
     }'
 
     # record-oriented (fine for vector rows, loses ordering for JSON records)
-    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[[1, 2, 3], [4, 5, 6]]'
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+        {"a": 1,"b": 2,"c": 3},
+        {"a": 4,"b": 5,"c": 6}
+    ]'
 
 
 For more information about serializing pandas DataFrames, see

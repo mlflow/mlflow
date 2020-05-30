@@ -1,11 +1,8 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import {
-  Stages,
-} from '../constants';
+import { Stages } from '../constants';
 import { Dropdown } from 'antd';
-import { mockGetFieldValue } from '../test-utils';
 
 describe('ModelStageTransitionDropdown', () => {
   let wrapper;
@@ -22,7 +19,7 @@ describe('ModelStageTransitionDropdown', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ModelStageTransitionDropdown {...minimalProps}/>);
+    wrapper = shallow(<ModelStageTransitionDropdown {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
@@ -40,28 +37,17 @@ describe('ModelStageTransitionDropdown', () => {
     expect(menuHtml).toContain(Stages.ARCHIVED);
   });
 
-  test('handleMenuItemClick - archiveExistingVersions', () => {
+  test('handleMenuItemClick', () => {
     const mockOnSelect = jest.fn();
     const props = {
       ...commonProps,
       onSelect: mockOnSelect,
     };
     const activity = {};
-    const comment = "comment";
     wrapper = shallow(<ModelStageTransitionDropdown {...props} />);
-    const mockArchiveFieldValues = [true, false, undefined];
-    mockArchiveFieldValues.forEach((fieldValue) => {
-      const expectArchiveFieldValue = Boolean(fieldValue); // undefined should become false also
-      const instance = wrapper.instance();
-      instance.transitionFormRef = {
-        current: {
-          getFieldValue: mockGetFieldValue(comment, fieldValue),
-          resetFields: () => {},
-        },
-      };
-      instance.handleMenuItemClick(activity);
-      instance.state.handleConfirm();
-      expect(mockOnSelect).toHaveBeenCalledWith(activity, comment, expectArchiveFieldValue);
-    });
+    const instance = wrapper.instance();
+    instance.handleMenuItemClick(activity);
+    instance.state.handleConfirm();
+    expect(mockOnSelect).toHaveBeenCalledWith(activity);
   });
 });

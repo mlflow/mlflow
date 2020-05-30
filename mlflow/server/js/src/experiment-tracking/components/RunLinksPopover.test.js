@@ -11,7 +11,7 @@ describe('unit tests', () => {
 
   beforeEach(() => {
     minimalProps = {
-      experimentId: 0,
+      experimentId: '0',
       visible: false,
       x: 0,
       y: 0,
@@ -50,7 +50,7 @@ describe('unit tests', () => {
     wrapper = mount(
       <MemoryRouter>
         <RunLinksPopover {...props} />
-      </MemoryRouter>
+      </MemoryRouter>,
     ).find(RunLinksPopover);
 
     // The popover is attached to the document root and can't be found with wrapper.find.

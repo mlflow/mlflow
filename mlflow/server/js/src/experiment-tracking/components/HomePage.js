@@ -10,7 +10,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 export class HomePageImpl extends Component {
   static propTypes = {
     dispatchListExperimentsApi: PropTypes.func.isRequired,
-    experimentId: PropTypes.number,
+    experimentId: PropTypes.string,
   };
 
   state = {
@@ -24,8 +24,10 @@ export class HomePageImpl extends Component {
   }
 
   render() {
-    const homeView = <HomeView experimentId={this.props.experimentId}/>;
-    return process.env.HIDE_EXPERIMENT_LIST === 'true' ? homeView : (
+    const homeView = <HomeView experimentId={this.props.experimentId} />;
+    return process.env.HIDE_EXPERIMENT_LIST === 'true' ? (
+      homeView
+    ) : (
       <RequestStateWrapper requestIds={[this.state.listExperimentsRequestId]}>
         {homeView}
       </RequestStateWrapper>
@@ -35,10 +37,10 @@ export class HomePageImpl extends Component {
 
 const mapStateToProps = (state, ownProps) => {
   const { match } = ownProps;
-  if (match.url === "/") {
+  if (match.url === '/') {
     return {};
   }
-  return { experimentId: parseInt(match.params.experimentId, 10) };
+  return { experimentId: match.params.experimentId };
 };
 
 const mapDispatchToProps = (dispatch) => {

@@ -1,8 +1,6 @@
 '''Trains and evaluate a simple MLP
 on the Reuters newswire topic classification task.
 '''
-from __future__ import print_function
-
 import numpy as np
 import keras
 from keras.datasets import reuters

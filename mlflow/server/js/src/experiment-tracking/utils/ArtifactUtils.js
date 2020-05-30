@@ -27,7 +27,7 @@ export class ArtifactNode {
       this.isLoaded = true;
       fileInfos.forEach((fileInfo) => {
         // basename is the last part of the path for this fileInfo.
-        const pathParts = fileInfo.path.split("/");
+        const pathParts = fileInfo.path.split('/');
         const basename = pathParts[pathParts.length - 1];
         let children;
         if (fileInfo.is_dir) {

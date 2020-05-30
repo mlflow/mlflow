@@ -3,8 +3,8 @@
 Concepts
 ========
 
-MLflow is organized into three components: :ref:`Tracking<tracking>`, :ref:`Projects<projects>`, and
-:ref:`Models<models>`. You can use each of these components on their own---for example, maybe you
+MLflow is organized into four components: :ref:`Tracking<tracking>`, :ref:`Projects<projects>`,
+:ref:`Models<models>`, and :ref:`Model Registry<registry>`. You can use each of these components on their own---for example, maybe you
 want to export models in MLflow's model format without using Tracking or Projects---but they are
 also designed to work well together.
 
@@ -38,6 +38,11 @@ Being productive with machine learning can therefore be challenging for several 
   its own approach for each ML library that it uses, and the link between a model and the code and
   parameters that produced it is often lost.
 
+* **There's no central store to manage models (their versions and stage transitions).** A data science team
+  creates many models. In absence of a central place to collaborate and manage model lifecycle, data
+  science teams face challenges in how they manage models stages: from development to staging, and finally,
+  to archiving or production, with respective versions, annotations, and history.
+
 Moreover, although individual ML libraries provide solutions to some of these problems (for example, model
 serving), to get the best result you usually want to try *multiple ML libraries*. MLflow lets you
 train, reuse, and deploy models with any library and package them into reproducible steps that other
@@ -46,7 +51,7 @@ data scientists can use as a "black box," without even having to know which libr
 MLflow Components
 -------------------
 
-MLflow provides three components to help manage the ML workflow:
+MLflow provides four components to help manage the ML workflow:
 
 **MLflow Tracking** is an API and UI for logging parameters, code versions, metrics, and artifacts
 when running your machine learning code and for later visualizing the results. You can use MLflow Tracking in
@@ -70,6 +75,11 @@ supporting the "Python function" flavor can be deployed to a Docker-based REST s
 platforms such as Azure ML and AWS SageMaker, and as a user-defined function in Apache Spark for
 batch and streaming inference. If you output MLflow Models using the Tracking API, MLflow also
 automatically remembers which Project and run they came from.
+
+**MLflow Registry** offers a centralized model store, set of APIs, and UI, to
+collaboratively manage the full lifecycle of an MLflow Model. It provides model lineage (which
+MLflow experiment and run produced the model), model versioning, stage transitions (for example from
+staging to production or archiving), and annotations.
 
 .. _artifact-locations:
 
@@ -115,7 +125,7 @@ Scalability and Big Data
 
 Data is the key to obtaining good results in machine learning, so MLflow is designed to scale to
 large data sets, large output files (for example, models), and large numbers of experiments. Specifically,
-MLflow supports scaling in three dimensions:
+MLflow supports scaling in four dimensions:
 
 * An individual MLflow run can execute on a distributed cluster, for example, using
   `Apache Spark <https://spark.apache.org>`_. You can launch runs on the distributed infrastructure
@@ -131,6 +141,12 @@ MLflow supports scaling in three dimensions:
   MLflow can automatically download such files locally for projects that can only run on local
   files, or give the project a distributed storage URI if it supports that. This means that you
   can write projects that build large datasets, such as featurizing a 100 TB file.
+
+* MLflow Model Registry offers large organizations a central hub to collaboratively manage a complete
+  model lifecycle. Many data science teams within an organization develop hundreds of models, each model with
+  its experiments, runs, versions, artifacts, and stage transitions. A central registry facilitates
+  model discovery and model's purpose across multiple teams in a large organization.
+
 
 Example Use Cases
 -----------------

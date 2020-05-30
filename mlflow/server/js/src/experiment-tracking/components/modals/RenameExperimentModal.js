@@ -10,10 +10,10 @@ import { getExperimentNameValidator } from './validation';
 import { updateExperimentApi, getExperimentApi } from '../../actions';
 import { getExperiments } from '../../reducers/Reducers';
 
-class RenameExperimentModalImpl extends Component {
+export class RenameExperimentModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
-    experimentId: PropTypes.number,
+    experimentId: PropTypes.string,
     experimentName: PropTypes.string,
     experimentNames: PropTypes.arrayOf(String).isRequired,
     onClose: PropTypes.func.isRequired,
@@ -68,5 +68,6 @@ const mapDispatchToProps = {
 };
 
 export const RenameExperimentModal = connect(
-  mapStateToProps, mapDispatchToProps
+  mapStateToProps,
+  mapDispatchToProps,
 )(RenameExperimentModalImpl);

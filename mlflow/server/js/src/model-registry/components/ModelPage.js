@@ -10,9 +10,7 @@ import {
 import { ModelView } from './ModelView';
 import { getModelVersions } from '../reducers';
 import { MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../constants';
-import RequestStateWrapper, {
-  triggerError,
-} from '../../common/components/RequestStateWrapper';
+import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
 import { Spinner } from '../../common/components/Spinner';
 import { Error404View } from '../../common/components/Error404View';
 import { modelListPageRoute } from '../routes';
@@ -42,38 +40,26 @@ export class ModelPageImpl extends React.Component {
   updateRegisteredModelApiId = getUUID();
   deleteRegisteredModelApiId = getUUID();
 
-  criticalInitialRequestIds = [
-    this.initSearchModelVersionsApiId,
-    this.initgetRegisteredModelApiId,
-  ];
+  criticalInitialRequestIds = [this.initSearchModelVersionsApiId, this.initgetRegisteredModelApiId];
 
-  pollingRelatedRequestIds = [
-    this.getRegisteredModelApiId,
-    this.searchModelVersionsApiId,
-  ];
+  pollingRelatedRequestIds = [this.getRegisteredModelApiId, this.searchModelVersionsApiId];
 
-  hasPendingPollingRequest = () => this.pollingRelatedRequestIds.every((requestId) => {
-    const request = this.props.apis[requestId];
-    return Boolean(request && request.active);
-  });
+  hasPendingPollingRequest = () =>
+    this.pollingRelatedRequestIds.every((requestId) => {
+      const request = this.props.apis[requestId];
+      return Boolean(request && request.active);
+    });
 
   handleEditDescription = (description) => {
     const { model } = this.props;
     return this.props
-      .updateRegisteredModelApi(
-        model.name,
-        description,
-        this.updateRegisteredModelApiId,
-      )
+      .updateRegisteredModelApi(model.name, description, this.updateRegisteredModelApiId)
       .then(this.loadData);
   };
 
   handleDelete = () => {
     const { model } = this.props;
-    return this.props.deleteRegisteredModelApi(
-      model.name,
-      this.deleteRegisteredModelApiId
-    );
+    return this.props.deleteRegisteredModelApi(model.name, this.deleteRegisteredModelApiId);
   };
 
   loadData = (isInitialLoading) => {
@@ -81,9 +67,7 @@ export class ModelPageImpl extends React.Component {
     return Promise.all([
       this.props.getRegisteredModelApi(
         modelName,
-        isInitialLoading === true
-          ? this.initgetRegisteredModelApiId
-          : this.getRegisteredModelApiId,
+        isInitialLoading === true ? this.initgetRegisteredModelApiId : this.getRegisteredModelApiId,
       ),
       this.props.searchModelVersionsApi(
         { name: modelName },
@@ -97,16 +81,15 @@ export class ModelPageImpl extends React.Component {
   pollData = () => {
     const { modelName, history } = this.props;
     if (!this.hasPendingPollingRequest() && Utils.isBrowserTabVisible()) {
-      return this.loadData()
-        .catch((e) => {
-          if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
-            Utils.logErrorAndNotifyUser(e);
-            this.props.deleteRegisteredModelApi(modelName, undefined, true);
-            history.push(modelListPageRoute);
-          } else {
-            console.error(e);
-          }
-        });
+      return this.loadData().catch((e) => {
+        if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
+          Utils.logErrorAndNotifyUser(e);
+          this.props.deleteRegisteredModelApi(modelName, undefined, true);
+          history.push(modelListPageRoute);
+        } else {
+          console.error(e);
+        }
+      });
     }
     return Promise.resolve();
   };
@@ -140,7 +123,8 @@ export class ModelPageImpl extends React.Component {
               triggerError(requests);
             } else if (loading) {
               return <Spinner />;
-            } else if (model) { // Null check to prevent NPE after delete operation
+            } else if (model) {
+              // Null check to prevent NPE after delete operation
               return (
                 <ModelView
                   model={model}

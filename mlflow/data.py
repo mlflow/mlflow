@@ -1,11 +1,10 @@
-from __future__ import print_function
-
 import os
 import re
 
 from six.moves import urllib
 
 from mlflow.utils import process
+from mlflow.utils import deprecated
 
 DBFS_PREFIX = "dbfs:/"
 S3_PREFIX = "s3://"
@@ -27,8 +26,15 @@ def _fetch_dbfs(uri, local_path):
 def _fetch_s3(uri, local_path):
     import boto3
     print("=== Downloading S3 object %s to local path %s ===" % (uri, os.path.abspath(local_path)))
+
+    client_kwargs = {}
+    endpoint_url = os.environ.get('MLFLOW_S3_ENDPOINT_URL')
+
+    if endpoint_url:
+        client_kwargs['endpoint_url'] = endpoint_url
+
     (bucket, s3_path) = parse_s3_uri(uri)
-    boto3.client('s3').download_file(bucket, s3_path, local_path)
+    boto3.client('s3', **client_kwargs).download_file(bucket, s3_path, local_path)
 
 
 def _fetch_gs(uri, local_path):
@@ -65,6 +71,7 @@ def is_uri(string):
     return len(parsed_uri.scheme) > 0
 
 
+@deprecated(alternative="mlflow.tracking.MlflowClient.download_artifacts", since="1.9")
 def download_uri(uri, output_path):
     if DBFS_REGEX.match(uri):
         _fetch_dbfs(uri, output_path)

@@ -10,10 +10,7 @@ export const Stages = {
   ARCHIVED: 'Archived',
 };
 
-export const ACTIVE_STAGES = [
-  Stages.STAGING,
-  Stages.PRODUCTION,
-];
+export const ACTIVE_STAGES = [Stages.STAGING, Stages.PRODUCTION];
 
 export const StageLabels = {
   [Stages.NONE]: 'None',
@@ -23,11 +20,21 @@ export const StageLabels = {
 };
 
 export const StageTagComponents = {
-  [Stages.NONE]: <Tag>{StageLabels[Stages.NONE]}</Tag>,
-  [Stages.STAGING]: <Tag color='orange'>{StageLabels[Stages.STAGING]}</Tag>,
-  [Stages.PRODUCTION]: <Tag color='green'>{StageLabels[Stages.PRODUCTION]}</Tag>,
+  [Stages.NONE]: <Tag key='none'>{StageLabels[Stages.NONE]}</Tag>,
+  [Stages.STAGING]: (
+    <Tag key='staging' className='staging-tag'>
+      {StageLabels[Stages.STAGING]}
+    </Tag>
+  ),
+  [Stages.PRODUCTION]: (
+    <Tag key='production' color='green'>
+      {StageLabels[Stages.PRODUCTION]}
+    </Tag>
+  ),
   [Stages.ARCHIVED]: (
-    <Tag color='#eee' style={{ color: '#333'}}>{StageLabels[Stages.ARCHIVED]}</Tag>
+    <Tag key='archived' className='production-tag'>
+      {StageLabels[Stages.ARCHIVED]}
+    </Tag>
   ),
 };
 
@@ -56,8 +63,9 @@ export const modelVersionStatusIconTooltips = {
 };
 
 export const ModelVersionStatusIcons = {
-  [ModelVersionStatus.READY]:
-    <i className='far fa-check-circle icon-ready model-version-status-icon' />,
+  [ModelVersionStatus.READY]: (
+    <i className='far fa-check-circle icon-ready model-version-status-icon' />
+  ),
 };
 
 export const MODEL_VERSION_STATUS_POLL_INTERVAL = 10000;

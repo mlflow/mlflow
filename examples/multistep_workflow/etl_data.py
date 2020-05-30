@@ -1,9 +1,6 @@
 """
 Converts the raw CSV form to a Parquet form with just the columns we want
 """
-
-from __future__ import print_function
-
 import tempfile
 import os
 import pyspark

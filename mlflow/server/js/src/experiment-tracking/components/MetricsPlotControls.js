@@ -9,6 +9,7 @@ const RadioGroup = Radio.Group;
 export const X_AXIS_WALL = 'wall';
 export const X_AXIS_STEP = 'step';
 export const X_AXIS_RELATIVE = 'relative';
+export const MAX_LINE_SMOOTHNESS = 100;
 
 export class MetricsPlotControls extends React.Component {
   static propTypes = {
@@ -42,12 +43,13 @@ export class MetricsPlotControls extends React.Component {
 
   render() {
     const { chartType, yAxisLogScale, initialLineSmoothness, showPoint } = this.props;
+    const wrapperStyle = chartType === CHART_TYPE_LINE ? styles.linechartControlsWrapper : {};
     const lineSmoothnessTooltipText =
-      'Make the line between points "smoother" based on generalized Catmull-Rom splines. ' +
+      'Make the line between points "smoother" based on Exponential Moving Average. ' +
       'Smoothing can be useful for displaying the ' +
       'overall trend when the logging frequency is high.';
     return (
-      <div className='plot-controls'>
+      <div className='plot-controls' style={wrapperStyle}>
         {chartType === CHART_TYPE_LINE ? (
           <div>
             <div className='inline-control'>
@@ -62,16 +64,16 @@ export class MetricsPlotControls extends React.Component {
             </div>
             <div className='block-control'>
               <div className='control-label'>
-                Line Smoothness {' '}
+                Line Smoothness{' '}
                 <Tooltip title={lineSmoothnessTooltipText}>
                   <Icon type='question-circle' />
                 </Tooltip>
               </div>
               <LineSmoothSlider
                 className='smoothness-toggle'
-                min={0}
-                max={1.3}
-                handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 500)}
+                min={1}
+                max={MAX_LINE_SMOOTHNESS}
+                handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 100)}
                 defaultValue={initialLineSmoothness}
               />
             </div>
@@ -117,3 +119,10 @@ export class MetricsPlotControls extends React.Component {
     );
   }
 }
+
+const styles = {
+  linechartControlsWrapper: {
+    // Make controls aligned to plotly line chart
+    justifyContent: 'center',
+  },
+};

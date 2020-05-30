@@ -14,7 +14,7 @@ from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
-from mlflow.utils import experimental, deprecated
+from mlflow.utils import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -194,7 +194,8 @@ class MlflowClient(object):
                       as +/- Infinity may be replaced by other values depending on the store. For
                       example, the SQLAlchemy store replaces +/- Inf with max / min float values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
-        :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
+        :param step: Integer training step (iteration) at which was the metric calculated.
+                     Defaults to 0.
         """
         self._tracking_client.log_metric(run_id, key, value, timestamp, step)
 
@@ -379,7 +380,9 @@ class MlflowClient(object):
 
         :param name: Name of the registered model to update.
         :param new_name: (Deprecated) New proposed name for the registered model.
-                         This argument is deprecated, use rename_registered_model instead..
+                         This argument is deprecated. Use the
+                         :py:func:`rename_registered_model <MlflowClient.rename_registered_model>`
+                         method to rename registered models instead.
         :param description: (Optional) New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
@@ -391,8 +394,8 @@ class MlflowClient(object):
 
         res = None
         if new_name is not None:
-            _logger.warning("'new_name' argument in update_registered_model is deprecated, "
-                            "please use  renamed_registered_model instead.")
+            _logger.warning("The `new_name` argument in update_registered_model is deprecated."
+                            " Use the `rename_registered_model` method instead.")
             res = self._get_registry_client().rename_registered_model(name=name, new_name=new_name)
             name = new_name
         if description is not None:
@@ -418,10 +421,6 @@ class MlflowClient(object):
         :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
         """
         return self._get_registry_client().list_registered_models()
-
-    @deprecated(alternative="mlflow.tracking.client.get_registered_model", since="1.7")
-    def get_registered_model_details(self, name):
-        return self.get_registered_model(name)
 
     @experimental
     def get_registered_model(self, name):
@@ -511,15 +510,6 @@ class MlflowClient(object):
         :param version: Version number of the model version.
         """
         self._get_registry_client().delete_model_version(name, version)
-
-    @deprecated("mlflow.tracking.client.get_model_version", "1.7")
-    def get_model_version_details(self, name, version):
-        """
-        :param name: Name of the containing registered model.
-        :param version: Version number of the model version.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
-        """
-        return self._get_registry_client().get_model_version(name, version)
 
     @experimental
     def get_model_version(self, name, version):

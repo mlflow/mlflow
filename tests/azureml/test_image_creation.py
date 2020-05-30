@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import sys
 import os
 import json
@@ -34,8 +32,8 @@ from tests.helper_functions import set_boto_credentials  # pylint: disable=unuse
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 pytestmark = pytest.mark.skipif(
-        (sys.version_info < (3, 0)),
-        reason="Tests require Python 3 to run!")
+    (sys.version_info < (3, 0)),
+    reason="Tests require Python 3 to run!")
 
 
 class AzureMLMocks:
@@ -45,6 +43,7 @@ class AzureMLMocks:
             "register_model": mock.patch("azureml.core.model.Model.register"),
             "get_model_path": mock.patch("azureml.core.model.Model.get_model_path"),
             "create_image": mock.patch("azureml.core.Image.create"),
+            "deploy": mock.patch("azureml.core.model.Model.deploy"),
             "load_workspace": mock.patch("azureml.core.Workspace.get"),
         }
 
@@ -347,6 +346,34 @@ def test_build_image_includes_user_specified_tags_in_azure_image_and_model_tags(
 
 @pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
+def test_deploy_includes_tags_in_azure_deployment_and_model_tags(
+        sklearn_model, model_path):
+    custom_tags = {
+        "User": "Corey",
+        "Date": "Today",
+        "Other": "Entry",
+    }
+
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    with AzureMLMocks() as aml_mocks:
+        workspace = get_azure_workspace()
+        mlflow.azureml.deploy(model_uri=model_path, workspace=workspace, tags=custom_tags)
+
+        register_model_call_args = aml_mocks["register_model"].call_args_list
+        assert len(register_model_call_args) == 1
+        _, register_model_call_kwargs = register_model_call_args[0]
+        called_tags = register_model_call_kwargs["tags"]
+        assert custom_tags.items() <= called_tags.items()
+
+        deploy_call_args = aml_mocks["deploy"].call_args_list
+        assert len(deploy_call_args) == 1
+        _, deploy_call_kwargs = deploy_call_args[0]
+        deployment_config = deploy_call_kwargs["deployment_config"]
+        assert custom_tags.items() <= deployment_config.tags.items()
+
+
+@pytest.mark.large
+@mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_includes_user_specified_description_in_azure_image_and_model_tags(
         sklearn_model, model_path):
     custom_description = "a custom description"
@@ -355,7 +382,7 @@ def test_build_image_includes_user_specified_description_in_azure_image_and_mode
     with AzureMLMocks() as aml_mocks:
         workspace = get_azure_workspace()
         mlflow.azureml.build_image(
-                model_uri=model_path, workspace=workspace, description=custom_description)
+            model_uri=model_path, workspace=workspace, description=custom_description)
 
         register_model_call_args = aml_mocks["register_model"].call_args_list
         assert len(register_model_call_args) == 1
@@ -454,7 +481,7 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
     with TempDir() as tmp:
         execution_script_path = tmp.path("dest")
         mlflow.azureml._create_execution_script(
-                output_path=execution_script_path, azure_model=model_mock)
+            output_path=execution_script_path, azure_model=model_mock)
 
         with open(execution_script_path, "r") as f:
             execution_script = f.read()
@@ -498,7 +525,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
     with TempDir() as tmp:
         execution_script_path = tmp.path("dest")
         mlflow.azureml._create_execution_script(
-                output_path=execution_script_path, azure_model=model_mock)
+            output_path=execution_script_path, azure_model=model_mock)
 
         with open(execution_script_path, "r") as f:
             execution_script = f.read()
@@ -541,7 +568,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
     with TempDir() as tmp:
         execution_script_path = tmp.path("dest")
         mlflow.azureml._create_execution_script(
-                output_path=execution_script_path, azure_model=model_mock)
+            output_path=execution_script_path, azure_model=model_mock)
 
         with open(execution_script_path, "r") as f:
             execution_script = f.read()
@@ -581,14 +608,14 @@ def test_cli_build_image_with_absolute_model_path_calls_expected_azure_routines(
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     with AzureMLMocks() as aml_mocks:
         result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-                mlflow.azureml.cli.commands,
-                [
-                    'build-image',
-                    '-m', model_path,
-                    '-w', "test_workspace",
-                    '-i', "image_name",
-                    '-n', "model_name",
-                ])
+            mlflow.azureml.cli.commands,
+            [
+                'build-image',
+                '-m', model_path,
+                '-w', "test_workspace",
+                '-i', "image_name",
+                '-n', "model_name",
+            ])
         assert result.exit_code == 0
 
         assert aml_mocks["register_model"].call_count == 1
@@ -605,14 +632,14 @@ def test_cli_build_image_with_relative_model_path_calls_expected_azure_routines(
 
         with AzureMLMocks() as aml_mocks:
             result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-                    mlflow.azureml.cli.commands,
-                    [
-                        'build-image',
-                        '-m', model_path,
-                        '-w', 'test_workspace',
-                        '-i', 'image_name',
-                        '-n', 'model_name',
-                    ])
+                mlflow.azureml.cli.commands,
+                [
+                    'build-image',
+                    '-m', model_path,
+                    '-w', 'test_workspace',
+                    '-i', 'image_name',
+                    '-n', 'model_name',
+                ])
             assert result.exit_code == 0
 
             assert aml_mocks["register_model"].call_count == 1
@@ -632,14 +659,14 @@ def test_cli_build_image_with_runs_uri_calls_expected_azure_routines(sklearn_mod
 
     with AzureMLMocks() as aml_mocks:
         result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-                mlflow.azureml.cli.commands,
-                [
-                    'build-image',
-                    '-m', model_uri,
-                    '-w', 'test_workspace',
-                    '-i', 'image_name',
-                    '-n', 'model_name',
-                ])
+            mlflow.azureml.cli.commands,
+            [
+                'build-image',
+                '-m', model_uri,
+                '-w', 'test_workspace',
+                '-i', 'image_name',
+                '-n', 'model_name',
+            ])
         assert result.exit_code == 0
 
         assert aml_mocks["register_model"].call_count == 1
@@ -660,14 +687,14 @@ def test_cli_build_image_with_remote_uri_calls_expected_azure_routines(
 
     with AzureMLMocks() as aml_mocks:
         result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-                mlflow.azureml.cli.commands,
-                [
-                    'build-image',
-                    '-m', model_uri,
-                    '-w', 'test_workspace',
-                    '-i', 'image_name',
-                    '-n', 'model_name',
-                ])
+            mlflow.azureml.cli.commands,
+            [
+                'build-image',
+                '-m', model_uri,
+                '-w', 'test_workspace',
+                '-i', 'image_name',
+                '-n', 'model_name',
+            ])
         assert result.exit_code == 0
 
         assert aml_mocks["register_model"].call_count == 1
@@ -689,13 +716,13 @@ def test_cli_build_image_parses_and_includes_user_specified_tags_in_azureml_imag
 
     with AzureMLMocks() as aml_mocks:
         result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
-                mlflow.azureml.cli.commands,
-                [
-                    'build-image',
-                    '-m', model_path,
-                    '-w', 'test_workspace',
-                    '-t', json.dumps(custom_tags),
-                 ])
+            mlflow.azureml.cli.commands,
+            [
+                'build-image',
+                '-m', model_path,
+                '-w', 'test_workspace',
+                '-t', json.dumps(custom_tags),
+            ])
         assert result.exit_code == 0
 
         register_model_call_args = aml_mocks["register_model"].call_args_list

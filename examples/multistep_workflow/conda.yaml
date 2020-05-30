@@ -1,12 +1,14 @@
 name: multistep
 channels:
   - defaults
+  - anaconda
+  - conda-forge
 dependencies:
   - python=3.6
   - pyspark
   - requests
   - click
   - pip:
-    - tensorflow==1.13.1
+    - tensorflow==1.15.2
     - keras==2.2.4
     - mlflow>=1.0

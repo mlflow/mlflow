@@ -26,6 +26,7 @@ def _build_uri(base_uri, subdirectory):
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
+@pytest.mark.large
 def test_docker_project_execution(
         use_start_run,
         tmpdir, docker_example_base_image):  # pylint: disable=unused-argument
@@ -68,6 +69,7 @@ def test_docker_project_execution(
     ("databricks://some-profile", "-e MLFLOW_TRACKING_URI=databricks ")
 ])
 @mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
+@pytest.mark.large
 def test_docker_project_tracking_uri_propagation(
         ProfileConfigProvider, tmpdir, tracking_uri,
         expected_command_segment, docker_example_base_image):  # pylint: disable=unused-argument
@@ -202,7 +204,6 @@ def test_docker_gcs_artifact_cmd_and_envs_from_home():
 
 def test_docker_hdfs_artifact_cmd_and_envs_from_home():
     mock_env = {
-        "MLFLOW_HDFS_DRIVER": "mock_libhdfs",
         "MLFLOW_KERBEROS_TICKET_CACHE": "/mock_ticket_cache",
         "MLFLOW_KERBEROS_USER": "mock_krb_user",
         "MLFLOW_PYARROW_EXTRA_CONF": "mock_pyarrow_extra_conf"
@@ -279,11 +280,31 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
         with pytest.raises(MlflowException):
             with mock.patch.dict("os.environ", os_environ):
                 mlflow.projects._get_docker_command(
-                    image, active_run, volumes, environment)
+                    image, active_run, None, volumes, environment)
     else:
         with mock.patch.dict("os.environ", os_environ):
             docker_command = mlflow.projects._get_docker_command(
-                image, active_run, volumes, environment)
+                image, active_run, None, volumes, environment)
         for exp_type, expected in expected:
             assert expected in docker_command
             assert docker_command[docker_command.index(expected) - 1] == exp_type
+
+
+@pytest.mark.parametrize("docker_args", [
+    {}, {"ARG": "VAL"}, {"ARG1": "VAL1", "ARG2": "VAL2"}
+])
+def test_docker_run_args(docker_args):
+    active_run = mock.MagicMock()
+    run_info = mock.MagicMock()
+    run_info.run_id = "fake_run_id"
+    run_info.experiment_id = "fake_experiment_id"
+    run_info.artifact_uri = "/tmp/mlruns/artifacts"
+    active_run.info = run_info
+    image = mock.MagicMock()
+    image.tags = ["image:tag"]
+
+    docker_command = mlflow.projects._get_docker_command(
+                    image, active_run, docker_args, None, None)
+
+    for flag, value in docker_args.items():
+        assert docker_command[docker_command.index(value) - 1] == "--{}".format(flag)

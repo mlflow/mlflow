@@ -2,8 +2,9 @@ name: tensorflow-example
 channels:
   - defaults
   - anaconda
+  - conda-forge
 dependencies:
-  - python==3.6
+  - python=3.6
   - pip:
     - mlflow
     - tensorflow==2.0.0

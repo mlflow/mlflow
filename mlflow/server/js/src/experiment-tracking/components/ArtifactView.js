@@ -1,7 +1,10 @@
 import React, { Component } from 'react';
+import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import {
-  getBasename, getExtension, IMAGE_EXTENSIONS,
+  getBasename,
+  getExtension,
+  IMAGE_EXTENSIONS,
   TEXT_EXTENSIONS,
 } from '../../common/utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
@@ -12,7 +15,8 @@ import ShowArtifactPage, { getSrc } from './artifact-view-components/ShowArtifac
 import {
   ModelVersionStatus,
   ModelVersionStatusIcons,
-  DefaultModelVersionStatusMessages, modelVersionStatusIconTooltips,
+  DefaultModelVersionStatusMessages,
+  modelVersionStatusIconTooltips,
 } from '../../model-registry/constants';
 import Utils from '../../common/utils/Utils';
 import _ from 'lodash';
@@ -21,8 +25,11 @@ import { Tooltip } from 'antd';
 
 import './ArtifactView.css';
 import spinner from '../../common/static/mlflow-spinner.png';
+import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
+import { getAllModelVersions } from '../../model-registry/reducers';
+import { listArtifactsApi } from '../actions';
 
-export class ArtifactView extends Component {
+export class ArtifactViewImpl extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     // The root artifact node.
@@ -46,7 +53,7 @@ export class ArtifactView extends Component {
     const existingModelVersions = modelVersionsBySource[activeNodeRealPath];
 
     return existingModelVersions ? (
-      <ModelVersionInfoSection modelVersion={_.last(existingModelVersions)}/>
+      <ModelVersionInfoSection modelVersion={_.last(existingModelVersions)} />
     ) : (
       <RegisterModelButton
         runUuid={runUuid}
@@ -87,7 +94,9 @@ export class ArtifactView extends Component {
         {this.renderPathAndSizeInfo()}
         <div className='artifact-info-right'>
           {this.activeNodeIsDirectory()
-            ? (Utils.isModelRegistryEnabled() ? this.renderModelVersionInfoSection() : null)
+            ? Utils.isModelRegistryEnabled()
+              ? this.renderModelVersionInfoSection()
+              : null
             : this.renderDownloadLink()}
         </div>
       </div>
@@ -119,7 +128,7 @@ export class ArtifactView extends Component {
         return Object.values(artifactNode.children).map((c) => this.getTreebeardData(c));
       }
       // This case should never happen since we should never call this function on an empty root.
-      throw Error("unreachable code.");
+      throw Error('unreachable code.');
     }
 
     let id;
@@ -198,8 +207,8 @@ export class ArtifactView extends Component {
     }
     return (
       <div>
-        <div className="artifact-view">
-          <div className="artifact-left">
+        <div className='artifact-view'>
+          <div className='artifact-left'>
             <Treebeard
               data={this.getTreebeardData(this.props.artifactNode)}
               onToggle={this.onToggleTreebeard}
@@ -207,15 +216,30 @@ export class ArtifactView extends Component {
               decorators={decorators}
             />
           </div>
-          <div className="artifact-right">
+          <div className='artifact-right'>
             {this.state.activeNodeId ? this.renderArtifactInfo() : null}
-            <ShowArtifactPage runUuid={this.props.runUuid} path={this.state.activeNodeId}/>
+            <ShowArtifactPage runUuid={this.props.runUuid} path={this.state.activeNodeId} />
           </div>
         </div>
       </div>
     );
   }
 }
+
+const mapStateToProps = (state, ownProps) => {
+  const { runUuid } = ownProps;
+  const { apis } = state;
+  const artifactNode = getArtifacts(runUuid, state);
+  const artifactRootUri = getArtifactRootUri(runUuid, state);
+  const modelVersionsBySource = _.groupBy(getAllModelVersions(state), 'source');
+  return { artifactNode, artifactRootUri, modelVersionsBySource, apis };
+};
+
+const mapDispatchToProps = {
+  listArtifactsApi,
+};
+
+export const ArtifactView = connect(mapStateToProps, mapDispatchToProps)(ArtifactViewImpl);
 
 function ModelVersionInfoSection(props) {
   const { modelVersion } = props;
@@ -230,7 +254,7 @@ function ModelVersionInfoSection(props) {
     >
       <span className='model-name'>{name}</span>
       <span>,&nbsp;v{version}&nbsp;</span>
-      <i className='fas fa-external-link-alt'/>
+      <i className='fas fa-external-link-alt' />
     </a>
   );
 
@@ -245,10 +269,11 @@ function ModelVersionInfoSection(props) {
       <div className='model-version-status-text'>
         {status === ModelVersionStatus.READY ? (
           <React.Fragment>
-            Registered on {' '}
-            {Utils.formatTimestamp(modelVersion.creation_timestamp, 'yyyy/mm/dd')}
+            Registered on {Utils.formatTimestamp(modelVersion.creation_timestamp, 'yyyy/mm/dd')}
           </React.Fragment>
-        ) : (status_message || DefaultModelVersionStatusMessages[status])}
+        ) : (
+          status_message || DefaultModelVersionStatusMessages[status]
+        )}
       </div>
     </div>
   );
@@ -258,14 +283,12 @@ ModelVersionInfoSection.propTypes = { modelVersion: PropTypes.object.isRequired 
 
 function NoArtifactView() {
   return (
-    <div className="empty-artifact-outer-container">
-      <div className="empty-artifact-container">
+    <div className='empty-artifact-outer-container'>
+      <div className='empty-artifact-container'>
+        <div>{/* TODO: put a nice image here */}</div>
         <div>
-          {/* TODO: put a nice image here */}
-        </div>
-        <div>
-          <div className="no-artifacts">No Artifacts Recorded</div>
-          <div className="no-artifacts-info">
+          <div className='no-artifacts'>No Artifacts Recorded</div>
+          <div className='no-artifacts-info'>
             Use the log artifact APIs to store file outputs from MLflow runs.
           </div>
         </div>
@@ -351,7 +374,7 @@ const TREEBEARD_STYLE = {
 };
 
 // eslint-disable-next-line react/prop-types
-decorators.Header = ({style, node}) => {
+decorators.Header = ({ style, node }) => {
   let iconType;
   if (node.children) {
     iconType = 'folder';
@@ -375,7 +398,7 @@ decorators.Header = ({style, node}) => {
   return (
     <div style={style.base}>
       <div style={style.title}>
-        <i className={iconClass} style={iconStyle}/>
+        <i className={iconClass} style={iconStyle} />
         {node.name}
       </div>
     </div>
@@ -383,11 +406,10 @@ decorators.Header = ({style, node}) => {
 };
 
 // eslint-disable-next-line react/prop-types
-decorators.Loading = ({style}) => {
+decorators.Loading = ({ style }) => {
   return (
     <div style={style}>
-      <img alt="" className="loading-spinner" src={spinner}/>
-      {' '}loading...
+      <img alt='' className='loading-spinner' src={spinner} /> loading...
     </div>
   );
 };

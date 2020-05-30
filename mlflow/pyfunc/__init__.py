@@ -65,7 +65,9 @@ following parameters:
 
 .. rubric:: Example
 
->>> tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
+::
+
+    tree example/sklearn_iris/mlruns/run1/outputs/linear-lr
 
 ::
 
@@ -77,7 +79,9 @@ following parameters:
   │   └── model.pkl
   └── mlflow_env.yml
 
->>> cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
+::
+
+    cat example/sklearn_iris/mlruns/run1/outputs/linear-lr/MLmodel
 
 ::
 
@@ -200,7 +204,8 @@ from copy import deepcopy
 import mlflow
 import mlflow.pyfunc.model
 import mlflow.pyfunc.utils
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature, ModelInputExample
+from mlflow.models.utils import _save_example
 from mlflow.pyfunc.model import PythonModel, PythonModelContext, get_default_conda_env
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import PYTHON_VERSION, deprecated, get_major_minor_py_version
@@ -341,8 +346,8 @@ def spark_udf(spark, model_uri, result_type="double"):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
-    Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
-    ordinals (0, 1, ...). On some versions of Spark, it is also possible to wrap the input in a
+    Parameters passed to the UDF are forwarded to the model as a DataFrame where the column names
+    are ordinals (0, 1, ...). On some versions of Spark, it is also possible to wrap the input in a
     struct. In that case, the data will be passed as a DataFrame with column names given by the
     struct definition (e.g. when invoked as my_udf(struct('x', 'y'), the model will ge the data as a
     pandas DataFrame with 2 columns 'x' and 'y').
@@ -352,8 +357,11 @@ def spark_udf(spark, model_uri, result_type="double"):
     converted to string. If the result type is not an array type, the left most column with
     matching type is returned.
 
-    >>> predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
-    >>> df.withColumn("prediction", predict("name", "age")).show()
+    .. code-block:: python
+        :caption: Example
+
+        predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
+        df.withColumn("prediction", predict("name", "age")).show()
 
     :param spark: A SparkSession object.
     :param model_uri: The location, in URI format, of the MLflow model with the
@@ -479,7 +487,9 @@ def spark_udf(spark, model_uri, result_type="double"):
 
 
 def save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-               mlflow_model=Model(), python_model=None, artifacts=None, **kwargs):
+               mlflow_model=None, python_model=None, artifacts=None,
+               signature: ModelSignature = None, input_example: ModelInputExample = None,
+               **kwargs):
     """
     save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
                mlflow_model=Model(), python_model=None, artifacts=None)
@@ -557,6 +567,25 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
                       path via ``context.artifacts["my_file"]``.
 
                       If ``None``, no artifacts are added to the model.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
     """
     mlflow_model = kwargs.pop('model', mlflow_model)
     if len(kwargs) > 0:
@@ -564,6 +593,7 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     if code_path is not None:
         if not isinstance(code_path, list):
             raise TypeError('Argument code_path should be a list, not {}'.format(type(code_path)))
+
     first_argument_set = {
         "loader_module": loader_module,
         "data_path": data_path,
@@ -592,6 +622,18 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
             message=msg,
             error_code=INVALID_PARAMETER_VALUE)
 
+    if os.path.exists(path):
+        raise MlflowException(
+            message="Path '{}' already exists".format(path),
+            error_code=RESOURCE_ALREADY_EXISTS)
+    os.makedirs(path)
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
+
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
             path=path, loader_module=loader_module, data_path=data_path,
@@ -603,7 +645,8 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 
 
 def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-              python_model=None, artifacts=None, registered_model_name=None):
+              python_model=None, artifacts=None, registered_model_name=None,
+              signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
     artifact for the current run.
@@ -680,6 +723,25 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
     """
     return Model.log(artifact_path=artifact_path,
                      flavor=mlflow.pyfunc,
@@ -689,7 +751,9 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                      python_model=python_model,
                      artifacts=artifacts,
                      conda_env=conda_env,
-                     registered_model_name=registered_model_name)
+                     registered_model_name=registered_model_name,
+                     signature=signature,
+                     input_example=input_example)
 
 
 def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=None,
@@ -710,11 +774,6 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
                       this model should be run in.
     :return: Model configuration containing model info.
     """
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path),
-            error_code=RESOURCE_ALREADY_EXISTS)
-    os.makedirs(path)
 
     code = None
     data = None

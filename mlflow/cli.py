@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import json
 import os
 import sys
@@ -52,13 +50,16 @@ def cli():
               help="A parameter for the run, of the form -P name=value. Provided parameters that "
                    "are not in the list of parameters for an entry point will be passed to the "
                    "corresponding entry point as command-line arguments in the form `--name value`")
+@click.option("--docker-args", "-A", metavar="NAME=VALUE", multiple=True,
+              help="A `docker run` flag or argument, of the form -A name=value. Where `name` "
+              "will then be propagated as `docker run --name value`.")
 @click.option("--experiment-name", envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
               help="Name of the experiment under which to launch the run. If not "
                    "specified, 'experiment-id' option will be used to launch run.")
 @click.option("--experiment-id", envvar=tracking._EXPERIMENT_ID_ENV_VAR, type=click.STRING,
               help="ID of the experiment under which to launch the run.")
 # TODO: Add tracking server argument once we have it working.
-@click.option("--backend", "-b", metavar="BACKEND",
+@click.option("--backend", "-b", metavar="BACKEND", default="local",
               help="Execution backend to use for run. Supported values: 'local', 'databricks', "
                    "kubernetes (experimental). Defaults to 'local'. If running against "
                    "Databricks, will run against a Databricks workspace determined as follows: "
@@ -75,14 +76,14 @@ def cli():
                    "at https://www.mlflow.org/docs/latest/projects.html.")
 @cli_args.NO_CONDA
 @click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
-              help="Only valid when ``backend`` is local."
+              help="Only valid when ``backend`` is local. "
                    "MLflow downloads artifacts from distributed URIs passed to parameters of "
                    "type 'path' to subdirectories of storage_dir.")
 @click.option("--run-id", metavar="RUN_ID",
               help="If specified, the given run ID will be used instead of creating a new run. "
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
-def run(uri, entry_point, version, param_list, experiment_name, experiment_id, backend,
+def run(uri, entry_point, version, param_list, docker_args, experiment_name, experiment_id, backend,
         backend_config, no_conda, storage_dir, run_id):
     """
     Run an MLflow project from the given URI.
@@ -100,18 +101,9 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
         eprint("Specify only one of 'experiment-name' or 'experiment-id' options.")
         sys.exit(1)
 
-    param_dict = {}
-    for s in param_list:
-        index = s.find("=")
-        if index == -1:
-            eprint("Invalid format for -P parameter: '%s'. Use -P name=value." % s)
-            sys.exit(1)
-        name = s[:index]
-        value = s[index + 1:]
-        if name in param_dict:
-            eprint("Repeated parameter: '%s'" % name)
-            sys.exit(1)
-        param_dict[name] = value
+    param_dict = _user_args_to_dict(param_list)
+    args_dict = _user_args_to_dict(docker_args, flag_name='A')
+
     if backend_config is not None and os.path.splitext(backend_config)[-1] != ".json":
         try:
             backend_config = json.loads(backend_config)
@@ -130,6 +122,7 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             experiment_name=experiment_name,
             experiment_id=experiment_id,
             parameters=param_dict,
+            docker_args=args_dict,
             backend=backend,
             backend_config=backend_config,
             use_conda=(not no_conda),
@@ -140,6 +133,23 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)
         sys.exit(1)
+
+
+def _user_args_to_dict(user_list, flag_name='P'):
+    user_dict = {}
+    for s in user_list:
+        index = s.find("=")
+        if index == -1:
+            eprint("Invalid format for -%s parameter: '%s'. "
+                   "Use -%s name=value." % (flag_name, s, flag_name))
+            sys.exit(1)
+        name = s[:index]
+        value = s[index + 1:]
+        if name in user_dict:
+            eprint("Repeated parameter: '%s'" % name)
+            sys.exit(1)
+        user_dict[name] = value
+    return user_dict
 
 
 def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
@@ -242,8 +252,8 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @click.option("--waitress-opts", default=None,
               help="Additional command line options for waitress-serve.")
 @click.option("--expose-prometheus", default=None,
-              help="Path to the directory where metrics will be stored. If the directory"
-                   "doesn't exist, it will be created."
+              help="Path to the directory where metrics will be stored. If the directory "
+                   "doesn't exist, it will be created. "
                    "Activate prometheus exporter to expose metrics on /metrics endpoint.")
 def server(backend_store_uri, default_artifact_root, host, port,
            workers, static_prefix, gunicorn_opts, waitress_opts, expose_prometheus):
@@ -285,7 +295,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
         sys.exit(1)
 
 
-@cli.command()
+@cli.command(short_help="Permanently delete runs in the `deleted` lifecycle stage.")
 @click.option("--backend-store-uri", metavar="PATH",
               default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
               help="URI of the backend store from which to delete runs. Acceptable URIs are "

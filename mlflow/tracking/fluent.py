@@ -2,9 +2,6 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
-
-from __future__ import print_function
-
 import os
 
 import atexit
@@ -161,10 +158,10 @@ def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
     """End an active MLflow run (if there is one)."""
     global _active_run_stack
     if len(_active_run_stack) > 0:
-        MlflowClient().set_terminated(_active_run_stack[-1].info.run_id, status)
         # Clear out the global existing run environment variable as well.
         env.unset_variable(_RUN_ID_ENV_VAR)
-        _active_run_stack.pop()
+        run = _active_run_stack.pop()
+        MlflowClient().set_terminated(run.info.run_id, status)
 
 
 atexit.register(end_run)

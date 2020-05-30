@@ -21,6 +21,7 @@ export class ModelVersionTable extends React.Component {
     modelName: PropTypes.string.isRequired,
     modelVersions: PropTypes.array.isRequired,
     activeStageOnly: PropTypes.bool,
+    onChange: PropTypes.func.isRequired,
   };
 
   static defaultProps = {
@@ -47,9 +48,7 @@ export class ModelVersionTable extends React.Component {
         className: 'model-version',
         dataIndex: 'version',
         render: (version) => (
-          <Link to={getModelVersionPageRoute(modelName, version)}>
-            {`Version ${version}`}
-          </Link>
+          <Link to={getModelVersionPageRoute(modelName, version)}>{`Version ${version}`}</Link>
         ),
       },
       {
@@ -86,6 +85,7 @@ export class ModelVersionTable extends React.Component {
         dataSource={versions}
         columns={this.getColumns()}
         locale={{ emptyText: 'No model version.' }}
+        rowSelection={{ onChange: this.props.onChange }}
       />
     );
   }
