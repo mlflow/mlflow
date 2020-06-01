@@ -34,7 +34,7 @@ def pandas_df_with_all_types():
         "double": [math.pi, 2 * math.pi, 3 * math.pi],
         "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
     })
-    pdf["string"] = pd.Series(["a", "b", 'c'], dtype=DataType.string.to_pandas())
+    pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
     return pdf
 
 
@@ -298,13 +298,15 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
         response = pyfunc_serve_and_score_model(
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(df.to_dict(orient="split"), cls=NumpyEncoder),
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            extra_args=["--no-conda"])
         response_json = json.loads(response.content)
         assert response_json == [[k, str(v)] for k, v in pandas_df_with_all_types.dtypes.items()]
         response = pyfunc_serve_and_score_model(
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(pandas_df_with_all_types.to_dict(orient="records"), cls=NumpyEncoder),
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED)
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+            extra_args=["--no-conda"])
         response_json = json.loads(response.content)
         assert response_json == [[k, str(v)] for k, v in pandas_df_with_all_types.dtypes.items()]
 
