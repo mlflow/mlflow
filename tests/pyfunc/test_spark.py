@@ -148,9 +148,8 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
 
         res = data.withColumn("res2", udf("a", "b", "c")).select("res2").toPandas()
         assert res["res2"][0] == ["a", "b", "c"]
-        with pytest.raises(Py4JJavaError):
-            res = data.withColumn("res4", udf("a", "b", "c", "d")).select("res4").toPandas()
-
+        res = data.withColumn("res4", udf("a", "b", "c", "d")).select("res4").toPandas()
+        assert res["res4"][0] == ["a", "b", "c"]
 
 @pytest.mark.large
 def test_model_cache(spark, model_path):
