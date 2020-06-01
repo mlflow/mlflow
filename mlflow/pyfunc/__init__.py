@@ -304,33 +304,31 @@ class PyFuncModel(object):
 
         if input_schema is not None:
             def convert_type(name, values: pandas.Series, t: DataType):
-                if values.dtype == np.object:
-                    if t == DataType.string:
-                        #  NB: strings are by default parsed and inferred as objects, but it is
-                        # recommended to use StringDtype extension type if available (since pandas
-                        # 1.0).
-                        # See `https://pandas.pydata.org/pandas-docs/stable/user_guide/text.html`
-                        # for more detail.
-                        if t.to_pandas() == np.object:
-                            # StringDtype is not available, just return the values as objects
-                            return values
-                        try:
-                            return values.astype(t.to_pandas(), errors="raise")
-                        except ValueError:
-                            raise MlflowException(
-                                "Failed to convert column {0} from type {1} to {2}.".format(
-                                  name, values.dtype, t)
-                            )
-                        # NB: Binary data is represented as objects and we assume the individual
-                        # elements are of correct type.
-                    elif t == DataType.binary:
-                        # NB: Binary data is represented as objects and we assume the individual
-                        # elements are of correct type.
-                        return values
-                    else:
-                        values = values.infer_objects()
-                if t.to_pandas() == values.dtype:
+                if values.dtype == np.object and t not in (DataType.binary, DataType.string):
+                    values = values.infer_objects()
+
+                if values.dtype in (t.to_pandas(), t.to_numpy()):
                     return values
+
+                if t == DataType.binary and values.dtype.kind == t.binary.to_numpy().kind:
+                    #  NB: bytes in numpy have variable itemsize and would fail the upcast check.
+                    return values
+
+                if t == DataType.string and values.dtype == np.object:
+                    #  NB: strings are by default parsed and inferred as objects, but it is
+                    # recommended to use StringDtype extension type if available. See
+                    #
+                    # `https://pandas.pydata.org/pandas-docs/stable/user_guide/text.html`
+                    #
+                    # for more detail.
+                    try:
+                        return values.astype(t.to_pandas(), errors="raise")
+                    except ValueError:
+                        raise MlflowException(
+                            "Failed to convert column {0} from type {1} to {2}.".format(
+                              name, values.dtype, t)
+                        )
+
                 numpy_type = t.to_numpy()
                 is_compatible_type = values.dtype.kind == numpy_type.kind
                 is_upcast = values.dtype.itemsize <= numpy_type.itemsize

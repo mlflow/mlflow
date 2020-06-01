@@ -9,10 +9,12 @@ from pandas.core.dtypes.dtypes import PandasExtensionDtype
 
 from mlflow.exceptions import MlflowException
 
-try:
-    pandas_str = pd.StringDtype()
-except AttributeError:
-    pandas_str = np.object
+
+def _pandas_string_type():
+    try:
+        return pd.StringDtype()
+    except AttributeError:
+        return np.object
 
 
 class DataType(Enum):
@@ -27,6 +29,10 @@ class DataType(Enum):
         res._pandas_type = pandas_type if pandas_type is not None else numpy_type
         return res
 
+    # NB: We only use pandas extension type for strings. There are also pandas extension types for
+    # integers and boolean values. We do not use them here for now as most downstream tools are
+    # most likely to use / expect native numpy types and owuld not be compatible with the extension
+    # types.
     boolean = (1, np.dtype("bool"), "BooleanType")
     """Logical data (True, False) ."""
     integer = (2, np.dtype("int32"), "IntegerType")
@@ -37,7 +43,7 @@ class DataType(Enum):
     """32b floating point numbers. """
     double = (5, np.dtype("float64"), "DoubleType")
     """64b floating point numbers. """
-    string = (6, np.dtype("str"), "StringType", pandas_str)
+    string = (6, np.dtype("str"), "StringType", _pandas_string_type())
     """Text data."""
     binary = (7, np.dtype("bytes"), "BinaryType", np.object)
     """Sequence of raw bytes."""
