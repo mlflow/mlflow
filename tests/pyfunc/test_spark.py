@@ -151,6 +151,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
         res = data.withColumn("res4", udf("a", "b", "c", "d")).select("res4").toPandas()
         assert res["res4"][0] == ["a", "b", "c"]
 
+
 @pytest.mark.large
 def test_model_cache(spark, model_path):
     mlflow.pyfunc.save_model(

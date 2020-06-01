@@ -26,15 +26,16 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 @pytest.fixture
 def pandas_df_with_all_types():
-    return pd.DataFrame({
+    pdf = pd.DataFrame({
         "boolean": [True, False, True],
         "integer": np.array([1, 2, 3], np.int32),
         "long": np.array([1, 2, 3], np.int64),
         "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
         "double": [math.pi, 2 * math.pi, 3 * math.pi],
         "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
-        "string": pd.Series(["a", "b", 'c'], dtype=DataType.string.to_pandas())
     })
+    pdf["string"] = pd.Series(["a", "b", 'c'], dtype=DataType.string.to_pandas())
+    return pdf
 
 
 @pytest.fixture(scope="session")
