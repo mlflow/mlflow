@@ -210,7 +210,7 @@ from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.models.utils import _save_example
 from mlflow.pyfunc.model import PythonModel, PythonModelContext, get_default_conda_env
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types import DataType
+from mlflow.types import DataType, Schema
 from mlflow.utils import PYTHON_VERSION, deprecated, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -270,6 +270,85 @@ def _load_model_env(path):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
+def _enforce_type(name, values: pandas.Series, t: DataType):
+    """
+    Enforce the input column type matches the declared in model input schema.
+
+    The following type conversions are allowed:
+
+    1. np.object -> string
+    2. int -> long
+    3. float -> double.
+
+    Any other type mismatch will raise error.
+    """
+    if values.dtype == np.object and t not in (DataType.binary, DataType.string):
+        values = values.infer_objects()
+
+    if values.dtype in (t.to_pandas(), t.to_numpy()):
+        # The types are already compatible => conversion is not necessary.
+        return values
+
+    if t == DataType.binary and values.dtype.kind == t.binary.to_numpy().kind:
+        #  NB: bytes in numpy have variable itemsize and would fail the upcast check.
+        return values
+
+    if t == DataType.string and values.dtype == np.object:
+        #  NB: strings are by default parsed and inferred as objects, but it is
+        # recommended to use StringDtype extension type if available. See
+        #
+        # `https://pandas.pydata.org/pandas-docs/stable/user_guide/text.html`
+        #
+        # for more detail.
+        try:
+            return values.astype(t.to_pandas(), errors="raise")
+        except ValueError:
+            raise MlflowException(
+                "Failed to convert column {0} from type {1} to {2}.".format(
+                  name, values.dtype, t)
+            )
+
+    numpy_type = t.to_numpy()
+    is_compatible_type = values.dtype.kind == numpy_type.kind
+    is_upcast = values.dtype.itemsize <= numpy_type.itemsize
+    if is_compatible_type and is_upcast:
+        # upcasting compatible types is ok
+        return values.astype(numpy_type, errors="raise")
+    else:
+        # NB: conversion between incompatible types (e.g. floats -> ints or
+        # boolean -> numeric) are not allowed. While supported by pandas and numpy,
+        # these conversions alter the values significantly.
+        raise MlflowException("Incompatible input types for column {0}. "
+                              "Can not safely convert {1} to {2}.".format(name,
+                                                                          values.dtype,
+                                                                          numpy_type))
+
+
+def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
+    """
+    Enforce column names and types match the input schema.
+
+    For column names, we check there are no missing columns and reorder the columns to match the
+    ordering declared in schema if necessary. Any extra columns are ignored.
+
+    For column types, we make sure the types match schema or can be safely converted to match the
+    input schema.
+    """
+    col_names = input_schema.column_names()
+    col_types = input_schema.column_types()
+    expected_names = set(col_names)
+    actual_names = set(pdf.columns)
+    missing_cols = expected_names - actual_names
+    if missing_cols:
+        message = "Model input is missing columns {0}.".format(missing_cols)
+        raise MlflowException(message)
+
+    new_pdf = pandas.DataFrame()
+    for i, x in enumerate(col_names):
+        new_pdf[x] = _enforce_type(x, pdf[x], col_types[i])
+    return new_pdf
+
+
 PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
@@ -301,66 +380,9 @@ class PyFuncModel(object):
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self._model_meta.get_input_schema()
-
         if input_schema is not None:
-            def convert_type(name, values: pandas.Series, t: DataType):
-                if values.dtype == np.object and t not in (DataType.binary, DataType.string):
-                    values = values.infer_objects()
-
-                if values.dtype in (t.to_pandas(), t.to_numpy()):
-                    return values
-
-                if t == DataType.binary and values.dtype.kind == t.binary.to_numpy().kind:
-                    #  NB: bytes in numpy have variable itemsize and would fail the upcast check.
-                    return values
-
-                if t == DataType.string and values.dtype == np.object:
-                    #  NB: strings are by default parsed and inferred as objects, but it is
-                    # recommended to use StringDtype extension type if available. See
-                    #
-                    # `https://pandas.pydata.org/pandas-docs/stable/user_guide/text.html`
-                    #
-                    # for more detail.
-                    try:
-                        return values.astype(t.to_pandas(), errors="raise")
-                    except ValueError:
-                        raise MlflowException(
-                            "Failed to convert column {0} from type {1} to {2}.".format(
-                              name, values.dtype, t)
-                        )
-
-                numpy_type = t.to_numpy()
-                is_compatible_type = values.dtype.kind == numpy_type.kind
-                is_upcast = values.dtype.itemsize <= numpy_type.itemsize
-                if is_compatible_type and is_upcast:
-                    # conversions between compatible types and ints -> floats are allowed.
-                    return values.astype(numpy_type, errors="raise")
-                else:
-                    # NB: conversion between incompatible types (e.g. floats -> ints or
-                    # boolean -> numeric) are not allowed. While supported by pandas and numpy,
-                    # these conversions alter the values significantly.
-                    raise MlflowException("Incompatible input types for column {0}. "
-                                          "Can not safely convert {1} to {2}.".format(name,
-                                                                                      values.dtype,
-                                                                                      numpy_type))
-            col_names = input_schema.column_names()
-            col_types = input_schema.column_types()
-            expected_names = set(input_schema.column_names())
-            actual_names = set(data.columns)
-            missing_cols = expected_names - actual_names
-            extra_columns = actual_names - expected_names
-            if missing_cols:
-                message = "Model input is missing columns {0}.".format(missing_cols)
-                raise MlflowException(message)
-            if extra_columns:
-                _logger.warning("Ignoring unexpected columns %s", extra_columns)
-
-            new_df = pandas.DataFrame()
-            for i, x in enumerate(col_names):
-                new_df[x] = convert_type(x, data[x], col_types[i])
-            return self._model_impl.predict(new_df)
-        else:
-            return self._model_impl.predict(data)
+            data = _enforce_schema(data, input_schema)
+        return self._model_impl.predict(data)
 
     @property
     def metadata(self):
