@@ -12,6 +12,7 @@ from mlflow.store.artifact.dbfs_artifact_repo import DatabricksArtifactRepositor
 from mlflow.protos.service_pb2 import ListArtifacts, FileInfo
 from mlflow.protos.databricks_artifacts_pb2 import GetCredentialsForWrite, GetCredentialsForRead, \
     ArtifactCredentialType, ArtifactCredentialInfo
+from mlflow.entities.file_info import FileInfo as FileInfoEntity
 
 
 @pytest.fixture()
@@ -135,7 +136,8 @@ class TestDatabricksArtifactRepository(object):
                 ListArtifacts.Response(root_uri='', files=list_artifacts_dir_proto_mock)
             call_endpoint_mock.return_value = list_artifact_response_proto
             artifacts = databricks_artifact_repo.list_artifacts('test/')
-            print (artifacts)
+            assert isinstance(artifacts, list)
+            assert isinstance(artifacts[0], FileInfoEntity)
             assert len(artifacts) == 2
             assert artifacts[0].path == 'test/a.txt'
             assert artifacts[0].is_dir is False

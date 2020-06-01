@@ -81,7 +81,7 @@ class ArtifactRepository:
         # TODO: Probably need to add a more efficient method to stream just a single artifact
         #       without downloading it, or to get a pre-signed URL for cloud storage.
         def download_file(fullpath):
-            fullpath = fullpath.rstrip('/')
+            fullpath = fullpath.rstrip('/')  # Prevents incorrect split if fullpath ends with a '/'
             dirpath, _ = posixpath.split(fullpath)
             local_dir_path = os.path.join(dst_path, dirpath)
             local_file_path = os.path.join(dst_path, fullpath)

@@ -28,6 +28,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     This repository is used with URIs of the form ``dbfs:/<path>``. The repository can only be used
     together with the RestStore.
     """
+
     def __init__(self, artifact_uri):
         super(DbfsRestArtifactRepository, self).__init__(artifact_uri)
         # NOTE: if we ever need to support databricks profiles different from that set for
@@ -173,8 +174,8 @@ def dbfs_artifact_repo_factory(artifact_uri):
     cleaned_artifact_uri = artifact_uri.rstrip('/')
     uri_scheme = get_uri_scheme(artifact_uri)
     if uri_scheme != 'dbfs':
-        raise Exception("DBFS URI must be of the form "
-                        "dbfs:/<path>, but received {uri}".format(uri=artifact_uri))
+        raise MlflowException("DBFS URI must be of the form "
+                              "dbfs:/<path>, but received {uri}".format(uri=artifact_uri))
     if is_databricks_acled_artifacts_uri(artifact_uri):
         return DatabricksArtifactRepository(artifact_uri)
     elif mlflow.utils.databricks_utils.is_dbfs_fuse_available() \

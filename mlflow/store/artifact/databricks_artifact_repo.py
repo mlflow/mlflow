@@ -6,13 +6,14 @@ import uuid
 import base64
 import logging
 import requests
+import posixpath
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.protos.databricks_artifacts_pb2 import DatabricksMlflowArtifactsService, \
-    GetCredentialsForWrite, \
-    GetCredentialsForRead, ArtifactCredentialType
+    GetCredentialsForWrite, GetCredentialsForRead, ArtifactCredentialType
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import MlflowService, ListArtifacts
 from mlflow.utils.uri import extract_and_normalize_path, is_databricks_acled_artifacts_uri
 from mlflow.utils.proto_json_utils import message_to_json
@@ -31,7 +32,11 @@ _SERVICE_AND_METHOD_TO_INFO = {
 
 class DatabricksArtifactRepository(ArtifactRepository):
     """
-    Stores artifacts on Azure/AWS with access control.
+    Performs storage operations on artifacts in the access-controlled
+    `dbfs:/databricks/mlflow-tracking` location.
+
+    Signed access URIs for S3 / Azure Blob Storage are fetched from the MLflow service and used to
+    read and write files from/to this location.
 
     The artifact_uri is expected to be of the form
     dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/
@@ -40,26 +45,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri):
         super(DatabricksArtifactRepository, self).__init__(artifact_uri)
         if not artifact_uri.startswith('dbfs:/'):
-            raise MlflowException('DatabricksArtifactRepository URI must start with dbfs:/')
+            raise MlflowException(message='DatabricksArtifactRepository URI must start with dbfs:/',
+                                  error_code=INVALID_PARAMETER_VALUE)
         if not is_databricks_acled_artifacts_uri(artifact_uri):
-            raise MlflowException('Artifact URI incorrect. Expected path prefix to be '
-                                  'databricks/mlflow-tracking/path/to/artifact/..')
-        self.run_id = self._extract_run_id()
-
-    def _extract_run_id(self):
-        """
-        The artifact_uri is expected to be
-        dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
-        Once the path from the inputted uri is extracted and normalized, is is
-        expected to be of the form
-        databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
-
-        Hence the run_id is the 4th element of the normalized path.
-
-        :return: run_id extracted from the artifact_uri
-        """
-        artifact_path = extract_and_normalize_path(self.artifact_uri)
-        return artifact_path.split('/')[3]
+            raise MlflowException(message=('Artifact URI incorrect. Expected path prefix to be'
+                                           ' databricks/mlflow-tracking/path/to/artifact/..'),
+                                  error_code=INVALID_PARAMETER_VALUE)
+        self.run_id = extract_run_id(self.artifact_uri)
 
     def _call_endpoint(self, service, api, json_body):
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
@@ -120,6 +112,15 @@ class DatabricksArtifactRepository(ArtifactRepository):
             raise MlflowException(err)
 
     def _azure_download_file(self, credentials, local_file):
+        """
+        Downloads a file from Azure storage and writes it to local_file.
+
+        The default working of requests.get is to download the entire response body immediately.
+        However, this could be inefficient for large files. Hence the parameter `stream` is set to
+        true. This only downloads the response headers at first and keeps the connection open,
+        allowing content retrieval to be made via `iter_content`.
+        In addition, since the connection is kept open, refreshing credentials is not required.
+        """
         try:
             signed_read_uri = credentials.signed_uri
             with requests.get(signed_read_uri, stream=True) as response:
@@ -153,7 +154,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def log_artifact(self, local_file, artifact_path=None):
         basename = os.path.basename(local_file)
         artifact_path = artifact_path or ""
-        artifact_path = os.path.join(artifact_path, basename)
+        artifact_path = posixpath.join(artifact_path, basename)
         write_credentials = self._get_write_credentials(self.run_id, artifact_path)
         self._upload_to_cloud(write_credentials, local_file, artifact_path)
 
@@ -164,7 +165,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             if dirpath != local_dir:
                 rel_path = os.path.relpath(dirpath, local_dir)
                 rel_path = relative_path_to_artifact_path(rel_path)
-                artifact_subdir = os.path.join(artifact_path, rel_path)
+                artifact_subdir = posixpath.join(artifact_path, rel_path)
             for name in filenames:
                 file_path = os.path.join(dirpath, name)
                 self.log_artifact(file_path, artifact_subdir)
@@ -190,3 +191,19 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException('Not implemented yet')
+
+
+def extract_run_id(artifact_uri):
+    """
+    The artifact_uri is expected to be
+    dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
+    Once the path from the input uri is extracted and normalized, it is
+    expected to be of the form
+    databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
+
+    Hence the run_id is the 4th element of the normalized path.
+
+    :return: run_id extracted from the artifact_uri
+    """
+    artifact_path = extract_and_normalize_path(artifact_uri)
+    return artifact_path.split('/')[3]
