@@ -219,3 +219,12 @@ export const openErrorModal = (text) => {
     text,
   };
 };
+
+export const GET_TOKEN_API = 'GET_TOKEN_API';
+export const getTokenApi = (code, id = getUUID()) => {
+  return {
+    type: GET_TOKEN_API,
+    payload: wrapDeferred(MlflowService.GetToken, { code: code }),
+    meta: { id: id },
+  };
+};

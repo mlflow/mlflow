@@ -385,4 +385,18 @@ export class MlflowService {
       error: error,
     });
   }
+
+  static GetToken({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('token'), {
+      type: 'GET',
+      dataType: 'text',
+      converters: {
+        'text json': StrictJsonBigInt.parse,
+      },
+      data: data,
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
 }
