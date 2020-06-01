@@ -51,7 +51,23 @@ class DatabricksArtifactRepository(ArtifactRepository):
             raise MlflowException(message=('Artifact URI incorrect. Expected path prefix to be'
                                            ' databricks/mlflow-tracking/path/to/artifact/..'),
                                   error_code=INVALID_PARAMETER_VALUE)
-        self.run_id = extract_run_id(self.artifact_uri)
+        self.run_id = self._extract_run_id(self.artifact_uri)
+
+    @staticmethod
+    def _extract_run_id(artifact_uri):
+        """
+        The artifact_uri is expected to be
+        dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
+        Once the path from the input uri is extracted and normalized, it is
+        expected to be of the form
+        databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
+
+        Hence the run_id is the 4th element of the normalized path.
+
+        :return: run_id extracted from the artifact_uri
+        """
+        artifact_path = extract_and_normalize_path(artifact_uri)
+        return artifact_path.split('/')[3]
 
     def _call_endpoint(self, service, api, json_body):
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
@@ -191,19 +207,3 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException('Not implemented yet')
-
-
-def extract_run_id(artifact_uri):
-    """
-    The artifact_uri is expected to be
-    dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
-    Once the path from the input uri is extracted and normalized, it is
-    expected to be of the form
-    databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/<path>
-
-    Hence the run_id is the 4th element of the normalized path.
-
-    :return: run_id extracted from the artifact_uri
-    """
-    artifact_path = extract_and_normalize_path(artifact_uri)
-    return artifact_path.split('/')[3]
