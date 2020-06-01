@@ -15,7 +15,7 @@ import mlflow.sklearn
 from mlflow.models import ModelSignature, infer_signature
 from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.pyfunc import PythonModel
-from mlflow.types import Schema, ColSpec
+from mlflow.types import Schema, ColSpec, DataType
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
@@ -33,7 +33,7 @@ def pandas_df_with_all_types():
         "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
         "double": [math.pi, 2 * math.pi, 3 * math.pi],
         "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
-        "string": ["a", "b", 'c'],
+        "string": pd.Series(["a", "b", 'c'], dtype=DataType.binary.to_pandas())
     })
 
 
@@ -280,7 +280,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
     json_str = json.dumps(df.to_dict(orient="records"), cls=NumpyEncoder)
     df = pyfunc_scoring_server.parse_json_input(json_str,
                                                 orient="records", schema=schema)
-    assert schema == infer_signature(df).inputs
+    assert schema == infer_signature(df[schema.column_names()]).inputs
 
 
 def test_serving_model_with_schema(pandas_df_with_all_types):

@@ -95,14 +95,12 @@ def _dataframe_from_json(path_or_str, schema: Schema = None,
     """
     if schema is not None:
         dtypes = dict(zip(schema.column_names(), schema.pandas_types()))
-        df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes)
+        df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes,
+                          precise_float=precise_float)
         actual_cols = set(df.columns)
-
-        binary_cols = [name for name, t in dtypes.items()
-                       if t == DataType.binary.to_pandas() and name in actual_cols]
-
-        for col in binary_cols:
-            df[col] = df[col].map(lambda x: np.bytes_(base64.decodebytes(x)))
+        for name, t in dtypes.items():
+            if t == DataType.binary.to_pandas() and name in actual_cols:
+                df[name] = df[name].map(base64.decodebytes)
         return df
     else:
         return pd.read_json(path_or_str, orient=pandas_orient, dtype=False,

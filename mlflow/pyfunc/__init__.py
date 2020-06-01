@@ -305,7 +305,15 @@ class PyFuncModel(object):
         if input_schema is not None:
             def convert_type(name, values: pandas.Series, t: DataType):
                 if values.dtype == np.object:
-                    if t in (DataType.string, DataType.binary):
+                    if t == DataType.string:
+                        #  NB: strings are by default parsed and inferred as objects, but it is
+                        # recommended to use StringDtype extension type if available (since pandas
+                        # 1.0).
+                        # See `https://pandas.pydata.org/pandas-docs/stable/user_guide/text.html`
+                        # for more detail.
+                        if t.to_pandas() == np.object:
+                            # StringDtype is not available, just return the values as objects
+                            return values
                         try:
                             return values.astype(t.to_pandas(), errors="raise")
                         except ValueError:
@@ -313,6 +321,12 @@ class PyFuncModel(object):
                                 "Failed to convert column {0} from type {1} to {2}.".format(
                                   name, values.dtype, t)
                             )
+                        # NB: Binary data is represented as objects and we assume the individual
+                        # elements are of correct type.
+                    elif t == DataType.binary:
+                        # NB: Binary data is represented as objects and we assume the individual
+                        # elements are of correct type.
+                        return values
                     else:
                         values = values.infer_objects()
                 if t.to_pandas() == values.dtype:
@@ -323,15 +337,14 @@ class PyFuncModel(object):
                 if is_compatible_type and is_upcast:
                     # conversions between compatible types and ints -> floats are allowed.
                     return values.astype(numpy_type, errors="raise")
-
                 else:
                     # NB: conversion between incompatible types (e.g. floats -> ints or
                     # boolean -> numeric) are not allowed. While supported by pandas and numpy,
                     # these conversions alter the values significantly.
-                    raise MlflowException("Incompatible input types. "
-                                          "Can not safely convert {0} to {1}.".format(values.dtype,
+                    raise MlflowException("Incompatible input types for column {0}. "
+                                          "Can not safely convert {1} to {2}.".format(name,
+                                                                                      values.dtype,
                                                                                       numpy_type))
-
             col_names = input_schema.column_names()
             col_types = input_schema.column_types()
             expected_names = set(input_schema.column_names())
@@ -343,9 +356,13 @@ class PyFuncModel(object):
                 raise MlflowException(message)
             if extra_columns:
                 _logger.warning("Ignoring unexpected columns %s", extra_columns)
-            new_data = {x: convert_type(x, data[x], col_types[i]) for i, x in enumerate(col_names)}
-            data = pandas.DataFrame(data=new_data, columns=col_names)
-        return self._model_impl.predict(data)
+
+            new_df = pandas.DataFrame()
+            for i, x in enumerate(col_names):
+                new_df[x] = convert_type(x, data[x], col_types[i])
+            return self._model_impl.predict(new_df)
+        else:
+            return self._model_impl.predict(data)
 
     @property
     def metadata(self):

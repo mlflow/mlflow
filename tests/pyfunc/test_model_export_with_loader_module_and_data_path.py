@@ -19,7 +19,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types import Schema, ColSpec
+from mlflow.types import Schema, ColSpec, DataType
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -137,7 +137,7 @@ def test_schema_enforcement():
     m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
     pdf = pd.DataFrame(data=[[1, 2, 3, 4, True, "x", bytes([1])]],
-                       columns=["b", "d", "a", "c", "e", "g", "f"])
+                       columns=["b", "d", "a", "c", "e", "g", "f"], dtype=np.object)
     pdf["a"] = pdf["a"].astype(np.int32)
     pdf["b"] = pdf["b"].astype(np.int64)
     pdf["c"] = pdf["c"].astype(np.float32)
@@ -157,16 +157,8 @@ def test_schema_enforcement():
     expected_types = dict(zip(input_schema.column_names(),
                               input_schema.pandas_types()))
     actual_types = res.dtypes.to_dict()
-    # string nad binary may be represented as objects
-    # for string, this depends on the version of pandas, binary is always object(at least for now)
-    if actual_types["f"] == np.object:
-        del actual_types["f"]
-        del expected_types["f"]
-    if actual_types["g"] == np.object:
-        del actual_types["g"]
-        del expected_types["g"]
-    # The rest must match exactly
     assert expected_types == actual_types
+
     # Test conversions
     # 1. long -> integer raises
     pdf["a"] = pdf["a"].astype(np.int64)
@@ -218,15 +210,15 @@ def test_schema_enforcement():
     pdf["b"] = pdf["b"].astype(np.float64)
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(pdf)
+    pdf["b"] = pdf["b"].astype(np.int64)
     assert "Incompatible input types" in str(ex)
-    pdf["d"] = pdf["d"].astype(np.int64)
 
     # 7. objects work
-    pdf = pd.DataFrame(data=[[1, 2, 3, 4, True, "x", bytes([1])]],
-                       columns=["b", "d", "a", "c", "e", "g", "f"], dtype=np.object)
-    pdf["a"] = pdf["a"].astype(np.int32)
-    pdf["c"] = pdf["c"].astype(np.float32)
-    pdf["d"] = pdf["d"].astype(np.float64)
+    pdf["b"] = pdf["b"].astype(np.object)
+    pdf["d"] = pdf["d"].astype(np.object)
+    pdf["e"] = pdf["e"].astype(np.object)
+    pdf["f"] = pdf["f"].astype(np.object)
+    pdf["g"] = pdf["g"].astype(np.object)
     res = pyfunc_model.predict(pdf)
     assert res.dtypes.to_dict() == expected_types
 

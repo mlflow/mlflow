@@ -12,14 +12,13 @@ from mlflow.exceptions import MlflowException
 try:
     pandas_str = pd.StringDtype()
 except AttributeError:
-    pandas_str = None
+    pandas_str = np.object
 
 
 class DataType(Enum):
     """
     MLflow data types.
     """
-
     def __new__(cls, value, numpy_type, spark_type, pandas_type=None):
         res = object.__new__(cls)
         res._value_ = value
@@ -40,7 +39,7 @@ class DataType(Enum):
     """64b floating point numbers. """
     string = (6, np.dtype("str"), "StringType", pandas_str)
     """Text data."""
-    binary = (7, np.dtype("bytes"), "BinaryType")
+    binary = (7, np.dtype("bytes"), "BinaryType", np.object)
     """Sequence of raw bytes."""
 
     def __repr__(self):

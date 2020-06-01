@@ -124,9 +124,9 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
 
     signature = ModelSignature(
         inputs=Schema([
-            ColSpec("integer", "a"),
-            ColSpec("integer", "b"),
-            ColSpec("integer", "c"),
+            ColSpec("long", "a"),
+            ColSpec("long", "b"),
+            ColSpec("long", "c"),
         ]),
         outputs=Schema([ColSpec("integer")])
     )
