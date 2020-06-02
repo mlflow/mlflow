@@ -70,21 +70,36 @@ message ArtifactCredentialInfo {
   // The signed URI credential that provides access to the artifact
   optional string signed_uri = 3;
 
+  message HttpHeader {
+
+    // The HTTP header name
+    optional string name = 1;
+
+    // The HTTP header value
+    optional string value = 2;
+
+  }
+
+  // A collection of HTTP headers that should be specified when uploading to
+  // or downloading from the specified `signed_uri`
+  repeated HttpHeader headers = 4;
+
   // The type of the signed credential URI (e.g., an AWS presigned URL
   // or an Azure Shared Access Signature URI)
-  optional ArtifactCredentialType type = 4;
+  optional ArtifactCredentialType type = 5;
 
 }
 
 message GetCredentialsForRead {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // The ID of the MLflow Run for which to fetch artifact read credentials
-  optional string run_id = 1;
+  optional string run_id = 1 [(validate_required) = true];
 
   // The artifact path, relative to the Run's artifact root location, for which to
   // fetch artifact read credentials
-  optional string path = 2;
+  optional string path = 2 [(validate_required) = true];
 
   message Response {
 
@@ -96,13 +111,14 @@ message GetCredentialsForRead {
 
 message GetCredentialsForWrite {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // The ID of the MLflow Run for which to fetch artifact write credentials
-  optional string run_id = 1;
+  optional string run_id = 1 [(validate_required) = true];
 
   // The artifact path, relative to the Run's artifact root location, for which to
   // fetch artifact write credentials
-  optional string path = 2;
+  optional string path = 2 [(validate_required) = true];
 
   message Response {
 

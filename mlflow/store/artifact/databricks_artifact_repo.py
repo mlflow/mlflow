@@ -24,6 +24,7 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 _logger = logging.getLogger(__name__)
 _PATH_PREFIX = "/api/2.0"
 _AZURE_MAX_BLOCK_CHUNK_SIZE = 100000000  # Max. size of each block allowed is 100 MB in stage_block
+_DOWNLOAD_CHUNK_SIZE = 100000000
 _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
@@ -85,6 +86,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return self._call_endpoint(DatabricksMlflowArtifactsService,
                                    GetCredentialsForRead, json_body)
 
+    def _extract_headers_from_credentials(self, credential):
+        headers = dict()
+        for header in credential.headers:
+            headers[header.name] = header.value
+        return headers
+
     def _azure_upload_file(self, credentials, local_file, artifact_path):
         """
         Uploads a file to a given Azure storage location.
@@ -99,12 +106,14 @@ class DatabricksArtifactRepository(ArtifactRepository):
         stage_block and the commit, a second try-except block refreshes credentials if needed.
         """
         try:
-            service = BlobClient.from_blob_url(blob_url=credentials.signed_uri, credential=None)
+            headers = self._extract_headers_from_credentials(credentials)
+            service = BlobClient.from_blob_url(blob_url=credentials.signed_uri, credential=None,
+                                               headers=headers)
             uploading_block_list = list()
             for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
                 block_id = base64.b64encode(uuid.uuid4().hex.encode())
                 try:
-                    service.stage_block(block_id, chunk)
+                    service.stage_block(block_id, chunk, headers=headers)
                 except ClientAuthenticationError:
                     _logger.warning(
                         "Failed to authorize request, possibly due to credential expiration."
@@ -112,7 +121,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     credentials = self._get_write_credentials(self.run_id,
                                                               artifact_path).credentials.signed_uri
                     service = BlobClient.from_blob_url(blob_url=credentials, credential=None)
-                    service.stage_block(block_id, chunk)
+                    service.stage_block(block_id, chunk, headers=headers)
                 uploading_block_list.append(block_id)
             try:
                 service.commit_block_list(uploading_block_list)
@@ -127,45 +136,52 @@ class DatabricksArtifactRepository(ArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
-    def _azure_download_file(self, credentials, local_file):
-        """
-        Downloads a file from Azure storage and writes it to local_file.
+    def _aws_upload_file(self, credentials, local_file):
+        try:
+            headers = self._extract_headers_from_credentials(credentials)
+            signed_write_uri = credentials.signed_uri
+            with open(local_file, 'rb') as file:
+                put_request = requests.put(signed_write_uri, headers=headers, data=file)
+                put_request.raise_for_status()
+        except Exception as err:
+            raise MlflowException(err)
 
-        The default working of requests.get is to download the entire response body immediately.
+    def _upload_to_cloud(self, cloud_credentials, local_file, artifact_path):
+        if cloud_credentials.credentials.type == ArtifactCredentialType.AZURE_SAS_URI:
+            self._azure_upload_file(cloud_credentials.credentials, local_file, artifact_path)
+        elif cloud_credentials.credentials.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
+            self._aws_upload_file(cloud_credentials.credentials, local_file)
+        else:
+            raise MlflowException('Not implemented yet')
+
+    def _download_from_cloud(self, cloud_credential, local_file_path):
+        """
+        Downloads a file from the input `cloud_credential` and save it to `local_path`.
+
+        Since the download mechanism for both cloud services, i.e., Azure and AWS is the same,
+        a single download method is sufficient.
+
+        The default working of `requests.get` is to download the entire response body immediately.
         However, this could be inefficient for large files. Hence the parameter `stream` is set to
         true. This only downloads the response headers at first and keeps the connection open,
         allowing content retrieval to be made via `iter_content`.
         In addition, since the connection is kept open, refreshing credentials is not required.
         """
+        if cloud_credential.type not in [ArtifactCredentialType.AZURE_SAS_URI,
+                                         ArtifactCredentialType.AWS_PRESIGNED_URL]:
+            raise MlflowException(message='Cloud provider not supported.',
+                                  error_code=INVALID_PARAMETER_VALUE)
         try:
-            signed_read_uri = credentials.signed_uri
+            signed_read_uri = cloud_credential.signed_uri
             with requests.get(signed_read_uri, stream=True) as response:
                 response.raise_for_status()
-                with open(local_file, "wb") as output_file:
-                    for chunk in response.iter_content(chunk_size=_AZURE_MAX_BLOCK_CHUNK_SIZE):
+                with open(local_file_path, "wb") as output_file:
+                    for chunk in response.iter_content(chunk_size=_DOWNLOAD_CHUNK_SIZE):
                         if not chunk:
                             break
                         output_file.write(chunk)
         except Exception as err:
             raise MlflowException(err)
-
-    def _aws_upload_file(self, credentials, local_file):
-        pass
-
-    def _aws_download_file(self, credentials, local_path):
-        pass
-
-    def _upload_to_cloud(self, cloud_credentials, local_file, artifact_path):
-        if cloud_credentials.credentials.type == ArtifactCredentialType.AZURE_SAS_URI:
-            self._azure_upload_file(cloud_credentials.credentials, local_file, artifact_path)
-        else:
-            raise MlflowException('Not implemented yet')
-
-    def _download_from_cloud(self, cloud_credentials, local_path):
-        if cloud_credentials.credentials.type == ArtifactCredentialType.AZURE_SAS_URI:
-            self._azure_download_file(cloud_credentials.credentials, local_path)
-        else:
-            raise MlflowException('Not implemented yet')
 
     def log_artifact(self, local_file, artifact_path=None):
         basename = os.path.basename(local_file)
@@ -203,7 +219,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         read_credentials = self._get_read_credentials(self.run_id, remote_file_path)
-        self._download_from_cloud(read_credentials, local_path)
+        self._download_from_cloud(read_credentials.credentials, local_path)
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException('Not implemented yet')
