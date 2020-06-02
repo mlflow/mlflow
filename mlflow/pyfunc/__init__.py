@@ -278,7 +278,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
 
     1. np.object -> string
     2. int -> long (upcast)
-    3. float -> double.
+    3. float -> double (upcast)
 
     Any other type mismatch will raise error.
     """
