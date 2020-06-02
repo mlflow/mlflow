@@ -277,7 +277,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
     The following type conversions are allowed:
 
     1. np.object -> string
-    2. int -> long
+    2. int -> long (upcast)
     3. float -> double.
 
     Any other type mismatch will raise error.
