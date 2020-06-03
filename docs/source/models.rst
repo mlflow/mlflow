@@ -533,9 +533,6 @@ MLflow can deploy models locally as local REST API endpoints or to directly scor
 MLflow can package models as self-contained Docker images with the REST API endpoint. The image can
 be used to safely deploy the model to various environments such as Kubernetes.
 
-You deploy MLflow model locally or generate a Docker image using the CLI interface to the
-:py:mod:`mlflow.models` module.
-
 The REST API server accepts the following data formats as POST input to the ``/invocations`` path:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
@@ -569,26 +566,6 @@ Example requests:
 
 For more information about serializing pandas DataFrames, see
 `pandas.DataFrame.to_json <https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html>`_.
-
-The predict command accepts the same input formats. The format is specified as command line arguments.
-
-Commands
-~~~~~~~~
-
-* `serve <cli.html#mlflow-models-serve>`_ deploys the model as a local REST API server.
-* `build_docker <cli.html#mlflow-models-build-docker>`_ packages a REST API endpoint serving the
-  model as a docker image.
-* `predict <cli.html#mlflow-models-predict>`_ uses the model to generate a prediction for a local
-  CSV or JSON file.
-
-For more info, see:
-
-.. code-block:: bash
-
-    mlflow models --help
-    mlflow models serve --help
-    mlflow models predict --help
-    mlflow models build-docker --help
 
 .. _azureml_deployment:
 
@@ -628,14 +605,15 @@ accepts the following data formats as input:
                                        location=location,
                                        create_resource_group=True,
                                        exist_okay=True)
+    # Create a deployment config
+    aci_config = AciWebservice.deploy_configuration(cpu_cores=1, memory_gb=1)                                       
 
     # Register and deploy model to Azure Container Instance (ACI)
-    (webservice,model) = mlflow.azureml.deploy(model_uri='runs:/{}/{}'.format(run.id, model_path),
+    (webservice, model) = mlflow.azureml.deploy(model_uri='runs:/{}/{}'.format(run.id, model_path),
                                                workspace=ws,
                                                model_name='mymodelname', 
                                                service_name='myservice', 
-                                               deployment_config=aci_config, 
-                                               tags=None, mlflow_home=None, synchronous=True)
+                                               deployment_config=aci_config)
     webservice.wait_for_deployment(show_output=True)
     # After the model deployment completes, requests can be posted via HTTP to the new ACI
     # webservice's scoring URI. The following example posts a sample input from the wine dataset
