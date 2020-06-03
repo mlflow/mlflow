@@ -280,12 +280,6 @@ def test_schema_and_examples_are_save_correctly(saved_tf_iris_model, model_path)
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    print()
-                    print(example)
-                    print()
-                    print()
-                    print(_read_example(mlflow_model, path))
-                    print()
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
