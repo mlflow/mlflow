@@ -64,12 +64,10 @@ class PluginManager(abc.ABC):
                 PluginClass = entrypoint.load()
                 self.register(entrypoint.name, PluginClass())
             except (AttributeError, ImportError) as exc:
-                warnings.warn(
+                # TODO: Should this be an exception
+                raise RuntimeError(
                     'Failure attempting to register store for scheme "{}": {}'.format(
-                        entrypoint.name, str(exc)
-                    ),
-                    stacklevel=2
-                )
+                        entrypoint.name, str(exc)))
         self._has_plugins_loaded = True
 
 
