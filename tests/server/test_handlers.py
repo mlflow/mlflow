@@ -6,7 +6,7 @@ import pytest
 
 import os
 import mlflow
-from mlflow.entities import ViewType
+from mlflow.entities import ViewType, Columns
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
@@ -15,10 +15,11 @@ from mlflow.server.handlers import get_endpoints, _create_experiment, _get_reque
     _update_registered_model, _delete_registered_model, _get_registered_model, \
     _list_registered_models, _get_latest_versions, _create_model_version, _update_model_version, \
     _delete_model_version, _get_model_version_download_uri, \
-    _search_model_versions, _get_model_version, _transition_stage, _rename_registered_model
+    _search_model_versions, _get_model_version, _transition_stage, _rename_registered_model, \
+    _list_all_columns
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
+from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns, ListAllColumns
 from mlflow.protos.model_registry_pb2 import CreateRegisteredModel, UpdateRegisteredModel, \
     DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModel, GetLatestVersions, \
     CreateModelVersion, UpdateModelVersion, DeleteModelVersion, GetModelVersion, \
@@ -140,6 +141,23 @@ def test_can_parse_json_string():
     request.get_json.return_value = '{"name": "hello2"}'
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello2"
+
+
+def test_list_all_columns(mock_get_request_message, mock_tracking_store):
+    """
+    List all columns
+    """
+    mock_get_request_message.return_value = ListAllColumns(experiment_id="0")
+    mock_tracking_store.list_all_columns.return_value = Columns(
+        tags=["tag1", "tag2"],
+        metrics=["metric1", "metric2"],
+        params=["param1", "param2"],
+    )
+    resp = _list_all_columns()
+    json_response = json.loads(resp.get_data())
+    assert set(json_response["tags"]) == {"tag1", "tag2"}
+    assert set(json_response["params"]) == {"param1", "param2"}
+    assert set(json_response["metrics"]) == {"metric1", "metric2"}
 
 
 def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_store):
