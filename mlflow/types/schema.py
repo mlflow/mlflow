@@ -31,7 +31,7 @@ class DataType(Enum):
 
     # NB: We only use pandas extension type for strings. There are also pandas extension types for
     # integers and boolean values. We do not use them here for now as most downstream tools are
-    # most likely to use / expect native numpy types and owuld not be compatible with the extension
+    # most likely to use / expect native numpy types and would not be compatible with the extension
     # types.
     boolean = (1, np.dtype("bool"), "BooleanType")
     """Logical data (True, False) ."""
