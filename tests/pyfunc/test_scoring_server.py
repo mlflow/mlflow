@@ -271,8 +271,6 @@ def test_split_oriented_json_to_df():
 
 
 def test_parse_with_schema(pandas_df_with_all_types):
-    # test that datatype for "zip" column is not converted to "int64"
-    # split orientet
     schema = Schema([ColSpec(c, c) for c in pandas_df_with_all_types.columns])
     df = _shuffle_pdf(pandas_df_with_all_types)
     json_str = json.dumps(df.to_dict(orient="split"), cls=NumpyEncoder)
@@ -283,7 +281,39 @@ def test_parse_with_schema(pandas_df_with_all_types):
                                                 orient="records", schema=schema)
     assert schema == infer_signature(df[schema.column_names()]).inputs
 
+    # The current behavior with pandas json parse with type hints is weird. In some cases, the
+    # types are forced ignoting overflow and loss of precision:
 
+    bad_df = """{
+      "columns":["bad_integer", "bad_float", "bad_string", "bad_boolean"],
+      "data":[
+        [9007199254740991.0,1.1,1,1.5],
+        [9007199254740992.0,9007199254740992.0,2,0],
+        [9007199254740994.0,3.3,3,"some arbitrary string"]
+      ]
+    }"""
+    schema = Schema([ColSpec("integer", "bad_integer"), ColSpec("float", "bad_float"),
+                     ColSpec("float", "good_float"), ColSpec("string", "bad_string"),
+                     ColSpec("boolean", "bad_boolean")])
+    df = pyfunc_scoring_server.parse_json_input(bad_df,
+                                                orient="records", schema=schema)
+    # Unfortunately, the current behavior of pandas parse is to force numbers to int32 even if
+    # they don't fit:
+    assert df["bad_integer"].dtype == np.int32
+    assert all(df["bad_integer"] == [-1, 0, 1])
+    # The same goes for floats:
+    assert df["bad_float"].dtype == np.float32
+    assert all(df["bad_float"] == np.array([1.1, 9007199254740992, 3.3], dtype=np.float32))\
+
+    # However bad string is recognized as int64:
+    assert df["bad_string"].dtype == np.int64
+    assert all(df["bad_string"] == [1, 2, 3])
+    # Boolean is forced - zero and empty string is false, everything else is true:
+    assert df["bad_boolean"].dtype == np.bool
+    assert all(df["bad_boolean"] == [True, False, True])
+
+
+@pytest.mark.large
 def test_serving_model_with_schema(pandas_df_with_all_types):
     class TestModel(PythonModel):
         def predict(self, context, model_input):

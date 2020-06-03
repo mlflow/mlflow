@@ -137,6 +137,10 @@ class Schema(object):
         """Get list of column names or range of indices if the schema has no column names."""
         return [x.name or i for i, x in enumerate(self.columns)]
 
+    def has_column_names(self) -> bool:
+        """ Return true iff this schema declares column names, false otherwise. """
+        return self.columns and self.columns[0].name is not None
+
     def column_types(self) -> List[DataType]:
         """ Get column types of the columns in the dataset."""
         return [x.type for x in self._cols]

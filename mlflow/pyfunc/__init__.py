@@ -290,7 +290,9 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         return values
 
     if t == DataType.binary and values.dtype.kind == t.binary.to_numpy().kind:
-        #  NB: bytes in numpy have variable itemsize and would fail the upcast check.
+        # NB: bytes in numpy have variable itemsize depending on the length of the longest
+        # element in the array (column). Since MLflow binary type is length agnostic, we ignore
+        # itemsize when matching binary columns.
         return values
 
     if t == DataType.string and values.dtype == np.object:
@@ -312,11 +314,10 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
     is_compatible_type = values.dtype.kind == numpy_type.kind
     is_upcast = values.dtype.itemsize <= numpy_type.itemsize
     if is_compatible_type and is_upcast:
-        # upcasting compatible types is ok
         return values.astype(numpy_type, errors="raise")
     else:
         # NB: conversion between incompatible types (e.g. floats -> ints or
-        # boolean -> numeric) are not allowed. While supported by pandas and numpy,
+        # double -> float) are not allowed. While supported by pandas and numpy,
         # these conversions alter the values significantly.
         raise MlflowException("Incompatible input types for column {0}. "
                               "Can not safely convert {1} to {2}.".format(name,
@@ -334,15 +335,26 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
     For column types, we make sure the types match schema or can be safely converted to match the
     input schema.
     """
-    col_names = input_schema.column_names()
+    if input_schema.has_column_names():
+        # make sure there are no missing columns, the
+        col_names = input_schema.column_names()
+        expected_names = set(col_names)
+        actual_names = set(pdf.columns)
+        missing_cols = expected_names - actual_names
+        if missing_cols:
+            message = "Model input is missing columns {0}.".format(missing_cols)
+            raise MlflowException(message)
+    else:
+        # The model signature does not specify column names => we can only verify column count.
+        if len(pdf.columns) < len(input_schema.columns):
+            message = ("Model input is missing input columns. The model signature declares "
+                       "{0} input columns but the provided input only has "
+                       "{1} columns. Note: the columns were not named in the signature so we can "
+                       "only verify their count.").format(len(input_schema.columns),
+                                                          len(pdf.columns))
+            raise MlflowException(message)
+        col_names = pdf.columns[:len(input_schema.columns)]
     col_types = input_schema.column_types()
-    expected_names = set(col_names)
-    actual_names = set(pdf.columns)
-    missing_cols = expected_names - actual_names
-    if missing_cols:
-        message = "Model input is missing columns {0}.".format(missing_cols)
-        raise MlflowException(message)
-
     new_pdf = pandas.DataFrame()
     for i, x in enumerate(col_names):
         new_pdf[x] = _enforce_type(x, pdf[x], col_types[i])
