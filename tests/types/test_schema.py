@@ -187,8 +187,3 @@ def test_spark_type_mapping(pandas_df_with_all_types):
     schema = Schema([ColSpec(DataType.integer)])
     spark_type = schema.as_spark_schema()
     assert isinstance(spark_type, IntegerType)
-
-
-
-
-
