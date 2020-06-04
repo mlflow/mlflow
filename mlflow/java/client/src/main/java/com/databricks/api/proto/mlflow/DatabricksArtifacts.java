@@ -218,11 +218,60 @@ public final class DatabricksArtifacts {
 
     /**
      * <pre>
+     * A collection of HTTP headers that should be specified when uploading to
+     * or downloading from the specified `signed_uri`
+     * </pre>
+     *
+     * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+     */
+    java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader> 
+        getHeadersList();
+    /**
+     * <pre>
+     * A collection of HTTP headers that should be specified when uploading to
+     * or downloading from the specified `signed_uri`
+     * </pre>
+     *
+     * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+     */
+    com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader getHeaders(int index);
+    /**
+     * <pre>
+     * A collection of HTTP headers that should be specified when uploading to
+     * or downloading from the specified `signed_uri`
+     * </pre>
+     *
+     * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+     */
+    int getHeadersCount();
+    /**
+     * <pre>
+     * A collection of HTTP headers that should be specified when uploading to
+     * or downloading from the specified `signed_uri`
+     * </pre>
+     *
+     * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+     */
+    java.util.List<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder> 
+        getHeadersOrBuilderList();
+    /**
+     * <pre>
+     * A collection of HTTP headers that should be specified when uploading to
+     * or downloading from the specified `signed_uri`
+     * </pre>
+     *
+     * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+     */
+    com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder getHeadersOrBuilder(
+        int index);
+
+    /**
+     * <pre>
      * The type of the signed credential URI (e.g., an AWS presigned URL
      * or an Azure Shared Access Signature URI)
      * </pre>
      *
-     * <code>optional .mlflow.ArtifactCredentialType type = 4;</code>
+     * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
      */
     boolean hasType();
     /**
@@ -231,7 +280,7 @@ public final class DatabricksArtifacts {
      * or an Azure Shared Access Signature URI)
      * </pre>
      *
-     * <code>optional .mlflow.ArtifactCredentialType type = 4;</code>
+     * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
      */
     com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType getType();
   }
@@ -251,6 +300,7 @@ public final class DatabricksArtifacts {
       runId_ = "";
       path_ = "";
       signedUri_ = "";
+      headers_ = java.util.Collections.emptyList();
       type_ = 1;
     }
 
@@ -296,12 +346,21 @@ public final class DatabricksArtifacts {
               signedUri_ = bs;
               break;
             }
-            case 32: {
+            case 34: {
+              if (!((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
+                headers_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader>();
+                mutable_bitField0_ |= 0x00000008;
+              }
+              headers_.add(
+                  input.readMessage(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.PARSER, extensionRegistry));
+              break;
+            }
+            case 40: {
               int rawValue = input.readEnum();
                 @SuppressWarnings("deprecation")
               com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType value = com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType.valueOf(rawValue);
               if (value == null) {
-                unknownFields.mergeVarintField(4, rawValue);
+                unknownFields.mergeVarintField(5, rawValue);
               } else {
                 bitField0_ |= 0x00000008;
                 type_ = rawValue;
@@ -323,6 +382,9 @@ public final class DatabricksArtifacts {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
+        if (((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
+          headers_ = java.util.Collections.unmodifiableList(headers_);
+        }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
       }
@@ -338,6 +400,850 @@ public final class DatabricksArtifacts {
       return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_ArtifactCredentialInfo_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
               com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder.class);
+    }
+
+    public interface HttpHeaderOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.ArtifactCredentialInfo.HttpHeader)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <pre>
+       * The HTTP header name
+       * </pre>
+       *
+       * <code>optional string name = 1;</code>
+       */
+      boolean hasName();
+      /**
+       * <pre>
+       * The HTTP header name
+       * </pre>
+       *
+       * <code>optional string name = 1;</code>
+       */
+      java.lang.String getName();
+      /**
+       * <pre>
+       * The HTTP header name
+       * </pre>
+       *
+       * <code>optional string name = 1;</code>
+       */
+      com.google.protobuf.ByteString
+          getNameBytes();
+
+      /**
+       * <pre>
+       * The HTTP header value
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       */
+      boolean hasValue();
+      /**
+       * <pre>
+       * The HTTP header value
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       */
+      java.lang.String getValue();
+      /**
+       * <pre>
+       * The HTTP header value
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       */
+      com.google.protobuf.ByteString
+          getValueBytes();
+    }
+    /**
+     * Protobuf type {@code mlflow.ArtifactCredentialInfo.HttpHeader}
+     */
+    public  static final class HttpHeader extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.ArtifactCredentialInfo.HttpHeader)
+        HttpHeaderOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use HttpHeader.newBuilder() to construct.
+      private HttpHeader(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private HttpHeader() {
+        name_ = "";
+        value_ = "";
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private HttpHeader(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000001;
+                name_ = bs;
+                break;
+              }
+              case 18: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000002;
+                value_ = bs;
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_ArtifactCredentialInfo_HttpHeader_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_ArtifactCredentialInfo_HttpHeader_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder.class);
+      }
+
+      private int bitField0_;
+      public static final int NAME_FIELD_NUMBER = 1;
+      private volatile java.lang.Object name_;
+      /**
+       * <pre>
+       * The HTTP header name
+       * </pre>
+       *
+       * <code>optional string name = 1;</code>
+       */
+      public boolean hasName() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <pre>
+       * The HTTP header name
+       * </pre>
+       *
+       * <code>optional string name = 1;</code>
+       */
+      public java.lang.String getName() {
+        java.lang.Object ref = name_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            name_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * The HTTP header name
+       * </pre>
+       *
+       * <code>optional string name = 1;</code>
+       */
+      public com.google.protobuf.ByteString
+          getNameBytes() {
+        java.lang.Object ref = name_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          name_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
+      public static final int VALUE_FIELD_NUMBER = 2;
+      private volatile java.lang.Object value_;
+      /**
+       * <pre>
+       * The HTTP header value
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       */
+      public boolean hasValue() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * The HTTP header value
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       */
+      public java.lang.String getValue() {
+        java.lang.Object ref = value_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            value_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * The HTTP header value
+       * </pre>
+       *
+       * <code>optional string value = 2;</code>
+       */
+      public com.google.protobuf.ByteString
+          getValueBytes() {
+        java.lang.Object ref = value_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          value_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
+        }
+        if (((bitField0_ & 0x00000002) == 0x00000002)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 2, value_);
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
+        }
+        if (((bitField0_ & 0x00000002) == 0x00000002)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, value_);
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader)) {
+          return super.equals(obj);
+        }
+        com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader) obj;
+
+        boolean result = true;
+        result = result && (hasName() == other.hasName());
+        if (hasName()) {
+          result = result && getName()
+              .equals(other.getName());
+        }
+        result = result && (hasValue() == other.hasValue());
+        if (hasValue()) {
+          result = result && getValue()
+              .equals(other.getValue());
+        }
+        result = result && unknownFields.equals(other.unknownFields);
+        return result;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (hasName()) {
+          hash = (37 * hash) + NAME_FIELD_NUMBER;
+          hash = (53 * hash) + getName().hashCode();
+        }
+        if (hasValue()) {
+          hash = (37 * hash) + VALUE_FIELD_NUMBER;
+          hash = (53 * hash) + getValue().hashCode();
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.ArtifactCredentialInfo.HttpHeader}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.ArtifactCredentialInfo.HttpHeader)
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_ArtifactCredentialInfo_HttpHeader_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_ArtifactCredentialInfo_HttpHeader_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.class, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder.class);
+        }
+
+        // Construct using com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          name_ = "";
+          bitField0_ = (bitField0_ & ~0x00000001);
+          value_ = "";
+          bitField0_ = (bitField0_ & ~0x00000002);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.internal_static_mlflow_ArtifactCredentialInfo_HttpHeader_descriptor;
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader getDefaultInstanceForType() {
+          return com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader build() {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader buildPartial() {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader(this);
+          int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+            to_bitField0_ |= 0x00000001;
+          }
+          result.name_ = name_;
+          if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+            to_bitField0_ |= 0x00000002;
+          }
+          result.value_ = value_;
+          result.bitField0_ = to_bitField0_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return (Builder) super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return (Builder) super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return (Builder) super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return (Builder) super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return (Builder) super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return (Builder) super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader) {
+            return mergeFrom((com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader other) {
+          if (other == com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.getDefaultInstance()) return this;
+          if (other.hasName()) {
+            bitField0_ |= 0x00000001;
+            name_ = other.name_;
+            onChanged();
+          }
+          if (other.hasValue()) {
+            bitField0_ |= 0x00000002;
+            value_ = other.value_;
+            onChanged();
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private java.lang.Object name_ = "";
+        /**
+         * <pre>
+         * The HTTP header name
+         * </pre>
+         *
+         * <code>optional string name = 1;</code>
+         */
+        public boolean hasName() {
+          return ((bitField0_ & 0x00000001) == 0x00000001);
+        }
+        /**
+         * <pre>
+         * The HTTP header name
+         * </pre>
+         *
+         * <code>optional string name = 1;</code>
+         */
+        public java.lang.String getName() {
+          java.lang.Object ref = name_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              name_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <pre>
+         * The HTTP header name
+         * </pre>
+         *
+         * <code>optional string name = 1;</code>
+         */
+        public com.google.protobuf.ByteString
+            getNameBytes() {
+          java.lang.Object ref = name_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            name_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * The HTTP header name
+         * </pre>
+         *
+         * <code>optional string name = 1;</code>
+         */
+        public Builder setName(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+          name_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * The HTTP header name
+         * </pre>
+         *
+         * <code>optional string name = 1;</code>
+         */
+        public Builder clearName() {
+          bitField0_ = (bitField0_ & ~0x00000001);
+          name_ = getDefaultInstance().getName();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * The HTTP header name
+         * </pre>
+         *
+         * <code>optional string name = 1;</code>
+         */
+        public Builder setNameBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+          name_ = value;
+          onChanged();
+          return this;
+        }
+
+        private java.lang.Object value_ = "";
+        /**
+         * <pre>
+         * The HTTP header value
+         * </pre>
+         *
+         * <code>optional string value = 2;</code>
+         */
+        public boolean hasValue() {
+          return ((bitField0_ & 0x00000002) == 0x00000002);
+        }
+        /**
+         * <pre>
+         * The HTTP header value
+         * </pre>
+         *
+         * <code>optional string value = 2;</code>
+         */
+        public java.lang.String getValue() {
+          java.lang.Object ref = value_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              value_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <pre>
+         * The HTTP header value
+         * </pre>
+         *
+         * <code>optional string value = 2;</code>
+         */
+        public com.google.protobuf.ByteString
+            getValueBytes() {
+          java.lang.Object ref = value_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            value_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * The HTTP header value
+         * </pre>
+         *
+         * <code>optional string value = 2;</code>
+         */
+        public Builder setValue(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          value_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * The HTTP header value
+         * </pre>
+         *
+         * <code>optional string value = 2;</code>
+         */
+        public Builder clearValue() {
+          bitField0_ = (bitField0_ & ~0x00000002);
+          value_ = getDefaultInstance().getValue();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * The HTTP header value
+         * </pre>
+         *
+         * <code>optional string value = 2;</code>
+         */
+        public Builder setValueBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          value_ = value;
+          onChanged();
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.ArtifactCredentialInfo.HttpHeader)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.ArtifactCredentialInfo.HttpHeader)
+      private static final com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader();
+      }
+
+      public static com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<HttpHeader>
+          PARSER = new com.google.protobuf.AbstractParser<HttpHeader>() {
+        @java.lang.Override
+        public HttpHeader parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new HttpHeader(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<HttpHeader> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<HttpHeader> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
     }
 
     private int bitField0_;
@@ -509,7 +1415,67 @@ public final class DatabricksArtifacts {
       }
     }
 
-    public static final int TYPE_FIELD_NUMBER = 4;
+    public static final int HEADERS_FIELD_NUMBER = 4;
+    private java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader> headers_;
+    /**
+     * <pre>
+     * A collection of HTTP headers that should be specified when uploading to
+     * or downloading from the specified `signed_uri`
+     * </pre>
+     *
+     * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+     */
+    public java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader> getHeadersList() {
+      return headers_;
+    }
+    /**
+     * <pre>
+     * A collection of HTTP headers that should be specified when uploading to
+     * or downloading from the specified `signed_uri`
+     * </pre>
+     *
+     * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+     */
+    public java.util.List<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder> 
+        getHeadersOrBuilderList() {
+      return headers_;
+    }
+    /**
+     * <pre>
+     * A collection of HTTP headers that should be specified when uploading to
+     * or downloading from the specified `signed_uri`
+     * </pre>
+     *
+     * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+     */
+    public int getHeadersCount() {
+      return headers_.size();
+    }
+    /**
+     * <pre>
+     * A collection of HTTP headers that should be specified when uploading to
+     * or downloading from the specified `signed_uri`
+     * </pre>
+     *
+     * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+     */
+    public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader getHeaders(int index) {
+      return headers_.get(index);
+    }
+    /**
+     * <pre>
+     * A collection of HTTP headers that should be specified when uploading to
+     * or downloading from the specified `signed_uri`
+     * </pre>
+     *
+     * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+     */
+    public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder getHeadersOrBuilder(
+        int index) {
+      return headers_.get(index);
+    }
+
+    public static final int TYPE_FIELD_NUMBER = 5;
     private int type_;
     /**
      * <pre>
@@ -517,7 +1483,7 @@ public final class DatabricksArtifacts {
      * or an Azure Shared Access Signature URI)
      * </pre>
      *
-     * <code>optional .mlflow.ArtifactCredentialType type = 4;</code>
+     * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
      */
     public boolean hasType() {
       return ((bitField0_ & 0x00000008) == 0x00000008);
@@ -528,7 +1494,7 @@ public final class DatabricksArtifacts {
      * or an Azure Shared Access Signature URI)
      * </pre>
      *
-     * <code>optional .mlflow.ArtifactCredentialType type = 4;</code>
+     * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
      */
     public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType getType() {
       @SuppressWarnings("deprecation")
@@ -559,8 +1525,11 @@ public final class DatabricksArtifacts {
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 3, signedUri_);
       }
+      for (int i = 0; i < headers_.size(); i++) {
+        output.writeMessage(4, headers_.get(i));
+      }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
-        output.writeEnum(4, type_);
+        output.writeEnum(5, type_);
       }
       unknownFields.writeTo(output);
     }
@@ -580,9 +1549,13 @@ public final class DatabricksArtifacts {
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, signedUri_);
       }
+      for (int i = 0; i < headers_.size(); i++) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(4, headers_.get(i));
+      }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(4, type_);
+          .computeEnumSize(5, type_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -615,6 +1588,8 @@ public final class DatabricksArtifacts {
         result = result && getSignedUri()
             .equals(other.getSignedUri());
       }
+      result = result && getHeadersList()
+          .equals(other.getHeadersList());
       result = result && (hasType() == other.hasType());
       if (hasType()) {
         result = result && type_ == other.type_;
@@ -641,6 +1616,10 @@ public final class DatabricksArtifacts {
       if (hasSignedUri()) {
         hash = (37 * hash) + SIGNED_URI_FIELD_NUMBER;
         hash = (53 * hash) + getSignedUri().hashCode();
+      }
+      if (getHeadersCount() > 0) {
+        hash = (37 * hash) + HEADERS_FIELD_NUMBER;
+        hash = (53 * hash) + getHeadersList().hashCode();
       }
       if (hasType()) {
         hash = (37 * hash) + TYPE_FIELD_NUMBER;
@@ -774,6 +1753,7 @@ public final class DatabricksArtifacts {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
+          getHeadersFieldBuilder();
         }
       }
       @java.lang.Override
@@ -785,8 +1765,14 @@ public final class DatabricksArtifacts {
         bitField0_ = (bitField0_ & ~0x00000002);
         signedUri_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
+        if (headersBuilder_ == null) {
+          headers_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000008);
+        } else {
+          headersBuilder_.clear();
+        }
         type_ = 1;
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -827,7 +1813,16 @@ public final class DatabricksArtifacts {
           to_bitField0_ |= 0x00000004;
         }
         result.signedUri_ = signedUri_;
-        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
+        if (headersBuilder_ == null) {
+          if (((bitField0_ & 0x00000008) == 0x00000008)) {
+            headers_ = java.util.Collections.unmodifiableList(headers_);
+            bitField0_ = (bitField0_ & ~0x00000008);
+          }
+          result.headers_ = headers_;
+        } else {
+          result.headers_ = headersBuilder_.build();
+        }
+        if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
           to_bitField0_ |= 0x00000008;
         }
         result.type_ = type_;
@@ -894,6 +1889,32 @@ public final class DatabricksArtifacts {
           bitField0_ |= 0x00000004;
           signedUri_ = other.signedUri_;
           onChanged();
+        }
+        if (headersBuilder_ == null) {
+          if (!other.headers_.isEmpty()) {
+            if (headers_.isEmpty()) {
+              headers_ = other.headers_;
+              bitField0_ = (bitField0_ & ~0x00000008);
+            } else {
+              ensureHeadersIsMutable();
+              headers_.addAll(other.headers_);
+            }
+            onChanged();
+          }
+        } else {
+          if (!other.headers_.isEmpty()) {
+            if (headersBuilder_.isEmpty()) {
+              headersBuilder_.dispose();
+              headersBuilder_ = null;
+              headers_ = other.headers_;
+              bitField0_ = (bitField0_ & ~0x00000008);
+              headersBuilder_ = 
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                   getHeadersFieldBuilder() : null;
+            } else {
+              headersBuilder_.addAllMessages(other.headers_);
+            }
+          }
         }
         if (other.hasType()) {
           setType(other.getType());
@@ -1240,6 +2261,336 @@ public final class DatabricksArtifacts {
         return this;
       }
 
+      private java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader> headers_ =
+        java.util.Collections.emptyList();
+      private void ensureHeadersIsMutable() {
+        if (!((bitField0_ & 0x00000008) == 0x00000008)) {
+          headers_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader>(headers_);
+          bitField0_ |= 0x00000008;
+         }
+      }
+
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder> headersBuilder_;
+
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader> getHeadersList() {
+        if (headersBuilder_ == null) {
+          return java.util.Collections.unmodifiableList(headers_);
+        } else {
+          return headersBuilder_.getMessageList();
+        }
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public int getHeadersCount() {
+        if (headersBuilder_ == null) {
+          return headers_.size();
+        } else {
+          return headersBuilder_.getCount();
+        }
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader getHeaders(int index) {
+        if (headersBuilder_ == null) {
+          return headers_.get(index);
+        } else {
+          return headersBuilder_.getMessage(index);
+        }
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public Builder setHeaders(
+          int index, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader value) {
+        if (headersBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureHeadersIsMutable();
+          headers_.set(index, value);
+          onChanged();
+        } else {
+          headersBuilder_.setMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public Builder setHeaders(
+          int index, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder builderForValue) {
+        if (headersBuilder_ == null) {
+          ensureHeadersIsMutable();
+          headers_.set(index, builderForValue.build());
+          onChanged();
+        } else {
+          headersBuilder_.setMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public Builder addHeaders(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader value) {
+        if (headersBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureHeadersIsMutable();
+          headers_.add(value);
+          onChanged();
+        } else {
+          headersBuilder_.addMessage(value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public Builder addHeaders(
+          int index, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader value) {
+        if (headersBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureHeadersIsMutable();
+          headers_.add(index, value);
+          onChanged();
+        } else {
+          headersBuilder_.addMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public Builder addHeaders(
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder builderForValue) {
+        if (headersBuilder_ == null) {
+          ensureHeadersIsMutable();
+          headers_.add(builderForValue.build());
+          onChanged();
+        } else {
+          headersBuilder_.addMessage(builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public Builder addHeaders(
+          int index, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder builderForValue) {
+        if (headersBuilder_ == null) {
+          ensureHeadersIsMutable();
+          headers_.add(index, builderForValue.build());
+          onChanged();
+        } else {
+          headersBuilder_.addMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public Builder addAllHeaders(
+          java.lang.Iterable<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader> values) {
+        if (headersBuilder_ == null) {
+          ensureHeadersIsMutable();
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, headers_);
+          onChanged();
+        } else {
+          headersBuilder_.addAllMessages(values);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public Builder clearHeaders() {
+        if (headersBuilder_ == null) {
+          headers_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000008);
+          onChanged();
+        } else {
+          headersBuilder_.clear();
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public Builder removeHeaders(int index) {
+        if (headersBuilder_ == null) {
+          ensureHeadersIsMutable();
+          headers_.remove(index);
+          onChanged();
+        } else {
+          headersBuilder_.remove(index);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder getHeadersBuilder(
+          int index) {
+        return getHeadersFieldBuilder().getBuilder(index);
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder getHeadersOrBuilder(
+          int index) {
+        if (headersBuilder_ == null) {
+          return headers_.get(index);  } else {
+          return headersBuilder_.getMessageOrBuilder(index);
+        }
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public java.util.List<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder> 
+           getHeadersOrBuilderList() {
+        if (headersBuilder_ != null) {
+          return headersBuilder_.getMessageOrBuilderList();
+        } else {
+          return java.util.Collections.unmodifiableList(headers_);
+        }
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder addHeadersBuilder() {
+        return getHeadersFieldBuilder().addBuilder(
+            com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder addHeadersBuilder(
+          int index) {
+        return getHeadersFieldBuilder().addBuilder(
+            index, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * A collection of HTTP headers that should be specified when uploading to
+       * or downloading from the specified `signed_uri`
+       * </pre>
+       *
+       * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
+       */
+      public java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder> 
+           getHeadersBuilderList() {
+        return getHeadersFieldBuilder().getBuilderList();
+      }
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder> 
+          getHeadersFieldBuilder() {
+        if (headersBuilder_ == null) {
+          headersBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+              com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder>(
+                  headers_,
+                  ((bitField0_ & 0x00000008) == 0x00000008),
+                  getParentForChildren(),
+                  isClean());
+          headers_ = null;
+        }
+        return headersBuilder_;
+      }
+
       private int type_ = 1;
       /**
        * <pre>
@@ -1247,10 +2598,10 @@ public final class DatabricksArtifacts {
        * or an Azure Shared Access Signature URI)
        * </pre>
        *
-       * <code>optional .mlflow.ArtifactCredentialType type = 4;</code>
+       * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
        */
       public boolean hasType() {
-        return ((bitField0_ & 0x00000008) == 0x00000008);
+        return ((bitField0_ & 0x00000010) == 0x00000010);
       }
       /**
        * <pre>
@@ -1258,7 +2609,7 @@ public final class DatabricksArtifacts {
        * or an Azure Shared Access Signature URI)
        * </pre>
        *
-       * <code>optional .mlflow.ArtifactCredentialType type = 4;</code>
+       * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
        */
       public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType getType() {
         @SuppressWarnings("deprecation")
@@ -1271,13 +2622,13 @@ public final class DatabricksArtifacts {
        * or an Azure Shared Access Signature URI)
        * </pre>
        *
-       * <code>optional .mlflow.ArtifactCredentialType type = 4;</code>
+       * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
        */
       public Builder setType(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType value) {
         if (value == null) {
           throw new NullPointerException();
         }
-        bitField0_ |= 0x00000008;
+        bitField0_ |= 0x00000010;
         type_ = value.getNumber();
         onChanged();
         return this;
@@ -1288,10 +2639,10 @@ public final class DatabricksArtifacts {
        * or an Azure Shared Access Signature URI)
        * </pre>
        *
-       * <code>optional .mlflow.ArtifactCredentialType type = 4;</code>
+       * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
        */
       public Builder clearType() {
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000010);
         type_ = 1;
         onChanged();
         return this;
@@ -1358,7 +2709,7 @@ public final class DatabricksArtifacts {
      * The ID of the MLflow Run for which to fetch artifact read credentials
      * </pre>
      *
-     * <code>optional string run_id = 1;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasRunId();
     /**
@@ -1366,7 +2717,7 @@ public final class DatabricksArtifacts {
      * The ID of the MLflow Run for which to fetch artifact read credentials
      * </pre>
      *
-     * <code>optional string run_id = 1;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getRunId();
     /**
@@ -1374,7 +2725,7 @@ public final class DatabricksArtifacts {
      * The ID of the MLflow Run for which to fetch artifact read credentials
      * </pre>
      *
-     * <code>optional string run_id = 1;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getRunIdBytes();
@@ -1385,7 +2736,7 @@ public final class DatabricksArtifacts {
      * fetch artifact read credentials
      * </pre>
      *
-     * <code>optional string path = 2;</code>
+     * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasPath();
     /**
@@ -1394,7 +2745,7 @@ public final class DatabricksArtifacts {
      * fetch artifact read credentials
      * </pre>
      *
-     * <code>optional string path = 2;</code>
+     * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getPath();
     /**
@@ -1403,7 +2754,7 @@ public final class DatabricksArtifacts {
      * fetch artifact read credentials
      * </pre>
      *
-     * <code>optional string path = 2;</code>
+     * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getPathBytes();
@@ -2178,7 +3529,7 @@ public final class DatabricksArtifacts {
      * The ID of the MLflow Run for which to fetch artifact read credentials
      * </pre>
      *
-     * <code>optional string run_id = 1;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -2188,7 +3539,7 @@ public final class DatabricksArtifacts {
      * The ID of the MLflow Run for which to fetch artifact read credentials
      * </pre>
      *
-     * <code>optional string run_id = 1;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getRunId() {
       java.lang.Object ref = runId_;
@@ -2209,7 +3560,7 @@ public final class DatabricksArtifacts {
      * The ID of the MLflow Run for which to fetch artifact read credentials
      * </pre>
      *
-     * <code>optional string run_id = 1;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getRunIdBytes() {
@@ -2233,7 +3584,7 @@ public final class DatabricksArtifacts {
      * fetch artifact read credentials
      * </pre>
      *
-     * <code>optional string path = 2;</code>
+     * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasPath() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
@@ -2244,7 +3595,7 @@ public final class DatabricksArtifacts {
      * fetch artifact read credentials
      * </pre>
      *
-     * <code>optional string path = 2;</code>
+     * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getPath() {
       java.lang.Object ref = path_;
@@ -2266,7 +3617,7 @@ public final class DatabricksArtifacts {
      * fetch artifact read credentials
      * </pre>
      *
-     * <code>optional string path = 2;</code>
+     * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getPathBytes() {
@@ -2630,7 +3981,7 @@ public final class DatabricksArtifacts {
        * The ID of the MLflow Run for which to fetch artifact read credentials
        * </pre>
        *
-       * <code>optional string run_id = 1;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -2640,7 +3991,7 @@ public final class DatabricksArtifacts {
        * The ID of the MLflow Run for which to fetch artifact read credentials
        * </pre>
        *
-       * <code>optional string run_id = 1;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getRunId() {
         java.lang.Object ref = runId_;
@@ -2661,7 +4012,7 @@ public final class DatabricksArtifacts {
        * The ID of the MLflow Run for which to fetch artifact read credentials
        * </pre>
        *
-       * <code>optional string run_id = 1;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getRunIdBytes() {
@@ -2681,7 +4032,7 @@ public final class DatabricksArtifacts {
        * The ID of the MLflow Run for which to fetch artifact read credentials
        * </pre>
        *
-       * <code>optional string run_id = 1;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunId(
           java.lang.String value) {
@@ -2698,7 +4049,7 @@ public final class DatabricksArtifacts {
        * The ID of the MLflow Run for which to fetch artifact read credentials
        * </pre>
        *
-       * <code>optional string run_id = 1;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearRunId() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -2711,7 +4062,7 @@ public final class DatabricksArtifacts {
        * The ID of the MLflow Run for which to fetch artifact read credentials
        * </pre>
        *
-       * <code>optional string run_id = 1;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunIdBytes(
           com.google.protobuf.ByteString value) {
@@ -2731,7 +4082,7 @@ public final class DatabricksArtifacts {
        * fetch artifact read credentials
        * </pre>
        *
-       * <code>optional string path = 2;</code>
+       * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasPath() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
@@ -2742,7 +4093,7 @@ public final class DatabricksArtifacts {
        * fetch artifact read credentials
        * </pre>
        *
-       * <code>optional string path = 2;</code>
+       * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getPath() {
         java.lang.Object ref = path_;
@@ -2764,7 +4115,7 @@ public final class DatabricksArtifacts {
        * fetch artifact read credentials
        * </pre>
        *
-       * <code>optional string path = 2;</code>
+       * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getPathBytes() {
@@ -2785,7 +4136,7 @@ public final class DatabricksArtifacts {
        * fetch artifact read credentials
        * </pre>
        *
-       * <code>optional string path = 2;</code>
+       * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setPath(
           java.lang.String value) {
@@ -2803,7 +4154,7 @@ public final class DatabricksArtifacts {
        * fetch artifact read credentials
        * </pre>
        *
-       * <code>optional string path = 2;</code>
+       * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearPath() {
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -2817,7 +4168,7 @@ public final class DatabricksArtifacts {
        * fetch artifact read credentials
        * </pre>
        *
-       * <code>optional string path = 2;</code>
+       * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setPathBytes(
           com.google.protobuf.ByteString value) {
@@ -2891,7 +4242,7 @@ public final class DatabricksArtifacts {
      * The ID of the MLflow Run for which to fetch artifact write credentials
      * </pre>
      *
-     * <code>optional string run_id = 1;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasRunId();
     /**
@@ -2899,7 +4250,7 @@ public final class DatabricksArtifacts {
      * The ID of the MLflow Run for which to fetch artifact write credentials
      * </pre>
      *
-     * <code>optional string run_id = 1;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getRunId();
     /**
@@ -2907,7 +4258,7 @@ public final class DatabricksArtifacts {
      * The ID of the MLflow Run for which to fetch artifact write credentials
      * </pre>
      *
-     * <code>optional string run_id = 1;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getRunIdBytes();
@@ -2918,7 +4269,7 @@ public final class DatabricksArtifacts {
      * fetch artifact write credentials
      * </pre>
      *
-     * <code>optional string path = 2;</code>
+     * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasPath();
     /**
@@ -2927,7 +4278,7 @@ public final class DatabricksArtifacts {
      * fetch artifact write credentials
      * </pre>
      *
-     * <code>optional string path = 2;</code>
+     * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getPath();
     /**
@@ -2936,7 +4287,7 @@ public final class DatabricksArtifacts {
      * fetch artifact write credentials
      * </pre>
      *
-     * <code>optional string path = 2;</code>
+     * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getPathBytes();
@@ -3711,7 +5062,7 @@ public final class DatabricksArtifacts {
      * The ID of the MLflow Run for which to fetch artifact write credentials
      * </pre>
      *
-     * <code>optional string run_id = 1;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -3721,7 +5072,7 @@ public final class DatabricksArtifacts {
      * The ID of the MLflow Run for which to fetch artifact write credentials
      * </pre>
      *
-     * <code>optional string run_id = 1;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getRunId() {
       java.lang.Object ref = runId_;
@@ -3742,7 +5093,7 @@ public final class DatabricksArtifacts {
      * The ID of the MLflow Run for which to fetch artifact write credentials
      * </pre>
      *
-     * <code>optional string run_id = 1;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getRunIdBytes() {
@@ -3766,7 +5117,7 @@ public final class DatabricksArtifacts {
      * fetch artifact write credentials
      * </pre>
      *
-     * <code>optional string path = 2;</code>
+     * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasPath() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
@@ -3777,7 +5128,7 @@ public final class DatabricksArtifacts {
      * fetch artifact write credentials
      * </pre>
      *
-     * <code>optional string path = 2;</code>
+     * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getPath() {
       java.lang.Object ref = path_;
@@ -3799,7 +5150,7 @@ public final class DatabricksArtifacts {
      * fetch artifact write credentials
      * </pre>
      *
-     * <code>optional string path = 2;</code>
+     * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getPathBytes() {
@@ -4163,7 +5514,7 @@ public final class DatabricksArtifacts {
        * The ID of the MLflow Run for which to fetch artifact write credentials
        * </pre>
        *
-       * <code>optional string run_id = 1;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -4173,7 +5524,7 @@ public final class DatabricksArtifacts {
        * The ID of the MLflow Run for which to fetch artifact write credentials
        * </pre>
        *
-       * <code>optional string run_id = 1;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getRunId() {
         java.lang.Object ref = runId_;
@@ -4194,7 +5545,7 @@ public final class DatabricksArtifacts {
        * The ID of the MLflow Run for which to fetch artifact write credentials
        * </pre>
        *
-       * <code>optional string run_id = 1;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getRunIdBytes() {
@@ -4214,7 +5565,7 @@ public final class DatabricksArtifacts {
        * The ID of the MLflow Run for which to fetch artifact write credentials
        * </pre>
        *
-       * <code>optional string run_id = 1;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunId(
           java.lang.String value) {
@@ -4231,7 +5582,7 @@ public final class DatabricksArtifacts {
        * The ID of the MLflow Run for which to fetch artifact write credentials
        * </pre>
        *
-       * <code>optional string run_id = 1;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearRunId() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -4244,7 +5595,7 @@ public final class DatabricksArtifacts {
        * The ID of the MLflow Run for which to fetch artifact write credentials
        * </pre>
        *
-       * <code>optional string run_id = 1;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunIdBytes(
           com.google.protobuf.ByteString value) {
@@ -4264,7 +5615,7 @@ public final class DatabricksArtifacts {
        * fetch artifact write credentials
        * </pre>
        *
-       * <code>optional string path = 2;</code>
+       * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasPath() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
@@ -4275,7 +5626,7 @@ public final class DatabricksArtifacts {
        * fetch artifact write credentials
        * </pre>
        *
-       * <code>optional string path = 2;</code>
+       * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getPath() {
         java.lang.Object ref = path_;
@@ -4297,7 +5648,7 @@ public final class DatabricksArtifacts {
        * fetch artifact write credentials
        * </pre>
        *
-       * <code>optional string path = 2;</code>
+       * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getPathBytes() {
@@ -4318,7 +5669,7 @@ public final class DatabricksArtifacts {
        * fetch artifact write credentials
        * </pre>
        *
-       * <code>optional string path = 2;</code>
+       * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setPath(
           java.lang.String value) {
@@ -4336,7 +5687,7 @@ public final class DatabricksArtifacts {
        * fetch artifact write credentials
        * </pre>
        *
-       * <code>optional string path = 2;</code>
+       * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearPath() {
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -4350,7 +5701,7 @@ public final class DatabricksArtifacts {
        * fetch artifact write credentials
        * </pre>
        *
-       * <code>optional string path = 2;</code>
+       * <code>optional string path = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setPathBytes(
           com.google.protobuf.ByteString value) {
@@ -4421,6 +5772,11 @@ public final class DatabricksArtifacts {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_ArtifactCredentialInfo_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_ArtifactCredentialInfo_HttpHeader_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_ArtifactCredentialInfo_HttpHeader_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_GetCredentialsForRead_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -4450,31 +5806,36 @@ public final class DatabricksArtifacts {
   static {
     java.lang.String[] descriptorData = {
       "\n\032databricks_artifacts.proto\022\006mlflow\032\025sc" +
-      "alapb/scalapb.proto\032\020databricks.proto\"x\n" +
-      "\026ArtifactCredentialInfo\022\016\n\006run_id\030\001 \001(\t\022" +
-      "\014\n\004path\030\002 \001(\t\022\022\n\nsigned_uri\030\003 \001(\t\022,\n\004typ" +
-      "e\030\004 \001(\0162\036.mlflow.ArtifactCredentialType\"" +
-      "\243\001\n\025GetCredentialsForRead\022\016\n\006run_id\030\001 \001(" +
-      "\t\022\014\n\004path\030\002 \001(\t\032?\n\010Response\0223\n\013credentia" +
-      "ls\030\001 \001(\0132\036.mlflow.ArtifactCredentialInfo" +
-      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\"\244\001\n\026GetCredentialsForWrite\022\016\n\006run_" +
-      "id\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\032?\n\010Response\0223\n\013cr" +
-      "edentials\030\001 \001(\0132\036.mlflow.ArtifactCredent" +
-      "ialInfo:+\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]*B\n\026ArtifactCredentialType\022\021" +
-      "\n\rAZURE_SAS_URI\020\001\022\025\n\021AWS_PRESIGNED_URL\020\002" +
-      "2\342\002\n DatabricksMlflowArtifactsService\022\233\001" +
-      "\n\025getCredentialsForRead\022\035.mlflow.GetCred" +
-      "entialsForRead\032&.mlflow.GetCredentialsFo" +
-      "rRead.Response\";\362\206\0317\n3\n\003GET\022&/mlflow/art" +
-      "ifacts/credentials-for-read\032\004\010\002\020\000\020\003\022\237\001\n\026" +
-      "getCredentialsForWrite\022\036.mlflow.GetCrede" +
-      "ntialsForWrite\032\'.mlflow.GetCredentialsFo" +
-      "rWrite.Response\"<\362\206\0318\n4\n\003GET\022\'/mlflow/ar" +
-      "tifacts/credentials-for-write\032\004\010\002\020\000\020\003B,\n" +
-      "\037com.databricks.api.proto.mlflow\220\001\001\240\001\001\342?" +
-      "\002\020\001"
+      "alapb/scalapb.proto\032\020databricks.proto\"\337\001" +
+      "\n\026ArtifactCredentialInfo\022\016\n\006run_id\030\001 \001(\t" +
+      "\022\014\n\004path\030\002 \001(\t\022\022\n\nsigned_uri\030\003 \001(\t\022:\n\007he" +
+      "aders\030\004 \003(\0132).mlflow.ArtifactCredentialI" +
+      "nfo.HttpHeader\022,\n\004type\030\005 \001(\0162\036.mlflow.Ar" +
+      "tifactCredentialType\032)\n\nHttpHeader\022\014\n\004na" +
+      "me\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\343\001\n\025GetCredentia" +
+      "lsForRead\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004path\030" +
+      "\002 \001(\tB\004\370\206\031\001\032?\n\010Response\0223\n\013credentials\030\001" +
+      " \001(\0132\036.mlflow.ArtifactCredentialInfo:_\342?" +
+      "(\n&com.databricks.rpc.RPC[$this.Response" +
+      "]\342?1\n/com.databricks.mlflow.api.MlflowTr" +
+      "ackingMessage\"\344\001\n\026GetCredentialsForWrite" +
+      "\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004path\030\002 \001(\tB\004\370\206" +
+      "\031\001\032?\n\010Response\0223\n\013credentials\030\001 \001(\0132\036.ml" +
+      "flow.ArtifactCredentialInfo:_\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]\342?1\n/com" +
+      ".databricks.mlflow.api.MlflowTrackingMes" +
+      "sage*B\n\026ArtifactCredentialType\022\021\n\rAZURE_" +
+      "SAS_URI\020\001\022\025\n\021AWS_PRESIGNED_URL\020\0022\342\002\n Dat" +
+      "abricksMlflowArtifactsService\022\233\001\n\025getCre" +
+      "dentialsForRead\022\035.mlflow.GetCredentialsF" +
+      "orRead\032&.mlflow.GetCredentialsForRead.Re" +
+      "sponse\";\362\206\0317\n3\n\003GET\022&/mlflow/artifacts/c" +
+      "redentials-for-read\032\004\010\002\020\000\020\003\022\237\001\n\026getCrede" +
+      "ntialsForWrite\022\036.mlflow.GetCredentialsFo" +
+      "rWrite\032\'.mlflow.GetCredentialsForWrite.R" +
+      "esponse\"<\362\206\0318\n4\n\003GET\022\'/mlflow/artifacts/" +
+      "credentials-for-write\032\004\010\002\020\000\020\003B,\n\037com.dat" +
+      "abricks.api.proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -4495,7 +5856,13 @@ public final class DatabricksArtifacts {
     internal_static_mlflow_ArtifactCredentialInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ArtifactCredentialInfo_descriptor,
-        new java.lang.String[] { "RunId", "Path", "SignedUri", "Type", });
+        new java.lang.String[] { "RunId", "Path", "SignedUri", "Headers", "Type", });
+    internal_static_mlflow_ArtifactCredentialInfo_HttpHeader_descriptor =
+      internal_static_mlflow_ArtifactCredentialInfo_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_ArtifactCredentialInfo_HttpHeader_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_ArtifactCredentialInfo_HttpHeader_descriptor,
+        new java.lang.String[] { "Name", "Value", });
     internal_static_mlflow_GetCredentialsForRead_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_GetCredentialsForRead_fieldAccessorTable = new
@@ -4523,6 +5890,7 @@ public final class DatabricksArtifacts {
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
+    registry.add(com.databricks.api.proto.databricks.Databricks.validateRequired);
     registry.add(org.mlflow.scalapb_interface.Scalapb.message);
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     com.google.protobuf.Descriptors.FileDescriptor
