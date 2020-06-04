@@ -296,7 +296,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
                      ColSpec("float", "good_float"), ColSpec("string", "bad_string"),
                      ColSpec("boolean", "bad_boolean")])
     df = pyfunc_scoring_server.parse_json_input(bad_df,
-                                                orient="records", schema=schema)
+                                                orient="split", schema=schema)
     # Unfortunately, the current behavior of pandas parse is to force numbers to int32 even if
     # they don't fit:
     assert df["bad_integer"].dtype == np.int32
