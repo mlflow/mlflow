@@ -1,4 +1,5 @@
 import pytest
+import os
 from mlflow import deployments
 from mlflow.deployments.plugin_manager import DeploymentPlugins
 from mlflow.exceptions import MlflowException
@@ -11,56 +12,45 @@ f_target = 'fake_target'
 
 
 def test_create_success(patched_plugin_store):  # pylint: disable=W0613
-    ret = deployments.create_deployment(f_target, f_model_uri, f_flavor)
+    client = deployments.get_deploy_client(f_target)
+    ret = client.create_deployment(f_deployment_id, f_model_uri, f_flavor)
     assert isinstance(ret, dict)
     assert ret['deployment_id'] == f_deployment_id
     assert ret['flavor'] == f_flavor
 
-    ret2 = deployments.create_deployment(f_target, f_model_uri)
-    assert ret['deployment_id'] == ret2['deployment_id']
+    ret2 = client.create_deployment(f_deployment_id, f_model_uri)
     assert ret2['flavor'] is None
 
 
 def test_delete_success(patched_plugin_store):  # pylint: disable=W0613
-    assert deployments.delete_deployment(f_target, f_deployment_id) is None
+    client = deployments.get_deploy_client(f_target)
+    assert client.delete_deployment(f_deployment_id) is None
 
 
 def test_update_success(patched_plugin_store):  # pylint: disable=W0613
-    res = deployments.update_deployment(f_target, f_deployment_id, f_model_uri, f_flavor)
+    client = deployments.get_deploy_client(f_target)
+    res = client.update_deployment(f_deployment_id, f_model_uri, f_flavor)
     assert res['flavor'] == f_flavor
 
 
-def test_update_flavor_without_model_uri():
-    with pytest.raises(RuntimeError):
-        deployments.update_deployment(f_target, f_deployment_id, flavor='pytorch')
-
-
-def test_update_without_any_arguments():
-    with pytest.raises(RuntimeError):
-        deployments.update_deployment(f_target, f_deployment_id)
-
-
-def test_missing_arguments(patched_plugin_store):  # pylint: disable=W0613
-    with pytest.raises(TypeError):
-        deployments.create_deployment(f_target)  # pylint: disable=no-value-for-parameter
-
-
 def test_list_success(patched_plugin_store):  # pylint: disable=W0613
-    ret = deployments.list_deployments(f_target)
+    client = deployments.get_deploy_client(f_target)
+    ret = client.list_deployments()
     assert ret[0] == f_deployment_id
 
 
 def test_get_success(patched_plugin_store):  # pylint: disable=W0613
-    ret = deployments.get_deployment(f_target, f_deployment_id)
+    client = deployments.get_deploy_client(f_target)
+    ret = client.get_deployment(f_deployment_id)
     assert ret['key1'] == 'val1'
 
 
-def test_wrong_target_name():
+def test_wrong_target_name(patched_plugin_store):
     with pytest.raises(MlflowException):
-        deployments.create_deployment('wrong_target', f_model_uri, f_flavor)
+        deployments.get_deploy_client('wrong_target')
 
 
-def test_plugin_not_inherited_from_BasePlugin():
+def test_plugin_doesnot_have_required_attrib():
     class DummyPlugin:
         ...  # pylint: disable=W0104
 
@@ -71,17 +61,11 @@ def test_plugin_not_inherited_from_BasePlugin():
         plugin_manager.register_entrypoints()
 
 
-def test_entrypoints_not_reloading(patched_plugin_store):  # pylint: disable=W0613
-    from mlflow.deployments.interface import plugin_store
-    deployments.list_deployments(f_target)  # triggering the reload of entrypoints
-    assert plugin_store.entrypoint_calling_count == 0  # count is set to 0
-    deployments.list_deployments(f_target)  # triggering the reload
-    assert plugin_store.entrypoint_calling_count == 0  # Guard autoset
-    plugin_store._has_plugins_loaded = False  # Turning the guard again off
-    deployments.list_deployments(f_target)  # triggering the reload
-    assert plugin_store.entrypoint_calling_count == 1  # count increased
-
-
 def test_plugin_raising_error(patched_plugin_store):  # pylint: disable=W0613
+    client = deployments.get_deploy_client(f_target)
+    # special case to raise error
+    os.environ['raiseError'] = 'True'
     with pytest.raises(RuntimeError):
-        deployments.list_deployments(f_target, raiseError='True')  # special case to raise error
+        client.list_deployments()
+    os.environ['raiseError'] = 'False'
+
