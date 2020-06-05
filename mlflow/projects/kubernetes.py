@@ -1,6 +1,7 @@
 import logging
 import docker
 import time
+import os
 from threading import RLock
 from datetime import datetime
 
@@ -33,6 +34,8 @@ def _get_kubernetes_job_definition(project_name, image_tag, image_digest,
     timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
     job_name = "{}-{}".format(project_name, timestamp)
     _logger.info("=== Creating Job %s ===", job_name)
+    if os.environ.get('KUBE_MLFLOW_TRACKING_URI') is not None:
+        env_vars['MLFLOW_TRACKING_URI'] = os.environ['KUBE_MLFLOW_TRACKING_URI']
     environment_variables = [{'name': k, 'value': v} for k, v in env_vars.items()]
     job_template['metadata']['name'] = job_name
     job_template['spec']['template']['spec']['containers'][0]['name'] = project_name
