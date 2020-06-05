@@ -1,5 +1,6 @@
 import os
 import posixpath
+import tarfile
 
 import pytest
 
@@ -32,6 +33,58 @@ def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, t
     repo.log_artifact(file_path)
     downloaded_text = open(repo.download_artifacts(file_name)).read()
     assert downloaded_text == file_text
+
+
+def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmpdir):
+    file_name = "test.txt"
+    file_path = os.path.join(str(tmpdir), file_name)
+    file_text = "Hello world!"
+
+    with open(file_path, "w") as f:
+        f.write(file_text)
+
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    repo.log_artifact(file_path)
+
+    bucket, _ = repo.parse_s3_uri(s3_artifact_root)
+    s3_client = repo._get_s3_client()
+    response = s3_client.head_object(Bucket=bucket, Key="some/path/test.txt")
+    assert response.get("ContentType") == "text/plain"
+    assert response.get("ContentEncoding") is None
+
+
+def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_root, tmpdir):
+    subdir_path = str(tmpdir.mkdir("subdir"))
+    nested_path = os.path.join(subdir_path, "nested")
+    os.makedirs(nested_path)
+    path_a = os.path.join(subdir_path, "a.txt")
+    path_b = os.path.join(subdir_path, "b.tar.gz")
+    path_c = os.path.join(nested_path, "c.csv")
+
+    with open(path_a, "w") as f:
+        f.write("A")
+    with tarfile.open(path_b, "w:gz") as f:
+        f.add(path_a)
+    with open(path_c, "w") as f:
+        f.write("col1,col2\n1,3\n2,4\n")
+
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    repo.log_artifacts(subdir_path)
+
+    bucket, _ = repo.parse_s3_uri(s3_artifact_root)
+    s3_client = repo._get_s3_client()
+
+    response_a = s3_client.head_object(Bucket=bucket, Key="some/path/a.txt")
+    assert response_a.get('ContentType') == "text/plain"
+    assert response_a.get('ContentEncoding') is None
+
+    response_b = s3_client.head_object(Bucket=bucket, Key="some/path/b.tar.gz")
+    assert response_b.get('ContentType') == "application/x-tar"
+    assert response_b.get('ContentEncoding') == "gzip"
+
+    response_c = s3_client.head_object(Bucket=bucket, Key="some/path/nested/c.csv")
+    assert response_c.get('ContentType') == 'text/csv'
+    assert response_c.get('ContentEncoding') is None
 
 
 def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_in_batch(

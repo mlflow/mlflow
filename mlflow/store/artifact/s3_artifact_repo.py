@@ -1,4 +1,5 @@
 import os
+from mimetypes import guess_type
 
 import posixpath
 from six.moves import urllib
@@ -43,18 +44,33 @@ class S3ArtifactRepository(ArtifactRepository):
                             config=Config(signature_version=signature_version),
                             endpoint_url=s3_endpoint_url)
 
+    def _upload_file(self, s3_client, local_file, bucket, key):
+        extra_args = dict()
+        guessed_type, guessed_encoding = guess_type(local_file)
+        if guessed_type is not None:
+            extra_args['ContentType'] = guessed_type
+        if guessed_encoding is not None:
+            extra_args['ContentEncoding'] = guessed_encoding
+        environ_extra_args = self.get_s3_file_upload_extra_args()
+        if environ_extra_args is not None:
+            extra_args.update(environ_extra_args)
+        s3_client.upload_file(
+            Filename=local_file,
+            Bucket=bucket,
+            Key=key,
+            ExtraArgs=extra_args)
+
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(
             dest_path, os.path.basename(local_file))
-        s3_client = self._get_s3_client()
-        s3_client.upload_file(
-            Filename=local_file,
-            Bucket=bucket,
-            Key=dest_path,
-            ExtraArgs=self.get_s3_file_upload_extra_args())
+        self._upload_file(
+            s3_client=self._get_s3_client(),
+            local_file=local_file,
+            bucket=bucket,
+            key=dest_path)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
@@ -69,11 +85,11 @@ class S3ArtifactRepository(ArtifactRepository):
                 rel_path = relative_path_to_artifact_path(rel_path)
                 upload_path = posixpath.join(dest_path, rel_path)
             for f in filenames:
-                s3_client.upload_file(
-                        Filename=os.path.join(root, f),
-                        Bucket=bucket,
-                        Key=posixpath.join(upload_path, f),
-                        ExtraArgs=self.get_s3_file_upload_extra_args())
+                self._upload_file(
+                    s3_client=s3_client,
+                    local_file=os.path.join(root, f),
+                    bucket=bucket,
+                    key=posixpath.join(upload_path, f))
 
     def list_artifacts(self, path=None):
         (bucket, artifact_path) = data.parse_s3_uri(self.artifact_uri)
