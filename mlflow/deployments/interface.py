@@ -7,99 +7,49 @@ plugin_store = DeploymentPlugins(auto_register=True)
 
 
 @experimental
-def create_deployment(target, model_uri, flavor=None, **kwargs):
+def get_deploy_client(target_uri):
     """
-    Deploy a model to the specified target.
+    It calls the `get_deploy_client` method from the plugin and return an instance of a subclass of
+    :py:class:`mlflow.deployments.BaseDeploymentClient` that can be used to deploy models to the
+    specified target
 
-    :param target: String containing the deployment target name
-    :param model_uri: String URI to the model. A local path, a 'runs:/' URI, or a
-                      remote storage URI (e.g., an 's3://' URI). For more information
-                      about supported remote URIs for model artifacts, see
-                      https://mlflow.org/docs/latest/tracking.html#artifact-stores
-    :param flavor: The name of the model flavor to use for deployment. If flavor is unspecified,
-                   a default flavor will be chosen for model deployment.
-    :param kwargs: Target-specific keyword-arguments for deployment creation
-    :return: dict, A python dictionary with keys ``deployment_id`` and ``flavor``
+    :param: target_uri: URI of target to deploy to. Run ``mlflow deployments --help`` via the CLI
+                        for more information on supported deployment targets
     """
-    deployment = plugin_store[target].create(model_uri, flavor, **kwargs)
-    if not isinstance(deployment, dict) or \
-            not all([k in ('deployment_id', 'flavor') for k in deployment]):
-        raise TypeError("Deployment creation must return a dictionary with values for "
-                        "``deployment_id`` and ``flavor``")
-    return deployment
+    # TODO: Maybe we should keep the separator as ":/" instead of "://"?
+    target = target_uri.split("://")[0]
+    return plugin_store[target].get_deploy_client(target_uri)
 
 
 @experimental
-def delete_deployment(target, deployment_id, **kwargs):
+def run_local(target, model_uri, flavor=None, config=None):
     """
-    Delete the deployment with ID `deployment_id` from the specified target.
+    Deploys the specified model locally, for testing. This function calls the `run_local` function from
+    the plugin and offload the task.
 
-    :param target: String containing the deployment target name
-    :param deployment_id: String ID of deployment to delete
-    :param kwargs: Target-specific keyword-arguments for deployment deletion
+    :param target: Which target to use. This information is used to call the appropriate plugin
+    :param model_uri: URI of model to deploy
+    :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor will be chosen.
+    :param config: (optional) Dict containing updated target-specific configuration for the deployment
     :return: None
     """
-    plugin_store[target].delete(deployment_id, **kwargs)
+    return plugin_store[target].run_local(model_uri, flavor, config)
 
 
 @experimental
-def update_deployment(target, deployment_id, model_uri=None, flavor=None, **kwargs):
+def target_help(target):
     """
-    Update the deployment with ID `deployment_id` in the specified target. You can update the
-    URI of the model, the flavor of the deployed model (in which case the model URI must also
-    be specified), and/or any target-specific attributes of the deployment (via `kwargs`).
+    Return a string containing detailed documentation on the current deployment target, to be displayed
+    when users invoke the ``mlflow deployments help -t <target-name>`` CLI. This method should be defined
+    within the module specified by the plugin author.
+    The string should contain:
+    * An explanation of target-specific fields in the ``config`` passed to ``create_deployment``,
+      ``update_deployment``
+    * How to specify a ``target_uri`` (e.g. for AWS SageMaker, ``target_uri``s have a scheme of
+      "sagemaker://<aws-cli-profile-name>", where aws-cli-profile-name is the name of an AWS
+      CLI profile https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html)
+    * Any other target-specific details.
 
-
-    :param target: String containing the deployment target name
-    :param deployment_id: String ID of deployment to update
-    :param model_uri: String URI of a new model to deploy. A local path, a 'runs:/' URI, or a
-                      remote storage URI (e.g., an 's3://' URI). For more information
-                      about supported remote URIs for model artifacts, see
-                      https://mlflow.org/docs/latest/tracking.html#artifact-stores
-    :param flavor: The name of the flavor of the model to use for deployment. If provided,
-                   `model_uri` must also be specified. If flavor is unspecified but model_uri is
-                   specified, a default flavor will be chosen and the deployment will be updated
-                   using that flavor.
-    :param kwargs: Target-specific keyword-arguments for deployment update
-    :return: None
+    :param target: Which target to use. This information is used to call the appropriate plugin
     """
-    if flavor and not model_uri:
-        raise RuntimeError("``update`` has got ``flavor`` but not ``model_uri``")
-    if not any([flavor, model_uri, kwargs]):
-        raise RuntimeError("``update`` did not get any arguments")
-    return plugin_store[target].update(deployment_id, model_uri, flavor, **kwargs)
-
-
-@experimental
-def list_deployments(target, **kwargs):  # pylint: disable=W0622
-    """
-    List the IDs of all model deployments in the specified target. These IDs
-    can be used with the :py:func:`mlflow.deployments.delete_deployment`,
-    :py:func:`mlflow.deployments.update_deployment`, and
-    :py:func:`mlflow.deployments.get_deployment` commands.
-
-    :param target: String containing the deployment target name
-    :param kwargs: Target-specific keyword-arguments for listing deployments
-    :return: A list of string deployment IDs
-    """
-    ids = plugin_store[target].list(**kwargs)
-    if not isinstance(ids, listType):
-        raise TypeError("IDs must be returned as a ``list``")
-    return ids
-
-
-@experimental
-def get_deployment(target, deployment_id, **kwargs):
-    """
-    Returns a dictionary describing the deployment with ID `deployment_id` in the specified
-    target. The format and fields of the returned dictionary may vary across deployment targets.
-
-    :param target: String containing the deployment target name
-    :param deployment_id: The ID generated by the plugin while creating the deployment
-    :param kwargs: Target-specific keyword-arguments
-    :return: A dictionary describing the deployment with ID `deployment_id`
-    """
-    desc = plugin_store[target].get(deployment_id, **kwargs)
-    if not isinstance(desc, dict):
-        raise TypeError("Description must be returned as a dictionary")
-    return desc
+    return plugin_store[target].target_help()

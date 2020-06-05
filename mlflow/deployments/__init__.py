@@ -1,7 +1,5 @@
-from mlflow.deployments.base_plugin import BasePlugin
-from mlflow.deployments.interface import (create_deployment, delete_deployment, update_deployment,
-                                          list_deployments, get_deployment)
+from mlflow.deployments.base import BaseDeploymentClient
+from mlflow.deployments.interface import get_deploy_client, run_local, target_help
 
 
-__all__ = ['create_deployment', 'delete_deployment', 'update_deployment',
-           'list_deployments', 'get_deployment', 'BasePlugin']
+__all__ = ['get_deploy_client', 'run_local', 'target_help', 'BaseDeploymentClient']

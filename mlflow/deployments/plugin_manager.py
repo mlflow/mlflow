@@ -1,8 +1,6 @@
-import warnings
 import abc
 
 import entrypoints
-from mlflow.deployments.base_plugin import BasePlugin
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 
@@ -61,10 +59,9 @@ class PluginManager(abc.ABC):
         """
         for entrypoint in entrypoints.get_group_all(self.group_name):
             try:
-                PluginClass = entrypoint.load()
-                self.register(entrypoint.name, PluginClass())
+                plugin_module = entrypoint.load()
+                self.register(entrypoint.name, plugin_module)
             except (AttributeError, ImportError) as exc:
-                # TODO: Should this be an exception
                 raise RuntimeError(
                     'Failure attempting to register store for scheme "{}": {}'.format(
                         entrypoint.name, str(exc)))
@@ -73,7 +70,7 @@ class PluginManager(abc.ABC):
 
 class DeploymentPlugins(PluginManager):
     def __init__(self, auto_register=False):
-        super(DeploymentPlugins, self).__init__('mlflow.deployments')
+        super().__init__('mlflow.deployments')
         self.auto_register = auto_register
 
     def __getitem__(self, item):
@@ -90,11 +87,11 @@ class DeploymentPlugins(PluginManager):
             raise MlflowException(msg, error_code=RESOURCE_DOES_NOT_EXIST)
 
     def register_entrypoints(self):
-        super(DeploymentPlugins, self).register_entrypoints()
+        super().register_entrypoints()
         for name, plugin_obj in self._registry.items():
-            if not isinstance(plugin_obj, BasePlugin):
-                raise MlflowException("Plugin registered for the target {} is not a child "
-                                      "class of ``BasePlugin`` from ``mlflow.deployments`` and "
-                                      "hence considered invalid. Consider raising it to the "
-                                      "plugin developers".format(name),
-                                      error_code=INTERNAL_ERROR)
+            for expected_attr in ('get_deploy_client', 'target_help', 'run_local'):
+                if not hasattr(plugin_obj, expected_attr):
+                    raise MlflowException("Plugin registered for the target {} does not has all "
+                                          "the required interfaces. Raise an issue with the "
+                                          "plugin developers".format(name),
+                                          error_code=INTERNAL_ERROR)
