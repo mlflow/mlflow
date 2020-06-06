@@ -49,20 +49,17 @@ jobs:
 
   java:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mlflow/java
     steps:
     - uses: actions/checkout@v2
     - name: Set up Java
       uses: actions/setup-java@v1
       with:
         java-version: 8
-    - name: Install dependencies
-      run: |
-        source ./travis/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
-        source activate test-environment
-        cd mlflow/java
         mvn clean package -q
 
   js:
