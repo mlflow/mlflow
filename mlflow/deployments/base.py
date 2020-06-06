@@ -1,10 +1,10 @@
 """
 Here it shows the base implementation needed for plugin developers to develop deployment plugins.
-The interfaces any plugins should expose are the three functions given below
+The only interfaces a deployment plugins should expose are the three functions given below
 
-1. `py:meth:run_local`
-2. `py:meth:target_help`
-3. `py:meth:get_deploy_client`
+1. :py:func:`get_deploy_client`
+2. :py:func:`run_local`
+3. :py:func:`target_help`
 """
 
 import abc
@@ -12,7 +12,9 @@ import abc
 
 def run_local(model_uri, flavor=None, config=None):
     """
-    Deploys the specified model locally, for testing.
+    Deploys the specified model locally, for testing. This method should be defined within the module
+    specified by the plugin author.
+
     :param model_uri: URI of model to deploy
     :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor will be chosen.
     :param config: (optional) Dict containing updated target-specific configuration for the deployment
@@ -43,8 +45,9 @@ def target_help():
 
 def get_deploy_client(target_uri):
     """
-    Return an instance of a subclass of ``:py:class:BaseDeploymentClient`` that can be used to
-    deploy models to the specified target
+    Return an instance of a subclass of :py:class:`BaseDeploymentClient` that can be used to
+    deploy models to the specified target. This method should be defined within the module
+    specified by the plugin author.
 
     :param: target_uri: URI of target to deploy to. Run ``mlflow deployments --help`` via the CLI
                         for more information on supported deployment targets

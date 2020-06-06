@@ -112,7 +112,7 @@ The example package contains a ``setup.py`` that declares a number of
             "mlflow.project_backend":
                 "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",
             # Define a deployment plugin
-            "mlflow.deployments": "target_name=plugin_name:PluginClass"
+            "mlflow.deployments": "target_name=plugin_module_name"
         },
     )
 
@@ -193,49 +193,34 @@ plugin:
    * - Plugins for custom deployment runtime and deploy the model using ``mlflow deployments create``. For more details about the allowed interfaces,
        checkout `deployment plugin <models.html#deployment-plugin>`_
      - mlflow.deployments
-     - The entry point name should represent the target name and the value must be the PluginClass. The entry point name is what user will be using to refer
-       a target. For example, if the target is RedisAI, then the entry point name value pair must be ``redisai:RedisAIPluginClass``. And CLI command will look like
-       ``mlflow deployments <interface function> --target redisai --arguments ...``
+     - The entry point name should represent the target name and the value must be the plugin module. The entry point name is what user will be using to refer
+       a target. For example, if the target is RedisAI, then the entry point name value pair must be ``redisai:mlflow_redisai`` where ``mlflow_redisai`` is
+       the redisai plugin package that exposes three interface functions as described `here <python_api/mlflow.deployments.html#mlflow.deployments>`_. And CLI command will look like
+       ``mlflow deployments <interface function> --target-uri redisai://host --arguments ...``
      - `RedisAI plugin <https://github.com/RedisAI/mlflow-redisai>`_
 
 
 Deployment Plugin
 ^^^^^^^^^^^^^^^^^
 Building a plugin for deployment has it's own implementation details apart from the ``setup.py`` configurations. For starters, as given in the above table,
-entrypoint value for the deployment plugin must be a class, we'll call it ``PluginClass`` now onwards, for the convenience. A ``PluginClass`` must be inherited from the
-base class defined `here <python_api/mlflow.deployments.html#mlflow.deployments.BasePlugin>`_. This base class is an abstract class that defines five abstract methods for
-five interface functions `create`, `delete`, `update`, `list` & `get`. Each of these functions should take few predefined arguments. Any plugin specific arguments
-can be accessed as keyword arguments through ``kwargs``. Plugin specific options will also reach plugins through the kwargs.
+entrypoint value for the deployment plugin must be a package that has three functions defined. We call these functions interfaces. More details about the
+interface functions and main plugin class can be found in the `python API documentation <python_api/mlflow.deployments.html#mlflow.deployments>`_
 
-For example, passing host, username and password to the RedisAI plugin is possible by
+Let's try an example. Deploying a model to RedisAI using `RedisAI plugin <https://github.com/RedisAI/mlflow-redisai>`_ plugin is shown below.
 
 .. code-block:: python
 
     from mlflow import deployments
-    # ``create_deployment`` calls ``create`` method of the plugin
-    deployments.create_deployment('redisai', model_uri, host='localhost', username='me', password='pswd')
+    # Host, port and authentication credentials for redis instance can be
+    # passed as environmental variable or as part of the target uri
+    redisai = deployments.get_deploy_client('redisai')
+    redisai.create_deployment('resnet18', model_uri)
 
-The CLI command for this will be (note that the optional argument are long options - prefixed with ``--`` and has more than one character)
+The CLI command for this will be
 
 .. code-block:: bash
 
-    mlflow deployments create --redisai --host localhost --username me --password pswd
-
-
-And the corresponding RedisAI PluginClass implementation could look like this
-
-.. code-block:: python
-
-    from mlflow.deployments import BasePlugin
-
-    class RedisAIPlugin(BasePlugin):
-        ...
-
-        def create(self, model_uri, **kwargs):
-            host = kwargs['host']
-            username = kwargs['username']
-            password = kwargs['password']
-            ...
+    mlflow deployments create --target-uri redisai --model-uri <model_uri> --name resnet18
 
 
 Testing Your Plugin

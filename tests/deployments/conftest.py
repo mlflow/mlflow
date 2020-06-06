@@ -1,6 +1,6 @@
 import pytest
 import entrypoints
-from . import test_plugin
+from . import dummy_plugin
 
 
 f_target = 'fake_target'
@@ -14,7 +14,7 @@ def custom_entrypoint_group_all(name):
 
 def custom_entrypoint_load(self):
     if self.name == f_target:
-        return test_plugin
+        return dummy_plugin
 
 
 @pytest.fixture()

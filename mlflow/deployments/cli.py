@@ -1,34 +1,32 @@
 import click
 from mlflow.utils import cli_args
 from mlflow.deployments import interface
-import sys
-from mlflow.utils.logging_utils import eprint
 
 
-def _user_args_to_dict(user_list, flag_name='P'):
-    # TODO: This function is copied from mlflow.cli which is raising an issue when this
-    #   is developed
+def _user_args_to_dict(user_list):
+    # Similar function in mlflow.cli is throwing exception on import
     user_dict = {}
     for s in user_list:
-        index = s.find("=")
-        if index == -1:
-            eprint("Invalid format for -%s parameter: '%s'. "
-                   "Use -%s name=value." % (flag_name, s, flag_name))
-            sys.exit(1)
-        name = s[:index]
-        value = s[index + 1:]
+        try:
+            name, value = s.split('=')
+        except ValueError:
+            # not enough values to unpack
+            raise click.BadOptionUsage("config", "Config options must be a pair and should be"
+                                                 "provided as ``--C key=value`` or "
+                                                 "``--config key=value``")
         if name in user_dict:
-            eprint("Repeated parameter: '%s'" % name)
-            sys.exit(1)
+            raise click.ClickException("Repeated parameter: '{}'".format(name))
         user_dict[name] = value
     return user_dict
 
 
-target_uri = click.option("--target-uri", "-t", "target", required=True,
+target_uri = click.option("--target-uri", "t_uri", required=True,
                           help="Deployment target URI. Check the documentation/help for each "
                                "plugin to understand the target URI format the plugins expect. "
                                "For fetching the help, you can call "
-                               "`mlflow deployments help <target-name>`")
+                               "`mlflow deployments help --target-name <target-name>`")
+target_name = click.option("--target-name", "t_name", required=True,
+                          help="Deployment target name.")
 deployment_name = click.option("--name", "name", required=True,
                                help="Name of the deployment")
 parse_custom_arguments = click.option("--config", "-C", metavar="NAME=VALUE", multiple=True,
@@ -62,14 +60,14 @@ def commands():
 @cli_args.MODEL_URI
 @click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
                                      "inferred if it's not given")
-def create_deployment(flavor, model_uri, target, name, config):
+def create_deployment(flavor, model_uri, t_uri, name, config):
     """
     Deploy the model at ``model_uri`` to the specified target.
 
     Additional plugin-specific arguments may also be passed to this command, via `-C key=value`
     """
-    config_dict = _user_args_to_dict(config, flag_name="C")
-    client = interface.get_deploy_client(target)
+    config_dict = _user_args_to_dict(config)
+    client = interface.get_deploy_client(t_uri)
     deployment = client.create_deployment(name, model_uri, flavor, config=config_dict)
     click.echo("\n{} deployment {} is created".format(deployment['flavor'],
                                                       deployment['name']))
@@ -87,7 +85,7 @@ def create_deployment(flavor, model_uri, target, name, config):
                    "#artifact-stores")  # optional model_uri
 @click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
                                      "inferred if it's not given")
-def update_deployment(flavor, model_uri, target, name, config):
+def update_deployment(flavor, model_uri, t_uri, name, config):
     """
     Update the deployment with ID `deployment_id` in the specified target.
     You can update the URI of the model and/or the flavor of the deployed model (in which case the
@@ -95,8 +93,8 @@ def update_deployment(flavor, model_uri, target, name, config):
 
     Additional plugin-specific arguments may also be passed to this command, via `-C key=value`.
     """
-    config_dict = _user_args_to_dict(config, flag_name="C")
-    client = interface.get_deploy_client(target)
+    config_dict = _user_args_to_dict(config)
+    client = interface.get_deploy_client(t_uri)
     ret = client.update_deployment(name, model_uri=model_uri, flavor=flavor, config=config_dict)
     click.echo("Deployment {} is updated (with flavor {})".format(name, ret['flavor']))
 
@@ -104,23 +102,23 @@ def update_deployment(flavor, model_uri, target, name, config):
 @commands.command("delete", context_settings=context_settings)
 @deployment_name
 @target_uri
-def delete_deployment(target, name):
+def delete_deployment(t_uri, name):
     """
     Delete the deployment with ID `deployment_id` from the specified target.
     """
-    client = interface.get_deploy_client(target)
+    client = interface.get_deploy_client(t_uri)
     client.delete_deployment(name)
     click.echo("Deployment {} is deleted".format(name))
 
 
 @commands.command("list", context_settings=context_settings)
 @target_uri
-def list_deployment(target):
+def list_deployment(t_uri):
     """
     List the IDs of all model deployments in the specified target. These IDs can be used with
     the `delete`, `update`, and `get` commands.
     """
-    client = interface.get_deploy_client(target)
+    client = interface.get_deploy_client(t_uri)
     ids = client.list_deployments()
     click.echo("List of all deployments:\n{}".format(ids))
 
@@ -128,23 +126,29 @@ def list_deployment(target):
 @commands.command("get", context_settings=context_settings)
 @deployment_name
 @target_uri
-def get_deployment(target, name):
+def get_deployment(t_uri, name):
     """
     Print a detailed description of the deployment with ID ``deployment_id`` in the specified
     target.
     """
-    client = interface.get_deploy_client(target)
+    client = interface.get_deploy_client(t_uri)
     desc = client.get_deployment(name)
     for key, val in desc.items():
         click.echo("{}: {}".format(key, val))
     click.echo('\n')
 
 
-@commands.command("get", context_settings=context_settings)
-@click.argument("target")
-def target_help(target):
+@commands.command("help", context_settings=context_settings)
+@target_name
+def target_help(t_name):
     """
     Specific help command for deployment plugins. This will call the `target_help` function from
     the plugin to display the help string specific for each plugin
     """
-    click.echo(interface.target_help(target))
+    click.echo(interface.target_help(t_name))
+
+
+@commands.command("run-local", context_settings=context_settings)
+@target_name
+def run_local():
+    pass

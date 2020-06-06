@@ -13,9 +13,9 @@ f_target = 'fake_target'
 
 def test_create_success(patched_plugin_store):  # pylint: disable=W0613
     client = deployments.get_deploy_client(f_target)
-    ret = client.create_deployment(f_deployment_id, f_model_uri, f_flavor)
+    ret = client.create_deployment(f_deployment_id, f_model_uri, f_flavor, config={})
     assert isinstance(ret, dict)
-    assert ret['deployment_id'] == f_deployment_id
+    assert ret['name'] == f_deployment_id
     assert ret['flavor'] == f_flavor
 
     ret2 = client.create_deployment(f_deployment_id, f_model_uri)

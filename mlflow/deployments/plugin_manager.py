@@ -89,9 +89,11 @@ class DeploymentPlugins(PluginManager):
     def register_entrypoints(self):
         super().register_entrypoints()
         for name, plugin_obj in self._registry.items():
-            for expected_attr in ('get_deploy_client', 'target_help', 'run_local'):
-                if not hasattr(plugin_obj, expected_attr):
-                    raise MlflowException("Plugin registered for the target {} does not has all "
-                                          "the required interfaces. Raise an issue with the "
-                                          "plugin developers".format(name),
-                                          error_code=INTERNAL_ERROR)
+            expected = {'get_deploy_client', 'target_help', 'run_local'}
+            notfound = expected.difference(plugin_obj.__dict__.keys())
+            if notfound:
+                raise MlflowException("Plugin registered for the target {} does not has all "
+                                      "the required interfaces. Raise an issue with the "
+                                      "plugin developers.\nExpected interfaces {}\n"
+                                      "Missing interfaces: {}".format(name, expected, notfound),
+                                      error_code=INTERNAL_ERROR)

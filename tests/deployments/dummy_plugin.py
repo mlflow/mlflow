@@ -6,7 +6,7 @@ f_deployment_id = 'fake_deployment_id'
 
 class FakePlugin(BaseDeploymentClient):
     def create_deployment(self, name, model_uri, flavor=None, config=None):
-        if config.get('raiseError') == 'True':
+        if config and config.get('raiseError') == 'True':
             raise RuntimeError("Error requested")
         return {'name': f_deployment_id, 'flavor': flavor}
 
@@ -33,8 +33,8 @@ def get_deploy_client(target):
 
 
 def run_local(target, model_uri, flavor=None, config=None):
-    pass
+    return "Deployed locally"
 
 
-def target_help(target):
-    pass
+def target_help():
+    return "Target help is called"
