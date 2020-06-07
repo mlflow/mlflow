@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 
 
 class ShellCommandException(Exception):
@@ -31,6 +32,7 @@ def exec_cmd(cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, 
 
     if stream_output:
         child = subprocess.Popen(cmd, env=cmd_env, cwd=cwd, universal_newlines=True,
+                                 stdout=sys.stderr.fileno(),
                                  stdin=subprocess.PIPE, **kwargs)
         child.communicate(cmd_stdin)
         exit_code = child.wait()
