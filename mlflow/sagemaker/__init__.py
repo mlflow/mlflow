@@ -1,8 +1,6 @@
 """
 The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to Amazon SageMaker.
 """
-from __future__ import print_function
-
 import os
 from subprocess import Popen, PIPE, STDOUT
 from six.moves import urllib
@@ -844,7 +842,6 @@ def _create_sagemaker_model(model_name, model_s3_path, model_uri, flavor, vpc_co
     create_model_args = {
         "ModelName": model_name,
         "PrimaryContainer": {
-            'ContainerHostname': 'mfs-%s' % model_name,
             'Image': image_url,
             'ModelDataUrl': model_s3_path,
             'Environment': _get_deployment_config(flavor_name=flavor),

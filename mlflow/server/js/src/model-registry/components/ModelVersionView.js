@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { modelListPageRoute, getModelPageRoute } from '../routes';
 import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import { Dropdown, Icon, Menu, Modal, Alert, Descriptions, Tooltip, Button } from 'antd';
+import { Dropdown, Icon, Menu, Modal, Alert, Descriptions, Tooltip } from 'antd';
 import {
   ModelVersionStatus,
   StageTagComponents,
@@ -16,6 +16,7 @@ import {
 import Routers from '../../experiment-tracking/routes';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
+import { IconButton } from '../../common/components/IconButton';
 
 export class ModelVersionView extends React.Component {
   static propTypes = {
@@ -76,11 +77,9 @@ export class ModelVersionView extends React.Component {
   };
 
   handleSubmitEditDescription = (description) => {
-    return this.props
-      .handleEditDescription(description)
-      .then(() => {
-        this.setState({ showDescriptionEditor: false });
-      });
+    return this.props.handleEditDescription(description).then(() => {
+      this.setState({ showDescriptionEditor: false });
+    });
   };
 
   startEditingDescription = (e) => {
@@ -91,23 +90,20 @@ export class ModelVersionView extends React.Component {
   renderBreadCrumbDropdown() {
     const menu = (
       <Menu>
-        {ACTIVE_STAGES.includes(this.props.modelVersion.current_stage) ?
-          (
-            <Menu.Item disabled className='delete'>
-              <Tooltip title={MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>
-                Delete
-              </Tooltip>
-            </Menu.Item>
-          ) : (
-            <Menu.Item onClick={this.showDeleteModal} className='delete'>
-              Delete
-            </Menu.Item>
-          )}
+        {ACTIVE_STAGES.includes(this.props.modelVersion.current_stage) ? (
+          <Menu.Item disabled className='delete'>
+            <Tooltip title={MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>Delete</Tooltip>
+          </Menu.Item>
+        ) : (
+          <Menu.Item onClick={this.showDeleteModal} className='delete'>
+            Delete
+          </Menu.Item>
+        )}
       </Menu>
     );
     return (
       <Dropdown overlay={menu} trigger={['click']} className='breadcrumb-dropdown'>
-        <Icon type='caret-down' className='breadcrumb-caret'/>
+        <Icon type='caret-down' className='breadcrumb-caret' />
       </Dropdown>
     );
   }
@@ -131,7 +127,7 @@ export class ModelVersionView extends React.Component {
   }
 
   renderDescriptionEditIcon() {
-    return <Button type="link" onClick={this.startEditingDescription}><Icon type='form' /></Button>;
+    return <IconButton icon={<Icon type='form' />} onClick={this.startEditingDescription} />;
   }
 
   render() {
@@ -150,7 +146,9 @@ export class ModelVersionView extends React.Component {
       <div>
         {/* Breadcrumbs */}
         <h1 className='breadcrumb-header'>
-          <Link to={modelListPageRoute} className={breadcrumbItemClass}>Registered Models</Link>
+          <Link to={modelListPageRoute} className={breadcrumbItemClass}>
+            Registered Models
+          </Link>
           {chevron}
           <Link to={getModelPageRoute(modelName)} className={breadcrumbItemClass}>
             {modelName}
@@ -174,16 +172,16 @@ export class ModelVersionView extends React.Component {
                 permissionLevel={modelVersion.permission_level}
                 onSelect={handleStageTransitionDropdownSelect}
               />
-            ) : StageTagComponents[modelVersion.current_stage]}
+            ) : (
+              StageTagComponents[modelVersion.current_stage]
+            )}
           </Descriptions.Item>
           <Descriptions.Item label='Last Modified'>
             {Utils.formatTimestamp(modelVersion.last_updated_timestamp)}
           </Descriptions.Item>
           {runInfo ? (
             <Descriptions.Item label='Source Run'>
-              <Link
-                to={Routers.getRunPageRoute(runInfo.getExperimentId(), runInfo.getRunUuid())}
-              >
+              <Link to={Routers.getRunPageRoute(runInfo.getExperimentId(), runInfo.getRunUuid())}>
                 {runDisplayName || runInfo.getRunUuid()}
               </Link>
             </Descriptions.Item>
@@ -194,8 +192,7 @@ export class ModelVersionView extends React.Component {
         <CollapsibleSection
           title={
             <span>
-              Description{' '}
-              {!showDescriptionEditor ? this.renderDescriptionEditIcon() : null}
+              Description {!showDescriptionEditor ? this.renderDescriptionEditIcon() : null}
             </span>
           }
           forceOpen={showDescriptionEditor}
@@ -208,7 +205,7 @@ export class ModelVersionView extends React.Component {
           />
         </CollapsibleSection>
         <Modal
-          title="Delete Model Version"
+          title='Delete Model Version'
           visible={isDeleteModalVisible}
           confirmLoading={isDeleteModalConfirmLoading}
           onOk={this.handleDeleteConfirm}

@@ -237,7 +237,7 @@ Docker container environment
   .. rubric:: Example 3: Image in a remote registry
 
   .. code-block:: yaml
-    
+  
     docker_env:
       image: 012345678910.dkr.ecr.us-west-2.amazonaws.com/mlflow-docker-example-environment:7.0
 
@@ -299,7 +299,7 @@ float
 path
     A path on the local file system. MLflow converts any relative ``path`` parameters to absolute 
     paths. MLflow also downloads any paths passed as distributed storage URIs 
-    (``s3://`` and ``dbfs://``) to local files. Use this type for programs that can only read local 
+    (``s3://``, ``dbfs://``, gs://, etc.) to local files. Use this type for programs that can only read local
     files.
 
 uri
@@ -375,17 +375,58 @@ in the Databricks docs
 of how to use the feature is as follows:
 
 1. Create a JSON file containing the
-`new cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
-for your run. For example:
+`new cluster specification <https://docs.databricks.com/dev-tools/api/latest/jobs.html#jobsclusterspecnewcluster>`_
+or `cluster specification <https://docs.databricks.com/dev-tools/api/latest/jobs.html#clusterspec>`_
+for your run. Note that running projects against an existing cluster is not supported. If you do not need to specify libraries installed on the Spark worker nodes, you can use the
+simpler "new cluster specification" format. For example:
 
   .. code-block:: json
 
     {
-      "spark_version": "5.5.x-scala2.11",
+      "spark_version": "6.4.x-scala2.11",
       "node_type_id": "i3.xlarge",
       "aws_attributes": {"availability": "ON_DEMAND"},
       "num_workers": 4
     }
+
+If you do need to install libraries on the worker, use the "cluster specification" format. For example:
+
+  .. code-block:: json
+
+    {
+      "new_cluster": {
+        "spark_version": "6.4.x-scala2.11",
+        "node_type_id": "i3.xlarge",
+        "aws_attributes": {"availability": "ON_DEMAND"},
+        "num_workers": 4
+      },
+      "libraries": [
+        {
+          "pypi": {
+            "package": "tensorflow"
+          }
+        },
+        {
+          "whl": "dbfs:/path_to_my_lib.whl"
+        }
+      ]
+    }
+
+If you need those same libraries available on the driver, you will also need to specify them in the
+Conda environment YAML file. You can reference wheels on DBFS using the ``pip`` section of the environment
+file. For example:
+
+  .. code-block:: yaml
+  
+    dependencies:
+      - tensorflow
+      - pip:
+        - /dbfs/path_to_ml_lib.whl
+
+The path to the wheel is different in the Conda environment YAML file than the JSON specification used
+to install libraries on the Spark workers. This is because Conda does not support DBFS; you must instead
+use the `DBFS FUSE mount <https://docs.databricks.com/data/databricks-file-system.html#local-file-apis>`_
+to read the file as if it were a local file.
 
 2. Run your project using the following command:
 
@@ -563,6 +604,7 @@ execution. Replaced fields are indicated using bracketed text.
         - name: "{replaced with MLflow Project name}"
           image: "{replaced with URI of Docker image created during Project execution}"
           command: ["{replaced with MLflow Project entry point command}"]
+          env: ["{appended with MLFLOW_TRACKING_URI, MLFLOW_RUN_ID and MLFLOW_EXPERIMENT_ID}"]
         resources:
           limits:
             memory: 512Mi
@@ -571,8 +613,10 @@ execution. Replaced fields are indicated using bracketed text.
         restartPolicy: Never
 
 The ``container.name``, ``container.image``, and ``container.command`` fields are only replaced for
-the *first* container defined in the Job Spec. All subsequent container definitions are applied
-without modification.
+the *first* container defined in the Job Spec. Further, the ``MLFLOW_TRACKING_URI``, ``MLFLOW_RUN_ID``
+and ``MLFLOW_EXPERIMENT_ID`` are appended to ``container.env``. Use ``KUBE_MLFLOW_TRACKING_URI`` to
+pass a different tracking URI to the job container from the standard ``MLFLOW_TRACKING_URI``. All
+subsequent container definitions are applied without modification.
 
 Iterating Quickly
 -----------------

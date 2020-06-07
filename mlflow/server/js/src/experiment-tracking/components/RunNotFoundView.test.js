@@ -11,7 +11,6 @@ describe('RunNotFoundView', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    shallow(<RunNotFoundView {...minimalProps}/>);
+    shallow(<RunNotFoundView {...minimalProps} />);
   });
 });
-

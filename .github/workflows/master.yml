@@ -67,6 +67,9 @@ jobs:
 
   js:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mlflow/server/js
     steps:
     - uses: actions/checkout@v2
     - name: Set up Node
@@ -75,14 +78,13 @@ jobs:
         node-version: 10.x
     - name: Install dependencies
       run: |
-        source ./travis/install-common-deps.sh
+        npm i
+    - name: Run lint
+      run: |
+        npm run lint
     - name: Run tests
       run: |
-        cd mlflow/server/js
-        npm i
-        npm run lint
-        set -e
-        for file in $(find src | grep test.js | sort) ; do npm run test -- $file; done
+        npm run test
 
   protos:
     runs-on: ubuntu-latest

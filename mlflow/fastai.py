@@ -12,9 +12,6 @@ fastai (native) format
 .. _fastai.Learner.export:
     https://docs.fast.ai/basic_train.html#Learner.export
 """
-
-from __future__ import absolute_import
-
 import os
 import yaml
 import gorilla
@@ -24,9 +21,10 @@ import pandas as pd
 import numpy as np
 
 from mlflow import pyfunc
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature, ModelInputExample
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -59,7 +57,8 @@ def get_default_conda_env(include_cloudpickle=False):
     )
 
 
-def save_model(fastai_learner, path, conda_env=None, mlflow_model=Model(), **kwargs):
+def save_model(fastai_learner, path, conda_env=None, mlflow_model=None,
+               signature: ModelSignature = None, input_example: ModelInputExample = None, **kwargs):
     """
     Save a fastai Learner to a path on the local file system.
 
@@ -82,6 +81,26 @@ def save_model(fastai_learner, path, conda_env=None, mlflow_model=Model(), **kwa
                             ]
                         }
     :param mlflow_model: MLflow model config this flavor is being added to.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
     :param kwargs: kwargs to pass to ``Learner.save`` method.
     """
     import fastai
@@ -94,6 +113,13 @@ def save_model(fastai_learner, path, conda_env=None, mlflow_model=Model(), **kwa
     model_data_path = os.path.join(path, model_data_subpath)
     model_data_path = Path(model_data_path)
     os.makedirs(path)
+
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
 
     # Save an Learner
     fastai_learner.export(model_data_path, **kwargs)
@@ -114,7 +140,9 @@ def save_model(fastai_learner, path, conda_env=None, mlflow_model=Model(), **kwa
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(fastai_learner, artifact_path, conda_env=None, registered_model_name=None, **kwargs):
+def log_model(fastai_learner, artifact_path, conda_env=None, registered_model_name=None,
+              signature: ModelSignature = None, input_example: ModelInputExample = None,
+              **kwargs):
     """
     Log a fastai model as an MLflow artifact for the current run.
 
@@ -140,11 +168,34 @@ def log_model(fastai_learner, artifact_path, conda_env=None, registered_model_na
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
     :param kwargs: kwargs to pass to `fastai.Learner.export`_ method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.fastai,
               registered_model_name=registered_model_name,
-              fastai_learner=fastai_learner, conda_env=conda_env, **kwargs)
+              fastai_learner=fastai_learner, conda_env=conda_env,
+              signature=signature,
+              input_example=input_example,
+              **kwargs)
 
 
 def _load_model(path):

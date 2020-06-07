@@ -36,9 +36,9 @@ export class RestoreRunModalImpl extends Component {
         isOpen={this.props.isOpen}
         onClose={this.props.onClose}
         handleSubmit={this.handleSubmit}
-        title={`Restore Experiment ${Utils.pluralize("Run", number)}`}
+        title={`Restore Experiment ${Utils.pluralize('Run', number)}`}
         helpText={`${number} experiment ${Utils.pluralize('run', number)} will be restored.`}
-        confirmButtonText={"Restore"}
+        confirmButtonText={'Restore'}
       />
     );
   }

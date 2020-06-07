@@ -1,5 +1,5 @@
 import React from 'react';
-import { shallow} from 'enzyme';
+import { shallow } from 'enzyme';
 import { EditableNote } from './EditableNote';
 
 describe('EditableNote', () => {
@@ -17,7 +17,7 @@ describe('EditableNote', () => {
       onCancel: mockCancel,
     };
     commonProps = { ...minimalProps, showEditor: true };
-    wrapper = shallow(<EditableNote {...minimalProps}/>);
+    wrapper = shallow(<EditableNote {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
@@ -26,7 +26,7 @@ describe('EditableNote', () => {
   });
 
   test('test renderActions is called and rendered correctly when showEditor is true', () => {
-    wrapper = shallow(<EditableNote {...commonProps}/>);
+    wrapper = shallow(<EditableNote {...commonProps} />);
     expect(wrapper.length).toBe(1);
     expect(wrapper.find('.note-view-outer-container').length).toBe(1);
     expect(wrapper.find('.editable-note-actions').length).toBe(1);
@@ -44,16 +44,19 @@ describe('EditableNote', () => {
   });
 
   test('test handleRenameExperiment errors correctly', (done) => {
-    mockSubmit = jest.fn(() => new Promise((resolve, reject) => {
-      window.setTimeout(() => {
-        reject();
-      }, 100);
-    }));
+    mockSubmit = jest.fn(
+      () =>
+        new Promise((resolve, reject) => {
+          window.setTimeout(() => {
+            reject();
+          }, 100);
+        }),
+    );
     minimalProps = {
       onSubmit: mockSubmit,
       onCancel: mockCancel,
     };
-    wrapper = shallow(<EditableNote {...minimalProps}/>);
+    wrapper = shallow(<EditableNote {...minimalProps} />);
 
     const instance = wrapper.instance();
     const promise = instance.handleSubmitClick();

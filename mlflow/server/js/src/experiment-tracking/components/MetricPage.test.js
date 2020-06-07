@@ -3,7 +3,7 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
-import { mount} from 'enzyme';
+import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import { mockAjax } from '../../common/utils/TestUtils';
 
@@ -24,11 +24,11 @@ describe('MetricPage', () => {
     minimalProps = {
       dispatch: jest.fn(),
       location: {
-        search: "?runs=[]",
+        search: '?runs=[]',
       },
       match: {
         params: {
-          metricKey: "metricKey",
+          metricKey: 'metricKey',
         },
       },
     };
@@ -49,9 +49,9 @@ describe('MetricPage', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
         <BrowserRouter>
-          <MetricPage {...minimalProps}/>
+          <MetricPage {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     ).find(MetricPage);
     expect(wrapper.length).toBe(1);
   });
@@ -60,9 +60,9 @@ describe('MetricPage', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
         <BrowserRouter>
-          <MetricPage {...commonProps}/>
+          <MetricPage {...commonProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     ).find(MetricPage);
 
     instance = wrapper.find(MetricPageImpl).instance();
@@ -79,9 +79,9 @@ describe('MetricPage', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
         <BrowserRouter>
-          <MetricPage {...props}/>
+          <MetricPage {...props} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     ).find(MetricPage);
 
     instance = wrapper.find(MetricPageImpl).instance();

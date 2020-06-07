@@ -15,11 +15,11 @@ describe('ConfirmModal', () => {
       isOpen: false,
       handleSubmit: jest.fn(() => Promise.resolve({})),
       onClose: onCloseMock,
-      title: "testTitle",
-      helpText: "testHelp",
-      confirmButtonText: "confirmTest",
+      title: 'testTitle',
+      helpText: 'testHelp',
+      confirmButtonText: 'confirmTest',
     };
-    wrapper = shallow(<ConfirmModal {...minimalProps}/>);
+    wrapper = shallow(<ConfirmModal {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
@@ -45,13 +45,16 @@ describe('ConfirmModal', () => {
       done();
     });
 
-    const mockFailHandleSubmit = jest.fn(() => new Promise((resolve, reject) => {
-      window.setTimeout(() => {
-        reject();
-      }, 100);
-    }));
-    const failProps = {...minimalProps, handleSubmit: mockFailHandleSubmit};
-    const failWrapper = shallow(<ConfirmModal {...failProps}/>);
+    const mockFailHandleSubmit = jest.fn(
+      () =>
+        new Promise((resolve, reject) => {
+          window.setTimeout(() => {
+            reject();
+          }, 100);
+        }),
+    );
+    const failProps = { ...minimalProps, handleSubmit: mockFailHandleSubmit };
+    const failWrapper = shallow(<ConfirmModal {...failProps} />);
     const failPromise = failWrapper.find(Modal).prop('onOk')();
     failPromise.finally(() => {
       expect(onCloseMock).toHaveBeenCalledTimes(2);

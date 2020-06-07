@@ -1,6 +1,8 @@
 name: tutorial
 channels:
   - defaults
+  - anaconda
+  - conda-forge
 dependencies:
   - python=3.6
   - scikit-learn=0.19.1

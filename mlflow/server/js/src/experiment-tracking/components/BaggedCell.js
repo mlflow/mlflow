@@ -2,12 +2,12 @@ import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import { Menu, Dropdown } from 'antd';
 import classNames from 'classnames';
-import ExperimentViewUtil from "./ExperimentViewUtil";
+import ExperimentViewUtil from './ExperimentViewUtil';
 import Utils from '../../common/utils/Utils';
 
 const styles = {
   metricParamCellContent: {
-    display: "inline-block",
+    display: 'inline-block',
     maxWidth: 120,
   },
 };
@@ -25,14 +25,14 @@ export default class BaggedCell extends PureComponent {
 
   handleSortAscending = () => {
     const { isParam, keyName, onSortBy } = this.props;
-    const keyType = (isParam ? "params" : "metrics");
+    const keyType = isParam ? 'params' : 'metrics';
     const canonicalKey = ExperimentViewUtil.makeCanonicalKey(keyType, keyName);
     onSortBy(canonicalKey, true);
   };
 
   handleSortDescending = () => {
     const { isParam, keyName, onSortBy } = this.props;
-    const keyType = (isParam ? "params" : "metrics");
+    const keyType = isParam ? 'params' : 'metrics';
     const canonicalKey = ExperimentViewUtil.makeCanonicalKey(keyType, keyName);
     onSortBy(canonicalKey, false);
   };
@@ -44,13 +44,11 @@ export default class BaggedCell extends PureComponent {
 
   render() {
     const { isMetric, keyName, value, sortIcon } = this.props;
-    const cellClass = classNames("metric-param-content", "metric-param-cell", "BaggedCell");
+    const cellClass = classNames('metric-param-content', 'metric-param-cell', 'BaggedCell');
     return (
-      <span
-        className={cellClass}
-      >
+      <span className={cellClass}>
         <Dropdown
-          overlay={(
+          overlay={
             <Menu>
               <Menu.Item data-test-id='sort-ascending' onClick={this.handleSortAscending}>
                 Sort ascending
@@ -62,12 +60,12 @@ export default class BaggedCell extends PureComponent {
                 Display as a separate column
               </Menu.Item>
             </Menu>
-          )}
+          }
           trigger={['click']}
         >
           <span>
             <span
-              className="run-table-container underline-on-hover metric-param-sort-toggle"
+              className='run-table-container underline-on-hover metric-param-sort-toggle'
               style={styles.metricParamCellContent}
               title={keyName}
             >
@@ -75,7 +73,7 @@ export default class BaggedCell extends PureComponent {
               {keyName}:
             </span>
             <span
-              className="metric-param-value run-table-container"
+              className='metric-param-value run-table-container'
               style={styles.metricParamCellContent}
               title={value}
             >

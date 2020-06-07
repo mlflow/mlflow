@@ -25,7 +25,7 @@ def _infer_schema(data: Any) -> Schema:
     supported formats (containers).
 
     The input should be one of these:
-      - pandas.DataFrame
+      - pandas.DataFrame or pandas.Series
       - dictionary of { name -> numpy.ndarray}
       - numpy.ndarray
       - pyspark.sql.DataFrame
@@ -38,6 +38,7 @@ def _infer_schema(data: Any) -> Schema:
 
     :return: Schema
     """
+
     if isinstance(data, dict):
         res = []
         for col in data.keys():
@@ -51,6 +52,8 @@ def _infer_schema(data: Any) -> Schema:
                 raise TensorsNotSupportedException("Data in the dictionary must be 1-dimensional, "
                                                    "got shape {}".format(ary.shape))
         return Schema(res)
+    elif isinstance(data, pd.Series):
+        return Schema([ColSpec(type=_infer_numpy_array(data.values))])
     elif isinstance(data, pd.DataFrame):
         return Schema([ColSpec(type=_infer_numpy_array(data[col].values), name=col)
                        for col in data.columns])

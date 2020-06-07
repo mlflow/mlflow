@@ -25,7 +25,12 @@ describe('RunView', () => {
       getMetricPagePath: jest.fn(),
       handleSetRunTag: jest.fn(),
     };
-    const modelVersion = mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY);
+    const modelVersion = mockModelVersionDetailed(
+      'Model A',
+      1,
+      Stages.PRODUCTION,
+      ModelVersionStatus.READY,
+    );
     minimalStoreRaw = {
       entities: {
         runInfosByUuid: {
@@ -33,12 +38,12 @@ describe('RunView', () => {
             run_uuid: 'uuid-1234-5678-9012',
             experiment_id: '12345',
             user_id: 'me@me.com',
-            status: "RUNNING",
+            status: 'RUNNING',
             artifact_uri: 'dbfs:/databricks/abc/uuid-1234-5678-9012',
             lifecycle_stage: 'active',
           }),
         },
-        artifactsByRunUuid: {'uuid-1234-5678-9012': new ArtifactNode(true) },
+        artifactsByRunUuid: { 'uuid-1234-5678-9012': new ArtifactNode(true) },
         experimentsById: {
           12345: Experiment.fromJs({
             experiment_id: 12345,
@@ -55,10 +60,10 @@ describe('RunView', () => {
             '1': modelVersion,
           },
         },
-        tagsByRunUuid: {'uuid-1234-5678-9012': {}},
-        paramsByRunUuid: {'uuid-1234-5678-9012': {}},
-        latestMetricsByRunUuid: {'uuid-1234-5678-9012': {}},
-        artifactRootUriByRunUuid: {'uuid-1234-5678-9012': "root/uri"},
+        tagsByRunUuid: { 'uuid-1234-5678-9012': {} },
+        paramsByRunUuid: { 'uuid-1234-5678-9012': {} },
+        latestMetricsByRunUuid: { 'uuid-1234-5678-9012': {} },
+        artifactRootUriByRunUuid: { 'uuid-1234-5678-9012': 'root/uri' },
       },
       apis: {},
     };
@@ -71,7 +76,7 @@ describe('RunView', () => {
         <BrowserRouter>
           <RunView {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     expect(wrapper.find(RunView).length).toBe(1);
   });
@@ -82,7 +87,7 @@ describe('RunView', () => {
         <BrowserRouter>
           <RunView {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     ).find(RunView);
 
     const instance = wrapper.find(RunViewImpl).instance();
@@ -106,7 +111,7 @@ describe('RunView', () => {
             run_uuid: 'uuid-1234-5678-9012',
             experiment_id: '12345',
             user_id: 'me@me.com',
-            status: "RUNNING",
+            status: 'RUNNING',
             start_time: 12345678990,
             end_time: 12345678999,
             artifact_uri: 'dbfs:/databricks/abc/uuid-1234-5678-9012',
@@ -141,8 +146,8 @@ describe('RunView', () => {
         },
         paramsByRunUuid: {
           'uuid-1234-5678-9012': {
-            'p1': Param.fromJs({key: 'p1', value: 'v1'}),
-            'p2': Param.fromJs({key: 'p2', value: 'v2'}),
+            p1: Param.fromJs({ key: 'p1', value: 'v1' }),
+            p2: Param.fromJs({ key: 'p2', value: 'v2' }),
           },
         },
       },
@@ -152,12 +157,13 @@ describe('RunView', () => {
         <BrowserRouter>
           <RunView {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     ).find(RunView);
 
     const instance = wrapper.find(RunViewImpl).instance();
-    expect(instance.getRunCommand())
-      .toEqual("mlflow run notebook -v abc -e entry -b databricks -P p1=v1 -P p2=v2");
+    expect(instance.getRunCommand()).toEqual(
+      'mlflow run notebook -v abc -e entry -b databricks -P p1=v1 -P p2=v2',
+    );
 
     expect(wrapper.html()).toContain('Git Commit');
     expect(wrapper.html()).toContain('Entry Point');
@@ -172,13 +178,13 @@ describe('RunView', () => {
         <BrowserRouter>
           <RunView {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     ).find(RunView);
 
-    expect(wrapper.html()).toContain("icon: form");
+    expect(wrapper.html()).toContain('icon: form');
     const runViewInstance = wrapper.find(RunViewImpl).instance();
-    runViewInstance.setState({showNoteEditor: true});
-    expect(wrapper.html()).not.toContain("icon: form");
+    runViewInstance.setState({ showNoteEditor: true });
+    expect(wrapper.html()).not.toContain('icon: form');
   });
 
   test('should set showRunRenameModal when Rename menu item is clicked', () => {
@@ -187,12 +193,18 @@ describe('RunView', () => {
         <BrowserRouter>
           <RunView {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     ).find(BrowserRouter);
 
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(false);
-    wrapper.find('.mlflow-dropdown-button').hostNodes().simulate('click');
-    wrapper.find('.mlflow-menu-item a').hostNodes().simulate('click');
+    wrapper
+      .find('.mlflow-dropdown-button')
+      .hostNodes()
+      .simulate('click');
+    wrapper
+      .find('.mlflow-menu-item a')
+      .hostNodes()
+      .simulate('click');
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(true);
   });
 });

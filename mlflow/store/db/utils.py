@@ -121,7 +121,7 @@ def _upgrade_db(engine):
     # alembic adds significant import time, so we import it lazily
     from alembic import command
     db_url = str(engine.url)
-    _logger.info("Updating database tables at %s", db_url)
+    _logger.info("Updating database tables")
     config = _get_alembic_config(db_url)
     # Initialize a shared connection to be used for the database upgrade, ensuring that
     # any connection-dependent state (e.g., the state of an in-memory database) is preserved
