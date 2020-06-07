@@ -360,10 +360,10 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if project_env_name not in env_names:
         _logger.info('=== Creating conda environment %s ===', project_env_name)
+        print("Found env names %s. Creating conda env named %s using conda executable at %s" %
+              (env_names, project_env_name, conda_path),
+              file=sys.stderr)
         if conda_env_path:
-            import sys
-            print("Creating conda env named %s using conda executable at %s" % (project_env_name, conda_path),
-                  file=sys.stderr)
             process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
                               conda_env_path], stream_output=True)
         else:
