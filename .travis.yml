@@ -40,30 +40,6 @@ matrix:
         - Rscript -e 'covr::codecov()'
       after_failure:
         - "[ -r /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log ] && cat /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
-    - language: python
-      python: 3.6
-      name: "Flavors"
-      if: type != cron
-      install:
-        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-      script:
-        - ./travis/run-python-flavor-tests.sh;
-    - language: python
-      python: 3.6
-      name: "TensorFlow"
-      if: type != cron
-      install:
-        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-      script:
-        - ./travis/run-python-tf-tests.sh;
-    - language: python
-      python: 3.6
-      name: "SageMaker"
-      if: type != cron
-      install:
-        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-      script:
-        - ./travis/run-python-sagemaker-tests.sh;
     # Run Windows tests in the "large" test builder so that we don't spend Travis executor
     # time running Windows tests if Python 3 small tests fail.
     - os: windows
@@ -79,24 +55,6 @@ matrix:
         - pip install -e .
       script:
         - pytest --verbose --ignore-flavors --ignore=tests/projects tests
-
-    - language: python
-      python: 3.6
-      name: "Docs (rsthtml, javadocs)"
-      if: type != cron
-      install:
-        # Install Java & Maven
-        - sudo apt-get update
-        - sudo apt-get install default-jdk -y
-        - sudo apt-get install maven -y
-        - java -version
-        # Install Python doc deps
-        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-        - pip install sphinx==2.2.1 sphinx-click==2.3.0
-      script:
-        - cd docs
-        - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
-        - make javadocs
 
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
