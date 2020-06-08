@@ -54,15 +54,16 @@ class DatabricksArtifactRepository(ArtifactRepository):
                                   error_code=INVALID_PARAMETER_VALUE)
         self.run_id = self._extract_run_id(self.artifact_uri)
 
+        # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
+        # the path of `artifact_uri` relative to the MLflow Run's artifact root
+        # (the `run_relative_artifact_repo_root_path`). All operations performed on this artifact
+        # repository will be performed relative to this computed location
         artifact_repo_root_path = extract_and_normalize_path(artifact_uri)
         run_artifact_root_uri = self._get_run_artifact_root(self.run_id)
         run_artifact_root_path = extract_and_normalize_path(run_artifact_root_uri)
-        if artifact_repo_root_path == run_artifact_root_path:
-            self.run_relative_artifact_repo_root_path = ""
-        else:
-            self.run_relative_artifact_repo_root_path = posixpath.relpath(
-                path=artifact_repo_root_path, start=run_artifact_root_path
-            )
+        self.run_relative_artifact_repo_root_path = posixpath.relpath(
+            path=artifact_repo_root_path, start=run_artifact_root_path
+        )
 
     @staticmethod
     def _extract_run_id(artifact_uri):
