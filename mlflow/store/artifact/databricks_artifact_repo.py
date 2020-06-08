@@ -13,7 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_artifacts_pb2 import DatabricksMlflowArtifactsService, \
     GetCredentialsForWrite, GetCredentialsForRead, ArtifactCredentialType
-from mlflow.protos.service_pb2 import MlflowService, ListArtifacts
+from mlflow.protos.service_pb2 import MlflowService, GetRun, ListArtifacts
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path, yield_file_in_chunks
@@ -54,6 +54,17 @@ class DatabricksArtifactRepository(ArtifactRepository):
                                   error_code=INVALID_PARAMETER_VALUE)
         self.run_id = self._extract_run_id(self.artifact_uri)
 
+        # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
+        # the path of `artifact_uri` relative to the MLflow Run's artifact root
+        # (the `run_relative_artifact_repo_root_path`). All operations performed on this artifact
+        # repository will be performed relative to this computed location
+        artifact_repo_root_path = extract_and_normalize_path(artifact_uri)
+        run_artifact_root_uri = self._get_run_artifact_root(self.run_id)
+        run_artifact_root_path = extract_and_normalize_path(run_artifact_root_uri)
+        self.run_relative_artifact_repo_root_path = posixpath.relpath(
+            path=artifact_repo_root_path, start=run_artifact_root_path
+        )
+
     @staticmethod
     def _extract_run_id(artifact_uri):
         """
@@ -75,6 +86,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
         response_proto = api.Response()
         return call_endpoint(get_databricks_host_creds(),
                              endpoint, method, json_body, response_proto)
+
+    def _get_run_artifact_root(self, run_id):
+        json_body = message_to_json(GetRun(run_id=run_id))
+        run_response = self._call_endpoint(MlflowService,
+                                           GetRun, json_body)
+        return run_response.run.info.artifact_uri
 
     def _get_write_credentials(self, run_id, path=None):
         json_body = message_to_json(GetCredentialsForWrite(run_id=run_id, path=path))
@@ -187,8 +204,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
         basename = os.path.basename(local_file)
         artifact_path = artifact_path or ""
         artifact_path = posixpath.join(artifact_path, basename)
-        write_credentials = self._get_write_credentials(self.run_id, artifact_path)
-        self._upload_to_cloud(write_credentials, local_file, artifact_path)
+        if len(artifact_path) > 0:
+            run_relative_artifact_path = posixpath.join(
+                self.run_relative_artifact_repo_root_path, artifact_path)
+        else:
+            run_relative_artifact_path = self.run_relative_artifact_repo_root_path
+        write_credentials = self._get_write_credentials(self.run_id, run_relative_artifact_path)
+        self._upload_to_cloud(write_credentials, local_file, run_relative_artifact_path)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         artifact_path = artifact_path or ""
@@ -203,7 +225,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 self.log_artifact(file_path, artifact_subdir)
 
     def list_artifacts(self, path=None):
-        json_body = message_to_json(ListArtifacts(run_id=self.run_id, path=path))
+        if path:
+            run_relative_path = posixpath.join(
+                self.run_relative_artifact_repo_root_path, path)
+        else:
+            run_relative_path = self.run_relative_artifact_repo_root_path
+        json_body = message_to_json(ListArtifacts(run_id=self.run_id, path=run_relative_path))
         artifact_list = self._call_endpoint(MlflowService, ListArtifacts, json_body).files
         # If `path` is a file, ListArtifacts returns a single list element with the
         # same name as `path`. The list_artifacts API expects us to return an empty list in this
@@ -212,13 +239,17 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 and not artifact_list[0].is_dir:
             return []
         infos = list()
-        for file in artifact_list:
-            artifact_size = None if file.is_dir else file.file_size
-            infos.append(FileInfo(file.path, file.is_dir, artifact_size))
+        for output_file in artifact_list:
+            file_rel_path = posixpath.relpath(
+                path=output_file.path, start=self.run_relative_artifact_repo_root_path)
+            artifact_size = None if output_file.is_dir else output_file.file_size
+            infos.append(FileInfo(file_rel_path, output_file.is_dir, artifact_size))
         return infos
 
     def _download_file(self, remote_file_path, local_path):
-        read_credentials = self._get_read_credentials(self.run_id, remote_file_path)
+        run_relative_remote_file_path = posixpath.join(
+            self.run_relative_artifact_repo_root_path, remote_file_path)
+        read_credentials = self._get_read_credentials(self.run_id, run_relative_remote_file_path)
         self._download_from_cloud(read_credentials.credentials, local_path)
 
     def delete_artifacts(self, artifact_path=None):
