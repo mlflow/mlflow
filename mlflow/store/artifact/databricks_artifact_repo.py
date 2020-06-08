@@ -40,7 +40,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
     read and write files from/to this location.
 
     The artifact_uri is expected to be of the form
-    dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/artifacts/
+    dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/
     """
 
     def __init__(self, artifact_uri):
@@ -61,9 +61,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
         artifact_repo_root_path = extract_and_normalize_path(artifact_uri)
         run_artifact_root_uri = self._get_run_artifact_root(self.run_id)
         run_artifact_root_path = extract_and_normalize_path(run_artifact_root_uri)
-        self.run_relative_artifact_repo_root_path = posixpath.relpath(
+        run_relative_root_path = posixpath.relpath(
             path=artifact_repo_root_path, start=run_artifact_root_path
         )
+        # If the paths are equal, then use empty string over "./" for ListArtifact compatibility.
+        self.run_relative_artifact_repo_root_path = \
+            "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
 
     @staticmethod
     def _extract_run_id(artifact_uri):
