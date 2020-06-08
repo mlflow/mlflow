@@ -139,9 +139,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
             signed_write_uri = credentials.signed_uri
-            with open(local_file, 'rb') as file:
-                put_request = requests.put(signed_write_uri, file, headers=headers)
-                put_request.raise_for_status()
+            # Putting an empty file in a request by reading file bytes gives 501 error.
+            if os.stat(local_file).st_size == 0:
+                put_request = requests.put(signed_write_uri, "", headers=headers)
+            else:
+                with open(local_file, 'rb') as file:
+                    put_request = requests.put(signed_write_uri, file, headers=headers)
+            put_request.raise_for_status()
         except Exception as err:
             raise MlflowException(err)
 

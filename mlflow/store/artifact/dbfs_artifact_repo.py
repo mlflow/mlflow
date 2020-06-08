@@ -177,7 +177,7 @@ def dbfs_artifact_repo_factory(artifact_uri):
         raise MlflowException("DBFS URI must be of the form "
                               "dbfs:/<path>, but received {uri}".format(uri=artifact_uri))
     if is_databricks_acled_artifacts_uri(artifact_uri):
-        return DatabricksArtifactRepository(artifact_uri)
+        return DatabricksArtifactRepository(cleaned_artifact_uri)
     elif mlflow.utils.databricks_utils.is_dbfs_fuse_available() \
             and os.environ.get(USE_FUSE_ENV_VAR, "").lower() != "false" \
             and not artifact_uri.startswith("dbfs:/databricks/mlflow-registry"):

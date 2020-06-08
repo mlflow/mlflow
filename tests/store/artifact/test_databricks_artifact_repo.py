@@ -16,7 +16,6 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.artifact.dbfs_artifact_repo import DatabricksArtifactRepository
 
 
-
 @pytest.fixture()
 def databricks_artifact_repo():
     return get_artifact_repository('dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifact')
