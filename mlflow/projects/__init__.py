@@ -360,19 +360,12 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if project_env_name not in env_names:
         _logger.info('=== Creating conda environment %s ===', project_env_name)
-        print("Found env names %s. Creating conda env named %s using conda executable at %s" %
-              (env_names, project_env_name, conda_path),
-              file=sys.stderr)
         if conda_env_path:
             process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
                               conda_env_path], stream_output=True)
         else:
             process.exec_cmd(
                 [conda_path, "create", "-n", project_env_name, "python"], stream_output=True)
-    else:
-        print("Not creating conda env - env names %s contains %s (using conda executable at %s)" %
-              (env_names, project_env_name, conda_path),
-              file=sys.stderr)
     return project_env_name
 
 
@@ -499,7 +492,6 @@ def _get_conda_command(conda_env_name):
         activate_conda_env = [
             'source {}/../etc/profile.d/conda.sh'.format(os.path.dirname(conda_path))
         ]
-        activate_conda_env += ["conda info --envs"]
         activate_conda_env += ["conda activate {} 1>&2".format(conda_env_name)]
     else:
         activate_path = _get_conda_bin_executable("activate")
@@ -509,7 +501,6 @@ def _get_conda_command(conda_env_name):
             return ["source %s %s 1>&2" % (activate_path, conda_env_name)]
         else:
             return ["conda activate %s" % (conda_env_name)]
-    print("Using activate conda env command %s" % activate_conda_env, file=sys.stderr)
     return activate_conda_env
 
 
