@@ -251,6 +251,8 @@ def test_model_log_without_pyfunc_flavor():
 
         loaded_model = Model.load(model_path)
         assert loaded_model.flavors.keys() == {"spacy"}
+    # Simulate test failure
+    assert False
 
 
 def _train_model(nlp, train_data, n_iter=5):
