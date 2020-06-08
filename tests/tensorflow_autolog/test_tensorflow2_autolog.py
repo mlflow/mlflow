@@ -454,4 +454,3 @@ def test_duplicate_autolog_second_overrides(tf_estimator_random_data_run):
     client = mlflow.tracking.MlflowClient()
     metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, 'loss')
     assert all((x.step - 1) % 4 == 0 for x in metrics)
-    assert False

@@ -635,5 +635,3 @@ def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
     assert all([endpoint_config in endpoint_configs_after_replacement
                 for endpoint_config in endpoint_configs_before_replacement])
     assert all([model in models_after_replacement for model in models_before_replacement])
-    # Simulate test failure
-    assert False

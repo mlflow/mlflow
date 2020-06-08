@@ -1,5 +1,5 @@
 """
-        The ``mlflow`` module provides a high-level "fluent" API for starting and managing MLflow runs.
+The ``mlflow`` module provides a high-level "fluent" API for starting and managing MLflow runs.
 For example:
 
 .. code:: python
