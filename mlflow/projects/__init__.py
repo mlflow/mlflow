@@ -369,6 +369,10 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
         else:
             process.exec_cmd(
                 [conda_path, "create", "-n", project_env_name, "python"], stream_output=True)
+    else:
+        print("Not creating conda env - env names % contains %s (using conda executable at %s)" %
+              (env_names, project_env_name, conda_path),
+              file=sys.stderr)
     return project_env_name
 
 
