@@ -499,6 +499,7 @@ def _get_conda_command(conda_env_name):
         activate_conda_env = [
             'source {}/../etc/profile.d/conda.sh'.format(os.path.dirname(conda_path))
         ]
+        activate_conda_env += ["conda info --envs"]
         activate_conda_env += ["conda activate {} 1>&2".format(conda_env_name)]
     else:
         activate_path = _get_conda_bin_executable("activate")
