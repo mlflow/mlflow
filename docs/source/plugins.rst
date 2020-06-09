@@ -250,7 +250,8 @@ and the conda.yaml file associated with the model.
 
 
 Aliyun(Alibaba Cloud) OSS Plugin
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 The `aliyunstoreplugin <https://pypi.org/project/aliyunstoreplugin/>`_ allows MLflow to use Alibaba Cloud OSS storage as an artifact store.
 
@@ -281,4 +282,3 @@ To use Aliyun OSS as an artifact store, an OSS URI of the form ``oss://<bucket>/
 
 In the example provided above, the ``log_model`` operation creates three entries in the OSS storage ``oss://mlflow-test/$RUN_ID/artifacts/model_test/``, the MLmodel file
 and the conda.yaml file associated with the model.
-
