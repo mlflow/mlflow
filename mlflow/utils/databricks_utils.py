@@ -1,7 +1,6 @@
 import os
 import logging
 import subprocess
-import mlflow._spark_autologging
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -118,6 +117,8 @@ def get_notebook_path():
 
 def get_cluster_id():
     spark_session = get_active_spark_session()
+    if spark_session is None:
+        return None
     return spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId")
 
 
