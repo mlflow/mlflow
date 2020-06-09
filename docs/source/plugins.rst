@@ -266,12 +266,11 @@ so you must set these variables on both your client application and your MLflow 
 To use Aliyun OSS as an artifact store, an OSS URI of the form ``oss://<bucket>/<path>`` must be provided, as shown in the example below:
 
 .. code-block:: python
+
         import mlflow
-        from mlflow.tracking.client import MlflowClient
-        from mlflow.pyfunc import PythonModel
         import mlflow.pyfunc
 
-        class Mod(PythonModel):
+        class Mod(mlflow.pyfunc.PythonModel):
             def predict(self, ctx, inp):
                 return 7
 
@@ -280,6 +279,6 @@ To use Aliyun OSS as an artifact store, an OSS URI of the form ``oss://<bucket>/
         mlflow.set_experiment(exp_name)
         mlflow.pyfunc.log_model('model_test', python_model=Mod())
 
-In the example provided above, the ``log_model`` operation creates three entries in the OSS storage `oss://mlflow-test/$RUN_ID/artifacts/model_test/`, the MLmodel file
+In the example provided above, the ``log_model`` operation creates three entries in the OSS storage ``oss://mlflow-test/$RUN_ID/artifacts/model_test/``, the MLmodel file
 and the conda.yaml file associated with the model.
 
