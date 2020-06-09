@@ -1353,6 +1353,45 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                          "and metrics.m_a > 100.0")
         six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
+    def test_whitelist_columns(self):
+        experiment_id = self._experiment_factory('whitelist_columns')
+        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+
+        self.store.log_param(r1, entities.Param('generic_param', 'p_val'))
+        self.store.log_param(r2, entities.Param('generic_param', 'p_val'))
+
+        self.store.log_param(r1, entities.Param('p_a', 'abc'))
+        self.store.log_param(r2, entities.Param('p_b', 'ABC'))
+
+        self.store.log_metric(r1, entities.Metric("common", 1.0, 1, 0))
+        self.store.log_metric(r2, entities.Metric("common", 1.0, 1, 0))
+
+        self.store.log_metric(r1, entities.Metric("m_a", 2.0, 2, 0))
+        self.store.log_metric(r2, entities.Metric("m_b", 3.0, 2, 0))
+        self.store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))
+        self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
+
+        filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0"
+        runs = {run.info.run_id: run for run in self.store.search_runs(
+            [experiment_id], filter_string, ViewType.ALL,
+            columns_to_whitelist=['params.p_a', 'metrics.common',
+                                  'tags.donotexist', 'metrics.m_b'])}
+        assert len(runs) == 2
+
+        def assert_run_equals(run_data1, run_data2):
+            assert set(run_data1.metrics) == set(run_data2.metrics)
+            assert set(run_data1.params) == set(run_data2.params)
+            assert set(run_data1.tags) == set(run_data2.tags)
+
+        expected_r1 = entities.RunData(metrics=[entities.Metric('common', 1.0, 1, 0)],
+                                       params=[entities.Param('p_a', 'abc')], tags=[])
+        assert_run_equals(runs[r1].data, expected_r1)
+        expected_r2 = entities.RunData(metrics=[entities.Metric('common', 1.0, 1, 0),
+                                                entities.Metric('m_b', 8.0, 3, 0)],
+                                       params=[], tags=[])
+        assert_run_equals(runs[r2].data, expected_r2)
+
     def test_search_with_max_results(self):
         exp = self._experiment_factory('search_with_max_results')
         runs = [self._run_factory(self._get_run_configs(exp, start_time=r)).info.run_id

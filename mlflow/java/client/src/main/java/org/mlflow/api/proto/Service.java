@@ -36409,6 +36409,609 @@ public final class Service {
 
   }
 
+  public interface ColumnsToWhitelistOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.ColumnsToWhitelist)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <code>repeated string columns = 1;</code>
+     */
+    java.util.List<java.lang.String>
+        getColumnsList();
+    /**
+     * <code>repeated string columns = 1;</code>
+     */
+    int getColumnsCount();
+    /**
+     * <code>repeated string columns = 1;</code>
+     */
+    java.lang.String getColumns(int index);
+    /**
+     * <code>repeated string columns = 1;</code>
+     */
+    com.google.protobuf.ByteString
+        getColumnsBytes(int index);
+  }
+  /**
+   * Protobuf type {@code mlflow.ColumnsToWhitelist}
+   */
+  public  static final class ColumnsToWhitelist extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.ColumnsToWhitelist)
+      ColumnsToWhitelistOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use ColumnsToWhitelist.newBuilder() to construct.
+    private ColumnsToWhitelist(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private ColumnsToWhitelist() {
+      columns_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private ColumnsToWhitelist(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+                columns_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000001;
+              }
+              columns_.add(bs);
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+          columns_ = columns_.getUnmodifiableView();
+        }
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_ColumnsToWhitelist_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_ColumnsToWhitelist_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.Service.ColumnsToWhitelist.class, org.mlflow.api.proto.Service.ColumnsToWhitelist.Builder.class);
+    }
+
+    public static final int COLUMNS_FIELD_NUMBER = 1;
+    private com.google.protobuf.LazyStringList columns_;
+    /**
+     * <code>repeated string columns = 1;</code>
+     */
+    public com.google.protobuf.ProtocolStringList
+        getColumnsList() {
+      return columns_;
+    }
+    /**
+     * <code>repeated string columns = 1;</code>
+     */
+    public int getColumnsCount() {
+      return columns_.size();
+    }
+    /**
+     * <code>repeated string columns = 1;</code>
+     */
+    public java.lang.String getColumns(int index) {
+      return columns_.get(index);
+    }
+    /**
+     * <code>repeated string columns = 1;</code>
+     */
+    public com.google.protobuf.ByteString
+        getColumnsBytes(int index) {
+      return columns_.getByteString(index);
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      for (int i = 0; i < columns_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, columns_.getRaw(i));
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      {
+        int dataSize = 0;
+        for (int i = 0; i < columns_.size(); i++) {
+          dataSize += computeStringSizeNoTag(columns_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getColumnsList().size();
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.Service.ColumnsToWhitelist)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.Service.ColumnsToWhitelist other = (org.mlflow.api.proto.Service.ColumnsToWhitelist) obj;
+
+      boolean result = true;
+      result = result && getColumnsList()
+          .equals(other.getColumnsList());
+      result = result && unknownFields.equals(other.unknownFields);
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (getColumnsCount() > 0) {
+        hash = (37 * hash) + COLUMNS_FIELD_NUMBER;
+        hash = (53 * hash) + getColumnsList().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.Service.ColumnsToWhitelist prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.ColumnsToWhitelist}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.ColumnsToWhitelist)
+        org.mlflow.api.proto.Service.ColumnsToWhitelistOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_ColumnsToWhitelist_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_ColumnsToWhitelist_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.ColumnsToWhitelist.class, org.mlflow.api.proto.Service.ColumnsToWhitelist.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.Service.ColumnsToWhitelist.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        columns_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000001);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_ColumnsToWhitelist_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ColumnsToWhitelist getDefaultInstanceForType() {
+        return org.mlflow.api.proto.Service.ColumnsToWhitelist.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ColumnsToWhitelist build() {
+        org.mlflow.api.proto.Service.ColumnsToWhitelist result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ColumnsToWhitelist buildPartial() {
+        org.mlflow.api.proto.Service.ColumnsToWhitelist result = new org.mlflow.api.proto.Service.ColumnsToWhitelist(this);
+        int from_bitField0_ = bitField0_;
+        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+          columns_ = columns_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000001);
+        }
+        result.columns_ = columns_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.Service.ColumnsToWhitelist) {
+          return mergeFrom((org.mlflow.api.proto.Service.ColumnsToWhitelist)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.Service.ColumnsToWhitelist other) {
+        if (other == org.mlflow.api.proto.Service.ColumnsToWhitelist.getDefaultInstance()) return this;
+        if (!other.columns_.isEmpty()) {
+          if (columns_.isEmpty()) {
+            columns_ = other.columns_;
+            bitField0_ = (bitField0_ & ~0x00000001);
+          } else {
+            ensureColumnsIsMutable();
+            columns_.addAll(other.columns_);
+          }
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.Service.ColumnsToWhitelist parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.Service.ColumnsToWhitelist) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private com.google.protobuf.LazyStringList columns_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureColumnsIsMutable() {
+        if (!((bitField0_ & 0x00000001) == 0x00000001)) {
+          columns_ = new com.google.protobuf.LazyStringArrayList(columns_);
+          bitField0_ |= 0x00000001;
+         }
+      }
+      /**
+       * <code>repeated string columns = 1;</code>
+       */
+      public com.google.protobuf.ProtocolStringList
+          getColumnsList() {
+        return columns_.getUnmodifiableView();
+      }
+      /**
+       * <code>repeated string columns = 1;</code>
+       */
+      public int getColumnsCount() {
+        return columns_.size();
+      }
+      /**
+       * <code>repeated string columns = 1;</code>
+       */
+      public java.lang.String getColumns(int index) {
+        return columns_.get(index);
+      }
+      /**
+       * <code>repeated string columns = 1;</code>
+       */
+      public com.google.protobuf.ByteString
+          getColumnsBytes(int index) {
+        return columns_.getByteString(index);
+      }
+      /**
+       * <code>repeated string columns = 1;</code>
+       */
+      public Builder setColumns(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureColumnsIsMutable();
+        columns_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>repeated string columns = 1;</code>
+       */
+      public Builder addColumns(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureColumnsIsMutable();
+        columns_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>repeated string columns = 1;</code>
+       */
+      public Builder addAllColumns(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureColumnsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, columns_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>repeated string columns = 1;</code>
+       */
+      public Builder clearColumns() {
+        columns_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000001);
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>repeated string columns = 1;</code>
+       */
+      public Builder addColumnsBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureColumnsIsMutable();
+        columns_.add(value);
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.ColumnsToWhitelist)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.ColumnsToWhitelist)
+    private static final org.mlflow.api.proto.Service.ColumnsToWhitelist DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.ColumnsToWhitelist();
+    }
+
+    public static org.mlflow.api.proto.Service.ColumnsToWhitelist getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<ColumnsToWhitelist>
+        PARSER = new com.google.protobuf.AbstractParser<ColumnsToWhitelist>() {
+      @java.lang.Override
+      public ColumnsToWhitelist parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new ColumnsToWhitelist(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<ColumnsToWhitelist> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<ColumnsToWhitelist> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.ColumnsToWhitelist getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   public interface SearchRunsOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.SearchRuns)
       com.google.protobuf.MessageOrBuilder {
@@ -36592,6 +37195,19 @@ public final class Service {
      */
     com.google.protobuf.ByteString
         getPageTokenBytes();
+
+    /**
+     * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+     */
+    boolean hasColumnsToWhitelist();
+    /**
+     * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+     */
+    org.mlflow.api.proto.Service.ColumnsToWhitelist getColumnsToWhitelist();
+    /**
+     * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+     */
+    org.mlflow.api.proto.Service.ColumnsToWhitelistOrBuilder getColumnsToWhitelistOrBuilder();
   }
   /**
    * Protobuf type {@code mlflow.SearchRuns}
@@ -36683,6 +37299,19 @@ public final class Service {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000008;
               pageToken_ = bs;
+              break;
+            }
+            case 66: {
+              org.mlflow.api.proto.Service.ColumnsToWhitelist.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000010) == 0x00000010)) {
+                subBuilder = columnsToWhitelist_.toBuilder();
+              }
+              columnsToWhitelist_ = input.readMessage(org.mlflow.api.proto.Service.ColumnsToWhitelist.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(columnsToWhitelist_);
+                columnsToWhitelist_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000010;
               break;
             }
             default: {
@@ -38056,6 +38685,27 @@ public final class Service {
       }
     }
 
+    public static final int COLUMNS_TO_WHITELIST_FIELD_NUMBER = 8;
+    private org.mlflow.api.proto.Service.ColumnsToWhitelist columnsToWhitelist_;
+    /**
+     * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+     */
+    public boolean hasColumnsToWhitelist() {
+      return ((bitField0_ & 0x00000010) == 0x00000010);
+    }
+    /**
+     * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+     */
+    public org.mlflow.api.proto.Service.ColumnsToWhitelist getColumnsToWhitelist() {
+      return columnsToWhitelist_ == null ? org.mlflow.api.proto.Service.ColumnsToWhitelist.getDefaultInstance() : columnsToWhitelist_;
+    }
+    /**
+     * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+     */
+    public org.mlflow.api.proto.Service.ColumnsToWhitelistOrBuilder getColumnsToWhitelistOrBuilder() {
+      return columnsToWhitelist_ == null ? org.mlflow.api.proto.Service.ColumnsToWhitelist.getDefaultInstance() : columnsToWhitelist_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -38087,6 +38737,9 @@ public final class Service {
       }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 7, pageToken_);
+      }
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
+        output.writeMessage(8, getColumnsToWhitelist());
       }
       unknownFields.writeTo(output);
     }
@@ -38127,6 +38780,10 @@ public final class Service {
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, pageToken_);
       }
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(8, getColumnsToWhitelist());
+      }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
       return size;
@@ -38166,6 +38823,11 @@ public final class Service {
         result = result && getPageToken()
             .equals(other.getPageToken());
       }
+      result = result && (hasColumnsToWhitelist() == other.hasColumnsToWhitelist());
+      if (hasColumnsToWhitelist()) {
+        result = result && getColumnsToWhitelist()
+            .equals(other.getColumnsToWhitelist());
+      }
       result = result && unknownFields.equals(other.unknownFields);
       return result;
     }
@@ -38200,6 +38862,10 @@ public final class Service {
       if (hasPageToken()) {
         hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
         hash = (53 * hash) + getPageToken().hashCode();
+      }
+      if (hasColumnsToWhitelist()) {
+        hash = (37 * hash) + COLUMNS_TO_WHITELIST_FIELD_NUMBER;
+        hash = (53 * hash) + getColumnsToWhitelist().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -38329,6 +38995,7 @@ public final class Service {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
+          getColumnsToWhitelistFieldBuilder();
         }
       }
       @java.lang.Override
@@ -38346,6 +39013,12 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000010);
         pageToken_ = "";
         bitField0_ = (bitField0_ & ~0x00000020);
+        if (columnsToWhitelistBuilder_ == null) {
+          columnsToWhitelist_ = null;
+        } else {
+          columnsToWhitelistBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000040);
         return this;
       }
 
@@ -38400,6 +39073,14 @@ public final class Service {
           to_bitField0_ |= 0x00000008;
         }
         result.pageToken_ = pageToken_;
+        if (((from_bitField0_ & 0x00000040) == 0x00000040)) {
+          to_bitField0_ |= 0x00000010;
+        }
+        if (columnsToWhitelistBuilder_ == null) {
+          result.columnsToWhitelist_ = columnsToWhitelist_;
+        } else {
+          result.columnsToWhitelist_ = columnsToWhitelistBuilder_.build();
+        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -38484,6 +39165,9 @@ public final class Service {
           bitField0_ |= 0x00000020;
           pageToken_ = other.pageToken_;
           onChanged();
+        }
+        if (other.hasColumnsToWhitelist()) {
+          mergeColumnsToWhitelist(other.getColumnsToWhitelist());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -39124,6 +39808,124 @@ public final class Service {
         pageToken_ = value;
         onChanged();
         return this;
+      }
+
+      private org.mlflow.api.proto.Service.ColumnsToWhitelist columnsToWhitelist_ = null;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Service.ColumnsToWhitelist, org.mlflow.api.proto.Service.ColumnsToWhitelist.Builder, org.mlflow.api.proto.Service.ColumnsToWhitelistOrBuilder> columnsToWhitelistBuilder_;
+      /**
+       * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+       */
+      public boolean hasColumnsToWhitelist() {
+        return ((bitField0_ & 0x00000040) == 0x00000040);
+      }
+      /**
+       * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+       */
+      public org.mlflow.api.proto.Service.ColumnsToWhitelist getColumnsToWhitelist() {
+        if (columnsToWhitelistBuilder_ == null) {
+          return columnsToWhitelist_ == null ? org.mlflow.api.proto.Service.ColumnsToWhitelist.getDefaultInstance() : columnsToWhitelist_;
+        } else {
+          return columnsToWhitelistBuilder_.getMessage();
+        }
+      }
+      /**
+       * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+       */
+      public Builder setColumnsToWhitelist(org.mlflow.api.proto.Service.ColumnsToWhitelist value) {
+        if (columnsToWhitelistBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          columnsToWhitelist_ = value;
+          onChanged();
+        } else {
+          columnsToWhitelistBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000040;
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+       */
+      public Builder setColumnsToWhitelist(
+          org.mlflow.api.proto.Service.ColumnsToWhitelist.Builder builderForValue) {
+        if (columnsToWhitelistBuilder_ == null) {
+          columnsToWhitelist_ = builderForValue.build();
+          onChanged();
+        } else {
+          columnsToWhitelistBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000040;
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+       */
+      public Builder mergeColumnsToWhitelist(org.mlflow.api.proto.Service.ColumnsToWhitelist value) {
+        if (columnsToWhitelistBuilder_ == null) {
+          if (((bitField0_ & 0x00000040) == 0x00000040) &&
+              columnsToWhitelist_ != null &&
+              columnsToWhitelist_ != org.mlflow.api.proto.Service.ColumnsToWhitelist.getDefaultInstance()) {
+            columnsToWhitelist_ =
+              org.mlflow.api.proto.Service.ColumnsToWhitelist.newBuilder(columnsToWhitelist_).mergeFrom(value).buildPartial();
+          } else {
+            columnsToWhitelist_ = value;
+          }
+          onChanged();
+        } else {
+          columnsToWhitelistBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000040;
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+       */
+      public Builder clearColumnsToWhitelist() {
+        if (columnsToWhitelistBuilder_ == null) {
+          columnsToWhitelist_ = null;
+          onChanged();
+        } else {
+          columnsToWhitelistBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000040);
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+       */
+      public org.mlflow.api.proto.Service.ColumnsToWhitelist.Builder getColumnsToWhitelistBuilder() {
+        bitField0_ |= 0x00000040;
+        onChanged();
+        return getColumnsToWhitelistFieldBuilder().getBuilder();
+      }
+      /**
+       * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+       */
+      public org.mlflow.api.proto.Service.ColumnsToWhitelistOrBuilder getColumnsToWhitelistOrBuilder() {
+        if (columnsToWhitelistBuilder_ != null) {
+          return columnsToWhitelistBuilder_.getMessageOrBuilder();
+        } else {
+          return columnsToWhitelist_ == null ?
+              org.mlflow.api.proto.Service.ColumnsToWhitelist.getDefaultInstance() : columnsToWhitelist_;
+        }
+      }
+      /**
+       * <code>optional .mlflow.ColumnsToWhitelist columns_to_whitelist = 8;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Service.ColumnsToWhitelist, org.mlflow.api.proto.Service.ColumnsToWhitelist.Builder, org.mlflow.api.proto.Service.ColumnsToWhitelistOrBuilder> 
+          getColumnsToWhitelistFieldBuilder() {
+        if (columnsToWhitelistBuilder_ == null) {
+          columnsToWhitelistBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.Service.ColumnsToWhitelist, org.mlflow.api.proto.Service.ColumnsToWhitelist.Builder, org.mlflow.api.proto.Service.ColumnsToWhitelistOrBuilder>(
+                  getColumnsToWhitelist(),
+                  getParentForChildren(),
+                  isClean());
+          columnsToWhitelist_ = null;
+        }
+        return columnsToWhitelistBuilder_;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -52915,6 +53717,11 @@ public final class Service {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_ListAllColumns_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_ColumnsToWhitelist_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_ColumnsToWhitelist_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_SearchRuns_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -53099,167 +53906,170 @@ public final class Service {
       "view_type\030\002 \002(\0162\020.mlflow.ViewType\0329\n\010Res" +
       "ponse\022\017\n\007metrics\030\001 \003(\t\022\016\n\006params\030\002 \003(\t\022\014" +
       "\n\004tags\030\003 \003(\t:+\342?(\n&com.databricks.rpc.RP" +
-      "C[$this.Response]\"\230\002\n\nSearchRuns\022\026\n\016expe" +
-      "riment_ids\030\001 \003(\t\022\016\n\006filter\030\004 \001(\t\0224\n\rrun_" +
-      "view_type\030\003 \001(\0162\020.mlflow.ViewType:\013ACTIV" +
-      "E_ONLY\022\031\n\013max_results\030\005 \001(\005:\0041000\022\020\n\010ord" +
-      "er_by\030\006 \003(\t\022\022\n\npage_token\030\007 \001(\t\032>\n\010Respo" +
-      "nse\022\031\n\004runs\030\001 \003(\0132\013.mlflow.Run\022\027\n\017next_p" +
-      "age_token\030\002 \001(\t:+\342?(\n&com.databricks.rpc" +
-      ".RPC[$this.Response]\"\253\001\n\rListArtifacts\022\016" +
-      "\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\014\n\004path" +
-      "\030\002 \001(\t\032=\n\010Response\022\020\n\010root_uri\030\001 \001(\t\022\037\n\005" +
-      "files\030\002 \003(\0132\020.mlflow.FileInfo:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\";\n\010Fi" +
-      "leInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\t" +
-      "file_size\030\003 \001(\003\"\250\001\n\020GetMetricHistory\022\016\n\006" +
-      "run_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\030\n\nmetric" +
-      "_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Response\022\037\n\007metrics\030" +
-      "\001 \003(\0132\016.mlflow.Metric:+\342?(\n&com.databric" +
-      "ks.rpc.RPC[$this.Response]\"\261\001\n\010LogBatch\022" +
-      "\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics\030\002 \003(\0132\016.mlflo" +
-      "w.Metric\022\035\n\006params\030\003 \003(\0132\r.mlflow.Param\022" +
-      "\034\n\004tags\030\004 \003(\0132\016.mlflow.RunTag\032\n\n\010Respons" +
-      "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"g\n\010LogModel\022\016\n\006run_id\030\001 \001(\t\022\022\n\nmo" +
-      "del_json\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.dat" +
-      "abricks.rpc.RPC[$this.Response]\"\225\001\n\023GetE" +
-      "xperimentByName\022\035\n\017experiment_name\030\001 \001(\t" +
-      "B\004\370\206\031\001\0322\n\010Response\022&\n\nexperiment\030\001 \001(\0132\022" +
-      ".mlflow.Experiment:+\342?(\n&com.databricks." +
-      "rpc.RPC[$this.Response]\"\216\001\n\027UpdateArtifa" +
-      "ctsLocation\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022$\n\026new" +
-      "_artifacts_location\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Respo" +
+      "C[$this.Response]\"%\n\022ColumnsToWhitelist\022" +
+      "\017\n\007columns\030\001 \003(\t\"\322\002\n\nSearchRuns\022\026\n\016exper" +
+      "iment_ids\030\001 \003(\t\022\016\n\006filter\030\004 \001(\t\0224\n\rrun_v" +
+      "iew_type\030\003 \001(\0162\020.mlflow.ViewType:\013ACTIVE" +
+      "_ONLY\022\031\n\013max_results\030\005 \001(\005:\0041000\022\020\n\010orde" +
+      "r_by\030\006 \003(\t\022\022\n\npage_token\030\007 \001(\t\0228\n\024column" +
+      "s_to_whitelist\030\010 \001(\0132\032.mlflow.ColumnsToW" +
+      "hitelist\032>\n\010Response\022\031\n\004runs\030\001 \003(\0132\013.mlf" +
+      "low.Run\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"\253\001" +
+      "\n\rListArtifacts\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_u" +
+      "uid\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\032=\n\010Response\022\020\n\010r" +
+      "oot_uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.Fi" +
+      "leInfo:+\342?(\n&com.databricks.rpc.RPC[$thi" +
+      "s.Response]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n" +
+      "\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"\250\001\n\020Get" +
+      "MetricHistory\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uui" +
+      "d\030\001 \001(\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Res" +
+      "ponse\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.Metric:+" +
+      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
+      "se]\"\261\001\n\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n\007metr" +
+      "ics\030\002 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003(" +
+      "\0132\r.mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow." +
+      "RunTag\032\n\n\010Response:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\"g\n\010LogModel\022\016\n\006r" +
+      "un_id\030\001 \001(\t\022\022\n\nmodel_json\030\002 \001(\t\032\n\n\010Respo" +
       "nse:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"Y\n\013GetVcsRegex\032\035\n\010Response\022\021\n\tv" +
-      "cs_regex\030\001 \001(\t:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"c\n\tGetVcsUrl\022\014\n\004type" +
-      "\030\001 \001(\t\032\033\n\010Response\022\017\n\007vcs_url\030\001 \001(\t:+\342?(" +
+      "esponse]\"\225\001\n\023GetExperimentByName\022\035\n\017expe" +
+      "riment_name\030\001 \001(\tB\004\370\206\031\001\0322\n\010Response\022&\n\ne" +
+      "xperiment\030\001 \001(\0132\022.mlflow.Experiment:+\342?(" +
       "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED" +
-      "_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEBO" +
-      "OK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n" +
-      "\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n" +
-      "\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n" +
-      "\n\006KILLED\020\0052\346$\n\rMlflowService\022\246\001\n\023getExpe" +
-      "rimentByName\022\033.mlflow.GetExperimentByNam" +
-      "e\032$.mlflow.GetExperimentByName.Response\"" +
-      "L\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/get-by" +
-      "-name\032\004\010\002\020\000\020\001*\026Get Experiment By Name\022\306\001" +
-      "\n\020createExperiment\022\030.mlflow.CreateExperi" +
-      "ment\032!.mlflow.CreateExperiment.Response\"" +
-      "u\362\206\031q\n(\n\004POST\022\032/mlflow/experiments/creat" +
-      "e\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/experim" +
-      "ents/create\032\004\010\002\020\000\020\001*\021Create Experiment\022\274" +
-      "\001\n\017listExperiments\022\027.mlflow.ListExperime" +
-      "nts\032 .mlflow.ListExperiments.Response\"n\362" +
-      "\206\031j\n%\n\003GET\022\030/mlflow/experiments/list\032\004\010\002" +
-      "\020\000\n-\n\003GET\022 /preview/mlflow/experiments/l" +
-      "ist\032\004\010\002\020\000\020\001*\020List Experiments\022\262\001\n\rgetExp" +
-      "eriment\022\025.mlflow.GetExperiment\032\036.mlflow." +
-      "GetExperiment.Response\"j\362\206\031f\n$\n\003GET\022\027/ml" +
-      "flow/experiments/get\032\004\010\002\020\000\n,\n\003GET\022\037/prev" +
-      "iew/mlflow/experiments/get\032\004\010\002\020\000\020\001*\016Get " +
-      "Experiment\022\306\001\n\020deleteExperiment\022\030.mlflow" +
-      ".DeleteExperiment\032!.mlflow.DeleteExperim" +
-      "ent.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/expe" +
-      "riments/delete\032\004\010\002\020\000\n0\n\004POST\022\"/preview/m" +
-      "lflow/experiments/delete\032\004\010\002\020\000\020\001*\021Delete" +
-      " Experiment\022\314\001\n\021restoreExperiment\022\031.mlfl" +
-      "ow.RestoreExperiment\032\".mlflow.RestoreExp" +
-      "eriment.Response\"x\362\206\031t\n)\n\004POST\022\033/mlflow/" +
-      "experiments/restore\032\004\010\002\020\000\n1\n\004POST\022#/prev" +
-      "iew/mlflow/experiments/restore\032\004\010\002\020\000\020\001*\022" +
-      "Restore Experiment\022\306\001\n\020updateExperiment\022" +
-      "\030.mlflow.UpdateExperiment\032!.mlflow.Updat" +
-      "eExperiment.Response\"u\362\206\031q\n(\n\004POST\022\032/mlf" +
-      "low/experiments/update\032\004\010\002\020\000\n0\n\004POST\022\"/p" +
-      "review/mlflow/experiments/update\032\004\010\002\020\000\020\001" +
-      "*\021Update Experiment\022\234\001\n\tcreateRun\022\021.mlfl" +
-      "ow.CreateRun\032\032.mlflow.CreateRun.Response" +
-      "\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/create\032\004\010\002\020" +
-      "\000\n)\n\004POST\022\033/preview/mlflow/runs/create\032\004" +
-      "\010\002\020\000\020\001*\nCreate Run\022\234\001\n\tupdateRun\022\021.mlflo" +
-      "w.UpdateRun\032\032.mlflow.UpdateRun.Response\"" +
-      "`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/update\032\004\010\002\020\000" +
-      "\n)\n\004POST\022\033/preview/mlflow/runs/update\032\004\010" +
-      "\002\020\000\020\001*\nUpdate Run\022\234\001\n\tdeleteRun\022\021.mlflow" +
-      ".DeleteRun\032\032.mlflow.DeleteRun.Response\"`" +
-      "\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002\020\000\n" +
-      ")\n\004POST\022\033/preview/mlflow/runs/delete\032\004\010\002" +
-      "\020\000\020\001*\nDelete Run\022\242\001\n\nrestoreRun\022\022.mlflow" +
-      ".RestoreRun\032\033.mlflow.RestoreRun.Response" +
-      "\"c\362\206\031_\n\"\n\004POST\022\024/mlflow/runs/restore\032\004\010\002" +
-      "\020\000\n*\n\004POST\022\034/preview/mlflow/runs/restore" +
-      "\032\004\010\002\020\000\020\001*\013Restore Run\022\244\001\n\tlogMetric\022\021.ml" +
-      "flow.LogMetric\032\032.mlflow.LogMetric.Respon" +
-      "se\"h\362\206\031d\n%\n\004POST\022\027/mlflow/runs/log-metri" +
-      "c\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlflow/runs/lo" +
-      "g-metric\032\004\010\002\020\000\020\001*\nLog Metric\022\246\001\n\010logPara" +
-      "m\022\020.mlflow.LogParam\032\031.mlflow.LogParam.Re" +
-      "sponse\"m\362\206\031i\n(\n\004POST\022\032/mlflow/runs/log-p" +
-      "arameter\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/" +
-      "runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022\341\001" +
-      "\n\020setExperimentTag\022\030.mlflow.SetExperimen" +
-      "tTag\032!.mlflow.SetExperimentTag.Response\"" +
-      "\217\001\362\206\031\212\001\n4\n\004POST\022&/mlflow/experiments/set" +
-      "-experiment-tag\032\004\010\002\020\000\n<\n\004POST\022./preview/" +
-      "mlflow/experiments/set-experiment-tag\032\004\010" +
-      "\002\020\000\020\001*\022Set Experiment Tag\022\222\001\n\006setTag\022\016.m" +
-      "lflow.SetTag\032\027.mlflow.SetTag.Response\"_\362" +
-      "\206\031[\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\n" +
-      "*\n\004POST\022\034/preview/mlflow/runs/set-tag\032\004\010" +
-      "\002\020\000\020\001*\007Set Tag\022\244\001\n\tdeleteTag\022\021.mlflow.De" +
-      "leteTag\032\032.mlflow.DeleteTag.Response\"h\362\206\031" +
-      "d\n%\n\004POST\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000" +
-      "\n-\n\004POST\022\037/preview/mlflow/runs/delete-ta" +
-      "g\032\004\010\002\020\000\020\001*\nDelete Tag\022\210\001\n\006getRun\022\016.mlflo" +
-      "w.GetRun\032\027.mlflow.GetRun.Response\"U\362\206\031Q\n" +
-      "\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\n%\n\003GET\022\030/" +
-      "preview/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run" +
-      "\022\261\001\n\016listAllColumns\022\026.mlflow.ListAllColu" +
-      "mns\032\037.mlflow.ListAllColumns.Response\"f\362\206" +
-      "\031b\n!\n\003GET\022\024/mlflow/columns/list\032\004\010\002\020\000\n)\n" +
-      "\003GET\022\034/preview/mlflow/columns/list\032\004\010\002\020\000" +
-      "\020\001*\020List all columns\022\314\001\n\nsearchRuns\022\022.ml" +
-      "flow.SearchRuns\032\033.mlflow.SearchRuns.Resp" +
-      "onse\"\214\001\362\206\031\207\001\n!\n\004POST\022\023/mlflow/runs/searc" +
-      "h\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/runs/se" +
-      "arch\032\004\010\002\020\000\n(\n\003GET\022\033/preview/mlflow/runs/" +
-      "search\032\004\010\002\020\000\020\001*\013Search Runs\022\260\001\n\rlistArti" +
-      "facts\022\025.mlflow.ListArtifacts\032\036.mlflow.Li" +
-      "stArtifacts.Response\"h\362\206\031d\n#\n\003GET\022\026/mlfl" +
-      "ow/artifacts/list\032\004\010\002\020\000\n+\n\003GET\022\036/preview" +
-      "/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List Art" +
-      "ifacts\022\307\001\n\020getMetricHistory\022\030.mlflow.Get" +
-      "MetricHistory\032!.mlflow.GetMetricHistory." +
-      "Response\"v\362\206\031r\n(\n\003GET\022\033/mlflow/metrics/g" +
-      "et-history\032\004\010\002\020\000\n0\n\003GET\022#/preview/mlflow" +
-      "/metrics/get-history\032\004\010\002\020\000\020\001*\022Get Metric" +
-      " History\022\373\001\n\027updateArtifactsLocation\022\037.m" +
-      "lflow.UpdateArtifactsLocation\032(.mlflow.U" +
-      "pdateArtifactsLocation.Response\"\224\001\362\206\031\217\001\n" +
-      "3\n\003PUT\022&/mlflow/runs/update-artifacts-lo" +
-      "cation\032\004\010\002\020\000\n;\n\003PUT\022./preview/mlflow/run" +
-      "s/update-artifacts-location\032\004\010\002\020\000\020\001*\031Upd" +
-      "ate Artifacts Location\022\236\001\n\010logBatch\022\020.ml" +
-      "flow.LogBatch\032\031.mlflow.LogBatch.Response" +
-      "\"e\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log-batch\032\004" +
-      "\010\002\020\000\n,\n\004POST\022\036/preview/mlflow/runs/log-b" +
-      "atch\032\004\010\002\020\000\020\001*\tLog Batch\022\236\001\n\010logModel\022\020.m" +
-      "lflow.LogModel\032\031.mlflow.LogModel.Respons" +
-      "e\"e\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log-model\032" +
-      "\004\010\002\020\000\n,\n\004POST\022\036/preview/mlflow/runs/log-" +
-      "model\032\004\010\002\020\000\020\001*\tLog Model\022\254\001\n\010vcsRegex\022\023." +
-      "mlflow.GetVcsRegex\032\034.mlflow.GetVcsRegex." +
-      "Response\"m\362\206\031i\n&\n\003GET\022\031/mlflow/private_v" +
-      "cs/regex\032\004\010\002\020\000\n&\n\003GET\022\031/mlflow/private_v" +
-      "cs/regex\032\004\010\002\020\000\020\001*\025Get Private VCS Regex\022" +
-      "\241\001\n\006vcsUrl\022\021.mlflow.GetVcsUrl\032\032.mlflow.G" +
-      "etVcsUrl.Response\"h\362\206\031d\n$\n\003GET\022\027/mlflow/" +
-      "private_vcs/url\032\004\010\002\020\000\n$\n\003GET\022\027/mlflow/pr" +
-      "ivate_vcs/url\032\004\010\002\020\000\020\001*\024Get Private VCS U" +
-      "rlsB\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
+      "\"\216\001\n\027UpdateArtifactsLocation\022\024\n\006run_id\030\001" +
+      " \001(\tB\004\370\206\031\001\022$\n\026new_artifacts_location\030\002 \001" +
+      "(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databrick" +
+      "s.rpc.RPC[$this.Response]\"Y\n\013GetVcsRegex" +
+      "\032\035\n\010Response\022\021\n\tvcs_regex\030\001 \001(\t:+\342?(\n&co" +
+      "m.databricks.rpc.RPC[$this.Response]\"c\n\t" +
+      "GetVcsUrl\022\014\n\004type\030\001 \001(\t\032\033\n\010Response\022\017\n\007v" +
+      "cs_url\030\001 \001(\t:+\342?(\n&com.databricks.rpc.RP" +
+      "C[$this.Response]*6\n\010ViewType\022\017\n\013ACTIVE_" +
+      "ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSou" +
+      "rceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJEC" +
+      "T\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatu" +
+      "s\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHE" +
+      "D\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\346$\n\rMlflowSe" +
+      "rvice\022\246\001\n\023getExperimentByName\022\033.mlflow.G" +
+      "etExperimentByName\032$.mlflow.GetExperimen" +
+      "tByName.Response\"L\362\206\031H\n,\n\003GET\022\037/mlflow/e" +
+      "xperiments/get-by-name\032\004\010\002\020\000\020\001*\026Get Expe" +
+      "riment By Name\022\306\001\n\020createExperiment\022\030.ml" +
+      "flow.CreateExperiment\032!.mlflow.CreateExp" +
+      "eriment.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/" +
+      "experiments/create\032\004\010\002\020\000\n0\n\004POST\022\"/previ" +
+      "ew/mlflow/experiments/create\032\004\010\002\020\000\020\001*\021Cr" +
+      "eate Experiment\022\274\001\n\017listExperiments\022\027.ml" +
+      "flow.ListExperiments\032 .mlflow.ListExperi" +
+      "ments.Response\"n\362\206\031j\n%\n\003GET\022\030/mlflow/exp" +
+      "eriments/list\032\004\010\002\020\000\n-\n\003GET\022 /preview/mlf" +
+      "low/experiments/list\032\004\010\002\020\000\020\001*\020List Exper" +
+      "iments\022\262\001\n\rgetExperiment\022\025.mlflow.GetExp" +
+      "eriment\032\036.mlflow.GetExperiment.Response\"" +
+      "j\362\206\031f\n$\n\003GET\022\027/mlflow/experiments/get\032\004\010" +
+      "\002\020\000\n,\n\003GET\022\037/preview/mlflow/experiments/" +
+      "get\032\004\010\002\020\000\020\001*\016Get Experiment\022\306\001\n\020deleteEx" +
+      "periment\022\030.mlflow.DeleteExperiment\032!.mlf" +
+      "low.DeleteExperiment.Response\"u\362\206\031q\n(\n\004P" +
+      "OST\022\032/mlflow/experiments/delete\032\004\010\002\020\000\n0\n" +
+      "\004POST\022\"/preview/mlflow/experiments/delet" +
+      "e\032\004\010\002\020\000\020\001*\021Delete Experiment\022\314\001\n\021restore" +
+      "Experiment\022\031.mlflow.RestoreExperiment\032\"." +
+      "mlflow.RestoreExperiment.Response\"x\362\206\031t\n" +
+      ")\n\004POST\022\033/mlflow/experiments/restore\032\004\010\002" +
+      "\020\000\n1\n\004POST\022#/preview/mlflow/experiments/" +
+      "restore\032\004\010\002\020\000\020\001*\022Restore Experiment\022\306\001\n\020" +
+      "updateExperiment\022\030.mlflow.UpdateExperime" +
+      "nt\032!.mlflow.UpdateExperiment.Response\"u\362" +
+      "\206\031q\n(\n\004POST\022\032/mlflow/experiments/update\032" +
+      "\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/experimen" +
+      "ts/update\032\004\010\002\020\000\020\001*\021Update Experiment\022\234\001\n" +
+      "\tcreateRun\022\021.mlflow.CreateRun\032\032.mlflow.C" +
+      "reateRun.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow" +
+      "/runs/create\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlf" +
+      "low/runs/create\032\004\010\002\020\000\020\001*\nCreate Run\022\234\001\n\t" +
+      "updateRun\022\021.mlflow.UpdateRun\032\032.mlflow.Up" +
+      "dateRun.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/" +
+      "runs/update\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlfl" +
+      "ow/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run\022\234\001\n\td" +
+      "eleteRun\022\021.mlflow.DeleteRun\032\032.mlflow.Del" +
+      "eteRun.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/r" +
+      "uns/delete\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflo" +
+      "w/runs/delete\032\004\010\002\020\000\020\001*\nDelete Run\022\242\001\n\nre" +
+      "storeRun\022\022.mlflow.RestoreRun\032\033.mlflow.Re" +
+      "storeRun.Response\"c\362\206\031_\n\"\n\004POST\022\024/mlflow" +
+      "/runs/restore\032\004\010\002\020\000\n*\n\004POST\022\034/preview/ml" +
+      "flow/runs/restore\032\004\010\002\020\000\020\001*\013Restore Run\022\244" +
+      "\001\n\tlogMetric\022\021.mlflow.LogMetric\032\032.mlflow" +
+      ".LogMetric.Response\"h\362\206\031d\n%\n\004POST\022\027/mlfl" +
+      "ow/runs/log-metric\032\004\010\002\020\000\n-\n\004POST\022\037/previ" +
+      "ew/mlflow/runs/log-metric\032\004\010\002\020\000\020\001*\nLog M" +
+      "etric\022\246\001\n\010logParam\022\020.mlflow.LogParam\032\031.m" +
+      "lflow.LogParam.Response\"m\362\206\031i\n(\n\004POST\022\032/" +
+      "mlflow/runs/log-parameter\032\004\010\002\020\000\n0\n\004POST\022" +
+      "\"/preview/mlflow/runs/log-parameter\032\004\010\002\020" +
+      "\000\020\001*\tLog Param\022\341\001\n\020setExperimentTag\022\030.ml" +
+      "flow.SetExperimentTag\032!.mlflow.SetExperi" +
+      "mentTag.Response\"\217\001\362\206\031\212\001\n4\n\004POST\022&/mlflo" +
+      "w/experiments/set-experiment-tag\032\004\010\002\020\000\n<" +
+      "\n\004POST\022./preview/mlflow/experiments/set-" +
+      "experiment-tag\032\004\010\002\020\000\020\001*\022Set Experiment T" +
+      "ag\022\222\001\n\006setTag\022\016.mlflow.SetTag\032\027.mlflow.S" +
+      "etTag.Response\"_\362\206\031[\n\"\n\004POST\022\024/mlflow/ru" +
+      "ns/set-tag\032\004\010\002\020\000\n*\n\004POST\022\034/preview/mlflo" +
+      "w/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\244\001\n\tdele" +
+      "teTag\022\021.mlflow.DeleteTag\032\032.mlflow.Delete" +
+      "Tag.Response\"h\362\206\031d\n%\n\004POST\022\027/mlflow/runs" +
+      "/delete-tag\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlfl" +
+      "ow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDelete Tag\022\210" +
+      "\001\n\006getRun\022\016.mlflow.GetRun\032\027.mlflow.GetRu" +
+      "n.Response\"U\362\206\031Q\n\035\n\003GET\022\020/mlflow/runs/ge" +
+      "t\032\004\010\002\020\000\n%\n\003GET\022\030/preview/mlflow/runs/get" +
+      "\032\004\010\002\020\000\020\001*\007Get Run\022\261\001\n\016listAllColumns\022\026.m" +
+      "lflow.ListAllColumns\032\037.mlflow.ListAllCol" +
+      "umns.Response\"f\362\206\031b\n!\n\003GET\022\024/mlflow/colu" +
+      "mns/list\032\004\010\002\020\000\n)\n\003GET\022\034/preview/mlflow/c" +
+      "olumns/list\032\004\010\002\020\000\020\001*\020List all columns\022\314\001" +
+      "\n\nsearchRuns\022\022.mlflow.SearchRuns\032\033.mlflo" +
+      "w.SearchRuns.Response\"\214\001\362\206\031\207\001\n!\n\004POST\022\023/" +
+      "mlflow/runs/search\032\004\010\002\020\000\n)\n\004POST\022\033/previ" +
+      "ew/mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033/pre" +
+      "view/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search " +
+      "Runs\022\260\001\n\rlistArtifacts\022\025.mlflow.ListArti" +
+      "facts\032\036.mlflow.ListArtifacts.Response\"h\362" +
+      "\206\031d\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000" +
+      "\n+\n\003GET\022\036/preview/mlflow/artifacts/list\032" +
+      "\004\010\002\020\000\020\001*\016List Artifacts\022\307\001\n\020getMetricHis" +
+      "tory\022\030.mlflow.GetMetricHistory\032!.mlflow." +
+      "GetMetricHistory.Response\"v\362\206\031r\n(\n\003GET\022\033" +
+      "/mlflow/metrics/get-history\032\004\010\002\020\000\n0\n\003GET" +
+      "\022#/preview/mlflow/metrics/get-history\032\004\010" +
+      "\002\020\000\020\001*\022Get Metric History\022\373\001\n\027updateArti" +
+      "factsLocation\022\037.mlflow.UpdateArtifactsLo" +
+      "cation\032(.mlflow.UpdateArtifactsLocation." +
+      "Response\"\224\001\362\206\031\217\001\n3\n\003PUT\022&/mlflow/runs/up" +
+      "date-artifacts-location\032\004\010\002\020\000\n;\n\003PUT\022./p" +
+      "review/mlflow/runs/update-artifacts-loca" +
+      "tion\032\004\010\002\020\000\020\001*\031Update Artifacts Location\022" +
+      "\236\001\n\010logBatch\022\020.mlflow.LogBatch\032\031.mlflow." +
+      "LogBatch.Response\"e\362\206\031a\n$\n\004POST\022\026/mlflow" +
+      "/runs/log-batch\032\004\010\002\020\000\n,\n\004POST\022\036/preview/" +
+      "mlflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batch" +
+      "\022\236\001\n\010logModel\022\020.mlflow.LogModel\032\031.mlflow" +
+      ".LogModel.Response\"e\362\206\031a\n$\n\004POST\022\026/mlflo" +
+      "w/runs/log-model\032\004\010\002\020\000\n,\n\004POST\022\036/preview" +
+      "/mlflow/runs/log-model\032\004\010\002\020\000\020\001*\tLog Mode" +
+      "l\022\254\001\n\010vcsRegex\022\023.mlflow.GetVcsRegex\032\034.ml" +
+      "flow.GetVcsRegex.Response\"m\362\206\031i\n&\n\003GET\022\031" +
+      "/mlflow/private_vcs/regex\032\004\010\002\020\000\n&\n\003GET\022\031" +
+      "/mlflow/private_vcs/regex\032\004\010\002\020\000\020\001*\025Get P" +
+      "rivate VCS Regex\022\241\001\n\006vcsUrl\022\021.mlflow.Get" +
+      "VcsUrl\032\032.mlflow.GetVcsUrl.Response\"h\362\206\031d" +
+      "\n$\n\003GET\022\027/mlflow/private_vcs/url\032\004\010\002\020\000\n$" +
+      "\n\003GET\022\027/mlflow/private_vcs/url\032\004\010\002\020\000\020\001*\024" +
+      "Get Private VCS UrlsB\036\n\024org.mlflow.api.p" +
+      "roto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -53527,12 +54337,18 @@ public final class Service {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ListAllColumns_Response_descriptor,
         new java.lang.String[] { "Metrics", "Params", "Tags", });
-    internal_static_mlflow_SearchRuns_descriptor =
+    internal_static_mlflow_ColumnsToWhitelist_descriptor =
       getDescriptor().getMessageTypes().get(25);
+    internal_static_mlflow_ColumnsToWhitelist_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_ColumnsToWhitelist_descriptor,
+        new java.lang.String[] { "Columns", });
+    internal_static_mlflow_SearchRuns_descriptor =
+      getDescriptor().getMessageTypes().get(26);
     internal_static_mlflow_SearchRuns_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchRuns_descriptor,
-        new java.lang.String[] { "ExperimentIds", "Filter", "RunViewType", "MaxResults", "OrderBy", "PageToken", });
+        new java.lang.String[] { "ExperimentIds", "Filter", "RunViewType", "MaxResults", "OrderBy", "PageToken", "ColumnsToWhitelist", });
     internal_static_mlflow_SearchRuns_Response_descriptor =
       internal_static_mlflow_SearchRuns_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_SearchRuns_Response_fieldAccessorTable = new
@@ -53540,7 +54356,7 @@ public final class Service {
         internal_static_mlflow_SearchRuns_Response_descriptor,
         new java.lang.String[] { "Runs", "NextPageToken", });
     internal_static_mlflow_ListArtifacts_descriptor =
-      getDescriptor().getMessageTypes().get(26);
+      getDescriptor().getMessageTypes().get(27);
     internal_static_mlflow_ListArtifacts_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ListArtifacts_descriptor,
@@ -53552,13 +54368,13 @@ public final class Service {
         internal_static_mlflow_ListArtifacts_Response_descriptor,
         new java.lang.String[] { "RootUri", "Files", });
     internal_static_mlflow_FileInfo_descriptor =
-      getDescriptor().getMessageTypes().get(27);
+      getDescriptor().getMessageTypes().get(28);
     internal_static_mlflow_FileInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_FileInfo_descriptor,
         new java.lang.String[] { "Path", "IsDir", "FileSize", });
     internal_static_mlflow_GetMetricHistory_descriptor =
-      getDescriptor().getMessageTypes().get(28);
+      getDescriptor().getMessageTypes().get(29);
     internal_static_mlflow_GetMetricHistory_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetMetricHistory_descriptor,
@@ -53570,7 +54386,7 @@ public final class Service {
         internal_static_mlflow_GetMetricHistory_Response_descriptor,
         new java.lang.String[] { "Metrics", });
     internal_static_mlflow_LogBatch_descriptor =
-      getDescriptor().getMessageTypes().get(29);
+      getDescriptor().getMessageTypes().get(30);
     internal_static_mlflow_LogBatch_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogBatch_descriptor,
@@ -53582,7 +54398,7 @@ public final class Service {
         internal_static_mlflow_LogBatch_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_LogModel_descriptor =
-      getDescriptor().getMessageTypes().get(30);
+      getDescriptor().getMessageTypes().get(31);
     internal_static_mlflow_LogModel_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogModel_descriptor,
@@ -53594,7 +54410,7 @@ public final class Service {
         internal_static_mlflow_LogModel_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_GetExperimentByName_descriptor =
-      getDescriptor().getMessageTypes().get(31);
+      getDescriptor().getMessageTypes().get(32);
     internal_static_mlflow_GetExperimentByName_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetExperimentByName_descriptor,
@@ -53606,7 +54422,7 @@ public final class Service {
         internal_static_mlflow_GetExperimentByName_Response_descriptor,
         new java.lang.String[] { "Experiment", });
     internal_static_mlflow_UpdateArtifactsLocation_descriptor =
-      getDescriptor().getMessageTypes().get(32);
+      getDescriptor().getMessageTypes().get(33);
     internal_static_mlflow_UpdateArtifactsLocation_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateArtifactsLocation_descriptor,
@@ -53618,7 +54434,7 @@ public final class Service {
         internal_static_mlflow_UpdateArtifactsLocation_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_GetVcsRegex_descriptor =
-      getDescriptor().getMessageTypes().get(33);
+      getDescriptor().getMessageTypes().get(34);
     internal_static_mlflow_GetVcsRegex_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetVcsRegex_descriptor,
@@ -53630,7 +54446,7 @@ public final class Service {
         internal_static_mlflow_GetVcsRegex_Response_descriptor,
         new java.lang.String[] { "VcsRegex", });
     internal_static_mlflow_GetVcsUrl_descriptor =
-      getDescriptor().getMessageTypes().get(34);
+      getDescriptor().getMessageTypes().get(35);
     internal_static_mlflow_GetVcsUrl_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetVcsUrl_descriptor,

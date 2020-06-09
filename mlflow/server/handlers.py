@@ -403,8 +403,12 @@ def _search_runs():
     experiment_ids = request_message.experiment_ids
     order_by = request_message.order_by
     page_token = request_message.page_token
+    columns_to_whitelist = None
+    if request_message.HasField('columns_to_whitelist'):
+        columns_to_whitelist = request_message.columns_to_whitelist.columns
     run_entities = _get_tracking_store().search_runs(experiment_ids, filter_string, run_view_type,
-                                                     max_results, order_by, page_token)
+                                                     max_results, order_by, page_token,
+                                                     columns_to_whitelist)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:
         response_message.next_page_token = run_entities.token

@@ -219,7 +219,8 @@ class AbstractStore:
         pass
 
     def search_runs(self, experiment_ids, filter_string, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None,
+                    columns_to_whitelist=None):
         """
         Return runs that match the given list of search expressions within the experiments.
 
@@ -232,6 +233,8 @@ class AbstractStore:
         :param order_by: List of order_by clauses.
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
+        :param columns_to_whitelist: select columns (tags, params, metrics) to read.
+            None means all columns
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions. The pagination token for the next page can be obtained via the ``token``
@@ -239,12 +242,12 @@ class AbstractStore:
             and thus the returned token would not be meaningful in such cases.
         """
         runs, token = self._search_runs(experiment_ids, filter_string, run_view_type, max_results,
-                                        order_by, page_token)
+                                        order_by, page_token, columns_to_whitelist)
         return PagedList(runs, token)
 
     @abstractmethod
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token):
+                     page_token, columns_to_whitelist):
         """
         Return runs that match the given list of search expressions within the experiments, as
         well as a pagination token (indicating where the next page should start). Subclasses of

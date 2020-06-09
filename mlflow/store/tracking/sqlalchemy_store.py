@@ -1,6 +1,10 @@
+from typing import List
+import itertools
 import json
 import logging
+import operator
 import uuid
+from collections import defaultdict
 
 import math
 import sqlalchemy
@@ -620,7 +624,7 @@ class SqlAlchemyStore(AbstractStore):
                            tags=tags)
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token):
+                     page_token, columns_to_whitelist):
 
         def compute_next_token(current_size):
             next_token = None
@@ -660,14 +664,16 @@ class SqlAlchemyStore(AbstractStore):
                 query = query.outerjoin(j)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
-            queried_runs = query.distinct() \
-                .options(*self._get_eager_run_query_options()) \
+            query_runs = query.distinct() \
+                .options(sqlalchemy.orm.noload('*')) \
                 .filter(
-                    SqlRun.experiment_id.in_(experiment_ids),
-                    SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed_filters)) \
+                SqlRun.experiment_id.in_(experiment_ids),
+                SqlRun.lifecycle_stage.in_(stages),
+                *_get_attributes_filtering_clauses(parsed_filters)) \
                 .order_by(*parsed_orderby) \
-                .offset(offset).limit(max_results).all()
+                .offset(offset).limit(max_results)
+
+            queried_runs = add_metrics_tags_params(query_runs, session, columns_to_whitelist)
 
             runs = [run.to_mlflow_entity() for run in queried_runs]
             next_page_token = compute_next_token(len(runs))
@@ -853,3 +859,46 @@ def _get_orderby_clauses(order_by_list, session):
     clauses.append(SqlRun.start_time.desc())
     clauses.append(SqlRun.run_uuid)
     return clauses, ordering_joins
+
+
+def add_metrics_tags_params(query_runs, session, columns_to_whitelist):
+    objects = {
+        'params': SqlParam,
+        'metrics': SqlLatestMetric,
+        'tags': SqlTag
+    }
+
+    attr_name = {
+        'params': 'params',
+        'metrics': 'latest_metrics',
+        'tags': 'tags',
+    }
+    queries = {type_: session.query(object_) for type_, object_ in objects.items()}
+    # groupby type of column
+    if columns_to_whitelist is not None:
+        words = [column.split('.') for column in sorted(columns_to_whitelist)]
+        columns = [(word[0], '.'.join(word[1:])) for word in words]
+        filters = defaultdict(list)
+        for column in columns:
+            filters[column[0]].append(column[1])
+        for column_type in objects.keys():
+            queries[column_type] = queries[column_type].filter(
+                objects[column_type].key.in_(filters[column_type]))
+
+    queried_runs = query_runs.all()
+    query_run_ids = query_runs.from_self().options(sqlalchemy.orm.load_only('run_uuid')).subquery()
+    for type_, object_ in objects.items():
+        selectallin(queried_runs, query_run_ids, queries[type_], object_.run_uuid, attr_name[type_])
+    return queried_runs
+
+
+def selectallin(runs: List[SqlRun], query_run_ids: sqlalchemy.sql.expression.Alias,
+                query: sqlalchemy.orm.query.Query, attribute, attr_name: str) -> None:
+    values = sorted(query.filter(attribute.in_(query_run_ids)).all(),
+                    key=operator.attrgetter('run_uuid'))
+    values_grouped_by = {run_id: list(vals) for run_id, vals in itertools.groupby(
+        values, key=operator.attrgetter('run_uuid'))}
+    for run in runs:
+        if run.run_uuid in values_grouped_by:
+            sqlalchemy.orm.attributes.set_committed_value(
+                run, attr_name, values_grouped_by[run.run_uuid])

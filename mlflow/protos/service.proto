@@ -1001,6 +1001,10 @@ message ListAllColumns {
   }
 }
 
+message ColumnsToWhitelist {
+  repeated string columns = 1;
+}
+
 message SearchRuns {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -1034,6 +1038,8 @@ message SearchRuns {
   repeated string order_by = 6;
 
   optional string page_token = 7;
+
+  optional ColumnsToWhitelist columns_to_whitelist = 8;
 
   message Response {
     // Runs that match the search criteria.

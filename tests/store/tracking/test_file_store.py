@@ -1052,3 +1052,41 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run = self._create_run(fs)
         fs.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
         self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])
+
+    def test_whitelist_columns(self):
+        fs = FileStore(self.test_root)
+        r1 = self._create_run(fs).info.run_id
+        r2 = self._create_run(fs).info.run_id
+
+        fs.log_param(r1, Param('generic_param', 'p_val'))
+        fs.log_param(r2, Param('generic_param', 'p_val'))
+
+        fs.log_param(r1, Param('p_a', 'abc'))
+        fs.log_param(r2, Param('p_b', 'ABC'))
+
+        fs.log_metric(r1, Metric("common", 1.0, 1, 0))
+        fs.log_metric(r2, Metric("common", 1.0, 1, 0))
+
+        fs.log_metric(r1, Metric("m_a", 2.0, 2, 0))
+        fs.log_metric(r2, Metric("m_b", 3.0, 2, 0))
+        fs.log_metric(r2, Metric("m_b", 4.0, 8, 0))
+        fs.log_metric(r2, Metric("m_b", 8.0, 3, 0))
+
+        filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0"
+        runs = {run.info.run_id: run for run in fs.search_runs(
+            [FileStore.DEFAULT_EXPERIMENT_ID], filter_string, ViewType.ALL,
+            columns_to_whitelist=['params.p_a', 'metrics.common',
+                                  'tags.donotexist', 'metrics.m_b'])}
+        assert len(runs) == 2
+
+        def assert_run_equals(run_data1, run_data2):
+            assert set(run_data1.metrics) == set(run_data2.metrics)
+            assert set(run_data1.params) == set(run_data2.params)
+            assert set(run_data1.tags) == set(run_data2.tags)
+
+        expected_r1 = RunData(metrics=[Metric('common', 1.0, 1, 0)],
+                              params=[Param('p_a', 'abc')], tags=[])
+        assert_run_equals(runs[r1].data, expected_r1)
+        expected_r2 = RunData(metrics=[Metric('common', 1.0, 1, 0), Metric('m_b', 8.0, 3, 0)],
+                              params=[], tags=[])
+        assert_run_equals(runs[r2].data, expected_r2)

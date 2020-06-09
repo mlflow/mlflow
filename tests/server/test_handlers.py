@@ -19,7 +19,8 @@ from mlflow.server.handlers import get_endpoints, _create_experiment, _get_reque
     _list_all_columns
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns, ListAllColumns
+from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns, ListAllColumns, \
+    ColumnsToWhitelist
 from mlflow.protos.model_registry_pb2 import CreateRegisteredModel, UpdateRegisteredModel, \
     DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModel, GetLatestVersions, \
     CreateModelVersion, UpdateModelVersion, DeleteModelVersion, GetModelVersion, \
@@ -164,11 +165,43 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_s
     """
     Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
     """
-    mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"])
+    mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"],
+                                                       columns_to_whitelist=None)
     mock_tracking_store.search_runs.return_value = PagedList([], None)
     _search_runs()
     args, _ = mock_tracking_store.search_runs.call_args
     assert args[2] == ViewType.ACTIVE_ONLY
+    assert args[6] is None  # No columns filtering
+
+
+def test_search_run_columns_filtering(mock_get_request_message, mock_tracking_store):
+    """
+    Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
+    """
+    columns = ['params.p_a', 'metrics.m_a']
+    ctw = ColumnsToWhitelist(columns=columns)
+    mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"],
+                                                       columns_to_whitelist=ctw)
+    mock_tracking_store.search_runs.return_value = PagedList([], None)
+    _search_runs()
+    args, _ = mock_tracking_store.search_runs.call_args
+    assert args[2] == ViewType.ACTIVE_ONLY
+    assert args[6] == columns
+
+
+def test_search_run_no_columns(mock_get_request_message, mock_tracking_store):
+    """
+    Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
+    """
+    columns = []
+    ctw = ColumnsToWhitelist(columns=columns)
+    mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"],
+                                                       columns_to_whitelist=ctw)
+    mock_tracking_store.search_runs.return_value = PagedList([], None)
+    _search_runs()
+    args, _ = mock_tracking_store.search_runs.call_args
+    assert args[2] == ViewType.ACTIVE_ONLY
+    assert args[6] == columns
 
 
 def test_log_batch_api_req(mock_get_request_json):

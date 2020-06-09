@@ -12,7 +12,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.service_pb2 import CreateRun, DeleteExperiment, DeleteRun, LogBatch, \
     LogMetric, LogParam, RestoreExperiment, RestoreRun, RunTag as ProtoRunTag, SearchRuns, \
-    SetTag, DeleteTag, SetExperimentTag, GetExperimentByName, ListExperiments, LogModel
+    SetTag, DeleteTag, SetExperimentTag, GetExperimentByName, ListExperiments, LogModel, \
+    ColumnsToWhitelist
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ENDPOINT_NOT_FOUND,\
     REQUEST_LIMIT_EXCEEDED, INTERNAL_ERROR, ErrorCode
 from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
@@ -261,11 +262,32 @@ class TestRestStore(object):
             response.text = '{"runs": ["1a", "2b", "3c"], "next_page_token": "67890fghij"}'
             mock_http.return_value = response
             result = store.search_runs(["0", "1"], "params.p1 = 'a'", ViewType.ACTIVE_ONLY,
-                                       max_results=10, order_by=["a"], page_token="12345abcde")
+                                       max_results=10, order_by=["a"], page_token="12345abcde",
+                                       columns_to_whitelist=None)
 
             expected_message = SearchRuns(experiment_ids=["0", "1"], filter="params.p1 = 'a'",
                                           run_view_type=ViewType.to_proto(ViewType.ACTIVE_ONLY),
-                                          max_results=10, order_by=["a"], page_token="12345abcde")
+                                          max_results=10, order_by=["a"], page_token="12345abcde",
+                                          columns_to_whitelist=None)
+            self._verify_requests(mock_http, creds,
+                                  "runs/search", "POST",
+                                  message_to_json(expected_message),
+                                  generate_creds)
+            assert result.token == "67890fghij"
+
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
+            response = mock.MagicMock
+            response.text = '{"runs": ["1a", "2b", "3c"], "next_page_token": "67890fghij"}'
+            mock_http.return_value = response
+            result = store.search_runs(["0", "1"], "params.p1 = 'a'", ViewType.ACTIVE_ONLY,
+                                       max_results=10, order_by=["a"], page_token="12345abcde",
+                                       columns_to_whitelist=['params.p1', 'tags.t3'])
+
+            expected_message = SearchRuns(experiment_ids=["0", "1"], filter="params.p1 = 'a'",
+                                          run_view_type=ViewType.to_proto(ViewType.ACTIVE_ONLY),
+                                          max_results=10, order_by=["a"], page_token="12345abcde",
+                                          columns_to_whitelist=ColumnsToWhitelist(
+                                              columns=['params.p1', 'tags.t3']))
             self._verify_requests(mock_http, creds,
                                   "runs/search", "POST",
                                   message_to_json(expected_message),
@@ -312,8 +334,8 @@ class TestRestStore(object):
             mock_http.reset_mock()
             nonexistent_exp_response = mock.MagicMock
             nonexistent_exp_response.status_code = 404
-            nonexistent_exp_response.text =\
-                MlflowException("Exp doesn't exist!", RESOURCE_DOES_NOT_EXIST).serialize_as_json()
+            nonexistent_exp_response.text = MlflowException(
+                "Exp doesn't exist!", RESOURCE_DOES_NOT_EXIST).serialize_as_json()
             mock_http.return_value = nonexistent_exp_response
             assert store.get_experiment_by_name("nonexistent-experiment") is None
             expected_message1 = GetExperimentByName(experiment_name="nonexistent-experiment")

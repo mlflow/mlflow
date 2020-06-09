@@ -638,7 +638,7 @@ class FileStore(AbstractStore):
                        tags=list(tag_columns))
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token):
+                     page_token, columns_to_whitelist):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
                                   "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
@@ -650,6 +650,7 @@ class FileStore(AbstractStore):
             runs.extend(self._get_run_from_info(r) for r in run_infos)
         filtered = SearchUtils.filter(runs, filter_string)
         sorted_runs = SearchUtils.sort(filtered, order_by)
+        sorted_runs = [_filter_columns(run, columns_to_whitelist) for run in sorted_runs]
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
         return runs, next_page_token
 
@@ -798,3 +799,16 @@ class FileStore(AbstractStore):
 
     def update_artifacts_location(self, run_id, new_artifacts_location):
         raise ValueError("Artifacts cannot be moved with FileStore backend")
+
+
+def _filter_columns(run, columns_to_whitelist):
+    if columns_to_whitelist is None:
+        return run
+    run_data = run.data
+    metrics = [Metric(name, value, 0, 0) for name, value in run_data.metrics.items()
+               if f'metrics.{name}' in columns_to_whitelist]
+    params = [Param(name, value) for name, value in run_data.params.items()
+              if f'params.{name}' in columns_to_whitelist]
+    tags = [RunTag(name, value) for name, value in run_data.tags.items()
+            if f'tags.{name}' not in columns_to_whitelist]
+    return Run(run_info=run.info, run_data=RunData(metrics=metrics, params=params, tags=tags))

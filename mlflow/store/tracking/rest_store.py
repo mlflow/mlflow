@@ -6,7 +6,7 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
     UpdateExperiment, LogBatch, LogModel, DeleteTag, SetExperimentTag, GetExperimentByName, \
-    UpdateArtifactsLocation, ListAllColumns
+    UpdateArtifactsLocation, ListAllColumns, ColumnsToWhitelist
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
@@ -198,14 +198,19 @@ class RestStore(AbstractStore):
         return Columns.from_proto(response_proto)
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token):
+                     page_token, columns_to_whitelist):
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
+        if columns_to_whitelist is not None:
+            ctw = ColumnsToWhitelist(columns=columns_to_whitelist)
+        else:
+            ctw = None
         sr = SearchRuns(experiment_ids=experiment_ids,
                         filter=filter_string,
                         run_view_type=ViewType.to_proto(run_view_type),
                         max_results=max_results,
                         order_by=order_by,
-                        page_token=page_token)
+                        page_token=page_token,
+                        columns_to_whitelist=ctw)
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
         runs = [Run.from_proto(proto_run) for proto_run in response_proto.runs]
