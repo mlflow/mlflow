@@ -82,7 +82,7 @@
     "coverageReporters": [
       "lcov"
     ],
-    "setupFilesAfterEnv": [
+    "setupFiles": [
       "jest-canvas-mock"
     ]
   },
