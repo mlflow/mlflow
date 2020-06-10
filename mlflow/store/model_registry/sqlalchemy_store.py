@@ -215,9 +215,7 @@ class SqlAlchemyStore(AbstractStore):
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  objects.
         """
-        print(filter_string)
         parsed_filter = SearchUtils.parse_filter_for_model_registry(filter_string)
-        print(parsed_filter)
         if len(parsed_filter) == 0:
             conditions = []
         elif len(parsed_filter) == 1:
@@ -244,12 +242,9 @@ class SqlAlchemyStore(AbstractStore):
                                   '"name (=)(LIKE)(ILIKE) \'<model_name>\'"'
                                   'Input filter string: %s. ' % filter_string,
                                   error_code=INVALID_PARAMETER_VALUE)
-        # print(*conditions)
         with self.ManagedSessionMaker() as session:
-            # print(session.query(SqlRegisteredModel).filter(SqlRegisteredModel.name.like("test%")).all())
             sql_registered_models = session.query(SqlRegisteredModel).filter(*conditions).all()
             registered_models = [rm.to_mlflow_entity() for rm in sql_registered_models]
-            # print(registered_models)
             return registered_models
 
     def get_registered_model(self, name):
