@@ -81,8 +81,8 @@ def is_dbfs_fuse_available():
 
 
 def is_in_cluster():
-    spark_session = _get_active_spark_session()
     try:
+        spark_session = _get_active_spark_session()
         return spark_session is not None and \
                spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId") is not None
     except Exception:  # pylint: disable=broad-except
