@@ -285,7 +285,8 @@ class TestDatabricksArtifactRepository(object):
                                          FileInfo(path='test/dir', is_dir=True, file_size=0)]
         with mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '._call_endpoint') as call_endpoint_mock:
             list_artifact_response_proto = \
-                ListArtifacts.Response(root_uri='', files=list_artifacts_dir_proto_mock)
+                ListArtifacts.Response(root_uri='', files=list_artifacts_dir_proto_mock,
+                                       next_page_token=None)
             call_endpoint_mock.return_value = list_artifact_response_proto
             artifacts = databricks_artifact_repo.list_artifacts('test/')
             assert isinstance(artifacts, list)
@@ -319,7 +320,8 @@ class TestDatabricksArtifactRepository(object):
                     DATABRICKS_ARTIFACT_REPOSITORY + '._call_endpoint') as call_endpoint_mock:
             get_run_artifact_root_mock.return_value = MOCK_RUN_ROOT_URI
             list_artifact_response_proto = \
-                ListArtifacts.Response(root_uri='', files=list_artifacts_dir_proto_mock)
+                ListArtifacts.Response(root_uri='', files=list_artifacts_dir_proto_mock,
+                                       next_page_token=None)
             call_endpoint_mock.return_value = list_artifact_response_proto
             message_mock.return_value = None
             databricks_artifact_repo = get_artifact_repository(MOCK_SUBDIR_ROOT_URI)
@@ -336,6 +338,47 @@ class TestDatabricksArtifactRepository(object):
             message_mock.assert_called_with(
                 ListArtifacts(run_id=MOCK_RUN_ID, path=os.path.join(MOCK_SUBDIR, "test")))
 
+    def test_paginated_list_artifacts(self, databricks_artifact_repo):
+        list_artifacts_proto_mock_1 = [
+            FileInfo(path='a.txt', is_dir=False, file_size=100),
+            FileInfo(path='b', is_dir=True, file_size=0)
+        ]
+        list_artifacts_proto_mock_2 = [
+            FileInfo(path='c.txt', is_dir=False, file_size=100),
+            FileInfo(path='d', is_dir=True, file_size=0)
+        ]
+        list_artifacts_proto_mock_3 = [
+            FileInfo(path='e.txt', is_dir=False, file_size=100),
+            FileInfo(path='f', is_dir=True, file_size=0)
+        ]
+        list_artifacts_proto_mock_4 = []
+        with mock.patch(
+                DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE + '.message_to_json')as message_mock, \
+                mock.patch(
+                    DATABRICKS_ARTIFACT_REPOSITORY + '._call_endpoint') as call_endpoint_mock:
+            list_artifact_paginated_response_protos = [
+                ListArtifacts.Response(root_uri='', files=list_artifacts_proto_mock_1,
+                                       next_page_token='2'),
+                ListArtifacts.Response(root_uri='', files=list_artifacts_proto_mock_2,
+                                       next_page_token='4'),
+                ListArtifacts.Response(root_uri='', files=list_artifacts_proto_mock_3,
+                                       next_page_token='6'),
+                ListArtifacts.Response(root_uri='', files=list_artifacts_proto_mock_4,
+                                       next_page_token='8'),
+            ]
+            call_endpoint_mock.side_effect = list_artifact_paginated_response_protos
+            message_mock.return_value = None
+            artifacts = databricks_artifact_repo.list_artifacts()
+            assert set(['a.txt', 'b', 'c.txt', 'd', 'e.txt', 'f']) == set(
+                [file.path for file in artifacts])
+            calls = [
+                mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="")),
+                mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token='2')),
+                mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token='4')),
+                mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token='6'))
+            ]
+            message_mock.assert_has_calls(calls)
+
     @pytest.mark.parametrize(
         "remote_file_path, local_path, cloud_credential_type", [
             ('test_file.txt', '', ArtifactCredentialType.AZURE_SAS_URI),
@@ -350,7 +393,7 @@ class TestDatabricksArtifactRepository(object):
                 as read_credentials_mock, \
                 mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '.list_artifacts') as get_list_mock, \
                 mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '._download_from_cloud') \
-                        as download_mock:
+                as download_mock:
             mock_credentials = ArtifactCredentialInfo(signed_uri=MOCK_AZURE_SIGNED_URI,
                                                       type=cloud_credential_type)
             read_credentials_response_proto = GetCredentialsForRead.Response(
@@ -372,10 +415,10 @@ class TestDatabricksArtifactRepository(object):
                 as get_run_artifact_root_mock, \
                 mock.patch(
                     DATABRICKS_ARTIFACT_REPOSITORY + '._get_read_credentials') \
-                        as read_credentials_mock, \
+                as read_credentials_mock, \
                 mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '.list_artifacts') as get_list_mock, \
                 mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '._download_from_cloud') \
-                        as download_mock:
+                as download_mock:
             get_run_artifact_root_mock.return_value = MOCK_RUN_ROOT_URI
             mock_credentials = ArtifactCredentialInfo(signed_uri=MOCK_AZURE_SIGNED_URI,
                                                       type=ArtifactCredentialType.AZURE_SAS_URI)

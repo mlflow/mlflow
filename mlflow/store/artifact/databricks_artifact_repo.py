@@ -240,12 +240,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
         infos = []
         page_token = None
         while True:
-            print("PAGE TOKEN: {}".format(page_token))
-            print("ARTIFACT LIST: {}".format(infos))
             if page_token:
-                json_body = message_to_json(ListArtifacts(run_id=self.run_id, path=path, page_token=page_token))
+                json_body = message_to_json(
+                    ListArtifacts(run_id=self.run_id, path=run_relative_path,
+                                  page_token=page_token))
             else:
-                json_body = message_to_json(ListArtifacts(run_id=self.run_id, path=path))
+                json_body = message_to_json(
+                    ListArtifacts(run_id=self.run_id, path=run_relative_path))
             response = self._call_endpoint(MlflowService, ListArtifacts, json_body)
             artifact_list = response.files
             # If `path` is a file, ListArtifacts returns a single list element with the
@@ -259,7 +260,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     path=output_file.path, start=self.run_relative_artifact_repo_root_path)
                 artifact_size = None if output_file.is_dir else output_file.file_size
                 infos.append(FileInfo(file_rel_path, output_file.is_dir, artifact_size))
-
             if len(artifact_list) == 0 or not response.next_page_token:
                 break
             page_token = response.next_page_token
