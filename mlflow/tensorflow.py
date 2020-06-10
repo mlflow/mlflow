@@ -693,7 +693,8 @@ def _setup_callbacks(lst):
 @experimental
 def autolog(every_n_iter=100):
     # pylint: disable=E0611
-    # noqa
+    # pylint: disable = line-too-long
+    # noqa: E501
     """
     Enables automatic logging from TensorFlow to MLflow.
     Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`.
@@ -717,13 +718,14 @@ def autolog(every_n_iter=100):
     +--------------------------------------------+-------------------------------------------------------------+------------------------------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 
     Refer to the autologging tracking documentation for
-    information on what is the behavior of `TensorFlow workflows <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.
+    information on what is the behavior of `TensorFlow workflows <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.  # noqa: E501
 
     :param every_n_iter: The frequency with which metrics should be logged.
                                   Defaults to 100. Ex: a value of 100 will log metrics
                                   at step 0, 100, 200, etc.
 
     """
+    # pylint: enable=line-too-long
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter
 

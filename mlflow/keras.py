@@ -454,7 +454,8 @@ def load_model(model_uri, **kwargs):
 @experimental
 def autolog():
     # pylint: disable=E0611
-    # noqa
+    # pylint: disable = line-too-long
+    # noqa: E501
     """
     Enables automatic logging from Keras to MLflow. Autologging captures the following information:
 
@@ -501,6 +502,7 @@ def autolog():
     MLflow will also log the parameters of the ``EarlyStopping`` callback,
     excluding ``mode`` and ``verbose``.
     """
+    # pylint: enable=line-too-long
     import keras
 
     class __MLflowKerasCallback(keras.callbacks.Callback):
