@@ -126,7 +126,7 @@ def predictions_to_json(raw_predictions, output):
     json.dump(predictions, output, cls=NumpyEncoder)
 
 
-def _handle_serving_error(error_message, error_code):
+def _handle_serving_error(error_message, error_code, include_traceback=True):
     """
     Logs information about an exception thrown by model inference code that is currently being
     handled and reraises it with the specified error message. The exception stack trace
@@ -136,13 +136,14 @@ def _handle_serving_error(error_message, error_code):
     :param error_code: An appropriate error code for the reraised exception. This should be one of
                        the codes listed in the `mlflow.protos.databricks_pb2` proto.
     """
-    traceback_buf = StringIO()
-    traceback.print_exc(file=traceback_buf)
-    reraise(MlflowException,
-            MlflowException(
-                message=error_message,
-                error_code=error_code,
-                stack_trace=traceback_buf.getvalue()))
+    if include_traceback:
+        traceback_buf = StringIO()
+        traceback.print_exc(file=traceback_buf)
+        traceback_str = traceback_buf.getvalue()
+        e = MlflowException(message=error_message, error_code=error_code, stack_trace=traceback_str)
+    else:
+        e = MlflowException(message=error_message, error_code=error_code)
+    reraise(MlflowException, e)
 
 
 def init(model: PyFuncModel):
@@ -197,6 +198,11 @@ def init(model: PyFuncModel):
         # pylint: disable=broad-except
         try:
             raw_predictions = model.predict(data)
+        except MlflowException as e:
+            _handle_serving_error(
+                error_message=e.message,
+                error_code=BAD_REQUEST,
+                include_traceback=False)
         except Exception:
             _handle_serving_error(
                 error_message=(

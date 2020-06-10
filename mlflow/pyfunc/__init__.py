@@ -335,14 +335,26 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
     For column types, we make sure the types match schema or can be safely converted to match the
     input schema.
     """
+    if isinstance(pdf, list):
+        pdf = pandas.DataFrame(pdf)
+    if not isinstance(pdf, pandas.DataFrame):
+        message = 'Expected input to be DataFrame or list. Found: %s' % type(pdf).__name__
+        raise MlflowException(message)
+
     if input_schema.has_column_names():
-        # make sure there are no missing columns, the
+        # make sure there are no missing columns
         col_names = input_schema.column_names()
         expected_names = set(col_names)
         actual_names = set(pdf.columns)
         missing_cols = expected_names - actual_names
+        extra_cols = actual_names - expected_names
+        # Preserve order from the original columns, since missing/extra columns are likely to
+        # be in same order.
+        missing_cols = [c for c in col_names if c in missing_cols]
+        extra_cols = [c for c in pdf.columns if c in extra_cols]
         if missing_cols:
-            message = "Model input is missing columns {0}.".format(missing_cols)
+            message = ("Model input is missing columns {0}."
+                       " Note that there were extra columns: {1}".format(missing_cols, extra_cols))
             raise MlflowException(message)
     else:
         # The model signature does not specify column names => we can only verify column count.
@@ -612,10 +624,11 @@ def spark_udf(spark, model_uri, result_type="double"):
                 if len(args) > len(names):
                     args = args[:len(names)]
                 if len(args) < len(names):
-                    message = ("Model input is missing columns. Expected input columns {0}, "
-                               "but the model received only {1} unnamed input columns"
-                               "(Since the columns were passed unnamed they are expected to be in "
-                               "in the order specified by the schema).".format(names, len(args)))
+                    message = ("Model input is missing columns. Expected {0} input columns {1},"
+                               " but the model received only {2} unnamed input columns"
+                               " (Since the columns were passed unnamed they are expected to be in"
+                               " the order specified by the schema).".format(
+                                   len(names), names, len(args)))
                     raise MlflowException(message)
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
