@@ -237,6 +237,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 self.run_relative_artifact_repo_root_path, path)
         else:
             run_relative_path = self.run_relative_artifact_repo_root_path
+        print (ListArtifacts(run_id=self.run_id, path=run_relative_path))
         json_body = message_to_json(ListArtifacts(run_id=self.run_id, path=run_relative_path))
         artifact_list = self._call_endpoint(MlflowService, ListArtifacts, json_body).files
         # If `path` is a file, ListArtifacts returns a single list element with the
