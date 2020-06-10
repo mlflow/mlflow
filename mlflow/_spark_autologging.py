@@ -7,7 +7,7 @@ import uuid
 from py4j.java_gateway import CallbackServerParameters
 
 from pyspark import SparkContext
-from pyspark.sql import SparkSession
+from mlflow.utils._spark_utils import _get_active_spark_session
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -85,13 +85,6 @@ def _set_run_tag(run_id, path, version, data_format):
     existing_tag = existing_run.data.tags.get(_SPARK_TABLE_INFO_TAG_NAME)
     new_table_info = _merge_tag_lines(existing_tag, table_info_string)
     client.set_tag(run_id, _SPARK_TABLE_INFO_TAG_NAME, new_table_info)
-
-
-def _get_active_spark_session():
-    try:
-        return SparkSession.builder.getActiveSession()
-    except Exception:  # pylint: disable=broad-except
-        return SparkSession._instantiatedSession
 
 
 def autolog():
