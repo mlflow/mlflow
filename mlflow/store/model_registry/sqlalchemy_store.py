@@ -205,6 +205,53 @@ class SqlAlchemyStore(AbstractStore):
             return [sql_registered_model.to_mlflow_entity()
                     for sql_registered_model in session.query(SqlRegisteredModel).all()]
 
+    def search_registered_models(self, filter_string):
+        """
+        Search for model versions in backend that satisfy the filter criteria.
+
+        :param filter_string: A filter string expression. Currently supports a single filter
+                              condition either name of model like ``name = 'model_name'``
+
+        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
+                 objects.
+        """
+        print(filter_string)
+        parsed_filter = SearchUtils.parse_filter_for_model_registry(filter_string)
+        print(parsed_filter)
+        if len(parsed_filter) == 0:
+            conditions = []
+        elif len(parsed_filter) == 1:
+            filter_dict = parsed_filter[0]
+            if filter_dict["comparator"] not in \
+                    SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS:
+                raise MlflowException('Model Registry search filter only supports equality(=) '
+                                      'comparator, case-sensitive partial match (LIKE),'
+                                      'and case-insensitive partial match (ILIKE).'
+                                      'Input filter string: %s' % filter_string,
+                                      error_code=INVALID_PARAMETER_VALUE)
+            if filter_dict["key"] == "name":
+                if filter_dict["comparator"] == "LIKE":
+                    conditions = [SqlRegisteredModel.name.like(filter_dict["value"])]
+                elif filter_dict["comparator"] == "ILIKE":
+                    conditions = [SqlRegisteredModel.name.ilike(filter_dict["value"])]
+                else:
+                    conditions = [SqlRegisteredModel.name == filter_dict["value"]]
+            else:
+                raise MlflowException('Invalid filter string: %s' % filter_string,
+                                      error_code=INVALID_PARAMETER_VALUE)
+        else:
+            raise MlflowException('Model Registry expects filter to be like '
+                                  '"name (=)(LIKE)(ILIKE) \'<model_name>\'"'
+                                  'Input filter string: %s. ' % filter_string,
+                                  error_code=INVALID_PARAMETER_VALUE)
+        # print(*conditions)
+        with self.ManagedSessionMaker() as session:
+            # print(session.query(SqlRegisteredModel).filter(SqlRegisteredModel.name.like("test%")).all())
+            sql_registered_models = session.query(SqlRegisteredModel).filter(*conditions).all()
+            registered_models = [rm.to_mlflow_entity() for rm in sql_registered_models]
+            # print(registered_models)
+            return registered_models
+
     def get_registered_model(self, name):
         """
         :param name: Registered model name.
