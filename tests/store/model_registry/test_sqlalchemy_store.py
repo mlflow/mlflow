@@ -423,6 +423,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(set(self.search_registered_models(f"name LIKE '%RM%'", return_pt=False)),
                          set([name1, name2, name3, name4, name5, name6]))
 
+        # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
         # _e% matches test_for_search_ , so all RMs should match
         self.assertEqual(set(self.search_registered_models(f"name LIKE '_e%'", return_pt=False)),
                          set([name1, name2, name3, name4, name5, name6]))
