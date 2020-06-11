@@ -287,9 +287,9 @@ def test_parse_with_schema(pandas_df_with_all_types):
     bad_df = """{
       "columns":["bad_integer", "bad_float", "bad_string", "bad_boolean"],
       "data":[
-        [9007199254740991.0,1.1,1,1.5],
-        [9007199254740992.0,9007199254740992.0,2,0],
-        [9007199254740994.0,3.3,3,"some arbitrary string"]
+        [9007199254740991.0, 1.1,                1, 1.5],
+        [9007199254740992.0, 9007199254740992.0, 2, 0],
+        [9007199254740994.0, 3.3,                3, "some arbitrary string"]
       ]
     }"""
     schema = Schema([ColSpec("integer", "bad_integer"), ColSpec("float", "bad_float"),
@@ -300,14 +300,15 @@ def test_parse_with_schema(pandas_df_with_all_types):
     # Unfortunately, the current behavior of pandas parse is to force numbers to int32 even if
     # they don't fit:
     assert df["bad_integer"].dtype == np.int32
-    assert all(df["bad_integer"] == [-1, 0, 1])
+    assert all(df["bad_integer"] == [-2147483648, -2147483648, -2147483648])
+
     # The same goes for floats:
     assert df["bad_float"].dtype == np.float32
     assert all(df["bad_float"] == np.array([1.1, 9007199254740992, 3.3], dtype=np.float32))\
 
     # However bad string is recognized as int64:
-    assert df["bad_string"].dtype == np.int64
-    assert all(df["bad_string"] == [1, 2, 3])
+    assert all(df["bad_string"] == np.array([1, 2, 3], dtype=np.object))
+
     # Boolean is forced - zero and empty string is false, everything else is true:
     assert df["bad_boolean"].dtype == np.bool
     assert all(df["bad_boolean"] == [True, False, True])
