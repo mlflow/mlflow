@@ -454,21 +454,19 @@ def load_model(model_uri, **kwargs):
 @experimental
 def autolog():
     # pylint: disable=E0611
-    # pylint: disable = line-too-long
-    # noqa: E501
     """
     Enables automatic logging from Keras to MLflow. Autologging captures the following information:
 
-    +-------------------------------------------------------------------------+----------------------------------------------------------------------------------+-------+----------------------------------------------------------------------------------------------------------------------------+
-    | Metrics                                                                 | Parameters                                                                       | Tags  | Artifacts                                                                                                                  |
-    +-------------------------------------------------------------------------+----------------------------------------------------------------------------------+-------+----------------------------------------------------------------------------------------------------------------------------+
-    | Training loss; validation loss; user-specified metrics                  | ``fit()`` or ``fit_generator()`` parameters; optimizer name; learning rate;      | --    | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end|
-    |                                                                         | epsilon                                                                          |       |                                                                                                                            |
-    +-------------------------------------------------------------------------+----------------------------------------------------------------------------------+-------+----------------------------------------------------------------------------------------------------------------------------+
-    | Metrics associated with the ``EarlyStopping`` callbacks.                | ``fit()`` or ``fit_generator()`` parameters associated with ``EarlyStopping``.   | --    | --                                                                                                                         |
-    | For example, ``stopped_epoch``, ``restored_epoch``,                     | For example, ``min_delta``, ``patience``, ``baseline``,                          |       |                                                                                                                            |
-    | ``restore_best_weight``, ``last_epoch``, etc.                           | ``restore_best_weights``, etc                                                    |       |                                                                                                                            |
-    +-------------------------------------------------------------------------+----------------------------------------------------------------------------------+-------+----------------------------------------------------------------------------------------------------------------------------+
+    **Metrics** and **Parameters**:
+     - Training loss; validation loss; user-specified metrics
+     - Metrics associated with the ``EarlyStopping`` callbacks: ``stopped_epoch``,
+       ``restored_epoch``, ``restore_best_weight``, ``last_epoch``, etc
+     - ``fit()`` or ``fit_generator()`` parameters; optimizer name; learning rate; epsilon
+     - ``fit()`` or ``fit_generator()`` parameters associated with ``EarlyStopping``: ``min_delta``,
+       ``patience``, ``baseline``, ``restore_best_weights``, etc
+    **Artifacts**:
+     - Model summary on training start
+     - `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end
 
     .. code-block:: python
         :caption: Example
@@ -485,10 +483,10 @@ def autolog():
 
     ``EarlyStopping Integration with Keras AutoLogging``
 
-    MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()`` or ``fit_generator()``
-    call, and if the ``restore_best_weights`` parameter is set to be ``True``, then MLflow will
-    log the metrics associated with the restored model as a final, extra step. The epoch of the
-    restored model will also be logged as the metric ``restored_epoch``.
+    MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()`` or
+    ``fit_generator()`` call, and if the ``restore_best_weights`` parameter is set to be ``True``,
+    then MLflow will log the metrics associated with the restored model as a final, extra step.
+    The epoch of the restored model will also be logged as the metric ``restored_epoch``.
     This allows for easy comparison between the actual metrics of the restored model and
     the metrics of other models.
 
@@ -502,7 +500,6 @@ def autolog():
     MLflow will also log the parameters of the ``EarlyStopping`` callback,
     excluding ``mode`` and ``verbose``.
     """
-    # pylint: enable=line-too-long
     import keras
 
     class __MLflowKerasCallback(keras.callbacks.Callback):

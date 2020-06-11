@@ -693,39 +693,59 @@ def _setup_callbacks(lst):
 @experimental
 def autolog(every_n_iter=100):
     # pylint: disable=E0611
-    # pylint: disable = line-too-long
-    # noqa: E501
     """
     Enables automatic logging from TensorFlow to MLflow.
-    Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`.
-    As an example, try running the `MLflow TensorFlow examples <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
+    Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`,
+    not :py:func:`mlflow.keras.autolog`.
+    As an example, try running the
+    `TensorFlow examples <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 
-    Autologging captures the following information:
+    For each TensorFlow module, autologging captures the following information:
 
-    +--------------------------------------------+-------------------------------------------------------------+------------------------------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-    | TensorFlow Module                          | Metrics                                                     | Parameters                                                                         | Tags          | Artifacts                                                                                                                                        |
-    +--------------------------------------------+-------------------------------------------------------------+------------------------------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-    | ``tf.keras``                               | Training loss; validation loss; user-specified metrics.     | ``fit()`` or ``fit_generator()`` parameters; optimizer name; learning rate; epsilon| --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model); TensorBoard logs on training end    |
-    +--------------------------------------------+-------------------------------------------------------------+------------------------------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-    | ``tf.keras.callbacks.EarlyStopping``       | Metrics from the ``EarlyStopping`` callbacks. For example,  | ``fit()`` or ``fit_generator()`` parameters associated with ``EarlyStopping``.     | --            | --                                                                                                                                               |
-    |                                            | ``stopped_epoch``, ``restored_epoch``,                      | For example, ``min_delta``, ``patience``, ``baseline``,                            |               |                                                                                                                                                  |
-    |                                            | ``restore_best_weight``, etc                                | ``restore_best_weights``, etc                                                      |               |                                                                                                                                                  |
-    +--------------------------------------------+-------------------------------------------------------------+------------------------------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-    | ``tf.estimator``                           | TensorBoard metrics. For example ``average_loss``,          | ``steps``, ``max_steps``                                                           | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call to ``tf.estimator.export_saved_model``                     |
-    |                                            | ``loss``, etc                                               |                                                                                    |               |                                                                                                                                                  |
-    +--------------------------------------------+-------------------------------------------------------------+------------------------------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-    | TensorFlow Core                            | All ``tf.summary.scalar`` calls                             | --                                                                                 | --            | --                                                                                                                                               |
-    +--------------------------------------------+-------------------------------------------------------------+------------------------------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+    **tf.keras**:
+     - **Metrics** and **Parameters**:
+
+      - Training loss; validation loss; user-specified metrics
+      - ``fit()`` or ``fit_generator()`` parameters; optimizer name; learning rate; epsilon
+
+     - **Artifacts**:
+
+      - Model summary on training start
+      - `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model)
+      - TensorBoard logs on training end
+
+    **tf.keras.callbacks.EarlyStopping**:
+     - **Metrics** and **Parameters**:
+
+      - Metrics from the ``EarlyStopping`` callbacks: ``stopped_epoch``, ``restored_epoch``,
+        ``restore_best_weight``, etc
+      - ``fit()`` or ``fit_generator()`` parameters associated with ``EarlyStopping``:
+        ``min_delta``, ``patience``, ``baseline``, ``restore_best_weights``, etc
+
+    **tf.estimator**:
+     - **Metrics** and **Parameters**:
+
+      - TensorBoard metrics: ``average_loss``, ``loss``, etc
+      - Parameters ``steps`` and ``max_steps``
+
+     - **Artifacts**:
+
+      - `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call
+        to ``tf.estimator.export_saved_model``
+
+    **TensorFlow Core**:
+     - **Metrics**:
+
+      - All ``tf.summary.scalar`` calls
 
     Refer to the autologging tracking documentation for
-    information on what is the behavior of `TensorFlow workflows <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.  # noqa: E501
+    information on what is the behavior of `TensorFlow workflows
+    <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.
 
     :param every_n_iter: The frequency with which metrics should be logged.
                                   Defaults to 100. Ex: a value of 100 will log metrics
                                   at step 0, 100, 200, etc.
-
     """
-    # pylint: enable=line-too-long
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter
 
