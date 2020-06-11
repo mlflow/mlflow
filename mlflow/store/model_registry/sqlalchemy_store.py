@@ -208,13 +208,12 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_registered_models(self, filter_string):
         """
-        Search for model versions in backend that satisfy the filter criteria.
+        Search for registered models in backend that satisfy the filter criteria.
 
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'``
 
-        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects.
+        :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
         """
         parsed_filter = SearchUtils.parse_filter_for_model_registry(filter_string)
         if len(parsed_filter) == 0:
