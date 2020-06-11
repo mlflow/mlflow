@@ -402,7 +402,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             return [rm.name for rm in self.store.search_registered_models(filter_string)]
 
         # search with no filter should return all registered models
-        self.assertEqual(set(search_registered_model("")),
+        self.assertEqual(set(search_registered_model(None)),
                          set([name1, name2, name3, name4, name5, name6]))
 
         # equality search using name should return exactly the 1 name
@@ -427,7 +427,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # note that this test case returns both because the test DB is in sqlite. In sqlite,
         # LIKE is NOT case-sensitive.
         self.assertEqual(set(search_registered_model(f"name LIKE '{prefix + 'RM4A'}%'")),
-                         set([name5, name6]))
+                         set([name5]))
 
         # case-sensitive prefix search using LIKE should return no models if no match
         self.assertEqual(set(search_registered_model(f"name LIKE '{prefix + 'cats'}%'")),
