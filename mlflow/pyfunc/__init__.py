@@ -394,6 +394,8 @@ class PyFuncModel(object):
     def __init__(self, model_meta: Model, model_impl: Any):
         if not hasattr(model_impl, "predict"):
             raise MlflowException("Model implementation is missing required predict method.")
+        if not model_meta:
+            raise MlflowException("Model is missing metadata.")
         self._model_meta = model_meta
         self._model_impl = model_impl
 
