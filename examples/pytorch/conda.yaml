@@ -6,6 +6,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.6
+  - pip
   - pip:
     - torch==1.4.0
     - torchvision==0.5.0
