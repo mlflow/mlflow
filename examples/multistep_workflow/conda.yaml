@@ -8,6 +8,7 @@ dependencies:
   - pyspark
   - requests
   - click
+  - pip
   - pip:
     - tensorflow==1.15.2
     - keras==2.2.4

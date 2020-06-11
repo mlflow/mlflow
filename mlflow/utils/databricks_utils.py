@@ -5,6 +5,7 @@ import subprocess
 from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
 from databricks_cli.configure import provider
+from mlflow.utils._spark_utils import _get_active_spark_session
 
 
 _logger = logging.getLogger(__name__)
@@ -79,6 +80,15 @@ def is_dbfs_fuse_available():
             return False
 
 
+def is_in_cluster():
+    try:
+        spark_session = _get_active_spark_session()
+        return spark_session is not None \
+            and spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId") is not None
+    except Exception:  # pylint: disable=broad-except
+        return False
+
+
 def get_notebook_id():
     """Should only be called if is_in_databricks_notebook is true"""
     notebook_id = _get_property_from_spark_context("spark.databricks.notebook.id")
@@ -96,6 +106,13 @@ def get_notebook_path():
     if path is not None:
         return path
     return _get_extra_context("notebook_path")
+
+
+def get_cluster_id():
+    spark_session = _get_active_spark_session()
+    if spark_session is None:
+        return None
+    return spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId")
 
 
 def get_job_id():

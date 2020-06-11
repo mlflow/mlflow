@@ -5,6 +5,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.6
+  - pip
   - pip:
     - mlflow
     - tensorflow==2.0.0
