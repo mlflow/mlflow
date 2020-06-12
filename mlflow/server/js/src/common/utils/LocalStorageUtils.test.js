@@ -25,7 +25,7 @@ test('Overwriting key-value pairs is possible', () => {
   store.setItem('a', 'b');
   expect(store.getItem('a')).toEqual('b');
   store.setItem('a', 'c');
-  expect(store.getItem('a')).toEqual('d');
+  expect(store.getItem('a')).toEqual('c');
   store.saveComponentState(new ExperimentPagePersistedState({ searchInput: 'params.ollKorrect' }));
   expect(store.loadComponentState().searchInput).toEqual('params.ollKorrect');
   store.saveComponentState(new ExperimentPagePersistedState({ searchInput: 'params.okay' }));
