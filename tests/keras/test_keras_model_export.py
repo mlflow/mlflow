@@ -9,6 +9,7 @@ import importlib
 from keras.models import Sequential
 from keras.layers import Layer, Dense
 from keras import backend as K
+from keras.optimizers import SGD
 import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
@@ -50,7 +51,7 @@ def model(data):
     model = Sequential()
     model.add(Dense(3, input_dim=4))
     model.add(Dense(1))
-    model.compile(loss='mean_squared_error', optimizer='SGD')
+    model.compile(loss='mean_squared_error', optimizer=SGD(learning_rate=0.001))
     model.fit(x, y)
     return model
 
@@ -60,10 +61,11 @@ def tf_keras_model(data):
     x, y = data
     from tensorflow.keras.models import Sequential as TfSequential
     from tensorflow.keras.layers import Dense as TfDense
+    from tensorflow.keras.optimizers import SGD as TfSGD
     model = TfSequential()
     model.add(TfDense(3, input_dim=4))
     model.add(TfDense(1))
-    model.compile(loss='mean_squared_error', optimizer='SGD')
+    model.compile(loss='mean_squared_error', optimizer=TfSGD(learning_rate=0.001))
     model.fit(x, y)
     return model
 
