@@ -5,10 +5,15 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  issue_comment:
+    types: [ created ]
+    
+    
 
 jobs:
   lint:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.comment.html_url, '/pull/') && contains(github.event.comment.body, 'trigger lint')) }}
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.6
