@@ -187,7 +187,7 @@ def test_that_keras_module_arg_works(model_path):
 
 @pytest.mark.parametrize("build_model", [model, tf_keras_model])
 @pytest.mark.large
-def test_model_save_load(build_model, model_path, data, execution_number):
+def test_model_save_load(build_model, model_path, data):
     x, _ = data
     keras_model = build_model(data)
     if build_model == tf_keras_model:
