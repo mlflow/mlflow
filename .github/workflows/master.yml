@@ -15,12 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.comment.html_url, '/pull/') && contains(github.event.comment.body, 'trigger lint')) }}
     steps:
-    - name: Trigger comment
-      uses: unsplash/comment-on-pr@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        msg: ${{ github.event_name }}
     - uses: actions/checkout@v2
     - name: Set up Python 3.6
       uses: actions/setup-python@v1
