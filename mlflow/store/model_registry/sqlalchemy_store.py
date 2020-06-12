@@ -198,15 +198,13 @@ class SqlAlchemyStore(AbstractStore):
             sql_registered_model = self._get_registered_model(session, name)
             session.delete(sql_registered_model)
 
-    def list_registered_models(self):
+    def list_registered_models(self, page_token=None, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT):
         """
         List of all registered models.
 
         :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
         """
-        with self.ManagedSessionMaker() as session:
-            return [sql_registered_model.to_mlflow_entity()
-                    for sql_registered_model in session.query(SqlRegisteredModel).all()]
+        return self.search_registered_models(None, page_token, max_results)
 
     def search_registered_models(self,
                                  filter_string,

@@ -10965,6 +10965,32 @@ public final class ModelRegistry {
      * <code>optional int64 max_results = 1 [default = 50000];</code>
      */
     long getMaxResults();
+
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous query.
+     * </pre>
+     *
+     * <code>optional string page_token = 2;</code>
+     */
+    boolean hasPageToken();
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous query.
+     * </pre>
+     *
+     * <code>optional string page_token = 2;</code>
+     */
+    java.lang.String getPageToken();
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous query.
+     * </pre>
+     *
+     * <code>optional string page_token = 2;</code>
+     */
+    com.google.protobuf.ByteString
+        getPageTokenBytes();
   }
   /**
    * Protobuf type {@code mlflow.ListRegisteredModels}
@@ -10980,6 +11006,7 @@ public final class ModelRegistry {
     }
     private ListRegisteredModels() {
       maxResults_ = 50000L;
+      pageToken_ = "";
     }
 
     @java.lang.Override
@@ -11009,6 +11036,12 @@ public final class ModelRegistry {
             case 8: {
               bitField0_ |= 0x00000001;
               maxResults_ = input.readInt64();
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              pageToken_ = bs;
               break;
             }
             default: {
@@ -11070,6 +11103,32 @@ public final class ModelRegistry {
        */
       org.mlflow.api.proto.ModelRegistry.RegisteredModelOrBuilder getRegisteredModelsOrBuilder(
           int index);
+
+      /**
+       * <pre>
+       * Pagination token to request next page of models for the same query.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       */
+      boolean hasNextPageToken();
+      /**
+       * <pre>
+       * Pagination token to request next page of models for the same query.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       */
+      java.lang.String getNextPageToken();
+      /**
+       * <pre>
+       * Pagination token to request next page of models for the same query.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       */
+      com.google.protobuf.ByteString
+          getNextPageTokenBytes();
     }
     /**
      * Protobuf type {@code mlflow.ListRegisteredModels.Response}
@@ -11085,6 +11144,7 @@ public final class ModelRegistry {
       }
       private Response() {
         registeredModels_ = java.util.Collections.emptyList();
+        nextPageToken_ = "";
       }
 
       @java.lang.Override
@@ -11118,6 +11178,12 @@ public final class ModelRegistry {
                 }
                 registeredModels_.add(
                     input.readMessage(org.mlflow.api.proto.ModelRegistry.RegisteredModel.PARSER, extensionRegistry));
+                break;
+              }
+              case 18: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000001;
+                nextPageToken_ = bs;
                 break;
               }
               default: {
@@ -11155,6 +11221,7 @@ public final class ModelRegistry {
                 org.mlflow.api.proto.ModelRegistry.ListRegisteredModels.Response.class, org.mlflow.api.proto.ModelRegistry.ListRegisteredModels.Response.Builder.class);
       }
 
+      private int bitField0_;
       public static final int REGISTERED_MODELS_FIELD_NUMBER = 1;
       private java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModel> registeredModels_;
       /**
@@ -11190,6 +11257,60 @@ public final class ModelRegistry {
         return registeredModels_.get(index);
       }
 
+      public static final int NEXT_PAGE_TOKEN_FIELD_NUMBER = 2;
+      private volatile java.lang.Object nextPageToken_;
+      /**
+       * <pre>
+       * Pagination token to request next page of models for the same query.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       */
+      public boolean hasNextPageToken() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <pre>
+       * Pagination token to request next page of models for the same query.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       */
+      public java.lang.String getNextPageToken() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            nextPageToken_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * Pagination token to request next page of models for the same query.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       */
+      public com.google.protobuf.ByteString
+          getNextPageTokenBytes() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          nextPageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
       private byte memoizedIsInitialized = -1;
       @java.lang.Override
       public final boolean isInitialized() {
@@ -11207,6 +11328,9 @@ public final class ModelRegistry {
         for (int i = 0; i < registeredModels_.size(); i++) {
           output.writeMessage(1, registeredModels_.get(i));
         }
+        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 2, nextPageToken_);
+        }
         unknownFields.writeTo(output);
       }
 
@@ -11219,6 +11343,9 @@ public final class ModelRegistry {
         for (int i = 0; i < registeredModels_.size(); i++) {
           size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(1, registeredModels_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, nextPageToken_);
         }
         size += unknownFields.getSerializedSize();
         memoizedSize = size;
@@ -11238,6 +11365,11 @@ public final class ModelRegistry {
         boolean result = true;
         result = result && getRegisteredModelsList()
             .equals(other.getRegisteredModelsList());
+        result = result && (hasNextPageToken() == other.hasNextPageToken());
+        if (hasNextPageToken()) {
+          result = result && getNextPageToken()
+              .equals(other.getNextPageToken());
+        }
         result = result && unknownFields.equals(other.unknownFields);
         return result;
       }
@@ -11252,6 +11384,10 @@ public final class ModelRegistry {
         if (getRegisteredModelsCount() > 0) {
           hash = (37 * hash) + REGISTERED_MODELS_FIELD_NUMBER;
           hash = (53 * hash) + getRegisteredModelsList().hashCode();
+        }
+        if (hasNextPageToken()) {
+          hash = (37 * hash) + NEXT_PAGE_TOKEN_FIELD_NUMBER;
+          hash = (53 * hash) + getNextPageToken().hashCode();
         }
         hash = (29 * hash) + unknownFields.hashCode();
         memoizedHashCode = hash;
@@ -11393,6 +11529,8 @@ public final class ModelRegistry {
           } else {
             registeredModelsBuilder_.clear();
           }
+          nextPageToken_ = "";
+          bitField0_ = (bitField0_ & ~0x00000002);
           return this;
         }
 
@@ -11420,6 +11558,7 @@ public final class ModelRegistry {
         public org.mlflow.api.proto.ModelRegistry.ListRegisteredModels.Response buildPartial() {
           org.mlflow.api.proto.ModelRegistry.ListRegisteredModels.Response result = new org.mlflow.api.proto.ModelRegistry.ListRegisteredModels.Response(this);
           int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
           if (registeredModelsBuilder_ == null) {
             if (((bitField0_ & 0x00000001) == 0x00000001)) {
               registeredModels_ = java.util.Collections.unmodifiableList(registeredModels_);
@@ -11429,6 +11568,11 @@ public final class ModelRegistry {
           } else {
             result.registeredModels_ = registeredModelsBuilder_.build();
           }
+          if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+            to_bitField0_ |= 0x00000001;
+          }
+          result.nextPageToken_ = nextPageToken_;
+          result.bitField0_ = to_bitField0_;
           onBuilt();
           return result;
         }
@@ -11502,6 +11646,11 @@ public final class ModelRegistry {
                 registeredModelsBuilder_.addAllMessages(other.registeredModels_);
               }
             }
+          }
+          if (other.hasNextPageToken()) {
+            bitField0_ |= 0x00000002;
+            nextPageToken_ = other.nextPageToken_;
+            onChanged();
           }
           this.mergeUnknownFields(other.unknownFields);
           onChanged();
@@ -11772,6 +11921,106 @@ public final class ModelRegistry {
           }
           return registeredModelsBuilder_;
         }
+
+        private java.lang.Object nextPageToken_ = "";
+        /**
+         * <pre>
+         * Pagination token to request next page of models for the same query.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public boolean hasNextPageToken() {
+          return ((bitField0_ & 0x00000002) == 0x00000002);
+        }
+        /**
+         * <pre>
+         * Pagination token to request next page of models for the same query.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public java.lang.String getNextPageToken() {
+          java.lang.Object ref = nextPageToken_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              nextPageToken_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Pagination token to request next page of models for the same query.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public com.google.protobuf.ByteString
+            getNextPageTokenBytes() {
+          java.lang.Object ref = nextPageToken_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            nextPageToken_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Pagination token to request next page of models for the same query.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public Builder setNextPageToken(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Pagination token to request next page of models for the same query.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public Builder clearNextPageToken() {
+          bitField0_ = (bitField0_ & ~0x00000002);
+          nextPageToken_ = getDefaultInstance().getNextPageToken();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Pagination token to request next page of models for the same query.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public Builder setNextPageTokenBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
         @java.lang.Override
         public final Builder setUnknownFields(
             final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -11849,6 +12098,60 @@ public final class ModelRegistry {
       return maxResults_;
     }
 
+    public static final int PAGE_TOKEN_FIELD_NUMBER = 2;
+    private volatile java.lang.Object pageToken_;
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous query.
+     * </pre>
+     *
+     * <code>optional string page_token = 2;</code>
+     */
+    public boolean hasPageToken() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous query.
+     * </pre>
+     *
+     * <code>optional string page_token = 2;</code>
+     */
+    public java.lang.String getPageToken() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          pageToken_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous query.
+     * </pre>
+     *
+     * <code>optional string page_token = 2;</code>
+     */
+    public com.google.protobuf.ByteString
+        getPageTokenBytes() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        pageToken_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -11866,6 +12169,9 @@ public final class ModelRegistry {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
         output.writeInt64(1, maxResults_);
       }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, pageToken_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -11878,6 +12184,9 @@ public final class ModelRegistry {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(1, maxResults_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, pageToken_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -11900,6 +12209,11 @@ public final class ModelRegistry {
         result = result && (getMaxResults()
             == other.getMaxResults());
       }
+      result = result && (hasPageToken() == other.hasPageToken());
+      if (hasPageToken()) {
+        result = result && getPageToken()
+            .equals(other.getPageToken());
+      }
       result = result && unknownFields.equals(other.unknownFields);
       return result;
     }
@@ -11915,6 +12229,10 @@ public final class ModelRegistry {
         hash = (37 * hash) + MAX_RESULTS_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getMaxResults());
+      }
+      if (hasPageToken()) {
+        hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
+        hash = (53 * hash) + getPageToken().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -12051,6 +12369,8 @@ public final class ModelRegistry {
         super.clear();
         maxResults_ = 50000L;
         bitField0_ = (bitField0_ & ~0x00000001);
+        pageToken_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -12083,6 +12403,10 @@ public final class ModelRegistry {
           to_bitField0_ |= 0x00000001;
         }
         result.maxResults_ = maxResults_;
+        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.pageToken_ = pageToken_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -12134,6 +12458,11 @@ public final class ModelRegistry {
         if (other == org.mlflow.api.proto.ModelRegistry.ListRegisteredModels.getDefaultInstance()) return this;
         if (other.hasMaxResults()) {
           setMaxResults(other.getMaxResults());
+        }
+        if (other.hasPageToken()) {
+          bitField0_ |= 0x00000002;
+          pageToken_ = other.pageToken_;
+          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -12209,6 +12538,106 @@ public final class ModelRegistry {
       public Builder clearMaxResults() {
         bitField0_ = (bitField0_ & ~0x00000001);
         maxResults_ = 50000L;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object pageToken_ = "";
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous query.
+       * </pre>
+       *
+       * <code>optional string page_token = 2;</code>
+       */
+      public boolean hasPageToken() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous query.
+       * </pre>
+       *
+       * <code>optional string page_token = 2;</code>
+       */
+      public java.lang.String getPageToken() {
+        java.lang.Object ref = pageToken_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            pageToken_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous query.
+       * </pre>
+       *
+       * <code>optional string page_token = 2;</code>
+       */
+      public com.google.protobuf.ByteString
+          getPageTokenBytes() {
+        java.lang.Object ref = pageToken_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          pageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous query.
+       * </pre>
+       *
+       * <code>optional string page_token = 2;</code>
+       */
+      public Builder setPageToken(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous query.
+       * </pre>
+       *
+       * <code>optional string page_token = 2;</code>
+       */
+      public Builder clearPageToken() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        pageToken_ = getDefaultInstance().getPageToken();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous query.
+       * </pre>
+       *
+       * <code>optional string page_token = 2;</code>
+       */
+      public Builder setPageTokenBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        pageToken_ = value;
         onChanged();
         return this;
       }
@@ -26207,115 +26636,116 @@ public final class ModelRegistry {
       "e]\"\224\001\n\022GetRegisteredModel\022\022\n\004name\030\001 \001(\tB" +
       "\004\370\206\031\001\032=\n\010Response\0221\n\020registered_model\030\001 " +
       "\001(\0132\027.mlflow.RegisteredModel:+\342?(\n&com.d" +
-      "atabricks.rpc.RPC[$this.Response]\"\237\001\n\024Li" +
+      "atabricks.rpc.RPC[$this.Response]\"\314\001\n\024Li" +
       "stRegisteredModels\022\032\n\013max_results\030\001 \001(\003:" +
-      "\00550000\032>\n\010Response\0222\n\021registered_models\030" +
-      "\001 \003(\0132\027.mlflow.RegisteredModel:+\342?(\n&com" +
-      ".databricks.rpc.RPC[$this.Response]\"\236\001\n\021" +
-      "GetLatestVersions\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\016\n" +
-      "\006stages\030\002 \003(\t\0328\n\010Response\022,\n\016model_versi" +
-      "ons\030\001 \003(\0132\024.mlflow.ModelVersion:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]\"\264\001\n" +
-      "\022CreateModelVersion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022" +
-      "\024\n\006source\030\002 \001(\tB\004\370\206\031\001\022\016\n\006run_id\030\003 \001(\t\0327\n" +
+      "\00550000\022\022\n\npage_token\030\002 \001(\t\032W\n\010Response\0222" +
+      "\n\021registered_models\030\001 \003(\0132\027.mlflow.Regis" +
+      "teredModel\022\027\n\017next_page_token\030\002 \001(\t:+\342?(" +
+      "\n&com.databricks.rpc.RPC[$this.Response]" +
+      "\"\236\001\n\021GetLatestVersions\022\022\n\004name\030\001 \001(\tB\004\370\206" +
+      "\031\001\022\016\n\006stages\030\002 \003(\t\0328\n\010Response\022,\n\016model_" +
+      "versions\030\001 \003(\0132\024.mlflow.ModelVersion:+\342?" +
+      "(\n&com.databricks.rpc.RPC[$this.Response" +
+      "]\"\264\001\n\022CreateModelVersion\022\022\n\004name\030\001 \001(\tB\004" +
+      "\370\206\031\001\022\024\n\006source\030\002 \001(\tB\004\370\206\031\001\022\016\n\006run_id\030\003 \001" +
+      "(\t\0327\n\010Response\022+\n\rmodel_version\030\001 \001(\0132\024." +
+      "mlflow.ModelVersion:+\342?(\n&com.databricks" +
+      ".rpc.RPC[$this.Response]\"\272\001\n\022UpdateModel" +
+      "Version\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002" +
+      " \001(\tB\004\370\206\031\001\022\023\n\013description\030\003 \001(\t\0327\n\010Respo" +
+      "nse\022+\n\rmodel_version\030\001 \001(\0132\024.mlflow.Mode" +
+      "lVersion:+\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]\"\354\001\n\033TransitionModelVersion" +
+      "Stage\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001" +
+      "(\tB\004\370\206\031\001\022\023\n\005stage\030\003 \001(\tB\004\370\206\031\001\022\'\n\031archive" +
+      "_existing_versions\030\004 \001(\010B\004\370\206\031\001\0327\n\010Respon" +
+      "se\022+\n\rmodel_version\030\001 \001(\0132\024.mlflow.Model" +
+      "Version:+\342?(\n&com.databricks.rpc.RPC[$th" +
+      "is.Response]\"x\n\022DeleteModelVersion\022\022\n\004na" +
+      "me\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\032\n\n" +
+      "\010Response:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\242\001\n\017GetModelVersion\022\022\n\004na" +
+      "me\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\0327\n" +
       "\010Response\022+\n\rmodel_version\030\001 \001(\0132\024.mlflo" +
       "w.ModelVersion:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"\272\001\n\022UpdateModelVersi" +
-      "on\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB" +
-      "\004\370\206\031\001\022\023\n\013description\030\003 \001(\t\0327\n\010Response\022+" +
-      "\n\rmodel_version\030\001 \001(\0132\024.mlflow.ModelVers" +
-      "ion:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"\354\001\n\033TransitionModelVersionStage" +
-      "\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370" +
-      "\206\031\001\022\023\n\005stage\030\003 \001(\tB\004\370\206\031\001\022\'\n\031archive_exis" +
-      "ting_versions\030\004 \001(\010B\004\370\206\031\001\0327\n\010Response\022+\n" +
-      "\rmodel_version\030\001 \001(\0132\024.mlflow.ModelVersi" +
-      "on:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"x\n\022DeleteModelVersion\022\022\n\004name\030\001 " +
-      "\001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Resp" +
-      "onse:+\342?(\n&com.databricks.rpc.RPC[$this." +
-      "Response]\"\242\001\n\017GetModelVersion\022\022\n\004name\030\001 " +
-      "\001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\0327\n\010Resp" +
-      "onse\022+\n\rmodel_version\030\001 \001(\0132\024.mlflow.Mod" +
-      "elVersion:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]\"\350\001\n\023SearchModelVersions\022\016" +
-      "\n\006filter\030\001 \001(\t\022\033\n\013max_results\030\002 \001(\003:\006200" +
-      "000\022\020\n\010order_by\030\003 \003(\t\022\022\n\npage_token\030\004 \001(" +
-      "\t\032Q\n\010Response\022,\n\016model_versions\030\001 \003(\0132\024." +
-      "mlflow.ModelVersion\022\027\n\017next_page_token\030\002" +
-      " \001(\t:+\342?(\n&com.databricks.rpc.RPC[$this." +
-      "Response]\"\226\001\n\032GetModelVersionDownloadUri" +
-      "\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370" +
-      "\206\031\001\032 \n\010Response\022\024\n\014artifact_uri\030\001 \001(\t:+\342" +
-      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
-      "e]*R\n\022ModelVersionStatus\022\030\n\024PENDING_REGI" +
-      "STRATION\020\001\022\027\n\023FAILED_REGISTRATION\020\002\022\t\n\005R" +
-      "EADY\020\0032\227\024\n\024ModelRegistryService\022\266\001\n\025crea" +
-      "teRegisteredModel\022\035.mlflow.CreateRegiste" +
-      "redModel\032&.mlflow.CreateRegisteredModel." +
-      "Response\"V\362\206\031R\n6\n\004POST\022(/preview/mlflow/" +
-      "registered-models/create\032\004\010\002\020\000\020\001*\026Create" +
-      " RegisteredModel\022\266\001\n\025renameRegisteredMod" +
-      "el\022\035.mlflow.RenameRegisteredModel\032&.mlfl" +
-      "ow.RenameRegisteredModel.Response\"V\362\206\031R\n" +
-      "6\n\004POST\022(/preview/mlflow/registered-mode" +
-      "ls/rename\032\004\010\002\020\000\020\001*\026Rename RegisteredMode" +
-      "l\022\267\001\n\025updateRegisteredModel\022\035.mlflow.Upd" +
-      "ateRegisteredModel\032&.mlflow.UpdateRegist" +
-      "eredModel.Response\"W\362\206\031S\n7\n\005PATCH\022(/prev" +
-      "iew/mlflow/registered-models/update\032\004\010\002\020" +
-      "\000\020\001*\026Update RegisteredModel\022\270\001\n\025deleteRe" +
-      "gisteredModel\022\035.mlflow.DeleteRegisteredM" +
-      "odel\032&.mlflow.DeleteRegisteredModel.Resp" +
-      "onse\"X\362\206\031T\n8\n\006DELETE\022(/preview/mlflow/re" +
-      "gistered-models/delete\032\004\010\002\020\000\020\001*\026Delete R" +
-      "egisteredModel\022\246\001\n\022getRegisteredModel\022\032." +
-      "mlflow.GetRegisteredModel\032#.mlflow.GetRe" +
-      "gisteredModel.Response\"O\362\206\031K\n2\n\003GET\022%/pr" +
-      "eview/mlflow/registered-models/get\032\004\010\002\020\000" +
-      "\020\001*\023Get RegisteredModel\022\257\001\n\024listRegister" +
-      "edModels\022\034.mlflow.ListRegisteredModels\032%" +
-      ".mlflow.ListRegisteredModels.Response\"R\362" +
-      "\206\031N\n3\n\003GET\022&/preview/mlflow/registered-m" +
-      "odels/list\032\004\010\002\020\000\020\001*\025List RegisteredModel" +
-      "s\022\270\001\n\021getLatestVersions\022\031.mlflow.GetLate" +
-      "stVersions\032\".mlflow.GetLatestVersions.Re" +
-      "sponse\"d\362\206\031`\nB\n\003GET\0225/preview/mlflow/reg" +
-      "istered-models/get-latest-versions\032\004\010\002\020\000" +
-      "\020\001*\030Get Latest ModelVersions\022\247\001\n\022createM" +
-      "odelVersion\022\032.mlflow.CreateModelVersion\032" +
-      "#.mlflow.CreateModelVersion.Response\"P\362\206" +
-      "\031L\n3\n\004POST\022%/preview/mlflow/model-versio" +
-      "ns/create\032\004\010\002\020\000\020\001*\023Create ModelVersion\022\250" +
-      "\001\n\022updateModelVersion\022\032.mlflow.UpdateMod" +
-      "elVersion\032#.mlflow.UpdateModelVersion.Re" +
-      "sponse\"Q\362\206\031M\n4\n\005PATCH\022%/preview/mlflow/m" +
-      "odel-versions/update\032\004\010\002\020\000\020\001*\023Update Mod" +
-      "elVersion\022\326\001\n\033transitionModelVersionStag" +
-      "e\022#.mlflow.TransitionModelVersionStage\032," +
-      ".mlflow.TransitionModelVersionStage.Resp" +
-      "onse\"d\362\206\031`\n=\n\004POST\022//preview/mlflow/mode" +
-      "l-versions/transition-stage\032\004\010\002\020\000\020\001*\035Tra" +
-      "nsition ModelVersion Stage\022\251\001\n\022deleteMod" +
-      "elVersion\022\032.mlflow.DeleteModelVersion\032#." +
-      "mlflow.DeleteModelVersion.Response\"R\362\206\031N" +
-      "\n5\n\006DELETE\022%/preview/mlflow/model-versio" +
-      "ns/delete\032\004\010\002\020\000\020\001*\023Delete ModelVersion\022\227" +
-      "\001\n\017getModelVersion\022\027.mlflow.GetModelVers" +
-      "ion\032 .mlflow.GetModelVersion.Response\"I\362" +
-      "\206\031E\n/\n\003GET\022\"/preview/mlflow/model-versio" +
-      "ns/get\032\004\010\002\020\000\020\001*\020Get ModelVersion\022\252\001\n\023sea" +
-      "rchModelVersions\022\033.mlflow.SearchModelVer" +
-      "sions\032$.mlflow.SearchModelVersions.Respo" +
-      "nse\"P\362\206\031L\n2\n\003GET\022%/preview/mlflow/model-" +
-      "versions/search\032\004\010\002\020\000\020\001*\024Search ModelVer" +
-      "sions\022\340\001\n\032getModelVersionDownloadUri\022\".m" +
-      "lflow.GetModelVersionDownloadUri\032+.mlflo" +
-      "w.GetModelVersionDownloadUri.Response\"q\362" +
-      "\206\031m\n<\n\003GET\022//preview/mlflow/model-versio" +
-      "ns/get-download-uri\032\004\010\002\020\000\020\001*+Get Downloa" +
-      "d URI For ModelVersion ArtifactsB!\n\024org." +
-      "mlflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
+      "RPC[$this.Response]\"\350\001\n\023SearchModelVersi" +
+      "ons\022\016\n\006filter\030\001 \001(\t\022\033\n\013max_results\030\002 \001(\003" +
+      ":\006200000\022\020\n\010order_by\030\003 \003(\t\022\022\n\npage_token" +
+      "\030\004 \001(\t\032Q\n\010Response\022,\n\016model_versions\030\001 \003" +
+      "(\0132\024.mlflow.ModelVersion\022\027\n\017next_page_to" +
+      "ken\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\226\001\n\032GetModelVersionDownlo" +
+      "adUri\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001" +
+      "(\tB\004\370\206\031\001\032 \n\010Response\022\024\n\014artifact_uri\030\001 \001" +
+      "(\t:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
+      "sponse]*R\n\022ModelVersionStatus\022\030\n\024PENDING" +
+      "_REGISTRATION\020\001\022\027\n\023FAILED_REGISTRATION\020\002" +
+      "\022\t\n\005READY\020\0032\227\024\n\024ModelRegistryService\022\266\001\n" +
+      "\025createRegisteredModel\022\035.mlflow.CreateRe" +
+      "gisteredModel\032&.mlflow.CreateRegisteredM" +
+      "odel.Response\"V\362\206\031R\n6\n\004POST\022(/preview/ml" +
+      "flow/registered-models/create\032\004\010\002\020\000\020\001*\026C" +
+      "reate RegisteredModel\022\266\001\n\025renameRegister" +
+      "edModel\022\035.mlflow.RenameRegisteredModel\032&" +
+      ".mlflow.RenameRegisteredModel.Response\"V" +
+      "\362\206\031R\n6\n\004POST\022(/preview/mlflow/registered" +
+      "-models/rename\032\004\010\002\020\000\020\001*\026Rename Registere" +
+      "dModel\022\267\001\n\025updateRegisteredModel\022\035.mlflo" +
+      "w.UpdateRegisteredModel\032&.mlflow.UpdateR" +
+      "egisteredModel.Response\"W\362\206\031S\n7\n\005PATCH\022(" +
+      "/preview/mlflow/registered-models/update" +
+      "\032\004\010\002\020\000\020\001*\026Update RegisteredModel\022\270\001\n\025del" +
+      "eteRegisteredModel\022\035.mlflow.DeleteRegist" +
+      "eredModel\032&.mlflow.DeleteRegisteredModel" +
+      ".Response\"X\362\206\031T\n8\n\006DELETE\022(/preview/mlfl" +
+      "ow/registered-models/delete\032\004\010\002\020\000\020\001*\026Del" +
+      "ete RegisteredModel\022\246\001\n\022getRegisteredMod" +
+      "el\022\032.mlflow.GetRegisteredModel\032#.mlflow." +
+      "GetRegisteredModel.Response\"O\362\206\031K\n2\n\003GET" +
+      "\022%/preview/mlflow/registered-models/get\032" +
+      "\004\010\002\020\000\020\001*\023Get RegisteredModel\022\257\001\n\024listReg" +
+      "isteredModels\022\034.mlflow.ListRegisteredMod" +
+      "els\032%.mlflow.ListRegisteredModels.Respon" +
+      "se\"R\362\206\031N\n3\n\003GET\022&/preview/mlflow/registe" +
+      "red-models/list\032\004\010\002\020\000\020\001*\025List Registered" +
+      "Models\022\270\001\n\021getLatestVersions\022\031.mlflow.Ge" +
+      "tLatestVersions\032\".mlflow.GetLatestVersio" +
+      "ns.Response\"d\362\206\031`\nB\n\003GET\0225/preview/mlflo" +
+      "w/registered-models/get-latest-versions\032" +
+      "\004\010\002\020\000\020\001*\030Get Latest ModelVersions\022\247\001\n\022cr" +
+      "eateModelVersion\022\032.mlflow.CreateModelVer" +
+      "sion\032#.mlflow.CreateModelVersion.Respons" +
+      "e\"P\362\206\031L\n3\n\004POST\022%/preview/mlflow/model-v" +
+      "ersions/create\032\004\010\002\020\000\020\001*\023Create ModelVers" +
+      "ion\022\250\001\n\022updateModelVersion\022\032.mlflow.Upda" +
+      "teModelVersion\032#.mlflow.UpdateModelVersi" +
+      "on.Response\"Q\362\206\031M\n4\n\005PATCH\022%/preview/mlf" +
+      "low/model-versions/update\032\004\010\002\020\000\020\001*\023Updat" +
+      "e ModelVersion\022\326\001\n\033transitionModelVersio" +
+      "nStage\022#.mlflow.TransitionModelVersionSt" +
+      "age\032,.mlflow.TransitionModelVersionStage" +
+      ".Response\"d\362\206\031`\n=\n\004POST\022//preview/mlflow" +
+      "/model-versions/transition-stage\032\004\010\002\020\000\020\001" +
+      "*\035Transition ModelVersion Stage\022\251\001\n\022dele" +
+      "teModelVersion\022\032.mlflow.DeleteModelVersi" +
+      "on\032#.mlflow.DeleteModelVersion.Response\"" +
+      "R\362\206\031N\n5\n\006DELETE\022%/preview/mlflow/model-v" +
+      "ersions/delete\032\004\010\002\020\000\020\001*\023Delete ModelVers" +
+      "ion\022\227\001\n\017getModelVersion\022\027.mlflow.GetMode" +
+      "lVersion\032 .mlflow.GetModelVersion.Respon" +
+      "se\"I\362\206\031E\n/\n\003GET\022\"/preview/mlflow/model-v" +
+      "ersions/get\032\004\010\002\020\000\020\001*\020Get ModelVersion\022\252\001" +
+      "\n\023searchModelVersions\022\033.mlflow.SearchMod" +
+      "elVersions\032$.mlflow.SearchModelVersions." +
+      "Response\"P\362\206\031L\n2\n\003GET\022%/preview/mlflow/m" +
+      "odel-versions/search\032\004\010\002\020\000\020\001*\024Search Mod" +
+      "elVersions\022\340\001\n\032getModelVersionDownloadUr" +
+      "i\022\".mlflow.GetModelVersionDownloadUri\032+." +
+      "mlflow.GetModelVersionDownloadUri.Respon" +
+      "se\"q\362\206\031m\n<\n\003GET\022//preview/mlflow/model-v" +
+      "ersions/get-download-uri\032\004\010\002\020\000\020\001*+Get Do" +
+      "wnload URI For ModelVersion ArtifactsB!\n" +
+      "\024org.mlflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -26408,13 +26838,13 @@ public final class ModelRegistry {
     internal_static_mlflow_ListRegisteredModels_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ListRegisteredModels_descriptor,
-        new java.lang.String[] { "MaxResults", });
+        new java.lang.String[] { "MaxResults", "PageToken", });
     internal_static_mlflow_ListRegisteredModels_Response_descriptor =
       internal_static_mlflow_ListRegisteredModels_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_ListRegisteredModels_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ListRegisteredModels_Response_descriptor,
-        new java.lang.String[] { "RegisteredModels", });
+        new java.lang.String[] { "RegisteredModels", "NextPageToken", });
     internal_static_mlflow_GetLatestVersions_descriptor =
       getDescriptor().getMessageTypes().get(8);
     internal_static_mlflow_GetLatestVersions_fieldAccessorTable = new

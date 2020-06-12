@@ -10,6 +10,7 @@ from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.tracking._tracking_service import utils
@@ -414,13 +415,13 @@ class MlflowClient(object):
         self._get_registry_client().delete_registered_model(name)
 
     @experimental
-    def list_registered_models(self):
+    def list_registered_models(self, page_token=None, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT):
         """
         List of all registered models.
 
         :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
         """
-        return self._get_registry_client().list_registered_models()
+        return self._get_registry_client().list_registered_models(page_token, max_results)
 
     @experimental
     def get_registered_model(self, name):
