@@ -12,7 +12,7 @@ def _user_args_to_dict(user_list):
         except ValueError:
             # not enough values to unpack
             raise click.BadOptionUsage("config", "Config options must be a pair and should be"
-                                                 "provided as ``--C key=value`` or "
+                                                 "provided as ``-C key=value`` or "
                                                  "``--config key=value``")
         if name in user_dict:
             raise click.ClickException("Repeated parameter: '{}'".format(name))
@@ -20,21 +20,26 @@ def _user_args_to_dict(user_list):
     return user_dict
 
 
-target_uri = click.option("--target-uri", "t_uri", required=True,
-                          help="Deployment target URI. Check the documentation/help for each "
-                               "plugin to understand the target URI format the plugins expect. "
-                               "For fetching the help, you can call "
-                               "`mlflow deployments help --target-name <target-name>`")
-target_name = click.option("--target-name", "t_name", required=True,
-                          help="Deployment target name.")
+registered = "\n".join(["* %s" % target for target in interface.plugin_store.registry])
+
+target_details = click.option("--target", "-t", required=True,
+                              help="Deployment target URI. Check the documentation/help for each "
+                                   "plugin to understand the target URI format the plugins "
+                                   "expect. Run "
+                                   "`mlflow deployments help --target-name <target-name>` for "
+                                   "more details on the supported URI format and config options "
+                                   "for a given target."
+                                   "Support is currently installed for the following targets (see"
+                                   " other deployment targets and installation instructions in "
+                                   "https://mlflow.org/docs/latest/plugins.html#community-plugins"
+                                   "): {}".format(registered))
 deployment_name = click.option("--name", "name", required=True,
                                help="Name of the deployment")
 parse_custom_arguments = click.option("--config", "-C", metavar="NAME=VALUE", multiple=True,
-                                      help="Extra target-specific config for the model deployment,"
-                                           " of the form -C name=value. See documentation/help for "
-                                           "your deployment target for a list of supported config"
-                                           " options.")
-context_settings = dict(allow_extra_args=True, ignore_unknown_options=True,)
+                                      help="Extra target-specific config for the model "
+                                           "deployment, of the form -C name=value. See "
+                                           "documentation/help for your deployment target for a "
+                                           "list of supported config options.")
 
 
 @click.group("deployments")
@@ -53,30 +58,30 @@ def commands():
     pass
 
 
-@commands.command("create", context_settings=context_settings)
+@commands.command("create")
 @parse_custom_arguments
 @deployment_name
-@target_uri
+@target_details
 @cli_args.MODEL_URI
 @click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
                                      "inferred if it's not given")
-def create_deployment(flavor, model_uri, t_uri, name, config):
+def create_deployment(flavor, model_uri, target, name, config):
     """
     Deploy the model at ``model_uri`` to the specified target.
 
     Additional plugin-specific arguments may also be passed to this command, via `-C key=value`
     """
     config_dict = _user_args_to_dict(config)
-    client = interface.get_deploy_client(t_uri)
+    client = interface.get_deploy_client(target)
     deployment = client.create_deployment(name, model_uri, flavor, config=config_dict)
     click.echo("\n{} deployment {} is created".format(deployment['flavor'],
                                                       deployment['name']))
 
 
-@commands.command("update", context_settings=context_settings)
+@commands.command("update")
 @parse_custom_arguments
 @deployment_name
-@target_uri
+@target_details
 @click.option("--model-uri", "-m", default=None, metavar="URI",
               help="URI to the model. A local path, a 'runs:/' URI, or a"
                    " remote storage URI (e.g., an 's3://' URI). For more information"
@@ -85,7 +90,7 @@ def create_deployment(flavor, model_uri, t_uri, name, config):
                    "#artifact-stores")  # optional model_uri
 @click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
                                      "inferred if it's not given")
-def update_deployment(flavor, model_uri, t_uri, name, config):
+def update_deployment(flavor, model_uri, target, name, config):
     """
     Update the deployment with ID `deployment_id` in the specified target.
     You can update the URI of the model and/or the flavor of the deployed model (in which case the
@@ -94,61 +99,69 @@ def update_deployment(flavor, model_uri, t_uri, name, config):
     Additional plugin-specific arguments may also be passed to this command, via `-C key=value`.
     """
     config_dict = _user_args_to_dict(config)
-    client = interface.get_deploy_client(t_uri)
+    client = interface.get_deploy_client(target)
     ret = client.update_deployment(name, model_uri=model_uri, flavor=flavor, config=config_dict)
     click.echo("Deployment {} is updated (with flavor {})".format(name, ret['flavor']))
 
 
-@commands.command("delete", context_settings=context_settings)
+@commands.command("delete")
 @deployment_name
-@target_uri
-def delete_deployment(t_uri, name):
+@target_details
+def delete_deployment(target, name):
     """
-    Delete the deployment with ID `deployment_id` from the specified target.
+    Delete the deployment with name given at `--name` from the specified target.
     """
-    client = interface.get_deploy_client(t_uri)
+    client = interface.get_deploy_client(target)
     client.delete_deployment(name)
     click.echo("Deployment {} is deleted".format(name))
 
 
-@commands.command("list", context_settings=context_settings)
-@target_uri
-def list_deployment(t_uri):
+@commands.command("list")
+@target_details
+def list_deployment(target):
     """
-    List the IDs of all model deployments in the specified target. These IDs can be used with
+    List the names of all model deployments in the specified target. These names can be used with
     the `delete`, `update`, and `get` commands.
     """
-    client = interface.get_deploy_client(t_uri)
+    client = interface.get_deploy_client(target)
     ids = client.list_deployments()
     click.echo("List of all deployments:\n{}".format(ids))
 
 
-@commands.command("get", context_settings=context_settings)
+@commands.command("get")
 @deployment_name
-@target_uri
-def get_deployment(t_uri, name):
+@target_details
+def get_deployment(target, name):
     """
-    Print a detailed description of the deployment with ID ``deployment_id`` in the specified
+    Print a detailed description of the deployment with name given at ``--name`` in the specified
     target.
     """
-    client = interface.get_deploy_client(t_uri)
+    client = interface.get_deploy_client(target)
     desc = client.get_deployment(name)
     for key, val in desc.items():
         click.echo("{}: {}".format(key, val))
     click.echo('\n')
 
 
-@commands.command("help", context_settings=context_settings)
-@target_name
-def target_help(t_name):
+@commands.command("help")
+@target_details
+def target_help(target):
     """
     Specific help command for deployment plugins. This will call the `target_help` function from
     the plugin to display the help string specific for each plugin
     """
-    click.echo(interface.target_help(t_name))
+    click.echo(interface.target_help(target))
 
 
-@commands.command("run-local", context_settings=context_settings)
-@target_name
-def run_local():
-    pass
+@commands.command("run-local")
+@parse_custom_arguments
+@deployment_name
+@target_details
+@cli_args.MODEL_URI
+@click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
+                                     "inferred if it's not given")
+def run_local(flavor, model_uri, target, name, config):
+    """
+    Deploy the model locally. This has very similar signature to ``create`` API
+    """
+    interface.run_local(target, name, model_uri, flavor, config)

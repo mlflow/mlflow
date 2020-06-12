@@ -1,8 +1,10 @@
 import abc
+import inspect
 
 import entrypoints
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
+from mlflow.deployments.base import BaseDeploymentClient
 
 
 # TODO: refactor to have a common base class for all the plugin implementation in MLFlow
@@ -24,7 +26,7 @@ class PluginManager(abc.ABC):
     def __init__(self, group_name):
         self._registry = {}
         self.group_name = group_name
-        self._has_plugins_loaded = None
+        self._has_registered = None
 
     @abc.abstractmethod
     def __getitem__(self, item):
@@ -41,16 +43,13 @@ class PluginManager(abc.ABC):
         return self._registry
 
     @property
-    def has_plugins_loaded(self):
+    def has_registered(self):
         """
         Returns bool representing whether the "register_entrypoints" has run or not. This
         doesn't return True if `register` method is called outside of `register_entrypoints`
         to register plugins
         """
-        return self._has_plugins_loaded
-
-    def register(self, scheme, plugin_object):
-        self._registry[scheme] = plugin_object
+        return self._has_registered
 
     def register_entrypoints(self):
         """
@@ -58,26 +57,18 @@ class PluginManager(abc.ABC):
         and register that into the registry
         """
         for entrypoint in entrypoints.get_group_all(self.group_name):
-            try:
-                plugin_module = entrypoint.load()
-                self.register(entrypoint.name, plugin_module)
-            except (AttributeError, ImportError) as exc:
-                raise RuntimeError(
-                    'Failure attempting to register store for scheme "{}": {}'.format(
-                        entrypoint.name, str(exc)))
-        self._has_plugins_loaded = True
+            self.registry[entrypoint.name] = entrypoint
+        self._has_registered = True
 
 
 class DeploymentPlugins(PluginManager):
-    def __init__(self, auto_register=False):
+    def __init__(self):
         super().__init__('mlflow.deployments')
-        self.auto_register = auto_register
+        self.register_entrypoints()
 
     def __getitem__(self, item):
-        if not self.has_plugins_loaded and self.auto_register:
-            self.register_entrypoints()
         try:
-            return self.registry[item]
+            plugin_like = self.registry[item]
         except KeyError:
             msg = 'No plugin found for managing model deployments to "{target}". ' \
                   'In order to deploy models to "{target}", find and install an appropriate ' \
@@ -86,14 +77,39 @@ class DeploymentPlugins(PluginManager):
                   'your package manager (pip, conda etc).'.format(target=item)
             raise MlflowException(msg, error_code=RESOURCE_DOES_NOT_EXIST)
 
-    def register_entrypoints(self):
-        super().register_entrypoints()
-        for name, plugin_obj in self._registry.items():
-            expected = {'get_deploy_client', 'target_help', 'run_local'}
-            notfound = expected.difference(plugin_obj.__dict__.keys())
-            if notfound:
-                raise MlflowException("Plugin registered for the target {} does not has all "
-                                      "the required interfaces. Raise an issue with the "
-                                      "plugin developers.\nExpected interfaces {}\n"
-                                      "Missing interfaces: {}".format(name, expected, notfound),
-                                      error_code=INTERNAL_ERROR)
+        if isinstance(plugin_like, entrypoints.EntryPoint):
+            try:
+                plugin_obj = plugin_like.load()
+            except (AttributeError, ImportError) as exc:
+                raise RuntimeError(
+                    'Failed to load the plugin "{}": {}'.format(item, str(exc)))
+            self.registry[item] = plugin_obj
+        else:
+            plugin_obj = plugin_like
+
+        # Testing whether the plugin is valid or not
+        expected = {'target_help', 'run_local'}
+        deployment_classes = []
+        for name, obj in inspect.getmembers(plugin_obj):
+            if name in expected:
+                expected.remove(name)
+            elif inspect.isclass(obj) and \
+                    issubclass(obj, BaseDeploymentClient) and \
+                    not obj == BaseDeploymentClient:
+                deployment_classes.append(name)
+        if len(expected) > 0:
+            raise MlflowException("Plugin registered for the target {} does not has all "
+                                  "the required interfaces. Raise an issue with the "
+                                  "plugin developers.\n"
+                                  "Missing interfaces: {}".format(item, expected),
+                                  error_code=INTERNAL_ERROR)
+        if len(deployment_classes) > 1:
+            raise MlflowException("Plugin registered for the target {} has more than one "
+                                  "child class of BaseDeploymentClient. Raise an issue with"
+                                  " the plugin developers. "
+                                  "Classes found are {}".format(item, deployment_classes))
+        elif len(deployment_classes) == 0:
+            raise MlflowException("Plugin registered for the target {} has no child class"
+                                  " of BaseDeploymentClient. Raise an issue with the "
+                                  "plugin developers".format(item))
+        return plugin_obj

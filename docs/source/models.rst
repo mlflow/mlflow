@@ -857,6 +857,8 @@ using the `mlflow.deployments Python API <python_api/mlflow.deployments.html#mlf
   deploy a new model version or change the deployment's configuration (e.g. increase replica count)
 * `List <cli.html#mlflow-deployments-list>`_: List IDs of all deployments
 * `Get <cli.html#mlflow-deployments-get>`_: Print a detailed description of a particular deployment
+* `Run Local <cli.html#mlflow-deployments-run-local>`_: Deploy the model in local host for testing
+* `Help <cli.html#mlflow-deployments-help>`_: Show the help string for the specified plugin
 
 
 Also, see:
@@ -869,3 +871,5 @@ Also, see:
     mlflow deployments update --help
     mlflow deployments list --help
     mlflow deployments get --help
+    mlflow deployments run-local --help
+    mlflow deployments help --help

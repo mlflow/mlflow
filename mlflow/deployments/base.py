@@ -1,23 +1,28 @@
 """
 Here it shows the base implementation needed for plugin developers to develop deployment plugins.
-The only interfaces a deployment plugins should expose are the three functions given below
+Deployment plugin would exposes only three interfaces which is then used by mlflow to serve user
+requests.
 
-1. :py:func:`get_deploy_client`
-2. :py:func:`run_local`
-3. :py:func:`target_help`
+1. Client class subclassed from :py:class:`BaseDeploymentClient`
+2. :py:func:`run_local` for test run the deployment on local system
+3. :py:func:`target_help` for displaying the help message about the plugin
 """
 
 import abc
 
 
-def run_local(model_uri, flavor=None, config=None):
+def run_local(target, name, model_uri, flavor=None, config=None):
     """
-    Deploys the specified model locally, for testing. This method should be defined within the module
-    specified by the plugin author.
+    Deploys the specified model locally, for testing. This function should be defined
+    within the module specified by the plugin author.
 
+    :param target: Which target to use. This information is used to call the appropriate plugin
+    :param name:  Unique name to use for deployment. If another deployment exists with the same
+                     name, create_deployment will raise a
+                     `:py:class:mlflow.exceptions.MlflowException`
     :param model_uri: URI of model to deploy
-    :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor will be chosen.
-    :param config: (optional) Dict containing updated target-specific configuration for the deployment
+    :param flavor: (optional) Model flavor to deploy. If unspecified, default flavor is chosen.
+    :param config: (optional) Dict containing updated target-specific config for the deployment
     :return: None
     """
     raise NotImplementedError("This function should be implemented in the deployment plugin. It is"
@@ -27,30 +32,18 @@ def run_local(model_uri, flavor=None, config=None):
 
 def target_help():
     """
-    Return a string containing detailed documentation on the current deployment target, to be displayed
-    when users invoke the ``mlflow deployments help -t <target-name>`` CLI. This method should be defined
-    within the module specified by the plugin author.
+    Return a string containing detailed documentation on the current deployment target, to be
+    displayed when users invoke the ``mlflow deployments help -t <target-name>`` CLI. This
+    method should be defined within the module specified by the plugin author.
     The string should contain:
+
     * An explanation of target-specific fields in the ``config`` passed to ``create_deployment``,
       ``update_deployment``
-    * How to specify a ``target_uri`` (e.g. for AWS SageMaker, ``target_uri``s have a scheme of
+    * How to specify a ``target_uri`` (e.g. for AWS SageMaker, ``target_uri`` have a scheme of
       "sagemaker://<aws-cli-profile-name>", where aws-cli-profile-name is the name of an AWS
       CLI profile https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html)
     * Any other target-specific details.
-    """
-    raise NotImplementedError("This function should be implemented in the deployment plugin. It is"
-                              "kept here only for documentation purpose and shouldn't be used in"
-                              "your application")
 
-
-def get_deploy_client(target_uri):
-    """
-    Return an instance of a subclass of :py:class:`BaseDeploymentClient` that can be used to
-    deploy models to the specified target. This method should be defined within the module
-    specified by the plugin author.
-
-    :param: target_uri: URI of target to deploy to. Run ``mlflow deployments --help`` via the CLI
-                        for more information on supported deployment targets
     """
     raise NotImplementedError("This function should be implemented in the deployment plugin. It is"
                               "kept here only for documentation purpose and shouldn't be used in"
@@ -58,16 +51,18 @@ def get_deploy_client(target_uri):
 
 
 class BaseDeploymentClient(abc.ABC):
-    # TODO: exception handling and stuff inside the abstract method
     """
-    Base class exposing Python model deployment APIs. Plugin implementors should define target-specific
-    deployment logic via a subclass of ``BaseDeploymentClient`` named "DeploymentClient" within their plugin
-    module, and customize the method docstrings of their subclass so that users can understand target-specific
-    config via help(client.create_deployment) etc.
+    Base class exposing Python model deployment APIs. Plugin implementors should define
+    target-specific deployment logic via a subclass of ``BaseDeploymentClient`` within the
+    plugin module, and customize the method docstrings
 
     .. Note::
         In case of exceptions, plugins must raise an ``MlflowException`` instead of native
         python exceptions
+
+    .. Note::
+        The plugin should only have one child class of
+        :py:class:`BaseDeploymentClient` else it throws.
     """
 
     def __init__(self, target_uri):
@@ -78,16 +73,19 @@ class BaseDeploymentClient(abc.ABC):
         """
         Deploy a model to the specified target. By default, this method should block until
         deployment completes (i.e. until it's possible to perform inference with the deployment).
-        In the case of conflicts (e.g. if it's not possible to create the specified deployment without
-        due to conflict with an existing deployment), raises a `:py:class:mlflow.exceptions.MlflowException`
-        See target-specific plugin documentation for additional detail on support for asynchronous
-        deployment and other configuration.
+        In the case of conflicts (e.g. if it's not possible to create the specified deployment
+        without due to conflict with an existing deployment), raises a
+        `:py:class:mlflow.exceptions.MlflowException`. See target-specific plugin documentation
+        for additional detail on support for asynchronous deployment and other configuration.
 
-        :param name: Unique name to use for deployment. If another deployment exists with the same name,
-                     create_deployment will raise a `:py:class:mlflow.exceptions.MlflowException`
+        :param name: Unique name to use for deployment. If another deployment exists with the same
+                     name, create_deployment will raise a
+                     `:py:class:mlflow.exceptions.MlflowException`
         :param model_uri: URI of model to deploy
-        :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor will be chosen.
-        :param config: (optional) Dict containing updated target-specific configuration for the deployment
+        :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor
+                       will be chosen.
+        :param config: (optional) Dict containing updated target-specific configuration for the
+                       deployment
         :return: Dict corresponding to created deployment, which must contain the 'name' key.
         """
         pass
@@ -95,20 +93,21 @@ class BaseDeploymentClient(abc.ABC):
     @abc.abstractmethod
     def update_deployment(self, name, model_uri=None, flavor=None, config=None):
         """
-        Update the deployment with the specified name. You can update the
-        URI of the model, the flavor of the deployed model (in which case the model URI must also
-        be specified), and/or any target-specific attributes of the deployment (via `config`).
-        By default, this method should block until deployment completes (i.e. until it's possible
-        to perform inference with the updated deployment).
-        See target-specific plugin documentation for additional detail on support for asynchronous
-        deployment and other configuration.
+        Update the deployment with the specified name. You can update the URI of the model, the
+        flavor of the deployed model (in which case the model URI must also be specified), and/or
+        any target-specific attributes of the deployment (via `config`). By default, this method
+        should block until deployment completes (i.e. until it's possible to perform inference
+        with the updated deployment). See target-specific plugin documentation for additional
+        detail on support for asynchronous deployment and other configuration.
 
         :param name: Unique name of deployment to update
         :param model_uri: URI of a new model to deploy.
-        :param flavor: (optional) new model flavor to use for deployment. If provided, `model_uri` must also be
-                       specified. If `flavor` is unspecified but `model_uri` is specified, a default flavor
-                       will be chosen and the deployment will be updated using that flavor.
-        :param config: (optional) dict containing updated target-specific configuration for the deployment
+        :param flavor: (optional) new model flavor to use for deployment. If provided,
+                       `model_uri` must also be specified. If `flavor` is unspecified but
+                       `model_uri` is specified, a default flavor will be chosen and the
+                       deployment will be updated using that flavor.
+        :param config: (optional) dict containing updated target-specific configuration for the
+                       deployment
         :return: None
         """
         pass
@@ -156,10 +155,10 @@ class BaseDeploymentClient(abc.ABC):
     @abc.abstractmethod
     def predict(self, deployment_name, df):
         """
-        Compute predictions on the pandas DataFrame ``df`` using the specified deployment. Note that the
-        input/output types of this method matches that of `mlflow pyfunc predict` (we accept
-        a pandas DataFrame as input and return either a pandas DataFrame, pandas Series,
-        or numpy array as output).
+        Compute predictions on the pandas DataFrame ``df`` using the specified deployment.
+        Note that the input/output types of this method matches that of `mlflow pyfunc predict`
+        (we accept a pandas DataFrame as input and return either a pandas DataFrame,
+        pandas Series, or numpy array as output).
 
         :param deployment_name: Name of deployment to predict against
         :param df: Pandas DataFrame to use for inference

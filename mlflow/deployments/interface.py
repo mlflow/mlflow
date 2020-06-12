@@ -1,47 +1,55 @@
+import inspect
 from mlflow.deployments.plugin_manager import DeploymentPlugins
-from mlflow.utils import experimental
+from mlflow.deployments.base import BaseDeploymentClient
 
 
-listType = list
-plugin_store = DeploymentPlugins(auto_register=True)
+plugin_store = DeploymentPlugins()
 
 
-@experimental
 def get_deploy_client(target_uri):
     """
-    It calls the `get_deploy_client` method from the plugin and return an instance of a subclass of
-    :py:class:`mlflow.deployments.BaseDeploymentClient` that can be used to deploy models to the
-    specified target
+    It fetches all the classes inside the plugin and check for a subclass of
+    :py:class:`mlflow.deployments.BaseDeploymentClient` that can be used to deploy
+    models to the specified target
+
+    .. Note::
+        The plugin should only have one child class of
+        :py:class:`mlflow.deployments.BaseDeploymentClient` else it throws.
 
     :param: target_uri: URI of target to deploy to. Run ``mlflow deployments --help`` via the CLI
                         for more information on supported deployment targets
     """
-    # TODO: Maybe we should keep the separator as ":/" instead of "://"?
     target = target_uri.split("://")[0]
-    return plugin_store[target].get_deploy_client(target_uri)
+    plugin = plugin_store[target]
+    for name, obj in inspect.getmembers(plugin):
+        if issubclass(obj, BaseDeploymentClient) and not obj == BaseDeploymentClient:
+            return obj(target_uri)
 
 
-@experimental
-def run_local(target, model_uri, flavor=None, config=None):
+def run_local(target, name, model_uri, flavor=None, config=None):
     """
-    Deploys the specified model locally, for testing. This function calls the `run_local` function from
-    the plugin and offload the task.
+    Deploys the specified model locally, for testing. This function calls the `run_local` function
+    from the plugin and offload the task.
 
     :param target: Which target to use. This information is used to call the appropriate plugin
+    :param name:  Unique name to use for deployment. If another deployment exists with the same
+                  name, this function will raise a
+                  `:py:class:mlflow.exceptions.MlflowException`
     :param model_uri: URI of model to deploy
-    :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor will be chosen.
-    :param config: (optional) Dict containing updated target-specific configuration for the deployment
+    :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor
+                   will be chosen.
+    :param config: (optional) Dict containing updated target-specific configuration for
+                   the deployment
     :return: None
     """
-    return plugin_store[target].run_local(model_uri, flavor, config)
+    return plugin_store[target].run_local(name, model_uri, flavor, config)
 
 
-@experimental
 def target_help(target):
     """
-    Return a string containing detailed documentation on the current deployment target, to be displayed
-    when users invoke the ``mlflow deployments help -t <target-name>`` CLI. This method should be defined
-    within the module specified by the plugin author.
+    Return a string containing detailed documentation on the current deployment target,
+    to be displayed when users invoke the ``mlflow deployments help -t <target-name>`` CLI.
+    This method should be defined within the module specified by the plugin author.
     The string should contain:
     * An explanation of target-specific fields in the ``config`` passed to ``create_deployment``,
       ``update_deployment``

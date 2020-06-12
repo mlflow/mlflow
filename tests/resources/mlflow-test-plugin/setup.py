@@ -1,6 +1,5 @@
 from setuptools import setup, find_packages
 
-breakpoint()
 
 setup(
     name="mlflow-test-plugin",
