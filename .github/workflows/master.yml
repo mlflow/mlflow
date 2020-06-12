@@ -13,7 +13,11 @@ on:
 jobs:
   debug:
     if: ${{ github.event_name == 'issue_comment' }}
-    run: echo "$GITHUB_CONTEXT"
+    steps:
+      - name: $github
+        run: echo "$GITHUB_CONTEXT"
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
   lint:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.comment.html_url, '/pull/') && contains(github.event.comment.body, 'trigger lint')) }}
