@@ -9,7 +9,7 @@ describe('unit tests', () => {
   let minimalProps;
 
   const setupProps = (numTags) => {
-    const tags = [];
+    const tags = {};
     _.range(numTags).forEach((n) => {
       tags[`tag${n}`] = { getKey: () => `tag${n}`, getValue: () => `value${n}` };
     });
