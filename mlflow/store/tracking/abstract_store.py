@@ -211,8 +211,6 @@ class AbstractStore:
         """
         Return runs that match the given list of search expressions within the experiments.
 
-        :param page_token:
-        :param page_token:
         :param experiment_ids: List of experiment ids to scope the search
         :param filter_string: A search filter string.
         :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
