@@ -247,3 +247,38 @@ Subsequent logged artifacts are stored in the same table.
 
 In the example provided above, the ``log_model`` operation creates three entries in the database table to store the ONNX model, the MLmodel file
 and the conda.yaml file associated with the model.
+
+
+Aliyun(Alibaba Cloud) OSS Plugin
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+The `aliyunstoreplugin <https://pypi.org/project/aliyunstoreplugin/>`_ allows MLflow to use Alibaba Cloud OSS storage as an artifact store.
+
+.. code-block:: bash
+
+        pip install mlflow[aliyun-oss]
+
+and then use MLflow as normal. The Alibaba Cloud OSS artifact store support will be provided automatically.
+
+The plugin implements all of the MLflow artifact store APIs.
+It expects Aliyun Storage access credentials in the ``MLFLOW_OSS_ENDPOINT_URL``, ``MLFLOW_OSS_KEY_ID`` and ``MLFLOW_OSS_KEY_SECRET`` environment variables,
+so you must set these variables on both your client application and your MLflow tracking server.
+To use Aliyun OSS as an artifact store, an OSS URI of the form ``oss://<bucket>/<path>`` must be provided, as shown in the example below:
+
+.. code-block:: python
+
+        import mlflow
+        import mlflow.pyfunc
+
+        class Mod(mlflow.pyfunc.PythonModel):
+            def predict(self, ctx, inp):
+                return 7
+
+        exp_name = "myexp"
+        mlflow.create_experiment(exp_name, artifact_location="oss://mlflow-test/")
+        mlflow.set_experiment(exp_name)
+        mlflow.pyfunc.log_model('model_test', python_model=Mod())
+
+In the example provided above, the ``log_model`` operation creates three entries in the OSS storage ``oss://mlflow-test/$RUN_ID/artifacts/model_test/``, the MLmodel file
+and the conda.yaml file associated with the model.

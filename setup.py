@@ -78,6 +78,9 @@ setup(
         'sqlserver': [
             "mlflow-dbstore",
         ],
+         'aliyun-oss': [
+            "aliyunstoreplugin",
+        ],
     },
     entry_points='''
         [console_scripts]
