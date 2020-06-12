@@ -420,12 +420,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                          set([name1, name2, name3, name4, name5, name6]))
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
+        # _e% matches test_for_search_ , so all
         self.assertEqual(set(search_registered_model(f"name LIKE '_e%'")),
                          set([name1, name2, name3, name4, name5, name6]))
 
-        # case-sensitive prefix search using LIKE should return just rm5 and rm6
-        # note that this test case returns both because the test DB is in sqlite. In sqlite,
-        # LIKE is NOT case-sensitive.
+        # case-sensitive prefix search using LIKE should return just rm5
         self.assertEqual(set(search_registered_model(f"name LIKE '{prefix + 'RM4A'}%'")),
                          set([name5]))
 

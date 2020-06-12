@@ -238,12 +238,12 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException('Invalid filter string: %s' % filter_string,
                                       error_code=INVALID_PARAMETER_VALUE)
         else:
-            supported_ops = f'"name ' \
-                f'{"/".join(SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS)} ' \
-                f'\'<model_name>\''
+            supported_ops = ''.join(['(' + op + ')' for op in
+                                     SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS])
+            sample_query = f'name {supported_ops} "<model_name>"'
             raise MlflowException(f'Invalid filter string: {filter_string}'
                                   'Search registered models supports filter expressions like:' +
-                                  supported_ops, error_code=INVALID_PARAMETER_VALUE)
+                                  sample_query, error_code=INVALID_PARAMETER_VALUE)
         with self.ManagedSessionMaker() as session:
             if self.db_type == SQLITE:
                 session.execute("PRAGMA case_sensitive_like = true;")
