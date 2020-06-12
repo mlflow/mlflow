@@ -1,5 +1,6 @@
 from setuptools import setup, find_packages
 
+breakpoint()
 
 setup(
     name="mlflow-test-plugin",
@@ -25,5 +26,7 @@ setup(
         # Define a dummy project backend
         "mlflow.project_backend":
             "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",
+        # fake deployment plugin
+        "mlflow.deployments": "fake_target=mlflow_test_plugin.fake_deployment_plugin"
     },
 )

@@ -1,14 +1,14 @@
 import os
 from mlflow.deployments import BaseDeploymentClient
 
-f_deployment_id = 'fake_deployment_id'
+f_deployment_name = 'fake_deployment_name'
 
 
 class FakePlugin(BaseDeploymentClient):
     def create_deployment(self, name, model_uri, flavor=None, config=None):
         if config and config.get('raiseError') == 'True':
             raise RuntimeError("Error requested")
-        return {'name': f_deployment_id, 'flavor': flavor}
+        return {'name': f_deployment_name, 'flavor': flavor}
 
     def delete_deployment(self, name):
         return None
@@ -19,7 +19,7 @@ class FakePlugin(BaseDeploymentClient):
     def list_deployments(self):
         if os.environ.get('raiseError') == 'True':
             raise RuntimeError('Error requested')
-        return [f_deployment_id]
+        return [f_deployment_name]
 
     def get_deployment(self, name):
         return {'key1': 'val1', 'key2': 'val2'}
@@ -28,12 +28,8 @@ class FakePlugin(BaseDeploymentClient):
         return 1
 
 
-def get_deploy_client(target):
-    return FakePlugin(target)
-
-
-def run_local(target, model_uri, flavor=None, config=None):
-    return "Deployed locally"
+def run_local(name, model_uri, flavor=None, config=None):
+    print(f"Deployed locally at the key {name} using the model from {model_uri}")
 
 
 def target_help():
