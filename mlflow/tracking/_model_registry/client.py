@@ -7,6 +7,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import logging
 
 from mlflow.exceptions import MlflowException
+from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry import utils
 
 _logger = logging.getLogger(__name__)
@@ -73,13 +74,13 @@ class ModelRegistryClient(object):
         """
         self.store.delete_registered_model(name)
 
-    def list_registered_models(self):
+    def list_registered_models(self, page_token=None, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT):
         """
         List of all registered models.
 
         :return: List of :py:class:`mlflow.entities.registry.RegisteredModel` objects.
         """
-        return self.store.list_registered_models()
+        return self.store.list_registered_models(page_token, max_results)
 
     def get_registered_model(self, name):
         """

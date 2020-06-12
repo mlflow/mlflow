@@ -542,11 +542,13 @@ def _delete_registered_model():
 
 @catch_mlflow_exception
 def _list_registered_models():
-    _get_request_message(ListRegisteredModels())
-    registered_models = _get_model_registry_store().list_registered_models()
+    request_message = _get_request_message(ListRegisteredModels())
+    registered_models, next_page_token = _get_model_registry_store().list_registered_models(
+        request_message.page_token, request_message.max_results)
     response_message = ListRegisteredModels.Response()
     response_message.registered_models.extend([e.to_proto()
                                                for e in registered_models])
+    response_message.next_page_token = next_page_token
     return _wrap_response(response_message)
 
 
