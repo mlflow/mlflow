@@ -90,8 +90,6 @@ class Model(object):
 
     def save(self, path):
         """Write the model as a local YAML file."""
-        if os.path.isdir(path):
-            path = os.path.join(path, "MLmodel")
         with open(path, 'w') as out:
             self.to_yaml(out)
 
