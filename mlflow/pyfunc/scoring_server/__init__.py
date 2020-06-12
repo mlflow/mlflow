@@ -135,7 +135,7 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
     :param error_message: A message for the reraised exception.
     :param error_code: An appropriate error code for the reraised exception. This should be one of
                        the codes listed in the `mlflow.protos.databricks_pb2` proto.
-    :param include_traceback: Whether to include the current traceback in the returned error. 
+    :param include_traceback: Whether to include the current traceback in the returned error.
     """
     if include_traceback:
         traceback_buf = StringIO()
