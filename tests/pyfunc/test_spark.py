@@ -5,15 +5,18 @@ import numpy as np
 import pandas as pd
 import pytest
 import pyspark
+from py4j.protocol import Py4JJavaError
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 
 import mlflow
 import mlflow.pyfunc
 import mlflow.sklearn
-from mlflow.pyfunc import spark_udf
+from mlflow.models import ModelSignature
+from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 
 import tests
+from mlflow.types import Schema, ColSpec
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
 types = [np.int32, np.int, np.str, np.float32, np.double]
@@ -54,13 +57,13 @@ def get_spark_session(conf):
     # compatibiliy-setting-for-pyarrow--0150-and-spark-23x-24x
     os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     conf.set(key="spark_session.python.worker.reuse", value=True)
-    return pyspark.sql.SparkSession.builder\
-        .config(conf=conf)\
-        .master("local-cluster[2, 1, 1024]")\
+    return pyspark.sql.SparkSession.builder \
+        .config(conf=conf) \
+        .master("local-cluster[2, 1, 1024]") \
         .getOrCreate()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def spark():
     conf = pyspark.SparkConf()
     return get_spark_session(conf)
@@ -114,6 +117,41 @@ def test_spark_udf(spark, model_path):
                 assert expected == actual
 
 
+def test_spark_udf_autofills_column_names_with_schema(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return [model_input.columns] * len(model_input)
+
+    signature = ModelSignature(
+        inputs=Schema([
+            ColSpec("long", "a"),
+            ColSpec("long", "b"),
+            ColSpec("long", "c"),
+        ]),
+        outputs=Schema([ColSpec("integer")])
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
+        udf = mlflow.pyfunc.spark_udf(spark, "runs:/{}/model".format(run.info.run_id),
+                                      result_type=ArrayType(StringType()))
+        data = spark.createDataFrame(pd.DataFrame(
+            columns=["a", "b", "c", "d"],
+            data={
+                "a": [1],
+                "b": [2],
+                "c": [3],
+                "d": [4]
+            }
+        ))
+        with pytest.raises(Py4JJavaError):
+            res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
+
+        res = data.withColumn("res2", udf("a", "b", "c")).select("res2").toPandas()
+        assert res["res2"][0] == ["a", "b", "c"]
+        res = data.withColumn("res4", udf("a", "b", "c", "d")).select("res4").toPandas()
+        assert res["res4"][0] == ["a", "b", "c"]
+
+
 @pytest.mark.large
 def test_model_cache(spark, model_path):
     mlflow.pyfunc.save_model(
@@ -127,7 +165,8 @@ def test_model_cache(spark, model_path):
 
     # Ensure we can use the model locally.
     local_model = SparkModelCache.get_or_load(archive_path)
-    assert isinstance(local_model, ConstantPyfuncWrapper)
+    assert isinstance(local_model, PyFuncModel)
+    assert isinstance(local_model._model_impl, ConstantPyfuncWrapper)
 
     # Define the model class name as a string so that each Spark executor can reference it
     # without attempting to resolve ConstantPyfuncWrapper, which is only available on the driver.
@@ -136,8 +175,9 @@ def test_model_cache(spark, model_path):
     # Request the model on all executors, and see how many times we got cache hits.
     def get_model(_):
         model = SparkModelCache.get_or_load(archive_path)
+        assert (isinstance(model, PyFuncModel))
         # NB: Can not use instanceof test as remote does not know about ConstantPyfuncWrapper class.
-        assert type(model).__name__ == constant_model_name
+        assert type(model._model_impl).__name__ == constant_model_name
         return SparkModelCache._cache_hits
 
     # This will run 30 distinct tasks, and we expect most to reuse an already-loaded model.
