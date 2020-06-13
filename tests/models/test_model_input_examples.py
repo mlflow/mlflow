@@ -19,7 +19,7 @@ def pandas_df_with_all_types():
         "long": np.array([1, 2, 3], np.int64),
         "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
         "double": [math.pi, 2 * math.pi, 3 * math.pi],
-        "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
+        "binary": [bytes([1, 2, 3]), bytes([4, 5, 6]), bytes([7, 8, 9])],
         "string": ["a", "b", 'c'],
     })
 
