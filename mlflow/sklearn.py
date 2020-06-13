@@ -177,7 +177,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=None,
 
 def log_model(sk_model, artifact_path, conda_env=None,
               serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE, registered_model_name=None,
-              model_signature: ModelSignature=None, input_example: ModelInputExample=None):
+              signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log a scikit-learn model as an MLflow artifact for the current run.
 
@@ -257,7 +257,7 @@ def log_model(sk_model, artifact_path, conda_env=None,
                      conda_env=conda_env,
                      serialization_format=serialization_format,
                      registered_model_name=registered_model_name,
-                     signature=model_signature,
+                     signature=signature,
                      input_example=input_example)
 
 

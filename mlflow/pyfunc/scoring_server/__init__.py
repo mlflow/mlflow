@@ -27,10 +27,11 @@ import traceback
 # dependencies to the minimum here.
 # ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
-from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.types import Schema
+from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json
 
 try:
-    from mlflow.pyfunc import load_model
+    from mlflow.pyfunc import load_model, PyFuncModel
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
@@ -60,16 +61,17 @@ CONTENT_TYPES = [
 _logger = logging.getLogger(__name__)
 
 
-def parse_json_input(json_input, orient="split"):
+def parse_json_input(json_input, orient="split", schema: Schema=None):
     """
     :param json_input: A JSON-formatted string representation of a Pandas DataFrame, or a stream
                        containing such a string representation.
     :param orient: The Pandas DataFrame orientation of the JSON input. This is either 'split'
                    or 'records'.
+    :param schema: Optional schema specification to be used during parsing.
     """
     # pylint: disable=broad-except
     try:
-        return pd.read_json(json_input, orient=orient, dtype=False)
+        return _dataframe_from_json(json_input, pandas_orient=orient, schema=schema)
     except Exception:
         _handle_serving_error(
             error_message=(
@@ -124,7 +126,7 @@ def predictions_to_json(raw_predictions, output):
     json.dump(predictions, output, cls=NumpyEncoder)
 
 
-def _handle_serving_error(error_message, error_code):
+def _handle_serving_error(error_message, error_code, include_traceback=True):
     """
     Logs information about an exception thrown by model inference code that is currently being
     handled and reraises it with the specified error message. The exception stack trace
@@ -133,21 +135,25 @@ def _handle_serving_error(error_message, error_code):
     :param error_message: A message for the reraised exception.
     :param error_code: An appropriate error code for the reraised exception. This should be one of
                        the codes listed in the `mlflow.protos.databricks_pb2` proto.
+    :param include_traceback: Whether to include the current traceback in the returned error.
     """
-    traceback_buf = StringIO()
-    traceback.print_exc(file=traceback_buf)
-    reraise(MlflowException,
-            MlflowException(
-                message=error_message,
-                error_code=error_code,
-                stack_trace=traceback_buf.getvalue()))
+    if include_traceback:
+        traceback_buf = StringIO()
+        traceback.print_exc(file=traceback_buf)
+        traceback_str = traceback_buf.getvalue()
+        e = MlflowException(message=error_message, error_code=error_code, stack_trace=traceback_str)
+    else:
+        e = MlflowException(message=error_message, error_code=error_code)
+    reraise(MlflowException, e)
 
 
-def init(model):
+def init(model: PyFuncModel):
+
     """
     Initialize the server. Loads pyfunc model from the path.
     """
     app = flask.Flask(__name__)
+    input_schema = model.metadata.get_input_schema()
 
     @app.route('/ping', methods=['GET'])
     def ping():  # pylint: disable=unused-variable
@@ -174,10 +180,10 @@ def init(model):
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="split")
+                                    orient="split", schema=input_schema)
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="records")
+                                    orient="records", schema=input_schema)
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
             data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
         else:
@@ -193,6 +199,11 @@ def init(model):
         # pylint: disable=broad-except
         try:
             raw_predictions = model.predict(data)
+        except MlflowException as e:
+            _handle_serving_error(
+                error_message=e.message,
+                error_code=BAD_REQUEST,
+                include_traceback=False)
         except Exception:
             _handle_serving_error(
                 error_message=(

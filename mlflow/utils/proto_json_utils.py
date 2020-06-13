@@ -1,4 +1,5 @@
 import base64
+
 from json import JSONEncoder
 
 from google.protobuf.json_format import MessageToJson, ParseDict
@@ -81,10 +82,6 @@ class NumpyEncoder(JSONEncoder):
             return super().default(o)
 
 
-def _base64decode(x):
-    return base64.decodebytes(x.encode("ascii"))
-
-
 def _dataframe_from_json(path_or_str, schema: Schema = None,
                          pandas_orient: str = "split", precise_float=False) -> pd.DataFrame:
     """
@@ -97,14 +94,13 @@ def _dataframe_from_json(path_or_str, schema: Schema = None,
     :return: pandas.DataFrame.
     """
     if schema is not None:
-        dtypes = dict(zip(schema.column_names(), schema.column_types()))
+        dtypes = dict(zip(schema.column_names(), schema.pandas_types()))
         df = pd.read_json(path_or_str, orient=pandas_orient, dtype=dtypes,
-                          precise_float=precise_float)[schema.column_names()]
-        binary_cols = [i for i, x in enumerate(schema.column_types()) if x == DataType.binary]
-
-        for i in binary_cols:
-            col = df.columns[i]
-            df[col] = np.array(df[col].map(_base64decode), dtype=np.bytes_)
+                          precise_float=precise_float)
+        actual_cols = set(df.columns)
+        for type_, name in zip(schema.column_types(), schema.column_names()):
+            if type_ == DataType.binary and name in actual_cols:
+                df[name] = df[name].map(lambda x: base64.decodebytes(bytes(x, 'utf8')))
         return df
     else:
         return pd.read_json(path_or_str, orient=pandas_orient, dtype=False,

@@ -147,3 +147,43 @@ def test_spark_schema_inference(pandas_df_with_all_types):
     sparkdf = spark_session.createDataFrame(pandas_df_with_all_types, schema=spark_schema)
     schema = _infer_schema(sparkdf)
     assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
+
+
+@pytest.mark.large
+def test_spark_type_mapping(pandas_df_with_all_types):
+    import pyspark
+    from pyspark.sql.types import BooleanType, IntegerType, LongType, FloatType, DoubleType, \
+        StringType, BinaryType
+    from pyspark.sql.types import StructField, StructType
+
+    assert isinstance(DataType.boolean.to_spark(), BooleanType)
+    assert isinstance(DataType.integer.to_spark(), IntegerType)
+    assert isinstance(DataType.long.to_spark(), LongType)
+    assert isinstance(DataType.float.to_spark(), FloatType)
+    assert isinstance(DataType.double.to_spark(), DoubleType)
+    assert isinstance(DataType.string.to_spark(), StringType)
+    assert isinstance(DataType.binary.to_spark(), BinaryType)
+    schema = _infer_schema(pandas_df_with_all_types)
+    expected_spark_schema = StructType(
+        [StructField(t.name, t.to_spark(), True)
+         for t in schema.column_types()])
+    actual_spark_schema = schema.as_spark_schema()
+    assert expected_spark_schema.jsonValue() == actual_spark_schema.jsonValue()
+    spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
+    sparkdf = spark_session.createDataFrame(pandas_df_with_all_types,
+                                            schema=actual_spark_schema)
+    schema2 = _infer_schema(sparkdf)
+    assert schema == schema2
+
+    # test unnamed columns
+    schema = Schema([ColSpec(col.type) for col in schema.columns])
+    expected_spark_schema = StructType(
+        [StructField(str(i), t.to_spark(), True)
+         for i, t in enumerate(schema.column_types())])
+    actual_spark_schema = schema.as_spark_schema()
+    assert expected_spark_schema.jsonValue() == actual_spark_schema.jsonValue()
+
+    # test single unnamed column is mapped to just a single spark type
+    schema = Schema([ColSpec(DataType.integer)])
+    spark_type = schema.as_spark_schema()
+    assert isinstance(spark_type, IntegerType)

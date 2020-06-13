@@ -22,6 +22,12 @@ def test_model_save_load():
                   inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
                   outputs=Schema([ColSpec(name=None, type="double")])),
               saved_input_example_info={"x": 1, "y": 2})
+    assert m.get_input_schema() == m.signature.inputs
+    assert m.get_output_schema() == m.signature.outputs
+    x = Model(artifact_path="some/other/path", run_id="1234")
+    assert x.get_input_schema() is None
+    assert x.get_output_schema() is None
+
     n = Model(artifact_path="some/path",
               run_id="123",
               flavors={
@@ -34,7 +40,7 @@ def test_model_save_load():
               saved_input_example_info={"x": 1, "y": 2})
     n.utc_time_created = m.utc_time_created
     assert m == n
-    n.run_id = "124"
+    n.signature = None
     assert m != n
     with TempDir() as tmp:
         m.save(tmp.path("model"))
