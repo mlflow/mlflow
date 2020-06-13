@@ -71,6 +71,8 @@ def model(data):
     model = Sequential()
     model.add(Dense(3, input_dim=4))
     model.add(Dense(1))
+    # Use a small learning rate to prevent exploding gradients which may produce
+    # infinite prediction values
     model.compile(loss='mean_squared_error', optimizer=SGD(learning_rate=0.001))
     model.fit(x, y)
     return model
