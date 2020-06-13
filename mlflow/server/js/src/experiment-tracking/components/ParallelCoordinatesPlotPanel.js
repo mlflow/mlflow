@@ -25,7 +25,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     sharedParamKeys: PropTypes.arrayOf(String).isRequired,
     // An array of metric keys shared by all runs
     sharedMetricKeys: PropTypes.arrayOf(String).isRequired,
-    // An array of different parameter keys across runs
+    // A subset of sharedParamKeys where the values of the parameters differ between runs
     diffParamKeys: PropTypes.arrayOf(String).isRequired,
   };
 
