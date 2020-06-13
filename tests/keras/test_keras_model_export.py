@@ -7,6 +7,7 @@ import pytest
 import shutil
 import importlib
 import random
+from packaging import version
 
 import tensorflow as tf
 from keras.models import Sequential
@@ -44,7 +45,11 @@ def fix_random_seed():
     os.environ['PYTHONHASHSEED'] = str(SEED)
     random.seed(SEED)
     np.random.seed(SEED)
-    tf.random.set_seed(SEED)
+
+    if version.parse(tf.__version__) >= version.parse('2.0.0'):
+        tf.random.set_seed(SEED)
+    else:
+        tf.set_random_seed(SEED)
 
 
 @pytest.fixture(scope='module')
