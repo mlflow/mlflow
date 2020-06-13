@@ -6,6 +6,9 @@ import json
 import pytest
 import shutil
 import importlib
+import random
+
+import tensorflow as tf
 from keras.models import Sequential
 from keras.layers import Layer, Dense
 from keras import backend as K
@@ -33,6 +36,15 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
+
+
+@pytest.fixture(scope='module', autouse=True)
+def fix_random_seed():
+    SEED = 0
+    os.environ['PYTHONHASHSEED'] = str(SEED)
+    random.seed(SEED)
+    np.random.seed(SEED)
+    tf.random.set_seed(SEED)
 
 
 @pytest.fixture(scope='module')
