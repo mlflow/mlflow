@@ -10,6 +10,9 @@ import random
 from packaging import version
 
 import tensorflow as tf
+from tensorflow.keras.models import Sequential as TfSequential
+from tensorflow.keras.layers import Dense as TfDense
+from tensorflow.keras.optimizers import SGD as TfSGD
 from keras.models import Sequential
 from keras.layers import Layer, Dense
 from keras import backend as K
@@ -76,9 +79,6 @@ def model(data):
 @pytest.fixture(scope='module')
 def tf_keras_model(data):
     x, y = data
-    from tensorflow.keras.models import Sequential as TfSequential
-    from tensorflow.keras.layers import Dense as TfDense
-    from tensorflow.keras.optimizers import SGD as TfSGD
     model = TfSequential()
     model.add(TfDense(3, input_dim=4))
     model.add(TfDense(1))
