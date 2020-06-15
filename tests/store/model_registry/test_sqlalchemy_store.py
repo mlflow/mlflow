@@ -440,7 +440,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                          set(names[4:]))
 
         # case-insensitive postfix search with ILIKE
-        self.assertEqual(set(self.get_rm_names(self.search_registered_models(f"name ILIKE '%RM4a'"))),
+        self.assertEqual(set(self.get_rm_names(self.search_registered_models(
+            f"name ILIKE '%RM4a'"))),
                          set(names[4:]))
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
