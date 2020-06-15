@@ -5,7 +5,7 @@ import pytest
 import kubernetes
 from kubernetes.config.config_exception import ConfigException
 
-from mlflow.projects import kubernetes as kb
+from mlflow.projects.backend import kubernetes as kb
 from mlflow.exceptions import ExecutionException
 from mlflow.entities import RunStatus
 

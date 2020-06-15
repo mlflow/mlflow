@@ -2,6 +2,7 @@ import entrypoints
 import logging
 
 from mlflow.projects.backend.local import LocalBackend
+from mlflow.projects.backend.kubernetes import KubernetesBackend
 
 ENTRYPOINT_GROUP_NAME = "mlflow.project_backend"
 
@@ -9,7 +10,10 @@ __logger__ = logging.getLogger(__name__)
 
 
 # Statically register backend defined in mlflow
-MLFLOW_BACKENDS = {'local': LocalBackend}
+MLFLOW_BACKENDS = {
+    'local': LocalBackend,
+    'kubernetes': KubernetesBackend,
+}
 
 
 def load_backend(backend_name):

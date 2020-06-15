@@ -2,7 +2,6 @@
 The ``mlflow.projects`` module provides an API for running MLflow projects locally or remotely.
 """
 import json
-import yaml
 import os
 from six.moves import urllib
 import logging
@@ -15,7 +14,7 @@ from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.projects.utils import (
     fetch_and_validate_project, get_or_create_run, load_project,
-    get_entry_point_command, get_run_env_vars, MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
+    MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
     PROJECT_USE_CONDA, PROJECT_SYNCHRONOUS, PROJECT_DOCKER_ARGS, PROJECT_STORAGE_DIR
 )
 from mlflow.projects.docker import (
@@ -23,7 +22,7 @@ from mlflow.projects.docker import (
 )
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_BACKEND
 
 
 _logger = logging.getLogger(__name__)
@@ -99,35 +98,7 @@ def _run(uri, experiment_id, entry_point, version, parameters,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
             experiment_id=experiment_id, cluster_spec=backend_config)
 
-    elif backend_name == "kubernetes":
-        from mlflow.projects import kubernetes as kb
-        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
-        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
-                                        "kubernetes")
-        validate_docker_env(project)
-        validate_docker_installation()
-        kube_config = _parse_kubernetes_config(backend_config)
-        image = build_docker_image(work_dir=work_dir,
-                                   repository_uri=kube_config["repository-uri"],
-                                   base_image=project.docker_env.get('image'),
-                                   run_id=active_run.info.run_id)
-        image_digest = kb.push_image_to_registry(image.tags[0])
-        submitted_run = kb.run_kubernetes_job(
-            project.name,
-            active_run,
-            image.tags[0],
-            image_digest,
-            get_entry_point_command(project, entry_point, parameters, storage_dir),
-            get_run_env_vars(
-                run_id=active_run.info.run_uuid,
-                experiment_id=active_run.info.experiment_id
-            ),
-            kube_config.get('kube-context', None),
-            kube_config['kube-job-template']
-        )
-        return submitted_run
-
-    supported_backends = ["databricks", "kubernetes"]
+    supported_backends = ["databricks"] + list(loader.MLFLOW_BACKENDS.keys())
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (backend_name, supported_backends))
 
@@ -262,33 +233,6 @@ def _validate_execution_environment(project, backend):
     if project.docker_env and backend == "databricks":
         raise ExecutionException(
             "Running docker-based projects on Databricks is not yet supported.")
-
-
-def _parse_kubernetes_config(backend_config):
-    """
-    Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
-    """
-    if not backend_config:
-        raise ExecutionException("Backend_config file not found.")
-    kube_config = backend_config.copy()
-    if 'kube-job-template-path' not in backend_config.keys():
-        raise ExecutionException("'kube-job-template-path' attribute must be specified in "
-                                 "backend_config.")
-    kube_job_template = backend_config['kube-job-template-path']
-    if os.path.exists(kube_job_template):
-        with open(kube_job_template, 'r') as job_template:
-            yaml_obj = yaml.safe_load(job_template.read())
-        kube_job_template = yaml_obj
-        kube_config['kube-job-template'] = kube_job_template
-    else:
-        raise ExecutionException("Could not find 'kube-job-template-path': {}".format(
-            kube_job_template))
-    if 'kube-context' not in backend_config.keys():
-        _logger.debug("Could not find kube-context in backend_config."
-                      " Using current context or in-cluster config.")
-    if 'repository-uri' not in backend_config.keys():
-        raise ExecutionException("Could not find 'repository-uri' in backend_config.")
-    return kube_config
 
 
 __all__ = [

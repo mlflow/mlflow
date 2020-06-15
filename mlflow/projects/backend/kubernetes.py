@@ -2,20 +2,63 @@ import logging
 import docker
 import time
 import os
+import yaml
+from shlex import split
+from six.moves import shlex_quote as quote
 from threading import RLock
 from datetime import datetime
+
+
+from mlflow import tracking
+from mlflow.entities import RunStatus
+from mlflow.exceptions import ExecutionException
+from mlflow.projects.submitted_run import SubmittedRun
+from mlflow.projects.backend.abstract_backend import AbstractBackend
+from mlflow.projects import docker as project_docker
+from mlflow.projects.utils import (
+    fetch_and_validate_project, load_project, get_or_create_run, get_entry_point_command,
+    get_run_env_vars, PROJECT_STORAGE_DIR
+)
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
 
 import kubernetes
 from kubernetes.config.config_exception import ConfigException
 
-from mlflow.exceptions import ExecutionException
-from mlflow.projects.submitted_run import SubmittedRun
-from mlflow.entities import RunStatus
-
-from shlex import split
-from six.moves import shlex_quote as quote
 
 _logger = logging.getLogger(__name__)
+
+
+class KubernetesBackend(AbstractBackend):
+    def run(self, project_uri, entry_point, params,
+            version, backend_config, tracking_uri, experiment_id):
+        work_dir = fetch_and_validate_project(project_uri, version, entry_point, params)
+        project = load_project(work_dir)
+        active_run = get_or_create_run(None, project_uri, experiment_id, work_dir, version,
+                                       entry_point, params)
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
+        project_docker.validate_docker_env(project)
+        project_docker.validate_docker_installation()
+        kube_config = _parse_kubernetes_config(backend_config)
+        image = project_docker.build_docker_image(work_dir=work_dir,
+                                                  repository_uri=kube_config["repository-uri"],
+                                                  base_image=project.docker_env.get('image'),
+                                                  run_id=active_run.info.run_id)
+        image_digest = push_image_to_registry(image.tags[0])
+        storage_dir = backend_config[PROJECT_STORAGE_DIR]
+        submitted_run = run_kubernetes_job(
+            project.name,
+            active_run,
+            image.tags[0],
+            image_digest,
+            get_entry_point_command(project, entry_point, params, storage_dir),
+            get_run_env_vars(
+                run_id=active_run.info.run_uuid,
+                experiment_id=active_run.info.experiment_id
+            ),
+            kube_config.get('kube-context', None),
+            kube_config['kube-job-template']
+        )
+        return submitted_run
 
 
 def push_image_to_registry(image_tag):
@@ -153,3 +196,30 @@ class KubernetesSubmittedRun(SubmittedRun):
                 _logger.info("Job cancelled.")
             else:
                 _logger.info("Attempting to cancel a job that is already terminated.")
+
+
+def _parse_kubernetes_config(backend_config):
+    """
+    Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
+    """
+    if not backend_config:
+        raise ExecutionException("Backend_config file not found.")
+    kube_config = backend_config.copy()
+    if 'kube-job-template-path' not in backend_config.keys():
+        raise ExecutionException("'kube-job-template-path' attribute must be specified in "
+                                 "backend_config.")
+    kube_job_template = backend_config['kube-job-template-path']
+    if os.path.exists(kube_job_template):
+        with open(kube_job_template, 'r') as job_template:
+            yaml_obj = yaml.safe_load(job_template.read())
+        kube_job_template = yaml_obj
+        kube_config['kube-job-template'] = kube_job_template
+    else:
+        raise ExecutionException("Could not find 'kube-job-template-path': {}".format(
+            kube_job_template))
+    if 'kube-context' not in backend_config.keys():
+        _logger.debug("Could not find kube-context in backend_config."
+                      " Using current context or in-cluster config.")
+    if 'repository-uri' not in backend_config.keys():
+        raise ExecutionException("Could not find 'repository-uri' in backend_config.")
+    return kube_config
