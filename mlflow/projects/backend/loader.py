@@ -1,8 +1,10 @@
 import entrypoints
 import logging
+from typing import Dict, Type
 
+from mlflow.projects.backend import AbstractBackend
 from mlflow.projects.backend.local import LocalBackend
-from mlflow.projects.backend.kubernetes import KubernetesBackend
+
 
 ENTRYPOINT_GROUP_NAME = "mlflow.project_backend"
 
@@ -10,10 +12,15 @@ __logger__ = logging.getLogger(__name__)
 
 
 # Statically register backend defined in mlflow
-MLFLOW_BACKENDS = {
+MLFLOW_BACKENDS: Dict[str, Type[AbstractBackend]] = {
     'local': LocalBackend,
-    'kubernetes': KubernetesBackend,
 }
+
+try:
+    from mlflow.projects.backend.kubernetes import KubernetesBackend
+    MLFLOW_BACKENDS['kubernetes'] = KubernetesBackend
+except ModuleNotFoundError:
+    pass
 
 
 def load_backend(backend_name):
