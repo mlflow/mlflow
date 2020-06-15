@@ -9,6 +9,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST
 import mlflow.store.db.utils
+from mlflow.store.db.db_types import SQLITE
 from mlflow.store.db.base_sql_model import Base
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
@@ -204,6 +205,51 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             return [sql_registered_model.to_mlflow_entity()
                     for sql_registered_model in session.query(SqlRegisteredModel).all()]
+
+    def search_registered_models(self, filter_string):
+        """
+        Search for registered models in backend that satisfy the filter criteria.
+
+        :param filter_string: A filter string expression. Currently supports a single filter
+                              condition either name of model like ``name = 'model_name'``
+
+        :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
+        """
+        parsed_filter = SearchUtils.parse_filter_for_model_registry(filter_string)
+        if len(parsed_filter) == 0:
+            conditions = []
+        elif len(parsed_filter) == 1:
+            filter_dict = parsed_filter[0]
+            if filter_dict["comparator"] not in \
+                    SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS:
+                raise MlflowException('Search registered models filter expression only '
+                                      'supports the equality(=) comparator, case-sensitive'
+                                      'partial match (LIKE), and case-insensitive partial '
+                                      'match (ILIKE). Input filter string: %s' % filter_string,
+                                      error_code=INVALID_PARAMETER_VALUE)
+            if filter_dict["key"] == "name":
+                if filter_dict["comparator"] == "LIKE":
+                    conditions = [SqlRegisteredModel.name.like(filter_dict["value"])]
+                elif filter_dict["comparator"] == "ILIKE":
+                    conditions = [SqlRegisteredModel.name.ilike(filter_dict["value"])]
+                else:
+                    conditions = [SqlRegisteredModel.name == filter_dict["value"]]
+            else:
+                raise MlflowException('Invalid filter string: %s' % filter_string,
+                                      error_code=INVALID_PARAMETER_VALUE)
+        else:
+            supported_ops = ''.join(['(' + op + ')' for op in
+                                     SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS])
+            sample_query = f'name {supported_ops} "<model_name>"'
+            raise MlflowException(f'Invalid filter string: {filter_string}'
+                                  'Search registered models supports filter expressions like:' +
+                                  sample_query, error_code=INVALID_PARAMETER_VALUE)
+        with self.ManagedSessionMaker() as session:
+            if self.db_type == SQLITE:
+                session.execute("PRAGMA case_sensitive_like = true;")
+            sql_registered_models = session.query(SqlRegisteredModel).filter(*conditions).all()
+            registered_models = [rm.to_mlflow_entity() for rm in sql_registered_models]
+            return registered_models
 
     def get_registered_model(self, name):
         """
