@@ -222,8 +222,8 @@ class SqlAlchemyStore(AbstractStore):
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``search_registered_models`` call.
         :param max_results: Maximum number of registered models desired.
-        :return: A list of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects that
-                satisfy the search expressions. The pagination token for the next page can be
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
         """
         if max_results > SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD:
