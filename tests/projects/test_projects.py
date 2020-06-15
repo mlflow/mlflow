@@ -12,7 +12,6 @@ from mlflow.entities import RunStatus, ViewType, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects.backend.kubernetes import _parse_kubernetes_config
 from mlflow.projects import _resolve_experiment_id
-from mlflow.projects.utils import PROJECT_SYNCHRONOUS, PROJECT_DOCKER_ARGS, PROJECT_USE_CONDA
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils import env
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
