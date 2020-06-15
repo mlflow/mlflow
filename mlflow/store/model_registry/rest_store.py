@@ -39,11 +39,12 @@ class RestStore(AbstractStore):
 
     # CRUD API for RegisteredModel objects
 
-    def create_registered_model(self, name):
+    def create_registered_model(self, name, creation_time=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
+        :param creation_time: Time when the registered model is created - for use in tests
 
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
         created in the backend.
