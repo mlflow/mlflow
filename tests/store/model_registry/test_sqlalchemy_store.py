@@ -34,8 +34,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
         os.remove(self.temp_dbfile)
 
-    def _rm_maker(self, name, creation_time=None):
-        return self.store.create_registered_model(name, creation_time)
+    def _rm_maker(self, name):
+        return self.store.create_registered_model(name)
 
     def _mv_maker(self, name, source="path/to/source", run_id=uuid.uuid4().hex):
         return self.store.create_model_version(name, source, run_id)
@@ -484,11 +484,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             f"name ILIKE '{prefix + 'RM4A'}%'"))), {names[4]})
 
     def test_search_registered_model_pagination(self):
-        rms = [self._rm_maker("RM" + str(i), creation_time=i).name for i in range(50)]
-        # reverse because we return in order of the newest matches
-        rms.reverse()
+        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
         # test that pagination will return all valid results in sorted order
-        # by last updated timestamp
+        # by name ascending
         result = self.search_registered_models("name LIKE 'RM%'", max_results=5)
         self.assertNotEqual(result.token, None)
         self.assertEqual(self.get_rm_names(result), rms[0:5])
@@ -520,9 +518,3 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self.assertIn("Invalid value for request parameter max_results",
                       exception_context.exception.message)
-
-        # test that updating one of the models changes the returned order
-        self.store.update_registered_model(rms[-1], "new description")
-        result = self.search_registered_models("name LIKE 'RM%'", max_results=5)
-        self.assertNotEqual(result.token, None)
-        self.assertEqual(self.get_rm_names(result), [rms[-1]] + rms[0:4])

@@ -102,7 +102,7 @@ class SqlAlchemyStore(AbstractStore):
             # single object
             session.add(objs)
 
-    def create_registered_model(self, name, creation_time=None):
+    def create_registered_model(self, name):
         """
         Create a new registered model in backend store.
 
@@ -117,8 +117,7 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             try:
-                if creation_time is None:
-                    creation_time = now()
+                creation_time = now()
                 registered_model = SqlRegisteredModel(name=name, creation_time=creation_time,
                                                       last_updated_time=creation_time)
                 self._save_to_db(session, registered_model)
@@ -276,7 +275,7 @@ class SqlAlchemyStore(AbstractStore):
                 session.execute("PRAGMA case_sensitive_like = true;")
             sql_registered_models = session.query(SqlRegisteredModel)\
                 .filter(*conditions)\
-                .order_by(SqlRegisteredModel.last_updated_time.desc())\
+                .order_by(SqlRegisteredModel.name.asc())\
                 .offset(offset)\
                 .limit(max_results).all()
             registered_models = [rm.to_mlflow_entity() for rm in sql_registered_models]
