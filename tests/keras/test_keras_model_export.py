@@ -6,9 +6,17 @@ import json
 import pytest
 import shutil
 import importlib
+import random
+from packaging import version
+
+import tensorflow as tf
+from tensorflow.keras.models import Sequential as TfSequential
+from tensorflow.keras.layers import Dense as TfDense
+from tensorflow.keras.optimizers import SGD as TfSGD
 from keras.models import Sequential
 from keras.layers import Layer, Dense
 from keras import backend as K
+from keras.optimizers import SGD
 import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
@@ -34,6 +42,19 @@ from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-impo
 from tests.pyfunc.test_spark import score_model_as_udf
 
 
+@pytest.fixture(scope='module', autouse=True)
+def fix_random_seed():
+    SEED = 0
+    os.environ['PYTHONHASHSEED'] = str(SEED)
+    random.seed(SEED)
+    np.random.seed(SEED)
+
+    if version.parse(tf.__version__) >= version.parse('2.0.0'):
+        tf.random.set_seed(SEED)
+    else:
+        tf.set_random_seed(SEED)
+
+
 @pytest.fixture(scope='module')
 def data():
     iris = datasets.load_iris()
@@ -50,7 +71,9 @@ def model(data):
     model = Sequential()
     model.add(Dense(3, input_dim=4))
     model.add(Dense(1))
-    model.compile(loss='mean_squared_error', optimizer='SGD')
+    # Use a small learning rate to prevent exploding gradients which may produce
+    # infinite prediction values
+    model.compile(loss='mean_squared_error', optimizer=SGD(learning_rate=0.001))
     model.fit(x, y)
     return model
 
@@ -58,12 +81,10 @@ def model(data):
 @pytest.fixture(scope='module')
 def tf_keras_model(data):
     x, y = data
-    from tensorflow.keras.models import Sequential as TfSequential
-    from tensorflow.keras.layers import Dense as TfDense
     model = TfSequential()
     model.add(TfDense(3, input_dim=4))
     model.add(TfDense(1))
-    model.compile(loss='mean_squared_error', optimizer='SGD')
+    model.compile(loss='mean_squared_error', optimizer=TfSGD(learning_rate=0.001))
     model.fit(x, y)
     return model
 
