@@ -19,7 +19,7 @@ from mlflow.projects.utils import (
     get_conda_bin_executable, get_entry_point_command, get_run_env_vars,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG, MLFLOW_DOCKER_WORKDIR_PATH,
     PROJECT_USE_CONDA, PROJECT_SYNCHRONOUS, PROJECT_DOCKER_ARGS,
-    MLFLOW_CONDA_HOME
+    MLFLOW_CONDA_HOME, PROJECT_STORAGE_DIR
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -51,6 +51,7 @@ class LocalBackend(AbstractBackend):
         use_conda = backend_config[PROJECT_USE_CONDA]
         synchronous = backend_config[PROJECT_SYNCHRONOUS]
         docker_args = backend_config[PROJECT_DOCKER_ARGS]
+        storage_dir = backend_config[PROJECT_STORAGE_DIR]
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
@@ -77,7 +78,7 @@ class LocalBackend(AbstractBackend):
         # updates to the tracking server when finished. Note that the run state may not be
         # persisted to the tracking server if interrupted
         if synchronous:
-            command_args += get_entry_point_command(project, entry_point, params, work_dir)
+            command_args += get_entry_point_command(project, entry_point, params, storage_dir)
             command_str = command_separator.join(command_args)
             return _run_entry_point(command_str, work_dir, experiment_id,
                                     run_id=active_run.info.run_id)
@@ -85,7 +86,7 @@ class LocalBackend(AbstractBackend):
         return _invoke_mlflow_run_subprocess(
             work_dir=work_dir, entry_point=entry_point, parameters=params,
             experiment_id=experiment_id,
-            use_conda=use_conda, storage_dir=work_dir, run_id=active_run.info.run_id)
+            use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
 
 
 def _invoke_mlflow_run_subprocess(

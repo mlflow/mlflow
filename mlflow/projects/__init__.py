@@ -20,7 +20,7 @@ from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects.utils import (
     _get_storage_dir, fetch_and_validate_project, get_or_create_run, load_project,
     get_entry_point_command, get_run_env_vars, MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
-    PROJECT_USE_CONDA, PROJECT_SYNCHRONOUS, PROJECT_DOCKER_ARGS
+    PROJECT_USE_CONDA, PROJECT_SYNCHRONOUS, PROJECT_DOCKER_ARGS, PROJECT_STORAGE_DIR
 )
 from mlflow.projects.docker import (
     validate_docker_env, validate_docker_installation, build_docker_image
@@ -81,6 +81,7 @@ def _run(uri, experiment_id, entry_point, version, parameters,
     backend_config[PROJECT_USE_CONDA] = use_conda
     backend_config[PROJECT_SYNCHRONOUS] = synchronous
     backend_config[PROJECT_DOCKER_ARGS] = docker_args
+    backend_config[PROJECT_STORAGE_DIR] = storage_dir
     # TODO: remove this check once local, databricks, kubernetes execution have been refactored
     # into their own built-in project execution backends.
     if backend_name not in {"databricks", "kubernetes"}:
