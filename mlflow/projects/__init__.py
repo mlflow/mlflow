@@ -219,6 +219,8 @@ def run(uri, entry_point="main", version=None, parameters=None,
                         using "python" to run ``.py`` files and the default shell (specified by
                         environment variable ``$SHELL``) to run ``.sh`` files.
     :param version: For Git-based projects, either a commit hash or a branch name.
+    :param parameters: Parameters (dictionary) for the entry point command.
+    :param docker_args: Arguments (dictionary) for the docker command.
     :param experiment_name: Name of experiment under which to launch the run.
     :param experiment_id: ID of experiment under which to launch the run.
     :param backend: Execution backend for the run: MLflow provides built-in support for "local",

@@ -30,6 +30,7 @@
     "react-iframe": "1.8.0",
     "react-mde": "^7.6.2",
     "react-modal": "^3.4.4",
+    "react-pdf": "^4.1.0",
     "react-plotly.js": "2.2.0",
     "react-redux": "5.0.7",
     "react-router": "4.2.0",
@@ -66,7 +67,7 @@
   "scripts": {
     "start": "react-app-rewired start",
     "build": "react-app-rewired --max_old_space_size=4096 build",
-    "test": "react-app-rewired test --env=jsdom",
+    "test": "react-app-rewired test --env=jsdom --colors",
     "eject": "react-scripts eject",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"

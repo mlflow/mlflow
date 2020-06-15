@@ -604,6 +604,7 @@ execution. Replaced fields are indicated using bracketed text.
         - name: "{replaced with MLflow Project name}"
           image: "{replaced with URI of Docker image created during Project execution}"
           command: ["{replaced with MLflow Project entry point command}"]
+          env: ["{appended with MLFLOW_TRACKING_URI, MLFLOW_RUN_ID and MLFLOW_EXPERIMENT_ID}"]
         resources:
           limits:
             memory: 512Mi
@@ -612,8 +613,10 @@ execution. Replaced fields are indicated using bracketed text.
         restartPolicy: Never
 
 The ``container.name``, ``container.image``, and ``container.command`` fields are only replaced for
-the *first* container defined in the Job Spec. All subsequent container definitions are applied
-without modification.
+the *first* container defined in the Job Spec. Further, the ``MLFLOW_TRACKING_URI``, ``MLFLOW_RUN_ID``
+and ``MLFLOW_EXPERIMENT_ID`` are appended to ``container.env``. Use ``KUBE_MLFLOW_TRACKING_URI`` to
+pass a different tracking URI to the job container from the standard ``MLFLOW_TRACKING_URI``. All
+subsequent container definitions are applied without modification.
 
 Iterating Quickly
 -----------------
