@@ -20,6 +20,8 @@ class SearchUtils(object):
     VALID_TAG_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
     VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
     CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set(['LIKE', 'ILIKE'])
+    VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = \
+        CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union({'='})
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
     _METRIC_IDENTIFIER = "metric"

@@ -39,6 +39,12 @@ class Model(object):
             return False
         return self.__dict__ == other.__dict__
 
+    def get_input_schema(self):
+        return self.signature.inputs if self.signature is not None else None
+
+    def get_output_schema(self):
+        return self.signature.outputs if self.signature is not None else None
+
     def add_flavor(self, name, **params):
         """Add an entry for how to serve the model in a given format."""
         self.flavors[name] = params
@@ -55,22 +61,20 @@ class Model(object):
 
     @property
     def saved_input_example_info(self) -> Optional[Dict[str, Any]]:
-        return self._input_example
+        return self._saved_input_example_info
 
     @saved_input_example_info.setter
     def saved_input_example_info(self, value: Dict[str, Any]):
         # pylint: disable=attribute-defined-outside-init
-        self._input_example = value
+        self._saved_input_example_info = value
 
     def to_dict(self):
         """Serialize the model to a dictionary."""
         res = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
         if self.signature is not None:
             res["signature"] = self.signature.to_dict()
-
         if self.saved_input_example_info is not None:
             res["saved_input_example_info"] = self.saved_input_example_info
-
         return res
 
     def to_yaml(self, stream=None):

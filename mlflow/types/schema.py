@@ -2,34 +2,50 @@ import json
 from enum import Enum
 
 import numpy as np
+import pandas as pd
 from typing import Dict, Any, List, Union, Optional
 
+from pandas.core.dtypes.dtypes import PandasExtensionDtype
+
 from mlflow.exceptions import MlflowException
+
+
+def _pandas_string_type():
+    try:
+        return pd.StringDtype()
+    except AttributeError:
+        return np.object
 
 
 class DataType(Enum):
     """
     MLflow data types.
     """
-    def __new__(cls, value, numpy_type):
+    def __new__(cls, value, numpy_type, spark_type, pandas_type=None):
         res = object.__new__(cls)
         res._value_ = value
         res._numpy_type = numpy_type
+        res._spark_type = spark_type
+        res._pandas_type = pandas_type if pandas_type is not None else numpy_type
         return res
 
-    boolean = (1, np.bool)
+    # NB: We only use pandas extension type for strings. There are also pandas extension types for
+    # integers and boolean values. We do not use them here for now as most downstream tools are
+    # most likely to use / expect native numpy types and would not be compatible with the extension
+    # types.
+    boolean = (1, np.dtype("bool"), "BooleanType")
     """Logical data (True, False) ."""
-    integer = (2, np.int32)
+    integer = (2, np.dtype("int32"), "IntegerType")
     """32b signed integer numbers."""
-    long = (3, np.int64)
+    long = (3, np.dtype("int64"), "LongType")
     """64b signed integer numbers. """
-    float = (4, np.float32)
+    float = (4, np.dtype("float32"), "FloatType")
     """32b floating point numbers. """
-    double = (5, np.float64)
+    double = (5, np.dtype("float64"), "DoubleType")
     """64b floating point numbers. """
-    string = (6, np.str)
+    string = (6, np.dtype("str"), "StringType", _pandas_string_type())
     """Text data."""
-    binary = (7, np.bytes_)
+    binary = (7, np.dtype("bytes"), "BinaryType", np.object)
     """Sequence of raw bytes."""
 
     def __repr__(self):
@@ -42,11 +58,20 @@ class DataType(Enum):
         """Get equivalent numpy data type. """
         return self._numpy_type
 
+    def to_pandas(self) -> Union[np.dtype, PandasExtensionDtype]:
+        """Get equivalent pandas data type. """
+        return self._pandas_type
+
+    def to_spark(self):
+        import pyspark.sql.types
+        return getattr(pyspark.sql.types, self._spark_type)()
+
 
 class ColSpec(object):
     """
     Specification of name and type of a single column in a dataset.
     """
+
     def __init__(self, type: DataType,  # pylint: disable=redefined-builtin
                  name: Optional[str] = None):
         self._name = name
@@ -94,6 +119,7 @@ class Schema(object):
     with unique non empty name for every column, or unnamed with implicit integer index defined by
     their list indices. Combination of named and unnamed columns is not allowed.
     """
+
     def __init__(self, cols: List[ColSpec]):
         if not (all(map(lambda x: x.name is None, cols))
                 or all(map(lambda x: x.name is not None, cols))):
@@ -111,6 +137,10 @@ class Schema(object):
         """Get list of column names or range of indices if the schema has no column names."""
         return [x.name or i for i, x in enumerate(self.columns)]
 
+    def has_column_names(self) -> bool:
+        """ Return true iff this schema declares column names, false otherwise. """
+        return self.columns and self.columns[0].name is not None
+
     def column_types(self) -> List[DataType]:
         """ Get column types of the columns in the dataset."""
         return [x.type for x in self._cols]
@@ -118,6 +148,22 @@ class Schema(object):
     def numpy_types(self) -> List[np.dtype]:
         """ Convenience shortcut to get the datatypes as numpy types."""
         return [x.type.to_numpy() for x in self.columns]
+
+    def pandas_types(self) -> List[np.dtype]:
+        """ Convenience shortcut to get the datatypes as pandas types."""
+        return [x.type.to_pandas() for x in self.columns]
+
+    def as_spark_schema(self):
+        """Convert to Spark schema. If this schema is a single unnamed column, it is converted
+        directly the corresponding spark data type, otherwise it's returned as a struct (missing
+        column names are filled with an integer sequence).
+        """
+        if len(self.columns) == 1 and self.columns[0].name is None:
+            return self.columns[0].type.to_spark()
+        from pyspark.sql.types import StructType, StructField
+        return StructType([StructField(name=col.name or str(i),
+                                       dataType=col.type.to_spark())
+                           for i, col in enumerate(self.columns)])
 
     def to_json(self) -> str:
         """Serialize into json string."""
