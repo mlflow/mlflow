@@ -25,7 +25,7 @@ export function CollapsibleSection(props) {
 CollapsibleSection.propTypes = {
   title: PropTypes.oneOfType([PropTypes.string, PropTypes.object]).isRequired,
   forceOpen: PropTypes.bool,
-  children: PropTypes.object,
+  children: PropTypes.node.isRequired,
 };
 
 CollapsibleSection.defaultProps = {
