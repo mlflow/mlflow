@@ -195,15 +195,15 @@ plugin:
      - mlflow.deployments
      - The entry point name should represent the target name and the value must be the plugin module. The entry point name is what user will be using to refer
        a target. For example, if the target is RedisAI, then the entry point name value pair must be ``redisai:mlflow_redisai`` where ``mlflow_redisai`` is
-       the redisai plugin package that exposes three interface functions as described `here <python_api/mlflow.deployments.html#mlflow.deployments>`_. And CLI command will look like
-       ``mlflow deployments <interface function> --target-uri redisai://host --arguments ...``
+       the redisai plugin package that exposes the `target_help` & 'run_local` functions along with providing the client class. For more details read the
+       `python API documentation <python_api/mlflow.deployments.html#mlflow.deployments>`_
      - `RedisAI plugin <https://github.com/RedisAI/mlflow-redisai>`_
 
 
 Deployment Plugin
 ^^^^^^^^^^^^^^^^^
 Building a plugin for deployment has it's own implementation details apart from the ``setup.py`` configurations. For starters, as given in the above table,
-entrypoint value for the deployment plugin must be a package that has three functions defined. We call these functions interfaces. More details about the
+entrypoint value for the deployment plugin must be a package that has `target_help` & 'run_local` functions along with the client class defined. More details about the
 interface functions and main plugin class can be found in the `python API documentation <python_api/mlflow.deployments.html#mlflow.deployments>`_
 
 Let's try an example. Deploying a model to RedisAI using `RedisAI plugin <https://github.com/RedisAI/mlflow-redisai>`_ plugin is shown below.

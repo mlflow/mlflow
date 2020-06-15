@@ -14,13 +14,20 @@ import abc
 def run_local(target, name, model_uri,
               flavor=None, config=None):  # pylint: disable=unused-argument
     """
+    .. Note::
+        This function is kept here only for documentation purpose and not implementing the
+        actual feature. It should be implemented in the plugin's top level namescope and should
+        be callable with ``plugin_module.run_local``
+
     Deploys the specified model locally, for testing. This function should be defined
-    within the module specified by the plugin author.
+    within the plugin module. Also note that this function has a signature which is very
+    similar to :py:meth:`BaseDeploymentClient.create_deployment` since both does logically
+    similar operation.
 
     :param target: Which target to use. This information is used to call the appropriate plugin
     :param name:  Unique name to use for deployment. If another deployment exists with the same
                      name, create_deployment will raise a
-                     `:py:class:mlflow.exceptions.MlflowException`
+                     :py:class:`mlflow.exceptions.MlflowException`
     :param model_uri: URI of model to deploy
     :param flavor: (optional) Model flavor to deploy. If unspecified, default flavor is chosen.
     :param config: (optional) Dict containing updated target-specific config for the deployment
@@ -33,6 +40,11 @@ def run_local(target, name, model_uri,
 
 def target_help():
     """
+    .. Note::
+        This function is kept here only for documentation purpose and not implementing the
+        actual feature. It should be implemented in the plugin's top level namescope and should
+        be callable with ``plugin_module.target_help``
+
     Return a string containing detailed documentation on the current deployment target, to be
     displayed when users invoke the ``mlflow deployments help -t <target-name>`` CLI. This
     method should be defined within the module specified by the plugin author.
@@ -58,8 +70,8 @@ class BaseDeploymentClient(abc.ABC):
     plugin module, and customize the method docstrings
 
     .. Note::
-        In case of exceptions, plugins must raise an ``MlflowException`` instead of native
-        python exceptions
+        In case of exceptions, plugins must raise an :py:class:`mlflow.exceptions.MlflowException`
+        instead of native python exceptions
 
     .. Note::
         The plugin should only have one child class of
@@ -76,12 +88,12 @@ class BaseDeploymentClient(abc.ABC):
         deployment completes (i.e. until it's possible to perform inference with the deployment).
         In the case of conflicts (e.g. if it's not possible to create the specified deployment
         without due to conflict with an existing deployment), raises a
-        `:py:class:mlflow.exceptions.MlflowException`. See target-specific plugin documentation
+        :py:class:`mlflow.exceptions.MlflowException`. See target-specific plugin documentation
         for additional detail on support for asynchronous deployment and other configuration.
 
         :param name: Unique name to use for deployment. If another deployment exists with the same
                      name, create_deployment will raise a
-                     `:py:class:mlflow.exceptions.MlflowException`
+                     :py:class:`mlflow.exceptions.MlflowException`
         :param model_uri: URI of model to deploy
         :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor
                        will be chosen.
@@ -143,7 +155,7 @@ class BaseDeploymentClient(abc.ABC):
     def get_deployment(self, name):
         """
         Returns a dictionary describing the specified deployment, throwing a
-        `py:class:mlflow.exception.MlflowException` if no deployment exists with the provided
+        py:class:`mlflow.exception.MlflowException` if no deployment exists with the provided
         ID.
         The dict is guaranteed to contain an 'name' key containing the deployment name.
         The other fields of the returned dictionary and their types may vary across
