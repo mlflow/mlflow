@@ -381,3 +381,99 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert mvds[0].run_id == run_id_1
         assert mvds[0].source == "A/B"
         assert mvds[0].description == "Online prediction model!"
+
+    def test_search_registered_models(self):
+        # create some registered models
+        prefix = "test_for_search_"
+        name1 = prefix + "RM1"
+        name2 = prefix + "RM2"
+        name3 = prefix + "RM3"
+        name4 = prefix + "RM4"
+        name5 = prefix + "RM4A"
+        name6 = prefix + "RM4a"
+        self._rm_maker(name1)
+        self._rm_maker(name2)
+        self._rm_maker(name3)
+        self._rm_maker(name4)
+        self._rm_maker(name5)
+        self._rm_maker(name6)
+
+        def search_registered_model(filter_string):
+            return [rm.name for rm in self.store.search_registered_models(filter_string)]
+
+        # search with no filter should return all registered models
+        self.assertEqual(set(search_registered_model(None)),
+                         set([name1, name2, name3, name4, name5, name6]))
+
+        # equality search using name should return exactly the 1 name
+        self.assertEqual(set(search_registered_model(f"name='{name1}'")), set([name1]))
+
+        # equality search using name that is not valid should return nothing
+        self.assertEqual(set(search_registered_model(f"name='{name1+'cats'}'")), set([]))
+
+        # case-sensitive prefix search using LIKE should return all the RMs
+        self.assertEqual(set(search_registered_model(f"name LIKE '{prefix}%'")),
+                         set([name1, name2, name3, name4, name5, name6]))
+
+        # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
+        self.assertEqual(set(search_registered_model(f"name LIKE '%RM%'")),
+                         set([name1, name2, name3, name4, name5, name6]))
+
+        # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
+        # _e% matches test_for_search_ , so all RMs should match
+        self.assertEqual(set(search_registered_model(f"name LIKE '_e%'")),
+                         set([name1, name2, name3, name4, name5, name6]))
+
+        # case-sensitive prefix search using LIKE should return just rm5
+        self.assertEqual(set(search_registered_model(f"name LIKE '{prefix + 'RM4A'}%'")),
+                         set([name5]))
+
+        # case-sensitive prefix search using LIKE should return no models if no match
+        self.assertEqual(set(search_registered_model(f"name LIKE '{prefix + 'cats'}%'")),
+                         set([]))
+
+        # case-insensitive prefix search using ILIKE should return both rm5 and rm6
+        self.assertEqual(set(search_registered_model(f"name ILIKE '{prefix + 'RM4A'}%'")),
+                         set([name5, name6]))
+
+        # case-insensitive postfix search with ILIKE
+        self.assertEqual(set(search_registered_model(f"name ILIKE '%RM4a'")),
+                         set([name5, name6]))
+
+        # case-insensitive prefix search using ILIKE should return both rm5 and rm6
+        self.assertEqual(set(search_registered_model(f"name ILIKE '{prefix + 'cats'}%'")),
+                         set([]))
+
+        # cannot search by invalid comparator types
+        with self.assertRaises(MlflowException) as exception_context:
+            search_registered_model("name!=something")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # cannot search by run_id
+        with self.assertRaises(MlflowException) as exception_context:
+            search_registered_model("run_id='%s'" % "somerunID")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # cannot search by source_path
+        with self.assertRaises(MlflowException) as exception_context:
+            search_registered_model("source_path = 'A/D'")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # cannot search by other params
+        with self.assertRaises(MlflowException) as exception_context:
+            search_registered_model("evilhax = true")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # delete rm6. search should not return RM 6
+        self.store.delete_registered_model(name=name6)
+
+        # equality search using name should return no names
+        self.assertEqual(set(search_registered_model("name='%s'" % name6)), set([]))
+
+        # case-sensitive prefix search using LIKE should return all the RMs
+        self.assertEqual(set(search_registered_model(f"name LIKE '{prefix}%'")),
+                         set([name1, name2, name3, name4, name5]))
+
+        # case-insensitive prefix search using ILIKE should return both rm5 and rm6
+        self.assertEqual(set(search_registered_model(f"name ILIKE '{prefix + 'RM4A'}%'")),
+                         set([name5]))

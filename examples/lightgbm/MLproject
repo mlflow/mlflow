@@ -3,9 +3,11 @@ conda_env: conda.yaml
 entry_points:
   main:
     parameters:
+      learning-rate: {type: float, default: 0.1}
       colsample-bytree: {type: float, default: 1.0}
       subsample: {type: float, default: 1.0}
     command: |
         python train.py \
+          --learning-rate={learning-rate} \
           --colsample-bytree={colsample-bytree} \
           --subsample={subsample}
