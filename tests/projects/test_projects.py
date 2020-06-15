@@ -11,6 +11,7 @@ import mlflow
 from mlflow.entities import RunStatus, ViewType, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _resolve_experiment_id
+from mlflow.projects.utils import PROJECT_SYNCHRONOUS, PROJECT_DOCKER_ARGS, PROJECT_USE_CONDA
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils import env
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
@@ -138,7 +139,8 @@ def test_run_local_git_repo(local_git_repo,
     run = mlflow_service.get_run(run_id)
 
     assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
-    assert run.data.params == {"use_start_run": use_start_run}
+
+    assert run.data.params == {"use_start_run": use_start_run, }
     assert run.data.metrics == {"some_key": 3}
 
     tags = run.data.tags
@@ -191,7 +193,7 @@ def test_run(use_start_run):
 
     assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
 
-    assert run.data.params == {"use_start_run": use_start_run}
+    assert run.data.params == {"use_start_run": use_start_run, }
     assert run.data.metrics == {"some_key": 3}
 
     tags = run.data.tags
@@ -246,15 +248,15 @@ def test_run_async():
     "mock_env,expected_conda,expected_activate",
     [
         ({"CONDA_EXE": "/abc/conda"}, "/abc/conda", "/abc/activate"),
-        ({mlflow.projects.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
+        ({mlflow.projects.utils.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
          "/some/dir/bin/activate")
     ]
 )
 def test_conda_path(mock_env, expected_conda, expected_activate):
     """Verify that we correctly determine the path to conda executables"""
     with mock.patch.dict("os.environ", mock_env):
-        assert mlflow.projects._get_conda_bin_executable("conda") == expected_conda
-        assert mlflow.projects._get_conda_bin_executable("activate") == expected_activate
+        assert mlflow.projects.utils.get_conda_bin_executable("conda") == expected_conda
+        assert mlflow.projects.utils.get_conda_bin_executable("activate") == expected_activate
 
 
 def test_cancel_run():

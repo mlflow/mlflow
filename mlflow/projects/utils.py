@@ -25,7 +25,14 @@ from mlflow.utils.mlflow_tags import (
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
-_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
+MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
+MLFLOW_DOCKER_WORKDIR_PATH = "/mlflow/projects/code/"
+MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
+
+PROJECT_USE_CONDA = "USE_CONDA"
+PROJECT_SYNCHRONOUS = "SYNCHRONOUS"
+PROJECT_DOCKER_ARGS = "DOCKER_ARGS"
+
 
 _logger = logging.getLogger(__name__)
 
@@ -245,3 +252,74 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
                    list(final_params.items()) + list(extra_params.items())]
     tracking.MlflowClient().log_batch(active_run.info.run_id, params=params_list)
     return active_run
+
+
+def get_conda_command(conda_env_name):
+    #  Checking for newer conda versions
+    if os.name != 'nt' and ('CONDA_EXE' in os.environ or 'MLFLOW_CONDA_HOME' in os.environ):
+        conda_path = get_conda_bin_executable("conda")
+        activate_conda_env = [
+            'source {}/../etc/profile.d/conda.sh'.format(os.path.dirname(conda_path))
+        ]
+        activate_conda_env += ["conda activate {} 1>&2".format(conda_env_name)]
+    else:
+        activate_path = get_conda_bin_executable("activate")
+        # in case os name is not 'nt', we are not running on windows. It introduces
+        # bash command otherwise.
+        if os.name != "nt":
+            return ["source %s %s 1>&2" % (activate_path, conda_env_name)]
+        else:
+            return ["conda activate %s" % (conda_env_name)]
+    return activate_conda_env
+
+
+def get_conda_bin_executable(executable_name):
+    """
+    Return path to the specified executable, assumed to be discoverable within the 'bin'
+    subdirectory of a conda installation.
+
+    The conda home directory (expected to contain a 'bin' subdirectory) is configurable via the
+    ``mlflow.projects.MLFLOW_CONDA_HOME`` environment variable. If
+    ``mlflow.projects.MLFLOW_CONDA_HOME`` is unspecified, this method simply returns the passed-in
+    executable name.
+    """
+    conda_home = os.environ.get(MLFLOW_CONDA_HOME)
+    if conda_home:
+        return os.path.join(conda_home, "bin/%s" % executable_name)
+    # Use CONDA_EXE as per https://github.com/conda/conda/issues/7126
+    if "CONDA_EXE" in os.environ:
+        conda_bin_dir = os.path.dirname(os.environ["CONDA_EXE"])
+        return os.path.join(conda_bin_dir, executable_name)
+    return executable_name
+
+
+def get_entry_point_command(project, entry_point, parameters, storage_dir):
+    """
+    Returns the shell command to execute in order to run the specified entry point.
+    :param project: Project containing the target entry point
+    :param entry_point: Entry point to run
+    :param parameters: Parameters (dictionary) for the entry point command
+    :param storage_dir: Base local directory to use for downloading remote artifacts passed to
+                        arguments of type 'path'. If None, a temporary base directory is used.
+    """
+    storage_dir_for_run = _get_storage_dir(storage_dir)
+    _logger.info(
+        "=== Created directory %s for downloading remote URIs passed to arguments of"
+        " type 'path' ===",
+        storage_dir_for_run)
+    commands = []
+    commands.append(
+        project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))
+    return commands
+
+
+def get_run_env_vars(run_id, experiment_id):
+    """
+    Returns a dictionary of environment variable key-value pairs to set in subprocess launched
+    to run MLflow projects.
+    """
+    return {
+        tracking._RUN_ID_ENV_VAR: run_id,
+        tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
+        tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
+    }
