@@ -4,21 +4,17 @@ The ``mlflow.projects`` module provides an API for running MLflow projects local
 import json
 import yaml
 import os
-import shutil
 from six.moves import urllib
-import tempfile
 import logging
 import posixpath
-import docker
-import platform
 
 import mlflow.projects.databricks
 import mlflow.tracking as tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import ExecutionException, MlflowException
-from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
+from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.projects.utils import (
-    _get_storage_dir, fetch_and_validate_project, get_or_create_run, load_project,
+    fetch_and_validate_project, get_or_create_run, load_project,
     get_entry_point_command, get_run_env_vars, MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
     PROJECT_USE_CONDA, PROJECT_SYNCHRONOUS, PROJECT_DOCKER_ARGS, PROJECT_STORAGE_DIR
 )
@@ -27,13 +23,8 @@ from mlflow.projects.docker import (
 )
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils import databricks_utils, file_utils, process
-from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND
 
-# Environment variable indicating a path to a conda installation. MLflow will default to running
-# "conda" if unset
-_MLFLOW_DOCKER_TRACKING_DIR_PATH = "/mlflow/tmp/mlruns"
 
 _logger = logging.getLogger(__name__)
 
