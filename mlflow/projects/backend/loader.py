@@ -1,8 +1,6 @@
 import entrypoints
 import logging
-from typing import Dict, Type
 
-from mlflow.projects.backend import AbstractBackend
 from mlflow.projects.backend.local import LocalBackend
 
 
@@ -12,7 +10,7 @@ __logger__ = logging.getLogger(__name__)
 
 
 # Statically register backend defined in mlflow
-MLFLOW_BACKENDS: Dict[str, Type[AbstractBackend]] = {
+MLFLOW_BACKENDS = {
     'local': LocalBackend,
 }
 
