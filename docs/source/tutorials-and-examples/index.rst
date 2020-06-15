@@ -14,7 +14,7 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
   - `Packaging Training Code in a Docker Environment <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_
 
   - :ref:`conda-example`
-* `Write & Use MLflow Plugins <https://github.com/mlflow/mlflow/tree/master/examples/plugins>`_
+* `Write & Use MLflow Plugins <https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins>`_
 * Instrument ML training code with MLflow
 
   - `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_

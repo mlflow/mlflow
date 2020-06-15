@@ -205,7 +205,7 @@ Now that you have your training code, you can package it so that other data scie
       specified in ``conda.yaml``.
 
       If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/mlflow/mlflow-example repository
-      which you can run with ``mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.42``.
+      which you can run with ``mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5``.
 
     .. container:: R
 

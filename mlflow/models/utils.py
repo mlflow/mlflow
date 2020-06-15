@@ -69,7 +69,7 @@ class _Example(object):
                 if isinstance(x, np.ndarray) and len(x.shape) > 1:
                     raise TensorsNotSupportedException("Row '{0}' has shape {1}".format(i, x.shape))
             if all([_is_scalar(x) for x in input_example]):
-                input_example = pd.DataFrame([input_example])
+                input_example = pd.DataFrame([input_example], columns=range(len(input_example)))
             else:
                 input_example = pd.DataFrame(input_example)
         elif isinstance(input_example, np.ndarray):

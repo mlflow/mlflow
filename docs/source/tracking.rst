@@ -453,16 +453,24 @@ Storage
 
 An MLflow tracking server has two components for storage: a *backend store* and an *artifact store*.
 
+Backend Stores
+~~~~~~~~~~~~~~
 The backend store is where MLflow Tracking Server stores experiment and run metadata as well as
 params, metrics, and tags for runs. MLflow supports two types of backend stores: *file store* and
 *database-backed store*.
 
-Use ``--backend-store-uri`` to configure the type of backend store. You specify a *file store*
-backend as ``./path_to_store`` or ``file:/path_to_store`` and a *database-backed store* as
-`SQLAlchemy database URI <https://docs.sqlalchemy.org/en/latest/core/engines
-.html#database-urls>`_. The database URI typically takes the format ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``.
-MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
-Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver. For example, ``--backend-store-uri sqlite:///mlflow.db`` would use a local SQLite database.
+.. note::
+    In order to use model registry functionality, you must run your server using a database-backed store.
+
+
+Use ``--backend-store-uri`` to configure the type of backend store. You specify:
+
+- A file store backend as ``./path_to_store`` or ``file:/path_to_store``
+- A database-backed store as `SQLAlchemy database URI <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
+  The database URI typically takes the format ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``.
+  MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+  Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver. For example, ``--backend-store-uri sqlite:///mlflow.db`` would use a local SQLite database.
+
 
 .. important::
 
@@ -478,7 +486,8 @@ By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (t
 running ``mlflow run`` locally), but when running a server, make sure that this points to a
 persistent (that is, non-ephemeral) file system location.
 
-
+Artifact Stores
+~~~~~~~~~~~~~~~
 The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
 file system) and is where clients log their artifact output (for example, models).
 ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
@@ -711,9 +720,18 @@ allow passing HTTP authentication to the tracking server:
 - ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD`` - username and password to use with HTTP
   Basic authentication. To use Basic authentication, you must set `both` environment variables .
 - ``MLFLOW_TRACKING_TOKEN`` - token to use with HTTP Bearer authentication. Basic authentication takes precedence if set.
-- ``MLFLOW_TRACKING_INSECURE_TLS`` - if set to the literal ``true``, MLflow does not verify the TLS connection,
+- ``MLFLOW_TRACKING_INSECURE_TLS`` - If set to the literal ``true``, MLflow does not verify the TLS connection,
   meaning it does not validate certificates or hostnames for ``https://`` tracking URIs. This flag is not recommended for
-  production environments.
+  production environments. If this is set to ``true`` then ``MLFLOW_TRACKING_SERVER_CERT_PATH`` must not be set.
+- ``MLFLOW_TRACKING_SERVER_CERT_PATH`` - Path to a CA bundle to use. Sets the ``verify`` param of the
+  ``requests.request`` function
+  (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
+  When you use a self-signed server certificate you can use this to verify it on client side.
+  If this is set ``MLFLOW_TRACKING_INSECURE_TLS`` must not be set (false).
+- ``MLFLOW_TRACKING_CLIENT_CERT_PATH`` - Path to ssl client cert file (.pem). Sets the ``cert`` param
+  of the ``requests.request`` function
+  (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
+  This can be used to use a (self-signed) client certificate.
 
 .. _system_tags:
 

@@ -7,6 +7,7 @@ import requests
 
 from mlflow import __version__
 from mlflow.protos import databricks_pb2
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException, RestException
@@ -45,7 +46,13 @@ def http_request(host_creds, endpoint, retries=3, retry_interval=3,
     if auth_str:
         headers['Authorization'] = auth_str
 
-    verify = not host_creds.ignore_tls_verification
+    if host_creds.server_cert_path is None:
+        verify = not host_creds.ignore_tls_verification
+    else:
+        verify = host_creds.server_cert_path
+
+    if host_creds.client_cert_path is not None:
+        kwargs['cert'] = host_creds.client_cert_path
 
     def request_with_ratelimit_retries(max_rate_limit_interval, **kwargs):
         response = requests.request(**kwargs)
@@ -153,13 +160,35 @@ class MlflowHostCreds(object):
     :param ignore_tls_verification: If true, we will not verify the server's hostname or TLS
         certificate. This is useful for certain testing situations, but should never be
         true in production.
+        If this is set to true ``server_cert_path`` must not be set.
+    :param client_cert_path: Path to ssl client cert file (.pem).
+        Sets the cert param of the ``requests.request``
+        function (see https://requests.readthedocs.io/en/master/api/).
+    :param server_cert_path: Path to a CA bundle to use.
+        Sets the verify param of the ``requests.request``
+        function (see https://requests.readthedocs.io/en/master/api/).
+        If this is set ``ignore_tls_verification`` must be false.
     """
     def __init__(self, host, username=None, password=None, token=None,
-                 ignore_tls_verification=False):
+                 ignore_tls_verification=False, client_cert_path=None, server_cert_path=None):
         if not host:
-            raise MlflowException("host is a required parameter for MlflowHostCreds")
+            raise MlflowException(
+                message="host is a required parameter for MlflowHostCreds",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if ignore_tls_verification and (server_cert_path is not None):
+            raise MlflowException(
+                message=("When 'ignore_tls_verification' is true then 'server_cert_path' "
+                         "must not be set! This error may have occurred because the "
+                         "'MLFLOW_TRACKING_INSECURE_TLS' and 'MLFLOW_TRACKING_SERVER_CERT_PATH' "
+                         "environment variables are both set - only one of these environment "
+                         "variables may be set."),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.host = host
         self.username = username
         self.password = password
         self.token = token
         self.ignore_tls_verification = ignore_tls_verification
+        self.client_cert_path = client_cert_path
+        self.server_cert_path = server_cert_path
