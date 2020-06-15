@@ -6,5 +6,6 @@ channels:
 dependencies:
   - python=3.6
   - scikit-learn=0.19.1
+  - pip
   - pip:
     - mlflow>=1.0
