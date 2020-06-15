@@ -1,9 +1,24 @@
 import inspect
+from six.moves import urllib
 from mlflow.deployments.plugin_manager import DeploymentPlugins
 from mlflow.deployments.base import BaseDeploymentClient
+from mlflow.exceptions import MlflowException
 
 
 plugin_store = DeploymentPlugins()
+
+
+def get_uri_scheme(uri):
+    # TODO: replace it with `mflow.utils.uri.get_uri_scheme` once verified
+    uri = urllib.parse.urlparse(uri)
+    if not uri.scheme:
+        if uri.path:
+            # uri = 'target_name' (without :/<path>)
+            return uri.path
+        raise MlflowException(
+            "Not a proper deployment URI: %s. " % uri +
+            "Deployment URIs must be of the form 'target:/server/details'")
+    return uri.scheme
 
 
 def get_deploy_client(target_uri):
@@ -19,9 +34,9 @@ def get_deploy_client(target_uri):
     :param: target_uri: URI of target to deploy to. Run ``mlflow deployments --help`` via the CLI
                         for more information on supported deployment targets
     """
-    target = target_uri.split("://")[0]
+    target = get_uri_scheme(target_uri)
     plugin = plugin_store[target]
-    for name, obj in inspect.getmembers(plugin):
+    for _, obj in inspect.getmembers(plugin):
         if issubclass(obj, BaseDeploymentClient) and not obj == BaseDeploymentClient:
             return obj(target_uri)
 
@@ -54,7 +69,7 @@ def target_help(target):
     * An explanation of target-specific fields in the ``config`` passed to ``create_deployment``,
       ``update_deployment``
     * How to specify a ``target_uri`` (e.g. for AWS SageMaker, ``target_uri``s have a scheme of
-      "sagemaker://<aws-cli-profile-name>", where aws-cli-profile-name is the name of an AWS
+      "sagemaker:/<aws-cli-profile-name>", where aws-cli-profile-name is the name of an AWS
       CLI profile https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html)
     * Any other target-specific details.
 

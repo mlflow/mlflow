@@ -67,7 +67,7 @@ def test_get():
 def test_target_help():
     runner = CliRunner()
     res = runner.invoke(cli.target_help, ["--target", f_target])
-    assert "Target help is called".format(f_target) in res.stdout
+    assert "Target help is called" in res.stdout
 
 
 def test_run_local():

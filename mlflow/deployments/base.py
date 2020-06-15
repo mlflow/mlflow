@@ -11,7 +11,8 @@ requests.
 import abc
 
 
-def run_local(target, name, model_uri, flavor=None, config=None):
+def run_local(target, name, model_uri,
+              flavor=None, config=None):  # pylint: disable=unused-argument
     """
     Deploys the specified model locally, for testing. This function should be defined
     within the module specified by the plugin author.
@@ -40,7 +41,7 @@ def target_help():
     * An explanation of target-specific fields in the ``config`` passed to ``create_deployment``,
       ``update_deployment``
     * How to specify a ``target_uri`` (e.g. for AWS SageMaker, ``target_uri`` have a scheme of
-      "sagemaker://<aws-cli-profile-name>", where aws-cli-profile-name is the name of an AWS
+      "sagemaker:/<aws-cli-profile-name>", where aws-cli-profile-name is the name of an AWS
       CLI profile https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html)
     * Any other target-specific details.
 

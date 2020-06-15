@@ -52,13 +52,13 @@ def test_wrong_target_name():
 
 def test_plugin_doesnot_have_required_attrib():
     class DummyPlugin:
-        ...  # pylint: disable=W0104
+        ...  # pylint: disable=pointless-statement
 
     dummy_plugin = DummyPlugin()
     plugin_manager = DeploymentPlugins()
     plugin_manager.registry['dummy'] = dummy_plugin
     with pytest.raises(MlflowException):
-        plugin_manager['dummy']
+        plugin_manager['dummy']  # pylint disable=pointless-statement
 
 
 def test_plugin_raising_error():
