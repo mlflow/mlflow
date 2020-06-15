@@ -281,7 +281,7 @@ class SqlAlchemyStore(AbstractStore):
                 .limit(max_results).all()
             registered_models = [rm.to_mlflow_entity() for rm in sql_registered_models]
             next_page_token = compute_next_token(len(registered_models))
-            return registered_models, next_page_token
+            return PagedList(registered_models, next_page_token)
 
     def get_registered_model(self, name):
         """
