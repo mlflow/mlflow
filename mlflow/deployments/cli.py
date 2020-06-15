@@ -20,19 +20,20 @@ def _user_args_to_dict(user_list):
     return user_dict
 
 
-registered = "\n".join(["* %s" % target for target in interface.plugin_store.registry])
+installed_targets = [target for target in interface.plugin_store.registry]
 
 target_details = click.option("--target", "-t", required=True,
-                              help="Deployment target URI. Check the documentation/help for each "
-                                   "plugin to understand the target URI format the plugins "
-                                   "expect. Run "
-                                   "`mlflow deployments help --target-name <target-name>` for "
-                                   "more details on the supported URI format and config options "
-                                   "for a given target."
-                                   "Support is currently installed for the following targets (see"
-                                   " other deployment targets and installation instructions in "
-                                   "https://mlflow.org/docs/latest/plugins.html#community-plugins"
-                                   "): {}".format(registered))
+                              help="""
+                                   Deployment target URI. Run
+                                   `mlflow deployments help --target-name <target-name>` for
+                                   more details on the supported URI format and config options
+                                   for a given target.
+                                   Support is currently installed for the following targets:
+                                   {targets}.
+
+                                   See other deployment targets and installation instructions in
+                                   https://mlflow.org/docs/latest/plugins.html#community-plugins
+                                   """.format(targets=", ".join(installed_targets)))
 deployment_name = click.option("--name", "name", required=True,
                                help="Name of the deployment")
 parse_custom_arguments = click.option("--config", "-C", metavar="NAME=VALUE", multiple=True,
@@ -42,17 +43,31 @@ parse_custom_arguments = click.option("--config", "-C", metavar="NAME=VALUE", mu
                                            "list of supported config options.")
 
 
-@click.group("deployments")
-def commands():
-    """
-    [experimental] Deploy MLflow models to custom targets.
+@click.group("deployments", help="""
+    Deploy MLflow models to custom targets. Support is currently installed for
+    the following targets: {targets}. Run `mlflow deployments help --target-name <target-name>` for
+    more details on the supported URI format and config options for a given target.
 
-    To deploy to a custom target, you must first install an
+    To deploy to other targets, you must first install an
     appropriate third-party Python plugin. See the list of known community-maintained plugins
     at https://mlflow.org/docs/latest/plugins.html#community-plugins.
 
-    MLflow also enables you to write plugins for deployment to custom targets. For instructions on
-    writing and distributing your own plugin, see
+    You can also write your own plugin for deployment to a custom target. For instructions on
+    writing and distributing a plugin, see
+    https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins.
+""".format(targets=", ".join(installed_targets)))
+def commands():
+    """
+    Deploy MLflow models to custom targets. Support is currently installed for
+    the following targets: {targets}. Run `mlflow deployments help --target-name <target-name>` for
+    more details on the supported URI format and config options for a given target.
+
+    To deploy to other targets, you must first install an
+    appropriate third-party Python plugin. See the list of known community-maintained plugins
+    at https://mlflow.org/docs/latest/plugins.html#community-plugins.
+
+    You can also write your own plugin for deployment to a custom target. For instructions on
+    writing and distributing a plugin, see
     https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins.
     """
     pass
@@ -147,8 +162,8 @@ def get_deployment(target, name):
 @target_details
 def target_help(target):
     """
-    Specific help command for deployment plugins. This will call the `target_help` function from
-    the plugin to display the help string specific for each plugin
+    Display additional help for a specific deployment target, e.g. info on target-specific config
+    options and the target's URI format.
     """
     click.echo(interface.target_help(target))
 

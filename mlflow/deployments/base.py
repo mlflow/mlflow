@@ -11,8 +11,7 @@ requests.
 import abc
 
 
-def run_local(target, name, model_uri,
-              flavor=None, config=None):  # pylint: disable=unused-argument
+def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: disable=W0613
     """
     .. Note::
         This function is kept here only for documentation purpose and not implementing the

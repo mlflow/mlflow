@@ -58,7 +58,7 @@ def test_plugin_doesnot_have_required_attrib():
     plugin_manager = DeploymentPlugins()
     plugin_manager.registry['dummy'] = dummy_plugin
     with pytest.raises(MlflowException):
-        plugin_manager['dummy']  # pylint disable=pointless-statement
+        plugin_manager['dummy']  # pylint: disable=pointless-statement
 
 
 def test_plugin_raising_error():
