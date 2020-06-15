@@ -34,8 +34,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
         os.remove(self.temp_dbfile)
 
-    def _rm_maker(self, name):
-        return self.store.create_registered_model(name)
+    def _rm_maker(self, name, creation_time=None):
+        return self.store.create_registered_model(name, creation_time)
 
     def _mv_maker(self, name, source="path/to/source", run_id=uuid.uuid4().hex):
         return self.store.create_model_version(name, source, run_id)
@@ -498,7 +498,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                          set([name5]))
 
     def test_search_registered_model_pagination(self):
-        rms = [self._rm_maker("RM" + str(i)).name for i in range(50)]
+        rms = [self._rm_maker("RM" + str(i), creation_time=i).name for i in range(50)]
         # reverse because we return in order of the newest matches
         rms.reverse()
         # test that pagination will return all valid results in sorted order

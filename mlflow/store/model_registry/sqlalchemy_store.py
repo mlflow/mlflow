@@ -102,11 +102,12 @@ class SqlAlchemyStore(AbstractStore):
             # single object
             session.add(objs)
 
-    def create_registered_model(self, name):
+    def create_registered_model(self, name, creation_time=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
+        :param creation_time: Time when the registered model is created - for use in tests
 
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
         created in the backend.
@@ -116,7 +117,8 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             try:
-                creation_time = now()
+                if creation_time is None:
+                    creation_time = now()
                 registered_model = SqlRegisteredModel(name=name, creation_time=creation_time,
                                                       last_updated_time=creation_time)
                 self._save_to_db(session, registered_model)
