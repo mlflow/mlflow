@@ -198,11 +198,18 @@ class SqlAlchemyStore(AbstractStore):
             sql_registered_model = self._get_registered_model(session, name)
             session.delete(sql_registered_model)
 
-    def list_registered_models(self, page_token=None, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT):
+    def list_registered_models(self,
+                               page_token,
+                               max_results):
         """
         List of all registered models.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_registered_models`` call.
+        :param max_results: Maximum number of registered models desired.
 
-        :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
         """
         return self.search_registered_models(None, page_token, max_results)
 

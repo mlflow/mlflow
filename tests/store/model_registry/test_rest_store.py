@@ -80,8 +80,9 @@ class TestRestStore(unittest.TestCase):
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_list_registered_model(self, mock_http):
-        self.store.list_registered_models()
-        self._verify_requests(mock_http, "registered-models/list", "GET", ListRegisteredModels())
+        self.store.list_registered_models(page_token=None, max_results=50)
+        self._verify_requests(mock_http, "registered-models/list", "GET",
+                              ListRegisteredModels(page_token=None, max_results=50))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_get_registered_model(self, mock_http):
