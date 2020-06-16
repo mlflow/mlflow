@@ -28,7 +28,7 @@ MOCK_HEADERS = [ArtifactCredentialInfo.HttpHeader(name='Mock-Name1', value='Mock
 MOCK_RUN_ROOT_URI = \
     "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
 MOCK_SUBDIR = "subdir/path"
-MOCK_SUBDIR_ROOT_URI = os.path.join(MOCK_RUN_ROOT_URI, MOCK_SUBDIR)
+MOCK_SUBDIR_ROOT_URI = posixpath.join(MOCK_RUN_ROOT_URI, MOCK_SUBDIR)
 
 
 @pytest.fixture()
