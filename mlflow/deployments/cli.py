@@ -21,6 +21,12 @@ def _user_args_to_dict(user_list):
 
 
 installed_targets = [target for target in interface.plugin_store.registry]
+if len(installed_targets) > 0:
+    supported_targets_msg = "Support is currently installed for deployment to: " \
+                        "{targets}".format(targets=", ".join(installed_targets))
+else:
+    supported_targets_msg = "NOTE: you currently do not have support for installed for any " \
+                            "deployment targets."
 
 target_details = click.option("--target", "-t", required=True,
                               help="""
@@ -28,12 +34,12 @@ target_details = click.option("--target", "-t", required=True,
                                    `mlflow deployments help --target-name <target-name>` for
                                    more details on the supported URI format and config options
                                    for a given target.
-                                   Support is currently installed for the following targets:
-                                   {targets}.
+                                   {supported_targets_msg}
 
-                                   See other deployment targets and installation instructions in
+                                   See all supported deployment targets and installation
+                                   instructions at
                                    https://mlflow.org/docs/latest/plugins.html#community-plugins
-                                   """.format(targets=", ".join(installed_targets)))
+                                   """.format(supported_targets_msg=supported_targets_msg))
 deployment_name = click.option("--name", "name", required=True,
                                help="Name of the deployment")
 parse_custom_arguments = click.option("--config", "-C", metavar="NAME=VALUE", multiple=True,
@@ -44,18 +50,18 @@ parse_custom_arguments = click.option("--config", "-C", metavar="NAME=VALUE", mu
 
 
 @click.group("deployments", help="""
-    Deploy MLflow models to custom targets. Support is currently installed for
-    the following targets: {targets}. Run `mlflow deployments help --target-name <target-name>` for
+    Deploy MLflow models to custom targets.
+    Run `mlflow deployments help --target-name <target-name>` for
     more details on the supported URI format and config options for a given target.
+    {supported_targets_msg}
 
-    To deploy to other targets, you must first install an
-    appropriate third-party Python plugin. See the list of known community-maintained plugins
-    at https://mlflow.org/docs/latest/plugins.html#community-plugins.
+    See all supported deployment targets and installation instructions in
+    https://mlflow.org/docs/latest/plugins.html#community-plugins
 
     You can also write your own plugin for deployment to a custom target. For instructions on
     writing and distributing a plugin, see
     https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins.
-""".format(targets=", ".join(installed_targets)))
+""".format(supported_targets_msg=supported_targets_msg))
 def commands():
     """
     Deploy MLflow models to custom targets. Support is currently installed for
