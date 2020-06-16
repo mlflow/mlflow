@@ -14,7 +14,7 @@ describe('RenameExperimentModal', () => {
     mockGetExperimentApi = jest.fn(() => Promise.resolve({}));
     minimalProps = {
       isOpen: false,
-      experimentId: 123,
+      experimentId: '123',
       experimentName: 'testName',
       experimentNames: ['arrayName1', 'arrayName2'],
       onClose: jest.fn(() => Promise.resolve({})),

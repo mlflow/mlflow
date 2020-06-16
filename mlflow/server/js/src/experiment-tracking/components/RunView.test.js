@@ -45,8 +45,8 @@ describe('RunView', () => {
         },
         artifactsByRunUuid: { 'uuid-1234-5678-9012': new ArtifactNode(true) },
         experimentsById: {
-          12345: Experiment.fromJs({
-            experiment_id: 12345,
+          '12345': Experiment.fromJs({
+            experiment_id: '12345',
             name: 'my experiment',
             artifact_location: 'dbfs:/databricks/abc',
             lifecycle_stage: 'active',
