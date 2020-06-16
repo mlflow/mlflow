@@ -162,8 +162,10 @@ public final class Databricks {
       implements com.google.protobuf.ProtocolMessageEnum {
     /**
      * <pre>
+     *
      * Internal, system-level error codes, which generally cannot be resolved by the user, but
      * instead are due to service issues.
+     *
      * Generic internal error occurred.
      * </pre>
      *
@@ -196,8 +198,10 @@ public final class Databricks {
     BAD_REQUEST(4),
     /**
      * <pre>
+     *
      * Common application-level error codes, which were caused by the user input but may be returned
      * by multiple services.
+     *
      * Supplied value for a parameter was invalid (e.g., giving a number for a string parameter).
      * </pre>
      *
@@ -332,8 +336,10 @@ public final class Databricks {
 
     /**
      * <pre>
+     *
      * Internal, system-level error codes, which generally cannot be resolved by the user, but
      * instead are due to service issues.
+     *
      * Generic internal error occurred.
      * </pre>
      *
@@ -366,8 +372,10 @@ public final class Databricks {
     public static final int BAD_REQUEST_VALUE = 4;
     /**
      * <pre>
+     *
      * Common application-level error codes, which were caused by the user input but may be returned
      * by multiple services.
+     *
      * Supplied value for a parameter was invalid (e.g., giving a number for a string parameter).
      * </pre>
      *
