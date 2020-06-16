@@ -338,7 +338,7 @@ class TestDatabricksArtifactRepository(object):
             assert artifacts[1].is_dir is True
             assert artifacts[1].file_size is None
             message_mock.assert_called_with(
-                ListArtifacts(run_id=MOCK_RUN_ID, path=os.path.join(MOCK_SUBDIR, "test")))
+                ListArtifacts(run_id=MOCK_RUN_ID, path=posixpath.join(MOCK_SUBDIR, "test")))
 
     def test_paginated_list_artifacts(self, databricks_artifact_repo):
         list_artifacts_proto_mock_1 = [
