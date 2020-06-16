@@ -35,7 +35,7 @@ def test_create_registered_model(mock_store):
     assert result.name == "Model 1"
 
 
-def test_update_and_rename_registered_model(mock_store):
+def test_update_registered_model(mock_store):
     name = "Model 1"
     new_description = "New Description"
     new_description_2 = "New Description 2"
@@ -46,13 +46,16 @@ def test_update_and_rename_registered_model(mock_store):
         name=name,
         description=new_description)
     mock_store.update_registered_model.assert_called_with(name=name, description=new_description)
-
     assert result.description == new_description
-    newModelRegistryClient().update_registered_model(
+
+    mock_store.update_registered_model.return_value = RegisteredModel(name,
+                                                                      description=new_description_2)
+    result = newModelRegistryClient().update_registered_model(
         name=name,
         description=new_description_2)
     mock_store.update_registered_model.assert_called_with(name=name,
                                                           description="New Description 2")
+    assert result.description == new_description_2
 
 
 def test_rename_registered_model(mock_store):
@@ -65,11 +68,12 @@ def test_rename_registered_model(mock_store):
     mock_store.rename_registered_model.assert_called_with(name=name, new_name=new_name)
     assert result.name == "New Name"
 
-    mock_store.update_registered_model.return_value = RegisteredModel("New Name 2")
-    newModelRegistryClient().rename_registered_model(
+    mock_store.rename_registered_model.return_value = RegisteredModel("New Name 2")
+    result = newModelRegistryClient().rename_registered_model(
         name=name,
         new_name="New Name 2")
     mock_store.rename_registered_model.assert_called_with(name=name, new_name="New Name 2")
+    assert result.name == "New Name 2"
 
 
 def test_update_registered_model_validation_errors_on_empty_new_name(mock_store):
