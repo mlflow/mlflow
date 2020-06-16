@@ -176,37 +176,31 @@ def test_client_registry_operations_raise_exception_with_unsupported_registry_st
             assert exc.value.error_code == ErrorCode.Name(FEATURE_DISABLED)
 
 
-def test_update_registered_model_compatibility_layer(mock_registry_store):
+def test_update_registered_model(mock_registry_store):
     """
-    This test makes sure that old (now deprecated) apis work as expected after api update.
-    Update registered model no longer accepts new name, but the client should translate it to
-    rename call.
+    Update registered model no longer supports name change.
     """
     expected_return_value = "some expected return value."
     mock_registry_store.rename_registered_model.return_value = expected_return_value
     expected_return_value_2 = "other expected return value."
     mock_registry_store.update_registered_model.return_value = expected_return_value_2
     res = MlflowClient(registry_uri="sqlite:///somedb.db").update_registered_model(
-        name="orig name", new_name="new name", description="new description")
+        name="orig name", description="new description")
     assert expected_return_value_2 == res
-    mock_registry_store.rename_registered_model.assert_called_once_with(
-        name="orig name", new_name="new name")
     mock_registry_store.update_registered_model.assert_called_once_with(
-        name="new name", description="new description")
+        name="orig name", description="new description")
+    mock_registry_store.rename_registered_model.assert_not_called()
 
 
-def test_update_model_version_compatibility_layer(mock_registry_store):
+def test_update_model_version(mock_registry_store):
     """
-    This test makes sure that old (now deprecated) apis work as expected after api update.
-    Update registered model no longer accepts new name, but the client should translate it to
-    rename call.
+    Update registered model no longer support state changes.
     """
     expected_return_value = "some expected return value."
     mock_registry_store.update_model_version.return_value = expected_return_value
     res = MlflowClient(registry_uri="sqlite:///somedb.db").update_model_version(
-        name="orig name", version="1", stage="Staging", description="desc")
+        name="orig name", version="1", description="desc")
     assert expected_return_value == res
-    mock_registry_store.transition_model_version_stage.assert_called_once_with(
-        name="orig name", version="1", stage="Staging", archive_existing_versions=False)
     mock_registry_store.update_model_version.assert_called_once_with(
         name="orig name", version="1", description="desc")
+    mock_registry_store.transition_model_version_stage.assert_not_called()

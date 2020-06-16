@@ -124,12 +124,12 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
 
     # update with no args is an error
     with pytest.raises(MlflowException):
-        mlflow_client.update_registered_model(name=name, new_name=None, description=None)
+        mlflow_client.update_registered_model(name=name, description=None)
 
     # update name
     new_name = "UpdateRMTest 2"
     start_time_2 = now()
-    mlflow_client.update_registered_model(name=name, new_name=new_name)
+    mlflow_client.rename_registered_model(name=name, new_name=new_name)
     end_time_2 = now()
     with pytest.raises(MlflowException):
         mlflow_client.get_registered_model(name)
@@ -152,7 +152,8 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
     # update name and description
     another_new = "UpdateRMTest 4"
     start_time_4 = now()
-    mlflow_client.update_registered_model(new_name, another_new, "4th update")
+    mlflow_client.update_registered_model(new_name, "4th update")
+    mlflow_client.rename_registered_model(new_name, another_new)
     end_time_4 = now()
     registered_model_detailed_4 = mlflow_client.get_registered_model(another_new)
     assert registered_model_detailed_4.name == another_new
@@ -202,7 +203,7 @@ def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
 
     # cannot update a deleted model
     with pytest.raises(MlflowException):
-        mlflow_client.update_registered_model(name=name, new_name="something else")
+        mlflow_client.rename_registered_model(name=name, new_name="something else")
 
     # list does not include deleted model
     assert [] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
@@ -293,7 +294,7 @@ def test_update_model_version_flow(mlflow_client, backend_store_uri):
                         for rm in mlflow_client.list_registered_models() if rm.name == name]
 
     start_time_2 = now()
-    mlflow_client.update_model_version(name=name, version=1, stage="Staging")
+    mlflow_client.transition_model_version_stage(name=name, version=1, stage="Staging")
     end_time_2 = now()
     mvd1b = mlflow_client.get_model_version(name, 1)
     assert_is_between(start_time_1, end_time_1, mvd1b.creation_timestamp)

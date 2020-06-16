@@ -587,8 +587,7 @@ def _update_model_version():
     if request_message.HasField("description"):
         new_description = request_message.description
     model_version = _get_model_registry_store().update_model_version(
-        name=request_message.name, version=request_message.version,
-        description=new_description)
+        name=request_message.name, version=request_message.version, description=new_description)
     return _wrap_response(UpdateModelVersion.Response(model_version=model_version.to_proto()))
 
 
