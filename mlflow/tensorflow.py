@@ -702,44 +702,44 @@ def autolog(every_n_iter=100):
 
     For each TensorFlow module, autologging captures the following information:
 
-    **tf.keras**:
-     - **Metrics** and **Parameters**:
+    **tf.keras**
+     - **Metrics** and **Parameters**
 
       - Training loss; validation loss; user-specified metrics
       - ``fit()`` or ``fit_generator()`` parameters; optimizer name; learning rate; epsilon
 
-     - **Artifacts**:
+     - **Artifacts**
 
       - Model summary on training start
       - `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model)
       - TensorBoard logs on training end
 
-    **tf.keras.callbacks.EarlyStopping**:
-     - **Metrics** and **Parameters**:
+    **tf.keras.callbacks.EarlyStopping**
+     - **Metrics** and **Parameters**
 
       - Metrics from the ``EarlyStopping`` callbacks: ``stopped_epoch``, ``restored_epoch``,
         ``restore_best_weight``, etc
       - ``fit()`` or ``fit_generator()`` parameters associated with ``EarlyStopping``:
         ``min_delta``, ``patience``, ``baseline``, ``restore_best_weights``, etc
 
-    **tf.estimator**:
-     - **Metrics** and **Parameters**:
+    **tf.estimator**
+     - **Metrics** and **Parameters**
 
       - TensorBoard metrics: ``average_loss``, ``loss``, etc
       - Parameters ``steps`` and ``max_steps``
 
-     - **Artifacts**:
+     - **Artifacts**
 
       - `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call
         to ``tf.estimator.export_saved_model``
 
-    **TensorFlow Core**:
-     - **Metrics**:
+    **TensorFlow Core**
+     - **Metrics**
 
       - All ``tf.summary.scalar`` calls
 
-    Refer to the autologging tracking documentation for
-    information on what is the behavior of `TensorFlow workflows
+    Refer to the autologging tracking documentation for more
+    information on `TensorFlow workflows
     <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.
 
     :param every_n_iter: The frequency with which metrics should be logged.

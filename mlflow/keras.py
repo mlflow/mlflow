@@ -457,14 +457,14 @@ def autolog():
     """
     Enables automatic logging from Keras to MLflow. Autologging captures the following information:
 
-    **Metrics** and **Parameters**:
+    **Metrics** and **Parameters**
      - Training loss; validation loss; user-specified metrics
      - Metrics associated with the ``EarlyStopping`` callbacks: ``stopped_epoch``,
        ``restored_epoch``, ``restore_best_weight``, ``last_epoch``, etc
      - ``fit()`` or ``fit_generator()`` parameters; optimizer name; learning rate; epsilon
      - ``fit()`` or ``fit_generator()`` parameters associated with ``EarlyStopping``: ``min_delta``,
        ``patience``, ``baseline``, ``restore_best_weights``, etc
-    **Artifacts**:
+    **Artifacts**
      - Model summary on training start
      - `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end
 
