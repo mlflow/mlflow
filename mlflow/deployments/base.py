@@ -1,16 +1,20 @@
 """
-Here it shows the base implementation needed for plugin developers to develop deployment plugins.
-Deployment plugin would exposes only three interfaces which is then used by mlflow to serve user
-requests.
+This module contains the base interface implemented by MLflow model deployment plugins.
+In particular, a valid deployment plugin module must implement:
 
-1. Client class subclassed from :py:class:`BaseDeploymentClient`
-2. :py:func:`run_local` for test run the deployment on local system
-3. :py:func:`target_help` for displaying the help message about the plugin
+1. Exactly one client class subclassed from :py:class:`BaseDeploymentClient`, exposing the primary
+   user-facing APIs used to manage deployments.
+2. :py:func:`run_local`, for testing deployment by deploying a model locally
+3. :py:func:`target_help`, which returns a help message describing target-specific URI format
+   and deployment config
 """
 
 import abc
 
+from mlflow.utils import experimental
 
+
+@experimental
 def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: disable=W0613
     """
     .. Note::
@@ -37,6 +41,7 @@ def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: dis
                               "your application")
 
 
+@experimental
 def target_help():
     """
     .. Note::
@@ -64,23 +69,22 @@ def target_help():
 
 class BaseDeploymentClient(abc.ABC):
     """
-    Base class exposing Python model deployment APIs. Plugin implementors should define
-    target-specific deployment logic via a subclass of ``BaseDeploymentClient`` within the
-    plugin module, and customize the method docstrings
+    Base class exposing Python model deployment APIs.
+
+    Plugin implementors should define target-specific deployment logic via a subclass of
+    ``BaseDeploymentClient`` within the plugin module, and customize method docstrings with
+    target-specific information.
 
     .. Note::
-        In case of exceptions, plugins must raise an :py:class:`mlflow.exceptions.MlflowException`
-        instead of native python exceptions
-
-    .. Note::
-        The plugin should only have one child class of
-        :py:class:`BaseDeploymentClient` else it throws.
+        Subclasses should raise :py:class:`mlflow.exceptions.MlflowException` in error cases (e.g.
+        on failure to deploy a model).
     """
 
     def __init__(self, target_uri):
         self.target_uri = target_uri
 
     @abc.abstractmethod
+    @experimental
     def create_deployment(self, name, model_uri, flavor=None, config=None):
         """
         Deploy a model to the specified target. By default, this method should block until
@@ -91,7 +95,7 @@ class BaseDeploymentClient(abc.ABC):
         for additional detail on support for asynchronous deployment and other configuration.
 
         :param name: Unique name to use for deployment. If another deployment exists with the same
-                     name, create_deployment will raise a
+                     name, raises a
                      :py:class:`mlflow.exceptions.MlflowException`
         :param model_uri: URI of model to deploy
         :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor
@@ -103,6 +107,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @experimental
     def update_deployment(self, name, model_uri=None, flavor=None, config=None):
         """
         Update the deployment with the specified name. You can update the URI of the model, the
@@ -115,8 +120,8 @@ class BaseDeploymentClient(abc.ABC):
         :param name: Unique name of deployment to update
         :param model_uri: URI of a new model to deploy.
         :param flavor: (optional) new model flavor to use for deployment. If provided,
-                       `model_uri` must also be specified. If `flavor` is unspecified but
-                       `model_uri` is specified, a default flavor will be chosen and the
+                       ``model_uri`` must also be specified. If ``flavor`` is unspecified but
+                       ``model_uri`` is specified, a default flavor will be chosen and the
                        deployment will be updated using that flavor.
         :param config: (optional) dict containing updated target-specific configuration for the
                        deployment
@@ -125,9 +130,10 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @experimental
     def delete_deployment(self, name):
         """
-        Delete the deployment with name `name` from the specified target. Deletion should be
+        Delete the deployment with name ``name`` from the specified target. Deletion should be
         idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
 
         :param name: Name of deployment to delete
@@ -136,6 +142,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @experimental
     def list_deployments(self):
         """
         List deployments. This method is expected to return an unpaginated list of all
@@ -151,6 +158,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @experimental
     def get_deployment(self, name):
         """
         Returns a dictionary describing the specified deployment, throwing a
@@ -165,6 +173,7 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
+    @experimental
     def predict(self, deployment_name, df):
         """
         Compute predictions on the pandas DataFrame ``df`` using the specified deployment.

@@ -143,7 +143,6 @@ plugin:
        Users who install the example plugin and set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
      - `FileStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/file_store.py#L80>`_
-
    * - Plugins for defining artifact read/write APIs like ``mlflow.log_artifact``, ``MlflowClient.download_artifacts`` for a specified
        artifact URI scheme (e.g. the scheme used by your in-house blob storage system).
      - mlflow.artifact_repository
@@ -158,8 +157,6 @@ plugin:
        custom ArtifactRepository implementation defined in ``PluginLocalArtifactRepository``.
        The full artifact URI is passed to the ``PluginLocalArtifactRepository`` constructor.
      - `LocalArtifactRepository <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/artifact/local_artifact_repo.py#L10>`_
-
-
    * - Plugins for specifying custom context tags at run creation time, e.g. tags identifying the git repository associated with a run.
      - mlflow.run_context_provider
      - The entry point name is unused. The entry point value (e.g. ``mlflow_test_plugin.run_context_provider:PluginRunContextProvider``) specifies a custom subclass of
@@ -168,7 +165,6 @@ plugin:
        within the ``mlflow_test_plugin`` module) to register.
      - `GitRunContext <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/git_context.py#L36>`_,
        `DefaultRunContext <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/default_context.py#L41>`_
-
    * - Plugins for overriding definitions of Model Registry APIs like ``mlflow.register_model``.
      - mlflow.model_registry_store
      - .. note:: The Model Registry is in beta (as of MLflow 1.5). Model Registry APIs are not guaranteed to be stable, and Model Registry plugins may break in the future.
@@ -183,44 +179,22 @@ plugin:
        Users who install the example plugin and set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
      - `SqlAlchemyStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/model_registry/sqlalchemy_store.py#L34>`_
-
    * - Plugins for running MLflow projects against custom execution backends (e.g. to run projects
        against your team's in-house cluster or job scheduler).
      - mlflow.project.backend
      - The entry point value (e.g. ``mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend``) specifies a custom subclass of
        ``mlflow.project.backend.AbstractBackend``)
      - N/A (will be added soon)
-   * - Plugins for custom deployment runtime and deploy the model using ``mlflow deployments create``. For more details about the allowed interfaces,
-       checkout `deployment plugin <models.html#deployment-plugin>`_
+   * - Plugins for deploying models to custom serving tools.
      - mlflow.deployments
-     - The entry point name should represent the target name and the value must be the plugin module. The entry point name is what user will be using to refer
-       a target. For example, if the target is RedisAI, then the entry point name value pair must be ``redisai:mlflow_redisai`` where ``mlflow_redisai`` is
-       the redisai plugin package that exposes the `target_help` & 'run_local` functions along with providing the client class. For more details read the
-       `python API documentation <python_api/mlflow.deployments.html#mlflow.deployments>`_
-     - `RedisAI plugin <https://github.com/RedisAI/mlflow-redisai>`_
-
-
-Deployment Plugin
-^^^^^^^^^^^^^^^^^
-Building a plugin for deployment has it's own implementation details apart from the ``setup.py`` configurations. For starters, as given in the above table,
-entrypoint value for the deployment plugin must be a package that has `target_help` & 'run_local` functions along with the client class defined. More details about the
-interface functions and main plugin class can be found in the `python API documentation <python_api/mlflow.deployments.html#mlflow.deployments>`_
-
-Let's try an example. Deploying a model to RedisAI using `RedisAI plugin <https://github.com/RedisAI/mlflow-redisai>`_ plugin is shown below.
-
-.. code-block:: python
-
-    from mlflow import deployments
-    # Host, port and authentication credentials for redis instance can be
-    # passed as environmental variable or as part of the target uri
-    redisai = deployments.get_deploy_client('redisai')
-    redisai.create_deployment('resnet18', model_uri)
-
-The CLI command for this will be
-
-.. code-block:: bash
-
-    mlflow deployments create --target-uri redisai --model-uri <model_uri> --name resnet18
+     - The entry point name (e.g. ``redisai``) is the target name. The entry point value (e.g. ``mlflow_test_plugin.fake_deployment_plugin``) specifies a module defining:
+       1) Exactly one subclass of `mlflow.deployments.BaseDeploymentClient <python_api/mlflow.deployments.html#mlflow.deployments.BaseDeploymentClient>`_
+       (e.g., the `PluginDeploymentClient class <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/fake_deployment_plugin.py>`_).
+       MLflow's ``mlflow.deployments.get_deploy_client`` API directly returns an instance of this subclass to the user, so you're encouraged
+       to write clear user-facing method and class docstrings as part of your plugin implementation.
+       2) The ``run_local`` and ``target_help`` functions, with the ``target`` parameter excluded, as shown
+       `here <https://github.com/mlflow/mlflow/blob/master/mlflow/deployments/base.py>`_
+     - `PluginDeploymentClient <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/fake_deployment_plugin.py>`_.
 
 
 Testing Your Plugin
@@ -321,14 +295,10 @@ and the conda.yaml file associated with the model.
 Deployment Plugins
 ~~~~~~~~~~~~~~~~~~
 
-Here is a list of plugins built for different deployment targets using with MLflow's `deployment plugin <models.html#deployment-plugin>`_ API. This
-list is not by means exhaustive or probably not even complete since this list is manually curated and we might have missed some. In case you find
-some plugins that's not in the list or if you are a plugin developer building/maintaining a plugin which is not listed here, go ahead and raise a
-PR to include it in this list. If you are a plugin developer or planning to build a plugin, the documentation on `how to build a plugin <plugins.html#writing-your-own-mlflow-plugins>`_
-is a good place to start. But if you are user for an existing plugin or exploring how does the plugin system work for deployment use cases in general,
-you should checkout the documentation for `model deployment using plugins <models.html#deployment-plugin>`_. It might also be helpful if you refer the
-`CLI docs <cli.html#mlflow-deployments>`_ and the corresponding `python API docs <python_api/mlflow.deployments.html>`_ when you start building tools that would
-use these plugins. You must also check the plugin's documentation for plugin specific arguments and the functionality of each API interface
-
+The following known plugins provide support for deploying models to custom serving tools using
+MLflow's `model deployment APIs <models.html#deployment-plugin>`_. See the individual plugin pages
+or installation instructions, and see the
+`Python API docs <models.html#deployment-plugin>`_ and `CLI docs <cli.html#mlflow-deployments>`_
+for usage instructions and examples.
 
 - `mlflow-redisai <https://github.com/RedisAI/mlflow-redisai>`_

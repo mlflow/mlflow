@@ -3,7 +3,7 @@ from six.moves import urllib
 from mlflow.deployments.plugin_manager import DeploymentPlugins
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.exceptions import MlflowException
-
+from mlflow.utils import experimental
 
 plugin_store = DeploymentPlugins()
 
@@ -23,16 +23,34 @@ def get_uri_scheme(uri):
 
 def get_deploy_client(target_uri):
     """
-    It fetches all the classes inside the plugin and check for a subclass of
-    :py:class:`mlflow.deployments.BaseDeploymentClient` that can be used to deploy
-    models to the specified target
+    Returns a subclass of :py:class:`mlflow.deployments.BaseDeploymentClient` exposing standard
+    APIs for deploying models to the specified target. See available deployment APIs
+    by calling ``help()`` on the returned object or viewing docs for
+    :py:class:`mlflow.deployments.BaseDeploymentClient`. You can also run
+    ``mlflow deployments help -t <target-uri>`` via the CLI for more details on target-specific
+    configuration options.
 
-    .. Note::
-        The plugin should only have one child class of
-        :py:class:`mlflow.deployments.BaseDeploymentClient` else it throws.
+    :param target_uri: URI of target to deploy to.
 
-    :param: target_uri: URI of target to deploy to. Run ``mlflow deployments --help`` via the CLI
-                        for more information on supported deployment targets
+
+    .. code-block:: python
+        :caption: Example
+
+        from mlflow.deployments import get_deploy_client
+        client = get_deploy_client('redisai')
+        # Deploy the model stored at artifact path 'myModel' under run with ID 'someRunId'. The
+        # model artifacts are fetched from the current tracking server and then used for deployment.
+        client.create_deployment("spamDetector", "runs:/someRunId/myModel")
+        # Load a CSV of emails and score it against our deployment
+        emails_df = pd.read_csv("...")
+        prediction_df = client.predict_deployment("spamDetector", emails_df)
+        # List all deployments, get details of our particular deployment
+        print(client.list_deployments())
+        print(client.get_deployment("spamDetector"))
+        # Update our deployment to serve a different model
+        client.create_deployment("spamDetector", "runs:/anotherRunId/myModel")
+        # Delete our deployment
+        client.deployment_deployment("spamDetector")
     """
     target = get_uri_scheme(target_uri)
     plugin = plugin_store[target]
@@ -41,15 +59,14 @@ def get_deploy_client(target_uri):
             return obj(target_uri)
 
 
+@experimental
 def run_local(target, name, model_uri, flavor=None, config=None):
     """
-    Deploys the specified model locally, for testing. This function calls the `run_local` function
-    from the plugin and offload the task.
+    Deploys the specified model locally, for testing. Note that models deployed locally cannot
+    be managed by other deployment APIs (e.g. ``update_deployment``, ``delete_deployment``, etc).
 
-    :param target: Which target to use. This information is used to call the appropriate plugin
-    :param name:  Unique name to use for deployment. If another deployment exists with the same
-                  name, this function will raise a
-                  `:py:class:mlflow.exceptions.MlflowException`
+    :param target: Target to deploy to.
+    :param name:  Name to use for deployment
     :param model_uri: URI of model to deploy
     :param flavor: (optional) Model flavor to deploy. If unspecified, a default flavor
                    will be chosen.
@@ -60,7 +77,7 @@ def run_local(target, name, model_uri, flavor=None, config=None):
     return plugin_store[target].run_local(name, model_uri, flavor, config)
 
 
-def target_help(target):
+def _target_help(target):
     """
     Return a string containing detailed documentation on the current deployment target,
     to be displayed when users invoke the ``mlflow deployments help -t <target-name>`` CLI.

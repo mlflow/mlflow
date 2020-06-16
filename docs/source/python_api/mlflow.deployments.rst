@@ -1,6 +1,6 @@
 mlflow.deployments
 ==================
 
-.. automodule:: mlflow.deployments.base
+.. automodule:: mlflow.deployments
     :members:
     :undoc-members:

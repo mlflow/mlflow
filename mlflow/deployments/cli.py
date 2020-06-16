@@ -171,7 +171,7 @@ def target_help(target):
     Display additional help for a specific deployment target, e.g. info on target-specific config
     options and the target's URI format.
     """
-    click.echo(interface.target_help(target))
+    click.echo(interface._target_help(target))
 
 
 @commands.command("run-local")

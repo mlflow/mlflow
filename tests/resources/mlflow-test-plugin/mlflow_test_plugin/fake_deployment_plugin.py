@@ -4,7 +4,7 @@ from mlflow.deployments import BaseDeploymentClient
 f_deployment_name = 'fake_deployment_name'
 
 
-class FakePlugin(BaseDeploymentClient):
+class PluginDeploymentClient(BaseDeploymentClient):
     def create_deployment(self, name, model_uri, flavor=None, config=None):
         if config and config.get('raiseError') == 'True':
             raise RuntimeError("Error requested")

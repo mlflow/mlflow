@@ -861,7 +861,7 @@ using the `mlflow.deployments Python API <python_api/mlflow.deployments.html#mlf
 * `Help <cli.html#mlflow-deployments-help>`_: Show the help string for the specified plugin
 
 
-Also, see:
+For more info, see:
 
 .. code-block:: bash
 
