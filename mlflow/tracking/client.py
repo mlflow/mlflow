@@ -373,35 +373,20 @@ class MlflowClient(object):
         self._get_registry_client().rename_registered_model(name, new_name)
 
     @experimental
-    def update_registered_model(self, name, new_name=None, description=None):
+    def update_registered_model(self, name, description=None):
         """
-        Updates metadata for RegisteredModel entity. Either ``new_name`` or ``description`` should
-        be non-None. Backend raises exception if a registered model with given name does not exist.
+        Updates metadata for RegisteredModel entity. Input field ``description`` should be non-None.
+        Backend raises exception if a registered model with given name does not exist.
 
         :param name: Name of the registered model to update.
-        :param new_name: (Deprecated) New proposed name for the registered model.
-                         This argument is deprecated. Use the
-                         :py:func:`rename_registered_model <MlflowClient.rename_registered_model>`
-                         method to rename registered models instead.
         :param description: (Optional) New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        if new_name is None and description is None:
+        if description is None:
             raise MlflowException("Attempting to update registered model with no new field values.")
 
-        if new_name is not None and new_name.strip() == "":
-            raise MlflowException("The new name must not be an empty string.")
-
-        res = None
-        if new_name is not None:
-            _logger.warning("The `new_name` argument in update_registered_model is deprecated."
-                            " Use the `rename_registered_model` method instead.")
-            res = self._get_registry_client().rename_registered_model(name=name, new_name=new_name)
-            name = new_name
-        if description is not None:
-            res = self._get_registry_client().update_registered_model(name=name,
-                                                                      description=description)
-        return res
+        return self._get_registry_client().update_registered_model(name=name,
+                                                                   description=description)
 
     @experimental
     def delete_registered_model(self, name):
@@ -459,34 +444,21 @@ class MlflowClient(object):
         return self._get_registry_client().create_model_version(name, source, run_id)
 
     @experimental
-    def update_model_version(self, name, version, stage=None, description=None):
+    def update_model_version(self, name, version, description=None):
         """
         Update metadata associated with a model version in backend.
 
         :param name: Name of the containing registered model.
         :param version: Version number of the model version.
-        :param stage: (Deprecated) New desired stage forthis model version. This field is deprecated
-                      as of mlflow 1.7. Use transition_model_version_stage instead to update stage.
         :param description: New description.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        if stage is None and description is None:
+        if description is None:
             raise MlflowException("Attempting to update model version with no new field values.")
-        if stage is not None and stage.strip() == "":
-            raise MlflowException("The stage must not be an empty string.")
 
-        res = None
-        if stage is not None:
-            _logger.warning("'stage' field in update_model_version is deprecated. "
-                            "Use transition_model_stage instead.")
-            res = self._get_registry_client().transition_model_version_stage(name=name,
-                                                                             version=version,
-                                                                             stage=stage)
-        if description is not None:
-            res = self._get_registry_client().update_model_version(name=name, version=version,
-                                                                   description=description)
-        return res
+        return self._get_registry_client().update_model_version(name=name, version=version,
+                                                                description=description)
 
     @experimental
     def transition_model_version_stage(self, name, version, stage):
