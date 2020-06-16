@@ -4,6 +4,7 @@ import os
 from azure.storage.blob import BlobClient
 import mock
 import pytest
+import posixpath
 from requests.models import Response
 from unittest.mock import ANY
 
@@ -27,7 +28,7 @@ MOCK_HEADERS = [ArtifactCredentialInfo.HttpHeader(name='Mock-Name1', value='Mock
 MOCK_RUN_ROOT_URI = \
     "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
 MOCK_SUBDIR = "subdir/path"
-MOCK_SUBDIR_ROOT_URI = os.path.join(MOCK_RUN_ROOT_URI, MOCK_SUBDIR)
+MOCK_SUBDIR_ROOT_URI = posixpath.join(MOCK_RUN_ROOT_URI, MOCK_SUBDIR)
 
 
 @pytest.fixture()
@@ -239,7 +240,7 @@ class TestDatabricksArtifactRepository(object):
 
     @pytest.mark.parametrize("artifact_path,expected_location", [
         (None, os.path.join(MOCK_SUBDIR, "test.txt")),
-        ('test_path', os.path.join(MOCK_SUBDIR, "test_path/test.txt")),
+        ('test_path', posixpath.join(MOCK_SUBDIR, "test_path/test.txt")),
     ])
     def test_log_artifact_with_relative_path(self, test_file, artifact_path, expected_location):
         with mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '._get_run_artifact_root') \
@@ -271,13 +272,13 @@ class TestDatabricksArtifactRepository(object):
             log_artifact_mock.return_value = None
             databricks_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
             artifact_path = artifact_path or ''
-            calls = [mock.call(os.path.join(test_dir.strpath, 'empty-file'),
+            expected_calls = [mock.call(os.path.join(test_dir.strpath, 'empty-file'),
                                os.path.join(artifact_path, '')),
                      mock.call(os.path.join(test_dir.strpath, 'test.txt'),
                                os.path.join(artifact_path, '')),
                      mock.call(os.path.join(test_dir.strpath, 'subdir/test.txt'),
                                os.path.join(artifact_path, 'subdir'))]
-            log_artifact_mock.assert_has_calls(calls)
+            assert log_artifact_mock.mock_calls == expected_calls
 
     def test_list_artifacts(self, databricks_artifact_repo):
         list_artifact_file_proto_mock = [FileInfo(path='a.txt', is_dir=False, file_size=0)]
@@ -430,7 +431,7 @@ class TestDatabricksArtifactRepository(object):
             databricks_artifact_repo = get_artifact_repository(MOCK_SUBDIR_ROOT_URI)
             databricks_artifact_repo.download_artifacts(remote_file_path, local_path)
             read_credentials_mock.assert_called_with(MOCK_RUN_ID,
-                                                     os.path.join(MOCK_SUBDIR, remote_file_path))
+                                                     posixpath.join(MOCK_SUBDIR, remote_file_path))
             download_mock.assert_called_with(mock_credentials, ANY)
 
     def test_databricks_download_file_get_request_fail(self, databricks_artifact_repo, test_file):

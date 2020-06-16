@@ -41,7 +41,13 @@ def test_dbfs_artifact_repo_delegates_to_correct_repo(
     assert isinstance(rest_repo, DbfsRestArtifactRepository)
     assert rest_repo.artifact_uri == artifact_uri
 
-    artifact_uri = "dbfs:/databricks/mlflow-tracking/my/absolute/dbfs/path"
-    databricks_repo = get_artifact_repository(artifact_uri)
-    assert isinstance(databricks_repo, DatabricksArtifactRepository)
-    assert databricks_repo.artifact_uri == artifact_uri
+    with mock.patch(
+            "mlflow.store.artifact.databricks_artifact_repo" +
+            ".DatabricksArtifactRepository._get_run_artifact_root") \
+            as get_run_artifact_root_mock:
+        mock_uri = \
+            "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
+        get_run_artifact_root_mock.return_value = mock_uri
+        databricks_repo = get_artifact_repository(mock_uri)
+        assert isinstance(databricks_repo, DatabricksArtifactRepository)
+        assert databricks_repo.artifact_uri == mock_uri
