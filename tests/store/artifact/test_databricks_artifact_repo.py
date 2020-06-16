@@ -239,8 +239,8 @@ class TestDatabricksArtifactRepository(object):
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, ANY)
 
     @pytest.mark.parametrize("artifact_path, expected_location", [
-        (None, os.path.join(MOCK_SUBDIR, "test.txt")),
-        ('test_path', os.path.join(MOCK_SUBDIR, "test_path/test.txt")),
+        (None, posixpath.join(MOCK_SUBDIR, "test.txt")),
+        ('test_path', posixpath.join(MOCK_SUBDIR, "test_path/test.txt")),
     ])
     def test_log_artifact_with_relative_path(self, test_file, artifact_path, expected_location):
         with mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '._get_run_artifact_root') \
@@ -276,7 +276,8 @@ class TestDatabricksArtifactRepository(object):
                               os.path.join(artifact_path, '')),
                               mock.call(os.path.join(test_dir.strpath, 'test.txt'),
                               os.path.join(artifact_path, '')),
-                              mock.call(os.path.join(test_dir.strpath, 'subdir/test.txt'),
+                              mock.call(os.path.join(test_dir.strpath,
+                                                     os.path.join('subdir', 'test.txt')),
                               os.path.join(artifact_path, 'subdir'))]
             assert log_artifact_mock.mock_calls == expected_calls
 
@@ -293,10 +294,10 @@ class TestDatabricksArtifactRepository(object):
             assert isinstance(artifacts, list)
             assert isinstance(artifacts[0], FileInfoEntity)
             assert len(artifacts) == 2
-            assert artifacts[0].path == 'test/a.txt'
+            assert artifacts[0].path == os.path.join('test', 'a.txt')
             assert artifacts[0].is_dir is False
             assert artifacts[0].file_size == 100
-            assert artifacts[1].path == 'test/dir'
+            assert artifacts[1].path == os.path.join('test', 'dir')
             assert artifacts[1].is_dir is True
             assert artifacts[1].file_size is None
 
