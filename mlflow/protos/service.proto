@@ -972,12 +972,18 @@ message ListArtifacts {
   // Filter artifacts matching this path (a relative path from the root artifact directory).
   optional string path = 2;
 
+  // Token indicating the page of artifact results to fetch
+  optional string page_token = 4;
+
   message Response {
     // Root artifact directory for the run.
     optional string root_uri = 1;
 
     // File location and metadata for artifacts.
     repeated FileInfo files = 2;
+
+    // Token that can be used to retrieve the next page of artifact results
+    optional string next_page_token = 3;
   }
 }
 

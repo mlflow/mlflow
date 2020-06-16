@@ -396,3 +396,16 @@ def get_local_path_or_none(path_or_uri):
         return local_file_uri_to_path(path_or_uri)
     else:
         return None
+
+
+def yield_file_in_chunks(file, chunk_size=100000000):
+    """
+    Generator to chunk-ify the inputted file based on the chunk-size.
+    """
+    with open(file, "rb") as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if chunk:
+                yield chunk
+            else:
+                break
