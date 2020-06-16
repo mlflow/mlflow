@@ -828,3 +828,48 @@ argument. The following values are supported:
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>, result_type=ArrayType(FloatType()))
     # The prediction column will contain all the numeric columns returned by the model as floats
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
+
+
+.. _deployment_plugin:
+
+Deployment to Custom Targets
+----------------------------
+In addition to the built-in deployment tools, MLflow provides a pluggable
+`mlflow.deployments Python API <python_api/mlflow.deployments.html#mlflow.deployments>`_ and
+`mlflow deployments CLI <cli.html#mlflow-deployments>`_ for deploying
+models to custom targets and environments. To deploy to a custom target, you must first install an
+appropriate third-party Python plugin. See the list of known community-maintained plugins
+`here <plugins.html#deployment-plugins>`_.
+
+
+.. Note::
+    APIs for deployment to custom targets are experimental, and may be altered in a future release.
+
+
+Commands
+^^^^^^^^
+The `mlflow deployments` CLI contains the following commands, which can also be invoked programmatically
+using the `mlflow.deployments Python API <python_api/mlflow.deployments.html#mlflow.deployments>`_:
+
+* `Create <cli.html#mlflow-deployments-create>`_: Deploy an MLflow model to a specified custom target
+* `Delete <cli.html#mlflow-deployments-delete>`_: Delete a deployment
+* `Update <cli.html#mlflow-deployments-update>`_: Update an existing deployment, for example to
+  deploy a new model version or change the deployment's configuration (e.g. increase replica count)
+* `List <cli.html#mlflow-deployments-list>`_: List IDs of all deployments
+* `Get <cli.html#mlflow-deployments-get>`_: Print a detailed description of a particular deployment
+* `Run Local <cli.html#mlflow-deployments-run-local>`_: Deploy the model locally for testing
+* `Help <cli.html#mlflow-deployments-help>`_: Show the help string for the specified target
+
+
+For more info, see:
+
+.. code-block:: bash
+
+    mlflow deployments --help
+    mlflow deployments create --help
+    mlflow deployments delete --help
+    mlflow deployments update --help
+    mlflow deployments list --help
+    mlflow deployments get --help
+    mlflow deployments run-local --help
+    mlflow deployments help --help
