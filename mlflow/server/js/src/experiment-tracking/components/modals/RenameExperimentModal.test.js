@@ -35,7 +35,7 @@ describe('RenameExperimentModal', () => {
     const promise = wrapper.find(GenericInputModal).prop('handleSubmit')(values);
     promise.finally(() => {
       expect(mockUpdateExperimentApi).toHaveBeenCalledTimes(1);
-      expect(mockUpdateExperimentApi).toHaveBeenCalledWith(123, 'renamed');
+      expect(mockUpdateExperimentApi).toHaveBeenCalledWith('123', 'renamed');
       expect(mockGetExperimentApi).toHaveBeenCalledTimes(1);
       done();
     });
@@ -60,7 +60,7 @@ describe('RenameExperimentModal', () => {
     );
     failUpdatePromise.catch(() => {
       expect(mockFailUpdateExperimentApi).toHaveBeenCalledTimes(1);
-      expect(mockFailUpdateExperimentApi).toHaveBeenCalledWith(123, 'renamed');
+      expect(mockFailUpdateExperimentApi).toHaveBeenCalledWith('123', 'renamed');
       expect(mockGetExperimentApi).toHaveBeenCalledTimes(0);
       done();
     });
@@ -83,7 +83,7 @@ describe('RenameExperimentModal', () => {
     const failGetPromise = failGetWrapper.find(GenericInputModal).prop('handleSubmit')(values);
     failGetPromise.catch(() => {
       expect(mockUpdateExperimentApi).toHaveBeenCalledTimes(1);
-      expect(mockUpdateExperimentApi).toHaveBeenCalledWith(123, 'renamed');
+      expect(mockUpdateExperimentApi).toHaveBeenCalledWith('123', 'renamed');
       expect(mockFailGetExperimentApi).toHaveBeenCalledTimes(1);
       done();
     });
