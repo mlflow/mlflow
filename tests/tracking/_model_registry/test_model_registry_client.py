@@ -86,10 +86,10 @@ def test_list_registered_models(mock_store):
     mock_store.list_registered_models.return_value = [
         RegisteredModel("Model 1"),
         RegisteredModel("Model 2")
-    ], None
-    result_rms, result_next_pt = newModelRegistryClient().list_registered_models()
+    ]
+    result = newModelRegistryClient().list_registered_models()
     mock_store.list_registered_models.assert_called_once()
-    assert len(result_rms) == 2
+    assert len(result) == 2
 
 
 def test_get_registered_model_details(mock_store):
