@@ -7,7 +7,6 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 from databricks_cli.configure import provider
 from mlflow.utils._spark_utils import _get_active_spark_session
 
-
 _logger = logging.getLogger(__name__)
 
 

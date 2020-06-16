@@ -4,7 +4,8 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.uri import is_databricks_uri, is_http_uri, is_local_uri, \
-    extract_db_type_from_uri, get_db_profile_from_uri, get_uri_scheme, append_to_uri_path
+    extract_db_type_from_uri, get_db_profile_from_uri, get_uri_scheme, append_to_uri_path, \
+    extract_and_normalize_path, is_databricks_acled_artifacts_uri
 
 
 def test_extract_db_type_from_uri():
@@ -191,3 +192,36 @@ def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
          "creds=mycreds,param=value#*frag@*"
         ),
     ])
+
+
+def test_extract_and_normalize_path():
+    base_uri = 'databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts'
+    assert extract_and_normalize_path(
+        'dbfs:databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts') == base_uri
+    assert extract_and_normalize_path(
+        'dbfs:/databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts') == base_uri
+    assert extract_and_normalize_path(
+        'dbfs:///databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts') == base_uri
+    assert extract_and_normalize_path(
+        'dbfs:/databricks///mlflow-tracking///EXP_ID///RUN_ID///artifacts/') == base_uri
+    assert extract_and_normalize_path(
+        'dbfs:///databricks///mlflow-tracking//EXP_ID//RUN_ID///artifacts//') == base_uri
+    assert extract_and_normalize_path(
+        'dbfs:databricks///mlflow-tracking//EXP_ID//RUN_ID///artifacts//') == base_uri
+
+
+def test_is_databricks_acled_artifacts_uri():
+    assert is_databricks_acled_artifacts_uri(
+        'dbfs:databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts')
+    assert is_databricks_acled_artifacts_uri(
+        'dbfs:/databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts')
+    assert is_databricks_acled_artifacts_uri(
+        'dbfs:///databricks/mlflow-tracking/EXP_ID/RUN_ID/artifacts')
+    assert is_databricks_acled_artifacts_uri(
+        'dbfs:/databricks///mlflow-tracking///EXP_ID///RUN_ID///artifacts/')
+    assert is_databricks_acled_artifacts_uri(
+        'dbfs:///databricks///mlflow-tracking//EXP_ID//RUN_ID///artifacts//')
+    assert is_databricks_acled_artifacts_uri(
+        'dbfs:databricks///mlflow-tracking//EXP_ID//RUN_ID///artifacts//')
+    assert not is_databricks_acled_artifacts_uri(
+        'dbfs:/databricks/mlflow//EXP_ID//RUN_ID///artifacts//')
