@@ -7,8 +7,6 @@ from mlflow.deployments.utils import parse_target_uri
 plugin_store = DeploymentPlugins()
 
 
-
-
 def get_deploy_client(target_uri):
     """
     Returns a subclass of :py:class:`mlflow.deployments.BaseDeploymentClient` exposing standard

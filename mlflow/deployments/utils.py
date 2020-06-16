@@ -12,7 +12,7 @@ def parse_target_uri(target_uri):
         raise MlflowException(
             "Not a proper deployment URI: %s. " % target_uri +
             "Deployment URIs must be of the form 'target' or 'target:/suffix'")
-    if parsed.netloc: # Handle case of target_name://suffix, in which 'suffix' gets parsed as netloc
+    if parsed.netloc:  # Handle e.g. target_name://suffix, where 'suffix' gets parsed as netloc
         raise MlflowException(
             "Not a proper deployment URI: %s. " % target_uri +
             "Deployment URIs must be of the form 'target:/suffix'")

@@ -25,7 +25,7 @@ setup(
         # Define a MLflow Project Backend plugin called 'dummy-backend'
         "mlflow.project_backend":
             "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",
-        # Define a MLflow model deployment plugin for target 'fake_target'
+        # Define a MLflow model deployment plugin for target 'faketarget'
         "mlflow.deployments": "faketarget=mlflow_test_plugin.fake_deployment_plugin",
     },
 )

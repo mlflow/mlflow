@@ -69,6 +69,7 @@ def test_plugin_raising_error():
         client.list_deployments()
     os.environ['raiseError'] = 'False'
 
+
 def test_target_uri_parsing():
     deployments.get_deploy_client(f_target)
     deployments.get_deploy_client("{target}:/somesuffix".format(target=f_target))

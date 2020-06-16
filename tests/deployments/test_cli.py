@@ -5,7 +5,7 @@ from mlflow.deployments import cli
 f_model_uri = 'fake_model_uri'
 f_name = 'fake_deployment_name'
 f_flavor = 'fake_flavor'
-f_target = 'fake_target'
+f_target = 'faketarget'
 
 
 def test_create():
