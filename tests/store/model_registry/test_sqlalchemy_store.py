@@ -391,9 +391,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             result[idx] = result[idx].name
         return result
 
-    def get_rm_names(self, rms):
-        return rms
-
     def test_search_registered_models(self):
         # create some registered models
         prefix = "test_for_search_"
