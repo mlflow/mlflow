@@ -495,7 +495,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             result = self._search_registered_models(
                 "name LIKE 'RM%'", page_token=result.token, max_results=5)
             returned_rms.extend(result)
-        self.assertEqual(set(rms), set(returned_rms))
+        self.assertEqual(rms, returned_rms)
 
         # test that pagination will return all valid results in sorted order
         # by name ascending

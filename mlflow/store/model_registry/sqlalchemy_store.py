@@ -272,11 +272,14 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             if self.db_type == SQLITE:
                 session.execute("PRAGMA case_sensitive_like = true;")
-            sql_registered_models = session.query(SqlRegisteredModel)\
+            query = session\
+                .query(SqlRegisteredModel)\
                 .filter(*conditions)\
                 .order_by(SqlRegisteredModel.name.asc())\
-                .offset(offset)\
-                .limit(max_results).all()
+                .limit(max_results)
+            if page_token:
+                query = query.offset(offset)
+            sql_registered_models = query.all()
             registered_models = [rm.to_mlflow_entity() for rm in sql_registered_models]
             next_page_token = compute_next_token(len(registered_models))
             return PagedList(registered_models, next_page_token)
