@@ -1,21 +1,23 @@
 import pytest
 import numpy as np
+from tests.conftest import tracking_uri_mock  # pylint: disable=W0611
 
 import pandas as pd
 import sklearn.datasets as datasets
 from fastai.tabular import tabular_learner, TabularList
 from fastai.metrics import accuracy
-import mlflow  # noqa
-import mlflow.fastai  # noqa
+import mlflow
+import mlflow.fastai
 from fastai.callbacks import EarlyStoppingCallback
 
 np.random.seed(1337)
 
-LARGE_EPOCHS = 5
+NUM_EPOCHS = 3
+MIN_DELTA = 99999999  # Forces earlystopping
 
 
 @pytest.fixture(params=[True, False])
-def manual_run(request):
+def manual_run(request, tracking_uri_mock):
     if request.param:
         mlflow.start_run()
     yield
@@ -63,9 +65,9 @@ def test_fastai_autolog_persists_manually_created_run(iris_data, fit_variant):
         model = fastai_model(iris_data)
 
         if fit_variant == 'fit_one_cycle':
-            model.fit_one_cycle(LARGE_EPOCHS)
+            model.fit_one_cycle(NUM_EPOCHS)
         else:
-            model.fit(LARGE_EPOCHS)
+            model.fit(NUM_EPOCHS)
 
         assert mlflow.active_run()
         assert mlflow.active_run().info.run_id == run.info.run_id
@@ -78,9 +80,9 @@ def fastai_random_data_run(iris_data, fit_variant, manual_run):
     model = fastai_model(iris_data)
 
     if fit_variant == 'fit_one_cycle':
-        model.fit_one_cycle(LARGE_EPOCHS)
+        model.fit_one_cycle(NUM_EPOCHS)
     else:
-        model.fit(LARGE_EPOCHS)
+        model.fit(NUM_EPOCHS)
 
     client = mlflow.tracking.MlflowClient()
     return model, client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
@@ -105,7 +107,7 @@ def test_fastai_autolog_logs_expected_data(fastai_random_data_run, fit_variant):
 
     # Testing explicitly passed parameters are logged correctly
     assert 'epochs' in data.params
-    assert data.params['epochs'] == str(LARGE_EPOCHS)
+    assert data.params['epochs'] == str(NUM_EPOCHS)
 
     # Testing implicitly passed parameters are logged correctly
     assert 'wd' in data.params
@@ -159,14 +161,14 @@ def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, cal
     if callback == 'early':
         # min_delta is set as such to guarantee early stopping
         callbacks.append(lambda learn: EarlyStoppingCallback(
-            learn, patience=patience, min_delta=99999999))
+            learn, patience=patience, min_delta=MIN_DELTA))
 
     model = fastai_model(iris_data, callback_fns=callbacks)
 
     if fit_variant == 'fit_one_cycle':
-        model.fit_one_cycle(LARGE_EPOCHS)
+        model.fit_one_cycle(NUM_EPOCHS)
     else:
-        model.fit(LARGE_EPOCHS)
+        model.fit(NUM_EPOCHS)
 
     client = mlflow.tracking.MlflowClient()
     return model, client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
@@ -186,7 +188,7 @@ def test_fastai_autolog_early_stop_logs(fastai_random_data_run_with_callback, pa
     assert 'early_stop_mode' in params
     assert params['early_stop_mode'] == 'auto'
     assert 'early_stop_min_delta' in params
-    assert params['early_stop_min_delta'] == f'-{99999999}'
+    assert params['early_stop_min_delta'] == f'-{MIN_DELTA}'
 
     client = mlflow.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, 'valid_loss')
