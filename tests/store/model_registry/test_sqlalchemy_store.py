@@ -133,7 +133,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_list_registered_model(self):
         self._rm_maker("A")
-        registered_models = self.store.list_registered_models()
+        registered_models = self.store.list_registered_models(page_token=None, max_results=10)
         self.assertEqual(len(registered_models), 1)
         self.assertEqual(registered_models[0].name, "A")
         self.assertIsInstance(registered_models[0], RegisteredModel)

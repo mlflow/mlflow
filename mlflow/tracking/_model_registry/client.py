@@ -74,11 +74,15 @@ class ModelRegistryClient(object):
         """
         self.store.delete_registered_model(name)
 
-    def list_registered_models(self, page_token=None, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT):
+    def list_registered_models(self,
+                               page_token=None,
+                               max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT):
         """
         List of all registered models.
 
-        :return: List of :py:class:`mlflow.entities.registry.RegisteredModel` objects.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
         """
         return self.store.list_registered_models(page_token, max_results)
 

@@ -69,9 +69,12 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def list_registered_models(self):
+    def list_registered_models(self, page_token, max_results):
         """
         List of all registered models.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_registered_models`` call.
+        :param max_results: Maximum number of registered models desired.
 
         :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
         """
