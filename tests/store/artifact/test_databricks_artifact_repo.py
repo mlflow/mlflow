@@ -28,7 +28,7 @@ MOCK_HEADERS = [ArtifactCredentialInfo.HttpHeader(name='Mock-Name1', value='Mock
 MOCK_RUN_ROOT_URI = \
     "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
 MOCK_SUBDIR = "subdir/path"
-MOCK_SUBDIR_ROOT_URI = posixpath.join(MOCK_RUN_ROOT_URI, MOCK_SUBDIR)
+MOCK_SUBDIR_ROOT_URI = os.path.join(MOCK_RUN_ROOT_URI, MOCK_SUBDIR)
 
 
 @pytest.fixture()
@@ -238,9 +238,9 @@ class TestDatabricksArtifactRepository(object):
                 databricks_artifact_repo.log_artifact(test_file.strpath)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, ANY)
 
-    @pytest.mark.parametrize("artifact_path,expected_location", [
+    @pytest.mark.parametrize("artifact_path, expected_location", [
         (None, os.path.join(MOCK_SUBDIR, "test.txt")),
-        ('test_path', posixpath.join(MOCK_SUBDIR, "test_path/test.txt")),
+        ('test_path', os.path.join(MOCK_SUBDIR, "test_path/test.txt")),
     ])
     def test_log_artifact_with_relative_path(self, test_file, artifact_path, expected_location):
         with mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '._get_run_artifact_root') \
@@ -273,11 +273,11 @@ class TestDatabricksArtifactRepository(object):
             databricks_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
             artifact_path = artifact_path or ''
             expected_calls = [mock.call(os.path.join(test_dir.strpath, 'empty-file'),
-                               os.path.join(artifact_path, '')),
-                     mock.call(os.path.join(test_dir.strpath, 'test.txt'),
-                               os.path.join(artifact_path, '')),
-                     mock.call(os.path.join(test_dir.strpath, 'subdir/test.txt'),
-                               os.path.join(artifact_path, 'subdir'))]
+                              os.path.join(artifact_path, '')),
+                              mock.call(os.path.join(test_dir.strpath, 'test.txt'),
+                              os.path.join(artifact_path, '')),
+                              mock.call(os.path.join(test_dir.strpath, 'subdir/test.txt'),
+                              os.path.join(artifact_path, 'subdir'))]
             assert log_artifact_mock.mock_calls == expected_calls
 
     def test_list_artifacts(self, databricks_artifact_repo):
