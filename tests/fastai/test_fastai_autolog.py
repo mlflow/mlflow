@@ -222,7 +222,7 @@ def test_fastai_autolog_early_stop_no_stop_does_not_log(
     client = mlflow.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, 'valid_loss')
     # Check the test epoch numbers are correct
-    assert num_of_epochs == LARGE_EPOCHS
+    assert num_of_epochs == NUM_EPOCHS
     assert len(metric_history) == num_of_epochs
 
 
@@ -244,5 +244,5 @@ def test_fastai_autolog_non_early_stop_callback_does_not_log(fastai_random_data_
     client = mlflow.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, 'valid_loss')
     # Check the test epoch numbers are correct
-    assert num_of_epochs == LARGE_EPOCHS
+    assert num_of_epochs == NUM_EPOCHS
     assert len(metric_history) == num_of_epochs
