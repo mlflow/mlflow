@@ -10,8 +10,8 @@ export const mockRegisteredModelDetailed = (name, latestVersions = []) => {
 export const mockModelVersionDetailed = (name, version, stage, status) => {
   return {
     name,
-    creation_timestamp: 1571344731614,
-    last_updated_timestamp: 1573581360069,
+    creation_timestamp: version,
+    last_updated_timestamp: version + 1,
     user_id: 'richard@example.com',
     current_stage: stage,
     description: '',
