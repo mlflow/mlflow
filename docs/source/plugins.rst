@@ -297,8 +297,8 @@ Deployment Plugins
 
 The following known plugins provide support for deploying models to custom serving tools using
 MLflow's `model deployment APIs <models.html#deployment-plugin>`_. See the individual plugin pages
-or installation instructions, and see the
-`Python API docs <models.html#deployment-plugin>`_ and `CLI docs <cli.html#mlflow-deployments>`_
+for installation instructions, and see the
+`Python API docs <python_api/mlflow.deployments.html>`_ and `CLI docs <cli.html#mlflow-deployments>`_
 for usage instructions and examples.
 
 - `mlflow-redisai <https://github.com/RedisAI/mlflow-redisai>`_

@@ -37,6 +37,7 @@ def get_deploy_client(target_uri):
         :caption: Example
 
         from mlflow.deployments import get_deploy_client
+        import pandas as pd
         client = get_deploy_client('redisai')
         # Deploy the model stored at artifact path 'myModel' under run with ID 'someRunId'. The
         # model artifacts are fetched from the current tracking server and then used for deployment.
@@ -48,9 +49,9 @@ def get_deploy_client(target_uri):
         print(client.list_deployments())
         print(client.get_deployment("spamDetector"))
         # Update our deployment to serve a different model
-        client.create_deployment("spamDetector", "runs:/anotherRunId/myModel")
+        client.update_deployment("spamDetector", "runs:/anotherRunId/myModel")
         # Delete our deployment
-        client.deployment_deployment("spamDetector")
+        client.delete_deployment("spamDetector")
     """
     target = get_uri_scheme(target_uri)
     plugin = plugin_store[target]
