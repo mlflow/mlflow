@@ -82,7 +82,7 @@ Writing Your Own MLflow Plugins
 Defining a Plugin
 ~~~~~~~~~~~~~~~~~
 You define an MLflow plugin as a standalone Python package that can be distributed for
-installation via PyPI or conda. See https://github.com/mlflow/mlflow/tree/branch-1.5/tests/resources/mlflow-test-plugin for an
+installation via PyPI or conda. See https://github.com/mlflow/mlflow/tree/master/tests/resources/mlflow-test-plugin for an
 example package that implements all available plugin types.
 
 The example package contains a ``setup.py`` that declares a number of
@@ -111,6 +111,8 @@ The example package contains a ``setup.py`` that declares a number of
             # Define a MLflow Project Backend plugin called 'dummy-backend'
             "mlflow.project_backend":
                 "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",
+            # Define a MLflow model deployment plugin for target 'faketarget'
+            "mlflow.deployments": "faketarget=mlflow_test_plugin.fake_deployment_plugin",
         },
     )
 
@@ -141,7 +143,6 @@ plugin:
        Users who install the example plugin and set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
      - `FileStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/tracking/file_store.py#L80>`_
-
    * - Plugins for defining artifact read/write APIs like ``mlflow.log_artifact``, ``MlflowClient.download_artifacts`` for a specified
        artifact URI scheme (e.g. the scheme used by your in-house blob storage system).
      - mlflow.artifact_repository
@@ -156,8 +157,6 @@ plugin:
        custom ArtifactRepository implementation defined in ``PluginLocalArtifactRepository``.
        The full artifact URI is passed to the ``PluginLocalArtifactRepository`` constructor.
      - `LocalArtifactRepository <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/artifact/local_artifact_repo.py#L10>`_
-
-
    * - Plugins for specifying custom context tags at run creation time, e.g. tags identifying the git repository associated with a run.
      - mlflow.run_context_provider
      - The entry point name is unused. The entry point value (e.g. ``mlflow_test_plugin.run_context_provider:PluginRunContextProvider``) specifies a custom subclass of
@@ -166,7 +165,6 @@ plugin:
        within the ``mlflow_test_plugin`` module) to register.
      - `GitRunContext <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/git_context.py#L36>`_,
        `DefaultRunContext <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/default_context.py#L41>`_
-
    * - Plugins for overriding definitions of Model Registry APIs like ``mlflow.register_model``.
      - mlflow.model_registry_store
      - .. note:: The Model Registry is in beta (as of MLflow 1.5). Model Registry APIs are not guaranteed to be stable, and Model Registry plugins may break in the future.
@@ -181,13 +179,23 @@ plugin:
        Users who install the example plugin and set a tracking URI of the form ``file-plugin://<path>`` will use the custom AbstractStore
        implementation defined in ``PluginFileStore``. The full tracking URI is passed to the ``PluginFileStore`` constructor.
      - `SqlAlchemyStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/model_registry/sqlalchemy_store.py#L34>`_
-
    * - Plugins for running MLflow projects against custom execution backends (e.g. to run projects
        against your team's in-house cluster or job scheduler).
      - mlflow.project.backend
      - The entry point value (e.g. ``mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend``) specifies a custom subclass of
        ``mlflow.project.backend.AbstractBackend``)
      - N/A (will be added soon)
+   * - Plugins for deploying models to custom serving tools.
+     - mlflow.deployments
+     - The entry point name (e.g. ``redisai``) is the target name. The entry point value (e.g. ``mlflow_test_plugin.fake_deployment_plugin``) specifies a module defining:
+       1) Exactly one subclass of `mlflow.deployments.BaseDeploymentClient <python_api/mlflow.deployments.html#mlflow.deployments.BaseDeploymentClient>`_
+       (e.g., the `PluginDeploymentClient class <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/fake_deployment_plugin.py>`_).
+       MLflow's ``mlflow.deployments.get_deploy_client`` API directly returns an instance of this subclass to the user, so you're encouraged
+       to write clear user-facing method and class docstrings as part of your plugin implementation.
+       2) The ``run_local`` and ``target_help`` functions, with the ``target`` parameter excluded, as shown
+       `here <https://github.com/mlflow/mlflow/blob/master/mlflow/deployments/base.py>`_
+     - `PluginDeploymentClient <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/fake_deployment_plugin.py>`_.
+
 
 Testing Your Plugin
 ~~~~~~~~~~~~~~~~~~~
@@ -282,3 +290,15 @@ To use Aliyun OSS as an artifact store, an OSS URI of the form ``oss://<bucket>/
 
 In the example provided above, the ``log_model`` operation creates three entries in the OSS storage ``oss://mlflow-test/$RUN_ID/artifacts/model_test/``, the MLmodel file
 and the conda.yaml file associated with the model.
+
+
+Deployment Plugins
+~~~~~~~~~~~~~~~~~~
+
+The following known plugins provide support for deploying models to custom serving tools using
+MLflow's `model deployment APIs <models.html#deployment-plugin>`_. See the individual plugin pages
+for installation instructions, and see the
+`Python API docs <python_api/mlflow.deployments.html>`_ and `CLI docs <cli.html#mlflow-deployments>`_
+for usage instructions and examples.
+
+- `mlflow-redisai <https://github.com/RedisAI/mlflow-redisai>`_
