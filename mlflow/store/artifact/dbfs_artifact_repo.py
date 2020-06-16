@@ -44,7 +44,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     def _dbfs_list_api(self, json):
         host_creds = self.get_host_creds()
         return http_request(
-            host_creds=host_creds, endpoint=LIST_API_ENDPOINT, method='GET', json=json)
+            host_creds=host_creds, endpoint=LIST_API_ENDPOINT, method='GET', params=json)
 
     def _dbfs_download(self, output_path, endpoint):
         with open(output_path, 'wb') as f:
@@ -64,7 +64,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
 
     def _dbfs_is_dir(self, dbfs_path):
         response = self._databricks_api_request(
-            endpoint=GET_STATUS_ENDPOINT, method='GET', json={'path': dbfs_path})
+            endpoint=GET_STATUS_ENDPOINT, method='GET', params={'path': dbfs_path})
         json_response = json.loads(response.text)
         try:
             return json_response['is_dir']

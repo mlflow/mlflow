@@ -241,7 +241,7 @@ class DatabricksJobRunner(object):
 
     def jobs_runs_get(self, databricks_run_id):
         response = self._databricks_api_request(
-            endpoint="/api/2.0/jobs/runs/get", method="GET", json={"run_id": databricks_run_id})
+            endpoint="/api/2.0/jobs/runs/get", method="GET", params={"run_id": databricks_run_id})
         return json.loads(response.text)
 
 
