@@ -294,10 +294,10 @@ class TestDatabricksArtifactRepository(object):
             assert isinstance(artifacts, list)
             assert isinstance(artifacts[0], FileInfoEntity)
             assert len(artifacts) == 2
-            assert artifacts[0].path == os.path.join('test', 'a.txt')
+            assert artifacts[0].path == 'test/a.txt'
             assert artifacts[0].is_dir is False
             assert artifacts[0].file_size == 100
-            assert artifacts[1].path == os.path.join('test', 'dir')
+            assert artifacts[1].path == 'test/dir'
             assert artifacts[1].is_dir is True
             assert artifacts[1].file_size is None
 
@@ -311,8 +311,8 @@ class TestDatabricksArtifactRepository(object):
 
     def test_list_artifacts_with_relative_path(self):
         list_artifacts_dir_proto_mock = [
-            FileInfo(path=os.path.join(MOCK_SUBDIR, 'test/a.txt'), is_dir=False, file_size=100),
-            FileInfo(path=os.path.join(MOCK_SUBDIR, 'test/dir'), is_dir=True, file_size=0)
+            FileInfo(path=posixpath.join(MOCK_SUBDIR, 'test/a.txt'), is_dir=False, file_size=100),
+            FileInfo(path=posixpath.join(MOCK_SUBDIR, 'test/dir'), is_dir=True, file_size=0)
         ]
         with mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + '._get_run_artifact_root') \
                 as get_run_artifact_root_mock, \
