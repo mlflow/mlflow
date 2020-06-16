@@ -67,6 +67,12 @@ def get_uri_scheme(uri_or_path):
         return scheme
 
 
+def extract_and_normalize_path(uri):
+    parsed_uri_path = urllib.parse.urlparse(uri).path
+    normalized_path = posixpath.normpath(parsed_uri_path)
+    return normalized_path.lstrip("/")
+
+
 def append_to_uri_path(uri, *paths):
     """
     Appends the specified POSIX `paths` to the path component of the specified `uri`.
@@ -129,3 +135,9 @@ def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     # joined path
     suffix_path = suffix_path.lstrip(posixpath.sep)
     return posixpath.join(prefix_path, suffix_path)
+
+
+def is_databricks_acled_artifacts_uri(artifact_uri):
+    _ACLED_ARTIFACT_URI = "databricks/mlflow-tracking/"
+    artifact_uri_path = extract_and_normalize_path(artifact_uri)
+    return artifact_uri_path.startswith(_ACLED_ARTIFACT_URI)
