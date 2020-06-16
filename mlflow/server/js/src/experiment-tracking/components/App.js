@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import './App.css';
 import logo from '../../common/static/home-logo.png';
-import { HashRouter as Router, Route, Link } from 'react-router-dom';
+import { HashRouter as Router, Route, Link, NavLink } from 'react-router-dom';
 import { RunPage } from './RunPage';
 import Routes from '../routes';
 import { MetricPage } from './MetricPage';
@@ -23,6 +23,10 @@ import ModelListPage from '../../model-registry/components/ModelListPage';
 import { ModelPage } from '../../model-registry/components/ModelPage';
 import CompareModelVersionsPage from '../../model-registry/components/CompareModelVersionsPage';
 
+const classNames = {
+  activeNavLink: { borderBottom: '4px solid #43C9ED' },
+};
+
 class App extends Component {
   render() {
     return (
@@ -35,6 +39,29 @@ class App extends Component {
                 <Link to={Routes.rootRoute} className='App-mlflow'>
                   <img className='mlflow-logo' alt='MLflow' src={logo} />
                 </Link>
+              </div>
+              <div className='header-route-links'>
+                <NavLink
+                  strict
+                  to={Routes.rootRoute}
+                  activeStyle={classNames.activeNavLink}
+                  isActive={(match, location) => match && !location.pathname.includes('models')}
+                  className='header-nav-link'
+                >
+                  <div className='experiments'>
+                    <span>Experiments</span>
+                  </div>
+                </NavLink>
+                <NavLink
+                  strict
+                  to={modelListPageRoute}
+                  activeStyle={classNames.activeNavLink}
+                  className='header-nav-link header-nav-link-models'
+                >
+                  <div className='models'>
+                    <span>Models</span>
+                  </div>
+                </NavLink>
               </div>
               <div className='header-links'>
                 <a href={'https://github.com/mlflow/mlflow'}>

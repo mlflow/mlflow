@@ -5,6 +5,8 @@ import App from './experiment-tracking/components/App';
 import { setupAjaxHeaders } from './setupAjaxHeaders';
 import { Provider } from 'react-redux';
 import store from './store';
+import { injectGlobal } from 'emotion';
+import { accessibilityOverrides } from './common/styles/accessibility-overrides';
 
 setupAjaxHeaders();
 
@@ -14,6 +16,7 @@ const root = (
   </Provider>
 );
 ReactDOM.render(root, document.getElementById('root'));
+injectGlobal({ ...accessibilityOverrides });
 
 // Disable service worker registration as it adds unnecessary debugging complexity
 // (see https://github.com/facebook/create-react-app/issues/2398) for relatively small gain

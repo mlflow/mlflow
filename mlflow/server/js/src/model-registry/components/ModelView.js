@@ -4,7 +4,7 @@ import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import { modelListPageRoute, getCompareModelVersionsPageRoute } from '../routes';
-import { Radio, Icon, Descriptions, Menu, Dropdown, Modal, Tooltip, Button } from 'antd';
+import { Radio, Icon, Descriptions, Menu, Dropdown, Modal, Tooltip } from 'antd';
 import {
   ACTIVE_STAGES,
   REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT,
@@ -12,6 +12,7 @@ import {
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import { Button as BootstrapButton } from 'react-bootstrap';
+import { IconButton } from '../../common/components/IconButton';
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -150,11 +151,7 @@ export class ModelView extends React.Component {
   }
 
   renderDescriptionEditIcon() {
-    return (
-      <Button type='link' onClick={this.startEditingDescription}>
-        <Icon type='form' />
-      </Button>
-    );
+    return <IconButton icon={<Icon type='form' />} onClick={this.startEditingDescription} />;
   }
 
   renderDetails = () => {

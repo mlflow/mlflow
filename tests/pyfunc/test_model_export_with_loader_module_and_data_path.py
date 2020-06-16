@@ -3,6 +3,7 @@ import pickle
 import yaml
 
 import numpy as np
+import pandas as pd
 import pytest
 import six
 import sklearn.datasets
@@ -11,12 +12,14 @@ import sklearn.neighbors
 
 import mlflow
 import mlflow.pyfunc
+from mlflow.pyfunc import PyFuncModel
 import mlflow.pyfunc.model
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, infer_signature, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types import Schema, ColSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -115,6 +118,153 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
+def test_schema_enforcement():
+    class TestModel(object):
+        @staticmethod
+        def predict(pdf):
+            return pdf
+
+    m = Model()
+    input_schema = Schema([
+        ColSpec("integer", "a"),
+        ColSpec("long", "b"),
+        ColSpec("float", "c"),
+        ColSpec("double", "d"),
+        ColSpec("boolean", "e"),
+        ColSpec("string", "g"),
+        ColSpec("binary", "f"),
+    ])
+    m.signature = ModelSignature(inputs=input_schema)
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    pdf = pd.DataFrame(data=[[1, 2, 3, 4, True, "x", bytes([1])]],
+                       columns=["b", "d", "a", "c", "e", "g", "f"], dtype=np.object)
+    pdf["a"] = pdf["a"].astype(np.int32)
+    pdf["b"] = pdf["b"].astype(np.int64)
+    pdf["c"] = pdf["c"].astype(np.float32)
+    pdf["d"] = pdf["d"].astype(np.float64)
+    # test that missing column raises
+    with pytest.raises(MlflowException) as ex:
+        res = pyfunc_model.predict(pdf[["b", "d", "a", "e", "g", "f"]])
+    assert "Model input is missing columns" in str(ex)
+
+    # test that extra column is ignored
+    pdf["x"] = 1
+
+    # test that columns are reordered, extra column is ignored
+    res = pyfunc_model.predict(pdf)
+    assert all((res == pdf[input_schema.column_names()]).all())
+
+    expected_types = dict(zip(input_schema.column_names(),
+                              input_schema.pandas_types()))
+    actual_types = res.dtypes.to_dict()
+    assert expected_types == actual_types
+
+    # Test conversions
+    # 1. long -> integer raises
+    pdf["a"] = pdf["a"].astype(np.int64)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["a"] = pdf["a"].astype(np.int32)
+    # 2. integer -> long works
+    pdf["b"] = pdf["b"].astype(np.int32)
+    res = pyfunc_model.predict(pdf)
+    assert all((res == pdf[input_schema.column_names()]).all())
+    assert res.dtypes.to_dict() == expected_types
+    pdf["b"] = pdf["b"].astype(np.int64)
+
+    # 3. double -> float raises
+    pdf["c"] = pdf["c"].astype(np.float64)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["c"] = pdf["c"].astype(np.float32)
+
+    # 4. float -> double works
+    pdf["d"] = pdf["d"].astype(np.float32)
+    res = pyfunc_model.predict(pdf)
+    assert res.dtypes.to_dict() == expected_types
+    assert "Incompatible input types" in str(ex)
+    pdf["d"] = pdf["d"].astype(np.int64)
+
+    # 5. floats -> ints raises
+    pdf["c"] = pdf["c"].astype(np.int32)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["c"] = pdf["c"].astype(np.float32)
+
+    pdf["d"] = pdf["d"].astype(np.int64)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["d"] = pdf["d"].astype(np.float64)
+
+    # 6. ints -> floats raises
+    pdf["a"] = pdf["a"].astype(np.float32)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["a"] = pdf["a"].astype(np.int32)
+
+    pdf["b"] = pdf["b"].astype(np.float64)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    pdf["b"] = pdf["b"].astype(np.int64)
+    assert "Incompatible input types" in str(ex)
+
+    # 7. objects work
+    pdf["b"] = pdf["b"].astype(np.object)
+    pdf["d"] = pdf["d"].astype(np.object)
+    pdf["e"] = pdf["e"].astype(np.object)
+    pdf["f"] = pdf["f"].astype(np.object)
+    pdf["g"] = pdf["g"].astype(np.object)
+    res = pyfunc_model.predict(pdf)
+    assert res.dtypes.to_dict() == expected_types
+
+
+def test_schema_enforcement_no_col_names():
+    class TestModel(object):
+        @staticmethod
+        def predict(pdf):
+            return pdf
+
+    m = Model()
+    input_schema = Schema([
+        ColSpec("double"),
+        ColSpec("double"),
+        ColSpec("double"),
+    ])
+    m.signature = ModelSignature(inputs=input_schema)
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    test_data = [[1.0, 2.0, 3.0]]
+
+    # Can call with just a list
+    assert pyfunc_model.predict(test_data).equals(pd.DataFrame(test_data))
+
+    # Or can call with a DataFrame without column names
+    assert pyfunc_model.predict(pd.DataFrame(test_data)).equals(pd.DataFrame(test_data))
+
+    # Or with column names!
+    pdf = pd.DataFrame(data=test_data, columns=["a", "b", "c"])
+    assert pyfunc_model.predict(pdf).equals(pdf)
+
+    # Must provide the right number of arguments
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict([[1.0, 2.0]])
+    assert "the provided input only has 2 columns." in str(ex)
+
+    # Must provide the right types
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict([[1, 2, 3]])
+    assert "Can not safely convert int64 to float64" in str(ex)
+
+    # Can only provide data frames or lists...
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(set([1, 2, 3]))
+    assert "Expected input to be DataFrame or list. Found: set" in str(ex)
+
+
 @pytest.mark.large
 def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
@@ -134,6 +284,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
     assert mlflow.pyfunc.PY_VERSION in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
     reloaded_model = mlflow.pyfunc.load_pyfunc(pyfunc_model_path)
+    assert model_config.to_yaml() == reloaded_model.metadata.to_yaml()
     np.testing.assert_array_equal(
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0]))
 
