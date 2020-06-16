@@ -82,8 +82,8 @@ Writing Your Own MLflow Plugins
 Defining a Plugin
 ~~~~~~~~~~~~~~~~~
 You define an MLflow plugin as a standalone Python package that can be distributed for
-installation via PyPI or conda. See https://github.com/mlflow/mlflow/tree/branch-1.5/tests/resources/mlflow-test-plugin for an
-example package that implements all available plugin types. For deployment plugin example, checkout the `RedisAI plugin <https://github.com/RedisAI/mlflow-redisai>`_
+installation via PyPI or conda. See https://github.com/mlflow/mlflow/tree/master/tests/resources/mlflow-test-plugin for an
+example package that implements all available plugin types.
 
 The example package contains a ``setup.py`` that declares a number of
 `entry points <https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_:
@@ -111,8 +111,8 @@ The example package contains a ``setup.py`` that declares a number of
             # Define a MLflow Project Backend plugin called 'dummy-backend'
             "mlflow.project_backend":
                 "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",
-            # Define a deployment plugin
-            "mlflow.deployments": "target_name=plugin_module_name"
+            # Define a MLflow model deployment plugin for target 'faketarget'
+            "mlflow.deployments": "faketarget=mlflow_test_plugin.fake_deployment_plugin",
         },
     )
 

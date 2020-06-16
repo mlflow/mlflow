@@ -5,7 +5,7 @@ import entrypoints
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.deployments.base import BaseDeploymentClient
-
+from mlflow.deployments.utils import parse_target_uri
 
 # TODO: refactor to have a common base class for all the plugin implementation in MLFlow
 #   mlflow/tracking/context/registry.py
@@ -67,8 +67,10 @@ class DeploymentPlugins(PluginManager):
         self.register_entrypoints()
 
     def __getitem__(self, item):
+        """Override __getitem__ so that we can directly look up plugins via dict-like syntax"""
         try:
-            plugin_like = self.registry[item]
+            target_name = parse_target_uri(item)
+            plugin_like = self.registry[target_name]
         except KeyError:
             msg = 'No plugin found for managing model deployments to "{target}". ' \
                   'In order to deploy models to "{target}", find and install an appropriate ' \

@@ -8,7 +8,7 @@ from mlflow.exceptions import MlflowException
 f_model_uri = 'fake_model_uri'
 f_deployment_id = 'fake_deployment_name'
 f_flavor = 'fake_flavor'
-f_target = 'fake_target'
+f_target = 'faketarget'
 
 
 def test_create_success():
@@ -68,3 +68,9 @@ def test_plugin_raising_error():
     with pytest.raises(RuntimeError):
         client.list_deployments()
     os.environ['raiseError'] = 'False'
+
+def test_target_uri_parsing():
+    deployments.get_deploy_client(f_target)
+    deployments.get_deploy_client("{target}:/somesuffix".format(target=f_target))
+    with pytest.raises(MlflowException):
+        deployments.get_deploy_client("{target}://somesuffix".format(target=f_target))

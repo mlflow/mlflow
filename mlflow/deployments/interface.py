@@ -1,24 +1,12 @@
 import inspect
-from six.moves import urllib
 from mlflow.deployments.plugin_manager import DeploymentPlugins
 from mlflow.deployments.base import BaseDeploymentClient
-from mlflow.exceptions import MlflowException
 from mlflow.utils import experimental
+from mlflow.deployments.utils import parse_target_uri
 
 plugin_store = DeploymentPlugins()
 
 
-def get_uri_scheme(uri):
-    # TODO: replace it with `mflow.utils.uri.get_uri_scheme` once verified
-    uri = urllib.parse.urlparse(uri)
-    if not uri.scheme:
-        if uri.path:
-            # uri = 'target_name' (without :/<path>)
-            return uri.path
-        raise MlflowException(
-            "Not a proper deployment URI: %s. " % uri +
-            "Deployment URIs must be of the form 'target:/server/details'")
-    return uri.scheme
 
 
 def get_deploy_client(target_uri):
@@ -53,7 +41,7 @@ def get_deploy_client(target_uri):
         # Delete our deployment
         client.delete_deployment("spamDetector")
     """
-    target = get_uri_scheme(target_uri)
+    target = parse_target_uri(target_uri)
     plugin = plugin_store[target]
     for _, obj in inspect.getmembers(plugin):
         if issubclass(obj, BaseDeploymentClient) and not obj == BaseDeploymentClient:
