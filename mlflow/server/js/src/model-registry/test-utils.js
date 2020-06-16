@@ -10,7 +10,8 @@ export const mockRegisteredModelDetailed = (name, latestVersions = []) => {
 export const mockModelVersionDetailed = (name, version, stage, status) => {
   return {
     name,
-    // Use version-based timestamp to make creation_timestamp differ across model versions.
+    // Use version-based timestamp to make creation_timestamp differ across model versions
+    // and prevent React duplicate key warning.
     creation_timestamp: version,
     last_updated_timestamp: version + 1,
     user_id: 'richard@example.com',
