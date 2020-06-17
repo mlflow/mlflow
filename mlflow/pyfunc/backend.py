@@ -64,7 +64,7 @@ class PyFuncBackend(FlavorBackend):
             scoring_server._predict(local_uri, input_path, output_path, content_type,
                                     json_format)
 
-    def serve(self, model_uri, port, host):
+    def serve(self, model_uri, port, host, config):
         """
         Serve pyfunc model locally.
         """
@@ -73,11 +73,19 @@ class PyFuncBackend(FlavorBackend):
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
         if os.name != "nt":
-            command = ("gunicorn --timeout=60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
-                       " -- mlflow.pyfunc.scoring_server.wsgi:app").format(
-                host=host,
-                port=port,
-                nworkers=self._nworkers)
+            if config is None:
+                command = ("gunicorn --timeout=60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
+                           " -- mlflow.pyfunc.scoring_server.wsgi:app").format(
+                    host=host,
+                    port=port,
+                    nworkers=self._nworkers)
+            else:
+                command = ("gunicorn --timeout=60 -b {host}:{port} -w {nworkers} -c {config} ${{GUNICORN_CMD_ARGS}}"
+                           " -- mlflow.pyfunc.scoring_server.wsgi:app").format(
+                    host=host,
+                    port=port,
+                    nworkers=self._nworkers,
+                    config=config)
         else:
             command = ("waitress-serve --host={host} --port={port} "
                        "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app").format(

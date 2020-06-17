@@ -35,13 +35,14 @@ class FlavorBackend(object):
         pass
 
     @abstractmethod
-    def serve(self, model_uri, port, host):
+    def serve(self, model_uri, port, host, config):
         """
         Serve the specified MLflow model locally.
 
         :param model_uri: URI pointing to the MLflow model to be used for scoring.
         :param port: Port to use for the model deployment.
         :param host: Host to use for the model deployment. Defaults to ``localhost``.
+        :param config: config FILE for gunicorn.
         """
         pass
 
