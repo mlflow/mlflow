@@ -262,7 +262,7 @@ def test_delete_registered_model(mock_get_request_message, mock_model_registry_s
 
 
 def test_list_registered_models(mock_get_request_message, mock_model_registry_store):
-    mock_get_request_message.return_value = ListRegisteredModels(page_token='', max_results=50)
+    mock_get_request_message.return_value = ListRegisteredModels(max_results=50)
     rmds = PagedList([
         RegisteredModel(name="model_1", creation_timestamp=111,
                         last_updated_timestamp=222, description="Test model",
