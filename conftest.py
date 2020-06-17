@@ -69,6 +69,7 @@ def pytest_ignore_collect(path, config):
             "tests/h2o",
             "tests/keras",
             "tests/pytorch",
+            "tests/torchscript",
             "tests/pyfunc",
             "tests/sagemaker",
             "tests/sklearn",

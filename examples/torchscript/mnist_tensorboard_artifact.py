@@ -24,8 +24,9 @@ from torchvision import datasets, transforms
 from torch.autograd import Variable
 from tensorboardX import SummaryWriter
 
+
 # Command-line arguments
-parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+parser = argparse.ArgumentParser(description='Torchscript MNIST Example')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
@@ -102,8 +103,6 @@ if args.cuda:
     model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-
-writer = None # Will be used to write TensorBoard events
 
 
 def train(epoch):

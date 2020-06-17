@@ -7,7 +7,8 @@ import pandas as pd
 import numpy as np
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -34,12 +35,17 @@ def get_default_conda_env():
         ])
 
 
-def log_model(model, artifact_path, conda_env=None, registered_model_name=None, **kwargs):
+def log_model(model, artifact_path, conda_env=None, registered_model_name=None,
+              signature: ModelSignature = None, input_example: ModelInputExample = None,
+              **kwargs):
     Model.log(artifact_path=artifact_path, flavor=mlflow.torchscript, model=model,
-              conda_env=conda_env, registered_model_name=registered_model_name, **kwargs)
+              conda_env=conda_env, registered_model_name=registered_model_name,
+              signature=signature, input_example=input_example, **kwargs)
 
 
-def save_model(model, path, conda_env=None, mlflow_model=Model(), **kwargs):
+def save_model(model, path, conda_env=None, mlflow_model=None,
+               signature: ModelSignature = None, input_example: ModelInputExample = None,
+               **kwargs):
     if not hasattr(model, 'state_dict') or not hasattr(model, 'save'):
         # If it walks like a duck and it quacks like a duck, then it must be a duck
         raise TypeError("Argument 'model' should be a TorchScript model")
@@ -47,7 +53,17 @@ def save_model(model, path, conda_env=None, mlflow_model=Model(), **kwargs):
     try:
         path.mkdir(parents=True, exist_ok=False)
     except FileExistsError:
-        raise MlflowException("Path '{}' already exists".format(path))
+        raise RuntimeError("Path '{}' already exists".format(path))
+
+    if mlflow_model is None:
+        mlflow_model = Model()
+
+    if signature is not None:
+        mlflow_model.signature = signature
+
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
+
     filepath = str(path / 'model.pt')
     model.save(filepath, **kwargs)
     conda_env_subpath = "conda.yaml"
@@ -59,7 +75,7 @@ def save_model(model, path, conda_env=None, mlflow_model=Model(), **kwargs):
     with open(path / conda_env_subpath, "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
     mlflow_model.add_flavor(FLAVOR_NAME, pytorch_version=torch.__version__)
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.pytorch", env=conda_env_subpath)
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.torchscript", env=conda_env_subpath)
     mlflow_model.save(path / "MLmodel")
 
 
@@ -105,4 +121,3 @@ class _PyTorchWrapper(object):
             predicted = pd.DataFrame(preds.numpy())
             predicted.index = data.index
             return predicted
-
