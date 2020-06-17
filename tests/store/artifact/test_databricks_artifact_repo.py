@@ -379,7 +379,7 @@ class TestDatabricksArtifactRepository(object):
                 mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token='4')),
                 mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token='6'))
             ]
-            message_mock.assert_has_calls(calls)
+            message_mock.assert_has_calls(calls, any_order=True)
 
     @pytest.mark.parametrize(
         "remote_file_path, local_path, cloud_credential_type", [
