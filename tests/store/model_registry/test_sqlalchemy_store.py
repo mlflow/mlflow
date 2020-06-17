@@ -155,7 +155,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(set(self._list_registered_models()),
                          set(["A", "BB", "AB", "BBC"]))
 
-    def test_list_registered_model_paginated(self):
+    def test_list_registered_model_paginated_standard(self):
+        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
+
+        # test flow with fixed max_results
+        returned_rms = []
+        result = self._list_registered_models(page_token=None, max_results=5)
+        returned_rms.extend(result)
+        while result.token:
+            result = self._list_registered_models(page_token=result.token, max_results=5)
+            returned_rms.extend(result)
+        self.assertEqual(set(rms), set(returned_rms))
+
+    def test_list_registered_model_paginated_ascending_max_results(self):
         rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
 
         # test flow with fixed max_results
@@ -186,6 +198,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(result.token, None)
         self.assertEqual(result, rms[35:])
 
+    def test_list_registered_model_paginated_errors(self):
+        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
         # test that providing a completely invalid page token throws
         with self.assertRaises(MlflowException) as exception_context:
             self._list_registered_models(page_token="evilhax", max_results=20)

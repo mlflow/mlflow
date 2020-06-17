@@ -113,7 +113,7 @@ def test_create_and_query_registered_model_flow(mlflow_client, backend_store_uri
     mlflow_client.delete_registered_model(name)
 
 
-def test_create_and_query_registered_model_flow_complex(mlflow_client, backend_store_uri):
+def test_create_and_query_registered_model_flow_paginated(mlflow_client, backend_store_uri):
     names = [f'CreateRM{i:03}' for i in range(50)]
     rms = [mlflow_client.create_registered_model(name) for name in names]
     for rm in rms:

@@ -110,7 +110,6 @@ class RestStore(AbstractStore):
             page_token=page_token,
             max_results=max_results))
         response_proto = self._call_endpoint(ListRegisteredModels, req_body)
-        print(response_proto)
         return PagedList(
             [RegisteredModel.from_proto(registered_model)
              for registered_model in response_proto.registered_models],
