@@ -155,7 +155,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(set(self._list_registered_models()),
                          set(["A", "BB", "AB", "BBC"]))
 
-    def test_list_registered_model_paginated_standard(self):
+    def test_list_registered_model_paginated_last_page(self):
         rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
 
         # test flow with fixed max_results
@@ -167,7 +167,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             returned_rms.extend(result)
         self.assertEqual(set(rms), set(returned_rms))
 
-    def test_list_registered_model_paginated_ascending_max_results(self):
+    def test_list_registered_model_paginated_returns_in_correct_order(self):
         rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
 
         # test flow with fixed max_results
