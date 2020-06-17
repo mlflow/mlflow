@@ -56,7 +56,7 @@ def test_dir(tmpdir):
         f.write(test_file_content)
     with open(tmpdir.join('test.txt').strpath, 'wb') as f:
         f.write(bytes(test_file_content))
-    with open(tmpdir.join('empty-file').strpath, 'w'):
+    with open(tmpdir.join('empty-file.txt').strpath, 'w'):
         pass
     return tmpdir
 
@@ -272,14 +272,14 @@ class TestDatabricksArtifactRepository(object):
             log_artifact_mock.return_value = None
             databricks_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
             artifact_path = artifact_path or ''
-            expected_calls = [mock.call(os.path.join(test_dir.strpath, 'empty-file'),
+            expected_calls = [mock.call(os.path.join(test_dir.strpath, 'empty-file.txt'),
                               os.path.join(artifact_path, '')),
                               mock.call(os.path.join(test_dir.strpath, 'test.txt'),
                               os.path.join(artifact_path, '')),
                               mock.call(os.path.join(test_dir.strpath,
                                                      os.path.join('subdir', 'test.txt')),
                               os.path.join(artifact_path, 'subdir'))]
-            assert log_artifact_mock.mock_calls == expected_calls
+            log_artifact_mock.assert_has_calls(expected_calls, any_order=True)
 
     def test_list_artifacts(self, databricks_artifact_repo):
         list_artifact_file_proto_mock = [FileInfo(path='a.txt', is_dir=False, file_size=0)]
