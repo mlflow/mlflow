@@ -1,0 +1,23 @@
+name: Retrigger Check Suites
+
+on: 
+  issue_comment:
+    types: [ created ]
+
+jobs:
+  retrigger:
+    runs-on: ubuntu-latest
+    if: ${{ contains(github.event.comment.body, 'trigger checks')) }}
+    steps:
+    - name: Rerun check suite
+      shell: python
+      run: |
+        import sys, json, requests;
+	from requests.auth import HTTPBasicAuth
+	pr_request = requests.get("${{ github.event.issue.pull_request.url }}")
+	pr_sha = pr_request.json()["head"]["sha"]
+	suites_headers = {"Accept" : "application/vnd.github.antiope-preview+json", "authorization": "Bearer ${{ secrets.GITHUB_TOKEN }}"}
+	suites_request = requests.get("https://api.github.com/repos/mlflow/mlflow/commits/" + pr_sha + "/check-suites", headers=suites_headers)
+	suite_id = str(suites_request.json()["check_suites"][0]["id"])
+	suites_rerequest = requests.post("https://api.github.com/repos/mlflow/mlflow/check-suites/" + suite_id + "/rerequest", headers=suites_headers)
+

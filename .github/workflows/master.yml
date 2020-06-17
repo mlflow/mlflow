@@ -5,15 +5,11 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
-  issue_comment:
-    types: [ created ]
-    
     
 
 jobs:
   lint:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.event.comment.html_url, '/pull/') && contains(github.event.comment.body, 'trigger lint')) }}
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.6
@@ -35,7 +31,6 @@ jobs:
 
   python-small:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.event.comment.html_url, '/pull/') && contains(github.event.comment.body, 'trigger python-small')) }}
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.6
@@ -55,7 +50,6 @@ jobs:
 
   java:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.event.comment.html_url, '/pull/') && contains(github.event.comment.body, 'trigger java')) }}
     steps:
     - uses: actions/checkout@v2
     - name: Set up Java
@@ -74,7 +68,6 @@ jobs:
 
   js:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.event.comment.html_url, '/pull/') && contains(github.event.comment.body, 'trigger js')) }}
     defaults:
       run:
         working-directory: mlflow/server/js
@@ -96,7 +89,6 @@ jobs:
 
   protos:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.event.comment.html_url, '/pull/') && contains(github.event.comment.body, 'trigger protos')) }}
     steps:
     - uses: actions/checkout@v2
     - name: Install dependencies
@@ -109,7 +101,6 @@ jobs:
 
   flavors:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.event.comment.html_url, '/pull/') && contains(github.event.comment.body, 'trigger flavors')) }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.6
@@ -130,7 +121,6 @@ jobs:
 
   tensorflow:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.event.comment.html_url, '/pull/') && contains(github.event.comment.body, 'trigger tensorflow')) }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.6
@@ -151,7 +141,6 @@ jobs:
 
   sagemaker:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.event.comment.html_url, '/pull/') && contains(github.event.comment.body, 'trigger sagemaker')) }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.6
@@ -172,7 +161,6 @@ jobs:
 
   docs:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'issue_comment' && contains(github.event.comment.html_url, '/pull/') && contains(github.event.comment.body, 'trigger docs')) }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.6
