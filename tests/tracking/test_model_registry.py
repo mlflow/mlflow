@@ -126,7 +126,8 @@ def test_create_and_query_registered_model_flow_complex(mlflow_client, backend_s
         result_rms.extend(result)
     assert [rm.name for rm in rms] == [rm.name for rm in result_rms]
     # clean up test
-    [mlflow_client.delete_registered_model(name) for name in names]
+    for name in names:
+        mlflow_client.delete_registered_model(name)
 
 
 def test_update_registered_model_flow(mlflow_client, backend_store_uri):
