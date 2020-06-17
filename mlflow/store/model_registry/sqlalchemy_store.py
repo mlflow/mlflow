@@ -206,7 +206,11 @@ class SqlAlchemyStore(AbstractStore):
             return [sql_registered_model.to_mlflow_entity()
                     for sql_registered_model in session.query(SqlRegisteredModel).all()]
 
-    def search_registered_models(self, filter_string):
+    def search_registered_models(self,
+                                 filter_string=None,
+                                 max_results=None,
+                                 order_by=None,
+                                 page_token=None):
         """
         Search for registered models in backend that satisfy the filter criteria.
 

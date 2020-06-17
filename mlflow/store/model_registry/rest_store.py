@@ -5,7 +5,8 @@ from mlflow.protos.model_registry_pb2 import ModelRegistryService, CreateRegiste
     UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, \
     GetLatestVersions, CreateModelVersion, UpdateModelVersion, \
     DeleteModelVersion, GetModelVersionDownloadUri, SearchModelVersions, \
-    RenameRegisteredModel, GetRegisteredModel, GetModelVersion, TransitionModelVersionStage
+    RenameRegisteredModel, GetRegisteredModel, GetModelVersion, TransitionModelVersionStage, \
+    SearchRegisteredModels
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
@@ -103,6 +104,19 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(ListRegisteredModels())
         response_proto = self._call_endpoint(ListRegisteredModels, req_body)
+        return [RegisteredModel.from_proto(registered_model)
+                for registered_model in response_proto.registered_models]
+
+    def search_registered_models(self,
+                                 filter_string=None,
+                                 max_results=None,
+                                 order_by=None,
+                                 page_token=None):
+        req_body = message_to_json(SearchRegisteredModels(filter=filter_string,
+                                                          max_results=max_results,
+                                                          order_by=order_by,
+                                                          page_token=page_token))
+        response_proto = self._call_endpoint(SearchRegisteredModels, req_body)
         return [RegisteredModel.from_proto(registered_model)
                 for registered_model in response_proto.registered_models]
 

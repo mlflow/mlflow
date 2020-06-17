@@ -78,6 +78,25 @@ class AbstractStore:
         pass
 
     @abstractmethod
+    def search_registered_models(self,
+                                 filter_string=None,
+                                 max_results=None,
+                                 order_by=None,
+                                 page_token=None):
+        """
+        Search for registered models in backend that satisfy the filter criteria.
+
+        :param filter_string: A filter string expression. Currently supports a single filter
+                              condition either name of model like ``name = 'model_name'``
+        :param max_results:
+        :param order_by:
+        :param page_token:
+
+        :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
+        """
+        pass
+
+    @abstractmethod
     def get_registered_model(self, name):
         """
         :param name: Registered model name.
