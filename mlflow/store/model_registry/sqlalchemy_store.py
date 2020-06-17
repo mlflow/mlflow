@@ -9,6 +9,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST
 import mlflow.store.db.utils
+from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, \
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import SQLITE
 from mlflow.store.db.base_sql_model import Base
 from mlflow.store.entities.paged_list import PagedList
@@ -206,16 +208,39 @@ class SqlAlchemyStore(AbstractStore):
             return [sql_registered_model.to_mlflow_entity()
                     for sql_registered_model in session.query(SqlRegisteredModel).all()]
 
-    def search_registered_models(self, filter_string):
+    def search_registered_models(self,
+                                 filter_string,
+                                 page_token=None,
+                                 max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'``
-
-        :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``search_registered_models`` call.
+        :param max_results: Maximum number of registered models desired.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
         """
+        if max_results > SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD:
+            raise MlflowException("Invalid value for request parameter max_results."
+                                  "It must be at most {}, but got value {}"
+                                  .format(SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
+                                          max_results),
+                                  INVALID_PARAMETER_VALUE)
+
         parsed_filter = SearchUtils.parse_filter_for_model_registry(filter_string)
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+
+        def compute_next_token(current_size):
+            next_token = None
+            if max_results == current_size:
+                final_offset = offset + max_results
+                next_token = SearchUtils.create_page_token(final_offset)
+            return next_token
+
         if len(parsed_filter) == 0:
             conditions = []
         elif len(parsed_filter) == 1:
@@ -247,9 +272,17 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             if self.db_type == SQLITE:
                 session.execute("PRAGMA case_sensitive_like = true;")
-            sql_registered_models = session.query(SqlRegisteredModel).filter(*conditions).all()
+            query = session\
+                .query(SqlRegisteredModel)\
+                .filter(*conditions)\
+                .order_by(SqlRegisteredModel.name.asc())\
+                .limit(max_results)
+            if page_token:
+                query = query.offset(offset)
+            sql_registered_models = query.all()
             registered_models = [rm.to_mlflow_entity() for rm in sql_registered_models]
-            return registered_models
+            next_page_token = compute_next_token(len(registered_models))
+            return PagedList(registered_models, next_page_token)
 
     def get_registered_model(self, name):
         """
