@@ -7,7 +7,7 @@ on:
 jobs:
   retrigger:
     runs-on: ubuntu-latest
-    if: ${{ contains(github.event.comment.body, 'trigger checks')) }}
+    if: ${{ contains(github.event.comment.body, 'trigger checks') }}
     steps:
     - name: Rerun check suite
       shell: python
