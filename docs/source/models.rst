@@ -533,6 +533,9 @@ MLflow can deploy models locally as local REST API endpoints or to directly scor
 MLflow can package models as self-contained Docker images with the REST API endpoint. The image can
 be used to safely deploy the model to various environments such as Kubernetes.
 
+You deploy MLflow model locally or generate a Docker image using the CLI interface to the
+:py:mod:`mlflow.models` module.
+
 The REST API server accepts the following data formats as POST input to the ``/invocations`` path:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
@@ -567,19 +570,38 @@ Example requests:
 For more information about serializing pandas DataFrames, see
 `pandas.DataFrame.to_json <https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html>`_.
 
+The predict command accepts the same input formats. The format is specified as command line arguments.
+
+Commands
+~~~~~~~~
+
+* `serve <cli.html#mlflow-models-serve>`_ deploys the model as a local REST API server.
+* `build_docker <cli.html#mlflow-models-build-docker>`_ packages a REST API endpoint serving the
+  model as a docker image.
+* `predict <cli.html#mlflow-models-predict>`_ uses the model to generate a prediction for a local
+  CSV or JSON file.
+
+For more info, see:
+
+.. code-block:: bash
+
+    mlflow models --help
+    mlflow models serve --help
+    mlflow models predict --help
+    mlflow models build-docker --help
+
 .. _azureml_deployment:
 
 Deploy a ``python_function`` model on Microsoft Azure ML
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images.
-These images can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
+The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images and deploy them as a webservice. Models can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
 platform for real-time serving. The resulting Azure ML ContainerImage contains a web server that
 accepts the following data formats as input:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example, ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type`` request header value of ``application/json``.
 
-* :py:func:`build_image <mlflow.azureml.build_image>` registers an MLflow Model with an existing Azure ML workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
+* :py:func:`build_image <mlflow.azureml.deploy>` registers an MLflow Model with an existing Azure ML workspace, builds an Azure ML container image and deploys the model to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
 
 .. _Azure ML SDK: https://docs.microsoft.com/python/api/overview/azure/ml/intro?view=azure-ml-py
 
@@ -610,11 +632,10 @@ accepts the following data formats as input:
 
     # Register and deploy model to Azure Container Instance (ACI)
     (webservice, model) = mlflow.azureml.deploy(model_uri='runs:/{}/{}'.format(run.id, model_path),
-                                               workspace=ws,
-                                               model_name='mymodelname', 
-                                               service_name='myservice', 
-                                               deployment_config=aci_config)
-    webservice.wait_for_deployment(show_output=True)
+                                                workspace=azure_workspace,
+                                                model_name='mymodelname', 
+                                                service_name='myservice', 
+                                                deployment_config=aci_config)
     # After the model deployment completes, requests can be posted via HTTP to the new ACI
     # webservice's scoring URI. The following example posts a sample input from the wine dataset
     # used in the MLflow ElasticNet example:
