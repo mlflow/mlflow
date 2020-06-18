@@ -109,6 +109,25 @@ def test_create_and_query_registered_model_flow(mlflow_client, backend_store_uri
     assert_is_between(start_time, end_time, registered_model_detailed.creation_timestamp)
     assert_is_between(start_time, end_time, registered_model_detailed.last_updated_timestamp)
     assert [name] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
+    # clean up test
+    mlflow_client.delete_registered_model(name)
+
+
+def test_create_and_query_registered_model_flow_paginated(mlflow_client, backend_store_uri):
+    names = [f'CreateRM{i:03}' for i in range(50)]
+    rms = [mlflow_client.create_registered_model(name) for name in names]
+    for rm in rms:
+        assert isinstance(rm, RegisteredModel)
+    result_rms = []
+    result = mlflow_client.list_registered_models(max_results=15, page_token=None)
+    result_rms.extend(result)
+    while result.token:
+        result = mlflow_client.list_registered_models(max_results=15, page_token=result.token)
+        result_rms.extend(result)
+    assert [rm.name for rm in rms] == [rm.name for rm in result_rms]
+    # clean up test
+    for name in names:
+        mlflow_client.delete_registered_model(name)
 
 
 def test_update_registered_model_flow(mlflow_client, backend_store_uri):

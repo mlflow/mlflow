@@ -10,6 +10,7 @@ from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.tracking._tracking_service import utils
@@ -399,13 +400,19 @@ class MlflowClient(object):
         self._get_registry_client().delete_registered_model(name)
 
     @experimental
-    def list_registered_models(self):
+    def list_registered_models(self,
+                               max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+                               page_token=None):
         """
-        List of all registered models.
-
-        :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
+        List of all registered models
+        :param max_results: Maximum number of registered models desired.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+        a ``list_registered_models`` call.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+        that can satisfy the search expressions. The pagination token for the next page can be
+        obtained via the ``token`` attribute of the object.
         """
-        return self._get_registry_client().list_registered_models()
+        return self._get_registry_client().list_registered_models(max_results, page_token)
 
     @experimental
     def get_registered_model(self, name):

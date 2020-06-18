@@ -9,6 +9,7 @@ import mock
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel, \
     RegisteredModel
 from mlflow.exceptions import MlflowException
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 
 
@@ -87,10 +88,10 @@ def test_delete_registered_model(mock_store):
 
 
 def test_list_registered_models(mock_store):
-    mock_store.list_registered_models.return_value = [
+    mock_store.list_registered_models.return_value = PagedList([
         RegisteredModel("Model 1"),
         RegisteredModel("Model 2")
-    ]
+    ], "")
     result = newModelRegistryClient().list_registered_models()
     mock_store.list_registered_models.assert_called_once()
     assert len(result) == 2
