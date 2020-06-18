@@ -208,15 +208,20 @@ class SqlAlchemyStore(AbstractStore):
             return [sql_registered_model.to_mlflow_entity()
                     for sql_registered_model in session.query(SqlRegisteredModel).all()]
 
-    def search_registered_models(self, filter_string=None, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-                                 order_by=None, page_token=None):
+    def search_registered_models(self,
+                                 filter_string=None,
+                                 max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+                                 order_by=None,
+                                 page_token=None):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'``
         :param max_results: Maximum number of registered models desired.
-        :param order_by: This field is currently not used.
+        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                         matching search results.
+                         Note:: This field is currently not supported.
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``search_registered_models`` call.
         :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects

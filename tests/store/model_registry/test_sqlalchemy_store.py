@@ -470,50 +470,53 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(self._search_registered_models(f"name='{names[-1]}'"), ([], None))
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        self.assertEqual(self._search_registered_models(f"name LIKE '{prefix}%'"), (names[0:5], None))
+        self.assertEqual(self._search_registered_models(f"name LIKE '{prefix}%'"),
+                         (names[0:5], None))
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        self.assertEqual(self._search_registered_models(f"name ILIKE '{prefix + 'RM4A'}%'"), ([names[4]], None))
+        self.assertEqual(self._search_registered_models(f"name ILIKE '{prefix + 'RM4A'}%'"),
+                         ([names[4]], None))
 
     def test_search_registered_model_pagination(self):
         rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
 
         # test flow with fixed max_results
         returned_rms = []
-        result, token = self._search_registered_models("name LIKE 'RM%'", page_token=None, max_results=5)
+        query = "name LIKE 'RM%'"
+        result, token = self._search_registered_models(query, page_token=None, max_results=5)
         returned_rms.extend(result)
         while token:
-            result, token = self._search_registered_models("name LIKE 'RM%'", page_token=token, max_results=5)
+            result, token = self._search_registered_models(query, page_token=token, max_results=5)
             returned_rms.extend(result)
         self.assertEqual(rms, returned_rms)
 
         # test that pagination will return all valid results in sorted order
         # by name ascending
-        result, token1 = self._search_registered_models("name LIKE 'RM%'", max_results=5)
+        result, token1 = self._search_registered_models(query, max_results=5)
         self.assertNotEqual(token1, None)
         self.assertEqual(result, rms[0:5])
 
-        result, token2 = self._search_registered_models("name LIKE 'RM%'", page_token=token1, max_results=10)
+        result, token2 = self._search_registered_models(query, page_token=token1, max_results=10)
         self.assertNotEqual(token2, None)
         self.assertEqual(result, rms[5:15])
 
-        result, token3 = self._search_registered_models("name LIKE 'RM%'", page_token=token2, max_results=20)
+        result, token3 = self._search_registered_models(query, page_token=token2, max_results=20)
         self.assertNotEqual(token3, None)
         self.assertEqual(result, rms[15:35])
 
-        result, token4 = self._search_registered_models("name LIKE 'RM%'", page_token=token3, max_results=100)
+        result, token4 = self._search_registered_models(query, page_token=token3, max_results=100)
         # assert that page token is None
         self.assertEqual(token4, None)
         self.assertEqual(result, rms[35:])
 
         # test that providing a completely invalid page token throws
         with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models("name LIKE 'RM%'", page_token="evilhax", max_results=20)
+            self._search_registered_models(query, page_token="evilhax", max_results=20)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # test that providing too large of a max_results throws
         with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models("name LIKE 'RM%'", page_token="evilhax", max_results=1e15)
+            self._search_registered_models(query, page_token="evilhax", max_results=1e15)
             assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self.assertIn("Invalid value for request parameter max_results",
                       exception_context.exception.message)

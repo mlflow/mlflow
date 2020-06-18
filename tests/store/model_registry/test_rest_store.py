@@ -92,7 +92,7 @@ class TestRestStore(unittest.TestCase):
         params_list = [
             {"filter_string": "model = 'yo'"},
             {"max_results": 400},
-            {"page_token": "blaah"},
+            {"page_token": "blah"},
             {"order_by": ["x", "Y"]}
         ]
         # test all combination of params
