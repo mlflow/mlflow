@@ -185,4 +185,5 @@ def run_local(flavor, model_uri, target, name, config):
     """
     Deploy the model locally. This has very similar signature to ``create`` API
     """
-    interface.run_local(target, name, model_uri, flavor, config)
+    config_dict = _user_args_to_dict(config)
+    interface.run_local(target, name, model_uri, flavor, config_dict)
