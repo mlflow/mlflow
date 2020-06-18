@@ -367,8 +367,14 @@ message ListRegisteredModels {
   // Maximum number of registered models desired. Max threshold is 50K.
   optional int64 max_results = 1 [default = 50000];
 
+  // Pagination token to go to the next page based on a previous query.
+  optional string page_token = 2;
+
   message Response {
     repeated RegisteredModel registered_models = 1;
+
+    // Pagination token to request next page of models for the same query.
+    optional string next_page_token = 2;
   }
 }
 

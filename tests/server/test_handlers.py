@@ -263,20 +263,22 @@ def test_delete_registered_model(mock_get_request_message, mock_model_registry_s
 
 
 def test_list_registered_models(mock_get_request_message, mock_model_registry_store):
-    mock_get_request_message.return_value = ListRegisteredModels()
-    rmds = [
+    mock_get_request_message.return_value = ListRegisteredModels(max_results=50)
+    rmds = PagedList([
         RegisteredModel(name="model_1", creation_timestamp=111,
                         last_updated_timestamp=222, description="Test model",
                         latest_versions=[]),
         RegisteredModel(name="model_2", creation_timestamp=111,
                         last_updated_timestamp=333, description="Another model",
                         latest_versions=[]),
-    ]
+    ], "next_pt")
     mock_model_registry_store.list_registered_models.return_value = rmds
     resp = _list_registered_models()
-    _, args = mock_model_registry_store.list_registered_models.call_args
-    assert args == {}
-    assert json.loads(resp.get_data()) == {"registered_models": jsonify(rmds)}
+    args, _ = mock_model_registry_store.list_registered_models.call_args
+    assert args == (50, '')
+    assert json.loads(resp.get_data()) == {
+        "next_page_token": "next_pt",
+        "registered_models": jsonify(rmds)}
 
 
 def test_search_registered_models(mock_get_request_message, mock_model_registry_store):

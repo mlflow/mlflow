@@ -7,6 +7,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import logging
 
 from mlflow.exceptions import MlflowException
+from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry import utils
 
 _logger = logging.getLogger(__name__)
@@ -73,13 +74,20 @@ class ModelRegistryClient(object):
         """
         self.store.delete_registered_model(name)
 
-    def list_registered_models(self):
+    def list_registered_models(self,
+                               max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+                               page_token=None):
         """
         List of all registered models.
+        :param max_results: Maximum number of registered models desired.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_registered_models`` call.
 
-        :return: List of :py:class:`mlflow.entities.registry.RegisteredModel` objects.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
         """
-        return self.store.list_registered_models()
+        return self.store.list_registered_models(max_results, page_token)
 
     def get_registered_model(self, name):
         """
