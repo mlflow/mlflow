@@ -209,21 +209,27 @@ class SqlAlchemyStore(AbstractStore):
                     for sql_registered_model in session.query(SqlRegisteredModel).all()]
 
     def search_registered_models(self,
-                                 filter_string,
-                                 page_token=None,
-                                 max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT):
+                                 filter_string=None,
+                                 max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+                                 order_by=None,
+                                 page_token=None):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'``
+        :param max_results: Maximum number of registered models desired.
+        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                         matching search results.
+                         Note:: This field is currently not supported.
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``search_registered_models`` call.
-        :param max_results: Maximum number of registered models desired.
         :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
         """
+        if order_by:
+            raise NotImplementedError("Order by is not implemented for search registered models.")
         if max_results > SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results."
                                   "It must be at most {}, but got value {}"
