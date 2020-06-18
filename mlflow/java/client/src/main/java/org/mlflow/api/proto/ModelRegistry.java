@@ -12265,6 +12265,2394 @@ public final class ModelRegistry {
 
   }
 
+  public interface SearchRegisteredModelsOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.SearchRegisteredModels)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * String filter condition, like "name LIKE 'my-model-name'".
+     * Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+     * Single boolean condition, with string values wrapped in single quotes.
+     * </pre>
+     *
+     * <code>optional string filter = 1;</code>
+     */
+    boolean hasFilter();
+    /**
+     * <pre>
+     * String filter condition, like "name LIKE 'my-model-name'".
+     * Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+     * Single boolean condition, with string values wrapped in single quotes.
+     * </pre>
+     *
+     * <code>optional string filter = 1;</code>
+     */
+    java.lang.String getFilter();
+    /**
+     * <pre>
+     * String filter condition, like "name LIKE 'my-model-name'".
+     * Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+     * Single boolean condition, with string values wrapped in single quotes.
+     * </pre>
+     *
+     * <code>optional string filter = 1;</code>
+     */
+    com.google.protobuf.ByteString
+        getFilterBytes();
+
+    /**
+     * <pre>
+     * Maximum number of models desired. Default is 100. Max threshold is 1000.
+     * </pre>
+     *
+     * <code>optional int64 max_results = 2 [default = 100];</code>
+     */
+    boolean hasMaxResults();
+    /**
+     * <pre>
+     * Maximum number of models desired. Default is 100. Max threshold is 1000.
+     * </pre>
+     *
+     * <code>optional int64 max_results = 2 [default = 100];</code>
+     */
+    long getMaxResults();
+
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 3;</code>
+     */
+    java.util.List<java.lang.String>
+        getOrderByList();
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 3;</code>
+     */
+    int getOrderByCount();
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 3;</code>
+     */
+    java.lang.String getOrderBy(int index);
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 3;</code>
+     */
+    com.google.protobuf.ByteString
+        getOrderByBytes(int index);
+
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous search query.
+     * </pre>
+     *
+     * <code>optional string page_token = 4;</code>
+     */
+    boolean hasPageToken();
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous search query.
+     * </pre>
+     *
+     * <code>optional string page_token = 4;</code>
+     */
+    java.lang.String getPageToken();
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous search query.
+     * </pre>
+     *
+     * <code>optional string page_token = 4;</code>
+     */
+    com.google.protobuf.ByteString
+        getPageTokenBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.SearchRegisteredModels}
+   */
+  public  static final class SearchRegisteredModels extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.SearchRegisteredModels)
+      SearchRegisteredModelsOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use SearchRegisteredModels.newBuilder() to construct.
+    private SearchRegisteredModels(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private SearchRegisteredModels() {
+      filter_ = "";
+      maxResults_ = 100L;
+      orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      pageToken_ = "";
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private SearchRegisteredModels(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              filter_ = bs;
+              break;
+            }
+            case 16: {
+              bitField0_ |= 0x00000002;
+              maxResults_ = input.readInt64();
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
+                orderBy_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000004;
+              }
+              orderBy_.add(bs);
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000004;
+              pageToken_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        if (((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
+          orderBy_ = orderBy_.getUnmodifiableView();
+        }
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SearchRegisteredModels_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SearchRegisteredModels_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.class, org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.SearchRegisteredModels.Response)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <pre>
+       * Registered Models that match the search criteria.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+       */
+      java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModel> 
+          getRegisteredModelsList();
+      /**
+       * <pre>
+       * Registered Models that match the search criteria.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+       */
+      org.mlflow.api.proto.ModelRegistry.RegisteredModel getRegisteredModels(int index);
+      /**
+       * <pre>
+       * Registered Models that match the search criteria.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+       */
+      int getRegisteredModelsCount();
+      /**
+       * <pre>
+       * Registered Models that match the search criteria.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+       */
+      java.util.List<? extends org.mlflow.api.proto.ModelRegistry.RegisteredModelOrBuilder> 
+          getRegisteredModelsOrBuilderList();
+      /**
+       * <pre>
+       * Registered Models that match the search criteria.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+       */
+      org.mlflow.api.proto.ModelRegistry.RegisteredModelOrBuilder getRegisteredModelsOrBuilder(
+          int index);
+
+      /**
+       * <pre>
+       * Pagination token to request the next page of models.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       */
+      boolean hasNextPageToken();
+      /**
+       * <pre>
+       * Pagination token to request the next page of models.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       */
+      java.lang.String getNextPageToken();
+      /**
+       * <pre>
+       * Pagination token to request the next page of models.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       */
+      com.google.protobuf.ByteString
+          getNextPageTokenBytes();
+    }
+    /**
+     * Protobuf type {@code mlflow.SearchRegisteredModels.Response}
+     */
+    public  static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.SearchRegisteredModels.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+        registeredModels_ = java.util.Collections.emptyList();
+        nextPageToken_ = "";
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                if (!((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+                  registeredModels_ = new java.util.ArrayList<org.mlflow.api.proto.ModelRegistry.RegisteredModel>();
+                  mutable_bitField0_ |= 0x00000001;
+                }
+                registeredModels_.add(
+                    input.readMessage(org.mlflow.api.proto.ModelRegistry.RegisteredModel.PARSER, extensionRegistry));
+                break;
+              }
+              case 18: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000001;
+                nextPageToken_ = bs;
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+            registeredModels_ = java.util.Collections.unmodifiableList(registeredModels_);
+          }
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SearchRegisteredModels_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SearchRegisteredModels_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response.class, org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response.Builder.class);
+      }
+
+      private int bitField0_;
+      public static final int REGISTERED_MODELS_FIELD_NUMBER = 1;
+      private java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModel> registeredModels_;
+      /**
+       * <pre>
+       * Registered Models that match the search criteria.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+       */
+      public java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModel> getRegisteredModelsList() {
+        return registeredModels_;
+      }
+      /**
+       * <pre>
+       * Registered Models that match the search criteria.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+       */
+      public java.util.List<? extends org.mlflow.api.proto.ModelRegistry.RegisteredModelOrBuilder> 
+          getRegisteredModelsOrBuilderList() {
+        return registeredModels_;
+      }
+      /**
+       * <pre>
+       * Registered Models that match the search criteria.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+       */
+      public int getRegisteredModelsCount() {
+        return registeredModels_.size();
+      }
+      /**
+       * <pre>
+       * Registered Models that match the search criteria.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+       */
+      public org.mlflow.api.proto.ModelRegistry.RegisteredModel getRegisteredModels(int index) {
+        return registeredModels_.get(index);
+      }
+      /**
+       * <pre>
+       * Registered Models that match the search criteria.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+       */
+      public org.mlflow.api.proto.ModelRegistry.RegisteredModelOrBuilder getRegisteredModelsOrBuilder(
+          int index) {
+        return registeredModels_.get(index);
+      }
+
+      public static final int NEXT_PAGE_TOKEN_FIELD_NUMBER = 2;
+      private volatile java.lang.Object nextPageToken_;
+      /**
+       * <pre>
+       * Pagination token to request the next page of models.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       */
+      public boolean hasNextPageToken() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <pre>
+       * Pagination token to request the next page of models.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       */
+      public java.lang.String getNextPageToken() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            nextPageToken_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * Pagination token to request the next page of models.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       */
+      public com.google.protobuf.ByteString
+          getNextPageTokenBytes() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          nextPageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        for (int i = 0; i < registeredModels_.size(); i++) {
+          output.writeMessage(1, registeredModels_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 2, nextPageToken_);
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        for (int i = 0; i < registeredModels_.size(); i++) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeMessageSize(1, registeredModels_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, nextPageToken_);
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response other = (org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response) obj;
+
+        boolean result = true;
+        result = result && getRegisteredModelsList()
+            .equals(other.getRegisteredModelsList());
+        result = result && (hasNextPageToken() == other.hasNextPageToken());
+        if (hasNextPageToken()) {
+          result = result && getNextPageToken()
+              .equals(other.getNextPageToken());
+        }
+        result = result && unknownFields.equals(other.unknownFields);
+        return result;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (getRegisteredModelsCount() > 0) {
+          hash = (37 * hash) + REGISTERED_MODELS_FIELD_NUMBER;
+          hash = (53 * hash) + getRegisteredModelsList().hashCode();
+        }
+        if (hasNextPageToken()) {
+          hash = (37 * hash) + NEXT_PAGE_TOKEN_FIELD_NUMBER;
+          hash = (53 * hash) + getNextPageToken().hashCode();
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.SearchRegisteredModels.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.SearchRegisteredModels.Response)
+          org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SearchRegisteredModels_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SearchRegisteredModels_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response.class, org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+            getRegisteredModelsFieldBuilder();
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          if (registeredModelsBuilder_ == null) {
+            registeredModels_ = java.util.Collections.emptyList();
+            bitField0_ = (bitField0_ & ~0x00000001);
+          } else {
+            registeredModelsBuilder_.clear();
+          }
+          nextPageToken_ = "";
+          bitField0_ = (bitField0_ & ~0x00000002);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SearchRegisteredModels_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response build() {
+          org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response buildPartial() {
+          org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response result = new org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response(this);
+          int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (registeredModelsBuilder_ == null) {
+            if (((bitField0_ & 0x00000001) == 0x00000001)) {
+              registeredModels_ = java.util.Collections.unmodifiableList(registeredModels_);
+              bitField0_ = (bitField0_ & ~0x00000001);
+            }
+            result.registeredModels_ = registeredModels_;
+          } else {
+            result.registeredModels_ = registeredModelsBuilder_.build();
+          }
+          if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+            to_bitField0_ |= 0x00000001;
+          }
+          result.nextPageToken_ = nextPageToken_;
+          result.bitField0_ = to_bitField0_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return (Builder) super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return (Builder) super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return (Builder) super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return (Builder) super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return (Builder) super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return (Builder) super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response) {
+            return mergeFrom((org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response other) {
+          if (other == org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response.getDefaultInstance()) return this;
+          if (registeredModelsBuilder_ == null) {
+            if (!other.registeredModels_.isEmpty()) {
+              if (registeredModels_.isEmpty()) {
+                registeredModels_ = other.registeredModels_;
+                bitField0_ = (bitField0_ & ~0x00000001);
+              } else {
+                ensureRegisteredModelsIsMutable();
+                registeredModels_.addAll(other.registeredModels_);
+              }
+              onChanged();
+            }
+          } else {
+            if (!other.registeredModels_.isEmpty()) {
+              if (registeredModelsBuilder_.isEmpty()) {
+                registeredModelsBuilder_.dispose();
+                registeredModelsBuilder_ = null;
+                registeredModels_ = other.registeredModels_;
+                bitField0_ = (bitField0_ & ~0x00000001);
+                registeredModelsBuilder_ = 
+                  com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                     getRegisteredModelsFieldBuilder() : null;
+              } else {
+                registeredModelsBuilder_.addAllMessages(other.registeredModels_);
+              }
+            }
+          }
+          if (other.hasNextPageToken()) {
+            bitField0_ |= 0x00000002;
+            nextPageToken_ = other.nextPageToken_;
+            onChanged();
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModel> registeredModels_ =
+          java.util.Collections.emptyList();
+        private void ensureRegisteredModelsIsMutable() {
+          if (!((bitField0_ & 0x00000001) == 0x00000001)) {
+            registeredModels_ = new java.util.ArrayList<org.mlflow.api.proto.ModelRegistry.RegisteredModel>(registeredModels_);
+            bitField0_ |= 0x00000001;
+           }
+        }
+
+        private com.google.protobuf.RepeatedFieldBuilderV3<
+            org.mlflow.api.proto.ModelRegistry.RegisteredModel, org.mlflow.api.proto.ModelRegistry.RegisteredModel.Builder, org.mlflow.api.proto.ModelRegistry.RegisteredModelOrBuilder> registeredModelsBuilder_;
+
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModel> getRegisteredModelsList() {
+          if (registeredModelsBuilder_ == null) {
+            return java.util.Collections.unmodifiableList(registeredModels_);
+          } else {
+            return registeredModelsBuilder_.getMessageList();
+          }
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public int getRegisteredModelsCount() {
+          if (registeredModelsBuilder_ == null) {
+            return registeredModels_.size();
+          } else {
+            return registeredModelsBuilder_.getCount();
+          }
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public org.mlflow.api.proto.ModelRegistry.RegisteredModel getRegisteredModels(int index) {
+          if (registeredModelsBuilder_ == null) {
+            return registeredModels_.get(index);
+          } else {
+            return registeredModelsBuilder_.getMessage(index);
+          }
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public Builder setRegisteredModels(
+            int index, org.mlflow.api.proto.ModelRegistry.RegisteredModel value) {
+          if (registeredModelsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureRegisteredModelsIsMutable();
+            registeredModels_.set(index, value);
+            onChanged();
+          } else {
+            registeredModelsBuilder_.setMessage(index, value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public Builder setRegisteredModels(
+            int index, org.mlflow.api.proto.ModelRegistry.RegisteredModel.Builder builderForValue) {
+          if (registeredModelsBuilder_ == null) {
+            ensureRegisteredModelsIsMutable();
+            registeredModels_.set(index, builderForValue.build());
+            onChanged();
+          } else {
+            registeredModelsBuilder_.setMessage(index, builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public Builder addRegisteredModels(org.mlflow.api.proto.ModelRegistry.RegisteredModel value) {
+          if (registeredModelsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureRegisteredModelsIsMutable();
+            registeredModels_.add(value);
+            onChanged();
+          } else {
+            registeredModelsBuilder_.addMessage(value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public Builder addRegisteredModels(
+            int index, org.mlflow.api.proto.ModelRegistry.RegisteredModel value) {
+          if (registeredModelsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureRegisteredModelsIsMutable();
+            registeredModels_.add(index, value);
+            onChanged();
+          } else {
+            registeredModelsBuilder_.addMessage(index, value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public Builder addRegisteredModels(
+            org.mlflow.api.proto.ModelRegistry.RegisteredModel.Builder builderForValue) {
+          if (registeredModelsBuilder_ == null) {
+            ensureRegisteredModelsIsMutable();
+            registeredModels_.add(builderForValue.build());
+            onChanged();
+          } else {
+            registeredModelsBuilder_.addMessage(builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public Builder addRegisteredModels(
+            int index, org.mlflow.api.proto.ModelRegistry.RegisteredModel.Builder builderForValue) {
+          if (registeredModelsBuilder_ == null) {
+            ensureRegisteredModelsIsMutable();
+            registeredModels_.add(index, builderForValue.build());
+            onChanged();
+          } else {
+            registeredModelsBuilder_.addMessage(index, builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public Builder addAllRegisteredModels(
+            java.lang.Iterable<? extends org.mlflow.api.proto.ModelRegistry.RegisteredModel> values) {
+          if (registeredModelsBuilder_ == null) {
+            ensureRegisteredModelsIsMutable();
+            com.google.protobuf.AbstractMessageLite.Builder.addAll(
+                values, registeredModels_);
+            onChanged();
+          } else {
+            registeredModelsBuilder_.addAllMessages(values);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public Builder clearRegisteredModels() {
+          if (registeredModelsBuilder_ == null) {
+            registeredModels_ = java.util.Collections.emptyList();
+            bitField0_ = (bitField0_ & ~0x00000001);
+            onChanged();
+          } else {
+            registeredModelsBuilder_.clear();
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public Builder removeRegisteredModels(int index) {
+          if (registeredModelsBuilder_ == null) {
+            ensureRegisteredModelsIsMutable();
+            registeredModels_.remove(index);
+            onChanged();
+          } else {
+            registeredModelsBuilder_.remove(index);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public org.mlflow.api.proto.ModelRegistry.RegisteredModel.Builder getRegisteredModelsBuilder(
+            int index) {
+          return getRegisteredModelsFieldBuilder().getBuilder(index);
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public org.mlflow.api.proto.ModelRegistry.RegisteredModelOrBuilder getRegisteredModelsOrBuilder(
+            int index) {
+          if (registeredModelsBuilder_ == null) {
+            return registeredModels_.get(index);  } else {
+            return registeredModelsBuilder_.getMessageOrBuilder(index);
+          }
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public java.util.List<? extends org.mlflow.api.proto.ModelRegistry.RegisteredModelOrBuilder> 
+             getRegisteredModelsOrBuilderList() {
+          if (registeredModelsBuilder_ != null) {
+            return registeredModelsBuilder_.getMessageOrBuilderList();
+          } else {
+            return java.util.Collections.unmodifiableList(registeredModels_);
+          }
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public org.mlflow.api.proto.ModelRegistry.RegisteredModel.Builder addRegisteredModelsBuilder() {
+          return getRegisteredModelsFieldBuilder().addBuilder(
+              org.mlflow.api.proto.ModelRegistry.RegisteredModel.getDefaultInstance());
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public org.mlflow.api.proto.ModelRegistry.RegisteredModel.Builder addRegisteredModelsBuilder(
+            int index) {
+          return getRegisteredModelsFieldBuilder().addBuilder(
+              index, org.mlflow.api.proto.ModelRegistry.RegisteredModel.getDefaultInstance());
+        }
+        /**
+         * <pre>
+         * Registered Models that match the search criteria.
+         * </pre>
+         *
+         * <code>repeated .mlflow.RegisteredModel registered_models = 1;</code>
+         */
+        public java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModel.Builder> 
+             getRegisteredModelsBuilderList() {
+          return getRegisteredModelsFieldBuilder().getBuilderList();
+        }
+        private com.google.protobuf.RepeatedFieldBuilderV3<
+            org.mlflow.api.proto.ModelRegistry.RegisteredModel, org.mlflow.api.proto.ModelRegistry.RegisteredModel.Builder, org.mlflow.api.proto.ModelRegistry.RegisteredModelOrBuilder> 
+            getRegisteredModelsFieldBuilder() {
+          if (registeredModelsBuilder_ == null) {
+            registeredModelsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+                org.mlflow.api.proto.ModelRegistry.RegisteredModel, org.mlflow.api.proto.ModelRegistry.RegisteredModel.Builder, org.mlflow.api.proto.ModelRegistry.RegisteredModelOrBuilder>(
+                    registeredModels_,
+                    ((bitField0_ & 0x00000001) == 0x00000001),
+                    getParentForChildren(),
+                    isClean());
+            registeredModels_ = null;
+          }
+          return registeredModelsBuilder_;
+        }
+
+        private java.lang.Object nextPageToken_ = "";
+        /**
+         * <pre>
+         * Pagination token to request the next page of models.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public boolean hasNextPageToken() {
+          return ((bitField0_ & 0x00000002) == 0x00000002);
+        }
+        /**
+         * <pre>
+         * Pagination token to request the next page of models.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public java.lang.String getNextPageToken() {
+          java.lang.Object ref = nextPageToken_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              nextPageToken_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Pagination token to request the next page of models.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public com.google.protobuf.ByteString
+            getNextPageTokenBytes() {
+          java.lang.Object ref = nextPageToken_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            nextPageToken_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Pagination token to request the next page of models.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public Builder setNextPageToken(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Pagination token to request the next page of models.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public Builder clearNextPageToken() {
+          bitField0_ = (bitField0_ & ~0x00000002);
+          nextPageToken_ = getDefaultInstance().getNextPageToken();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Pagination token to request the next page of models.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         */
+        public Builder setNextPageTokenBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.SearchRegisteredModels.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.SearchRegisteredModels.Response)
+      private static final org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response();
+      }
+
+      public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int FILTER_FIELD_NUMBER = 1;
+    private volatile java.lang.Object filter_;
+    /**
+     * <pre>
+     * String filter condition, like "name LIKE 'my-model-name'".
+     * Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+     * Single boolean condition, with string values wrapped in single quotes.
+     * </pre>
+     *
+     * <code>optional string filter = 1;</code>
+     */
+    public boolean hasFilter() {
+      return ((bitField0_ & 0x00000001) == 0x00000001);
+    }
+    /**
+     * <pre>
+     * String filter condition, like "name LIKE 'my-model-name'".
+     * Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+     * Single boolean condition, with string values wrapped in single quotes.
+     * </pre>
+     *
+     * <code>optional string filter = 1;</code>
+     */
+    public java.lang.String getFilter() {
+      java.lang.Object ref = filter_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          filter_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * String filter condition, like "name LIKE 'my-model-name'".
+     * Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+     * Single boolean condition, with string values wrapped in single quotes.
+     * </pre>
+     *
+     * <code>optional string filter = 1;</code>
+     */
+    public com.google.protobuf.ByteString
+        getFilterBytes() {
+      java.lang.Object ref = filter_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        filter_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int MAX_RESULTS_FIELD_NUMBER = 2;
+    private long maxResults_;
+    /**
+     * <pre>
+     * Maximum number of models desired. Default is 100. Max threshold is 1000.
+     * </pre>
+     *
+     * <code>optional int64 max_results = 2 [default = 100];</code>
+     */
+    public boolean hasMaxResults() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <pre>
+     * Maximum number of models desired. Default is 100. Max threshold is 1000.
+     * </pre>
+     *
+     * <code>optional int64 max_results = 2 [default = 100];</code>
+     */
+    public long getMaxResults() {
+      return maxResults_;
+    }
+
+    public static final int ORDER_BY_FIELD_NUMBER = 3;
+    private com.google.protobuf.LazyStringList orderBy_;
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 3;</code>
+     */
+    public com.google.protobuf.ProtocolStringList
+        getOrderByList() {
+      return orderBy_;
+    }
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 3;</code>
+     */
+    public int getOrderByCount() {
+      return orderBy_.size();
+    }
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 3;</code>
+     */
+    public java.lang.String getOrderBy(int index) {
+      return orderBy_.get(index);
+    }
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 3;</code>
+     */
+    public com.google.protobuf.ByteString
+        getOrderByBytes(int index) {
+      return orderBy_.getByteString(index);
+    }
+
+    public static final int PAGE_TOKEN_FIELD_NUMBER = 4;
+    private volatile java.lang.Object pageToken_;
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous search query.
+     * </pre>
+     *
+     * <code>optional string page_token = 4;</code>
+     */
+    public boolean hasPageToken() {
+      return ((bitField0_ & 0x00000004) == 0x00000004);
+    }
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous search query.
+     * </pre>
+     *
+     * <code>optional string page_token = 4;</code>
+     */
+    public java.lang.String getPageToken() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          pageToken_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous search query.
+     * </pre>
+     *
+     * <code>optional string page_token = 4;</code>
+     */
+    public com.google.protobuf.ByteString
+        getPageTokenBytes() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        pageToken_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, filter_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        output.writeInt64(2, maxResults_);
+      }
+      for (int i = 0; i < orderBy_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, orderBy_.getRaw(i));
+      }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, pageToken_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, filter_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(2, maxResults_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < orderBy_.size(); i++) {
+          dataSize += computeStringSizeNoTag(orderBy_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getOrderByList().size();
+      }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, pageToken_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels other = (org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels) obj;
+
+      boolean result = true;
+      result = result && (hasFilter() == other.hasFilter());
+      if (hasFilter()) {
+        result = result && getFilter()
+            .equals(other.getFilter());
+      }
+      result = result && (hasMaxResults() == other.hasMaxResults());
+      if (hasMaxResults()) {
+        result = result && (getMaxResults()
+            == other.getMaxResults());
+      }
+      result = result && getOrderByList()
+          .equals(other.getOrderByList());
+      result = result && (hasPageToken() == other.hasPageToken());
+      if (hasPageToken()) {
+        result = result && getPageToken()
+            .equals(other.getPageToken());
+      }
+      result = result && unknownFields.equals(other.unknownFields);
+      return result;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasFilter()) {
+        hash = (37 * hash) + FILTER_FIELD_NUMBER;
+        hash = (53 * hash) + getFilter().hashCode();
+      }
+      if (hasMaxResults()) {
+        hash = (37 * hash) + MAX_RESULTS_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+            getMaxResults());
+      }
+      if (getOrderByCount() > 0) {
+        hash = (37 * hash) + ORDER_BY_FIELD_NUMBER;
+        hash = (53 * hash) + getOrderByList().hashCode();
+      }
+      if (hasPageToken()) {
+        hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
+        hash = (53 * hash) + getPageToken().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.SearchRegisteredModels}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.SearchRegisteredModels)
+        org.mlflow.api.proto.ModelRegistry.SearchRegisteredModelsOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SearchRegisteredModels_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SearchRegisteredModels_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.class, org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        filter_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        maxResults_ = 100L;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000004);
+        pageToken_ = "";
+        bitField0_ = (bitField0_ & ~0x00000008);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SearchRegisteredModels_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels getDefaultInstanceForType() {
+        return org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels build() {
+        org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels buildPartial() {
+        org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels result = new org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.filter_ = filter_;
+        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.maxResults_ = maxResults_;
+        if (((bitField0_ & 0x00000004) == 0x00000004)) {
+          orderBy_ = orderBy_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000004);
+        }
+        result.orderBy_ = orderBy_;
+        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.pageToken_ = pageToken_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return (Builder) super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return (Builder) super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return (Builder) super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return (Builder) super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return (Builder) super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return (Builder) super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels) {
+          return mergeFrom((org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels other) {
+        if (other == org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels.getDefaultInstance()) return this;
+        if (other.hasFilter()) {
+          bitField0_ |= 0x00000001;
+          filter_ = other.filter_;
+          onChanged();
+        }
+        if (other.hasMaxResults()) {
+          setMaxResults(other.getMaxResults());
+        }
+        if (!other.orderBy_.isEmpty()) {
+          if (orderBy_.isEmpty()) {
+            orderBy_ = other.orderBy_;
+            bitField0_ = (bitField0_ & ~0x00000004);
+          } else {
+            ensureOrderByIsMutable();
+            orderBy_.addAll(other.orderBy_);
+          }
+          onChanged();
+        }
+        if (other.hasPageToken()) {
+          bitField0_ |= 0x00000008;
+          pageToken_ = other.pageToken_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object filter_ = "";
+      /**
+       * <pre>
+       * String filter condition, like "name LIKE 'my-model-name'".
+       * Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+       * Single boolean condition, with string values wrapped in single quotes.
+       * </pre>
+       *
+       * <code>optional string filter = 1;</code>
+       */
+      public boolean hasFilter() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <pre>
+       * String filter condition, like "name LIKE 'my-model-name'".
+       * Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+       * Single boolean condition, with string values wrapped in single quotes.
+       * </pre>
+       *
+       * <code>optional string filter = 1;</code>
+       */
+      public java.lang.String getFilter() {
+        java.lang.Object ref = filter_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            filter_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * String filter condition, like "name LIKE 'my-model-name'".
+       * Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+       * Single boolean condition, with string values wrapped in single quotes.
+       * </pre>
+       *
+       * <code>optional string filter = 1;</code>
+       */
+      public com.google.protobuf.ByteString
+          getFilterBytes() {
+        java.lang.Object ref = filter_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          filter_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * String filter condition, like "name LIKE 'my-model-name'".
+       * Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+       * Single boolean condition, with string values wrapped in single quotes.
+       * </pre>
+       *
+       * <code>optional string filter = 1;</code>
+       */
+      public Builder setFilter(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        filter_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * String filter condition, like "name LIKE 'my-model-name'".
+       * Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+       * Single boolean condition, with string values wrapped in single quotes.
+       * </pre>
+       *
+       * <code>optional string filter = 1;</code>
+       */
+      public Builder clearFilter() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        filter_ = getDefaultInstance().getFilter();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * String filter condition, like "name LIKE 'my-model-name'".
+       * Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+       * Single boolean condition, with string values wrapped in single quotes.
+       * </pre>
+       *
+       * <code>optional string filter = 1;</code>
+       */
+      public Builder setFilterBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        filter_ = value;
+        onChanged();
+        return this;
+      }
+
+      private long maxResults_ = 100L;
+      /**
+       * <pre>
+       * Maximum number of models desired. Default is 100. Max threshold is 1000.
+       * </pre>
+       *
+       * <code>optional int64 max_results = 2 [default = 100];</code>
+       */
+      public boolean hasMaxResults() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <pre>
+       * Maximum number of models desired. Default is 100. Max threshold is 1000.
+       * </pre>
+       *
+       * <code>optional int64 max_results = 2 [default = 100];</code>
+       */
+      public long getMaxResults() {
+        return maxResults_;
+      }
+      /**
+       * <pre>
+       * Maximum number of models desired. Default is 100. Max threshold is 1000.
+       * </pre>
+       *
+       * <code>optional int64 max_results = 2 [default = 100];</code>
+       */
+      public Builder setMaxResults(long value) {
+        bitField0_ |= 0x00000002;
+        maxResults_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Maximum number of models desired. Default is 100. Max threshold is 1000.
+       * </pre>
+       *
+       * <code>optional int64 max_results = 2 [default = 100];</code>
+       */
+      public Builder clearMaxResults() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        maxResults_ = 100L;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureOrderByIsMutable() {
+        if (!((bitField0_ & 0x00000004) == 0x00000004)) {
+          orderBy_ = new com.google.protobuf.LazyStringArrayList(orderBy_);
+          bitField0_ |= 0x00000004;
+         }
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 3;</code>
+       */
+      public com.google.protobuf.ProtocolStringList
+          getOrderByList() {
+        return orderBy_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 3;</code>
+       */
+      public int getOrderByCount() {
+        return orderBy_.size();
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 3;</code>
+       */
+      public java.lang.String getOrderBy(int index) {
+        return orderBy_.get(index);
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 3;</code>
+       */
+      public com.google.protobuf.ByteString
+          getOrderByBytes(int index) {
+        return orderBy_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 3;</code>
+       */
+      public Builder setOrderBy(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 3;</code>
+       */
+      public Builder addOrderBy(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 3;</code>
+       */
+      public Builder addAllOrderBy(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureOrderByIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, orderBy_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 3;</code>
+       */
+      public Builder clearOrderBy() {
+        orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000004);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 3;</code>
+       */
+      public Builder addOrderByBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.add(value);
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object pageToken_ = "";
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous search query.
+       * </pre>
+       *
+       * <code>optional string page_token = 4;</code>
+       */
+      public boolean hasPageToken() {
+        return ((bitField0_ & 0x00000008) == 0x00000008);
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous search query.
+       * </pre>
+       *
+       * <code>optional string page_token = 4;</code>
+       */
+      public java.lang.String getPageToken() {
+        java.lang.Object ref = pageToken_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            pageToken_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous search query.
+       * </pre>
+       *
+       * <code>optional string page_token = 4;</code>
+       */
+      public com.google.protobuf.ByteString
+          getPageTokenBytes() {
+        java.lang.Object ref = pageToken_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          pageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous search query.
+       * </pre>
+       *
+       * <code>optional string page_token = 4;</code>
+       */
+      public Builder setPageToken(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous search query.
+       * </pre>
+       *
+       * <code>optional string page_token = 4;</code>
+       */
+      public Builder clearPageToken() {
+        bitField0_ = (bitField0_ & ~0x00000008);
+        pageToken_ = getDefaultInstance().getPageToken();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous search query.
+       * </pre>
+       *
+       * <code>optional string page_token = 4;</code>
+       */
+      public Builder setPageTokenBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.SearchRegisteredModels)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.SearchRegisteredModels)
+    private static final org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels();
+    }
+
+    public static org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<SearchRegisteredModels>
+        PARSER = new com.google.protobuf.AbstractParser<SearchRegisteredModels>() {
+      @java.lang.Override
+      public SearchRegisteredModels parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new SearchRegisteredModels(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<SearchRegisteredModels> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<SearchRegisteredModels> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.ModelRegistry.SearchRegisteredModels getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   public interface GetLatestVersionsOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.GetLatestVersions)
       com.google.protobuf.MessageOrBuilder {
@@ -26088,6 +28476,16 @@ public final class ModelRegistry {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_ListRegisteredModels_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_SearchRegisteredModels_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_SearchRegisteredModels_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_SearchRegisteredModels_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_SearchRegisteredModels_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_GetLatestVersions_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -26211,111 +28609,122 @@ public final class ModelRegistry {
       "stRegisteredModels\022\032\n\013max_results\030\001 \001(\003:" +
       "\00550000\032>\n\010Response\0222\n\021registered_models\030" +
       "\001 \003(\0132\027.mlflow.RegisteredModel:+\342?(\n&com" +
-      ".databricks.rpc.RPC[$this.Response]\"\236\001\n\021" +
-      "GetLatestVersions\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\016\n" +
-      "\006stages\030\002 \003(\t\0328\n\010Response\022,\n\016model_versi" +
-      "ons\030\001 \003(\0132\024.mlflow.ModelVersion:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]\"\264\001\n" +
-      "\022CreateModelVersion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022" +
-      "\024\n\006source\030\002 \001(\tB\004\370\206\031\001\022\016\n\006run_id\030\003 \001(\t\0327\n" +
-      "\010Response\022+\n\rmodel_version\030\001 \001(\0132\024.mlflo" +
-      "w.ModelVersion:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"\272\001\n\022UpdateModelVersi" +
-      "on\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB" +
-      "\004\370\206\031\001\022\023\n\013description\030\003 \001(\t\0327\n\010Response\022+" +
+      ".databricks.rpc.RPC[$this.Response]\"\356\001\n\026" +
+      "SearchRegisteredModels\022\016\n\006filter\030\001 \001(\t\022\030" +
+      "\n\013max_results\030\002 \001(\003:\003100\022\020\n\010order_by\030\003 \003" +
+      "(\t\022\022\n\npage_token\030\004 \001(\t\032W\n\010Response\0222\n\021re" +
+      "gistered_models\030\001 \003(\0132\027.mlflow.Registere" +
+      "dModel\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&co" +
+      "m.databricks.rpc.RPC[$this.Response]\"\236\001\n" +
+      "\021GetLatestVersions\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\016" +
+      "\n\006stages\030\002 \003(\t\0328\n\010Response\022,\n\016model_vers" +
+      "ions\030\001 \003(\0132\024.mlflow.ModelVersion:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"\264\001" +
+      "\n\022CreateModelVersion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001" +
+      "\022\024\n\006source\030\002 \001(\tB\004\370\206\031\001\022\016\n\006run_id\030\003 \001(\t\0327" +
+      "\n\010Response\022+\n\rmodel_version\030\001 \001(\0132\024.mlfl" +
+      "ow.ModelVersion:+\342?(\n&com.databricks.rpc" +
+      ".RPC[$this.Response]\"\272\001\n\022UpdateModelVers" +
+      "ion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\t" +
+      "B\004\370\206\031\001\022\023\n\013description\030\003 \001(\t\0327\n\010Response\022" +
+      "+\n\rmodel_version\030\001 \001(\0132\024.mlflow.ModelVer" +
+      "sion:+\342?(\n&com.databricks.rpc.RPC[$this." +
+      "Response]\"\354\001\n\033TransitionModelVersionStag" +
+      "e\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004" +
+      "\370\206\031\001\022\023\n\005stage\030\003 \001(\tB\004\370\206\031\001\022\'\n\031archive_exi" +
+      "sting_versions\030\004 \001(\010B\004\370\206\031\001\0327\n\010Response\022+" +
       "\n\rmodel_version\030\001 \001(\0132\024.mlflow.ModelVers" +
       "ion:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"\354\001\n\033TransitionModelVersionStage" +
-      "\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370" +
-      "\206\031\001\022\023\n\005stage\030\003 \001(\tB\004\370\206\031\001\022\'\n\031archive_exis" +
-      "ting_versions\030\004 \001(\010B\004\370\206\031\001\0327\n\010Response\022+\n" +
-      "\rmodel_version\030\001 \001(\0132\024.mlflow.ModelVersi" +
-      "on:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"x\n\022DeleteModelVersion\022\022\n\004name\030\001 " +
-      "\001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Resp" +
-      "onse:+\342?(\n&com.databricks.rpc.RPC[$this." +
-      "Response]\"\242\001\n\017GetModelVersion\022\022\n\004name\030\001 " +
-      "\001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\0327\n\010Resp" +
-      "onse\022+\n\rmodel_version\030\001 \001(\0132\024.mlflow.Mod" +
-      "elVersion:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]\"\350\001\n\023SearchModelVersions\022\016" +
-      "\n\006filter\030\001 \001(\t\022\033\n\013max_results\030\002 \001(\003:\006200" +
-      "000\022\020\n\010order_by\030\003 \003(\t\022\022\n\npage_token\030\004 \001(" +
-      "\t\032Q\n\010Response\022,\n\016model_versions\030\001 \003(\0132\024." +
-      "mlflow.ModelVersion\022\027\n\017next_page_token\030\002" +
-      " \001(\t:+\342?(\n&com.databricks.rpc.RPC[$this." +
-      "Response]\"\226\001\n\032GetModelVersionDownloadUri" +
-      "\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370" +
-      "\206\031\001\032 \n\010Response\022\024\n\014artifact_uri\030\001 \001(\t:+\342" +
-      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
-      "e]*R\n\022ModelVersionStatus\022\030\n\024PENDING_REGI" +
-      "STRATION\020\001\022\027\n\023FAILED_REGISTRATION\020\002\022\t\n\005R" +
-      "EADY\020\0032\227\024\n\024ModelRegistryService\022\266\001\n\025crea" +
-      "teRegisteredModel\022\035.mlflow.CreateRegiste" +
-      "redModel\032&.mlflow.CreateRegisteredModel." +
-      "Response\"V\362\206\031R\n6\n\004POST\022(/preview/mlflow/" +
-      "registered-models/create\032\004\010\002\020\000\020\001*\026Create" +
-      " RegisteredModel\022\266\001\n\025renameRegisteredMod" +
-      "el\022\035.mlflow.RenameRegisteredModel\032&.mlfl" +
-      "ow.RenameRegisteredModel.Response\"V\362\206\031R\n" +
-      "6\n\004POST\022(/preview/mlflow/registered-mode" +
-      "ls/rename\032\004\010\002\020\000\020\001*\026Rename RegisteredMode" +
-      "l\022\267\001\n\025updateRegisteredModel\022\035.mlflow.Upd" +
-      "ateRegisteredModel\032&.mlflow.UpdateRegist" +
-      "eredModel.Response\"W\362\206\031S\n7\n\005PATCH\022(/prev" +
-      "iew/mlflow/registered-models/update\032\004\010\002\020" +
-      "\000\020\001*\026Update RegisteredModel\022\270\001\n\025deleteRe" +
-      "gisteredModel\022\035.mlflow.DeleteRegisteredM" +
-      "odel\032&.mlflow.DeleteRegisteredModel.Resp" +
-      "onse\"X\362\206\031T\n8\n\006DELETE\022(/preview/mlflow/re" +
-      "gistered-models/delete\032\004\010\002\020\000\020\001*\026Delete R" +
-      "egisteredModel\022\246\001\n\022getRegisteredModel\022\032." +
-      "mlflow.GetRegisteredModel\032#.mlflow.GetRe" +
-      "gisteredModel.Response\"O\362\206\031K\n2\n\003GET\022%/pr" +
-      "eview/mlflow/registered-models/get\032\004\010\002\020\000" +
-      "\020\001*\023Get RegisteredModel\022\257\001\n\024listRegister" +
-      "edModels\022\034.mlflow.ListRegisteredModels\032%" +
-      ".mlflow.ListRegisteredModels.Response\"R\362" +
-      "\206\031N\n3\n\003GET\022&/preview/mlflow/registered-m" +
-      "odels/list\032\004\010\002\020\000\020\001*\025List RegisteredModel" +
-      "s\022\270\001\n\021getLatestVersions\022\031.mlflow.GetLate" +
-      "stVersions\032\".mlflow.GetLatestVersions.Re" +
-      "sponse\"d\362\206\031`\nB\n\003GET\0225/preview/mlflow/reg" +
-      "istered-models/get-latest-versions\032\004\010\002\020\000" +
-      "\020\001*\030Get Latest ModelVersions\022\247\001\n\022createM" +
-      "odelVersion\022\032.mlflow.CreateModelVersion\032" +
-      "#.mlflow.CreateModelVersion.Response\"P\362\206" +
-      "\031L\n3\n\004POST\022%/preview/mlflow/model-versio" +
-      "ns/create\032\004\010\002\020\000\020\001*\023Create ModelVersion\022\250" +
-      "\001\n\022updateModelVersion\022\032.mlflow.UpdateMod" +
-      "elVersion\032#.mlflow.UpdateModelVersion.Re" +
-      "sponse\"Q\362\206\031M\n4\n\005PATCH\022%/preview/mlflow/m" +
-      "odel-versions/update\032\004\010\002\020\000\020\001*\023Update Mod" +
-      "elVersion\022\326\001\n\033transitionModelVersionStag" +
-      "e\022#.mlflow.TransitionModelVersionStage\032," +
-      ".mlflow.TransitionModelVersionStage.Resp" +
-      "onse\"d\362\206\031`\n=\n\004POST\022//preview/mlflow/mode" +
-      "l-versions/transition-stage\032\004\010\002\020\000\020\001*\035Tra" +
-      "nsition ModelVersion Stage\022\251\001\n\022deleteMod" +
-      "elVersion\022\032.mlflow.DeleteModelVersion\032#." +
-      "mlflow.DeleteModelVersion.Response\"R\362\206\031N" +
-      "\n5\n\006DELETE\022%/preview/mlflow/model-versio" +
-      "ns/delete\032\004\010\002\020\000\020\001*\023Delete ModelVersion\022\227" +
-      "\001\n\017getModelVersion\022\027.mlflow.GetModelVers" +
-      "ion\032 .mlflow.GetModelVersion.Response\"I\362" +
-      "\206\031E\n/\n\003GET\022\"/preview/mlflow/model-versio" +
-      "ns/get\032\004\010\002\020\000\020\001*\020Get ModelVersion\022\252\001\n\023sea" +
-      "rchModelVersions\022\033.mlflow.SearchModelVer" +
-      "sions\032$.mlflow.SearchModelVersions.Respo" +
-      "nse\"P\362\206\031L\n2\n\003GET\022%/preview/mlflow/model-" +
-      "versions/search\032\004\010\002\020\000\020\001*\024Search ModelVer" +
-      "sions\022\340\001\n\032getModelVersionDownloadUri\022\".m" +
-      "lflow.GetModelVersionDownloadUri\032+.mlflo" +
-      "w.GetModelVersionDownloadUri.Response\"q\362" +
-      "\206\031m\n<\n\003GET\022//preview/mlflow/model-versio" +
-      "ns/get-download-uri\032\004\010\002\020\000\020\001*+Get Downloa" +
-      "d URI For ModelVersion ArtifactsB!\n\024org." +
-      "mlflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
+      "esponse]\"x\n\022DeleteModelVersion\022\022\n\004name\030\001" +
+      " \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Res" +
+      "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\"\242\001\n\017GetModelVersion\022\022\n\004name\030\001" +
+      " \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\0327\n\010Res" +
+      "ponse\022+\n\rmodel_version\030\001 \001(\0132\024.mlflow.Mo" +
+      "delVersion:+\342?(\n&com.databricks.rpc.RPC[" +
+      "$this.Response]\"\350\001\n\023SearchModelVersions\022" +
+      "\016\n\006filter\030\001 \001(\t\022\033\n\013max_results\030\002 \001(\003:\00620" +
+      "0000\022\020\n\010order_by\030\003 \003(\t\022\022\n\npage_token\030\004 \001" +
+      "(\t\032Q\n\010Response\022,\n\016model_versions\030\001 \003(\0132\024" +
+      ".mlflow.ModelVersion\022\027\n\017next_page_token\030" +
+      "\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\"\226\001\n\032GetModelVersionDownloadUr" +
+      "i\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004" +
+      "\370\206\031\001\032 \n\010Response\022\024\n\014artifact_uri\030\001 \001(\t:+" +
+      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
+      "se]*R\n\022ModelVersionStatus\022\030\n\024PENDING_REG" +
+      "ISTRATION\020\001\022\027\n\023FAILED_REGISTRATION\020\002\022\t\n\005" +
+      "READY\020\0032\323\025\n\024ModelRegistryService\022\266\001\n\025cre" +
+      "ateRegisteredModel\022\035.mlflow.CreateRegist" +
+      "eredModel\032&.mlflow.CreateRegisteredModel" +
+      ".Response\"V\362\206\031R\n6\n\004POST\022(/preview/mlflow" +
+      "/registered-models/create\032\004\010\002\020\000\020\001*\026Creat" +
+      "e RegisteredModel\022\266\001\n\025renameRegisteredMo" +
+      "del\022\035.mlflow.RenameRegisteredModel\032&.mlf" +
+      "low.RenameRegisteredModel.Response\"V\362\206\031R" +
+      "\n6\n\004POST\022(/preview/mlflow/registered-mod" +
+      "els/rename\032\004\010\002\020\000\020\001*\026Rename RegisteredMod" +
+      "el\022\267\001\n\025updateRegisteredModel\022\035.mlflow.Up" +
+      "dateRegisteredModel\032&.mlflow.UpdateRegis" +
+      "teredModel.Response\"W\362\206\031S\n7\n\005PATCH\022(/pre" +
+      "view/mlflow/registered-models/update\032\004\010\002" +
+      "\020\000\020\001*\026Update RegisteredModel\022\270\001\n\025deleteR" +
+      "egisteredModel\022\035.mlflow.DeleteRegistered" +
+      "Model\032&.mlflow.DeleteRegisteredModel.Res" +
+      "ponse\"X\362\206\031T\n8\n\006DELETE\022(/preview/mlflow/r" +
+      "egistered-models/delete\032\004\010\002\020\000\020\001*\026Delete " +
+      "RegisteredModel\022\246\001\n\022getRegisteredModel\022\032" +
+      ".mlflow.GetRegisteredModel\032#.mlflow.GetR" +
+      "egisteredModel.Response\"O\362\206\031K\n2\n\003GET\022%/p" +
+      "review/mlflow/registered-models/get\032\004\010\002\020" +
+      "\000\020\001*\023Get RegisteredModel\022\271\001\n\026searchRegis" +
+      "teredModels\022\036.mlflow.SearchRegisteredMod" +
+      "els\032\'.mlflow.SearchRegisteredModels.Resp" +
+      "onse\"V\362\206\031R\n5\n\003GET\022(/preview/mlflow/regis" +
+      "tered-models/search\032\004\010\002\020\000\020\001*\027Search Regi" +
+      "steredModels\022\257\001\n\024listRegisteredModels\022\034." +
+      "mlflow.ListRegisteredModels\032%.mlflow.Lis" +
+      "tRegisteredModels.Response\"R\362\206\031N\n3\n\003GET\022" +
+      "&/preview/mlflow/registered-models/list\032" +
+      "\004\010\002\020\000\020\001*\025List RegisteredModels\022\270\001\n\021getLa" +
+      "testVersions\022\031.mlflow.GetLatestVersions\032" +
+      "\".mlflow.GetLatestVersions.Response\"d\362\206\031" +
+      "`\nB\n\003GET\0225/preview/mlflow/registered-mod" +
+      "els/get-latest-versions\032\004\010\002\020\000\020\001*\030Get Lat" +
+      "est ModelVersions\022\247\001\n\022createModelVersion" +
+      "\022\032.mlflow.CreateModelVersion\032#.mlflow.Cr" +
+      "eateModelVersion.Response\"P\362\206\031L\n3\n\004POST\022" +
+      "%/preview/mlflow/model-versions/create\032\004" +
+      "\010\002\020\000\020\001*\023Create ModelVersion\022\250\001\n\022updateMo" +
+      "delVersion\022\032.mlflow.UpdateModelVersion\032#" +
+      ".mlflow.UpdateModelVersion.Response\"Q\362\206\031" +
+      "M\n4\n\005PATCH\022%/preview/mlflow/model-versio" +
+      "ns/update\032\004\010\002\020\000\020\001*\023Update ModelVersion\022\326" +
+      "\001\n\033transitionModelVersionStage\022#.mlflow." +
+      "TransitionModelVersionStage\032,.mlflow.Tra" +
+      "nsitionModelVersionStage.Response\"d\362\206\031`\n" +
+      "=\n\004POST\022//preview/mlflow/model-versions/" +
+      "transition-stage\032\004\010\002\020\000\020\001*\035Transition Mod" +
+      "elVersion Stage\022\251\001\n\022deleteModelVersion\022\032" +
+      ".mlflow.DeleteModelVersion\032#.mlflow.Dele" +
+      "teModelVersion.Response\"R\362\206\031N\n5\n\006DELETE\022" +
+      "%/preview/mlflow/model-versions/delete\032\004" +
+      "\010\002\020\000\020\001*\023Delete ModelVersion\022\227\001\n\017getModel" +
+      "Version\022\027.mlflow.GetModelVersion\032 .mlflo" +
+      "w.GetModelVersion.Response\"I\362\206\031E\n/\n\003GET\022" +
+      "\"/preview/mlflow/model-versions/get\032\004\010\002\020" +
+      "\000\020\001*\020Get ModelVersion\022\252\001\n\023searchModelVer" +
+      "sions\022\033.mlflow.SearchModelVersions\032$.mlf" +
+      "low.SearchModelVersions.Response\"P\362\206\031L\n2" +
+      "\n\003GET\022%/preview/mlflow/model-versions/se" +
+      "arch\032\004\010\002\020\000\020\001*\024Search ModelVersions\022\340\001\n\032g" +
+      "etModelVersionDownloadUri\022\".mlflow.GetMo" +
+      "delVersionDownloadUri\032+.mlflow.GetModelV" +
+      "ersionDownloadUri.Response\"q\362\206\031m\n<\n\003GET\022" +
+      "//preview/mlflow/model-versions/get-down" +
+      "load-uri\032\004\010\002\020\000\020\001*+Get Download URI For M" +
+      "odelVersion ArtifactsB!\n\024org.mlflow.api." +
+      "proto\220\001\001\240\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -26415,8 +28824,20 @@ public final class ModelRegistry {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ListRegisteredModels_Response_descriptor,
         new java.lang.String[] { "RegisteredModels", });
-    internal_static_mlflow_GetLatestVersions_descriptor =
+    internal_static_mlflow_SearchRegisteredModels_descriptor =
       getDescriptor().getMessageTypes().get(8);
+    internal_static_mlflow_SearchRegisteredModels_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_SearchRegisteredModels_descriptor,
+        new java.lang.String[] { "Filter", "MaxResults", "OrderBy", "PageToken", });
+    internal_static_mlflow_SearchRegisteredModels_Response_descriptor =
+      internal_static_mlflow_SearchRegisteredModels_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_SearchRegisteredModels_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_SearchRegisteredModels_Response_descriptor,
+        new java.lang.String[] { "RegisteredModels", "NextPageToken", });
+    internal_static_mlflow_GetLatestVersions_descriptor =
+      getDescriptor().getMessageTypes().get(9);
     internal_static_mlflow_GetLatestVersions_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetLatestVersions_descriptor,
@@ -26428,7 +28849,7 @@ public final class ModelRegistry {
         internal_static_mlflow_GetLatestVersions_Response_descriptor,
         new java.lang.String[] { "ModelVersions", });
     internal_static_mlflow_CreateModelVersion_descriptor =
-      getDescriptor().getMessageTypes().get(9);
+      getDescriptor().getMessageTypes().get(10);
     internal_static_mlflow_CreateModelVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CreateModelVersion_descriptor,
@@ -26440,7 +28861,7 @@ public final class ModelRegistry {
         internal_static_mlflow_CreateModelVersion_Response_descriptor,
         new java.lang.String[] { "ModelVersion", });
     internal_static_mlflow_UpdateModelVersion_descriptor =
-      getDescriptor().getMessageTypes().get(10);
+      getDescriptor().getMessageTypes().get(11);
     internal_static_mlflow_UpdateModelVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateModelVersion_descriptor,
@@ -26452,7 +28873,7 @@ public final class ModelRegistry {
         internal_static_mlflow_UpdateModelVersion_Response_descriptor,
         new java.lang.String[] { "ModelVersion", });
     internal_static_mlflow_TransitionModelVersionStage_descriptor =
-      getDescriptor().getMessageTypes().get(11);
+      getDescriptor().getMessageTypes().get(12);
     internal_static_mlflow_TransitionModelVersionStage_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_TransitionModelVersionStage_descriptor,
@@ -26464,7 +28885,7 @@ public final class ModelRegistry {
         internal_static_mlflow_TransitionModelVersionStage_Response_descriptor,
         new java.lang.String[] { "ModelVersion", });
     internal_static_mlflow_DeleteModelVersion_descriptor =
-      getDescriptor().getMessageTypes().get(12);
+      getDescriptor().getMessageTypes().get(13);
     internal_static_mlflow_DeleteModelVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteModelVersion_descriptor,
@@ -26476,7 +28897,7 @@ public final class ModelRegistry {
         internal_static_mlflow_DeleteModelVersion_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_GetModelVersion_descriptor =
-      getDescriptor().getMessageTypes().get(13);
+      getDescriptor().getMessageTypes().get(14);
     internal_static_mlflow_GetModelVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetModelVersion_descriptor,
@@ -26488,7 +28909,7 @@ public final class ModelRegistry {
         internal_static_mlflow_GetModelVersion_Response_descriptor,
         new java.lang.String[] { "ModelVersion", });
     internal_static_mlflow_SearchModelVersions_descriptor =
-      getDescriptor().getMessageTypes().get(14);
+      getDescriptor().getMessageTypes().get(15);
     internal_static_mlflow_SearchModelVersions_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchModelVersions_descriptor,
@@ -26500,7 +28921,7 @@ public final class ModelRegistry {
         internal_static_mlflow_SearchModelVersions_Response_descriptor,
         new java.lang.String[] { "ModelVersions", "NextPageToken", });
     internal_static_mlflow_GetModelVersionDownloadUri_descriptor =
-      getDescriptor().getMessageTypes().get(15);
+      getDescriptor().getMessageTypes().get(16);
     internal_static_mlflow_GetModelVersionDownloadUri_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetModelVersionDownloadUri_descriptor,
