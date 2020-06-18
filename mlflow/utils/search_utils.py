@@ -24,6 +24,7 @@ class SearchUtils(object):
         CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union({'='})
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
+    VALID_ORDER_BY_KEYS_REGISTERED_MODELS = set(["name", "last_updated_timestamp"])
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
     _PARAM_IDENTIFIER = "parameter"
@@ -317,21 +318,19 @@ class SearchUtils(object):
         return [run for run in runs if run_matches(run)]
 
     @classmethod
-    def parse_order_by(cls, order_by):
+    def _parse_order_by_string(cls, order_by):
         try:
             parsed = sqlparse.parse(order_by)
         except Exception:
             raise MlflowException("Error on parsing order_by clause '%s'" % order_by,
-                                  error_code=INVALID_PARAMETER_VALUE)
+                          error_code=INVALID_PARAMETER_VALUE)
         if len(parsed) != 1 or not isinstance(parsed[0], Statement):
             raise MlflowException("Invalid order_by clause '%s'. Could not be parsed." %
-                                  order_by, error_code=INVALID_PARAMETER_VALUE)
-
+                          order_by, error_code=INVALID_PARAMETER_VALUE)
         statement = parsed[0]
         if len(statement.tokens) != 1 or not isinstance(statement[0], Identifier):
             raise MlflowException("Invalid order_by clause '%s'. Could not be parsed." %
                                   order_by, error_code=INVALID_PARAMETER_VALUE)
-
         token_value = statement.tokens[0].value
         is_ascending = True
         if token_value.lower().endswith(" desc"):
@@ -339,8 +338,22 @@ class SearchUtils(object):
             token_value = token_value[0:-len(" desc")]
         elif token_value.lower().endswith(" asc"):
             token_value = token_value[0:-len(" asc")]
+        return token_value, is_ascending
+
+    @classmethod
+    def parse_order_by_runs(cls, order_by):
+        token_value, is_ascending = cls._parse_order_by_string(order_by)
         identifier = cls._get_identifier(token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
-        return (identifier["type"], identifier["key"], is_ascending)
+        return identifier["type"], identifier["key"], is_ascending
+
+    @classmethod
+    def parse_order_by_registered_models(cls, order_by):
+        token_value, is_ascending = cls._parse_order_by_string(order_by)
+        token_value = token_value.strip()
+        if token_value not in cls.VALID_ORDER_BY_KEYS_REGISTERED_MODELS:
+            raise MlflowException(f"Invalid order by key '{token_value}' specified. Valid keys "
+                                  f"are '{cls.VALID_ORDER_BY_KEYS_REGISTERED_MODELS}'")
+        return token_value, is_ascending
 
     @classmethod
     def _get_value_for_sort(cls, run, key_type, key, ascending):
@@ -376,7 +389,7 @@ class SearchUtils(object):
         # NB: We rely on the stability of Python's sort function, so that we can apply
         # the ordering conditions in reverse order.
         for order_by_clause in reversed(order_by_list):
-            (key_type, key, ascending) = cls.parse_order_by(order_by_clause)
+            (key_type, key, ascending) = cls.parse_order_by_runs(order_by_clause)
             # pylint: disable=cell-var-from-loop
             runs = sorted(runs,
                           key=lambda run: cls._get_value_for_sort(run, key_type, key, ascending),
