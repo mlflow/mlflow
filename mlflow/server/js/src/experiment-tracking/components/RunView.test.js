@@ -21,7 +21,7 @@ describe('RunView', () => {
   beforeEach(() => {
     minimalProps = {
       runUuid: 'uuid-1234-5678-9012',
-      experimentId: 12345,
+      experimentId: '12345',
       getMetricPagePath: jest.fn(),
       handleSetRunTag: jest.fn(),
     };
