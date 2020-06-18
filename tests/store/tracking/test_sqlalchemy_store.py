@@ -456,8 +456,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             experiment_id = self._experiment_factory('test exp')
             config["experiment_id"] = experiment_id
 
-        return self.store.create
-        _run(**config)
+        return self.store.create_run(**config)
 
     def test_create_run_with_tags(self):
         experiment_id = self._experiment_factory('test_create_run')
