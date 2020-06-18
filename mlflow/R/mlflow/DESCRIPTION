@@ -1,7 +1,7 @@
 Package: mlflow
 Type: Package
 Title: Interface to 'MLflow'
-Version: 1.8.1
+Version: 1.9.0
 Authors@R: c(
   person("Matei", "Zaharia", email = "matei@databricks.com", role = c("aut", "cre")),
   person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("aut")),

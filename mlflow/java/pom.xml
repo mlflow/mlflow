@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.mlflow</groupId>
   <artifactId>mlflow-parent</artifactId>
-  <version>1.8.1-SNAPSHOT</version>
+  <version>1.9.0</version>
   <packaging>pom</packaging>
   <name>MLflow Parent POM</name>
   <url>http://mlflow.org</url>
@@ -56,7 +56,7 @@
   </distributionManagement>
 
   <properties>
-    <mlflow-version>1.8.1-SNAPSHOT</mlflow-version>
+    <mlflow-version>1.9.0</mlflow-version>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <scala.version>2.11.12</scala.version>
