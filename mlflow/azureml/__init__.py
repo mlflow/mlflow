@@ -372,8 +372,13 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
 
         # AzureML requires azureml-defaults to be installed to include
         # flask for the inference server.
-        environment.python.conda_dependencies.add_pip_package(
-            "azureml-defaults=={}".format(AZUREML_VERSION))
+        
+        # Detect dev version for AzureML SDK
+        if version.parse(AZUREML_VERSION) > version.parse("0.1.1"):
+            environment.python.conda_dependencies.add_pip_package(
+                "azureml-defaults=={}".format(AZUREML_VERSION))
+        else:
+            environment.python.conda_dependencies.add_pip_package("azureml-defaults")
 
         inference_config = InferenceConfig(entry_script=execution_script_path,
                                            environment=environment)
