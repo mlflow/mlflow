@@ -29,7 +29,8 @@ class PluginDeploymentClient(BaseDeploymentClient):
 
 
 def run_local(name, model_uri, flavor=None, config=None):
-    print(f"Deployed locally at the key {name} using the model from {model_uri}")
+    print(f"Deployed locally at the key {name} using the model from {model_uri}. "
+          f"It's flavor is {flavor} and config is {config}")
 
 
 def target_help():
