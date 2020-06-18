@@ -10,7 +10,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 
 export class MetricPageImpl extends Component {
   static propTypes = {
-    runUuids: PropTypes.arrayOf(String).isRequired,
+    runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricKey: PropTypes.string.isRequired,
     experimentId: PropTypes.string,
     dispatch: PropTypes.func.isRequired,
