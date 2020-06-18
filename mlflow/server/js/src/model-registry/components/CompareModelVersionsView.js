@@ -21,8 +21,8 @@ export class CompareModelVersionsView extends Component {
   static propTypes = {
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
-    metricLists: PropTypes.arrayOf(PropTypes.array).isRequired,
-    paramLists: PropTypes.arrayOf(PropTypes.array).isRequired,
+    metricLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
+    paramLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // Array of user-specified run names. Elements may be falsy (e.g. empty string or undefined) if
     // a run was never given a name.
     runNames: PropTypes.arrayOf(PropTypes.string).isRequired,
@@ -238,7 +238,6 @@ const mapStateToProps = (state, ownProps) => {
       runUuids.push(runUuid);
     }
   }
-
   return { runInfos, metricLists, paramLists, runNames, runDisplayNames, runUuids, modelName };
 };
 

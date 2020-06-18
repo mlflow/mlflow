@@ -15,8 +15,8 @@ export class CompareRunScatterImpl extends Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
-    metricLists: PropTypes.arrayOf(PropTypes.array).isRequired,
-    paramLists: PropTypes.arrayOf(PropTypes.array).isRequired,
+    metricLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
+    paramLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
   };
 
