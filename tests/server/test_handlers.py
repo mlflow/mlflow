@@ -274,7 +274,7 @@ def test_list_registered_models(mock_get_request_message, mock_model_registry_st
     mock_model_registry_store.list_registered_models.return_value = rmds
     resp = _list_registered_models()
     args, _ = mock_model_registry_store.list_registered_models.call_args
-    assert args == ('', 50)
+    assert args == (50, '')
     assert json.loads(resp.get_data()) == {
         "next_page_token": "next_pt",
         "registered_models": jsonify(rmds)}
