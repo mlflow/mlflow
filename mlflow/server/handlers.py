@@ -553,13 +553,15 @@ def _list_registered_models():
 @catch_mlflow_exception
 def _search_registered_models():
     request_message = _get_request_message(SearchRegisteredModels())
-    registered_models = _get_model_registry_store().search_registered_models(filter_string=request_message.filter,
-                                                                             max_results=request_message.max_results,
-                                                                             order_by=request_message.order_by,
-                                                                             page_token=request_message.page_token)
+    store = _get_model_registry_store()
+    registered_models = store.search_registered_models(filter_string=request_message.filter,
+                                                       max_results=request_message.max_results,
+                                                       order_by=request_message.order_by,
+                                                       page_token=request_message.page_token)
     response_message = SearchRegisteredModels.Response()
-    response_message.registered_models.extend([e.to_proto()
-                                               for e in registered_models])
+    response_message.registered_models.extend([e.to_proto() for e in registered_models])
+    if registered_models.token:
+        response_message.next_page_token = registered_models.token
     return _wrap_response(response_message)
 
 
