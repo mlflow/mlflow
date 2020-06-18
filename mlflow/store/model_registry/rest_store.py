@@ -95,14 +95,12 @@ class RestStore(AbstractStore):
             name=name))
         self._call_endpoint(DeleteRegisteredModel, req_body)
 
-    def list_registered_models(self,
-                               page_token,
-                               max_results):
+    def list_registered_models(self, max_results, page_token):
         """
         List of all registered models.
+        :param max_results: Maximum number of registered models desired.
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_registered_models`` call.
-        :param max_results: Maximum number of registered models desired.
 
         :return: PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
         """

@@ -401,16 +401,19 @@ class MlflowClient(object):
 
     @experimental
     def list_registered_models(self,
-                               page_token=None,
-                               max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT):
+                               max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+                               page_token=None):
         """
         List of all registered models.
+        :param max_results: Maximum number of registered models desired.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_registered_models`` call.
 
         :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
         """
-        return self._get_registry_client().list_registered_models(page_token, max_results)
+        return self._get_registry_client().list_registered_models(max_results, page_token)
 
     @experimental
     def get_registered_model(self, name):

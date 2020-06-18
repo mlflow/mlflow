@@ -544,7 +544,8 @@ def _delete_registered_model():
 def _list_registered_models():
     request_message = _get_request_message(ListRegisteredModels())
     registered_models = _get_model_registry_store().list_registered_models(
-        request_message.page_token, request_message.max_results)
+        request_message.max_results,
+        request_message.page_token)
     response_message = ListRegisteredModels.Response()
     response_message.registered_models.extend([e.to_proto()
                                                for e in registered_models])

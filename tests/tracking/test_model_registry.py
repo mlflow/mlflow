@@ -119,10 +119,10 @@ def test_create_and_query_registered_model_flow_paginated(mlflow_client, backend
     for rm in rms:
         assert isinstance(rm, RegisteredModel)
     result_rms = []
-    result = mlflow_client.list_registered_models(page_token=None, max_results=15)
+    result = mlflow_client.list_registered_models(max_results=15, page_token=None)
     result_rms.extend(result)
     while result.token:
-        result = mlflow_client.list_registered_models(page_token=result.token, max_results=15)
+        result = mlflow_client.list_registered_models(max_results=15, page_token=result.token)
         result_rms.extend(result)
     assert [rm.name for rm in rms] == [rm.name for rm in result_rms]
     # clean up test
