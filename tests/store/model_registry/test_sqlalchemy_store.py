@@ -583,7 +583,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertIn("Invalid value for request parameter max_results",
                       exception_context.exception.message)
 
-    def test_search_registered_model_pagination_order_by(self):
+    def test_search_registered_model_order_by(self):
         rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
 
         # test flow with fixed max_results and order_by (test stable order across pages)
@@ -620,16 +620,68 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                                    order_by=['name ASC'],
                                                    max_results=100)
         self.assertEqual(rms, result)
-        # test with multiple clauses
-        result, _ = self._search_registered_models(query,
-                                                   page_token=None,
-                                                   order_by=['name DESC',
-                                                             'last_updated_timestamp ASC'],
-                                                   max_results=100)
-        self.assertEqual(rms[::-1], result)
         # test that no ASC/DESC defaults to ASC
         result, _ = self._search_registered_models(query,
                                                    page_token=None,
                                                    order_by=['last_updated_timestamp'],
                                                    max_results=100)
         self.assertEqual(rms, result)
+        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=1):
+            rm1 = self._rm_maker("MR1").name
+            rm2 = self._rm_maker("MR2").name
+        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=2):
+            rm3 = self._rm_maker("MR3").name
+            rm4 = self._rm_maker("MR4").name
+        query = "name LIKE 'MR%'"
+        # test with multiple clauses
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['last_updated_timestamp ASC',
+                                                             'name DESC'],
+                                                   max_results=100)
+        self.assertEqual([rm2, rm1, rm4, rm3], result)
+        # confirm that name ascending is the default, even if ties exist on other fields
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=[],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        # test default tiebreak with descending timestamps
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['last_updated_timestamp DESC'],
+                                                   max_results=100)
+        self.assertEqual([rm3, rm4, rm1, rm2], result)
+
+    def test_search_registered_model_order_by_errors(self):
+        query = "name LIKE 'RM%'"
+        # test that invalid columns throw
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_registered_models(query,
+                                           page_token=None,
+                                           order_by=['creation_timestamp DESC'],
+                                           max_results=5)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # test that invalid columns throw even if they come after valid columns
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_registered_models(query,
+                                           page_token=None,
+                                           order_by=['name ASC', 'creation_timestamp DESC'],
+                                           max_results=5)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # test that random stuff in a clause correctly throws
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_registered_models(query,
+                                           page_token=None,
+                                           order_by=['name ASC',
+                                                     'last_updated_timestamp DESC blah'],
+                                           max_results=5)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # test that empty clause throws
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_registered_models(query,
+                                           page_token=None,
+                                           order_by=['name ASC',
+                                                     ''],
+                                           max_results=5)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

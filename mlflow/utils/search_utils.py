@@ -352,7 +352,8 @@ class SearchUtils(object):
         token_value = token_value.strip()
         if token_value not in cls.VALID_ORDER_BY_KEYS_REGISTERED_MODELS:
             raise MlflowException(f"Invalid order by key '{token_value}' specified. Valid keys "
-                                  f"are '{cls.VALID_ORDER_BY_KEYS_REGISTERED_MODELS}'")
+                                  f"are '{cls.VALID_ORDER_BY_KEYS_REGISTERED_MODELS}'",
+                                  error_code=INVALID_PARAMETER_VALUE)
         return token_value, is_ascending
 
     @classmethod

@@ -313,7 +313,8 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     raise MlflowException(f"Invalid order by key '{attribute_token}' specified."
                                           f"Valid keys are "
-                                          f"'{SearchUtils.VALID_ORDER_BY_KEYS_REGISTERED_MODELS}'")
+                                          f"'{SearchUtils.VALID_ORDER_BY_KEYS_REGISTERED_MODELS}'",
+                                          error_code=INVALID_PARAMETER_VALUE)
                 if ascending:
                     clauses.append(field.asc())
                 else:
