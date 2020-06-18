@@ -12320,10 +12320,9 @@ public final class ModelRegistry {
 
     /**
      * <pre>
-     * List of columns to be ordered by including model name, version, stage with an
-     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-     * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-     * version DESC.
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
      * </pre>
      *
      * <code>repeated string order_by = 3;</code>
@@ -12332,10 +12331,9 @@ public final class ModelRegistry {
         getOrderByList();
     /**
      * <pre>
-     * List of columns to be ordered by including model name, version, stage with an
-     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-     * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-     * version DESC.
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
      * </pre>
      *
      * <code>repeated string order_by = 3;</code>
@@ -12343,10 +12341,9 @@ public final class ModelRegistry {
     int getOrderByCount();
     /**
      * <pre>
-     * List of columns to be ordered by including model name, version, stage with an
-     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-     * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-     * version DESC.
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
      * </pre>
      *
      * <code>repeated string order_by = 3;</code>
@@ -12354,10 +12351,9 @@ public final class ModelRegistry {
     java.lang.String getOrderBy(int index);
     /**
      * <pre>
-     * List of columns to be ordered by including model name, version, stage with an
-     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-     * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-     * version DESC.
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
      * </pre>
      *
      * <code>repeated string order_by = 3;</code>
@@ -13693,10 +13689,9 @@ public final class ModelRegistry {
     private com.google.protobuf.LazyStringList orderBy_;
     /**
      * <pre>
-     * List of columns to be ordered by including model name, version, stage with an
-     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-     * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-     * version DESC.
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
      * </pre>
      *
      * <code>repeated string order_by = 3;</code>
@@ -13707,10 +13702,9 @@ public final class ModelRegistry {
     }
     /**
      * <pre>
-     * List of columns to be ordered by including model name, version, stage with an
-     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-     * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-     * version DESC.
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
      * </pre>
      *
      * <code>repeated string order_by = 3;</code>
@@ -13720,10 +13714,9 @@ public final class ModelRegistry {
     }
     /**
      * <pre>
-     * List of columns to be ordered by including model name, version, stage with an
-     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-     * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-     * version DESC.
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
      * </pre>
      *
      * <code>repeated string order_by = 3;</code>
@@ -13733,10 +13726,9 @@ public final class ModelRegistry {
     }
     /**
      * <pre>
-     * List of columns to be ordered by including model name, version, stage with an
-     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-     * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-     * version DESC.
+     * List of columns for ordering search results, which can include model name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by model name ASC.
      * </pre>
      *
      * <code>repeated string order_by = 3;</code>
@@ -14371,10 +14363,9 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * List of columns to be ordered by including model name, version, stage with an
-       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-       * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-       * version DESC.
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
        * </pre>
        *
        * <code>repeated string order_by = 3;</code>
@@ -14385,10 +14376,9 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * List of columns to be ordered by including model name, version, stage with an
-       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-       * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-       * version DESC.
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
        * </pre>
        *
        * <code>repeated string order_by = 3;</code>
@@ -14398,10 +14388,9 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * List of columns to be ordered by including model name, version, stage with an
-       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-       * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-       * version DESC.
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
        * </pre>
        *
        * <code>repeated string order_by = 3;</code>
@@ -14411,10 +14400,9 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * List of columns to be ordered by including model name, version, stage with an
-       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-       * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-       * version DESC.
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
        * </pre>
        *
        * <code>repeated string order_by = 3;</code>
@@ -14425,10 +14413,9 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * List of columns to be ordered by including model name, version, stage with an
-       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-       * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-       * version DESC.
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
        * </pre>
        *
        * <code>repeated string order_by = 3;</code>
@@ -14445,10 +14432,9 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * List of columns to be ordered by including model name, version, stage with an
-       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-       * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-       * version DESC.
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
        * </pre>
        *
        * <code>repeated string order_by = 3;</code>
@@ -14465,10 +14451,9 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * List of columns to be ordered by including model name, version, stage with an
-       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-       * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-       * version DESC.
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
        * </pre>
        *
        * <code>repeated string order_by = 3;</code>
@@ -14483,10 +14468,9 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * List of columns to be ordered by including model name, version, stage with an
-       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-       * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-       * version DESC.
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
        * </pre>
        *
        * <code>repeated string order_by = 3;</code>
@@ -14499,10 +14483,9 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * List of columns to be ordered by including model name, version, stage with an
-       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
-       * Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-       * version DESC.
+       * List of columns for ordering search results, which can include model name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by model name ASC.
        * </pre>
        *
        * <code>repeated string order_by = 3;</code>
