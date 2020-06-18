@@ -107,18 +107,28 @@ class RestStore(AbstractStore):
         return [RegisteredModel.from_proto(registered_model)
                 for registered_model in response_proto.registered_models]
 
-    def search_registered_models(self,
-                                 filter_string=None,
-                                 max_results=None,
-                                 order_by=None,
-                                 page_token=None):
+    def search_registered_models(self, filter_string=None, max_results=None, order_by=None, page_token=None):
+        """
+        Search for registered models in backend that satisfy the filter criteria.
+
+        :param filter_string: A filter string expression. Currently supports a single filter
+                              condition either name of model like ``name = 'model_name'``
+        :param max_results: Maximum number of registered models desired.
+        :param order_by: This field is currently not used.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``search_registered_models`` call.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
+        """
         req_body = message_to_json(SearchRegisteredModels(filter=filter_string,
                                                           max_results=max_results,
                                                           order_by=order_by,
                                                           page_token=page_token))
         response_proto = self._call_endpoint(SearchRegisteredModels, req_body)
-        return [RegisteredModel.from_proto(registered_model)
-                for registered_model in response_proto.registered_models]
+        registered_models = [RegisteredModel.from_proto(registered_model)
+                             for registered_model in response_proto.registered_models]
+        return PagedList(registered_models, response_proto.next_page_token)
 
     def get_registered_model(self, name):
         """
@@ -249,4 +259,4 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(SearchModelVersions, req_body)
         model_versions = [ModelVersion.from_proto(mvd)
                           for mvd in response_proto.model_versions]
-        return PagedList(model_versions, None)
+        return PagedList(model_versions, response_proto.next_page_token)

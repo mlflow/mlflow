@@ -383,10 +383,9 @@ message SearchRegisteredModels {
   // Maximum number of models desired. Default is 100. Max threshold is 1000.
   optional int64 max_results = 2 [default = 100];
 
-  // List of columns to be ordered by including model name, version, stage with an
-  // optional "DESC" or "ASC" annotation, where "ASC" is the default.
-  // Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
-  // version DESC.
+  // List of columns for ordering search results, which can include model name and last updated
+  // timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+  // Tiebreaks are done by model name ASC.
   repeated string order_by = 3;
 
   // Pagination token to go to the next page based on a previous search query.
