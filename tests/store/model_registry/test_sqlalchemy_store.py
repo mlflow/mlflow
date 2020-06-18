@@ -164,7 +164,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         returned_rms.extend(result)
         while result.token:
             result = self._list_registered_models(page_token=result.token, max_results=25)
-            self.assertEqual(len(result), 25)
+            if len(result) > 0:
+                self.assertEqual(len(result), 25)
             returned_rms.extend(result)
         self.assertEqual(result.token, None)
         self.assertEqual(set(rms), set(returned_rms))
