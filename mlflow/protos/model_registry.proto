@@ -87,6 +87,20 @@ service ModelRegistryService {
 
   // .. note::
   //     Experimental: This API may change or be removed in a future release without warning.
+  rpc searchRegisteredModels (SearchRegisteredModels) returns (SearchRegisteredModels.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/preview/mlflow/registered-models/search"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Search RegisteredModels",
+    };
+  }
+
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
   rpc listRegisteredModels (ListRegisteredModels) returns (ListRegisteredModels.Response) {
     option (rpc) = {
       endpoints: [{
@@ -355,6 +369,34 @@ message ListRegisteredModels {
 
   message Response {
     repeated RegisteredModel registered_models = 1;
+  }
+}
+
+message SearchRegisteredModels {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // String filter condition, like "name LIKE 'my-model-name'".
+  // Interpreted in the backend automatically as "name LIKE '%my-model-name%'".
+  // Single boolean condition, with string values wrapped in single quotes.
+  optional string filter = 1;
+
+  // Maximum number of models desired. Default is 100. Max threshold is 1000.
+  optional int64 max_results = 2 [default = 100];
+
+  // List of columns for ordering search results, which can include model name and last updated
+  // timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+  // Tiebreaks are done by model name ASC.
+  repeated string order_by = 3;
+
+  // Pagination token to go to the next page based on a previous search query.
+  optional string page_token = 4;
+
+  message Response {
+    // Registered Models that match the search criteria.
+    repeated RegisteredModel registered_models = 1;
+
+    // Pagination token to request the next page of models.
+    optional string next_page_token = 2;
   }
 }
 

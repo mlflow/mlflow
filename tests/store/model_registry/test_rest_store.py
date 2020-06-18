@@ -1,4 +1,5 @@
 import unittest
+from itertools import combinations
 
 import json
 import mock
@@ -9,7 +10,7 @@ from mlflow.protos.model_registry_pb2 import CreateRegisteredModel, \
     UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, \
     GetRegisteredModel, GetLatestVersions, CreateModelVersion, UpdateModelVersion, \
     DeleteModelVersion, GetModelVersion, GetModelVersionDownloadUri, SearchModelVersions, \
-    RenameRegisteredModel, TransitionModelVersionStage
+    RenameRegisteredModel, TransitionModelVersionStage, SearchRegisteredModels
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -82,6 +83,27 @@ class TestRestStore(unittest.TestCase):
     def test_list_registered_model(self, mock_http):
         self.store.list_registered_models()
         self._verify_requests(mock_http, "registered-models/list", "GET", ListRegisteredModels())
+
+    @mock.patch('mlflow.utils.rest_utils.http_request')
+    def test_search_registered_model(self, mock_http):
+        self.store.search_registered_models()
+        self._verify_requests(mock_http, "registered-models/search", "GET",
+                              SearchRegisteredModels())
+        params_list = [
+            {"filter_string": "model = 'yo'"},
+            {"max_results": 400},
+            {"page_token": "blah"},
+            {"order_by": ["x", "Y"]}
+        ]
+        # test all combination of params
+        for sz in [0, 1, 2, 3, 4]:
+            for combination in combinations(params_list, sz):
+                params = {k: v for d in combination for k, v in d.items()}
+                self.store.search_registered_models(**params)
+                if "filter_string" in params:
+                    params["filter"] = params.pop("filter_string")
+                self._verify_requests(mock_http, "registered-models/search", "GET",
+                                      SearchRegisteredModels(**params))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_get_registered_model(self, mock_http):

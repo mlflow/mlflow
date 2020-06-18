@@ -386,10 +386,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                   filter_string,
                                   page_token=None,
                                   max_results=10):
-        result = self.store.search_registered_models(filter_string, page_token, max_results)
-        for idx in range(len(result)):
-            result[idx] = result[idx].name
-        return result
+        result = self.store.search_registered_models(filter_string=filter_string,
+                                                     max_results=max_results,
+                                                     page_token=page_token)
+        return [registered_model.name for registered_model in result], result.token
 
     def test_search_registered_models(self):
         # create some registered models
@@ -398,55 +398,49 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         [self._rm_maker(name) for name in names]
 
         # search with no filter should return all registered models
-        self.assertEqual(set(self._search_registered_models(None)),
-                         set(names))
+        rms, _ = self._search_registered_models(None)
+        self.assertEqual(rms, names)
 
         # equality search using name should return exactly the 1 name
-        self.assertEqual(set(
-            self._search_registered_models(f"name='{names[0]}'")),
-            {names[0]})
+        rms, _ = self._search_registered_models(f"name='{names[0]}'")
+        self.assertEqual(rms, [names[0]])
 
         # equality search using name that is not valid should return nothing
-        self.assertEqual(set(self._search_registered_models(
-            f"name='{names[0] + 'cats'}'")), set([]))
+        rms, _ = self._search_registered_models(f"name='{names[0] + 'cats'}'")
+        self.assertEqual(rms, [])
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        self.assertEqual(set(self._search_registered_models(
-            f"name LIKE '{prefix}%'")),
-                         set(names))
+        rms, _ = self._search_registered_models(f"name LIKE '{prefix}%'")
+        self.assertEqual(rms, names)
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
-        self.assertEqual(set(self._search_registered_models(f"name LIKE '%RM%'")),
-                         set(names))
+        rms, _ = self._search_registered_models(f"name LIKE '%RM%'")
+        self.assertEqual(rms, names)
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
         # _e% matches test_for_search_ , so all RMs should match
-        self.assertEqual(set(self._search_registered_models(f"name LIKE '_e%'")),
-                         set(names))
+        rms, _ = self._search_registered_models(f"name LIKE '_e%'")
+        self.assertEqual(rms, names)
 
         # case-sensitive prefix search using LIKE should return just rm4
-        self.assertEqual(set(self._search_registered_models(
-            f"name LIKE '{prefix + 'RM4A'}%'")),
-                         set([names[4]]))
+        rms, _ = self._search_registered_models(f"name LIKE '{prefix + 'RM4A'}%'")
+        self.assertEqual(rms, [names[4]])
 
         # case-sensitive prefix search using LIKE should return no models if no match
-        self.assertEqual(set(self._search_registered_models(
-            f"name LIKE '{prefix + 'cats'}%'")),
-                         set([]))
+        rms, _ = self._search_registered_models(f"name LIKE '{prefix + 'cats'}%'")
+        self.assertEqual(rms, [])
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        self.assertEqual(set(self._search_registered_models(
-            f"name ILIKE '{prefix + 'RM4A'}%'")),
-                         set(names[4:]))
+        rms, _ = self._search_registered_models(f"name ILIKE '{prefix + 'RM4A'}%'")
+        self.assertEqual(rms, names[4:])
 
         # case-insensitive postfix search with ILIKE
-        self.assertEqual(set(self._search_registered_models(
-            f"name ILIKE '%RM4a'")),
-                         set(names[4:]))
+        rms, _ = self._search_registered_models(f"name ILIKE '%RM4a'")
+        self.assertEqual(rms, names[4:])
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        self.assertEqual(set(self._search_registered_models(
-            f"name ILIKE '{prefix + 'cats'}%'")), set([]))
+        rms, _ = self._search_registered_models(f"name ILIKE '{prefix + 'cats'}%'")
+        self.assertEqual(rms, [])
 
         # cannot search by invalid comparator types
         with self.assertRaises(MlflowException) as exception_context:
@@ -468,66 +462,61 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self._search_registered_models("evilhax = true")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-        # delete rm6. search should not return RM 5
+        # delete last registered model. search should not return the first 5
         self.store.delete_registered_model(name=names[-1])
+        self.assertEqual(self._search_registered_models(None, max_results=1000), (names[:-1], None))
 
         # equality search using name should return no names
-        self.assertEqual(set(self._search_registered_models(
-            f"name='{names[-1]}'")), set([]))
+        self.assertEqual(self._search_registered_models(f"name='{names[-1]}'"), ([], None))
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        self.assertEqual(set(self._search_registered_models(
-            f"name LIKE '{prefix}%'")), set(names[0:5]))
+        self.assertEqual(self._search_registered_models(f"name LIKE '{prefix}%'"),
+                         (names[0:5], None))
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        self.assertEqual(set(self._search_registered_models(
-            f"name ILIKE '{prefix + 'RM4A'}%'")), {names[4]})
+        self.assertEqual(self._search_registered_models(f"name ILIKE '{prefix + 'RM4A'}%'"),
+                         ([names[4]], None))
 
     def test_search_registered_model_pagination(self):
         rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
 
         # test flow with fixed max_results
         returned_rms = []
-        result = self._search_registered_models(
-            "name LIKE 'RM%'", page_token=None, max_results=5)
+        query = "name LIKE 'RM%'"
+        result, token = self._search_registered_models(query, page_token=None, max_results=5)
         returned_rms.extend(result)
-        while result.token:
-            result = self._search_registered_models(
-                "name LIKE 'RM%'", page_token=result.token, max_results=5)
+        while token:
+            result, token = self._search_registered_models(query, page_token=token, max_results=5)
             returned_rms.extend(result)
         self.assertEqual(rms, returned_rms)
 
         # test that pagination will return all valid results in sorted order
         # by name ascending
-        result = self._search_registered_models("name LIKE 'RM%'", max_results=5)
-        self.assertNotEqual(result.token, None)
+        result, token1 = self._search_registered_models(query, max_results=5)
+        self.assertNotEqual(token1, None)
         self.assertEqual(result, rms[0:5])
 
-        result = self._search_registered_models(
-            "name LIKE 'RM%'", page_token=result.token, max_results=10)
-        self.assertNotEqual(result.token, None)
+        result, token2 = self._search_registered_models(query, page_token=token1, max_results=10)
+        self.assertNotEqual(token2, None)
         self.assertEqual(result, rms[5:15])
 
-        result = self._search_registered_models(
-            "name LIKE 'RM%'", page_token=result.token, max_results=20)
-        self.assertNotEqual(result.token, None)
+        result, token3 = self._search_registered_models(query, page_token=token2, max_results=20)
+        self.assertNotEqual(token3, None)
         self.assertEqual(result, rms[15:35])
 
-        result = self._search_registered_models(
-            "name LIKE 'RM%'", page_token=result.token, max_results=100)
+        result, token4 = self._search_registered_models(query, page_token=token3, max_results=100)
         # assert that page token is None
-        self.assertEqual(result.token, None)
+        self.assertEqual(token4, None)
         self.assertEqual(result, rms[35:])
 
         # test that providing a completely invalid page token throws
         with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models("name LIKE 'RM%'", page_token="evilhax", max_results=20)
+            self._search_registered_models(query, page_token="evilhax", max_results=20)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # test that providing too large of a max_results throws
         with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models(
-                "name LIKE 'RM%'", page_token="evilhax", max_results=1e15)
+            self._search_registered_models(query, page_token="evilhax", max_results=1e15)
             assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self.assertIn("Invalid value for request parameter max_results",
                       exception_context.exception.message)
