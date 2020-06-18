@@ -322,15 +322,15 @@ class SearchUtils(object):
         try:
             parsed = sqlparse.parse(order_by)
         except Exception:
-            raise MlflowException("Error on parsing order_by clause '%s'" % order_by,
-                          error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(f"Error on parsing order_by clause '{order_by}'",
+                                  error_code=INVALID_PARAMETER_VALUE)
         if len(parsed) != 1 or not isinstance(parsed[0], Statement):
-            raise MlflowException("Invalid order_by clause '%s'. Could not be parsed." %
-                          order_by, error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
+                                  error_code=INVALID_PARAMETER_VALUE)
         statement = parsed[0]
         if len(statement.tokens) != 1 or not isinstance(statement[0], Identifier):
-            raise MlflowException("Invalid order_by clause '%s'. Could not be parsed." %
-                                  order_by, error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
+                                  error_code=INVALID_PARAMETER_VALUE)
         token_value = statement.tokens[0].value
         is_ascending = True
         if token_value.lower().endswith(" desc"):
