@@ -236,10 +236,13 @@ class SqlAlchemyStore(AbstractStore):
 
         parsed_filter = SearchUtils.parse_filter_for_model_registry(filter_string)
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        # we query for max_results + 1 items to check whether there is another page to return.
+        # this remediates having to make another query which returns no items.
+        max_results_for_query = max_results + 1
 
         def compute_next_token(current_size):
             next_token = None
-            if max_results == current_size:
+            if max_results_for_query == current_size:
                 final_offset = offset + max_results
                 next_token = SearchUtils.create_page_token(final_offset)
             return next_token
@@ -279,13 +282,13 @@ class SqlAlchemyStore(AbstractStore):
                 .query(SqlRegisteredModel)\
                 .filter(*conditions)\
                 .order_by(SqlRegisteredModel.name.asc())\
-                .limit(max_results)
+                .limit(max_results_for_query)
             if page_token:
                 query = query.offset(offset)
             sql_registered_models = query.all()
-            registered_models = [rm.to_mlflow_entity() for rm in sql_registered_models]
-            next_page_token = compute_next_token(len(registered_models))
-            return PagedList(registered_models, next_page_token)
+            next_page_token = compute_next_token(len(sql_registered_models))
+            rm_entities = [rm.to_mlflow_entity() for rm in sql_registered_models][:max_results]
+            return PagedList(rm_entities, next_page_token)
 
     def get_registered_model(self, name):
         """
