@@ -209,7 +209,8 @@ class SqlAlchemyStore(AbstractStore):
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
         """
-        return self.search_registered_models(None, page_token, max_results)
+        return self.search_registered_models(max_results=max_results,
+                                             page_token=page_token)
 
     def search_registered_models(self,
                                  filter_string=None,
