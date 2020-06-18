@@ -38,6 +38,7 @@ describe('ArtifactView', () => {
     minimalProps = {
       runUuid: 'fakeUuid',
       artifactNode: node,
+      artifactRootUri: 'test_root',
       listArtifactsApi: jest.fn(() => Promise.resolve({})),
       modelVersionsBySource: {},
       handleActiveNodeChange: jest.fn(),
