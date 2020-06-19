@@ -304,7 +304,7 @@ class SqlAlchemyStore(AbstractStore):
         clauses = []
         if order_by_list:
             for order_by_clause in order_by_list:
-                (attribute_token, ascending) = SearchUtils.parse_order_by_registered_models(
+                attribute_token, ascending = SearchUtils.parse_order_by_registered_models(
                     order_by_clause)
                 if attribute_token == 'name':
                     field = SqlRegisteredModel.name
