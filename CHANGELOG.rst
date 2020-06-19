@@ -12,7 +12,7 @@ Breaking Changes:
 - The ``stage`` argument to ``MlflowClient.update_model_version``
   has been removed. Call ``MlflowClient.transition_model_version_stage`` instead. (#2946, @mparkhe)
 
-Features (MLflow Models and Flavors):
+Features (MLflow Models and Flavors)
 
 - ``log_model`` and ``save_model`` APIs now support saving model signatures (the model's input and output schema)
   and example input along with the model itself  (#2698, #2775, @tomasatdatabricks). Model signatures are used
@@ -24,7 +24,7 @@ Features (MLflow Models and Flavors):
 - Enables loading and scoring models whose conda environments include dependencies in conda-forge (#2797, @dbczumar)
 - Add support for scoring ONNX-persisted models that return Python lists (#2742, @andychow-db)
 
-Features (MLflow Projects):
+Features (MLflow Projects)
 
 - Add plugin interface for executing MLflow projects against custom backends (#2566, @jdlesage)
 - Add ability to specify additional cluster-wide Python and Java libraries when executing
@@ -32,9 +32,9 @@ Features (MLflow Projects):
 - Allow running MLflow projects against remote artifacts stored in any location with a corresponding
   ArtifactRepository implementation (Azure Blob Storage, GCS, etc) (#2774, @trangevi)
 - Allow MLflow projects running on Kubernetes to specify a different tracking server to log to via the
-KUBE_MLFLOW_TRACKING_URI for passing a different tracking server to the kubernetes job (#2874, @catapulta)
+  ``KUBE_MLFLOW_TRACKING_URI`` for passing a different tracking server to the kubernetes job (#2874, @catapulta)
 
-Features (UI):
+Features (UI)
 
 - Significant performance and scalability improvements to metric comparison and scatter plots in
   the UI (#2447, @mjlbach)
@@ -42,7 +42,7 @@ Features (UI):
 - Enable viewing PDFs logged as artifacts from the runs UI  (#2859, @ankmathur96)
 - UI accessibility improvements: better color contrast (#2872, @Zangr), add child roles to DOM elements (#2871, @Zangr)
 
-Features (Tracking Client and Server):
+Features (Tracking Client and Server)
 
 - Adds ability to pass client certs as part of REST API requests when using the tracking or model
   registry APIs. (#2843, @PhilipMay)
