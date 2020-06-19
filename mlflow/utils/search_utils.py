@@ -499,6 +499,8 @@ class SearchUtils(object):
                 si,
                 cls.VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS)
                     for si in statement.tokens if isinstance(si, Comparison)]
+        else:
+            return []
 
     @classmethod
     def parse_filter_for_registered_models(cls, filter_string):
@@ -508,3 +510,5 @@ class SearchUtils(object):
                 si,
                 cls.VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS)
                     for si in statement.tokens if isinstance(si, Comparison)]
+        else:
+            return []
