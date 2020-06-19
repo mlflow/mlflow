@@ -308,13 +308,14 @@ class SqlAlchemyStore(AbstractStore):
                     SearchUtils.parse_order_by_for_search_registered_models(order_by_clause)
                 if attribute_token == SqlRegisteredModel.name.key:
                     field = SqlRegisteredModel.name
-                elif attribute_token == SqlRegisteredModel.last_updated_time.key:
+                elif attribute_token in SearchUtils.VALID_TIMESTAMP_ORDER_BY_KEYS:
                     field = SqlRegisteredModel.last_updated_time
                 else:
-                    raise MlflowException(f"Invalid order by key '{attribute_token}' specified."
-                                          f"Valid keys are "
-                                          f"'{SearchUtils.VALID_ORDER_BY_KEYS_REGISTERED_MODELS}'",
-                                          error_code=INVALID_PARAMETER_VALUE)
+                    raise MlflowException(
+                        f"Invalid order by key '{attribute_token}' specified."
+                        f"Valid keys are "
+                        f"'{SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS}'",
+                        error_code=INVALID_PARAMETER_VALUE)
                 if ascending:
                     clauses.append(field.asc())
                 else:

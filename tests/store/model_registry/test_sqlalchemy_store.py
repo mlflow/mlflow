@@ -612,10 +612,28 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                                    order_by=['last_updated_timestamp DESC'],
                                                    max_results=100)
         self.assertEqual(rms[::-1], result)
+        # timestamp returns same result as last_updated_timestamp
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp DESC'],
+                                                   max_results=100)
+        self.assertEqual(rms[::-1], result)
         # last_updated_timestamp ascending should have the oldest RMs first
         result, _ = self._search_registered_models(query,
                                                    page_token=None,
                                                    order_by=['last_updated_timestamp ASC'],
+                                                   max_results=100)
+        self.assertEqual(rms, result)
+        # timestamp returns same result as last_updated_timestamp
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp ASC'],
+                                                   max_results=100)
+        self.assertEqual(rms, result)
+        # timestamp returns same result as last_updated_timestamp
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp'],
                                                    max_results=100)
         self.assertEqual(rms, result)
         # name ascending should have the original order
@@ -641,6 +659,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         result, _ = self._search_registered_models(query,
                                                    page_token=None,
                                                    order_by=['last_updated_timestamp ASC',
+                                                             'name DESC'],
+                                                   max_results=100)
+        self.assertEqual([rm2, rm1, rm4, rm3], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp ASC',
                                                              'name DESC'],
                                                    max_results=100)
         self.assertEqual([rm2, rm1, rm4, rm3], result)
@@ -687,5 +711,20 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                            page_token=None,
                                            order_by=['name ASC',
                                                      ''],
+                                           max_results=5)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # test timestamp with garbage between valid tokens works
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_registered_models(query,
+                                           page_token=None,
+                                           order_by=['timestamp somerandomstuff ASC'],
+                                           max_results=5)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # test that timestamp with random strings is invalid
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_registered_models(query,
+                                           page_token=None,
+                                           order_by=['timestamp somerandomstuff'],
                                            max_results=5)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
