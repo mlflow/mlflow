@@ -584,7 +584,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                       exception_context.exception.message)
 
     def test_search_registered_model_order_by(self):
-        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
+        rms = []
+        # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
+        for i in range(50):
+            with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=i):
+                rms.append(self._rm_maker(f"RM{i:03}").name)
 
         # test flow with fixed max_results and order_by (test stable order across pages)
         returned_rms = []
