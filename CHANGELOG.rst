@@ -15,6 +15,7 @@ Breaking Changes:
 Features:
 
 MLflow Models and Flavors:
+
 - ``log_model`` and ``save_model`` APIs now support saving model signatures (the model's input and output schema)
   and example input along with the model itself  (#2698, #2775, @tomasatdatabricks). Model signatures are used
   to reorder and validate input fields when scoring/serving models using the pyfunc flavor, ``mlflow models``
@@ -26,6 +27,7 @@ MLflow Models and Flavors:
 - Add support for scoring ONNX-persisted models that return Python lists (#2742, @andychow-db)
 
 MLflow Projects:
+
 - Add plugin interface for executing MLflow projects against custom backends (#2566, @jdlesage)
 - Add ability to specify additional cluster-wide Python and Java libraries when executing
   MLflow projects remotely on Databricks (#2845, @pogil)
@@ -35,6 +37,7 @@ MLflow Projects:
 KUBE_MLFLOW_TRACKING_URI for passing a different tracking server to the kubernetes job (#2874, @catapulta)
 
 UI:
+
 - Significant performance and scalability improvements to metric comparison and scatter plots in
   the UI (#2447, @mjlbach)
 - The main MLflow experiment list UI now includes a link to the model registry UI (#2805, @zhidongqu-db),
@@ -42,6 +45,7 @@ UI:
 - UI accessibility improvements: better color contrast (#2872, @Zangr), add child roles to DOM elements (#2871, @Zangr)
 
 Tracking Client:
+
 - Adds ability to pass client certs as part of REST API requests when using the tracking or model
   registry APIs. (#2843, @PhilipMay)
 - New community plugin: support for storing artifacts in Aliyun (Alibaba Cloud) (#2917, @SeaOfOcean)
@@ -49,6 +53,7 @@ Tracking Client:
 - Adds support for logging artifacts to HDFS Federation ViewFs (#2782, @fhoering)
 
 Tracking Server:
+
 - Add healthcheck endpoint to the MLflow server at ``/health`` (#2725, @crflynn)
 - Improves performance of default file-based tracking storage backend by using LibYAML (if installed)
   to read experiment and run metadata (#2707, @Higgcz)
