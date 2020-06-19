@@ -123,13 +123,15 @@ def _verify_pagination(rm_getter_with_token, expected_rms):
     result_rms = []
     result = rm_getter_with_token(None)
     result_rms.extend(result)
+    first_page_size = len(result)
     while result.token:
         result = rm_getter_with_token(result.token)
         result_rms.extend(result)
+        assert(len(result) == first_page_size or result.token is "")
     assert [rm.name for rm in expected_rms] == [rm.name for rm in result_rms]
 
 
-@pytest.mark.parametrize("max_results", [1, 5, 100])
+@pytest.mark.parametrize("max_results", [1, 6, 100])
 def test_list_registered_model_flow_paginated(mlflow_client, backend_store_uri, max_results):
     names = [f'CreateRMlist{i:03}' for i in range(20)]
     rms = [mlflow_client.create_registered_model(name) for name in names]
@@ -157,9 +159,8 @@ def test_list_registered_model_flow_paginated(mlflow_client, backend_store_uri, 
     ("name = 'badname'", lambda rm: False),
     ("name = 'CreateRMsearch023'", lambda rm: rm.name == "CreateRMsearch023"),
 ])
-def test_create_and_query_registered_model_flow_paginated(mlflow_client, backend_store_uri,
-                                                          max_results, filter_string,
-                                                          filter_func):
+def test_search_registered_model_flow_paginated(mlflow_client, backend_store_uri,
+                                                max_results, filter_string, filter_func):
     names = [f'CreateRMsearch{i:03}' for i in range(29)]
     rms = [mlflow_client.create_registered_model(name) for name in names]
     for rm in rms:
