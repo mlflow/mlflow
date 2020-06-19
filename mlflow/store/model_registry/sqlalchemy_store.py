@@ -242,7 +242,7 @@ class SqlAlchemyStore(AbstractStore):
                                           max_results),
                                   INVALID_PARAMETER_VALUE)
 
-        parsed_filter = SearchUtils.parse_filter_for_model_registry(filter_string)
+        parsed_filter = SearchUtils.parse_filter_for_registered_models(filter_string)
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
         # we query for max_results + 1 items to check whether there is another page to return.
         # this remediates having to make another query which returns no items.
@@ -259,23 +259,20 @@ class SqlAlchemyStore(AbstractStore):
             conditions = []
         elif len(parsed_filter) == 1:
             filter_dict = parsed_filter[0]
-            if filter_dict["comparator"] not in \
+            comparator = filter_dict['comparator'].upper()
+            if comparator not in \
                     SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS:
                 raise MlflowException('Search registered models filter expression only '
                                       'supports the equality(=) comparator, case-sensitive'
                                       'partial match (LIKE), and case-insensitive partial '
                                       'match (ILIKE). Input filter string: %s' % filter_string,
                                       error_code=INVALID_PARAMETER_VALUE)
-            if filter_dict["key"] == "name":
-                if filter_dict["comparator"] == "LIKE":
-                    conditions = [SqlRegisteredModel.name.like(filter_dict["value"])]
-                elif filter_dict["comparator"] == "ILIKE":
-                    conditions = [SqlRegisteredModel.name.ilike(filter_dict["value"])]
-                else:
-                    conditions = [SqlRegisteredModel.name == filter_dict["value"]]
+            if comparator == SearchUtils.LIKE_OPERATOR:
+                conditions = [SqlRegisteredModel.name.like(filter_dict["value"])]
+            elif comparator == SearchUtils.ILIKE_OPERATOR:
+                conditions = [SqlRegisteredModel.name.ilike(filter_dict["value"])]
             else:
-                raise MlflowException('Invalid filter string: %s' % filter_string,
-                                      error_code=INVALID_PARAMETER_VALUE)
+                conditions = [SqlRegisteredModel.name == filter_dict["value"]]
         else:
             supported_ops = ''.join(['(' + op + ')' for op in
                                      SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS])
@@ -499,7 +496,7 @@ class SqlAlchemyStore(AbstractStore):
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  objects.
         """
-        parsed_filter = SearchUtils.parse_filter_for_model_registry(filter_string)
+        parsed_filter = SearchUtils.parse_filter_for_model_versions(filter_string)
         if len(parsed_filter) == 0:
             conditions = []
         elif len(parsed_filter) == 1:

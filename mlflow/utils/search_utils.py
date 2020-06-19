@@ -15,11 +15,13 @@ import math
 
 
 class SearchUtils(object):
+    LIKE_OPERATOR = "LIKE"
+    ILIKE_OPERATOR = "ILIKE"
     VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
-    VALID_PARAM_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
-    VALID_TAG_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
-    VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
-    CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set(['LIKE', 'ILIKE'])
+    VALID_PARAM_COMPARATORS = set(['!=', '=', LIKE_OPERATOR, ILIKE_OPERATOR])
+    VALID_TAG_COMPARATORS = set(['!=', '=', LIKE_OPERATOR, ILIKE_OPERATOR])
+    VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '=', LIKE_OPERATOR, ILIKE_OPERATOR])
+    CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set([LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = \
         CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union({'='})
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
@@ -442,16 +444,18 @@ class SearchUtils(object):
     # TODO: Tech debt. Refactor search code into common utils, tracking server, and model
     #       registry specific code.
 
-    VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY = set(["name", "run_id", "source_path"])
+    VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS = set(["name", "run_id", "source_path"])
+    VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS = set(["name"])
 
     @classmethod
-    def _get_comparison_for_model_registry(cls, comparison):
+    def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
         key = stripped_comparison[0].value
-        if key not in cls.VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY:
+        if key not in valid_search_keys:
             raise MlflowException("Invalid attribute key '{}' specified. Valid keys "
-                                  " are '{}'".format(key, cls.VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY))
+                                  " are '{}'".format(key, valid_search_keys),
+                                  error_code=INVALID_PARAMETER_VALUE)
         value_token = stripped_comparison[2]
         if value_token.ttype not in cls.STRING_VALUE_TYPES:
             raise MlflowException("Expected a quoted string value for attributes. "
@@ -465,7 +469,7 @@ class SearchUtils(object):
         return comp
 
     @classmethod
-    def parse_filter_for_model_registry(cls, filter_string):
+    def _parse_filter_for_model_registry(cls, filter_string, valid_search_keys):
         if not filter_string or filter_string == "":
             return []
         expected = "Expected search filter with single comparison operator. e.g. name='myModelName'"
@@ -488,5 +492,19 @@ class SearchUtils(object):
             raise MlflowException("Invalid clause(s) in filter string: %s. "
                                   "%s" % (invalid_clauses, expected),
                                   error_code=INVALID_PARAMETER_VALUE)
-        return [cls._get_comparison_for_model_registry(si)
-                for si in statement.tokens if isinstance(si, Comparison)]
+        return [cls._get_comparison_for_model_registry(
+            si,
+            valid_search_keys)
+            for si in statement.tokens if isinstance(si, Comparison)]
+
+    @classmethod
+    def parse_filter_for_model_versions(cls, filter_string):
+        return cls._parse_filter_for_model_registry(
+            filter_string,
+            cls.VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS)
+
+    @classmethod
+    def parse_filter_for_registered_models(cls, filter_string):
+        return cls._parse_filter_for_model_registry(
+            filter_string,
+            cls.VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS)
