@@ -490,6 +490,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rms, _ = self._search_registered_models(f"name LIKE '{prefix + 'cats'}%'")
         self.assertEqual(rms, [])
 
+        # confirm that LIKE is not case-sensitive
+        rms, _ = self._search_registered_models(f"name lIkE '%blah%'")
+        self.assertEqual(rms, [])
+
+        rms, _ = self._search_registered_models(f"name like '{prefix + 'RM4A'}%'")
+        self.assertEqual(rms, [names[4]])
+
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
         rms, _ = self._search_registered_models(f"name ILIKE '{prefix + 'RM4A'}%'")
         self.assertEqual(rms, names[4:])
@@ -501,6 +508,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
         rms, _ = self._search_registered_models(f"name ILIKE '{prefix + 'cats'}%'")
         self.assertEqual(rms, [])
+
+        # confirm that ILIKE is not case-sensitive
+        rms, _ = self._search_registered_models(f"name iLike '%blah%'")
+        self.assertEqual(rms, [])
+
+        rms, _ = self._search_registered_models(f"name ilike '%RM4a'")
+        self.assertEqual(rms, names[4:])
 
         # cannot search by invalid comparator types
         with self.assertRaises(MlflowException) as exception_context:
