@@ -523,7 +523,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # cannot search by run_id
         with self.assertRaises(MlflowException) as exception_context:
-            print(self._search_registered_models("run_id='%s'" % "somerunID"))
+            self._search_registered_models("run_id='%s'" % "somerunID")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by source_path
