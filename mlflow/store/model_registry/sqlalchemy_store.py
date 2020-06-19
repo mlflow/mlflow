@@ -264,7 +264,7 @@ class SqlAlchemyStore(AbstractStore):
                                       'partial match (LIKE), and case-insensitive partial '
                                       'match (ILIKE). Input filter string: %s' % filter_string,
                                       error_code=INVALID_PARAMETER_VALUE)
-            if filter_dict["key"] == "name":
+            if filter_dict["key"] == SqlRegisteredModel.name.key:
                 if filter_dict["comparator"] == "LIKE":
                     conditions = [SqlRegisteredModel.name.like(filter_dict["value"])]
                 elif filter_dict["comparator"] == "ILIKE":
@@ -304,11 +304,11 @@ class SqlAlchemyStore(AbstractStore):
         clauses = []
         if order_by_list:
             for order_by_clause in order_by_list:
-                attribute_token, ascending = SearchUtils.parse_order_by_registered_models(
-                    order_by_clause)
-                if attribute_token == 'name':
+                attribute_token, ascending = \
+                    SearchUtils.parse_order_by_for_search_registered_models(order_by_clause)
+                if attribute_token == SqlRegisteredModel.name.key:
                     field = SqlRegisteredModel.name
-                elif attribute_token == 'last_updated_timestamp':
+                elif attribute_token == SqlRegisteredModel.last_updated_time.key:
                     field = SqlRegisteredModel.last_updated_time
                 else:
                     raise MlflowException(f"Invalid order by key '{attribute_token}' specified."

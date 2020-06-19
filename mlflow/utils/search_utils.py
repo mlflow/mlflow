@@ -13,6 +13,8 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 import math
 
+from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel
+
 
 class SearchUtils(object):
     VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
@@ -24,7 +26,8 @@ class SearchUtils(object):
         CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union({'='})
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
-    VALID_ORDER_BY_KEYS_REGISTERED_MODELS = set(["name", "last_updated_timestamp"])
+    VALID_ORDER_BY_KEYS_REGISTERED_MODELS = set([SqlRegisteredModel.name.key,
+                                                 SqlRegisteredModel.last_updated_time.key])
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
     _PARAM_IDENTIFIER = "parameter"
@@ -341,13 +344,13 @@ class SearchUtils(object):
         return token_value, is_ascending
 
     @classmethod
-    def parse_order_by_runs(cls, order_by):
+    def parse_order_by_for_search_runs(cls, order_by):
         token_value, is_ascending = cls._parse_order_by_string(order_by)
         identifier = cls._get_identifier(token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
         return identifier["type"], identifier["key"], is_ascending
 
     @classmethod
-    def parse_order_by_registered_models(cls, order_by):
+    def parse_order_by_for_search_registered_models(cls, order_by):
         token_value, is_ascending = cls._parse_order_by_string(order_by)
         token_value = token_value.strip()
         if token_value not in cls.VALID_ORDER_BY_KEYS_REGISTERED_MODELS:
@@ -390,7 +393,7 @@ class SearchUtils(object):
         # NB: We rely on the stability of Python's sort function, so that we can apply
         # the ordering conditions in reverse order.
         for order_by_clause in reversed(order_by_list):
-            (key_type, key, ascending) = cls.parse_order_by_runs(order_by_clause)
+            (key_type, key, ascending) = cls.parse_order_by_for_search_runs(order_by_clause)
             # pylint: disable=cell-var-from-loop
             runs = sorted(runs,
                           key=lambda run: cls._get_value_for_sort(run, key_type, key, ascending),
