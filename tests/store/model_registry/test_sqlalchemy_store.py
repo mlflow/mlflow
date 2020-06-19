@@ -491,6 +491,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rms, [])
 
         # confirm that LIKE is not case-sensitive
+        rms, _ = self._search_registered_models(f"name lIkE '%blah%'")
+        self.assertEqual(rms, [])
+
         rms, _ = self._search_registered_models(f"name like '{prefix + 'RM4A'}%'")
         self.assertEqual(rms, [names[4]])
 
@@ -507,6 +510,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rms, [])
 
         # confirm that ILIKE is not case-sensitive
+        rms, _ = self._search_registered_models(f"name iLike '%blah%'")
+        self.assertEqual(rms, [])
+
         rms, _ = self._search_registered_models(f"name ilike '%RM4a'")
         self.assertEqual(rms, names[4:])
 
@@ -517,7 +523,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # cannot search by run_id
         with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models("run_id='%s'" % "somerunID")
+            print(self._search_registered_models("run_id='%s'" % "somerunID"))
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by source_path

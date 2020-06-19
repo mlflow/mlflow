@@ -266,9 +266,9 @@ class SqlAlchemyStore(AbstractStore):
                                       'partial match (LIKE), and case-insensitive partial '
                                       'match (ILIKE). Input filter string: %s' % filter_string,
                                       error_code=INVALID_PARAMETER_VALUE)
-            if comparator == "LIKE":
+            if comparator == SearchUtils.LIKE_OPERATOR:
                 conditions = [SqlRegisteredModel.name.like(filter_dict["value"])]
-            elif comparator == "ILIKE":
+            elif comparator == SearchUtils.ILIKE_OPERATOR:
                 conditions = [SqlRegisteredModel.name.ilike(filter_dict["value"])]
             else:
                 conditions = [SqlRegisteredModel.name == filter_dict["value"]]

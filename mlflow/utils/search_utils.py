@@ -15,11 +15,13 @@ import math
 
 
 class SearchUtils(object):
+    LIKE_OPERATOR = "LIKE"
+    ILIKE_OPERATOR = "ILIKE"
     VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
-    VALID_PARAM_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
-    VALID_TAG_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
-    VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
-    CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set(['LIKE', 'ILIKE'])
+    VALID_PARAM_COMPARATORS = set(['!=', '=', LIKE_OPERATOR, ILIKE_OPERATOR])
+    VALID_TAG_COMPARATORS = set(['!=', '=', LIKE_OPERATOR, ILIKE_OPERATOR])
+    VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '=', LIKE_OPERATOR, ILIKE_OPERATOR])
+    CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set([LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = \
         CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union({'='})
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
@@ -467,7 +469,7 @@ class SearchUtils(object):
         return comp
 
     @classmethod
-    def _parse_filter_for_model_registry(cls, filter_string):
+    def _parse_filter_for_model_registry(cls, filter_string, valid_search_keys):
         if not filter_string or filter_string == "":
             return []
         expected = "Expected search filter with single comparison operator. e.g. name='myModelName'"
@@ -490,26 +492,19 @@ class SearchUtils(object):
             raise MlflowException("Invalid clause(s) in filter string: %s. "
                                   "%s" % (invalid_clauses, expected),
                                   error_code=INVALID_PARAMETER_VALUE)
-        return statement
+        return [cls._get_comparison_for_model_registry(
+            si,
+            valid_search_keys)
+            for si in statement.tokens if isinstance(si, Comparison)]
 
     @classmethod
     def parse_filter_for_model_versions(cls, filter_string):
-        statement = cls._parse_filter_for_model_registry(filter_string)
-        if statement:
-            return [cls._get_comparison_for_model_registry(
-                si,
-                cls.VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS)
-                    for si in statement.tokens if isinstance(si, Comparison)]
-        else:
-            return []
+        return cls._parse_filter_for_model_registry(
+            filter_string,
+            cls.VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS)
 
     @classmethod
     def parse_filter_for_registered_models(cls, filter_string):
-        statement = cls._parse_filter_for_model_registry(filter_string)
-        if statement:
-            return [cls._get_comparison_for_model_registry(
-                si,
-                cls.VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS)
-                    for si in statement.tokens if isinstance(si, Comparison)]
-        else:
-            return []
+        return cls._parse_filter_for_model_registry(
+            filter_string,
+            cls.VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS)
