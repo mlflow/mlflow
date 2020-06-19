@@ -442,16 +442,17 @@ class SearchUtils(object):
     # TODO: Tech debt. Refactor search code into common utils, tracking server, and model
     #       registry specific code.
 
-    VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY = set(["name", "run_id", "source_path"])
+    VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS = set(["name", "run_id", "source_path"])
+    VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS = set(["name"])
 
     @classmethod
-    def _get_comparison_for_model_registry(cls, comparison):
+    def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
         key = stripped_comparison[0].value
-        if key not in cls.VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY:
+        if key not in valid_search_keys:
             raise MlflowException("Invalid attribute key '{}' specified. Valid keys "
-                                  " are '{}'".format(key, cls.VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY))
+                                  " are '{}'".format(key, valid_search_keys))
         value_token = stripped_comparison[2]
         if value_token.ttype not in cls.STRING_VALUE_TYPES:
             raise MlflowException("Expected a quoted string value for attributes. "
@@ -465,7 +466,7 @@ class SearchUtils(object):
         return comp
 
     @classmethod
-    def parse_filter_for_model_registry(cls, filter_string):
+    def _parse_filter_for_model_registry(cls, filter_string):
         if not filter_string or filter_string == "":
             return []
         expected = "Expected search filter with single comparison operator. e.g. name='myModelName'"
@@ -488,5 +489,22 @@ class SearchUtils(object):
             raise MlflowException("Invalid clause(s) in filter string: %s. "
                                   "%s" % (invalid_clauses, expected),
                                   error_code=INVALID_PARAMETER_VALUE)
-        return [cls._get_comparison_for_model_registry(si)
-                for si in statement.tokens if isinstance(si, Comparison)]
+        return statement
+
+    @classmethod
+    def parse_filter_for_model_versions(cls, filter_string):
+        statement = cls._parse_filter_for_model_registry(filter_string)
+        if statement:
+            return [cls._get_comparison_for_model_registry(
+                si,
+                cls.VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS)
+                    for si in statement.tokens if isinstance(si, Comparison)]
+
+    @classmethod
+    def parse_filter_for_registered_models(cls, filter_string):
+        statement = cls._parse_filter_for_model_registry(filter_string)
+        if statement:
+            return [cls._get_comparison_for_model_registry(
+                si,
+                cls.VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS)
+                    for si in statement.tokens if isinstance(si, Comparison)]
