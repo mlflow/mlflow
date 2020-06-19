@@ -415,6 +415,28 @@ class MlflowClient(object):
         return self._get_registry_client().list_registered_models(max_results, page_token)
 
     @experimental
+    def search_registered_models(self,
+                                 filter_string=None,
+                                 max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+                                 order_by=None,
+                                 page_token=None):
+        """
+        Search for registered models in backend that satisfy the filter criteria.
+
+        :param filter_string: Filter query string, defaults to searching all registered models.
+        :param max_results: Maximum number of registered models desired.
+        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                         matching search results.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``search_registered_models`` call.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
+        """
+        return self._get_registry_client().search_registered_models(filter_string, max_results,
+                                                                    order_by, page_token)
+
+    @experimental
     def get_registered_model(self, name):
         """
         :param name: Name of the registered model to update.
