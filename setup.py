@@ -73,7 +73,7 @@ setup(
     zip_safe=False,
     author='Databricks',
     description='MLflow: An ML Workflow Tool',
-    long_description=open('README.rst').read(),
+    long_description=open('README.md').read(),
     license='Apache License 2.0',
     classifiers=[
         'Intended Audience :: Developers',
