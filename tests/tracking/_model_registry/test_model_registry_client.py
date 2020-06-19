@@ -97,6 +97,36 @@ def test_list_registered_models(mock_store):
     assert len(result) == 2
 
 
+def test_search_registered_models(mock_store):
+    mock_store.search_registered_models.return_value = PagedList([
+        RegisteredModel("Model 1"),
+        RegisteredModel("Model 2")
+    ], "")
+    result = newModelRegistryClient().search_registered_models(filter_string="test filter")
+    mock_store.search_registered_models.assert_called_with("test filter", 100, None, None)
+    assert len(result) == 2
+    assert result.token == ""
+
+    result = newModelRegistryClient().search_registered_models(filter_string="another filter",
+                                                               max_results=12,
+                                                               order_by=["A", "B DESC"],
+                                                               page_token="next one")
+    mock_store.search_registered_models.assert_called_with("another filter", 12,
+                                                           ["A", "B DESC"], "next one")
+    assert len(result) == 2
+    assert result.token == ""
+
+    mock_store.search_registered_models.return_value = PagedList([
+        RegisteredModel("model A"),
+        RegisteredModel("Model zz"),
+        RegisteredModel("Model b")
+    ], "page 2 token")
+    result = newModelRegistryClient().search_registered_models(max_results=5)
+    mock_store.search_registered_models.assert_called_with(None, 5, None, None)
+    assert [rm.name for rm in result] == ["model A", "Model zz", "Model b"]
+    assert result.token == "page 2 token"
+
+
 def test_get_registered_model_details(mock_store):
     name = "Model 1"
     mock_store.get_registered_model.return_value = RegisteredModel(
