@@ -452,7 +452,8 @@ class SearchUtils(object):
         key = stripped_comparison[0].value
         if key not in valid_search_keys:
             raise MlflowException("Invalid attribute key '{}' specified. Valid keys "
-                                  " are '{}'".format(key, valid_search_keys))
+                                  " are '{}'".format(key, valid_search_keys),
+                                  error_code=INVALID_PARAMETER_VALUE)
         value_token = stripped_comparison[2]
         if value_token.ttype not in cls.STRING_VALUE_TYPES:
             raise MlflowException("Expected a quoted string value for attributes. "
