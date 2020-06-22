@@ -7,7 +7,8 @@ import pytest
 import pyspark
 from pyspark.sql import Row
 from pyspark.sql.utils import PythonException
-from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType, StructField, StructType
+from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType, \
+    StructField, StructType
 
 import mlflow
 import mlflow.pyfunc
@@ -143,6 +144,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
         assert res["res2"][0] == ["a", "b", "c"]
         res = data.withColumn("res4", udf("a", "b", "c", "d")).select("res4").toPandas()
         assert res["res4"][0] == ["a", "b", "c"]
+
 
 def test_struct_type_for_spark_udf(spark):
     class TestModel(PythonModel):
