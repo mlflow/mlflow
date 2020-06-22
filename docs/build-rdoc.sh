@@ -10,6 +10,8 @@ Rscript -e 'devtools::install_dev_deps(dependencies = TRUE)'
 # (https://github.com/quantsch/Rd2md/tree/6b4825579a2df8a22898316d93729384f92a756b)
 # with a single extra commit to fix rendering of \link tags between methods in R documentation.
 Rscript -e 'devtools::install_github("https://github.com/smurching/Rd2md", ref = "ac7b22bb")'
+# Try including fix from https://github.com/r-lib/roxygen2/pull/1109
+Rscript -e 'devtools::install_github("https://github.com/r-lib/roxygen2", ref = "fix/link-to-file")'
 Rscript -e 'install.packages("rmarkdown", repos = "https://cloud.r-project.org")'
 rm -rf man
 Rscript -e "roxygen2::roxygenise()"
