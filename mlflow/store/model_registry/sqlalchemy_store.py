@@ -240,7 +240,7 @@ class SqlAlchemyStore(AbstractStore):
                                           max_results),
                                   INVALID_PARAMETER_VALUE)
 
-        parsed_filter = SearchUtils.parse_filter_for_model_registry(filter_string)
+        parsed_filter = SearchUtils.parse_filter_for_registered_models(filter_string)
         parsed_orderby = self._parse_search_registered_models_order_by(order_by)
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
         # we query for max_results + 1 items to check whether there is another page to return.

@@ -353,7 +353,7 @@ class SearchUtils(object):
                                        values=[cls.ORDER_BY_KEY_TIMESTAMP])\
                 and all([token.is_whitespace for token in statement.tokens[1:-1]])\
                 and statement.tokens[-1].ttype == TokenType.Keyword.Order:
-            token_value = cls.ORDER_BY_KEY_TIMESTAMP + ' ' + statement.tokens[2].value
+            token_value = cls.ORDER_BY_KEY_TIMESTAMP + ' ' + statement.tokens[-1].value
         else:
             raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
                                   error_code=INVALID_PARAMETER_VALUE)
