@@ -12,7 +12,7 @@ onnxruntime==0.3.0;
 mleap==0.16.0
 mxnet==1.5.0
 pyarrow==0.17.0
-pyspark==2.4.0
+pyspark==3.0.0
 pytest==3.2.1
 pytest-cov==2.6.0
 scikit-learn==0.23.2
