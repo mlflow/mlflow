@@ -99,7 +99,7 @@ class TestRestStore(unittest.TestCase):
     def test_search_registered_model(self, mock_http):
         self.store.search_registered_models()
         self._verify_requests(mock_http, "registered-models/search", "GET",
-                              SearchRegisteredModels())
+                              SearchRegisteredModels(), self.generate_creds)
         params_list = [
             {"filter_string": "model = 'yo'"},
             {"max_results": 400},
