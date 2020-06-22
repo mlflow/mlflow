@@ -57,11 +57,9 @@ SparkModelWithData = namedtuple(
 @pytest.fixture(scope="session", autouse=True)
 def spark_context():
     conf = pyspark.SparkConf()
-    conf.set(
-        key="spark.jars.packages",
-        value="ml.combust.mleap:mleap-spark-base_2.11:0.12.0,"
-        "ml.combust.mleap:mleap-spark_2.11:0.12.0",
-    )
+    conf.set(key="spark.jars.packages",
+             value='ml.combust.mleap:mleap-spark-base_2.12:0.16.0,'
+                   'ml.combust.mleap:mleap-spark_2.12:0.16.0')
     max_tries = 3
     for num_tries in range(max_tries):
         try:
