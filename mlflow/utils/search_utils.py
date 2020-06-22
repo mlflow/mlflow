@@ -26,12 +26,6 @@ class SearchUtils(object):
         CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union({'='})
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
-    VALID_TIMESTAMP_ORDER_BY_KEYS = set(["timestamp", "last_updated_timestamp"])
-    VALID_ORDER_BY_KEYS_REGISTERED_MODELS = set([SqlRegisteredModel.name.key])\
-        .union(VALID_TIMESTAMP_ORDER_BY_KEYS)
-    # We encourage users to use timestamp for order-by
-    RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS = VALID_ORDER_BY_KEYS_REGISTERED_MODELS\
-        .difference(set(["last_updated_timestamp"]))
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
     _PARAM_IDENTIFIER = "parameter"
@@ -48,6 +42,18 @@ class SearchUtils(object):
                              + list(_ALTERNATE_ATTRIBUTE_IDENTIFIERS))
     STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
     NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
+    # Registered Models Constants
+    ORDER_BY_KEY_TIMESTAMP = "timestamp"
+    ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP = "last_updated_timestamp"
+    ORDER_BY_KEY_MODEL_NAME = SqlRegisteredModel.name.key
+    VALID_ORDER_BY_KEYS_REGISTERED_MODELS = set([ORDER_BY_KEY_TIMESTAMP,
+                                                 ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP,
+                                                 ORDER_BY_KEY_MODEL_NAME])
+    VALID_TIMESTAMP_ORDER_BY_KEYS = set([ORDER_BY_KEY_TIMESTAMP,
+                                         ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP])
+    # We encourage users to use timestamp for order-by
+    RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS = set([ORDER_BY_KEY_MODEL_NAME,
+                                                       ORDER_BY_KEY_TIMESTAMP])
 
     filter_ops = {
         '>': operator.gt,
@@ -335,15 +341,17 @@ class SearchUtils(object):
             raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
                                   error_code=INVALID_PARAMETER_VALUE)
         statement = parsed[0]
-        if len(statement.tokens) == 1 and \
-                (isinstance(statement[0], Identifier)
-                 or statement.tokens[0].match(ttype=TokenType.Keyword, values=["timestamp"])):
+        if len(statement.tokens) == 1 and isinstance(statement[0], Identifier):
             token_value = statement.tokens[0].value
-        elif len(statement.tokens) == 3\
-                and statement.tokens[0].match(ttype=TokenType.Keyword, values=["timestamp"])\
-                and statement.tokens[1].is_whitespace \
-                and statement.tokens[2].ttype == TokenType.Keyword.Order:
-            token_value = statement.tokens[0].value + ' ' + statement.tokens[2].value
+        elif len(statement.tokens) == 1 and \
+                statement.tokens[0].match(ttype=TokenType.Keyword,
+                                          values=[cls.ORDER_BY_KEY_TIMESTAMP]):
+            token_value = cls.ORDER_BY_KEY_TIMESTAMP
+        elif statement.tokens[0].match(ttype=TokenType.Keyword,
+                                       values=[cls.ORDER_BY_KEY_TIMESTAMP])\
+                and all([token.is_whitespace for token in statement.tokens[1:-1]])\
+                and statement.tokens[-1].ttype == TokenType.Keyword.Order:
+            token_value = cls.ORDER_BY_KEY_TIMESTAMP + ' ' + statement.tokens[2].value
         else:
             raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
                                   error_code=INVALID_PARAMETER_VALUE)

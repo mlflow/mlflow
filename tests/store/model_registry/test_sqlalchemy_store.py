@@ -665,7 +665,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         result, _ = self._search_registered_models(query,
                                                    page_token=None,
                                                    order_by=['timestamp ASC',
-                                                             'name DESC'],
+                                                             'name   DESC'],
                                                    max_results=100)
         self.assertEqual([rm2, rm1, rm4, rm3], result)
         # confirm that name ascending is the default, even if ties exist on other fields
@@ -680,6 +680,27 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                                    order_by=['last_updated_timestamp DESC'],
                                                    max_results=100)
         self.assertEqual([rm3, rm4, rm1, rm2], result)
+        # test timestamp parsing
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp\tASC'],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp\r\rASC'],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp\nASC'],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp  ASC'],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
 
     def test_search_registered_model_order_by_errors(self):
         query = "name LIKE 'RM%'"
