@@ -69,11 +69,34 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def list_registered_models(self):
+    def list_registered_models(self, max_results, page_token):
         """
         List of all registered models.
+        :param max_results: Maximum number of registered models desired.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_registered_models`` call.
 
-        :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
+        """
+        pass
+
+    @abstractmethod
+    def search_registered_models(self, filter_string=None, max_results=None,
+                                 order_by=None, page_token=None):
+        """
+        Search for registered models in backend that satisfy the filter criteria.
+
+        :param filter_string: Filter query string, defaults to searching all registered models.
+        :param max_results: Maximum number of registered models desired.
+        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                         matching search results.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``search_registered_models`` call.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
         """
         pass
 

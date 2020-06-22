@@ -542,6 +542,15 @@ def autolog():
         def on_train_end(self, logs=None):
             try_mlflow_log(log_model, self.model, artifact_path='model')
 
+        # As of Keras 2.4.0, Keras Callback implementations must define the following
+        # methods indicating whether or not the callback overrides functions for
+        # batch training/testing/inference
+        def _implements_train_batch_hooks(self): return False
+
+        def _implements_test_batch_hooks(self): return False
+
+        def _implements_predict_batch_hooks(self): return False
+
     def _early_stop_check(callbacks):
         if LooseVersion(keras.__version__) < LooseVersion('2.3.0'):
             es_callback = keras.callbacks.EarlyStopping
