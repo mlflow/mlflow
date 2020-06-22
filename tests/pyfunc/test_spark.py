@@ -5,8 +5,9 @@ import numpy as np
 import pandas as pd
 import pytest
 import pyspark
+from pyspark.sql import Row
 from pyspark.sql.utils import PythonException
-from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
+from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType, StructField, StructType
 
 import mlflow
 import mlflow.pyfunc
@@ -142,6 +143,29 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
         assert res["res2"][0] == ["a", "b", "c"]
         res = data.withColumn("res4", udf("a", "b", "c", "d")).select("res4").toPandas()
         assert res["res4"][0] == ["a", "b", "c"]
+
+def test_struct_type_for_spark_udf(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel())
+        return_type = StructType([
+            StructField('a', StringType()),
+            StructField('b', IntegerType())
+            ])
+        udf = mlflow.pyfunc.spark_udf(spark, "runs:/{}/model".format(run.info.run_id),
+                                      result_type=return_type)
+
+        input_data = list(Row(a=str(i), b=i) for i in range(10))
+        data = [Row(input=row)for row in input_data]
+        spark_df = spark.createDataFrame(data)
+        res = spark_df.withColumn('res', udf("input")).select("res")
+        pdres = res.toPandas()
+        expected = input_data
+        actual = list(row for row in pdres['res'])
+        assert expected == actual
 
 
 @pytest.mark.large
