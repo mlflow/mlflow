@@ -154,6 +154,24 @@ class DatabricksJobRunner(object):
             shutil.rmtree(temp_tarfile_dir)
         return dbfs_fuse_uri
 
+    def _supports_pypi_lower_bounds(self, runtime_version):
+        """
+        Returns True if the specified runtime version supports installing Pypi libraries with
+        version lower-bounds, without enclosing single quotes (e.g. mlflow<=1.8.0 vs
+        'mlflow<=1.8.0'). In general, newer runtime versions can handle version lower bounds with
+        or without enclosing single quotes, while older runtime versions require single-quotes for
+        the version to be properly shell-escaped.
+        """
+        if runtime_version is None or len(runtime_version) == 0:
+            return False
+        try:
+            major_runtime_version = int(runtime_version[0])
+        except ValueError:
+            # Assume runtime versions that do not start with an int (e.g. latest-experimental)
+            # are "new".
+            return True
+        return major_runtime_version >= 6
+
     def _run_shell_command_job(self, project_uri, command, env_vars, cluster_spec):
         """
         Run the specified shell command on a Databricks cluster.
@@ -172,22 +190,27 @@ class DatabricksJobRunner(object):
                  Databricks
                  `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
         """
+        if 'new_cluster' in cluster_spec:
+            final_cluster_spec = cluster_spec['new_cluster']
+        else:
+            final_cluster_spec = cluster_spec
         # NB: We use <= on the version specifier to allow running projects on pre-release
         # versions, where we will select the most up-to-date mlflow version available.
         # Also note, that we escape this so '<' is not treated as a shell pipe.
-        libraries = [{"pypi": {"package": "mlflow<=%s" % VERSION}}]
+        if self._supports_pypi_lower_bounds(cluster_spec.get("spark_version")):
+            libraries = [{"pypi": {"package": "mlflow<=%s" % VERSION}}]
+        else:
+            libraries = [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
 
-        # Check syntax of JSON - if it contains libraries and new_cluster, pull those out
-        if 'new_cluster' in cluster_spec:
-            # Libraries are optional, so we don't require that this be specified
-            if 'libraries' in cluster_spec:
-                libraries.extend(cluster_spec['libraries'])
-            cluster_spec = cluster_spec['new_cluster']
+        # Check syntax of JSON - if it contains libraries and new_cluster as top-level fields,
+        # pull libraries out
+        if 'new_cluster' in cluster_spec and 'libraries' in cluster_spec:
+            libraries.extend(cluster_spec['libraries'])
 
         # Make jobs API request to launch run.
         req_body_json = {
             'run_name': 'MLflow Run for %s' % project_uri,
-            'new_cluster': cluster_spec,
+            'new_cluster': final_cluster_spec,
             'shell_command_task': {
                 'command': command,
                 "env_vars": env_vars
