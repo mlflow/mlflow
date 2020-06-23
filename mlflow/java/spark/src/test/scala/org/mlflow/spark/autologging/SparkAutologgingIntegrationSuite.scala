@@ -211,7 +211,10 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     subscriberSeq.foreach(MockPublisher.register)
     df.collect()
     Thread.sleep(1000)
-    verify(subscriber, times(1)).notify(any(), any(), any())
+
+    // because spark load csv datasource will trigger a filescan job,
+    // the subscriber will receive two notify message, which one is scan csv job, other is scan text job.
+    verify(subscriber, times(2)).notify(any(), any(), any())
     verify(subscriber, times(1)).notify(
       getFileUri(path), "unknown", format)
   }
