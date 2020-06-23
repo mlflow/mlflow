@@ -175,7 +175,7 @@ class DatabricksJobRunner(object):
         # NB: We use <= on the version specifier to allow running projects on pre-release
         # versions, where we will select the most up-to-date mlflow version available.
         # Also note, that we escape this so '<' is not treated as a shell pipe.
-        libraries = [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
+        libraries = [{"pypi": {"package": "mlflow<=%s" % VERSION}}]
 
         # Check syntax of JSON - if it contains libraries and new_cluster, pull those out
         if 'new_cluster' in cluster_spec:
