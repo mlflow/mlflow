@@ -8,6 +8,7 @@ import uuid
 from azure.core.exceptions import ClientAuthenticationError
 from azure.storage.blob import BlobClient
 
+import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
@@ -19,7 +20,9 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path, yield_file_in_chunks
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
-from mlflow.utils.uri import extract_and_normalize_path, is_databricks_acled_artifacts_uri
+from mlflow.utils.uri import (
+    extract_and_normalize_path, is_databricks_acled_artifacts_uri, get_db_profile_from_uri
+)
 
 _logger = logging.getLogger(__name__)
 _PATH_PREFIX = "/api/2.0"
@@ -85,10 +88,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return artifact_path.split('/')[3]
 
     def _call_endpoint(self, service, api, json_body):
+        db_profile = get_db_profile_from_uri(mlflow.tracking.get_tracking_uri())
+        db_creds = get_databricks_host_creds(db_profile)
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
         response_proto = api.Response()
-        return call_endpoint(get_databricks_host_creds(),
-                             endpoint, method, json_body, response_proto)
+        return call_endpoint(db_creds, endpoint, method, json_body, response_proto)
 
     def _get_run_artifact_root(self, run_id):
         json_body = message_to_json(GetRun(run_id=run_id))
