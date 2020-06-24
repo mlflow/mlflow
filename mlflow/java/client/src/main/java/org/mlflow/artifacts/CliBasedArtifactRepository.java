@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.mlflow.api.proto.Service;
 import org.mlflow.tracking.MlflowClientException;
 import org.mlflow.tracking.creds.MlflowHostCreds;
+import org.mlflow.tracking.creds.DatabricksMlflowHostCreds;
 import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 
 /**
@@ -223,7 +224,11 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
       List<String> fullCommand = Lists.newArrayList(PYTHON_EXECUTABLE, "-m", PYTHON_COMMAND);
       fullCommand.addAll(mlflowCommand);
       ProcessBuilder pb = new ProcessBuilder(fullCommand);
-      setProcessEnvironment(pb.environment(), hostCreds);
+      if (hostCreds instanceof DatabricksMlflowHostCreds) {
+        setProcessEnvironmentDatabricks(pb.environment(), (DatabricksMlflowHostCreds) hostCreds);
+      } else {
+        setProcessEnvironment(pb.environment(), hostCreds);
+      }
       process = pb.start();
       stdout = IOUtils.toString(process.getInputStream(), StandardCharsets.UTF_8);
       int exitValue = process.waitFor();
@@ -240,18 +245,46 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
 
   @VisibleForTesting
   void setProcessEnvironment(Map<String, String> environment, MlflowHostCreds hostCreds) {
+    logger.info("SET HOST: " + hostCreds.getHost());
     environment.put("MLFLOW_TRACKING_URI", hostCreds.getHost());
     if (hostCreds.getUsername() != null) {
+      logger.info("SET USERNAME: " + hostCreds.getUsername().toString());
       environment.put("MLFLOW_TRACKING_USERNAME", hostCreds.getUsername());
     }
     if (hostCreds.getPassword() != null) {
+      logger.info("SET PASSWORD: " + hostCreds.getPassword().toString());
       environment.put("MLFLOW_TRACKING_PASSWORD", hostCreds.getPassword());
     }
     if (hostCreds.getToken() != null) {
+      logger.info("SET TOKEN: " + hostCreds.getToken().toString());
       environment.put("MLFLOW_TRACKING_TOKEN", hostCreds.getToken());
     }
     if (hostCreds.shouldIgnoreTlsVerification()) {
+      logger.info("SET TLS IGNORE TRUE");
       environment.put("MLFLOW_TRACKING_INSECURE_TLS", "true");
+    }
+  }
+
+  @VisibleForTesting
+  void setProcessEnvironmentDatabricks(
+      Map<String, String> environment,
+      DatabricksMlflowHostCreds hostCreds) {
+    environment.put("DATABRICKS_HOST", hostCreds.getHost());
+    if (hostCreds.getUsername() != null) {
+      logger.info("DATABRICKS SET USERNAME: " + hostCreds.getUsername().toString());
+      environment.put("DATABRICKS_USERNAME", hostCreds.getUsername());
+    }
+    if (hostCreds.getPassword() != null) {
+      logger.info("DATABRICKS SET PASSWORD: " + hostCreds.getPassword().toString());
+      environment.put("DATABRICKS_PASSWORD", hostCreds.getPassword());
+    }
+    if (hostCreds.getToken() != null) {
+      logger.info("DATABRICKS SET TOKEN: " + hostCreds.getToken().toString());
+      environment.put("DATABRICKS_TOKEN", hostCreds.getToken());
+    }
+    if (hostCreds.shouldIgnoreTlsVerification()) {
+      logger.info("DATABRICKS SET TLS IGNORE TRUE");
+      environment.put("DATABRICKS_INSECURE", "true");
     }
   }
 
