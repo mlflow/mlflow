@@ -91,7 +91,7 @@ export class ModelVersionPageImpl extends React.Component {
       this.props
         .transitionModelVersionStageApi(
           modelName,
-          version.toString(),
+          version,
           toStage,
           this.transitionModelVersionStageRequestId,
         )
@@ -105,7 +105,7 @@ export class ModelVersionPageImpl extends React.Component {
     return this.props
       .updateModelVersionApi(
         modelName,
-        version.toString(),
+        version,
         description,
         this.updateModelVersionRequestId,
       )
@@ -191,7 +191,7 @@ const mapStateToProps = (state, ownProps) => {
   const { apis } = state;
   return {
     modelName,
-    version: Number(version),
+    version,
     modelVersion,
     runInfo,
     runDisplayName,
