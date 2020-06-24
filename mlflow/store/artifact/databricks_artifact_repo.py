@@ -256,7 +256,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             # If `path` is a file, ListArtifacts returns a single list element with the
             # same name as `path`. The list_artifacts API expects us to return an empty list in this
             # case, so we do so here.
-            if len(artifact_list) == 1 and artifact_list[0].path == path \
+            if len(artifact_list) == 1 and artifact_list[0].path == run_relative_path \
                     and not artifact_list[0].is_dir:
                 return []
             for output_file in artifact_list:
