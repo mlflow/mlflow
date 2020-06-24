@@ -152,6 +152,37 @@ While the method above creates an empty registered model with no version associa
         run_id="d16076a3ec534311817565e6527539c0"
     )
 
+Run a MLflow model from the Model Registry
+--------------------------
+
+Once you have added a model to the registry, you can run that model using :meth:`~mlflow.sklearn.load_model`. 
+
+**Run a specific model version**
+
+.. code-block:: py
+
+    import mlflow.sklearn
+
+    model_name = "sk-learn-random-forest-reg-model"
+    model_version = 1
+
+    model = mlflow.sklearn.load_model(
+        model_uri=f"models:/{model_name}/{model_version}
+    )
+
+**Run the latest model version in a specific stage**
+
+.. code-block:: py
+
+    import mlflow.sklearn
+
+    model_name = "sk-learn-random-forest-reg-model"
+    stage = 'Staging'
+
+    model = mlflow.sklearn.load_model(
+        model_uri=f"models:/{model_name}/{stage}
+    )
+
 Adding or Updating an MLflow Model Descriptions
 -----------------------------------------------
 
