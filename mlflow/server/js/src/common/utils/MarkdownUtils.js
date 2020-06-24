@@ -13,7 +13,7 @@ export const getConverter = () => {
 
 // Options for HTML sanitizer.
 // See https://www.npmjs.com/package/sanitize-html#what-are-the-default-options for usage.
-// These options were chosen to be similar to Github's whitelist but simpler (i.e. we don't
+// These options were chosen to be similar to Github's allowlist but simpler (i.e. we don't
 // do any transforms of the contained HTML and we disallow script entirely instead of
 // removing contents).
 const sanitizerOptions = {
