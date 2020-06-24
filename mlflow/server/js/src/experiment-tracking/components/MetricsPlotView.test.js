@@ -4,7 +4,7 @@ import { MetricsPlotView } from './MetricsPlotView';
 import { X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls';
 import { CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
 import Utils from '../../common/utils/Utils';
-import Plot from '../../../node_modules/react-plotly.js/react-plotly';
+import Plot from 'react-plotly.js';
 
 const metricsForLine = [
   {
