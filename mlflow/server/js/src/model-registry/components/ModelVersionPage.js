@@ -27,7 +27,7 @@ export class ModelVersionPageImpl extends React.Component {
     match: PropTypes.object.isRequired,
     // connected props
     modelName: PropTypes.string.isRequired,
-    version: PropTypes.number.isRequired,
+    version: PropTypes.string.isRequired,
     modelVersion: PropTypes.object,
     runInfo: PropTypes.object,
     runDisplayName: PropTypes.string,
@@ -91,7 +91,7 @@ export class ModelVersionPageImpl extends React.Component {
       this.props
         .transitionModelVersionStageApi(
           modelName,
-          version.toString(),
+          version,
           toStage,
           this.transitionModelVersionStageRequestId,
         )
@@ -186,7 +186,7 @@ const mapStateToProps = (state, ownProps) => {
   const { apis } = state;
   return {
     modelName,
-    version: Number(version),
+    version,
     modelVersion,
     runInfo,
     runDisplayName,
