@@ -1,5 +1,5 @@
 import {
-  LIST_REGISTRED_MODELS,
+  LIST_REGISTERED_MODELS,
   SEARCH_MODEL_VERSIONS,
   GET_REGISTERED_MODEL,
   GET_MODEL_VERSION,
@@ -12,7 +12,7 @@ import { fulfilled } from '../common/utils/ActionUtils';
 
 const modelByName = (state = {}, action) => {
   switch (action.type) {
-    case fulfilled(LIST_REGISTRED_MODELS): {
+    case fulfilled(LIST_REGISTERED_MODELS): {
       const models = action.payload[getProtoField('registered_models')];
       const nameToModelMap = {};
       if (models) {
