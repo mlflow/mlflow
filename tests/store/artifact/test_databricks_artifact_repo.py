@@ -310,6 +310,8 @@ class TestDatabricksArtifactRepository(object):
             assert len(artifacts) == 0
 
     def test_list_artifacts_with_relative_path(self):
+        list_artifact_file_proto_mock = [FileInfo(path=posixpath.join(MOCK_SUBDIR, 'a.txt'),
+                                                  is_dir=False, file_size=0)]
         list_artifacts_dir_proto_mock = [
             FileInfo(path=posixpath.join(MOCK_SUBDIR, 'test/a.txt'), is_dir=False, file_size=100),
             FileInfo(path=posixpath.join(MOCK_SUBDIR, 'test/dir'), is_dir=True, file_size=0)
@@ -339,6 +341,14 @@ class TestDatabricksArtifactRepository(object):
             assert artifacts[1].file_size is None
             message_mock.assert_called_with(
                 ListArtifacts(run_id=MOCK_RUN_ID, path=posixpath.join(MOCK_SUBDIR, "test")))
+
+            # Calling list_artifacts() on a relative path that's a file should return an empty list
+            list_artifact_response_proto = \
+                ListArtifacts.Response(root_uri='', files=list_artifact_file_proto_mock,
+                                       next_page_token=None)
+            call_endpoint_mock.return_value = list_artifact_response_proto
+            artifacts = databricks_artifact_repo.list_artifacts('a.txt')
+            assert len(artifacts) == 0
 
     def test_paginated_list_artifacts(self, databricks_artifact_repo):
         list_artifacts_proto_mock_1 = [
