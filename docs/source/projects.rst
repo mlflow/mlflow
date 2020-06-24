@@ -344,6 +344,9 @@ Deployment Mode
     - You can also launch projects remotely on `Kubernetes <https://Kubernetes.io/>`_ clusters
       using the ``mlflow run`` CLI (see :ref:`kubernetes_execution`).
 
+    - You can also launch projects remotely on `Yarn <https://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html>`_ clusters
+      using the ``mlflow run`` CLI (see :ref:`yarn_execution`).
+
 Environment
     By default, MLflow Projects are run in the environment specified by the project directory
     or the ``MLproject`` file (see :ref:`Specifying Project Environments <project-environments>`).
@@ -617,6 +620,94 @@ the *first* container defined in the Job Spec. Further, the ``MLFLOW_TRACKING_UR
 and ``MLFLOW_EXPERIMENT_ID`` are appended to ``container.env``. Use ``KUBE_MLFLOW_TRACKING_URI`` to
 pass a different tracking URI to the job container from the standard ``MLFLOW_TRACKING_URI``. All
 subsequent container definitions are applied without modification.
+
+
+.. _yarn_execution:
+
+Run an MLflow Project on Yarn (experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. important:: As an experimental feature, the API is subject to change.
+
+You can run MLflow Projects on Yarn.
+You can run any exemple having a conda.yaml file on yarn.
+
+
+To see this feature in action, you can also refer to
+`Any example <https://github.com/mlflow/mlflow/tree/master/examples>`_, which includes the required MLproject file, and a conda.yaml.
+You just need to add the required Yarn backend configuration (``yarn_conf.json``).
+
+How it works
+~~~~~~~~~~~~
+
+When you run an MLflow Project on Yarn, MLflow ship your conda env and your project folder to the yarn cluster and run
+the specified entry point using this env.
+
+
+Execution guide
+~~~~~~~~~~~~~~~
+
+You can run your MLflow Project on Yarn by following these steps:
+
+1. Create your project with the needed MLproject file and a conda.yaml describing the necessary environment.
+
+2. Create a backend configuration JSON file with the following entries:
+
+   - ``additional_files``
+     An array of strings that represents path to extra files that should be shipped to the cluster. (by default all your project and the conda env are shipped)
+   - ``num_cores``
+     The number of virtual cores to request.
+   - ``memory``
+     The amount of memory to request. Can be either a string with units (e.g. "5 GiB"), or numeric.
+     If numeric, specifies the amount of memory in MiB.
+   - ``queue``
+     The queue to submit the application to.
+   - ``hadoop_filesystems``
+      List of Hadoop file systems to acquire delegation tokens for.
+   - ``hadoop_conf_dir``
+     Path to directory containing hadoop configuration files in containers.
+     HADOOP_CONF_DIR environment variable will be set with this path in containers.
+
+  .. rubric:: Example Yarn backend configuration
+
+  .. code-block:: json
+
+    {
+        "additional_files": ["./notebooks/specialMessage.ipynb"],
+        "num_cores": 1,
+        "memory": 1024,
+        "queue": "default",
+        "hadoop_filesystems": "viewfs://prod-am6,viewfs://prod-pa4,viewfs://preprod-pa4",
+        "hadoop_conf_dir": "/etc/hadoop/conf"
+    }
+
+3. Create a MLproject file indicating your conda.yaml and your entrypoint:
+
+    .. code-block:: yaml
+
+      name: My Yarn Project
+
+      conda_env: conda.yaml
+
+      entry_points:
+          greet:
+              parameters:
+                  param1: {type: string, default: "param1"}
+                  param2: {type: string, default: "param2"}
+                  command: "python my_entrypoint --param1 {param1} --param2 {param2}"
+
+4. If necessary, obtain credentials to access your Yarn cluster.
+
+5. Run the Project using the MLflow Projects CLI or :py:func:`Python API <mlflow.projects.run>`,
+   specifying your Project URI and the path to your backend configuration file. For example:
+
+   .. code-block:: bash
+
+    mlflow run <project_uri> --backend yarn --backend-config examples/yarn/yarn_config.json
+             -e <entrypoint>
+
+   where ``<project_uri>`` is a Git repository URI or a folder.
+
 
 Iterating Quickly
 -----------------

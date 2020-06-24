@@ -19,6 +19,7 @@ export class ArtifactPageImpl extends Component {
     apis: PropTypes.object.isRequired,
     listArtifactsApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
+    artifactsAreLoading: PropTypes.bool.isRequired,
   };
 
   getFailedtoListArtifactsMsg = () => {

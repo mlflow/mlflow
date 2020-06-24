@@ -1,4 +1,11 @@
-import { RunTag, Experiment, RunInfo, Metric } from '../../sdk/MlflowMessages';
+import {
+  RunTag,
+  Experiment,
+  RunInfo,
+  Metric,
+  Param,
+  ExperimentTag,
+} from '../../sdk/MlflowMessages';
 
 export const emptyState = {
   apis: {},
@@ -16,6 +23,43 @@ export const addApiToState = (state, api) => {
     apis: {
       ...oldApi,
       [api.id]: api,
+    },
+  };
+};
+
+export const addRunToState = (state, runInfo, run_data) => {
+  const run_info = RunInfo.fromJs(runInfo);
+  const oldRunInfos = state.entities.runInfosByUuid;
+  const oldLatestMetrics = state.entities.latestMetricsByRunUuid;
+  const oldParams = state.entities.paramsByRunUuid;
+  const oldTags = state.entities.tagsByRunUuid;
+  const createObjFromList = (objs, fromJSBuilder) => {
+    const mapObj = {};
+    objs.forEach((obj) => {
+      mapObj[obj.key] = fromJSBuilder(obj);
+    });
+    return mapObj;
+  };
+  return {
+    ...state,
+    entities: {
+      ...state.entities,
+      latestMetricsByRunUuid: {
+        ...oldLatestMetrics,
+        [run_info.getRunUuid()]: createObjFromList(run_data.metrics, Metric.fromJs),
+      },
+      paramsByRunUuid: {
+        ...oldParams,
+        [run_info.getRunUuid()]: createObjFromList(run_data.params, Param.fromJs),
+      },
+      tagsByRunUuid: {
+        ...oldTags,
+        [run_info.getRunUuid()]: createObjFromList(run_data.tags, RunTag.fromJs),
+      },
+      runInfosByUuid: {
+        ...oldRunInfos,
+        [run_info.getRunUuid()]: run_info,
+      },
     },
   };
 };
@@ -38,7 +82,7 @@ export const addExperimentTagsToState = (state, experiment_id, tags) => {
   const oldExperimentTags = state.entities.experimentTagsByExperimentId;
   const tagsArrToObject = (tagsArr) => {
     const tagObj = {};
-    tagsArr.forEach((tag) => (tagObj[tag.key] = RunTag.fromJs(tag)));
+    tagsArr.forEach((tag) => (tagObj[tag.key] = ExperimentTag.fromJs(tag)));
     return tagObj;
   };
   return {

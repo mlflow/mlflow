@@ -2190,3 +2190,87 @@ View type for ListExperiments query.
 +--------------+------------------------------------------+
 | ALL          | Get all experiments.                     |
 +--------------+------------------------------------------+
+
+
+===========================
+
+
+
+.. _mlflowMlflowServicePrivateVcs:
+
+Private VCS
+===========
+
+Utilities to integrate a private version control system to MLFlow UI.
+
+The UI links the experiment source name to the desired VCS location
+by matching the sourceNmae to a regex and uses template URLs to render links to the project repository or commits.
+The regex and URL templates are read at runtime by the Python backend from environment variables:
+
++-------------------------------+-------------------------------------------+
+|     Name                      |                Description                |
++===============================+===========================================+
+| MLFLOW_PRIVATE_VCS_REGEX      | Regex used to match experiment sourceName |
++-------------------------------+-------------------------------------------+
+| MLFLOW_PRIVATE_VCS_REPO_URL   | URL template to private VCS repo          |
++-------------------------------+-------------------------------------------+
+| MLFLOW_PRIVATE_VCS_COMMIT_URL | URL template to private VCS commit        |
++-------------------------------+-------------------------------------------+
+
+Example::
+
+    MLFLOW_PRIVATE_VCS_REGEX=[@/]my_private_vcs[:/](\\d*)\\/([\\w\\W]+)
+    MLFLOW_PRIVATE_VCS_REPO_URL=https://my_private_vcs/gitweb?p=privateVcsMatch
+    MLFLOW_PRIVATE_VCS_COMMIT_URL=https://my_private_vcs/gitweb?p=privateVcsMatch\;a=commit\;h=sourceVersion
+
+
+.. _mlflowPrivateVcsRegex:
+
+Private VCS Regex
+-----------------
+
+Request Structure
+"""""""""""""""""
+
++----------------------------------+-------------+
+|           Endpoint               | HTTP Method |
++==================================+=============+
+| ``2.0/mlflow/private_vcs/regex`` |   ``GET``   |
++----------------------------------+-------------+
+
+Fetch the regex sring used in UI to match an experiment sourceName.
+
+Response Structure
+""""""""""""""""""
+
++------------+----------------------+---------------+
+| Field Name |         Type         |  Description  |
++============+======================+===============+
+| vcs_regex  | string               | regex string  |
++------------+----------------------+---------------+
+
+
+.. _mlflowPrivateVcsUrl:
+
+Private VCS Url
+---------------
+
+Request Structure
+"""""""""""""""""
+
++--------------------------------------+-------------+
+|           Endpoint                   | HTTP Method | 
++======================================+=============+
+| ``2.0/mlflow/private_vcs/url?type=`` |   ``GET``   | 
++--------------------------------------+-------------+
+
+Fetch the commit or repo url templates by passing ``commit`` or ``repo`` to the ``type`` parameter. 
+
+Response Structure
+""""""""""""""""""
+
++------------+----------------------+---------------+
+| Field Name |         Type         |  Description  |
++============+======================+===============+
+| vcs_url    | string               | url string    |
++------------+----------------------+---------------+
