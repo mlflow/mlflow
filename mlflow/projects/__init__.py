@@ -653,8 +653,8 @@ def _build_docker_image(work_dir, repository_uri, base_image, run_id, dockerfile
             ).format(build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
                      workdir=_MLFLOW_DOCKER_WORKDIR_PATH)
         basename = os.path.basename(os.path.normpath(dockerfile_uri))
-        hash = hashlib.md5(dockerfile.encode('utf-8')).hexdigest()
-        image_uri = dockerfile_uri.split('.')[-1] if '.' in basename else 'image_' + hash
+        dockerfile_md5 = hashlib.md5(dockerfile.encode('utf-8')).hexdigest()
+        image_uri = dockerfile_uri.split('.')[-1] if '.' in basename else 'image_' + dockerfile_md5
     elif base_image is not None:
         image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
         dockerfile = (
