@@ -94,7 +94,7 @@ def test_dockerfile_project_execution(
         MLFLOW_PROJECT_BACKEND: "local",
     }
     approx_expected_tags = {
-        MLFLOW_DOCKER_IMAGE_URI: "docker-example",
+        MLFLOW_DOCKER_IMAGE_URI: "image_",
         MLFLOW_DOCKER_IMAGE_ID: "sha256:",
     }
     run_tags = run.data.tags
