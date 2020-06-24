@@ -27,7 +27,7 @@ export class ModelVersionPageImpl extends React.Component {
     match: PropTypes.object.isRequired,
     // connected props
     modelName: PropTypes.string.isRequired,
-    version: PropTypes.number.isRequired,
+    version: PropTypes.string.isRequired,
     modelVersion: PropTypes.object,
     runInfo: PropTypes.object,
     runDisplayName: PropTypes.string,
@@ -103,12 +103,7 @@ export class ModelVersionPageImpl extends React.Component {
   handleEditDescription = (description) => {
     const { modelName, version } = this.props;
     return this.props
-      .updateModelVersionApi(
-        modelName,
-        version,
-        description,
-        this.updateModelVersionRequestId,
-      )
+      .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
       .then(this.loadData)
       .catch(console.error);
   };
