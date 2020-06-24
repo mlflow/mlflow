@@ -4,7 +4,7 @@ import _ from 'lodash';
 import PropTypes from 'prop-types';
 import { X_AXIS_STEP, X_AXIS_RELATIVE, MAX_LINE_SMOOTHNESS } from './MetricsPlotControls';
 import { CHART_TYPE_BAR } from './MetricsPlotPanel';
-import Plot from '../../../node_modules/react-plotly.js/react-plotly';
+import Plot from 'react-plotly.js';
 
 const MAX_RUN_NAME_DISPLAY_LENGTH = 24;
 
