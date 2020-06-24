@@ -70,7 +70,7 @@ def test_dockerfile_project_execution(
         use_start_run,
         tmpdir, docker_example_base_image):  # pylint: disable=unused-argument
     shutil.move(os.path.join(TEST_DOCKER_PROJECT_DIR, 'MLproject'),
-                 os.path.join(TEST_DOCKER_PROJECT_DIR, 'backup'))
+                os.path.join(TEST_DOCKER_PROJECT_DIR, 'backup'))
     shutil.copy2(os.path.join(TEST_DOCKER_PROJECT_DIR, 'MLproject_dockerfile'),
                  os.path.join(TEST_DOCKER_PROJECT_DIR, 'MLproject'))
     expected_params = {"use_start_run": use_start_run}
@@ -105,7 +105,7 @@ def test_dockerfile_project_execution(
     artifacts = mlflow_service.list_artifacts(run_id=run_id)
     assert len(artifacts) == 1
     shutil.move(os.path.join(TEST_DOCKER_PROJECT_DIR, 'backup'),
-                 os.path.join(TEST_DOCKER_PROJECT_DIR, 'MLproject'))
+                os.path.join(TEST_DOCKER_PROJECT_DIR, 'MLproject'))
 
 
 @pytest.mark.parametrize("tracking_uri, expected_command_segment", [
