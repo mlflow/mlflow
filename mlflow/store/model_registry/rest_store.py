@@ -96,24 +96,30 @@ class RestStore(AbstractStore):
             name=name))
         self._call_endpoint(DeleteRegisteredModel, req_body)
 
-    def list_registered_models(self):
+    def list_registered_models(self, max_results, page_token):
         """
         List of all registered models.
+        :param max_results: Maximum number of registered models desired.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_registered_models`` call.
 
-        :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
+        :return: PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
         """
-        req_body = message_to_json(ListRegisteredModels())
+        req_body = message_to_json(ListRegisteredModels(
+            page_token=page_token,
+            max_results=max_results))
         response_proto = self._call_endpoint(ListRegisteredModels, req_body)
-        return [RegisteredModel.from_proto(registered_model)
-                for registered_model in response_proto.registered_models]
+        return PagedList(
+            [RegisteredModel.from_proto(registered_model)
+             for registered_model in response_proto.registered_models],
+            response_proto.next_page_token)
 
     def search_registered_models(self, filter_string=None, max_results=None,
                                  order_by=None, page_token=None):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
-        :param filter_string: A filter string expression. Currently supports a single filter
-                              condition either name of model like ``name = 'model_name'``
+        :param filter_string: Filter query string supported by backend implementation.
         :param max_results: Maximum number of registered models desired.
         :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                          matching search results.

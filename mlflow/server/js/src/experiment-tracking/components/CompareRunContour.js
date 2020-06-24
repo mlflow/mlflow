@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { AllHtmlEntities } from 'html-entities';
 import { Switch } from 'antd';
-import Plot from '../../../node_modules/react-plotly.js/react-plotly';
+import Plot from 'react-plotly.js';
 import PropTypes from 'prop-types';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
