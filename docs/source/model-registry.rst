@@ -152,10 +152,10 @@ While the method above creates an empty registered model with no version associa
         run_id="d16076a3ec534311817565e6527539c0"
     )
 
-Run a MLflow model from the Model Registry
+Run a MLflow Model from the Model Registry
 ------------------------------------------
 
-After you  have registered an MLflow model, you can run that model using :meth:`~mlflow.sklearn.load_model`. 
+After you have registered an MLflow model, you can run that model using :meth:`~mlflow.sklearn.load_model`. 
 
 **Run a specific model version**
 
@@ -186,6 +186,21 @@ Model Registry allows you to transition multiple versions of the model into the 
     model = mlflow.sklearn.load_model(
         model_uri=f"models:/{model_name}/{stage}
     )
+
+Serve a MLflow Model from Model Registry
+----------------------------------------
+
+After you have registered an MLflow model, you can serve the model as a service on your host.
+
+.. code-block:: bash
+    #!/usr/bin/env sh
+
+    echo "Deploying Production model name=sk-learn-random-forest-reg-model"
+    # Set environment variable for the tracking URL where the Model Registry resides
+    export MLFLOW_TRACKING_URI=http://localhost:5000
+
+    # Serve the production model from the model registry
+    mlflow models serve -m "models:/sk-learn-random-forest-reg-model/Production"
 
 Adding or Updating an MLflow Model Descriptions
 -----------------------------------------------
