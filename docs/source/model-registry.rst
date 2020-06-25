@@ -152,7 +152,7 @@ While the method above creates an empty registered model with no version associa
         run_id="d16076a3ec534311817565e6527539c0"
     )
 
-Run a MLflow Model from the Model Registry
+Use an MLflow Model from the Model Registry
 ------------------------------------------
 
 After you have registered an MLflow model, you can load to run that model using :meth:`~mlflow.<model_flavor>.load_model`. 
