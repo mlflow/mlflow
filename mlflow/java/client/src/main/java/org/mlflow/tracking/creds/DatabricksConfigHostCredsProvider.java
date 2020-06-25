@@ -7,7 +7,7 @@ import java.nio.file.Paths;
 import org.ini4j.Ini;
 import org.ini4j.Profile;
 
-public class DatabricksConfigHostCredsProvider implements MlflowHostCredsProvider {
+public class DatabricksConfigHostCredsProvider extends DatabricksHostCredsProvider {
   private static final String CONFIG_FILE_ENV_VAR = "DATABRICKS_CONFIG_FILE";
 
   private final String profile;

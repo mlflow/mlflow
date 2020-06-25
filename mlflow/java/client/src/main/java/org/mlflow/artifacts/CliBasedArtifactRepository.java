@@ -225,8 +225,10 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
       fullCommand.addAll(mlflowCommand);
       ProcessBuilder pb = new ProcessBuilder(fullCommand);
       if (hostCreds instanceof DatabricksMlflowHostCreds) {
+        logger.info("ENV SETTING DATABRICKS - HOST CREDS");
         setProcessEnvironmentDatabricks(pb.environment(), (DatabricksMlflowHostCreds) hostCreds);
       } else {
+        logger.info("ENV SETTING NOT DATABRICKS - NORMAL");
         setProcessEnvironment(pb.environment(), hostCreds);
       }
       process = pb.start();
