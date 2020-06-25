@@ -152,12 +152,10 @@ While the method above creates an empty registered model with no version associa
         run_id="d16076a3ec534311817565e6527539c0"
     )
 
-Run a MLflow model from the Model Registry
-------------------------------------------
+Retrieve the model by stage
+---------------------------
 
-Once you have added a model to the registry, you can run that model using :meth:`~mlflow.sklearn.load_model`. 
-
-**Run a specific model version**
+Model Registry allows you to transition multiple versions of the model into the same or different stages.To fetch the model in its stage name, simply provide the model stage label as part of the model URI, and it will fetch the most recent version of the model in that stage.
 
 .. code-block:: py
 
@@ -170,7 +168,12 @@ Once you have added a model to the registry, you can run that model using :meth:
         model_uri=f"models:/{model_name}/{model_version}
     )
 
-**Run the latest model version in a specific stage**
+Run a specific model version
+----------------------------
+
+By contrast, to fetch a specific model version, just supply that version name as part of the model URI. Alternatively, if  you want the most recent version and don’t know its version number, you can query the model’s details and fetch the maximum version of the model.
+
+
 
 .. code-block:: py
 
