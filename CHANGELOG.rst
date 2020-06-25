@@ -2,17 +2,16 @@ Changelog
 =========
 1.9.1 (2020-06-25)
 ------------------
-MLflow 1.9.1 includes several major features and improvements:
+MLflow 1.9.1 is a patch release containing a number of bug-fixes and improvements:
 
-Features:
+Bug fixes and improvements:
 
+* Fixes ``AttributeError`` when pickling an instance of the Python ``MlflowClient`` class (#2955, @Polyphenolx)
+* Fixes bug that prevented updating model-version descriptions in the model registry UI
+* Fixes bug where credentials were not properly propagated to artifact CLI commands when logging artifacts from Java to the DatabricksArtifactRepository
+* Removes use of new Pandas API in new MLflow model-schema functionality, so that it can be used with older Pandas versions (#2988, @aarondav)
 
-
-Bug fixes and documentation updates:
-
-
-
-Small bug fixes and doc updates ()
+Small bug fixes and doc updates (#2998, @dbczumar; #2999, @arjundc-db)
 
 1.9.0 (2020-06-19)
 ------------------
