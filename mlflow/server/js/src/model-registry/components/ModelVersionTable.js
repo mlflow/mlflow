@@ -6,6 +6,7 @@ import Utils from '../../common/utils/Utils';
 import {
   ACTIVE_STAGES,
   StageTagComponents,
+  ModelVersionStatus,
   ModelVersionStatusIcons,
   modelVersionStatusIconTooltips,
 } from '../constants';
@@ -85,7 +86,12 @@ export class ModelVersionTable extends React.Component {
         dataSource={versions}
         columns={this.getColumns()}
         locale={{ emptyText: 'No model version.' }}
-        rowSelection={{ onChange: this.props.onChange }}
+        rowSelection={{
+          onChange: this.props.onChange,
+          getCheckboxProps: (record) => ({
+            disabled: record.status !== ModelVersionStatus.READY,
+          }),
+        }}
       />
     );
   }

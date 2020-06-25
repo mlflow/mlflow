@@ -106,19 +106,23 @@ export class EditableTable extends React.Component {
           </span>
         ) : (
           <span>
-            <IconButton
-              icon={<Icon type='edit' />}
+           <Button
+              type='link'
               disabled={editingKey !== ''}
               onClick={() => this.edit(record.key)}
               style={{ marginRight: 10 }}
-            />
+            >
+              <Icon type='edit' />
+            </Button>
             <Popconfirm
               title='Are you sure you want to delete this tag？'
               okText='Confirm'
               cancelText='Cancel'
               onConfirm={() => this.delete(record.key)}
             >
-              <IconButton icon={<i className='far fa-trash-alt' />} disabled={editingKey !== ''} />
+              <Button type='link' disabled={editingKey !== ''}>
+                <i className='far fa-trash-alt' />
+              </Button>
             </Popconfirm>
           </span>
         );

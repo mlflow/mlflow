@@ -4,7 +4,7 @@ import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import { modelListPageRoute, getCompareModelVersionsPageRoute } from '../routes';
-import { Radio, Icon, Descriptions, Menu, Dropdown, Modal, Tooltip } from 'antd';
+import { Radio, Icon, Descriptions, Menu, Dropdown, Modal, Tooltip, Button } from 'antd';
 import {
   ACTIVE_STAGES,
   REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT,
@@ -84,7 +84,10 @@ export class ModelView extends React.Component {
       <Menu>
         {this.getActiveVersionsCount() > 0 ? (
           <Menu.Item disabled className='delete'>
-            <Tooltip title={REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>
+            <Tooltip
+              placement='right'
+              title={REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}
+            >
               Delete
             </Tooltip>
           </Menu.Item>
@@ -138,7 +141,7 @@ export class ModelView extends React.Component {
     selectedRows.forEach((row) => {
       newState.runsSelected = {
         ...newState.runsSelected,
-        [row.run_id]: row.version,
+        [row.version]: row.run_id,
       };
     });
     this.setState(newState);

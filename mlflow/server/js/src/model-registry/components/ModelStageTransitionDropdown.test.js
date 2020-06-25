@@ -25,12 +25,13 @@ describe('ModelStageTransitionDropdown', () => {
 
   test('should omit current stage in dropdown', () => {
     const props = {
-      ...minimalProps,
+      ...commonProps,
       currentStage: Stages.STAGING,
     };
     wrapper = shallow(<ModelStageTransitionDropdown {...props} />);
     wrapper.find('.stage-transition-dropdown').simulate('click');
     const menuHtml = shallow(wrapper.find(Dropdown).props().overlay).html();
+
     expect(menuHtml).not.toContain(Stages.STAGING);
     expect(menuHtml).toContain(Stages.PRODUCTION);
     expect(menuHtml).toContain(Stages.NONE);

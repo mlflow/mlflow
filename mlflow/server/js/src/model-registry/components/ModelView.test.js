@@ -7,6 +7,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { getCompareModelVersionsPageRoute } from '../routes';
+import { Tooltip } from 'antd';
 
 describe('ModelView', () => {
   let wrapper;
@@ -122,6 +123,27 @@ describe('ModelView', () => {
     expect(deleteMenuItem.prop('aria-disabled')).toBe(true);
     deleteMenuItem.simulate('click');
     expect(wrapper.find(ModelView).instance().state.isDeleteModalVisible).toBe(false);
+  });
+
+  test('should place tooltip on the right', () => {
+    const props = {
+      ...minimalProps,
+      model: {
+        ...minimalProps.model,
+      },
+    };
+    wrapper = mount(
+      <BrowserRouter>
+        <ModelView {...props} />
+      </BrowserRouter>,
+    );
+    wrapper
+      .find('.breadcrumb-dropdown')
+      .hostNodes()
+      .simulate('click');
+    const deleteMenuItem = wrapper.find('.delete').hostNodes();
+    const tooltip = deleteMenuItem.find(Tooltip);
+    expect(tooltip.prop('placement')).toBe('right');
   });
 
   test('compare button is disabled when no/1 run selected, active when 2+ runs selected', () => {

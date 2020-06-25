@@ -92,7 +92,9 @@ export class ModelVersionView extends React.Component {
       <Menu>
         {ACTIVE_STAGES.includes(this.props.modelVersion.current_stage) ? (
           <Menu.Item disabled className='delete'>
-            <Tooltip title={MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>Delete</Tooltip>
+            <Tooltip placement='right' title={MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>
+              Delete
+            </Tooltip>
           </Menu.Item>
         ) : (
           <Menu.Item onClick={this.showDeleteModal} className='delete'>

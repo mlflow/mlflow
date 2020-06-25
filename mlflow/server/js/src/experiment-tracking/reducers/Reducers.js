@@ -149,14 +149,7 @@ export const paramsByRunUuid = (state = {}, action) => {
   }
 };
 
-export const getRunTags = (runUuid, state) => {
-  const tags = state.entities.tagsByRunUuid[runUuid];
-  if (tags) {
-    return tags;
-  } else {
-    return {};
-  }
-};
+export const getRunTags = (runUuid, state) => state.entities.tagsByRunUuid[runUuid] || {};
 
 export const getExperimentTags = (experimentId, state) => {
   const tags = state.entities.experimentTagsByExperimentId[experimentId];

@@ -1,5 +1,6 @@
 import { Services } from './services';
 import { getUUID, wrapDeferred } from '../common/utils/ActionUtils';
+import { REGISTERED_MODELS_PER_PAGE } from './constants';
 
 export const CREATE_REGISTERED_MODEL = 'CREATE_REGISTERED_MODEL';
 export const createRegisteredModelApi = (name, id = getUUID()) => ({
@@ -14,6 +15,20 @@ export const listRegisteredModelsApi = (id = getUUID()) => ({
   payload: wrapDeferred(Services.listRegisteredModels, {}),
   meta: { id },
 });
+
+export const SEARCH_REGISTERED_MODELS = 'SEARCH_REGISTERED_MODELS';
+export const searchRegisteredModelsApi = (filter, orderBy, pageToken, id = getUUID()) => {
+  return {
+    type: SEARCH_REGISTERED_MODELS,
+    payload: wrapDeferred(Services.searchRegisteredModels, {
+      filter,
+      max_results: REGISTERED_MODELS_PER_PAGE,
+      order_by: orderBy,
+      ...(pageToken ? { page_token: pageToken } : null),
+    }),
+    meta: { id },
+  };
+};
 
 export const UPDATE_REGISTERED_MODEL = 'UPDATE_REGISTERED_MODEL';
 export const updateRegisteredModelApi = (name, description, id = getUUID()) => ({

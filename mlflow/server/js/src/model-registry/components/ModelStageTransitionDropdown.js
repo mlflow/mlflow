@@ -2,7 +2,6 @@ import React from 'react';
 import { Dropdown, Menu, Icon, Modal } from 'antd';
 import PropTypes from 'prop-types';
 import { Stages, StageTagComponents, ActivityTypes } from '../constants';
-
 import _ from 'lodash';
 
 export class ModelStageTransitionDropdown extends React.Component {

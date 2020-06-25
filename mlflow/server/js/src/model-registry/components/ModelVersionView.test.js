@@ -3,7 +3,7 @@ import { shallow, mount } from 'enzyme';
 import { ModelVersionView } from './ModelVersionView';
 import { mockModelVersionDetailed } from '../test-utils';
 import { Stages, ModelVersionStatus, ACTIVE_STAGES } from '../constants';
-import { Dropdown } from 'antd';
+import { Dropdown, Tooltip } from 'antd';
 import { BrowserRouter } from 'react-router-dom';
 import Utils from '../../common/utils/Utils';
 
@@ -83,6 +83,34 @@ describe('ModelVersionView', () => {
       expect(deleteMenuItem.prop('aria-disabled')).toBe(true);
       deleteMenuItem.simulate('click');
       expect(wrapper.find(ModelVersionView).instance().state.isDeleteModalVisible).toBe(false);
+    }
+  });
+
+  test('should place tooltip on the right', () => {
+    let i;
+    for (i = 0; i < ACTIVE_STAGES.length; ++i) {
+      const props = {
+        ...minimalProps,
+        modelVersion: mockModelVersionDetailed(
+          'Model A',
+          1,
+          ACTIVE_STAGES[i],
+          ModelVersionStatus.READY,
+          [],
+        ),
+      };
+      wrapper = mount(
+        <BrowserRouter>
+          <ModelVersionView {...props} />
+        </BrowserRouter>,
+      );
+      wrapper
+        .find('.breadcrumb-dropdown')
+        .hostNodes()
+        .simulate('click');
+      const deleteMenuItem = wrapper.find('.delete').hostNodes();
+      const tooltip = deleteMenuItem.find(Tooltip);
+      expect(tooltip.prop('placement')).toBe('right');
     }
   });
 

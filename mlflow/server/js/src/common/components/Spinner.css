@@ -6,15 +6,16 @@
 }
 
 .Spinner img {
+    opacity: 0;
     position: absolute;
     top: 50%;
     left: 50%;
     width: 80px;
     height: 80px;
     margin:-40px 0 0 -40px;
-    -webkit-animation: spin 3s linear 1s infinite;
-    -moz-animation: spin 3s linear 1s infinite;
-    animation: spin 3s linear 1s infinite;
+    -webkit-animation: spin 3s linear 0.5s infinite;
+    -moz-animation: spin 3s linear 0.5s infinite;
+    animation: spin 3s linear 0.5s infinite;
 }
 
 .Spinner.Spinner-immediate img {

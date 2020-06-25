@@ -279,6 +279,7 @@ module.exports = {
     'prefer-rest-params': 2,
     'prefer-spread': 2,
     'prefer-template': 0,
+    'prettier/prettier': 'error',
     'quote-props': 0,
     'quotes': "off",
     'radix': 2,

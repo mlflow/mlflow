@@ -27,12 +27,12 @@ export const StageTagComponents = {
     </Tag>
   ),
   [Stages.PRODUCTION]: (
-    <Tag key='production' color='green'>
+    <Tag key='production' className='production-tag'>
       {StageLabels[Stages.PRODUCTION]}
     </Tag>
   ),
   [Stages.ARCHIVED]: (
-    <Tag key='archived' className='production-tag'>
+    <Tag key='archived' color='#eee' style={{ color: '#333' }}>
       {StageLabels[Stages.ARCHIVED]}
     </Tag>
   ),
@@ -70,12 +70,23 @@ export const ModelVersionStatusIcons = {
 
 export const MODEL_VERSION_STATUS_POLL_INTERVAL = 10000;
 
-export const MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT = `You cannot delete a model 
+export const REGISTERED_MODELS_PER_PAGE = 10;
+
+export const REGISTERED_MODELS_SEARCH_NAME_FIELD = 'name';
+
+export const REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD = 'timestamp';
+
+export const AntdTableSortOrder = {
+  ASC: 'ascend',
+  DESC: 'descend',
+};
+
+export const MODEL_VERSION_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT = `You cannot delete a model
 version in an active stage. To delete this model version, transition it to the 'Archived' stage.`;
 
-export const REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT = `You cannot delete a 
-registered model with versions in active stages ('Staging' or 'Production'). To delete this 
+export const REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT = `You cannot delete a
+registered model with versions in active stages ('Staging' or 'Production'). To delete this
 registered model, transition versions in active stages to the 'Archived' stage.`;
 
-export const archiveExistingVersionToolTipText = (currentStage) => `Model versions in the 
+export const archiveExistingVersionToolTipText = (currentStage) => `Model versions in the
 '${currentStage}' stage will be moved to the 'Archived' stage.`;
