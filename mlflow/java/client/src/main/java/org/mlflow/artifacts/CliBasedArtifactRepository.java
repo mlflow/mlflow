@@ -53,7 +53,8 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   // Run ID this repository is targeting.
   private final String runId;
 
-  // Used to pass the MLFLOW_TRACKING_URI on to the mlflow process.
+  // Used to pass credentials as environment variables
+  // (e.g., MLFLOW_TRACKING_URI or DATABRICKS_HOST) to the mlflow process.
   private final MlflowHostCredsProvider hostCredsProvider;
 
   public CliBasedArtifactRepository(
