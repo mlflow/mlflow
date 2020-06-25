@@ -172,7 +172,7 @@ To fetch a specific model version, just supply that version name as part of the 
         model_uri=f"models:/{model_name}/{model_version}
     )
 
-**Run the latest model version in a specific stage**
+**Load the latest model version in a specific stage**
 
 To fetch a model version by stage, simply provide the model stage as part of the model URI, and it will fetch the most recent version of the model in that stage.
 
