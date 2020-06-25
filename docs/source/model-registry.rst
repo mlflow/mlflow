@@ -153,7 +153,7 @@ While the method above creates an empty registered model with no version associa
     )
 
 Run a MLflow model from the Model Registry
---------------------------
+------------------------------------------
 
 Once you have added a model to the registry, you can run that model using :meth:`~mlflow.sklearn.load_model`. 
 
