@@ -193,6 +193,7 @@ Serve a MLflow Model from Model Registry
 After you have registered an MLflow model, you can serve the model as a service on your host.
 
 .. code-block:: bash
+
     #!/usr/bin/env sh
 
     echo "Deploying Production model name=sk-learn-random-forest-reg-model"
