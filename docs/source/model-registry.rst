@@ -159,7 +159,7 @@ After you have registered an MLflow model, you can load to run that model using 
 
 **Load a specific model version**
 
-To fetch a specific model version, just supply that version name as part of the model URI.
+To fetch a specific model version, just supply that version number as part of the model URI.
 
 .. code-block:: py
 
