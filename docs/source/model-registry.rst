@@ -157,7 +157,7 @@ Run a MLflow Model from the Model Registry
 
 After you have registered an MLflow model, you can run that model using :meth:`~mlflow.sklearn.load_model`. 
 
-**Run a specific model version**
+**Load a specific model version**
 
 To fetch a specific model version, just supply that version name as part of the model URI.
 
