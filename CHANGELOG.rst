@@ -1,5 +1,19 @@
 Changelog
 =========
+1.9.1 (2020-06-25)
+------------------
+MLflow 1.9.1 includes several major features and improvements:
+
+Features:
+
+
+
+Bug fixes and documentation updates:
+
+
+
+Small bug fixes and doc updates ()
+
 1.9.0 (2020-06-19)
 ------------------
 MLflow 1.9.0 includes numerous major features and improvements, and a breaking change to
