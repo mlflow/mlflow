@@ -198,15 +198,19 @@ class SqlAlchemyStore(AbstractStore):
             sql_registered_model = self._get_registered_model(session, name)
             session.delete(sql_registered_model)
 
-    def list_registered_models(self):
+    def list_registered_models(self, max_results, page_token):
         """
         List of all registered models.
+        :param max_results: Maximum number of registered models desired.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_registered_models`` call.
 
-        :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
         """
-        with self.ManagedSessionMaker() as session:
-            return [sql_registered_model.to_mlflow_entity()
-                    for sql_registered_model in session.query(SqlRegisteredModel).all()]
+        return self.search_registered_models(max_results=max_results,
+                                             page_token=page_token)
 
     def search_registered_models(self,
                                  filter_string=None,
@@ -216,8 +220,9 @@ class SqlAlchemyStore(AbstractStore):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
-        :param filter_string: A filter string expression. Currently supports a single filter
-                              condition either name of model like ``name = 'model_name'``
+        :param filter_string: Filter query string, defaults to searching all registered models.
+                              Currently supports a single filter condition based on
+                              the name of the model like ``name = 'model_name'``
         :param max_results: Maximum number of registered models desired.
         :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                          matching search results.
@@ -228,8 +233,6 @@ class SqlAlchemyStore(AbstractStore):
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
         """
-        if order_by:
-            raise NotImplementedError("Order by is not implemented for search registered models.")
         if max_results > SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results."
                                   "It must be at most {}, but got value {}"
@@ -237,12 +240,16 @@ class SqlAlchemyStore(AbstractStore):
                                           max_results),
                                   INVALID_PARAMETER_VALUE)
 
-        parsed_filter = SearchUtils.parse_filter_for_model_registry(filter_string)
+        parsed_filter = SearchUtils.parse_filter_for_registered_models(filter_string)
+        parsed_orderby = self._parse_search_registered_models_order_by(order_by)
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        # we query for max_results + 1 items to check whether there is another page to return.
+        # this remediates having to make another query which returns no items.
+        max_results_for_query = max_results + 1
 
         def compute_next_token(current_size):
             next_token = None
-            if max_results == current_size:
+            if max_results_for_query == current_size:
                 final_offset = offset + max_results
                 next_token = SearchUtils.create_page_token(final_offset)
             return next_token
@@ -251,23 +258,20 @@ class SqlAlchemyStore(AbstractStore):
             conditions = []
         elif len(parsed_filter) == 1:
             filter_dict = parsed_filter[0]
-            if filter_dict["comparator"] not in \
+            comparator = filter_dict['comparator'].upper()
+            if comparator not in \
                     SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS:
                 raise MlflowException('Search registered models filter expression only '
                                       'supports the equality(=) comparator, case-sensitive'
                                       'partial match (LIKE), and case-insensitive partial '
                                       'match (ILIKE). Input filter string: %s' % filter_string,
                                       error_code=INVALID_PARAMETER_VALUE)
-            if filter_dict["key"] == "name":
-                if filter_dict["comparator"] == "LIKE":
-                    conditions = [SqlRegisteredModel.name.like(filter_dict["value"])]
-                elif filter_dict["comparator"] == "ILIKE":
-                    conditions = [SqlRegisteredModel.name.ilike(filter_dict["value"])]
-                else:
-                    conditions = [SqlRegisteredModel.name == filter_dict["value"]]
+            if comparator == SearchUtils.LIKE_OPERATOR:
+                conditions = [SqlRegisteredModel.name.like(filter_dict["value"])]
+            elif comparator == SearchUtils.ILIKE_OPERATOR:
+                conditions = [SqlRegisteredModel.name.ilike(filter_dict["value"])]
             else:
-                raise MlflowException('Invalid filter string: %s' % filter_string,
-                                      error_code=INVALID_PARAMETER_VALUE)
+                conditions = [SqlRegisteredModel.name == filter_dict["value"]]
         else:
             supported_ops = ''.join(['(' + op + ')' for op in
                                      SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS])
@@ -281,14 +285,42 @@ class SqlAlchemyStore(AbstractStore):
             query = session\
                 .query(SqlRegisteredModel)\
                 .filter(*conditions)\
-                .order_by(SqlRegisteredModel.name.asc())\
-                .limit(max_results)
+                .order_by(*parsed_orderby)\
+                .limit(max_results_for_query)
             if page_token:
                 query = query.offset(offset)
             sql_registered_models = query.all()
-            registered_models = [rm.to_mlflow_entity() for rm in sql_registered_models]
-            next_page_token = compute_next_token(len(registered_models))
-            return PagedList(registered_models, next_page_token)
+            next_page_token = compute_next_token(len(sql_registered_models))
+            rm_entities = [rm.to_mlflow_entity() for rm in sql_registered_models][:max_results]
+            return PagedList(rm_entities, next_page_token)
+
+    @classmethod
+    def _parse_search_registered_models_order_by(cls, order_by_list):
+        """Sorts a set of registered models based on their natural ordering and an overriding set
+        of order_bys. Registered models are naturally ordered first by name ascending.
+        """
+        clauses = []
+        if order_by_list:
+            for order_by_clause in order_by_list:
+                attribute_token, ascending = \
+                    SearchUtils.parse_order_by_for_search_registered_models(order_by_clause)
+                if attribute_token == SqlRegisteredModel.name.key:
+                    field = SqlRegisteredModel.name
+                elif attribute_token in SearchUtils.VALID_TIMESTAMP_ORDER_BY_KEYS:
+                    field = SqlRegisteredModel.last_updated_time
+                else:
+                    raise MlflowException(
+                        f"Invalid order by key '{attribute_token}' specified."
+                        f"Valid keys are "
+                        f"'{SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS}'",
+                        error_code=INVALID_PARAMETER_VALUE)
+                if ascending:
+                    clauses.append(field.asc())
+                else:
+                    clauses.append(field.desc())
+
+        clauses.append(SqlRegisteredModel.name.asc())
+        return clauses
 
     def get_registered_model(self, name):
         """
@@ -491,7 +523,7 @@ class SqlAlchemyStore(AbstractStore):
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  objects.
         """
-        parsed_filter = SearchUtils.parse_filter_for_model_registry(filter_string)
+        parsed_filter = SearchUtils.parse_filter_for_model_versions(filter_string)
         if len(parsed_filter) == 0:
             conditions = []
         elif len(parsed_filter) == 1:

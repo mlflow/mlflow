@@ -1,6 +1,6 @@
 import React from 'react';
 import { connect } from 'react-redux';
-import Plot from '../../../node_modules/react-plotly.js/react-plotly';
+import Plot from 'react-plotly.js';
 import PropTypes from 'prop-types';
 import _ from 'lodash';
 
