@@ -196,7 +196,6 @@ After you have registered an MLflow model, you can serve the model as a service 
 
     #!/usr/bin/env sh
 
-    echo "Deploying Production model name=sk-learn-random-forest-reg-model"
     # Set environment variable for the tracking URL where the Model Registry resides
     export MLFLOW_TRACKING_URI=http://localhost:5000
 
