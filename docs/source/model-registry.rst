@@ -187,7 +187,7 @@ To fetch a model version by stage, simply provide the model stage as part of the
         model_uri=f"models:/{model_name}/{stage}
     )
 
-Serve a MLflow Model from Model Registry
+Serve an MLflow Model from Model Registry
 ----------------------------------------
 
 After you have registered an MLflow model, you can serve the model as a service on your host.
