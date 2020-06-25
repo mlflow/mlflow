@@ -7,12 +7,12 @@ import java.nio.file.Paths;
 import org.ini4j.Ini;
 import org.ini4j.Profile;
 
-public class DatabricksConfigHostCredsProvider implements MlflowHostCredsProvider {
+public class DatabricksConfigHostCredsProvider extends DatabricksHostCredsProvider {
   private static final String CONFIG_FILE_ENV_VAR = "DATABRICKS_CONFIG_FILE";
 
   private final String profile;
 
-  private MlflowHostCreds hostCreds;
+  private DatabricksMlflowHostCreds hostCreds;
 
   public DatabricksConfigHostCredsProvider(String profile) {
     this.profile = profile;
@@ -82,11 +82,11 @@ public class DatabricksConfigHostCredsProvider implements MlflowHostCredsProvide
         " (" + basePath + "). Please run 'databricks configure' using the Databricks CLI.");
     }
 
-    this.hostCreds = new BasicMlflowHostCreds(host, username, password, token, insecure);
+    this.hostCreds = new DatabricksMlflowHostCreds(host, username, password, token, insecure);
   }
 
   @Override
-  public MlflowHostCreds getHostCreds() {
+  public DatabricksMlflowHostCreds getHostCreds() {
     loadConfigIfNecessary();
     return hostCreds;
   }
