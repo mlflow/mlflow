@@ -174,7 +174,7 @@ To fetch a specific model version, just supply that version name as part of the 
 
 **Run the latest model version in a specific stage**
 
-Model Registry allows you to transition multiple versions of the model into the same or different stages. To fetch the model in its stage name, simply provide the model stage label as part of the model URI, and it will fetch the most recent version of the model in that stage.
+To fetch a model version by stage, simply provide the model stage as part of the model URI, and it will fetch the most recent version of the model in that stage.
 
 .. code-block:: py
 
