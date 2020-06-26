@@ -202,6 +202,31 @@ After you have registered an MLflow model, you can serve the model as a service 
     # Serve the production model from the model registry
     mlflow models serve -m "models:/sk-learn-random-forest-reg-model/Production"
 
+Download MLflow model from Model Registry
+-----------------------------------------
+
+You can download the model by using :meth:`~mlflow.tracking.MlflowClient.get_model_version_download_uri`.
+
+.. code-block:: py
+
+   from mlflow.tracking import MlflowClient
+
+   model_name = "sk-learn-random-forest-reg-model"
+   model_version = 1
+
+   client = MlflowClient()
+   model_artifact_uri = client.get_model_version_download_uri(model_name, model_version)
+   print(model_artifact_uri)
+
+
+After obtaining the download uri, you can download it via the Click
+
+.. code-block:: py
+
+    #!/usr/bin/env sh
+
+    mlflow artifacts download --artifact-uri <model_artifact_uri>
+
 Adding or Updating an MLflow Model Descriptions
 -----------------------------------------------
 
