@@ -8,9 +8,9 @@ export const createRegisteredModelApi = (name, id = getUUID()) => ({
   meta: { id, name },
 });
 
-export const LIST_REGISTRED_MODELS = 'LIST_REGISTRED_MODELS';
+export const LIST_REGISTERED_MODELS = 'LIST_REGISTERED_MODELS';
 export const listRegisteredModelsApi = (id = getUUID()) => ({
-  type: LIST_REGISTRED_MODELS,
+  type: LIST_REGISTERED_MODELS,
   payload: wrapDeferred(Services.listRegisteredModels, {}),
   meta: { id },
 });
