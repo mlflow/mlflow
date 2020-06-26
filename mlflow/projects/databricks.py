@@ -154,24 +154,6 @@ class DatabricksJobRunner(object):
             shutil.rmtree(temp_tarfile_dir)
         return dbfs_fuse_uri
 
-    def _supports_pypi_lower_bounds(self, runtime_version):
-        """
-        Returns True if the specified runtime version supports installing Pypi libraries with
-        version lower-bounds, without enclosing single quotes (e.g. mlflow<=1.8.0 vs
-        'mlflow<=1.8.0'). In general, newer runtime versions can handle version lower bounds with
-        or without enclosing single quotes, while older runtime versions require single-quotes for
-        the version to be properly shell-escaped.
-        """
-        if runtime_version is None or len(runtime_version) == 0:
-            return False
-        try:
-            major_runtime_version = int(runtime_version[0])
-        except ValueError:
-            # Assume runtime versions that do not start with an int (e.g. latest-experimental)
-            # are "new".
-            return True
-        return major_runtime_version >= 6
-
     def _run_shell_command_job(self, project_uri, command, env_vars, cluster_spec):
         """
         Run the specified shell command on a Databricks cluster.
@@ -197,10 +179,7 @@ class DatabricksJobRunner(object):
         # NB: We use <= on the version specifier to allow running projects on pre-release
         # versions, where we will select the most up-to-date mlflow version available.
         # Also note, that we escape this so '<' is not treated as a shell pipe.
-        if self._supports_pypi_lower_bounds(cluster_spec.get("spark_version")):
-            libraries = [{"pypi": {"package": "mlflow<=%s" % VERSION}}]
-        else:
-            libraries = [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
+        libraries = [{"pypi": {"package": "mlflow<=%s" % VERSION}}]
 
         # Check syntax of JSON - if it contains libraries and new_cluster as top-level fields,
         # pull libraries out

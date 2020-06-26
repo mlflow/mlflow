@@ -269,15 +269,9 @@ def test_run_databricks_cluster_spec_json(
         runs_submit_args, _ = runs_submit_mock.call_args_list[0]
         req_body = runs_submit_args[0]
         assert req_body["new_cluster"] == cluster_spec
-        expected_mlflow_lib = "'mlflow<=%s'" % mlflow.__version__
-        if runtime_version.startswith("5"):
-            assert req_body["libraries"] == [
-                {"pypi": {"package": "'mlflow<=%s'" % mlflow.__version__}},
-            ]
-        else:
-            assert req_body["libraries"] == [
-                {"pypi": {"package": "mlflow<=%s" % mlflow.__version__}},
-            ]
+        assert req_body["libraries"] == [
+            {"pypi": {"package": "mlflow<=%s" % mlflow.__version__}},
+        ]
 
 
 @pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
