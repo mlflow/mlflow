@@ -219,7 +219,7 @@ You can download the model by using :meth:`~mlflow.tracking.MlflowClient.get_mod
    print(model_artifact_uri)
 
 
-After obtaining the download uri, you can download it via the Click
+After obtaining the download uri, you can download it via the MLflow CLI.
 
 .. code-block:: py
 
