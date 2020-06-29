@@ -36,7 +36,7 @@ Annotations and Descriptions
 Model Registry Workflows
 ========================
 If running your own MLflow server, you must use a database-backed backend store in order to access
-the model registry via the UI or API. `See here <../tracking.html#backend-stores>`_ for more information.
+the model registry via the UI or API. `See here <tracking.html#backend-stores>`_ for more information.
 
 Before you can add a model to the Model Registry, you must log it using the ``log_model`` methods
 of the corresponding model flavors. Once a model has been logged, you can add, modify, update, transition,
