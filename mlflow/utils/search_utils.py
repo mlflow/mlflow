@@ -371,13 +371,14 @@ class SearchUtils(object):
             raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
                                   error_code=INVALID_PARAMETER_VALUE)
         elif len(tokens) == 2:
-            if tokens[1].lower() not in cls.VALID_ORDER_BY_TAGS:
+            order_token = tokens[1].lower()
+            if order_token not in cls.VALID_ORDER_BY_TAGS:
                 raise MlflowException(f"Invalid ordering key in order_by clause '{order_by}'.",
                                       error_code=INVALID_PARAMETER_VALUE)
-            if tokens[1].lower() == cls.DESC_OPERATOR:
+            if order_token == cls.DESC_OPERATOR:
                 is_ascending = False
                 token_value = tokens[0]
-            elif tokens[1].lower() == cls.ASC_OPERATOR:
+            elif order_token == cls.ASC_OPERATOR:
                 token_value = tokens[0]
         return token_value, is_ascending
 
