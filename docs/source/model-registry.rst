@@ -172,6 +172,8 @@ To fetch a specific model version, just supply that version number as part of th
         model_uri=f"models:/{model_name}/{model_version}
     )
 
+    model.predict(data)
+
 **Fetch the latest model version in a specific stage**
 
 To fetch a model version by stage, simply provide the model stage as part of the model URI, and it will fetch the most recent version of the model in that stage.
@@ -186,6 +188,8 @@ To fetch a model version by stage, simply provide the model stage as part of the
     model = mlflow.pyfunc.load_model(
         model_uri=f"models:/{model_name}/{stage}
     )
+
+    model.predict(data)
 
 Serving an MLflow Model from Model Registry
 -------------------------------------------
