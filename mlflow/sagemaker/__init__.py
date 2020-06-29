@@ -131,11 +131,11 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
         os_command_separator = " && "
         # In order to execute the outcome of aws ecr get-login
         # in cmd, we need to save it in a temp file first
-        docker_login_cmd = "aws ecr get-login --no-include-email > docker_login_url_temp.cmd" \
+        docker_login_cmd = "aws ecr get-login-password > docker_login_url_temp.cmd" \
             "{os_command_separator} call docker_login_url_temp.cmd {os_command_separator}" \
             "del docker_login_url_temp.cmd".format(os_command_separator=os_command_separator)
     else:
-        docker_login_cmd = "$(aws ecr get-login --no-include-email)"
+        docker_login_cmd = "$(aws ecr get-login-password)"
     docker_tag_cmd = "docker tag {image} {fullname}".format(
         image=image, fullname=fullname)
     docker_push_cmd = "docker push {}".format(fullname)
