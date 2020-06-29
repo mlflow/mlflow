@@ -106,7 +106,7 @@ export class EditableTable extends React.Component {
           </span>
         ) : (
           <span>
-           <IconButton
+            <IconButton
               icon={<Icon type='edit' />}
               disabled={editingKey !== ''}
               onClick={() => this.edit(record.key)}
