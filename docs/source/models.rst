@@ -81,6 +81,100 @@ time_created
 run_id
     ID of the run that created the model, if the model was saved using :ref:`tracking`.
 
+signature
+  model signature (see below) in JSON format.
+
+input_example
+  reference to an artifact with input example (see below).
+
+
+.. _model-metadata:
+
+Model Metadata
+--------------
+When working with ML models you often need to know some basic functional properties of the model
+at hand, such as "What inputs does it expect?" and "What output does it produce?". MLflow models can
+include the following additional metadata that can be used by downstream tooling:
+
+Model Signature
+^^^^^^^^^^^^^^^
+Model signature defines schema of model input and output. Both model input and output can be
+described as a sequence of (optionally) named columns with type specified as one of the
+:py:class:`MLflow data types <mlflow.types.DataType>`. The signature is stored
+in JSON format in MLmodel file together with other model metadata. Model signatures are  recognized
+(and enforced) by standard MLflow model tools, such as when deploying python function as a REST API
+endpoint with mlflow model serve.
+
+Below is an example  of model signature for classification model build over well known iris dataset.
+The input is 4 named numeric columns, output is unnamed integer specifying the predicted class:
+
+.. code-block:: yaml
+
+  signature:
+      inputs: '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width
+        (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
+        "petal width (cm)", "type": "double"}]'
+      outputs: [{"type": "integer"}]
+
+Signature Enforcement
+~~~~~~~~~~~~~~~~~~~~~
+MLflow will enforce input schema when scoring models that include signature. The schema enforcement
+checks input column ordering and column types and will raise an exception if the input is not
+compatible. This enforcement is applied in MLflow before calling the underlying model
+implementation. Note that this enforcement only applies when using MLflow model deployment tools or
+when loading models as ``python_function``. In particular, it is not applied to models that are
+loaded in their native format (e.g. by calling mlflow.sklearn.load_model).
+
+Column Ordering Enforcement
+"""""""""""""""""""""""""""
+The input columns are reordered according to the model signature. If there are any missing columns,
+MLflow will raise an exception. Extra columns that were not declared in the  signature will be
+ignored.
+
+Column Type Enforcement
+"""""""""""""""""""""""
+The input columns are checked to have types compatible with the signature. MLflow will perform safe
+type conversions if necessary. Generally, only upcasts (e.g. integer -> long or
+float -> double) are considered to be safe. If the types can not be made compatible, MLflow will
+raise an error.
+
+
+How To Log Models With Signature
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+from datasets with valid model input (e.g. the training dataset with target
+column omitted) and valid model output (e.g. model predictions generated on
+the training dataset). To include signature with your model, add it to the appropriate log_model
+call, e.g. :py:func:`sklearn.log_model <mlflow.sklearn.log_model>`:
+
+.. code-block:: python
+
+    from mlflow.models.signature import infer_signature
+    train = df.drop_column("target_label")
+    predictions = ... # compute model predictions
+    signature = infer_signature(train, predictions)
+    mlflow.sklearn.log_model(..., signature=signature)
+
+
+Model Input Example
+^^^^^^^^^^^^^^^^^^^
+Input example provides one or several instances of valid model input. The example can be used as a
+hint of what data to feed the model. Input examples are stored with the model as separate artifacts
+and are referenced in the MLmodel file.
+
+How To Log Model With Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To include input example with your model, add it to the appropriate log_model call, e.g.
+:py:func:`sklearn.log_model <mlflow.sklearn.log_model>`:
+
+.. code-block:: python
+
+    input_example = df.drop_column("target_label").head(3)
+    mlflow.sklearn.log_model(..., input_example=input_example)
+
+
+
+
 .. _model-api:
 
 Model API
@@ -115,37 +209,42 @@ flavors to benefit from all these tools:
 
 Python Function (``python_function``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``python_function`` model flavor serves as a default model interface for MLflow python models.
+Any MLflow python model is expected to be loadable as a ``python_function`` model. This enables
+other MLflow tools to work with any python models regardless of which persistence module or
+framework was used to produce the model. This interoperability is very powerful because it allows
+any Python model to be productionized in a variety of environments.
 
-The ``python_function`` model flavor defines a generic filesystem format for Python models and provides utilities
-for saving and loading models to and from this format. The format is self-contained in the sense
-that it includes all the information necessary to load and use a model. Dependencies
-are stored either directly with the model or referenced via Conda environment.
+In addition, the ``python_function`` model flavor defines a generic filesystem :ref:`model format
+<pyfunc-filesystem-format>` for Python models and provides utilities for saving and loading models
+to and from this format. The format is self-contained in the sense that it includes all the
+information necessary to load and use a model. Dependencies are stored either directly with the
+model or referenced via conda environment. This model format allows other tools to integrate
+their models with MLflow.
 
-Many MLflow Model persistence modules, such as :mod:`mlflow.sklearn`, :mod:`mlflow.keras`,
-and :mod:`mlflow.pytorch`, produce models with the ``python_function`` (``pyfunc``) flavor. This
-means that they adhere to the :ref:`python_function filesystem format <pyfunc-filesystem-format>`
-and can be interpreted as generic Python classes that implement the specified
-:ref:`inference API <pyfunc-inference-api>`. Therefore, any tool that operates on these ``pyfunc``
-classes can operate on any MLflow Model containing the ``pyfunc`` flavor, regardless of which
-persistence module or framework was used to produce the model. This interoperability is very
-powerful because it allows any Python model to be productionized in a variety of environments.
+How To Save Model As Python Function
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Most python function models are saved as part of other model flavors - for example, all mlflow
+built-in flavors include python function flavor in the exported models. In addition, the
+:py:mod:`mlflow.pyfunc` module defines functions for saving ``python_function`` flavor explicitly.
+This module also includes utilities for creating custom Python models which is a convenient way of
+adding custom python code to ML models. For more information, see the :ref:`custom Python models
+documentation <custom-python-models>`.
 
-The convention for ``python_function`` models is to have a ``predict`` method or function with the following
-signature:
 
-.. code-block:: py
+How To Load And Score Python Function Models
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+You can load python_function model directly in python by calling :py:func:`mlflow.pyfunc.load_model`
+function. Note that the ``load_model`` function assumes that all dependencies are already available
+and *will not* check nor install any dependencies (
+see :ref:`model deployment section <built-in-deployment>` for ways how to deploy models with
+automatic dependency management).
 
-    predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.Series | pandas.DataFrame]
+Once loaded, you can score the model by calling :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>`
+method which has the following signature::
 
-Other MLflow components expect ``python_function`` models to follow this convention.
+  predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.(Series | DataFrame)]
 
-The ``python_function`` :ref:`model format <pyfunc-filesystem-format>` is defined as a directory
-structure containing all required data, code, and configuration.
-
-The :py:mod:`mlflow.pyfunc` module defines functions for saving and loading MLflow Models with the
-``python_function`` flavor. This module also includes utilities for creating custom Python models.
-For more information, see the :ref:`custom Python models documentation <custom-python-models>`
-and the :mod:`mlflow.pyfunc` documentation.
 
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -514,6 +613,8 @@ defines a :py:mod:`load_model() <mlflow.pytorch.load_model>` method.
 :py:mod:`mlflow.pytorch.load_model()` reads the ``MLmodel`` configuration from a specified
 model directory and uses the configuration attributes of the ``pytorch`` flavor to load
 and return a PyTorch model from its serialized representation.
+
+.. _built-in-deployment:
 
 Built-In Deployment Tools
 -------------------------
