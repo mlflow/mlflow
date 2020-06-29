@@ -791,3 +791,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                            order_by=['timestamp somerandomstuff'],
                                            max_results=5)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # test that timestamp with random strings is invalid
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_registered_models(query,
+                                           page_token=None,
+                                           order_by=['timestamp decs'],
+                                           max_results=5)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # test that timestamp with random strings is invalid
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_registered_models(query,
+                                           page_token=None,
+                                           order_by=['timestamp ACS'],
+                                           max_results=5)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
