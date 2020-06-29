@@ -4,7 +4,7 @@ import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import { modelListPageRoute, getCompareModelVersionsPageRoute } from '../routes';
-import { Radio, Icon, Descriptions, Menu, Dropdown, Modal, Tooltip, Button } from 'antd';
+import { Radio, Icon, Descriptions, Menu, Dropdown, Modal, Tooltip } from 'antd';
 import {
   ACTIVE_STAGES,
   REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT,
