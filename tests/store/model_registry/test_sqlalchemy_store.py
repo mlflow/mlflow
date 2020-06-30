@@ -515,6 +515,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rms, _ = self._search_registered_models(f"name iLike '%blah%'")
         self.assertEqual(rms, [])
 
+        # confirm that ILIKE works for empty query
+        rms, _ = self._search_registered_models(f"name iLike '%%'")
+        self.assertEqual(rms, names)
+
         rms, _ = self._search_registered_models(f"name ilike '%RM4a'")
         self.assertEqual(rms, names[4:])
 
@@ -715,16 +719,32 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                                    order_by=['timestamp  ASC'],
                                                    max_results=100)
         self.assertEqual([rm1, rm2, rm3, rm4], result)
+        # validate order by key is case-insensitive
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp  asc'],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp  aSC'],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp  desc',
+                                                             'name desc'],
+                                                   max_results=100)
+        self.assertEqual([rm4, rm3, rm2, rm1], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp  deSc',
+                                                             'name deSc'],
+                                                   max_results=100)
+        self.assertEqual([rm4, rm3, rm2, rm1], result)
 
     def test_search_registered_model_order_by_errors(self):
         query = "name LIKE 'RM%'"
-        # test that invalid columns throw
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models(query,
-                                           page_token=None,
-                                           order_by=['creation_timestamp DESC'],
-                                           max_results=5)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # test that invalid columns throw even if they come after valid columns
         with self.assertRaises(MlflowException) as exception_context:
             self._search_registered_models(query,
@@ -732,34 +752,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                            order_by=['name ASC', 'creation_timestamp DESC'],
                                            max_results=5)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        # test that random stuff in a clause correctly throws
+        # test that invalid columns with random text throw even if they come after valid columns
         with self.assertRaises(MlflowException) as exception_context:
             self._search_registered_models(query,
                                            page_token=None,
                                            order_by=['name ASC',
                                                      'last_updated_timestamp DESC blah'],
-                                           max_results=5)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        # test that empty clause throws
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models(query,
-                                           page_token=None,
-                                           order_by=['name ASC',
-                                                     ''],
-                                           max_results=5)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        # test timestamp with garbage between valid tokens works
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models(query,
-                                           page_token=None,
-                                           order_by=['timestamp somerandomstuff ASC'],
-                                           max_results=5)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-        # test that timestamp with random strings is invalid
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models(query,
-                                           page_token=None,
-                                           order_by=['timestamp somerandomstuff'],
                                            max_results=5)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

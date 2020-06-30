@@ -19,6 +19,9 @@ from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel
 class SearchUtils(object):
     LIKE_OPERATOR = "LIKE"
     ILIKE_OPERATOR = "ILIKE"
+    ASC_OPERATOR = "asc"
+    DESC_OPERATOR = "desc"
+    VALID_ORDER_BY_TAGS = [ASC_OPERATOR, DESC_OPERATOR]
     VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
     VALID_PARAM_COMPARATORS = set(['!=', '=', LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_TAG_COMPARATORS = set(['!=', '=', LIKE_OPERATOR, ILIKE_OPERATOR])
@@ -363,11 +366,17 @@ class SearchUtils(object):
     def _parse_order_by_string(cls, order_by):
         token_value = cls._validate_order_by_and_generate_token(order_by)
         is_ascending = True
-        if token_value.lower().endswith(" desc"):
-            is_ascending = False
-            token_value = token_value[0:-len(" desc")]
-        elif token_value.lower().endswith(" asc"):
-            token_value = token_value[0:-len(" asc")]
+        tokens = token_value.split()
+        if len(tokens) > 2:
+            raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
+                                  error_code=INVALID_PARAMETER_VALUE)
+        elif len(tokens) == 2:
+            order_token = tokens[1].lower()
+            if order_token not in cls.VALID_ORDER_BY_TAGS:
+                raise MlflowException(f"Invalid ordering key in order_by clause '{order_by}'.",
+                                      error_code=INVALID_PARAMETER_VALUE)
+            is_ascending = (order_token == cls.ASC_OPERATOR)
+            token_value = tokens[0]
         return token_value, is_ascending
 
     @classmethod
