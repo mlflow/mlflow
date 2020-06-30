@@ -82,10 +82,10 @@ run_id
     ID of the run that created the model, if the model was saved using :ref:`tracking`.
 
 signature
-  model signature (see below) in JSON format.
+  :ref:`model signature <model-signature>` in JSON format.
 
 input_example
-  reference to an artifact with input example (see below).
+  reference to an artifact with :ref:`input example <input-example>`.
 
 
 .. _model-metadata:
@@ -96,13 +96,17 @@ When working with ML models you often need to know some basic functional propert
 at hand, such as "What inputs does it expect?" and "What output does it produce?". MLflow models can
 include the following additional metadata that can be used by downstream tooling:
 
+.. _model-signature:
+
 Model Signature
 ^^^^^^^^^^^^^^^
 The Model signature defines the schema of a model's inputs and outputs. Model inputs and outputs are
 described as a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`. The signature is stored
-in JSON format in the MLmodel file, together with other model metadata. Model signatures are recognized
-and enforced by standard MLflow model tools. For example, the `mlflow models serve` tool, which deploys a model as a REST API, validates inputs based on the model's signature.
+in JSON format in the ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
+Model signatures are recognized and enforced by standard MLflow model tools. For example, the
+:ref:`mlflow models serve <local_model_deployment>` tool, which deploys a model as a REST API, validates inputs based on the
+model's signature.
 
 Below is an example  of model signature for classification model build over well known iris dataset.
 The input is 4 named numeric columns, output is unnamed integer specifying the predicted class:
@@ -154,6 +158,8 @@ call, e.g. :py:func:`sklearn.log_model <mlflow.sklearn.log_model>`:
     signature = infer_signature(train, predictions)
     mlflow.sklearn.log_model(..., signature=signature)
 
+
+.. _input-example:
 
 Model Input Example
 ^^^^^^^^^^^^^^^^^^^
