@@ -98,7 +98,7 @@ include the following additional metadata that can be used by downstream tooling
 
 Model Signature
 ^^^^^^^^^^^^^^^
-Model signature defines schema of model input and output. Both model input and output can be
+The Model signature defines the schema of a model's inputs and outputs. Model inputs and outputs are
 described as a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`. The signature is stored
 in JSON format in MLmodel file together with other model metadata. Model signatures are  recognized
