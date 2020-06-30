@@ -21,7 +21,7 @@ Inference API
 *************
 
 Python function models are loaded as an instance of :py:class:`PyFuncModel
-<mlflow.pyfunc.PyFuncModel>` which is an MLflow wrapper around the model implementation and model
+<mlflow.pyfunc.PyFuncModel>`, which is an MLflow wrapper around the model implementation and model
 metadata (MLmodel file). you can score the model by calling :py:func:`predict
 <mlflow.pyfunc.PyFuncModel.predict>` method which has the following signature::
 
