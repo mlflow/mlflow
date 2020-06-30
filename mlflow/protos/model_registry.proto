@@ -364,8 +364,8 @@ message GetRegisteredModel {
 message ListRegisteredModels {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Maximum number of registered models desired. Max threshold is 50K.
-  optional int64 max_results = 1 [default = 50000];
+  // Maximum number of registered models desired. Max threshold is 1000.
+  optional int64 max_results = 1 [default = 100];
 
   // Pagination token to go to the next page based on a previous query.
   optional string page_token = 2;
