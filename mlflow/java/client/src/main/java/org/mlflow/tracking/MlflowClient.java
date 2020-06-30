@@ -210,7 +210,7 @@ public class MlflowClient implements Serializable {
     return searchRuns(experimentIds, searchFilter, runViewType, maxResults, orderBy, null);
   }
 
-  /**
+    /**
    * Return runs from provided list of experiments that satisfy the search query.
    *
    * @param experimentIds List of experiment IDs.
@@ -233,6 +233,35 @@ public class MlflowClient implements Serializable {
                               int maxResults,
                               List<String> orderBy,
                               String pageToken) {
+    return searchRuns(experimentIds, searchFilter, runViewType, maxResults, orderBy, pageToken,
+                      null);
+}
+
+  /**
+   * Return runs from provided list of experiments that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs.
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
+   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of runs desired in one page.
+   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   * @param pageToken String token specifying the next page of results. It should be obtained from
+   *             a call to {@link #searchRuns(List, String)}.
+   * @param columnsToWhiteList List of columns (tags, params, metrics) to query.
+   *             If None, then reads all columns
+   * @return A page of Runs that satisfy the search filter.
+   */
+  public RunsPage searchRuns(List<String> experimentIds,
+                              String searchFilter,
+                              ViewType runViewType,
+                              int maxResults,
+                              List<String> orderBy,
+                              String pageToken,
+                              List<String> columnsToWhiteList) {
     SearchRuns.Builder builder = SearchRuns.newBuilder()
             .addAllExperimentIds(experimentIds)
             .addAllOrderBy(orderBy)
@@ -247,6 +276,13 @@ public class MlflowClient implements Serializable {
     if (pageToken != null) {
       builder.setPageToken(pageToken);
     }
+
+    if (columnsToWhiteList != null) {
+      builder = builder.setColumnsToWhitelist(
+        ColumnsToWhitelist.newBuilder().addAllColumns(columnsToWhiteList)
+      );
+    }
+
     SearchRuns request = builder.build();
     String ijson = mapper.toJson(request);
     String ojson = sendPost("runs/search", ijson);
