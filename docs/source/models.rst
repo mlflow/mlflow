@@ -224,7 +224,7 @@ How To Save Model As Python Function
 Most ``python_function`` models are saved as part of other model flavors - for example, all mlflow
 built-in flavors include ``python_function`` flavor in the exported models. In addition, the
 :py:mod:`mlflow.pyfunc` module defines functions for saving ``python_function`` flavor explicitly.
-This module also includes utilities for creating custom Python models which is a convenient way of
+This module also includes utilities for creating custom Python models, which is a convenient way of
 adding custom python code to ML models. For more information, see the :ref:`custom Python models
 documentation <custom-python-models>`.
 
