@@ -234,7 +234,7 @@ How To Load And Score Python Function Models
 You can load python_function model directly in python by calling :py:func:`mlflow.pyfunc.load_model`
 function. Note that the ``load_model`` function assumes that all dependencies are already available
 and *will not* check nor install any dependencies (
-see :ref:`model deployment section <built-in-deployment>` for ways how to deploy models with
+see :ref:`model deployment section <built-in-deployment>` for tools to deploy models with
 automatic dependency management).
 
 Once loaded, you can score the model by calling :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>`
