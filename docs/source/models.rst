@@ -127,17 +127,17 @@ loaded in their native format (e.g. by calling mlflow.sklearn.load_model).
 
 Column Ordering Enforcement
 """""""""""""""""""""""""""
-The input columns are reordered according to the model signature. If there are any missing columns,
-MLflow will raise an exception. Extra columns that were not declared in the  signature will be
-ignored.
+The input columns are checked against the model signature. If there are any missing columns,
+MLflow will raise an exception. Extra columns that were not declared in the signature will be
+ignored. If the input schema in the signature defines column names, column matching is done by name
+and the columns are reordered to match the signature. If the input schema does not have column
+names, matching is done by position (i.e. MLflow will only check the number of columns).
 
 Column Type Enforcement
 """""""""""""""""""""""
-The input columns are checked to have types compatible with the signature. MLflow will perform safe
-type conversions if necessary. Generally, only upcasts (e.g. integer -> long or
-float -> double) are considered to be safe. If the types can not be made compatible, MLflow will
-raise an error.
-
+The input column types are checked against the signature. MLflow will perform safe type conversions
+if necessary. Generally, only upcasts (e.g. integer -> long or float -> double) are considered to be
+safe. If the types can not be made compatible, MLflow will raise an error.
 
 How To Log Models With Signature
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -171,8 +171,6 @@ To include input example with your model, add it to the appropriate log_model ca
 
     input_example = df.drop_column("target_label").head(3)
     mlflow.sklearn.log_model(..., input_example=input_example)
-
-
 
 
 .. _model-api:
@@ -209,8 +207,8 @@ flavors to benefit from all these tools:
 
 Python Function (``python_function``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ``python_function`` model flavor serves as a default model interface for MLflow python models.
-Any MLflow python model is expected to be loadable as a ``python_function`` model. This enables
+The ``python_function`` model flavor serves as a default model interface for MLflow Python models.
+Any MLflow Python model is expected to be loadable as a ``python_function`` model. This enables
 other MLflow tools to work with any python models regardless of which persistence module or
 framework was used to produce the model. This interoperability is very powerful because it allows
 any Python model to be productionized in a variety of environments.
@@ -224,8 +222,8 @@ their models with MLflow.
 
 How To Save Model As Python Function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Most python function models are saved as part of other model flavors - for example, all mlflow
-built-in flavors include python function flavor in the exported models. In addition, the
+Most ``python_function`` models are saved as part of other model flavors - for example, all mlflow
+built-in flavors include ``python_function`` flavor in the exported models. In addition, the
 :py:mod:`mlflow.pyfunc` module defines functions for saving ``python_function`` flavor explicitly.
 This module also includes utilities for creating custom Python models which is a convenient way of
 adding custom python code to ML models. For more information, see the :ref:`custom Python models
