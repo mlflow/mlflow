@@ -102,8 +102,7 @@ The Model signature defines the schema of a model's inputs and outputs. Model in
 described as a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`. The signature is stored
 in JSON format in the MLmodel file, together with other model metadata. Model signatures are recognized
-(and enforced) by standard MLflow model tools, such as when deploying python function as a REST API
-endpoint with mlflow model serve.
+and enforced by standard MLflow model tools. For example, the `mlflow models serve` tool, which deploys a model as a REST API, validates inputs based on the model's signature.
 
 Below is an example  of model signature for classification model build over well known iris dataset.
 The input is 4 named numeric columns, output is unnamed integer specifying the predicted class:
