@@ -6,6 +6,7 @@ import java.util.UUID
 
 import org.apache.spark.mlflow.MlflowSparkAutologgingTestUtils
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.mockito.Matchers.any
@@ -53,6 +54,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
       .builder()
       .appName("MLflow Spark Autologging Tests")
       .config("spark.master", "local")
+      .config(SQLConf.USE_V1_SOURCE_LIST.key, "")
       .getOrCreate()
   }
 
@@ -212,9 +214,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     df.collect()
     Thread.sleep(1000)
 
-    // because spark load csv datasource will trigger a filescan job,
-    // the subscriber will receive two notify message, which one is scan csv job, other is scan text job.
-    verify(subscriber, times(2)).notify(any(), any(), any())
+    verify(subscriber, times(1)).notify(any(), any(), any())
     verify(subscriber, times(1)).notify(
       getFileUri(path), "unknown", format)
   }

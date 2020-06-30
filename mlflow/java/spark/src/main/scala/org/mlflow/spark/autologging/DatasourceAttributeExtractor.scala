@@ -6,7 +6,7 @@ import org.apache.spark.sql.execution.datasources.v2.{DataSourceV2Relation, File
 import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
 import org.apache.spark.sql.connector.catalog.Table
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd
-import org.apache.spark.sql.sources.{BaseRelation, DataSourceRegister}
+import org.apache.spark.sql.sources.DataSourceRegister
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.control.NonFatal
@@ -37,14 +37,6 @@ private[autologging] trait DatasourceAttributeExtractorBase {
     }
   }
 
-  private def getSparkTableInfoFromBaseRelation: BaseRelation => Option[SparkTableInfo] = {
-    case relation@ HadoopFsRelation(location, _, _, _, format, _) =>
-      val path = location.rootPaths.headOption.map(_.toString).getOrElse("")
-      val formatOpt = Option(format.toString.toLowerCase())
-      Option(SparkTableInfo(path, None, formatOpt))
-    case other => None
-  }
-
   protected def maybeGetDeltaTableInfo(plan: LogicalPlan): Option[SparkTableInfo]
 
   /**
@@ -59,8 +51,6 @@ private[autologging] trait DatasourceAttributeExtractorBase {
       leafNode match {
         case relation: DataSourceV2Relation =>
           getSparkTableInfoFromTable(relation.table)
-        case relation: LogicalRelation =>
-          getSparkTableInfoFromBaseRelation(relation.relation)
         case other =>
           None
       }
