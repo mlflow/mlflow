@@ -20,6 +20,6 @@ mlflow ui
 ## Running the code as a project
 
 ```
-mlflow run . -P learning-rate=0.2 -P colsample-bytree=0.8 -P subsample=0.9
+mlflow run . -P learning_rate=0.2 -P colsample_bytree=0.8 -P subsample=0.9
 
 ```
