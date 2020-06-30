@@ -251,15 +251,11 @@ def test_run_databricks(runs_submit_mock, runs_get_mock, cluster_spec_mock, set_
 
 @pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
                          "dbfs_mocks", "cluster_spec_mock", "set_tag_mock")
-@pytest.mark.parametrize("runtime_version", [
-    '5.5.x-scala2.11', '6.6.x-scala2.11', '7.0.x-cpu-ml-scala2.12', 'latest-experimental-scala2.12'
-])
-def test_run_databricks_cluster_spec_json(
-        runs_submit_mock, runs_get_mock, runtime_version):
+def test_run_databricks_cluster_spec_json(runs_submit_mock, runs_get_mock):
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
         cluster_spec = {
-            "spark_version": runtime_version,
+            "spark_version": '7.0.x-cpu-ml-scala2.12',
             "num_workers": 2,
             "node_type_id": "i3.xlarge",
         }

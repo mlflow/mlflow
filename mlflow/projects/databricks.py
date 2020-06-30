@@ -172,6 +172,16 @@ class DatabricksJobRunner(object):
                  Databricks
                  `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
         """
+        # Allow specifying either
+        # (1) A ClusterSpec
+        # (https://docs.databricks.com/dev-tools/api/latest/jobs.html#jobsclusterspec) containing
+        # a new_cluster and optionally libraries, e.g:
+        # {
+        #   "new_cluster": {...},
+        #   "libraries": [...], <-- cluster-wide libraries are optional
+        # }
+        # or (2) a NewCluster object
+        # (https://docs.databricks.com/dev-tools/api/latest/jobs.html#jobsclusterspecnewcluster)
         if 'new_cluster' in cluster_spec:
             final_cluster_spec = cluster_spec['new_cluster']
         else:
