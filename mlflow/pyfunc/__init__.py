@@ -20,10 +20,10 @@ using frameworks and inference logic that may not be natively included in MLflow
 Inference API
 *************
 
-Python function models are loaded as an instance of :py:class:`PyFuncModel <mlflow.pyfunc.PyFuncModel>`
-which is an MLflow wrapper around the model implementation and model metadata (MLmodel file).
-you can score the model by calling :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>`
-method which has the following signature::
+Python function models are loaded as an instance of :py:class:`PyFuncModel
+<mlflow.pyfunc.PyFuncModel>` which is an MLflow wrapper around the model implementation and model
+metadata (MLmodel file). you can score the model by calling :py:func:`predict
+<mlflow.pyfunc.PyFuncModel.predict>` method which has the following signature::
 
   predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.(Series | DataFrame)]
 
