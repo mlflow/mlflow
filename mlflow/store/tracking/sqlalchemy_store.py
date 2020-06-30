@@ -526,8 +526,10 @@ class SqlAlchemyStore(AbstractStore):
                     if is_nan:
                         value = 0
                     elif math.isinf(metric.value):
-                        #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float value
-                        value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
+                        #  NB: Sql can not represent Infs = > We replace +/- Inf
+                        #  with max/min 64b float value
+                        value = 1.7976931348623157e308 if metric.value > 0 \
+                            else -1.7976931348623157e308
                     else:
                         value = metric.value
 
@@ -537,14 +539,16 @@ class SqlAlchemyStore(AbstractStore):
                     # metrics are inserted one after another using _get_or_create
                     if auto_new:
                         logged_metric = SqlMetric(run_uuid=run_id, key=metric.key, value=value,
-                        timestamp=metric.timestamp, step=metric.step, is_nan=is_nan)
+                                                  timestamp=metric.timestamp, step=metric.step,
+                                                  is_nan=is_nan)
                         self._save_to_db(session, logged_metric)
                         just_created = True
 
                     else:
                         logged_metric, just_created = self._get_or_create(
-                            model=SqlMetric, session=session, run_uuid=run_id, key=metric.key, value=value,
-                            timestamp=metric.timestamp, step=metric.step, is_nan=is_nan)
+                            model=SqlMetric, session=session, run_uuid=run_id, key=metric.key,
+                            value=value, timestamp=metric.timestamp, step=metric.step,
+                            is_nan=is_nan)
 
                     if just_created:
                         if metric.key not in metrics_per_key:
@@ -553,15 +557,18 @@ class SqlAlchemyStore(AbstractStore):
                         metrics_per_key[metric.key].append(logged_metric)
 
                 # Conditionally update the ``latest_metrics`` table if the logged metric  was not
-                # already present in the ``metrics`` table. If the logged metric was already present,
-                # we assume that the ``latest_metrics`` table already accounts for its presence
+                # already present in the ``metrics`` table. If the logged metric was already
+                # present, we assume that the ``latest_metrics`` table already accounts for
+                # its presence
 
                 for logged_metric_list in metrics_per_key.values():
-                    self._update_latest_metric_if_necessary(None, logged_metrics=logged_metric_list, session=session)
+                    self._update_latest_metric_if_necessary(None,
+                                                            logged_metrics=logged_metric_list,
+                                                            session=session)
 
                 # Explicitly commit the session in order to catch potential integrity errors
-                # if commit fails, a metric is already in the store (same run id, step, timestamp, and value)
-                # and we have to store each metric individually
+                # if commit fails, a metric is already in the store (same run id, step,
+                # timestamp, and value) and we have to store each metric individually
                 session.flush()
                 session.commit()
 
