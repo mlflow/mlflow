@@ -237,8 +237,8 @@ and *will not* check nor install any dependencies (
 see :ref:`model deployment section <built-in-deployment>` for tools to deploy models with
 automatic dependency management).
 
-Once loaded, you can score the model by calling :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>`
-method which has the following signature::
+Once loaded, you can score the model by calling the :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>`
+method, which has the following signature::
 
   predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.(Series | DataFrame)]
 
