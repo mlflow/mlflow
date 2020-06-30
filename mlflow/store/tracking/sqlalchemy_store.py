@@ -506,37 +506,74 @@ class SqlAlchemyStore(AbstractStore):
             return [run_id[0] for run_id in run_ids]
 
     def log_metric(self, run_id, metric):
-        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
-        is_nan = math.isnan(metric.value)
-        if is_nan:
-            value = 0
-        elif math.isinf(metric.value):
-            #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float value
-            value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
-        else:
-            value = metric.value
+        self.log_metrics(run_id, [metric], auto_new=False)
+
+    def log_metrics(self, run_id, metrics, auto_new=True):
+        if metrics is None:
+            return
+
         with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_id, session=session)
-            self._check_run_is_active(run)
-            # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
-            logged_metric, just_created = self._get_or_create(
-                model=SqlMetric,
-                run_uuid=run_id,
-                key=metric.key,
-                value=value,
-                timestamp=metric.timestamp,
-                step=metric.step,
-                session=session,
-                is_nan=is_nan,
-            )
-            # Conditionally update the ``latest_metrics`` table if the logged metric  was not
-            # already present in the ``metrics`` table. If the logged metric was already present,
-            # we assume that the ``latest_metrics`` table already accounts for its presence
-            if just_created:
-                self._update_latest_metric_if_necessary(logged_metric, session)
+            try:
+                run = self._get_run(run_uuid=run_id, session=session)
+                self._check_run_is_active(run)
+
+                metrics_per_key = {}
+
+                for metric in metrics:
+
+                    _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
+                    is_nan = math.isnan(metric.value)
+                    if is_nan:
+                        value = 0
+                    elif math.isinf(metric.value):
+                        #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float value
+                        value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
+                    else:
+                        value = metric.value
+
+                    # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
+
+                    # Entries will be added to session. If conflicts are detection during saving,
+                    # metrics are inserted one after another using _get_or_create
+                    if auto_new:
+                        logged_metric = SqlMetric(run_uuid=run_id, key=metric.key, value=value,
+                        timestamp=metric.timestamp, step=metric.step, is_nan=is_nan)
+                        self._save_to_db(session, logged_metric)
+                        just_created = True
+
+                    else:
+                        logged_metric, just_created = self._get_or_create(
+                            model=SqlMetric, session=session, run_uuid=run_id, key=metric.key, value=value,
+                            timestamp=metric.timestamp, step=metric.step, is_nan=is_nan)
+
+                    if just_created:
+                        if metric.key not in metrics_per_key:
+                            metrics_per_key[metric.key] = []
+
+                        metrics_per_key[metric.key].append(logged_metric)
+
+                # Conditionally update the ``latest_metrics`` table if the logged metric  was not
+                # already present in the ``metrics`` table. If the logged metric was already present,
+                # we assume that the ``latest_metrics`` table already accounts for its presence
+
+                for logged_metric_list in metrics_per_key.values():
+                    self._update_latest_metric_if_necessary(None, logged_metrics=logged_metric_list, session=session)
+
+                # Explicitly commit the session in order to catch potential integrity errors
+                # if commit fails, a metric is already in the store (same run id, step, timestamp, and value)
+                # and we have to store each metric individually
+                session.flush()
+                session.commit()
+
+            except sqlalchemy.exc.IntegrityError as e:
+                session.rollback()
+
+                if auto_new and len(metrics) > 1:
+                    # add metrics individually
+                    self.log_metrics(run_id, metrics, auto_new=False)
 
     @staticmethod
-    def _update_latest_metric_if_necessary(logged_metric, session):
+    def _update_latest_metric_if_necessary(logged_metric, session, logged_metrics=None):
         def _compare_metrics(metric_a, metric_b):
             """
             :return: True if ``metric_a`` is strictly more recent than ``metric_b``, as determined
@@ -547,6 +584,14 @@ class SqlAlchemyStore(AbstractStore):
                 metric_b.timestamp,
                 metric_b.value,
             )
+
+        if logged_metrics is not None:
+            for m in logged_metrics:
+                if logged_metric is None or _compare_metrics(m, logged_metric):
+                    logged_metric = m
+
+        if logged_metric is None:
+            return
 
         # Fetch the latest metric value corresponding to the specified run_id and metric key and
         # lock its associated row for the remainder of the transaction in order to ensure
@@ -745,8 +790,7 @@ class SqlAlchemyStore(AbstractStore):
         try:
             for param in params:
                 self.log_param(run_id, param)
-            for metric in metrics:
-                self.log_metric(run_id, metric)
+            self.log_metrics(run_id, metrics)
             for tag in tags:
                 self.set_tag(run_id, tag)
         except MlflowException as e:

@@ -1577,10 +1577,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             raise Exception("Some internal error")
 
         package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-        with mock.patch(package + ".log_metric") as metric_mock, mock.patch(
+        with mock.patch(package + ".log_metric") as metric_mock, mock.patch(package + ".log_metrics") as metric_mock, mock.patch(
             package + ".log_param"
         ) as param_mock, mock.patch(package + ".set_tag") as tags_mock:
             metric_mock.side_effect = _raise_exception_fn
+            metrics_mock.side_effect = _raise_exception_fn
             param_mock.side_effect = _raise_exception_fn
             tags_mock.side_effect = _raise_exception_fn
             for kwargs in [
