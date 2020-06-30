@@ -517,7 +517,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # confirm that ILIKE works for empty query
         rms, _ = self._search_registered_models(f"name iLike '%%'")
-        # raise Exception()
         self.assertEqual(rms, names)
 
         rms, _ = self._search_registered_models(f"name ilike '%RM4a'")
@@ -746,13 +745,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_search_registered_model_order_by_errors(self):
         query = "name LIKE 'RM%'"
-        # test that invalid columns throw
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models(query,
-                                           page_token=None,
-                                           order_by=['creation_timestamp DESC'],
-                                           max_results=5)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # test that invalid columns throw even if they come after valid columns
         with self.assertRaises(MlflowException) as exception_context:
             self._search_registered_models(query,
@@ -760,50 +752,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                            order_by=['name ASC', 'creation_timestamp DESC'],
                                            max_results=5)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        # test that random stuff in a clause correctly throws
+        # test that invalid columns with random text throw even if they come after valid columns
         with self.assertRaises(MlflowException) as exception_context:
             self._search_registered_models(query,
                                            page_token=None,
                                            order_by=['name ASC',
                                                      'last_updated_timestamp DESC blah'],
-                                           max_results=5)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        # test that empty clause throws
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models(query,
-                                           page_token=None,
-                                           order_by=['name ASC',
-                                                     ''],
-                                           max_results=5)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        # test timestamp with garbage between valid tokens works
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models(query,
-                                           page_token=None,
-                                           order_by=['timestamp somerandomstuff ASC'],
-                                           max_results=5)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-        # test that timestamp with random strings is invalid
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models(query,
-                                           page_token=None,
-                                           order_by=['timestamp somerandomstuff'],
-                                           max_results=5)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-        # test that timestamp with random strings is invalid
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models(query,
-                                           page_token=None,
-                                           order_by=['timestamp decs'],
-                                           max_results=5)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-        # test that timestamp with random strings is invalid
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models(query,
-                                           page_token=None,
-                                           order_by=['timestamp ACS'],
                                            max_results=5)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

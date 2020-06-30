@@ -375,11 +375,8 @@ class SearchUtils(object):
             if order_token not in cls.VALID_ORDER_BY_TAGS:
                 raise MlflowException(f"Invalid ordering key in order_by clause '{order_by}'.",
                                       error_code=INVALID_PARAMETER_VALUE)
-            if order_token == cls.DESC_OPERATOR:
-                is_ascending = False
-                token_value = tokens[0]
-            elif order_token == cls.ASC_OPERATOR:
-                token_value = tokens[0]
+            is_ascending = (order_token == cls.ASC_OPERATOR)
+            token_value = tokens[0]
         return token_value, is_ascending
 
     @classmethod

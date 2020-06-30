@@ -319,10 +319,28 @@ def test_order_by_metric_with_nans_and_infs():
     ("attribute.experiment_id", "Invalid attribute key"),
     ("metrics.A != 1", "Invalid order_by clause"),
     ("params.my_param ", "Invalid order_by clause"),
+    ("attribute.run_id ACS", "Invalid ordering key"),
+    ("attribute.run_id decs", "Invalid ordering key"),
 ])
-def test_invalid_order_by(order_by, error_message):
+def test_invalid_order_by_search_runs(order_by, error_message):
     with pytest.raises(MlflowException) as e:
         SearchUtils.parse_order_by_for_search_runs(order_by)
+    assert error_message in e.value.message
+
+
+@pytest.mark.parametrize("order_by, error_message", [
+    ("creation_timestamp DESC", "Invalid order by key"),
+    ('last_updated_timestamp DESC blah', "Invalid order_by clause"),
+    ('', "Invalid order_by clause"),
+    ('timestamp somerandomstuff ASC', "Invalid order_by clause"),
+    ('timestamp somerandomstuff', "Invalid order_by clause"),
+    ('timestamp decs', "Invalid order_by clause"),
+    ('timestamp ACS', "Invalid order_by clause"),
+    ('name aCs', "Invalid ordering key")
+])
+def test_invalid_order_by_search_registered_models(order_by, error_message):
+    with pytest.raises(MlflowException) as e:
+        SearchUtils.parse_order_by_for_search_registered_models(order_by)
     assert error_message in e.value.message
 
 

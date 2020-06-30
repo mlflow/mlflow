@@ -1001,12 +1001,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                              self.get_ordered_runs(["attribute.start_time asc",
                                                     "attribute.end_time desc"], experiment_id))
 
-        # invalid asc/desc throw errors
-        with self.assertRaises(MlflowException) as exception_context:
-            self.get_ordered_runs(["attribute.start_time aCS",
-                                   "attribute.end_time desc"], experiment_id)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')
         runs = [self._run_factory(self._get_run_configs(exp)).info.run_id
