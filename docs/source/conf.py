@@ -55,7 +55,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'MLflow'
-copyright = 'MLflow Project a Series of LF Projects, LLC. All rights reserved'
+copyright = 'MLflow Project, a Series of LF Projects, LLC. All rights reserved'
 author = 'MLflow'
 
 # The version info for the project you're documenting, acts as replacement for
