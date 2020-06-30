@@ -1,4 +1,9 @@
-### Train and Publish Locally With MLFlow
+### Train and Publish Locally With RAPIDS and MLFlow
+**[RAPIDS](https://rapids.ai/)** is a suite of open source libraries for GPU-accelerated analytics. 
+
+**[RAPIDS cuML](https://github.com/rapidsai/cuml)** matches the scikit-learn API, so it can build on MLFlow's existing support for scikit-learn-like models to support 
+persistence and deployment."
+
 #### Jupyter Notebook Workflow
 [Jupyter Notebook](notebooks/rapids_mlflow.ipynb)
 
@@ -14,7 +19,7 @@
         1. Here we instruct mlflow to run our training routine locally, and publish the results to the local file system.
         1. In your shell, run:
 ```shell script
-# Downlad the file
+# Download the file
 wget -N https://rapidsai-cloud-ml-sample-data.s3-us-west-2.amazonaws.com/airline_small.parquet
 # Launch the job
 mlflow run . -b local -e hyperopt \
