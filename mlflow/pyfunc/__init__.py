@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-The ``python_function`` model flavor serves as a default model interface for MLflow python models.
-Any MLflow python model is expected to be loadable as a ``python_function`` model.
+The ``python_function`` model flavor serves as a default model interface for MLflow Python models.
+Any MLflow Python model is expected to be loadable as a ``python_function`` model.
 
 In addition, the ``mlflow.pyfunc`` module defines a generic :ref:`filesystem format
 <pyfunc-filesystem-format>` for Python models and provides utilities for saving to and loading from
