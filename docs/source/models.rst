@@ -148,7 +148,7 @@ The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
 from datasets with valid model input (e.g. the training dataset with target
 column omitted) and valid model output (e.g. model predictions generated on
 the training dataset). To include signature with your model, add it to the appropriate log_model
-call, e.g. :py:func:`sklearn.log_model <mlflow.sklearn.log_model>`:
+call, e.g. :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`:
 
 .. code-block:: python
 
