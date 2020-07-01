@@ -1,4 +1,5 @@
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
+from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.protos.model_registry_pb2 import ModelVersion as ProtoModelVersion
 
@@ -13,7 +14,7 @@ class ModelVersion(_ModelRegistryEntity):
 
     def __init__(self, name, version, creation_timestamp,
                  last_updated_timestamp=None, description=None, user_id=None, current_stage=None,
-                 source=None, run_id=None, status=None, status_message=None):
+                 source=None, run_id=None, status=None, status_message=None, tags=None):
         super(ModelVersion, self).__init__()
         self._name = name
         self._version = version
@@ -26,6 +27,7 @@ class ModelVersion(_ModelRegistryEntity):
         self._run_id = run_id
         self._status = status
         self._status_message = status_message
+        self._tags = tags
 
     @property
     def name(self):
@@ -83,6 +85,12 @@ class ModelVersion(_ModelRegistryEntity):
         """String. Descriptive message for error status conditions."""
         return self._status_message
 
+    @property
+    def tags(self):
+        """List of :py:class:`mlflow.entities.model_registry.ModelVersionTag` instances
+        associated with this model version"""
+        return self._tags
+
     @classmethod
     def _properties(cls):
         # aggregate with base class properties since cls.__dict__ does not do it automatically
@@ -103,7 +111,8 @@ class ModelVersion(_ModelRegistryEntity):
                    proto.source,
                    proto.run_id,
                    ModelVersionStatus.to_string(proto.status),
-                   proto.status_message)
+                   proto.status_message,
+                   [ModelVersionTag.from_proto(tag) for tag in proto.tags])
 
     def to_proto(self):
         # input: ModelVersion entity
@@ -128,4 +137,6 @@ class ModelVersion(_ModelRegistryEntity):
             model_version.status = ModelVersionStatus.from_string(self.status)
         if self.status_message:
             model_version.status_message = self.status_message
+        if self.tags is not None:
+            model_version.tags.extend([tag.to_proto() for tag in self.tags])
         return model_version

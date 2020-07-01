@@ -17,11 +17,11 @@ CREATE TABLE experiments (
 
 
 CREATE TABLE registered_models (
-	name VARCHAR(256) NOT NULL,
-	creation_time BIGINT,
-	last_updated_time BIGINT,
-	description VARCHAR(5000),
-	CONSTRAINT registered_model_pk PRIMARY KEY (name),
+	name VARCHAR(256) NOT NULL, 
+	creation_time BIGINT, 
+	last_updated_time BIGINT, 
+	description VARCHAR(5000), 
+	CONSTRAINT registered_model_pk PRIMARY KEY (name), 
 	UNIQUE (name)
 )
 
@@ -36,19 +36,28 @@ CREATE TABLE experiment_tags (
 
 
 CREATE TABLE model_versions (
-	name VARCHAR(256) NOT NULL,
-	version INTEGER NOT NULL,
-	creation_time BIGINT,
-	last_updated_time BIGINT,
-	description VARCHAR(5000),
-	user_id VARCHAR(256),
-	current_stage VARCHAR(20),
-	source VARCHAR(500),
-	run_id VARCHAR(32) NOT NULL,
-	status VARCHAR(20),
-	status_message VARCHAR(500),
-	CONSTRAINT model_version_pk PRIMARY KEY (name, version),
+	name VARCHAR(256) NOT NULL, 
+	version INTEGER NOT NULL, 
+	creation_time BIGINT, 
+	last_updated_time BIGINT, 
+	description VARCHAR(5000), 
+	user_id VARCHAR(256), 
+	current_stage VARCHAR(20), 
+	source VARCHAR(500), 
+	run_id VARCHAR(32) NOT NULL, 
+	status VARCHAR(20), 
+	status_message VARCHAR(500), 
+	CONSTRAINT model_version_pk PRIMARY KEY (name, version), 
 	FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
+)
+
+
+CREATE TABLE registered_model_tags (
+	key VARCHAR(250) NOT NULL, 
+	value VARCHAR(5000), 
+	name VARCHAR(256) NOT NULL, 
+	CONSTRAINT registered_model_tag_pk PRIMARY KEY (key, name), 
+	FOREIGN KEY(name) REFERENCES registered_models (name)
 )
 
 
@@ -59,7 +68,7 @@ CREATE TABLE runs (
 	source_name VARCHAR(500), 
 	entry_point_name VARCHAR(50), 
 	user_id VARCHAR(256), 
-	status VARCHAR(9),
+	status VARCHAR(9), 
 	start_time BIGINT, 
 	end_time BIGINT, 
 	source_version VARCHAR(50), 
@@ -69,7 +78,7 @@ CREATE TABLE runs (
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid), 
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id), 
 	CONSTRAINT source_type CHECK (source_type IN ('NOTEBOOK', 'JOB', 'LOCAL', 'UNKNOWN', 'PROJECT')), 
-	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted')),
+	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted')), 
 	CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING', 'KILLED'))
 )
 
@@ -96,6 +105,16 @@ CREATE TABLE metrics (
 	is_nan BOOLEAN DEFAULT '0' NOT NULL, 
 	CONSTRAINT metric_pk PRIMARY KEY (key, value, timestamp, run_uuid, step, is_nan), 
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE model_version_tags (
+	key VARCHAR(250) NOT NULL, 
+	value VARCHAR(5000), 
+	name VARCHAR(256) NOT NULL, 
+	version INTEGER NOT NULL, 
+	CONSTRAINT model_version_tag_pk PRIMARY KEY (key, name, version), 
+	FOREIGN KEY(name, version) REFERENCES model_versions (name, version)
 )
 
 
