@@ -163,7 +163,7 @@ call, e.g. :py:func:`sklearn.log_model <mlflow.sklearn.log_model>`:
 
 Model Input Example
 ^^^^^^^^^^^^^^^^^^^
-Input example provides one or several instances of valid model input. The example can be used as a
+A model input example provides an instance of a valid model input. This may be a single record or a batch of records.
 hint of what data to feed the model. Input examples are stored with the model as separate artifacts
 and are referenced in the MLmodel file.
 
