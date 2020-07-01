@@ -115,8 +115,6 @@ The following example displays the model signature for a classification model tr
 dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns. The
 output is an unnamed integer specifying the predicted class:
 
-.. _iris-model-signature
-
 .. code-block:: yaml
 
   signature:
