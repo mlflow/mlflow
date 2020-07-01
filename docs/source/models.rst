@@ -109,7 +109,7 @@ Model signatures are recognized and enforced by standard MLflow model tools. For
 model's signature.
 
 The following example displays the model signature for a classification model trained on the Iris dataset.
-The input is 4 named numeric columns, output is unnamed integer specifying the predicted class:
+The input has 4 named, numeric columns. The output is an unnamed integer specifying the predicted class:
 
 .. code-block:: yaml
 
