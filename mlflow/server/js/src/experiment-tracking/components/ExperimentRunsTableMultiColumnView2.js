@@ -33,16 +33,16 @@ const EMPTY_CELL_PLACEHOLDER = '-';
 export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   static propTypes = {
     experimentId: PropTypes.string,
-    runInfos: PropTypes.arrayOf(RunInfo).isRequired,
+    runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     // List of list of params in all the visible runs
-    paramsList: PropTypes.arrayOf(Array).isRequired,
+    paramsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // List of list of metrics in all the visible runs
-    metricsList: PropTypes.arrayOf(Array).isRequired,
+    metricsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     paramKeyList: PropTypes.arrayOf(PropTypes.string),
     metricKeyList: PropTypes.arrayOf(PropTypes.string),
     visibleTagKeyList: PropTypes.arrayOf(PropTypes.string),
     // List of tags dictionary in all the visible runs.
-    tagsList: PropTypes.arrayOf(Object).isRequired,
+    tagsList: PropTypes.arrayOf(PropTypes.object).isRequired,
     onSelectionChange: PropTypes.func.isRequired,
     onExpand: PropTypes.func.isRequired,
     onSortBy: PropTypes.func.isRequired,

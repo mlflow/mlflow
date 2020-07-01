@@ -25,18 +25,18 @@ export const CHART_TYPE_BAR = 'bar';
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
     experimentId: PropTypes.string.isRequired,
-    runUuids: PropTypes.arrayOf(String).isRequired,
+    runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricKey: PropTypes.string.isRequired,
     // A map of { runUuid : { metricKey: value } }
     latestMetricsByRunUuid: PropTypes.object.isRequired,
     // An array of distinct metric keys across all runUuids
-    distinctMetricKeys: PropTypes.arrayOf(String).isRequired,
+    distinctMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of { metricKey, history, runUuid, runDisplayName }
-    metricsWithRunInfoAndHistory: PropTypes.arrayOf(Object).isRequired,
+    metricsWithRunInfoAndHistory: PropTypes.arrayOf(PropTypes.object).isRequired,
     getMetricHistoryApi: PropTypes.func.isRequired,
     location: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
-    runDisplayNames: PropTypes.arrayOf(String).isRequired,
+    runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
   };
 
   // The fields below are exposed as instance attributes rather than component state so that they

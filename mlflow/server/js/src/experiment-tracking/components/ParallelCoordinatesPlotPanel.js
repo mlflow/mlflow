@@ -16,15 +16,15 @@ import './ParallelCoordinatesPlotPanel.css';
 
 export class ParallelCoordinatesPlotPanel extends React.Component {
   static propTypes = {
-    runUuids: PropTypes.arrayOf(String).isRequired,
+    runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of all parameter keys across runs
-    allParamKeys: PropTypes.arrayOf(String).isRequired,
+    allParamKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of all metric keys across runs
-    allMetricKeys: PropTypes.arrayOf(String).isRequired,
+    allMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of parameter keys shared by all runs
-    sharedParamKeys: PropTypes.arrayOf(String).isRequired,
+    sharedParamKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of metric keys shared by all runs
-    sharedMetricKeys: PropTypes.arrayOf(String).isRequired,
+    sharedMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
   };
 
   state = {

@@ -15,7 +15,7 @@ export class RenameExperimentModalImpl extends Component {
     isOpen: PropTypes.bool,
     experimentId: PropTypes.string,
     experimentName: PropTypes.string,
-    experimentNames: PropTypes.arrayOf(String).isRequired,
+    experimentNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     onClose: PropTypes.func.isRequired,
     updateExperimentApi: PropTypes.func.isRequired,
     getExperimentApi: PropTypes.func.isRequired,
