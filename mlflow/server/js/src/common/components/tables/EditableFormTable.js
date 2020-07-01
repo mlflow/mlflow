@@ -54,8 +54,8 @@ class EditableCell extends React.Component {
 
 export class EditableTable extends React.Component {
   static propTypes = {
-    columns: PropTypes.arrayOf(Object).isRequired,
-    data: PropTypes.arrayOf(Object).isRequired,
+    columns: PropTypes.arrayOf(PropTypes.object).isRequired,
+    data: PropTypes.arrayOf(PropTypes.object).isRequired,
     onSaveEdit: PropTypes.func.isRequired,
     onDelete: PropTypes.func.isRequired,
     form: PropTypes.object.isRequired,

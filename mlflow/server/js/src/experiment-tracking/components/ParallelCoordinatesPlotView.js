@@ -8,11 +8,11 @@ const AXIS_LABEL_CLS = '.pcp-plot .parcoords .y-axis .axis-heading .axis-title';
 
 export class ParallelCoordinatesPlotView extends React.Component {
   static propTypes = {
-    runUuids: PropTypes.arrayOf(String).isRequired,
-    paramKeys: PropTypes.arrayOf(String).isRequired,
-    metricKeys: PropTypes.arrayOf(String).isRequired,
-    paramDimensions: PropTypes.arrayOf(Object).isRequired,
-    metricDimensions: PropTypes.arrayOf(Object).isRequired,
+    runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
+    paramKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
+    metricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
+    paramDimensions: PropTypes.arrayOf(PropTypes.object).isRequired,
+    metricDimensions: PropTypes.arrayOf(PropTypes.object).isRequired,
   };
 
   state = {
