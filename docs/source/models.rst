@@ -142,7 +142,7 @@ The input column types are checked against the signature. MLflow will perform sa
 if necessary. Generally, only upcasts (e.g. integer -> long or float -> double) are considered to be
 safe. If the types cannot be made compatible, MLflow will raise an error.
 
-How To Log Models With Signature
+How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
 from datasets with valid model input (e.g. the training dataset with target
