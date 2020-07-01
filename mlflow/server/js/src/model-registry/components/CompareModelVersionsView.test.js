@@ -41,8 +41,8 @@ describe('unconnected tests', () => {
           lifecycle_stage: 'active',
         }),
       ],
-      metricLists: [['test_metric', 0.0, '321', '42']],
-      paramLists: [['test_param', '0.0']],
+      metricLists: [[{ key: 'test_metric', value: 0.0 }]],
+      paramLists: [[{ key: 'test_param', value: '0.0' }]],
     };
   });
 
@@ -80,9 +80,11 @@ describe('connected tests', () => {
     minimalStore = mockStore({
       entities: {
         runInfosByUuid: { '123': RunInfo.fromJs({ dummy_key: 'dummy_value' }) },
-        latestMetricsByRunUuid: { '123': 'dummy' },
-        paramsByRunUuid: { '123': 'dummy' },
-        tagsByRunUuid: { '123': 'dummy' },
+        latestMetricsByRunUuid: {
+          '123': [{ key: 'test_metric', value: 0.0 }],
+        },
+        paramsByRunUuid: { '123': [{ key: 'test_param', value: '0.0' }] },
+        tagsByRunUuid: { '123': [{ key: 'test_tag', value: 'test.user' }] },
       },
       apis: {},
     });
@@ -102,10 +104,10 @@ describe('connected tests', () => {
           }),
         },
         latestMetricsByRunUuid: {
-          '123': { key: 'test_metric', value: 0.0, timestamp: '321', step: '42' },
+          '123': [{ key: 'test_metric', value: 0.0, timestamp: '321', step: '42' }],
         },
-        paramsByRunUuid: { '123': { key: 'test_param', value: '0.0' } },
-        tagsByRunUuid: { '123': { key: 'test_tag', value: 'test.user' } },
+        paramsByRunUuid: { '123': [{ key: 'test_param', value: '0.0' }] },
+        tagsByRunUuid: { '123': [{ key: 'test_tag', value: 'test.user' }] },
       },
       apis: {},
     });

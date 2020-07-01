@@ -12,8 +12,8 @@ import { withRouter } from 'react-router-dom';
 export class MetricViewImpl extends Component {
   static propTypes = {
     experiment: PropTypes.instanceOf(Experiment).isRequired,
-    runUuids: PropTypes.arrayOf(String).isRequired,
-    runNames: PropTypes.arrayOf(String).isRequired,
+    runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
+    runNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricKey: PropTypes.string.isRequired,
     location: PropTypes.object.isRequired,
   };
