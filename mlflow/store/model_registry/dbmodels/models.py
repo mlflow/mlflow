@@ -4,7 +4,8 @@ from sqlalchemy import (
     Column, String, ForeignKey, Integer, BigInteger, PrimaryKeyConstraint, ForeignKeyConstraint)
 from sqlalchemy.orm import relationship, backref
 
-from mlflow.entities.model_registry import (RegisteredModel, ModelVersion, RegisteredModelTag, ModelVersionTag)
+from mlflow.entities.model_registry import (
+    RegisteredModel, ModelVersion, RegisteredModelTag, ModelVersionTag)
 from mlflow.entities.model_registry.model_version_stages import STAGE_NONE, STAGE_DELETED_INTERNAL
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.store.db.base_sql_model import Base
@@ -133,11 +134,14 @@ class SqlModelVersionTag(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint('key', 'name', 'version', name='model_version_tag_pk'),
-        ForeignKeyConstraint((name, version), (SqlModelVersion.name, SqlModelVersion.version), onupdate='cascade'),
+        ForeignKeyConstraint((name, version),
+                             (SqlModelVersion.name, SqlModelVersion.version),
+                             onupdate='cascade'),
     )
 
     def __repr__(self):
-        return '<SqlModelVersionTag ({}, {}, {}, {})>'.format(self.name, self.version, self.key, self.value)
+        return '<SqlModelVersionTag ({}, {}, {}, {})>'.format(
+            self.name, self.version, self.key, self.value)
 
     # entity mappers
     def to_mlflow_entity(self):
