@@ -24,7 +24,10 @@ def upgrade():
                     sa.Column('value', sa.String(length=5000)),
                     sa.Column('name', sa.String(length=256), primary_key=True, nullable=False),
                     sa.Column('version', sa.Integer(), primary_key=True, nullable=False),
-                    sa.ForeignKeyConstraint(('name', 'version'), ('model_versions.name', 'model_versions.version')),
+                    sa.ForeignKeyConstraint(
+                        ('name', 'version'),
+                        ('model_versions.name', 'model_versions.version'),
+                        onupdate='cascade'),
                     sa.PrimaryKeyConstraint('key', 'name', 'version', name='model_version_tag_pk')
                     )
 

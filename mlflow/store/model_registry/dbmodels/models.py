@@ -134,9 +134,10 @@ class SqlModelVersionTag(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint('key', 'name', 'version', name='model_version_tag_pk'),
-        ForeignKeyConstraint((name, version),
-                             (SqlModelVersion.name, SqlModelVersion.version),
-                             onupdate='cascade'),
+        ForeignKeyConstraint(
+            ('name', 'version'),
+            ('model_versions.name', 'model_versions.version'),
+            onupdate='cascade')
     )
 
     def __repr__(self):

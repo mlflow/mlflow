@@ -114,7 +114,7 @@ CREATE TABLE model_version_tags (
 	name VARCHAR(256) NOT NULL, 
 	version INTEGER NOT NULL, 
 	CONSTRAINT model_version_tag_pk PRIMARY KEY (key, name, version), 
-	FOREIGN KEY(name, version) REFERENCES model_versions (name, version)
+	FOREIGN KEY(name, version) REFERENCES model_versions (name, version) ON UPDATE CASCADE
 )
 
 
