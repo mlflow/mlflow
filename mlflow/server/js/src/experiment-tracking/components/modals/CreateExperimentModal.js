@@ -16,7 +16,7 @@ export class CreateExperimentModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
     onClose: PropTypes.func.isRequired,
-    experimentNames: PropTypes.arrayOf(String).isRequired,
+    experimentNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     createExperimentApi: PropTypes.func.isRequired,
     listExperimentsApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
