@@ -55,7 +55,8 @@ class TestRegisteredModel(unittest.TestCase):
                    "creation_timestamp": 1,
                    "last_updated_timestamp": 4000,
                    "description": random_str(),
-                   "latest_versions": [mvd_1, mvd_2]}
+                   "latest_versions": [mvd_1, mvd_2],
+                   "tags": []}
         rmd_1 = RegisteredModel.from_dictionary(as_dict)
         self.assertEqual(dict(rmd_1), as_dict)
 
@@ -92,8 +93,6 @@ class TestRegisteredModel(unittest.TestCase):
                          set(["key", "randomKey"]))
         self.assertEqual(set([tag.value for tag in proto.tags]),
                          set(["value", "not a random value"]))
-        self.assertEqual(set([tag.name for tag in proto.tags]),
-                         set([name, ]))
 
     def test_string_repr(self):
         rmd = RegisteredModel(name="myname",
@@ -104,4 +103,4 @@ class TestRegisteredModel(unittest.TestCase):
                               tags=[])
         assert str(rmd) == "<RegisteredModel: creation_timestamp=1000, " \
                            "description='something about a model', last_updated_timestamp=2002, " \
-                           "latest_versions=['1', '2', '3'], tags=[], name='myname'>"
+                           "latest_versions=['1', '2', '3'], name='myname', tags=[]>"

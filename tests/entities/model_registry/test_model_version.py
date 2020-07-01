@@ -65,8 +65,6 @@ class TestModelVersion(unittest.TestCase):
                          set(["key", "randomKey"]))
         self.assertEqual(set([tag.value for tag in proto.tags]),
                          set(["value", "not a random value"]))
-        self.assertEqual(set([tag.name for tag in proto.tags]),
-                         set([name, ]))
         mvd_2 = ModelVersion.from_proto(proto)
         self._check(mvd_2, name, "5", t1, t2, "version five", "user 1",
                     "Production", source, run_id, "READY",
