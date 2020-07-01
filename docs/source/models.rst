@@ -111,9 +111,10 @@ Model signatures are recognized and enforced by standard :ref:`MLflow model depl
 <built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
 which deploys a model as a REST API, validates inputs based on the model's signature.
 
-The following example displays the model signature for a classification model trained on the `Iris
-dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns. The
-output is an unnamed integer specifying the predicted class:
+The following example displays an excerpt from MLmodel file with the model signature for a
+classification model trained on the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_.
+The input has 4 named, numeric columns. The output is an unnamed integer specifying the predicted
+class:
 
 .. code-block:: yaml
 
@@ -121,7 +122,7 @@ output is an unnamed integer specifying the predicted class:
       inputs: '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
         "petal width (cm)", "type": "double"}]'
-      outputs: '[{"type": "long"}]'
+      outputs: '[{"type": "integer"}]'
 
 Signature Enforcement
 ~~~~~~~~~~~~~~~~~~~~~
