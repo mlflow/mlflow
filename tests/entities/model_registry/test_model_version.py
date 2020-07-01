@@ -37,7 +37,8 @@ class TestModelVersion(unittest.TestCase):
         mvd = ModelVersion(name, "5", t1, t2, "version five", "user 1", "Production",
                            source, run_id, "READY", "Model version #5 is ready to use.", tags)
         self._check(mvd, name, "5", t1, t2, "version five", "user 1",
-                    "Production", source, run_id, "READY", "Model version #5 is ready to use.", tags)
+                    "Production", source, run_id, "READY",
+                    "Model version #5 is ready to use.", tags)
 
         expected_dict = {
             "name": name,
@@ -68,12 +69,14 @@ class TestModelVersion(unittest.TestCase):
                          set([name, ]))
         mvd_2 = ModelVersion.from_proto(proto)
         self._check(mvd_2, name, "5", t1, t2, "version five", "user 1",
-                    "Production", source, run_id, "READY", "Model version #5 is ready to use.", tags)
+                    "Production", source, run_id, "READY",
+                    "Model version #5 is ready to use.", tags)
 
         expected_dict.update({"registered_model": RegisteredModel(name)})
         mvd_3 = ModelVersion.from_dictionary(expected_dict)
         self._check(mvd_3, name, "5", t1, t2, "version five", "user 1",
-                    "Production", source, run_id, "READY", "Model version #5 is ready to use.", tags)
+                    "Production", source, run_id, "READY",
+                    "Model version #5 is ready to use.", tags)
 
     def test_string_repr(self):
         model_version = ModelVersion(name="myname",
