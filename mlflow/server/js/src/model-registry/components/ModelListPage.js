@@ -8,7 +8,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 
 class ModelListPage extends React.Component {
   static propTypes = {
-    models: PropTypes.arrayOf(Object),
+    models: PropTypes.arrayOf(PropTypes.object),
     listRegisteredModelsApi: PropTypes.func.isRequired,
   };
 

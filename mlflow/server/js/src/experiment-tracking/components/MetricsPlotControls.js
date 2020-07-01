@@ -14,9 +14,9 @@ export const MAX_LINE_SMOOTHNESS = 100;
 export class MetricsPlotControls extends React.Component {
   static propTypes = {
     // An array of distinct metric keys to be shown as options
-    distinctMetricKeys: PropTypes.arrayOf(String).isRequired,
+    distinctMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of metric keys selected by user or indicated by URL
-    selectedMetricKeys: PropTypes.arrayOf(String).isRequired,
+    selectedMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     selectedXAxis: PropTypes.string.isRequired,
     handleXAxisChange: PropTypes.func.isRequired,
     handleShowPointChange: PropTypes.func.isRequired,
