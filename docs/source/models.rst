@@ -108,7 +108,7 @@ Model signatures are recognized and enforced by standard MLflow model tools. For
 :ref:`mlflow models serve <local_model_deployment>` tool, which deploys a model as a REST API, validates inputs based on the
 model's signature.
 
-Below is an example  of model signature for classification model build over well known iris dataset.
+The following example displays the model signature for a classification model trained on the Iris dataset.
 The input is 4 named numeric columns, output is unnamed integer specifying the predicted class:
 
 .. code-block:: yaml
