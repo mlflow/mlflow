@@ -140,7 +140,7 @@ Column Type Enforcement
 """""""""""""""""""""""
 The input column types are checked against the signature. MLflow will perform safe type conversions
 if necessary. Generally, only upcasts (e.g. integer -> long or float -> double) are considered to be
-safe. If the types can not be made compatible, MLflow will raise an error.
+safe. If the types cannot be made compatible, MLflow will raise an error.
 
 How To Log Models With Signature
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
