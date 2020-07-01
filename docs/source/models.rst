@@ -121,7 +121,7 @@ The input has 4 named, numeric columns. The output is an unnamed integer specify
 
 Signature Enforcement
 ~~~~~~~~~~~~~~~~~~~~~
-MLflow will enforce input schema when scoring models that include signature. The schema enforcement
+When scoring a model that includes a signature, inputs are validated based on the signature's input schema. This input schema enforcement
 checks input column ordering and column types and will raise an exception if the input is not
 compatible. This enforcement is applied in MLflow before calling the underlying model
 implementation. Note that this enforcement only applies when using MLflow model deployment tools or
