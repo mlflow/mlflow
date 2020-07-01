@@ -96,6 +96,9 @@ When working with ML models you often need to know some basic functional propert
 at hand, such as "What inputs does it expect?" and "What output does it produce?". MLflow models can
 include the following additional metadata that can be used by downstream tooling:
 
+* :ref:`Model Signature <model-signature>` - description of model input and output.
+* :ref:`Model Input Example <input-example>` - example of valid model input.
+
 .. _model-signature:
 
 Model Signature
@@ -103,13 +106,16 @@ Model Signature
 The Model signature defines the schema of a model's inputs and outputs. Model inputs and outputs are
 described as a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`. The signature is stored
-in JSON format in the ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
-Model signatures are recognized and enforced by standard MLflow model tools. For example, the
-:ref:`mlflow models serve <local_model_deployment>` tool, which deploys a model as a REST API, validates inputs based on the
-model's signature.
+in JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
+Model signatures are recognized and enforced by standard :ref:`MLflow model deployment tools
+<built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
+which deploys a model as a REST API, validates inputs based on the model's signature.
 
-The following example displays the model signature for a classification model trained on the Iris dataset.
-The input has 4 named, numeric columns. The output is an unnamed integer specifying the predicted class:
+The following example displays the model signature for a classification model trained on the `Iris
+dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns. The
+output is an unnamed integer specifying the predicted class:
+
+.. _iris-model-signature
 
 .. code-block:: yaml
 
@@ -117,16 +123,17 @@ The input has 4 named, numeric columns. The output is an unnamed integer specify
       inputs: '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
         "petal width (cm)", "type": "double"}]'
-      outputs: [{"type": "integer"}]
+      outputs: '[{"type": "long"}]'
 
 Signature Enforcement
 ~~~~~~~~~~~~~~~~~~~~~
-When scoring a model that includes a signature, inputs are validated based on the signature's input schema. This input schema enforcement
-checks input column ordering and column types, raising an exception if the input is not
-compatible. This enforcement is applied in MLflow before calling the underlying model
-implementation. Note that this enforcement only applies when using MLflow model deployment tools or
-when loading models as ``python_function``. In particular, it is not applied to models that are
-loaded in their native format (e.g. by calling mlflow.sklearn.load_model).
+When scoring a model that includes a signature, inputs are validated based on the signature's input
+schema. This input schema enforcement checks input column ordering and column types, raising an
+exception if the input is not compatible. This enforcement is applied in MLflow before calling the
+underlying model implementation. Note that this enforcement only applies when using :ref:`MLflow
+model deployment tools <built-in-deployment>` or when loading models as ``python_function``. In
+particular, it is not applied to models that are loaded in their native format (e.g. by calling
+:py:func:`mlflow.sklearn.load_model() <mlflow.sklearn.load_model>`).
 
 Column Ordering Enforcement
 """""""""""""""""""""""""""
@@ -143,40 +150,72 @@ if necessary. Generally, only upcasts (e.g. integer -> long or float -> double) 
 safe. If the types cannot be made compatible, MLflow will raise an error.
 
 How To Log Models With Signatures
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-from datasets with valid model input (e.g. the training dataset with target
-column omitted) and valid model output (e.g. model predictions generated on
-the training dataset). To include signature with your model, add it to the appropriate log_model
-call, e.g. :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To include signature with your model, pass :py:class:`signature object
+<mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. The model signature object can be created
+by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with valid model input
+(e.g. the training dataset with target column omitted) and valid model output (e.g. model
+predictions generated on the training dataset). The following example demonstrates how to store
+model signature for a simple classifier trained on the ``Iris dataset``:
 
 .. code-block:: python
 
+    import pandas as pd
+    from sklearn import datasets
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+    import mlflow.sklearn
     from mlflow.models.signature import infer_signature
-    train = df.drop_column("target_label")
-    predictions = ... # compute model predictions
-    signature = infer_signature(train, predictions)
-    mlflow.sklearn.log_model(..., signature=signature)
 
+    iris = datasets.load_iris()
+    iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
+    clf = RandomForestClassifier(max_depth=7, random_state=0)
+    clf.fit(iris_train, iris.target)
+    signature = infer_signature(iris_train, clf.predict(iris_train))
+    mlflow.sklearn.log_model(clf, "iris_rf", signature=signature)
+
+The same signature can be created explicitly as follows:
+
+.. code-block:: python
+
+    from mlflow.models.signature import ModelSignature
+    from mlflow.types.schema import Schema, ColSpec
+
+    input_schema = Schema([
+      ColSpec("double", "sepal length (cm)"),
+      ColSpec("double", "sepal width (cm)"),
+      ColSpec("double", "petal length (cm)"),
+      ColSpec("double", "petal width (cm)"),
+    ])
+    output_schema = Schema([ColSpec("long")])
+    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
 .. _input-example:
 
 Model Input Example
 ^^^^^^^^^^^^^^^^^^^
-A model input example provides an instance of a valid model input. This may be a single record or a batch of records.
-hint of what data to feed the model. Input examples are stored with the model as separate artifacts
-and are referenced in the MLmodel file.
+A model input example provides an instance of a valid model input. This may be a single record or a
+batch of records. Input examples are stored with the model as separate artifacts
+and are referenced in the the :ref:`MLmodel file <pyfunc-model-config>`.
 
 How To Log Model With Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 To include input example with your model, add it to the appropriate log_model call, e.g.
-:py:func:`sklearn.log_model <mlflow.sklearn.log_model>`:
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. Example can be passed in as
+Pandas DataFrame, Numpy array, a list or a dictionary. The given example will be converted to a
+Pandas DataFrame and then serialized to json using the Pandas split-oriented format. Bytes are
+base64-encoded. The following example demonstrates how you can log an input example with your model:
 
 .. code-block:: python
 
-    input_example = df.drop_column("target_label").head(3)
+    input_example = {
+      "sepal length (cm)": 5.1,
+      "sepal width (cm)": 3.5,
+      "petal length (cm)": 1.4,
+      "petal width (cm)": 0.2
+    }
     mlflow.sklearn.log_model(..., input_example=input_example)
-
 
 .. _model-api:
 
