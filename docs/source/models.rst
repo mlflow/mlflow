@@ -267,7 +267,7 @@ their models with MLflow.
 How To Save Model As Python Function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Most ``python_function`` models are saved as part of other model flavors - for example, all mlflow
-built-in flavors include ``python_function`` flavor in the exported models. In addition, the
+built-in flavors include the ``python_function`` flavor in the exported models. In addition, the
 :py:mod:`mlflow.pyfunc` module defines functions for saving ``python_function`` flavor explicitly.
 This module also includes utilities for creating custom Python models, which is a convenient way of
 adding custom python code to ML models. For more information, see the :ref:`custom Python models
@@ -276,7 +276,7 @@ documentation <custom-python-models>`.
 
 How To Load And Score Python Function Models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-You can load python_function model directly in python by calling :py:func:`mlflow.pyfunc.load_model`
+You can load `python_function` models in Python by calling the :py:func:`mlflow.pyfunc.load_model()`
 function. Note that the ``load_model`` function assumes that all dependencies are already available
 and *will not* check nor install any dependencies (
 see :ref:`model deployment section <built-in-deployment>` for tools to deploy models with

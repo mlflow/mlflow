@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-The ``python_function`` model flavor serves as a default model interface for MLflow python models.
-Any MLflow python model is expected to be loadable as a ``python_function`` model.
+The ``python_function`` model flavor serves as a default model interface for MLflow Python models.
+Any MLflow Python model is expected to be loadable as a ``python_function`` model.
 
 In addition, the ``mlflow.pyfunc`` module defines a generic :ref:`filesystem format
 <pyfunc-filesystem-format>` for Python models and provides utilities for saving to and loading from
@@ -22,7 +22,7 @@ Inference API
 
 Python function models are loaded as an instance of :py:class:`PyFuncModel
 <mlflow.pyfunc.PyFuncModel>`, which is an MLflow wrapper around the model implementation and model
-metadata (MLmodel file). you can score the model by calling :py:func:`predict
+metadata (MLmodel file). You can score the model by calling the :py:func:`predict()
 <mlflow.pyfunc.PyFuncModel.predict>` method, which has the following signature::
 
   predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.(Series | DataFrame)]
