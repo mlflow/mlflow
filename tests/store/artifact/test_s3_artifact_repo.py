@@ -5,7 +5,7 @@ import tarfile
 import pytest
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository, parse_s3_uri
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -46,7 +46,7 @@ def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmpdir)
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     repo.log_artifact(file_path)
 
-    bucket, _ = repo.parse_s3_uri(s3_artifact_root)
+    bucket, _ = parse_s3_uri(s3_artifact_root)
     s3_client = repo._get_s3_client()
     response = s3_client.head_object(Bucket=bucket, Key="some/path/test.txt")
     assert response.get("ContentType") == "text/plain"
@@ -71,7 +71,7 @@ def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_ro
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     repo.log_artifacts(subdir_path)
 
-    bucket, _ = repo.parse_s3_uri(s3_artifact_root)
+    bucket, _ = parse_s3_uri(s3_artifact_root)
     s3_client = repo._get_s3_client()
 
     response_a = s3_client.head_object(Bucket=bucket, Key="some/path/a.txt")

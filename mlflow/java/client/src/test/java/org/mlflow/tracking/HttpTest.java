@@ -19,7 +19,10 @@ public class HttpTest {
     testClientProvider.cleanupClientAndServer();
   }
 
-  @Test(expectedExceptions = MlflowHttpException.class)
+  @Test
+  /* A non existent path will not raise an exception. When the route doesn't exist in
+  the backend, it will serve the index.html, and since the route doesn't exist in the front,
+  it will display a 404.*/
   public void nonExistentPath() {
     client.sendGet("BAD_PATH");
   }

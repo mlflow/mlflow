@@ -30,6 +30,12 @@ const MAX_METRICS_COLS = 3;
 const MAX_TAG_COLS = 3;
 const EMPTY_CELL_PLACEHOLDER = '-';
 
+const MAP_COLUMNNAMES_TO_MLFLOW_NAMES = new Map([
+  [PARAM_PREFIX, 'params'],
+  [TAG_PREFIX, 'tags'],
+  [METRIC_PREFIX, 'metrics'],
+]);
+
 export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   static propTypes = {
     experimentId: PropTypes.string,
@@ -46,6 +52,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     onSelectionChange: PropTypes.func.isRequired,
     onExpand: PropTypes.func.isRequired,
     onSortBy: PropTypes.func.isRequired,
+    onFilter: PropTypes.func.isRequired,
     orderByKey: PropTypes.string,
     orderByAsc: PropTypes.bool,
     runsSelected: PropTypes.object.isRequired,
@@ -61,7 +68,6 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     width: 100,
     headerComponentParams: { menuIcon: 'fa-bars' },
     resizable: true,
-    filter: true,
     suppressMenu: true,
     suppressMovable: true,
   };
@@ -143,6 +149,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
             ...commonSortOrderProps,
             canonicalSortKey: 'attributes.start_time',
           },
+          filter: false,
         },
         {
           headerName: 'Run Name',
@@ -153,6 +160,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
             ...commonSortOrderProps,
             canonicalSortKey: 'tags.`mlflow.runName`',
           },
+          filter: false,
         },
         {
           headerName: 'User',
@@ -162,6 +170,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
             ...commonSortOrderProps,
             canonicalSortKey: 'tags.`mlflow.user`',
           },
+          filter: false,
         },
         {
           headerName: 'Source',
@@ -172,6 +181,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
             ...commonSortOrderProps,
             canonicalSortKey: 'tags.`mlflow.source.name`',
           },
+          filter: false,
         },
         {
           headerName: 'Version',
@@ -182,6 +192,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
             ...commonSortOrderProps,
             canonicalSortKey: 'tags.`mlflow.source.git.commit`',
           },
+          filter: false,
         },
       ].filter((c) => !categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES].includes(c.headerName)),
       {
@@ -202,6 +213,13 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
               ...commonSortOrderProps,
               canonicalSortKey: columnKey,
             },
+            filter: 'agTextColumnFilter',
+            filterParams: {
+              textCustomComparator: (filter, value, filterText) => true,
+              filterOptions: ['contains'],
+              debounceMs: 2000,
+              suppressAndOrCondition: true,
+            },
           };
         }),
       },
@@ -219,6 +237,21 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
             // happens to be inside this column group.
             columnGroupShow: i >= MAX_METRICS_COLS && columnKey !== orderByKey ? 'open' : null,
             sortable: true,
+            filter: 'agNumberColumnFilter',
+            filterParams: {
+              filterOptions: [
+                {
+                  displayKey: 'lessThan',
+                  test: (filterValue, cellValue) => true,
+                },
+                {
+                  displayKey: 'greaterThan',
+                  test: (filterValue, cellValue) => true,
+                },
+              ],
+              debounceMs: 2000,
+              suppressAndOrCondition: true,
+            },
             headerComponentParams: {
               ...commonSortOrderProps,
               canonicalSortKey: columnKey,
@@ -233,6 +266,13 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           headerTooltip: tagKey,
           field: `${TAG_PREFIX}-${tagKey}`,
           ...(i >= MAX_TAG_COLS ? { columnGroupShow: 'open' } : null),
+          filter: 'agTextColumnFilter',
+          filterParams: {
+            textCustomComparator: (filter, value, filterText) => true,
+            filterOptions: ['contains'],
+            debounceMs: 2000,
+            suppressAndOrCondition: true,
+          },
         })),
       },
     ];
@@ -392,6 +432,25 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     );
   };
 
+  onFilterChanged = (event) => {
+    const filters = {};
+    this.columnApi.getAllDisplayedColumns().forEach((column) => {
+      const filterInstance = this.gridApi.getFilterInstance(column.colId);
+      if (filterInstance.getModel() !== undefined && filterInstance.getModel() !== null) {
+        const columnSplitId = column.colDef.field.split('-');
+        if (MAP_COLUMNNAMES_TO_MLFLOW_NAMES.has(columnSplitId[0])) {
+          const columnType = MAP_COLUMNNAMES_TO_MLFLOW_NAMES.get(columnSplitId[0]);
+          const columnName = columnSplitId[1];
+          filters[columnType + '."' + columnName + '"'] = [
+            filterInstance.getModel().type,
+            filterInstance.getModel().filter,
+          ];
+        }
+      }
+    });
+    this.props.onFilter(filters);
+  };
+
   restoreGridState() {
     if (!this.columnApi) return;
     const { columnGroupState } = this.getLocalStore().loadComponentState();
@@ -427,10 +486,12 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           onGridReady={this.handleGridReady}
           onSelectionChanged={this.handleSelectionChange}
           onColumnGroupOpened={this.persistGridState}
+          onFilterChanged={this.onFilterChanged}
           suppressRowClickSelection
           suppressScrollOnNewData // retain scroll position after nested run toggling operations
           suppressFieldDotNotation
           enableCellTextSelection
+          floatingFilter
           frameworkComponents={frameworkComponents}
           fullWidthCellRendererFramework={FullWidthCellRenderer}
           fullWidthCellRendererParams={{ handleLoadMoreRuns, loadingMore }}
