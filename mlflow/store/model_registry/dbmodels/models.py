@@ -93,7 +93,9 @@ class SqlModelVersion(Base):
 class SqlRegisteredModelTag(Base):
     __tablename__ = 'registered_model_tags'
 
-    name = Column(String(256), ForeignKey('registered_models.name', onupdate='cascade'))
+    name = Column(String(256), ForeignKey('registered_models.name',
+                                          onupdate='cascade',
+                                          ondelete='cascade'))
 
     key = Column(String(250), nullable=False)
 
@@ -137,7 +139,8 @@ class SqlModelVersionTag(Base):
         ForeignKeyConstraint(
             ('name', 'version'),
             ('model_versions.name', 'model_versions.version'),
-            onupdate='cascade')
+            onupdate='cascade',
+            ondelete='cascade')
     )
 
     def __repr__(self):

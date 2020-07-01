@@ -27,7 +27,8 @@ def upgrade():
                     sa.ForeignKeyConstraint(
                         ('name', 'version'),
                         ('model_versions.name', 'model_versions.version'),
-                        onupdate='cascade'),
+                        onupdate='cascade',
+                        ondelete='cascade'),
                     sa.PrimaryKeyConstraint('key', 'name', 'version', name='model_version_tag_pk')
                     )
 
