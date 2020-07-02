@@ -14,7 +14,7 @@ from mlflow.entities import RunStatus, ViewType, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _resolve_experiment_id
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.utils import env, databricks_utils
+from mlflow.utils import env
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
     MLFLOW_SOURCE_TYPE, MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
     LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PROJECT_BACKEND, \

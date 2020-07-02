@@ -795,7 +795,7 @@ def _get_databricks_env_vars(tracking_uri):
     if config.token:
         env_vars['DATABRICKS_TOKEN'] = config.token
     if config.ignore_tls_verification:
-        env_vars['DATABRICKS_INSECURE'] = config.ignore_tls_verification
+        env_vars['DATABRICKS_INSECURE'] = str(config.ignore_tls_verification)
     return env_vars
 
 
