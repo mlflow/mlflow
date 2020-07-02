@@ -1,7 +1,8 @@
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-from mlflow.protos.model_registry_pb2 import ModelVersion as ProtoModelVersion
+from mlflow.protos.model_registry_pb2 import ModelVersion as ProtoModelVersion, \
+    ModelVersionTag as ProtoModelVersionTag
 
 
 class ModelVersion(_ModelRegistryEntity):
@@ -27,7 +28,7 @@ class ModelVersion(_ModelRegistryEntity):
         self._run_id = run_id
         self._status = status
         self._status_message = status_message
-        self._tags = tags
+        self._tags = {tag.key: tag.value for tag in (tags or [])}
 
     @property
     def name(self):
@@ -87,8 +88,7 @@ class ModelVersion(_ModelRegistryEntity):
 
     @property
     def tags(self):
-        """List of :py:class:`mlflow.entities.model_registry.ModelVersionTag` instances
-        associated with this model version"""
+        """Dictionary of tag key (string) -> tag value for the current model version."""
         return self._tags
 
     @classmethod
@@ -96,23 +96,28 @@ class ModelVersion(_ModelRegistryEntity):
         # aggregate with base class properties since cls.__dict__ does not do it automatically
         return sorted(cls._get_properties_helper())
 
+    def _add_tag(self, tag):
+        self._tags[tag.key] = tag.value
+
     # proto mappers
     @classmethod
     def from_proto(cls, proto):
         # input: mlflow.protos.model_registry_pb2.ModelVersion
         # returns: ModelVersion entity
-        return cls(proto.name,
-                   proto.version,
-                   proto.creation_timestamp,
-                   proto.last_updated_timestamp,
-                   proto.description,
-                   proto.user_id,
-                   proto.current_stage,
-                   proto.source,
-                   proto.run_id,
-                   ModelVersionStatus.to_string(proto.status),
-                   proto.status_message,
-                   [ModelVersionTag.from_proto(tag) for tag in proto.tags])
+        model_version = cls(proto.name,
+                            proto.version,
+                            proto.creation_timestamp,
+                            proto.last_updated_timestamp,
+                            proto.description,
+                            proto.user_id,
+                            proto.current_stage,
+                            proto.source,
+                            proto.run_id,
+                            ModelVersionStatus.to_string(proto.status),
+                            proto.status_message)
+        for tag in proto.tags:
+            model_version._add_tag(ModelVersionTag.from_proto(tag))
+        return model_version
 
     def to_proto(self):
         # input: ModelVersion entity
@@ -137,6 +142,6 @@ class ModelVersion(_ModelRegistryEntity):
             model_version.status = ModelVersionStatus.from_string(self.status)
         if self.status_message:
             model_version.status_message = self.status_message
-        if self.tags is not None:
-            model_version.tags.extend([tag.to_proto() for tag in self.tags])
+        model_version.tags.extend([ProtoModelVersionTag(key=key, value=value)
+                                   for key, value in self._tags.items()])
         return model_version

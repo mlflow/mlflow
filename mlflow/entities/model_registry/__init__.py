@@ -8,5 +8,5 @@ __all__ = [
     "RegisteredModel",
     "ModelVersion",
     "RegisteredModelTag",
-    "ModelVersionTag"
+    "ModelVersionTag",
 ]
