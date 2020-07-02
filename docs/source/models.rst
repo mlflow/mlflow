@@ -90,11 +90,12 @@ input_example
 
 .. _model-metadata:
 
-Model Metadata
---------------
+Model Signature And Input Example
+---------------------------------
 When working with ML models you often need to know some basic functional properties of the model
 at hand, such as "What inputs does it expect?" and "What output does it produce?". MLflow models can
-include the following additional metadata that can be used by downstream tooling:
+include the following additional metadata about model inputs and outputs that can be used by
+downstream tooling:
 
 * :ref:`Model Signature <model-signature>` - description of a model's inputs and outputs.
 * :ref:`Model Input Example <input-example>` - example of a valid model input.
