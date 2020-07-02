@@ -38,7 +38,8 @@ from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID, MLFLOW_PROJECT_BACKEND,
 )
-from mlflow.utils.uri import get_db_profile_from_uri, is_databricks_uri
+from mlflow.utils.uri import get_db_profile_from_uri
+import mlflow.utils.uri
 
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
@@ -413,6 +414,7 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     """
     env = os.environ.copy()
     env.update(_get_run_env_vars(run_id, experiment_id))
+    env.update(_get_databricks_env_vars(tracking_uri=mlflow.get_tracking_uri()))
     _logger.info("=== Running command '%s' in run with ID '%s' === ", command, run_id)
     # in case os name is not 'nt', we are not running on windows. It introduces
     # bash command otherwise.
@@ -480,8 +482,10 @@ def _invoke_mlflow_run_subprocess(
     mlflow_run_arr = _build_mlflow_run_cmd(
         uri=work_dir, entry_point=entry_point, storage_dir=storage_dir, use_conda=use_conda,
         run_id=run_id, parameters=parameters)
+    env_vars = _get_run_env_vars(run_id, experiment_id)
+    env_vars.update(_get_databricks_env_vars(mlflow.get_tracking_uri()))
     mlflow_run_subprocess = _run_mlflow_run_cmd(
-        mlflow_run_arr, _get_run_env_vars(run_id, experiment_id))
+        mlflow_run_arr, env_vars)
     return LocalSubmittedRun(run_id, mlflow_run_subprocess)
 
 
@@ -772,6 +776,29 @@ def _get_docker_artifact_storage_cmd_and_envs(artifact_uri):
         return [], {}
 
 
+def _get_databricks_env_vars(tracking_uri):
+    if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
+        return {}
+
+    db_profile = get_db_profile_from_uri(tracking_uri)
+    config = databricks_utils.get_databricks_host_creds(db_profile)
+    # We set these via environment variables so that only the current profile is exposed, rather
+    # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
+    # part of ~/.databrickscfg into the container
+    env_vars = {}
+    env_vars[tracking._TRACKING_URI_ENV_VAR] = 'databricks'
+    env_vars['DATABRICKS_HOST'] = config.host
+    if config.username:
+        env_vars['DATABRICKS_USERNAME'] = config.username
+    if config.password:
+        env_vars['DATABRICKS_PASSWORD'] = config.password
+    if config.token:
+        env_vars['DATABRICKS_TOKEN'] = config.token
+    if config.ignore_tls_verification:
+        env_vars['DATABRICKS_INSECURE'] = str(config.ignore_tls_verification)
+    return env_vars
+
+
 def _get_docker_tracking_cmd_and_envs(tracking_uri):
     cmds = []
     env_vars = dict()
@@ -780,22 +807,7 @@ def _get_docker_tracking_cmd_and_envs(tracking_uri):
     if local_path is not None:
         cmds = ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
         env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
-    if is_databricks_uri(tracking_uri):
-        db_profile = get_db_profile_from_uri(tracking_uri)
-        config = databricks_utils.get_databricks_host_creds(db_profile)
-        # We set these via environment variables so that only the current profile is exposed, rather
-        # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
-        # part of ~/.databrickscfg into the container
-        env_vars[tracking._TRACKING_URI_ENV_VAR] = 'databricks'
-        env_vars['DATABRICKS_HOST'] = config.host
-        if config.username:
-            env_vars['DATABRICKS_USERNAME'] = config.username
-        if config.password:
-            env_vars['DATABRICKS_PASSWORD'] = config.password
-        if config.token:
-            env_vars['DATABRICKS_TOKEN'] = config.token
-        if config.ignore_tls_verification:
-            env_vars['DATABRICKS_INSECURE'] = config.ignore_tls_verification
+    env_vars.update(_get_databricks_env_vars(tracking_uri))
     return cmds, env_vars
 
 

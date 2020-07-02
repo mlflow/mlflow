@@ -235,7 +235,7 @@ def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
     assert envs == {"DATABRICKS_HOST": "host",
                     "DATABRICKS_USERNAME": "user",
                     "DATABRICKS_PASSWORD": "pass",
-                    "DATABRICKS_INSECURE": True,
+                    "DATABRICKS_INSECURE": "True",
                     mlflow.tracking._TRACKING_URI_ENV_VAR: "databricks"}
     assert cmds == []
 
