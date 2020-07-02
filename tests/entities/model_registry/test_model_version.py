@@ -73,10 +73,12 @@ class TestModelVersion(unittest.TestCase):
                     {tag.key: tag.value for tag in (tags or [])})
 
         expected_dict.update({"registered_model": RegisteredModel(name)})
+        expected_dict["tags"] = tags
         mvd_3 = ModelVersion.from_dictionary(expected_dict)
         self._check(mvd_3, name, "5", t1, t2, "version five", "user 1",
                     "Production", source, run_id, "READY",
-                    "Model version #5 is ready to use.", tags)
+                    "Model version #5 is ready to use.",
+                    {tag.key: tag.value for tag in (tags or [])})
 
     def test_string_repr(self):
         model_version = ModelVersion(name="myname",
