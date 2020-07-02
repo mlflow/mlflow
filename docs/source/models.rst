@@ -150,7 +150,7 @@ safe. If the types cannot be made compatible, MLflow will raise an error.
 
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-To include signature with your model, pass :py:class:`signature object
+To include a signature with your model, pass :py:class:`signature object
 <mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
 :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. The model signature object can be created
 by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with valid model input
