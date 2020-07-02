@@ -233,10 +233,6 @@ service ModelRegistryService {
         method: "POST",
         path: "/preview/mlflow/registered-models/set-tag"
         since { major: 2, minor: 0},
-      }, {
-        method: "POST",
-        path: "/mlflow/registered-models/set-tag"
-        since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Set Registered Model Tag",
@@ -250,10 +246,6 @@ service ModelRegistryService {
       endpoints: [{
         method: "POST",
         path: "/preview/mlflow/model-versions/set-tag"
-        since { major: 2, minor: 0},
-      }, {
-        method: "POST",
-        path: "/mlflow/model-versions/set-tag"
         since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,
@@ -269,10 +261,6 @@ service ModelRegistryService {
         method: "DELETE",
         path: "/preview/mlflow/registered-models/delete-tag"
         since { major: 2, minor: 0},
-      }, {
-        method: "DELETE",
-        path: "/mlflow/registered-models/delete-tag"
-        since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Delete Registered Model Tag",
@@ -286,10 +274,6 @@ service ModelRegistryService {
       endpoints: [{
         method: "DELETE",
         path: "/preview/mlflow/model-versions/delete-tag"
-        since { major: 2, minor: 0},
-      }, {
-        method: "DELETE",
-        path: "/mlflow/model-versions/delete-tag"
         since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,

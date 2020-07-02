@@ -38,7 +38,7 @@ class TestModelVersion(unittest.TestCase):
                            source, run_id, "READY", "Model version #5 is ready to use.", tags)
         self._check(mvd, name, "5", t1, t2, "version five", "user 1",
                     "Production", source, run_id, "READY",
-                    "Model version #5 is ready to use.", tags)
+                    "Model version #5 is ready to use.", {tag.key: tag.value for tag in (tags or [])})
 
         expected_dict = {
             "name": name,
@@ -52,7 +52,7 @@ class TestModelVersion(unittest.TestCase):
             "run_id": run_id,
             "status": "READY",
             "status_message": "Model version #5 is ready to use.",
-            "tags": tags}
+            "tags": {tag.key: tag.value for tag in (tags or [])}}
         model_version_as_dict = dict(mvd)
         self.assertEqual(model_version_as_dict, expected_dict)
 
@@ -68,7 +68,7 @@ class TestModelVersion(unittest.TestCase):
         mvd_2 = ModelVersion.from_proto(proto)
         self._check(mvd_2, name, "5", t1, t2, "version five", "user 1",
                     "Production", source, run_id, "READY",
-                    "Model version #5 is ready to use.", tags)
+                    "Model version #5 is ready to use.", {tag.key: tag.value for tag in (tags or [])})
 
         expected_dict.update({"registered_model": RegisteredModel(name)})
         mvd_3 = ModelVersion.from_dictionary(expected_dict)
@@ -96,4 +96,4 @@ class TestModelVersion(unittest.TestCase):
                                      "name='myname', " \
                                      "run_id='some run', source='path/to/a/notebook', " \
                                      "status='PENDING_REGISTRATION', status_message='Copying!', " \
-                                     "tags=[], user_id='user one', version='43'>"
+                                     "tags={}, user_id='user one', version='43'>"

@@ -22,14 +22,14 @@ class TestRegisteredModel(unittest.TestCase):
         name = random_str()
         description = random_str()
         rmd_1 = RegisteredModel(name, 1, 2, description, [], [])
-        self._check(rmd_1, name, 1, 2, description, [], [])
+        self._check(rmd_1, name, 1, 2, description, [], {})
 
         as_dict = {"name": name,
                    "creation_timestamp": 1,
                    "last_updated_timestamp": 2,
                    "description": description,
                    "latest_versions": [],
-                   "tags": []}
+                   "tags": {}}
         self.assertEqual(dict(rmd_1), as_dict)
 
         proto = rmd_1.to_proto()
@@ -38,10 +38,10 @@ class TestRegisteredModel(unittest.TestCase):
         self.assertEqual(proto.last_updated_timestamp, 2)
         self.assertEqual(proto.description, description)
         rmd_2 = RegisteredModel.from_proto(proto)
-        self._check(rmd_2, name, 1, 2, description, [], [])
+        self._check(rmd_2, name, 1, 2, description, [], {})
 
         rmd_3 = RegisteredModel.from_dictionary(as_dict)
-        self._check(rmd_3, name, 1, 2, description, [], [])
+        self._check(rmd_3, name, 1, 2, description, [], {})
 
     def test_with_latest_model_versions(self):
         name = random_str()
@@ -56,7 +56,7 @@ class TestRegisteredModel(unittest.TestCase):
                    "last_updated_timestamp": 4000,
                    "description": random_str(),
                    "latest_versions": [mvd_1, mvd_2],
-                   "tags": []}
+                   "tags": {}}
         rmd_1 = RegisteredModel.from_dictionary(as_dict)
         self.assertEqual(dict(rmd_1), as_dict)
 
@@ -78,12 +78,13 @@ class TestRegisteredModel(unittest.TestCase):
         name = random_str()
         tag1 = RegisteredModelTag("key", "value")
         tag2 = RegisteredModelTag("randomKey", "not a random value")
+        tags = [tag1, tag2]
         as_dict = {"name": name,
                    "creation_timestamp": 1,
                    "last_updated_timestamp": 4000,
                    "description": random_str(),
                    "latest_versions": [],
-                   "tags": [tag1, tag2]}
+                   "tags": {tag.key: tag.value for tag in (tags or [])}}
         rmd_1 = RegisteredModel.from_dictionary(as_dict)
         self.assertEqual(dict(rmd_1), as_dict)
         proto = rmd_1.to_proto()
@@ -103,4 +104,4 @@ class TestRegisteredModel(unittest.TestCase):
                               tags=[])
         assert str(rmd) == "<RegisteredModel: creation_timestamp=1000, " \
                            "description='something about a model', last_updated_timestamp=2002, " \
-                           "latest_versions=['1', '2', '3'], name='myname', tags=[]>"
+                           "latest_versions=['1', '2', '3'], name='myname', tags={}>"

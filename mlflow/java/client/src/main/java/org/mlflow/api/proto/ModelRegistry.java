@@ -38723,7 +38723,7 @@ public final class ModelRegistry {
       "\n&com.databricks.rpc.RPC[$this.Response]" +
       "*R\n\022ModelVersionStatus\022\030\n\024PENDING_REGIST" +
       "RATION\020\001\022\027\n\023FAILED_REGISTRATION\020\002\022\t\n\005REA" +
-      "DY\020\0032\226\035\n\024ModelRegistryService\022\266\001\n\025create" +
+      "DY\020\0032\307\033\n\024ModelRegistryService\022\266\001\n\025create" +
       "RegisteredModel\022\035.mlflow.CreateRegistere" +
       "dModel\032&.mlflow.CreateRegisteredModel.Re" +
       "sponse\"V\362\206\031R\n6\n\004POST\022(/preview/mlflow/re" +
@@ -38792,32 +38792,27 @@ public final class ModelRegistry {
       "ionDownloadUri.Response\"q\362\206\031m\n<\n\003GET\022//p" +
       "review/mlflow/model-versions/get-downloa" +
       "d-uri\032\004\010\002\020\000\020\001*+Get Download URI For Mode" +
-      "lVersion Artifacts\022\354\001\n\025setRegisteredMode" +
+      "lVersion Artifacts\022\271\001\n\025setRegisteredMode" +
       "lTag\022\035.mlflow.SetRegisteredModelTag\032&.ml" +
-      "flow.SetRegisteredModelTag.Response\"\213\001\362\206" +
-      "\031\206\001\n7\n\004POST\022)/preview/mlflow/registered-" +
-      "models/set-tag\032\004\010\002\020\000\n/\n\004POST\022!/mlflow/re" +
-      "gistered-models/set-tag\032\004\010\002\020\000\020\001*\030Set Reg" +
-      "istered Model Tag\022\331\001\n\022setModelVersionTag" +
-      "\022\032.mlflow.SetModelVersionTag\032#.mlflow.Se" +
-      "tModelVersionTag.Response\"\201\001\362\206\031}\n4\n\004POST" +
-      "\022&/preview/mlflow/model-versions/set-tag" +
-      "\032\004\010\002\020\000\n,\n\004POST\022\036/mlflow/model-versions/s" +
-      "et-tag\032\004\010\002\020\000\020\001*\025Set Model Version Tag\022\202\002" +
-      "\n\030deleteRegisteredModelTag\022 .mlflow.Dele" +
-      "teRegisteredModelTag\032).mlflow.DeleteRegi" +
-      "steredModelTag.Response\"\230\001\362\206\031\223\001\n<\n\006DELET" +
-      "E\022,/preview/mlflow/registered-models/del" +
-      "ete-tag\032\004\010\002\020\000\n4\n\006DELETE\022$/mlflow/registe" +
-      "red-models/delete-tag\032\004\010\002\020\000\020\001*\033Delete Re" +
-      "gistered Model Tag\022\360\001\n\025deleteModelVersio" +
-      "nTag\022\035.mlflow.DeleteModelVersionTag\032&.ml" +
-      "flow.DeleteModelVersionTag.Response\"\217\001\362\206" +
-      "\031\212\001\n9\n\006DELETE\022)/preview/mlflow/model-ver" +
-      "sions/delete-tag\032\004\010\002\020\000\n1\n\006DELETE\022!/mlflo" +
-      "w/model-versions/delete-tag\032\004\010\002\020\000\020\001*\030Del" +
-      "ete Model Version TagB!\n\024org.mlflow.api." +
-      "proto\220\001\001\240\001\001\342?\002\020\001"
+      "flow.SetRegisteredModelTag.Response\"Y\362\206\031" +
+      "U\n7\n\004POST\022)/preview/mlflow/registered-mo" +
+      "dels/set-tag\032\004\010\002\020\000\020\001*\030Set Registered Mod" +
+      "el Tag\022\252\001\n\022setModelVersionTag\022\032.mlflow.S" +
+      "etModelVersionTag\032#.mlflow.SetModelVersi" +
+      "onTag.Response\"S\362\206\031O\n4\n\004POST\022&/preview/m" +
+      "lflow/model-versions/set-tag\032\004\010\002\020\000\020\001*\025Se" +
+      "t Model Version Tag\022\312\001\n\030deleteRegistered" +
+      "ModelTag\022 .mlflow.DeleteRegisteredModelT" +
+      "ag\032).mlflow.DeleteRegisteredModelTag.Res" +
+      "ponse\"a\362\206\031]\n<\n\006DELETE\022,/preview/mlflow/r" +
+      "egistered-models/delete-tag\032\004\010\002\020\000\020\001*\033Del" +
+      "ete Registered Model Tag\022\273\001\n\025deleteModel" +
+      "VersionTag\022\035.mlflow.DeleteModelVersionTa" +
+      "g\032&.mlflow.DeleteModelVersionTag.Respons" +
+      "e\"[\362\206\031W\n9\n\006DELETE\022)/preview/mlflow/model" +
+      "-versions/delete-tag\032\004\010\002\020\000\020\001*\030Delete Mod" +
+      "el Version TagB!\n\024org.mlflow.api.proto\220\001" +
+      "\001\240\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
