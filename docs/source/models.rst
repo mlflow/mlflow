@@ -153,7 +153,7 @@ How To Log Models With Signatures
 To include a signature with your model, pass :py:class:`signature object
 <mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
 :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. The model signature object can be created
-by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with valid model input
+by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with valid model inputs
 (e.g. the training dataset with target column omitted) and valid model output (e.g. model
 predictions generated on the training dataset). The following example demonstrates how to store
 model signature for a simple classifier trained on the ``Iris dataset``:
