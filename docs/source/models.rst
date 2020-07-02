@@ -201,8 +201,8 @@ and are referenced in the the :ref:`MLmodel file <pyfunc-model-config>`.
 How To Log Model With Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 To include an input example with your model, add it to the appropriate log_model call, e.g.
-:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. Example can be passed in as
-Pandas DataFrame, Numpy array, a list or a dictionary. The given example will be converted to a
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. An example can be passed in as
+a Pandas DataFrame, Numpy array, list or dictionary. The given example will be converted to a
 Pandas DataFrame and then serialized to json using the Pandas split-oriented format. Bytes are
 base64-encoded. The following example demonstrates how you can log an input example with your model:
 
