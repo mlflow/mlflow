@@ -97,7 +97,7 @@ at hand, such as "What inputs does it expect?" and "What output does it produce?
 include the following additional metadata that can be used by downstream tooling:
 
 * :ref:`Model Signature <model-signature>` - description of model input and output.
-* :ref:`Model Input Example <input-example>` - example of valid model input.
+* :ref:`Model Input Example <input-example>` - example of a valid model input.
 
 .. _model-signature:
 
