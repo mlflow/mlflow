@@ -38,7 +38,8 @@ from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID, MLFLOW_PROJECT_BACKEND,
 )
-from mlflow.utils.uri import get_db_profile_from_uri, is_databricks_uri
+from mlflow.utils.uri import get_db_profile_from_uri
+import mlflow.utils.uri
 
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
@@ -484,7 +485,7 @@ def _invoke_mlflow_run_subprocess(
     env_vars = _get_run_env_vars(run_id, experiment_id)
     env_vars.update(_get_databricks_env_vars(mlflow.get_tracking_uri()))
     mlflow_run_subprocess = _run_mlflow_run_cmd(
-        mlflow_run_arr, _get_run_env_vars(run_id, experiment_id))
+        mlflow_run_arr, env_vars)
     return LocalSubmittedRun(run_id, mlflow_run_subprocess)
 
 
@@ -776,7 +777,7 @@ def _get_docker_artifact_storage_cmd_and_envs(artifact_uri):
 
 
 def _get_databricks_env_vars(tracking_uri):
-    if not is_databricks_uri(tracking_uri):
+    if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
         return {}
 
     db_profile = get_db_profile_from_uri(tracking_uri)

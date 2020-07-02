@@ -6,13 +6,15 @@ import yaml
 import mock
 import pytest
 
+from databricks_cli.configure.provider import DatabricksConfig
+
 import mlflow
 
 from mlflow.entities import RunStatus, ViewType, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _resolve_experiment_id
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.utils import env
+from mlflow.utils import env, databricks_utils
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
     MLFLOW_SOURCE_TYPE, MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
     LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PROJECT_BACKEND, \
@@ -315,3 +317,32 @@ def test_parse_kubernetes_config_invalid_template_job_file():
     }
     with pytest.raises(ExecutionException):
         mlflow.projects._parse_kubernetes_config(kubernetes_config)
+
+
+@pytest.mark.parametrize('synchronous', [True, False])
+@mock.patch('databricks_cli.configure.provider.get_config')
+def test_credential_propagation(get_config, synchronous):
+
+    class DummyProcess(object):
+        def wait(self):
+            return 0
+
+        def poll(self):
+            return 0
+
+        def communicate(self, _):
+            return "", ""
+
+    get_config.return_value = \
+        DatabricksConfig("host", None, None, "mytoken", insecure=False)
+    with mock.patch('subprocess.Popen') as popen_mock,\
+            mock.patch('mlflow.utils.uri.is_databricks_uri') as is_databricks_tracking_uri_mock:
+        is_databricks_tracking_uri_mock.return_value = True
+        popen_mock.return_value = DummyProcess()
+        mlflow.projects.run(
+            TEST_PROJECT_DIR, entry_point="sleep", experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            parameters={"duration": 2}, use_conda=False, synchronous=synchronous)
+        _, kwargs = popen_mock.call_args
+        env = kwargs["env"]
+        assert env["DATABRICKS_HOST"] == "host"
+        assert env["DATABRICKS_TOKEN"] == "mytoken"
