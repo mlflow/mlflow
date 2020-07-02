@@ -15,9 +15,11 @@ from mlflow.store.db.db_types import SQLITE
 from mlflow.store.db.base_sql_model import Base
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
-from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlModelVersion
+from mlflow.store.model_registry.dbmodels.models import (
+    SqlRegisteredModel, SqlModelVersion, SqlRegisteredModelTag, SqlModelVersionTag)
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.uri import extract_db_type_from_uri
+from mlflow.utils.validation import _validate_registered_model_tag, _validate_model_version_tag
 
 _logger = logging.getLogger(__name__)
 
@@ -102,11 +104,13 @@ class SqlAlchemyStore(AbstractStore):
             # single object
             session.add(objs)
 
-    def create_registered_model(self, name):
+    def create_registered_model(self, name, tags=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
+
+        :param tags: tags associated with this registered model
 
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
         created in the backend.
@@ -120,6 +124,13 @@ class SqlAlchemyStore(AbstractStore):
                 registered_model = SqlRegisteredModel(name=name, creation_time=creation_time,
                                                       last_updated_time=creation_time)
                 self._save_to_db(session, registered_model)
+                if tags is not None:
+                    self._save_to_db(
+                        session,
+                        [SqlRegisteredModelTag(name=name,
+                                               key=tag.key,
+                                               value=tag.value)
+                         for tag in tags])
                 session.flush()
                 return registered_model.to_mlflow_entity()
             except sqlalchemy.exc.IntegrityError as e:
@@ -353,16 +364,64 @@ class SqlAlchemyStore(AbstractStore):
                 expected_stages = set([get_canonical_stage(stage) for stage in stages])
             return [mv for mv in latest_versions if mv.current_stage in expected_stages]
 
+    @classmethod
+    def _get_registered_model_tag(cls, session, name, key):
+        tags = session.query(SqlRegisteredModelTag).filter(
+            SqlRegisteredModelTag.name == name and SqlRegisteredModelTag.key == key
+        ).all()
+        if len(tags) == 0:
+            return None
+        if len(tags) > 1:
+            raise MlflowException('Expected only 1 registered model tag with name={}, key={}. '
+                                  'Found {}.'.format(name, key, len(tags)), INVALID_STATE)
+        return tags[0]
+
+    def set_registered_model_tag(self, name, tag):
+        """
+        Set a tag for the registered model
+
+        :param name: Registered model name.
+        :param tag: RegisteredModelTag instance to log
+        :return: None
+        """
+        _validate_registered_model_tag(tag.key, tag.value)
+        with self.ManagedSessionMaker() as session:
+            existing_tag = self._get_registered_model_tag(session, name, tag.key)
+            if existing_tag is None:
+                self._save_to_db(session,
+                                 SqlRegisteredModelTag(
+                                     name=name,
+                                     key=tag.key,
+                                     value=tag.value
+                                 ))
+            else:
+                existing_tag.value = tag.value
+                self._save_to_db(session, existing_tag)
+            session.flush()
+
+    def delete_registered_model_tag(self, name, key):
+        """
+        Delete a tag associated with the registered model
+
+        :param name: Registered model name.
+        :param key: Tag key
+        :return: None
+        """
+        with self.ManagedSessionMaker() as session:
+            existing_tag = self._get_registered_model_tag(session, name, key)
+            if existing_tag is not None:
+                session.delete(existing_tag)
+
     # CRUD API for ModelVersion objects
 
-    def create_model_version(self, name, source, run_id):
+    def create_model_version(self, name, source, run_id, tags=None):
         """
         Create a new model version from given source and run ID.
 
-        :param name: Name ID for containing registered model.
+        :param name: Registered model name.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model
-
+        :param tags: tags associated with this model version
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
         created in the backend.
         """
@@ -379,12 +438,20 @@ class SqlAlchemyStore(AbstractStore):
                 try:
                     sql_registered_model = self._get_registered_model(session, name)
                     sql_registered_model.last_updated_time = creation_time
+                    version = next_version(sql_registered_model)
                     model_version = SqlModelVersion(name=name,
-                                                    version=next_version(sql_registered_model),
+                                                    version=version,
                                                     creation_time=creation_time,
                                                     last_updated_time=creation_time,
                                                     source=source, run_id=run_id)
                     self._save_to_db(session, [sql_registered_model, model_version])
+                    if tags is not None:
+                        self._save_to_db(session,
+                                         [SqlModelVersionTag(name=name,
+                                                             version=version,
+                                                             key=tag.key,
+                                                             value=tag.value)
+                                          for tag in tags])
                     session.flush()
                     return model_version.to_mlflow_entity()
                 except sqlalchemy.exc.IntegrityError:
@@ -553,3 +620,57 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version = session.query(SqlModelVersion).filter(*conditions).all()
             model_versions = [mv.to_mlflow_entity() for mv in sql_model_version]
             return PagedList(model_versions, None)
+
+    @classmethod
+    def _get_model_version_tag(cls, session, name, version, key):
+        tags = session.query(SqlModelVersionTag).filter(
+            SqlModelVersionTag.name == name and
+            SqlModelVersionTag.version == version and
+            SqlModelVersionTag.key == key
+        ).all()
+        if len(tags) == 0:
+            return None
+        if len(tags) > 1:
+            raise MlflowException('Expected only 1 model version tag with name={}, version={}, '
+                                  'key={}. Found {}.'.format(name, version, key, len(tags)),
+                                  INVALID_STATE)
+        return tags[0]
+
+    def set_model_version_tag(self, name, version, tag):
+        """
+        Set a tag for the model version
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param tag: ModelVersionTag instance to log
+        :return: None
+        """
+        _validate_model_version_tag(tag.key, tag.value)
+        with self.ManagedSessionMaker() as session:
+            existing_tag = self._get_model_version_tag(session, name, version, tag.key)
+            if existing_tag is None:
+                self._save_to_db(session,
+                                 SqlModelVersionTag(
+                                     name=name,
+                                     version=version,
+                                     key=tag.key,
+                                     value=tag.value
+                                 ))
+            else:
+                existing_tag.value = tag.value
+                self._save_to_db(session, existing_tag)
+            session.flush()
+
+    def delete_model_version_tag(self, name, version, key):
+        """
+        Delete a tag associated with the model version
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param key: Tag key
+        :return: None
+        """
+        with self.ManagedSessionMaker() as session:
+            existing_tag = self._get_model_version_tag(session, name, version, key)
+            if existing_tag is not None:
+                session.delete(existing_tag)
