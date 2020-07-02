@@ -566,10 +566,14 @@ evaluate test data.
 .. code-block:: py
 
     # Load training and test datasets
+    from sys import version_info
     import xgboost as xgb
     from sklearn import datasets
     from sklearn.model_selection import train_test_split
 
+    PYTHON_VERSION = "{major}.{minor}.{micro}".format(major=version_info.major,
+                                                      minor=version_info.minor,
+                                                      micro=version_info.micro)
     iris = datasets.load_iris()
     x = iris.data[:, 2:]
     y = iris.target
@@ -601,14 +605,20 @@ evaluate test data.
             input_matrix = xgb.DMatrix(model_input.values)
             return self.xgb_model.predict(input_matrix)
 
-    # Create a Conda environment for the new MLflow Model that contains the XGBoost library
-    # as a dependency, as well as the required CloudPickle library
+    # Create a Conda environment for the new MLflow Model that contains all necessary dependencies.
     import cloudpickle
     conda_env = {
         'channels': ['defaults'],
         'dependencies': [
-          'xgboost={}'.format(xgb.__version__),
-          'cloudpickle={}'.format(cloudpickle.__version__),
+          'python={}'.format(PYTHON_VERSION),
+          'pip',
+          {
+            'pip': [
+              'mlflow',
+              'xgboost=={}'.format(xgb.__version__),
+              'cloudpickle=={}'.format(cloudpickle.__version__),
+            ],
+          },
         ],
         'name': 'xgb_env'
     }
