@@ -1,15 +1,32 @@
 # -*- coding: utf-8 -*-
 
 """
-The ``mlflow.pyfunc`` module defines a generic :ref:`filesystem format <pyfunc-filesystem-format>`
-for Python models and provides utilities for saving to and loading from this format. The format is
-self contained in the sense that it includes all necessary information for anyone to load it and
-use it. Dependencies are either stored directly with the model or referenced via a Conda
-environment.
+The ``python_function`` model flavor serves as a default model interface for MLflow Python models.
+Any MLflow Python model is expected to be loadable as a ``python_function`` model.
+
+In addition, the ``mlflow.pyfunc`` module defines a generic :ref:`filesystem format
+<pyfunc-filesystem-format>` for Python models and provides utilities for saving to and loading from
+this format. The format is self contained in the sense that it includes all necessary information
+for anyone to load it and use it. Dependencies are either stored directly with the model or
+referenced via a Conda environment.
 
 The ``mlflow.pyfunc`` module also defines utilities for creating custom ``pyfunc`` models
 using frameworks and inference logic that may not be natively included in MLflow. See
 :ref:`pyfunc-create-custom`.
+
+.. _pyfunc-inference-api:
+
+*************
+Inference API
+*************
+
+Python function models are loaded as an instance of :py:class:`PyFuncModel
+<mlflow.pyfunc.PyFuncModel>`, which is an MLflow wrapper around the model implementation and model
+metadata (MLmodel file). You can score the model by calling the :py:func:`predict()
+<mlflow.pyfunc.PyFuncModel.predict>` method, which has the following signature::
+
+  predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+
 
 .. _pyfunc-filesystem-format:
 
@@ -42,10 +59,13 @@ following parameters:
          e.g. ``mlflow.sklearn``, it will be imported using ``importlib.import_module``.
          The imported module must contain a function with the following signature::
 
-          _load_pyfunc(path: string) -> <pyfunc model>
+          _load_pyfunc(path: string) -> <pyfunc model implementation>
 
          The path argument is specified by the ``data`` parameter and may refer to a file or
-         directory.
+         directory. The model implementation is expected to be an object with a
+         ``predict`` method with the following signature::
+
+           predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.(Series | DataFrame)]
 
 - code [optional]:
         Relative path to a directory containing the code packaged with this model.
@@ -91,19 +111,6 @@ following parameters:
     loader_module: mlflow.sklearn
     env: mlflow_env.yml
     main: sklearn_iris
-
-.. _pyfunc-inference-api:
-
-*************
-Inference API
-*************
-
-The convention for pyfunc models is to have a ``predict`` method or function with the following
-signature::
-
-    predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.Series | pandas.DataFrame]
-
-This convention is relied on by other MLflow components.
 
 .. _pyfunc-create-custom:
 
