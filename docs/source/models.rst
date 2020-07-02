@@ -252,7 +252,7 @@ Python Function (``python_function``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The ``python_function`` model flavor serves as a default model interface for MLflow Python models.
 Any MLflow Python model is expected to be loadable as a ``python_function`` model. This enables
-other MLflow tools to work with any python models regardless of which persistence module or
+other MLflow tools to work with any python model regardless of which persistence module or
 framework was used to produce the model. This interoperability is very powerful because it allows
 any Python model to be productionized in a variety of environments.
 
