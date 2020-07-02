@@ -156,7 +156,7 @@ To include a signature with your model, pass :py:class:`signature object
 by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with valid model inputs
 (e.g. the training dataset with target column omitted) and valid model outputs (e.g. model
 predictions generated on the training dataset). The following example demonstrates how to store
-model signature for a simple classifier trained on the ``Iris dataset``:
+a model signature for a simple classifier trained on the ``Iris dataset``:
 
 .. code-block:: python
 
