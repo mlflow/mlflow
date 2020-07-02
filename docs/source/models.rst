@@ -275,7 +275,7 @@ documentation <custom-python-models>`.
 
 How To Load And Score Python Function Models
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-You can load `python_function` models in Python by calling the :py:func:`mlflow.pyfunc.load_model()`
+You can load ``python_function`` models in Python by calling the :py:func:`mlflow.pyfunc.load_model()`
 function. Note that the ``load_model`` function assumes that all dependencies are already available
 and *will not* check nor install any dependencies (
 see :ref:`model deployment section <built-in-deployment>` for tools to deploy models with
