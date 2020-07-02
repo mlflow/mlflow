@@ -233,10 +233,6 @@ service ModelRegistryService {
         method: "POST",
         path: "/preview/mlflow/registered-models/set-tag"
         since { major: 2, minor: 0},
-      }, {
-        method: "POST",
-        path: "/mlflow/registered-models/set-tag"
-        since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Set Registered Model Tag",
@@ -250,10 +246,6 @@ service ModelRegistryService {
       endpoints: [{
         method: "POST",
         path: "/preview/mlflow/model-versions/set-tag"
-        since { major: 2, minor: 0},
-      }, {
-        method: "POST",
-        path: "/mlflow/model-versions/set-tag"
         since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,
@@ -269,10 +261,6 @@ service ModelRegistryService {
         method: "DELETE",
         path: "/preview/mlflow/registered-models/delete-tag"
         since { major: 2, minor: 0},
-      }, {
-        method: "DELETE",
-        path: "/mlflow/registered-models/delete-tag"
-        since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Delete Registered Model Tag",
@@ -286,10 +274,6 @@ service ModelRegistryService {
       endpoints: [{
         method: "DELETE",
         path: "/preview/mlflow/model-versions/delete-tag"
-        since { major: 2, minor: 0},
-      }, {
-        method: "DELETE",
-        path: "/mlflow/model-versions/delete-tag"
         since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,
@@ -655,7 +639,6 @@ message RegisteredModelTag {
 
 message SetRegisteredModelTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.ModelRegistryMessage";
 
   // Unique name of the model.
   optional string name = 1 [(validate_required) = true];
@@ -675,7 +658,6 @@ message SetRegisteredModelTag {
 
 message SetModelVersionTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.ModelRegistryMessage";
 
   // Unique name of the model.
   optional string name = 1 [(validate_required) = true];
@@ -698,7 +680,6 @@ message SetModelVersionTag {
 
 message DeleteRegisteredModelTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.ModelRegistryMessage";
 
   // Name of the registered model that the tag was logged under.
   optional string name = 1 [(validate_required) = true];
@@ -712,7 +693,6 @@ message DeleteRegisteredModelTag {
 
 message DeleteModelVersionTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.ModelRegistryMessage";
 
   // Name of the registered model that the tag was logged under.
   optional string name = 1 [(validate_required) = true];
