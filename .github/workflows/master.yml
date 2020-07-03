@@ -9,15 +9,23 @@ on:
 jobs:
   r-tests:
     runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        config:
+          - {os: ubuntu-16.04, r: 'release', rspm: "https://packagemanager.rstudio.com/cran/__linux__/xenial/latest"}
+    env:
+      RSPM: ${{ matrix.config.rspm }}
+
     steps:
     - uses: actions/checkout@master
     - uses: r-lib/actions/setup-r@v1
+      with:
+        r-version: '4.0.0' # The R version to download (if necessary) and use.
     - name: Query dependencies
       run: |
         install.packages('remotes')
         saveRDS(remotes::dev_package_deps(dependencies = TRUE), ".github/depends.Rds", version = 2)
       shell: Rscript {0}
-
     - name: Cache R packages
       if: runner.os != 'Windows'
       uses: actions/cache@v1
@@ -26,8 +34,6 @@ jobs:
         key: ${{ runner.os }}-r-${{ matrix.config.r }}-1-${{ hashFiles('.github/depends.Rds') }}
         restore-keys: ${{ runner.os }}-r-${{ matrix.config.r }}-1-
 
-      with:
-        r-version: '4.0.0' # The R version to download (if necessary) and use.
     - name: Install system dependencies
       run: |
         sudo apt-get install -y libcurl4-openssl-dev
