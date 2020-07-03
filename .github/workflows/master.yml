@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
-    - uses: r-lib/actions/setup-r@v1
+    - uses: r-lib/actions/setup-r@master
     - name: Install dependencies
       run: |
         install.packages("devtools")
