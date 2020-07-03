@@ -17,6 +17,7 @@ mlflow_maybe_create_conda_env <- function(python_version) {
   conda <- mlflow_conda_bin()
   conda_env_name <- mlflow_conda_env_name()
   if (!conda_env_name %in% conda_list(conda = conda)$name) {
+    message("Creating conda environment ", conda_env_name)
     conda_create(conda_env_name, conda = conda, packages = packages)
   }
 }
