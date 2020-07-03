@@ -48,7 +48,7 @@ jobs:
         ./travis/run-small-python-tests.sh
 
   r-tests:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@master
     - uses: r-lib/actions/setup-r@v1
@@ -59,6 +59,7 @@ jobs:
         install.packages("devtools")
         remotes::install_deps(dependencies = TRUE, upgrade = FALSE)
       shell: Rscript {0}
+      env: R_COMPILE_AND_INSTALL_PACKAGES: never
     - name: Run tests
       run: |
         source ./travis/install-common-deps.sh
