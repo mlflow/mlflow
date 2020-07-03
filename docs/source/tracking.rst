@@ -497,33 +497,6 @@ By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (t
 running ``mlflow run`` locally), but when running a server, make sure that this points to a
 persistent (that is, non-ephemeral) file system location.
 
-Artifact Stores
-~~~~~~~~~~~~~~~
-The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
-file system) and is where clients log their artifact output (for example, models).
-``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
-default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``
-is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
-this run are stored.
-
-Use ``--default-artifact-root`` (defaults to local ``./mlruns`` directory) to configure default
-location to server's artifact store. This will be used as artifact location for newly-created
-experiments that do not specify one. Once you create an experiment, ``--default-artifact-root``
-is no longer relevant to that experiment.
-
-To allow the server and clients to access the artifact location, you should configure your cloud
-provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
-and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
-profile in ``~/.aws/credentials``.
-See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
-
-.. important::
-
-  If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment
-  (for example, ``mlflow experiments create --artifact-location s3://<my-bucket>``), the artifact root
-  is a path inside the file store. Typically this is not an appropriate location, as the client and
-  server probably refer to different physical locations (that is, the same path on different disks).
-
 File store performance
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -576,10 +549,37 @@ Artifact Stores
 In addition to local file paths, MLflow supports the following storage systems as artifact
 stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
+
 Amazon S3 and S3-compatible storage
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
+file system) and is where clients log their artifact output (for example, models).
+``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
+default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``
+is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
+this run are stored.
 
-To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as `MinIO <https://min.io/>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
+Use ``--default-artifact-root`` (defaults to local ``./mlruns`` directory) to configure default
+location to server's artifact store. This will be used as artifact location for newly-created
+experiments that do not specify one. Once you create an experiment, ``--default-artifact-root``
+is no longer relevant to that experiment.
+
+To allow the server and clients to access the artifact location, you should configure your cloud
+provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
+and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
+profile in ``~/.aws/credentials``.
+See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
+
+.. important::
+
+  If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment
+  (for example, ``mlflow experiments create --artifact-location s3://<my-bucket>``), the artifact root
+  is a path inside the file store. Typically this is not an appropriate location, as the client and
+  server probably refer to different physical locations (that is, the same path on different disks).
+
+
+To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as 
+`MinIO <https://min.io/>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
 credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
 the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
 these are available. For more information on how to set credentials, see
@@ -722,6 +722,13 @@ then make API requests to your remote tracking server.
         mlflow_set_experiment("/my-experiment")
         mlflow_log_param("a", "1")
 
+Note that to use the artifact storage capabilities of a remote server, 
+the client need a direct access to the artifact store. 
+The client is the one pushing directly artifacts to the artifact storage, 
+and not through the tracking server. 
+How to setup credentials for the artifact storage depends on the :ref:`Artifact Stores <artifact-stores>` 
+technology setup for the server. 
+Note that some technology choices impose that credential will transit in clear text on the network.
 
 .. _tracking_auth:
 
