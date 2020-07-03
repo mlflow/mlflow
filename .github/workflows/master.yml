@@ -8,7 +8,7 @@ on:
 
 jobs:
   r-tests:
-    runs-on: ubuntu-18.04
+    runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         config:
