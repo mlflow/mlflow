@@ -12,10 +12,7 @@ jobs:
     strategy:
       matrix:
         config:
-          - {os: ubuntu-16.04, r: 'release', rspm: "https://packagemanager.rstudio.com/cran/__linux__/xenial/latest"}
-    env:
-      RSPM: ${{ matrix.config.rspm }}
-
+          - {os: ubuntu-16.04, r: 'release'}
     steps:
     - uses: actions/checkout@master
     - uses: r-lib/actions/setup-r@v1
