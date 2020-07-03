@@ -20,7 +20,7 @@ jobs:
     - name: Install dependencies
       run: |
         install.packages("devtools")
-        remotes::install_deps(dependencies = TRUE, upgrade = FALSE)
+        remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
       shell: Rscript {0}
     - name: Run tests
       run: |
