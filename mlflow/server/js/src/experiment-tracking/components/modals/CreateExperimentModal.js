@@ -16,7 +16,7 @@ export class CreateExperimentModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
     onClose: PropTypes.func.isRequired,
-    experimentNames: PropTypes.arrayOf(String).isRequired,
+    experimentNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     createExperimentApi: PropTypes.func.isRequired,
     listExperimentsApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
@@ -32,7 +32,9 @@ export class CreateExperimentModalImpl extends Component {
     const response = await this.props.createExperimentApi(experimentName, artifactLocation);
     await this.props.listExperimentsApi();
 
-    const { value: { experiment_id: newExperimentId } } = response;
+    const {
+      value: { experiment_id: newExperimentId },
+    } = response;
     if (newExperimentId) {
       this.props.history.push(Routes.getExperimentPageRoute(newExperimentId));
     }
@@ -70,5 +72,5 @@ const mapDispatchToProps = {
 };
 
 export const CreateExperimentModal = withRouter(
-  connect(mapStateToProps, mapDispatchToProps)(CreateExperimentModalImpl)
+  connect(mapStateToProps, mapDispatchToProps)(CreateExperimentModalImpl),
 );

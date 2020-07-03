@@ -1,10 +1,12 @@
 name: lightgbm-example
 channels:
   - defaults
+  - anaconda
   - conda-forge
 dependencies:
   - python=3.6
   - lightgbm
+  - pip
   - pip:
       - mlflow>=1.6.0
       - matplotlib

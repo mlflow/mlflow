@@ -5,12 +5,12 @@
 # run arbitrary code
 extension-pkg-whitelist=
 
-# Add files or directories to the blacklist. They should be base names, not
+# Add files or directories to the denylist. They should be base names, not
 # paths.
 ignore=build,protos,sdk,db_migrations,temporary_db_migrations_for_pre_1_users
 
 
-# Add files or directories matching the regex patterns to the blacklist. The
+# Add files or directories matching the regex patterns to the denylist. The
 # regex matches against base names, not paths.
 ignore-patterns=
 

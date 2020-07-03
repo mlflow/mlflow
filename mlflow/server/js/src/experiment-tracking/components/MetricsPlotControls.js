@@ -14,9 +14,9 @@ export const MAX_LINE_SMOOTHNESS = 100;
 export class MetricsPlotControls extends React.Component {
   static propTypes = {
     // An array of distinct metric keys to be shown as options
-    distinctMetricKeys: PropTypes.arrayOf(String).isRequired,
+    distinctMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of metric keys selected by user or indicated by URL
-    selectedMetricKeys: PropTypes.arrayOf(String).isRequired,
+    selectedMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     selectedXAxis: PropTypes.string.isRequired,
     handleXAxisChange: PropTypes.func.isRequired,
     handleShowPointChange: PropTypes.func.isRequired,
@@ -43,12 +43,13 @@ export class MetricsPlotControls extends React.Component {
 
   render() {
     const { chartType, yAxisLogScale, initialLineSmoothness, showPoint } = this.props;
+    const wrapperStyle = chartType === CHART_TYPE_LINE ? styles.linechartControlsWrapper : {};
     const lineSmoothnessTooltipText =
       'Make the line between points "smoother" based on Exponential Moving Average. ' +
       'Smoothing can be useful for displaying the ' +
       'overall trend when the logging frequency is high.';
     return (
-      <div className='plot-controls'>
+      <div className='plot-controls' style={wrapperStyle}>
         {chartType === CHART_TYPE_LINE ? (
           <div>
             <div className='inline-control'>
@@ -63,7 +64,7 @@ export class MetricsPlotControls extends React.Component {
             </div>
             <div className='block-control'>
               <div className='control-label'>
-                Line Smoothness {' '}
+                Line Smoothness{' '}
                 <Tooltip title={lineSmoothnessTooltipText}>
                   <Icon type='question-circle' />
                 </Tooltip>
@@ -118,3 +119,10 @@ export class MetricsPlotControls extends React.Component {
     );
   }
 }
+
+const styles = {
+  linechartControlsWrapper: {
+    // Make controls aligned to plotly line chart
+    justifyContent: 'center',
+  },
+};

@@ -2,8 +2,6 @@
 The ``mlflow.azureml`` module provides an API for deploying MLflow models to Azure
 Machine Learning.
 """
-from __future__ import print_function
-
 import sys
 import os
 import shutil
@@ -477,18 +475,6 @@ def _get_container_path(local_path):
     if local_path.startswith("/"):
         local_path = local_path[1:]
     return os.path.join("/var/azureml-app", local_path)
-
-
-def _load_pyfunc_conf_with_model(model_path):
-    """
-    Loads the `python_function` flavor configuration for the specified model or throws an exception
-    if the model does not contain the `python_function` flavor.
-
-    :param model_path: The absolute path to the model.
-    :return: The model's `python_function` flavor configuration and the model.
-    """
-    (name, _) = _load_pyfunc_conf_with_model(model_path)
-    return name
 
 
 def _load_pyfunc_conf_with_model(model_path):

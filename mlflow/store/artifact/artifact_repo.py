@@ -80,23 +80,8 @@ class ArtifactRepository:
 
         # TODO: Probably need to add a more efficient method to stream just a single artifact
         #       without downloading it, or to get a pre-signed URL for cloud storage.
-        if dst_path is None:
-            dst_path = tempfile.mkdtemp()
-        dst_path = os.path.abspath(dst_path)
-        if not os.path.exists(dst_path):
-            raise MlflowException(
-                message=(
-                    "The destination path for downloaded artifacts does not"
-                    " exist! Destination path: {dst_path}".format(dst_path=dst_path)),
-                error_code=RESOURCE_DOES_NOT_EXIST)
-        elif not os.path.isdir(dst_path):
-            raise MlflowException(
-                message=(
-                    "The destination path for downloaded artifacts must be a directory!"
-                    " Destination path: {dst_path}".format(dst_path=dst_path)),
-                error_code=INVALID_PARAMETER_VALUE)
-
         def download_file(fullpath):
+            fullpath = fullpath.rstrip('/')  # Prevents incorrect split if fullpath ends with a '/'
             dirpath, _ = posixpath.split(fullpath)
             local_dir_path = os.path.join(dst_path, dirpath)
             local_file_path = os.path.join(dst_path, fullpath)
@@ -120,6 +105,11 @@ class ArtifactRepository:
                     else:
                         download_file(file_info.path)
             return local_dir
+
+        if dst_path is None:
+            dst_path = tempfile.mkdtemp()
+        dst_path = os.path.abspath(dst_path)
+
         if not os.path.exists(dst_path):
             raise MlflowException(
                 message=(

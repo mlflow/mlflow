@@ -8,9 +8,6 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
-
-from __future__ import absolute_import
-
 import os
 import pickle
 import yaml
@@ -19,6 +16,8 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -55,8 +54,9 @@ def get_default_conda_env(include_cloudpickle=False):
     )
 
 
-def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
-               serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE):
+def save_model(sk_model, path, conda_env=None, mlflow_model=None,
+               serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+               signature: ModelSignature = None, input_example: ModelInputExample = None):
     """
     Save a scikit-learn model to a path on the local file system.
 
@@ -86,6 +86,26 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                                  format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
                                  provides better cross-system compatibility by identifying and
                                  packaging code dependencies with the serialized model.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
 
     .. code-block:: python
         :caption: Example
@@ -125,6 +145,13 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
         raise MlflowException(message="Path '{}' already exists".format(path),
                               error_code=RESOURCE_ALREADY_EXISTS)
     os.makedirs(path)
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
+
     model_data_subpath = "model.pkl"
     _save_model(sk_model=sk_model, output_path=os.path.join(path, model_data_subpath),
                 serialization_format=serialization_format)
@@ -149,7 +176,8 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
 
 def log_model(sk_model, artifact_path, conda_env=None,
-              serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE, registered_model_name=None):
+              serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE, registered_model_name=None,
+              signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log a scikit-learn model as an MLflow artifact for the current run.
 
@@ -178,10 +206,30 @@ def log_model(sk_model, artifact_path, conda_env=None,
                                  format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
                                  provides better cross-system compatibility by identifying and
                                  packaging code dependencies with the serialized model.
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
+
 
     .. code-block:: python
         :caption: Example
@@ -208,7 +256,9 @@ def log_model(sk_model, artifact_path, conda_env=None,
                      sk_model=sk_model,
                      conda_env=conda_env,
                      serialization_format=serialization_format,
-                     registered_model_name=registered_model_name)
+                     registered_model_name=registered_model_name,
+                     signature=signature,
+                     input_example=input_example)
 
 
 def _load_model_from_local_file(path):

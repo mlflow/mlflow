@@ -7,9 +7,6 @@ PyTorch (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
-
-from __future__ import absolute_import
-
 import importlib
 import logging
 import os
@@ -23,7 +20,8 @@ import mlflow
 import mlflow.pyfunc.utils as pyfunc_utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -64,7 +62,8 @@ def get_default_conda_env():
 
 
 def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
-              pickle_module=None, registered_model_name=None, **kwargs):
+              pickle_module=None, registered_model_name=None,
+              signature: ModelSignature = None, input_example: ModelInputExample = None, **kwargs):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
@@ -101,10 +100,30 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
                           ``pytorch_model``. This is passed as the ``pickle_module`` parameter
                           to ``torch.save()``. By default, this module is also used to
                           deserialize ("unpickle") the PyTorch model at load time.
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
+
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -155,11 +174,14 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch, pytorch_model=pytorch_model,
               conda_env=conda_env, code_paths=code_paths, pickle_module=pickle_module,
-              registered_model_name=registered_model_name, **kwargs)
+              registered_model_name=registered_model_name,
+              signature=signature, input_example=input_example, **kwargs)
 
 
-def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_paths=None,
-               pickle_module=None, **kwargs):
+def save_model(pytorch_model, path, conda_env=None, mlflow_model=None, code_paths=None,
+               pickle_module=None,
+               signature: ModelSignature=None, input_example: ModelInputExample=None,
+               **kwargs):
     """
     Save a PyTorch model to a path on the local file system.
 
@@ -198,6 +220,26 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
                           ``pytorch_model``. This is passed as the ``pickle_module`` parameter
                           to ``torch.save()``. By default, this module is also used to
                           deserialize ("unpickle") the PyTorch model at load time.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -229,7 +271,15 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise RuntimeError("Path '{}' already exists".format(path))
+
+    if mlflow_model is None:
+        mlflow_model = Model()
+
     os.makedirs(path)
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
 
     model_data_subpath = "data"
     model_data_path = os.path.join(path, model_data_subpath)

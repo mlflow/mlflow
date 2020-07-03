@@ -21,31 +21,31 @@ describe('unit tests', () => {
         {
           label: 'param_0',
           values: [1, 2],
-          tickformat: 'f',
+          tickformat: '.5f',
         },
         {
           label: 'param_1',
           values: [2, 3],
-          tickformat: 'f',
+          tickformat: '.5f',
         },
       ],
       metricDimensions: [
         {
           label: 'metric_0',
           values: [1, 2],
-          tickformat: 'f',
+          tickformat: '.5f',
         },
         {
           label: 'metric_1',
           values: [2, 3],
-          tickformat: 'f',
+          tickformat: '.5f',
         },
       ],
     };
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps}/>);
+    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps} />);
     expect(wrapper.length).toBe(1);
   });
 
@@ -75,7 +75,7 @@ describe('unit tests', () => {
   });
 
   test('maybeUpdateStateForColorScale should trigger setState when last metric change', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps}/>);
+    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps} />);
     instance = wrapper.instance();
     instance.findLastMetricFromState = jest.fn(() => 'metric_1');
     instance.setState = jest.fn();
@@ -84,7 +84,7 @@ describe('unit tests', () => {
   });
 
   test('maybeUpdateStateForColorScale should not trigger setState when last metric stays', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps}/>);
+    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps} />);
     instance = wrapper.instance();
     instance.findLastMetricFromState = jest.fn(() => 'metric_1');
     instance.setState = jest.fn();
@@ -184,7 +184,7 @@ describe('unit tests', () => {
     expect(createDimension(key, runUuids, entryByRunUuid)).toEqual({
       label: 'metric_0',
       values: [1, 2],
-      tickformat: 'f',
+      tickformat: '.5f',
     });
   });
 
@@ -208,7 +208,7 @@ describe('unit tests', () => {
   });
 
   test('getColorScaleConfigsForDimension', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps}/>);
+    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps} />);
     instance = wrapper.instance();
     const dimension = {
       label: 'metric_0',

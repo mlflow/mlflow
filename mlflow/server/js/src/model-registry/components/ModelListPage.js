@@ -8,7 +8,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 
 class ModelListPage extends React.Component {
   static propTypes = {
-    models: PropTypes.arrayOf(Object),
+    models: PropTypes.arrayOf(PropTypes.object),
     listRegisteredModelsApi: PropTypes.func.isRequired,
   };
 
@@ -21,11 +21,11 @@ class ModelListPage extends React.Component {
   render() {
     const { models } = this.props;
     return (
-        <div className='App-content'>
-          <RequestStateWrapper requestIds={[this.listRegisteredModelsApiId]}>
-            <ModelListView models={models}/>
-          </RequestStateWrapper>
-        </div>
+      <div className='App-content'>
+        <RequestStateWrapper requestIds={[this.listRegisteredModelsApiId]}>
+          <ModelListView models={models} />
+        </RequestStateWrapper>
+      </div>
     );
   }
 }

@@ -1,6 +1,8 @@
 name: tutorial
 channels:
   - defaults
+  - anaconda
+  - conda-forge
 dependencies:
   - cloudpickle=0.6.1
   - python=3.6
@@ -8,5 +10,6 @@ dependencies:
   - matplotlib=3.0.2
   - pandas=0.22.0
   - scikit-learn=0.19.1
+  - pip
   - pip:
     - mlflow

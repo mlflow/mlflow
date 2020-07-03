@@ -5,6 +5,7 @@ import pytest
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
+from mlflow.store.artifact.dbfs_artifact_repo import DatabricksArtifactRepository
 
 from mlflow.utils.rest_utils import MlflowHostCreds
 
@@ -39,3 +40,14 @@ def test_dbfs_artifact_repo_delegates_to_correct_repo(
     rest_repo = get_artifact_repository(artifact_uri)
     assert isinstance(rest_repo, DbfsRestArtifactRepository)
     assert rest_repo.artifact_uri == artifact_uri
+
+    with mock.patch(
+            "mlflow.store.artifact.databricks_artifact_repo" +
+            ".DatabricksArtifactRepository._get_run_artifact_root") \
+            as get_run_artifact_root_mock:
+        mock_uri = \
+            "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
+        get_run_artifact_root_mock.return_value = mock_uri
+        databricks_repo = get_artifact_repository(mock_uri)
+        assert isinstance(databricks_repo, DatabricksArtifactRepository)
+        assert databricks_repo.artifact_uri == mock_uri

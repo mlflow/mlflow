@@ -1,6 +1,7 @@
 import React from 'react';
-import { Table, Input, Form, Icon, Popconfirm } from 'antd';
+import { Table, Input, Form, Icon, Popconfirm, Button } from 'antd';
 import PropTypes from 'prop-types';
+import { IconButton } from '../../components/IconButton';
 
 import './EditableFormTable.css';
 
@@ -53,8 +54,8 @@ class EditableCell extends React.Component {
 
 export class EditableTable extends React.Component {
   static propTypes = {
-    columns: PropTypes.arrayOf(Object).isRequired,
-    data: PropTypes.arrayOf(Object).isRequired,
+    columns: PropTypes.arrayOf(PropTypes.object).isRequired,
+    data: PropTypes.arrayOf(PropTypes.object).isRequired,
     onSaveEdit: PropTypes.func.isRequired,
     onDelete: PropTypes.func.isRequired,
     form: PropTypes.object.isRequired,
@@ -68,21 +69,21 @@ export class EditableTable extends React.Component {
 
   initColumns = () => [
     ...this.props.columns.map((col) =>
-      (col.editable
+      col.editable
         ? {
-          ...col,
-          // `onCell` returns props to be added to EditableCell
-          onCell: (record) => ({
-            record,
-            dataIndex: col.dataIndex,
-            title: col.title,
-            editing: this.isEditing(record),
-            save: this.save,
-            cancel: this.cancel,
-            recordKey: record.key,
-          }),
-        }
-        : col),
+            ...col,
+            // `onCell` returns props to be added to EditableCell
+            onCell: (record) => ({
+              record,
+              dataIndex: col.dataIndex,
+              title: col.title,
+              editing: this.isEditing(record),
+              save: this.save,
+              cancel: this.cancel,
+              recordKey: record.key,
+            }),
+          }
+        : col,
     ),
     {
       title: 'Actions',
@@ -96,29 +97,28 @@ export class EditableTable extends React.Component {
         }
         return editing ? (
           <span>
-            <a onClick={() => this.save(record.key)} style={{ marginRight: 10 }}>
+            <Button type='link' onClick={() => this.save(record.key)} style={{ marginRight: 10 }}>
               Save
-            </a>
-            <a onClick={() => this.cancel(record.key)}>Cancel</a>
+            </Button>
+            <Button type='link' onClick={() => this.cancel(record.key)}>
+              Cancel
+            </Button>
           </span>
         ) : (
           <span>
-            <a
+            <IconButton
+              icon={<Icon type='edit' />}
               disabled={editingKey !== ''}
               onClick={() => this.edit(record.key)}
               style={{ marginRight: 10 }}
-            >
-              <Icon type="edit" />
-            </a>
+            />
             <Popconfirm
-              title="Are you sure you want to delete this tag？"
-              okText="Confirm"
-              cancelText="Cancel"
+              title='Are you sure you want to delete this tag？'
+              okText='Confirm'
+              cancelText='Cancel'
               onConfirm={() => this.delete(record.key)}
             >
-              <a disabled={editingKey !== ''}>
-                <i className="far fa-trash-alt"/>
-              </a>
+              <IconButton icon={<i className='far fa-trash-alt' />} disabled={editingKey !== ''} />
             </Popconfirm>
           </span>
         );
@@ -154,7 +154,7 @@ export class EditableTable extends React.Component {
         this.setState({ editingKey: '', isRequestPending: false });
       });
     }
-  }
+  };
 
   edit = (key) => {
     this.setState({ editingKey: key });

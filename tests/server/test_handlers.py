@@ -13,17 +13,18 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.server.handlers import get_endpoints, _create_experiment, _get_request_message, \
     _search_runs, _log_batch, catch_mlflow_exception, _create_registered_model, \
     _update_registered_model, _delete_registered_model, _get_registered_model, \
-    _list_registered_models, _get_latest_versions, _create_model_version, _update_model_version, \
+    _list_registered_models, _search_registered_models, \
+    _get_latest_versions, _create_model_version, _update_model_version, \
     _delete_model_version, _get_model_version_download_uri, \
     _search_model_versions, _get_model_version, _transition_stage, _rename_registered_model
-from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
 from mlflow.protos.model_registry_pb2 import CreateRegisteredModel, UpdateRegisteredModel, \
-    DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModel, GetLatestVersions, \
-    CreateModelVersion, UpdateModelVersion, DeleteModelVersion, GetModelVersion, \
-    GetModelVersionDownloadUri, SearchModelVersions, TransitionModelVersionStage, \
-    RenameRegisteredModel
+    DeleteRegisteredModel, ListRegisteredModels, SearchRegisteredModels, GetRegisteredModel, \
+    GetLatestVersions, CreateModelVersion, UpdateModelVersion, \
+    DeleteModelVersion, GetModelVersion, GetModelVersionDownloadUri, SearchModelVersions, \
+    TransitionModelVersionStage, RenameRegisteredModel
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
@@ -54,6 +55,13 @@ def mock_model_registry_store():
         mock_store = mock.MagicMock()
         m.return_value = mock_store
         yield mock_store
+
+
+def test_health():
+    with app.test_client() as c:
+        response = c.get("/health")
+        assert response.status_code == 200
+        assert response.get_data().decode() == "OK"
 
 
 def test_get_endpoints():
@@ -172,7 +180,7 @@ def test_catch_mlflow_exception():
 @pytest.mark.large
 def test_mlflow_server_with_installed_plugin(tmpdir):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-    from mlflow_test_plugin import PluginFileStore
+    from mlflow_test_plugin.file_store import PluginFileStore
 
     env = {
         BACKEND_STORE_URI_ENV_VAR: "file-plugin:%s" % tmpdir.strpath,
@@ -255,7 +263,25 @@ def test_delete_registered_model(mock_get_request_message, mock_model_registry_s
 
 
 def test_list_registered_models(mock_get_request_message, mock_model_registry_store):
-    mock_get_request_message.return_value = ListRegisteredModels()
+    mock_get_request_message.return_value = ListRegisteredModels(max_results=50)
+    rmds = PagedList([
+        RegisteredModel(name="model_1", creation_timestamp=111,
+                        last_updated_timestamp=222, description="Test model",
+                        latest_versions=[]),
+        RegisteredModel(name="model_2", creation_timestamp=111,
+                        last_updated_timestamp=333, description="Another model",
+                        latest_versions=[]),
+    ], "next_pt")
+    mock_model_registry_store.list_registered_models.return_value = rmds
+    resp = _list_registered_models()
+    args, _ = mock_model_registry_store.list_registered_models.call_args
+    assert args == (50, '')
+    assert json.loads(resp.get_data()) == {
+        "next_page_token": "next_pt",
+        "registered_models": jsonify(rmds)}
+
+
+def test_search_registered_models(mock_get_request_message, mock_model_registry_store):
     rmds = [
         RegisteredModel(name="model_1", creation_timestamp=111,
                         last_updated_timestamp=222, description="Test model",
@@ -264,11 +290,42 @@ def test_list_registered_models(mock_get_request_message, mock_model_registry_st
                         last_updated_timestamp=333, description="Another model",
                         latest_versions=[]),
     ]
-    mock_model_registry_store.list_registered_models.return_value = rmds
-    resp = _list_registered_models()
-    args, _ = mock_model_registry_store.list_registered_models.call_args
-    assert args == ()
+    mock_get_request_message.return_value = SearchRegisteredModels()
+    mock_model_registry_store.search_registered_models.return_value = PagedList(rmds, None)
+    resp = _search_registered_models()
+    _, args = mock_model_registry_store.search_registered_models.call_args
+    assert args == {"filter_string": "", "max_results": 100, "order_by": [], "page_token": ""}
     assert json.loads(resp.get_data()) == {"registered_models": jsonify(rmds)}
+
+    mock_get_request_message.return_value = SearchRegisteredModels(filter="hello")
+    mock_model_registry_store.search_registered_models.return_value = PagedList(rmds[:1], "tok")
+    resp = _search_registered_models()
+    _, args = mock_model_registry_store.search_registered_models.call_args
+    assert args == {"filter_string": "hello", "max_results": 100, "order_by": [], "page_token": ""}
+    assert json.loads(resp.get_data()) == {"registered_models": jsonify(rmds[:1]),
+                                           "next_page_token": "tok"}
+
+    mock_get_request_message.return_value = SearchRegisteredModels(filter="hi", max_results=5)
+    mock_model_registry_store.search_registered_models.return_value = PagedList([rmds[0]], "tik")
+    resp = _search_registered_models()
+    _, args = mock_model_registry_store.search_registered_models.call_args
+    assert args == {"filter_string": "hi", "max_results": 5, "order_by": [], "page_token": ""}
+    assert json.loads(resp.get_data()) == {"registered_models": jsonify([rmds[0]]),
+                                           "next_page_token": "tik"}
+
+    mock_get_request_message.return_value = SearchRegisteredModels(filter="hey",
+                                                                   max_results=500,
+                                                                   order_by=["a", "B desc"],
+                                                                   page_token="prev")
+    mock_model_registry_store.search_registered_models.return_value = PagedList(rmds, "DONE")
+    resp = _search_registered_models()
+    _, args = mock_model_registry_store.search_registered_models.call_args
+    assert args == {"filter_string": "hey",
+                    "max_results": 500,
+                    "order_by": ["a", "B desc"],
+                    "page_token": "prev"}
+    assert json.loads(resp.get_data()) == {"registered_models": jsonify(rmds),
+                                           "next_page_token": "DONE"}
 
 
 def test_get_latest_versions(mock_get_request_message, mock_model_registry_store):

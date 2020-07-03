@@ -4,29 +4,54 @@ about: Use this template for feature and enhancement proposals.
 labels: 'enhancement'
 title: "[FR]"
 ---
-Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
-for information on what types of issues we address.
+Thank you for submitting a feature request. **Before proceeding, please review MLflow's [Issue Policy for feature requests](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md#feature-requests) and the [MLflow Contributing Guide](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst)**.
 
-Please fill in this template and do not delete it unless you are sure your issue is outside its scope.
+**Please fill in this feature request template to ensure a timely and thorough response.**
 
--------
-## Guidelines
+## Willingness to contribute
+The MLflow Community encourages new feature contributions. Would you or another member of your organization be willing to contribute an implementation of this feature (either as an MLflow Plugin or an enhancement to the MLflow code base)?
 
-Feature requests typically go through the following lifecycle:
+- [ ] Yes. I can contribute this feature independently.
+- [ ] Yes. I would be willing to contribute this feature with guidance from the MLflow community.
+- [ ] No. I cannot contribute this feature at this time.
 
-1. Submit feature request with high-level description on GitHub issues (this is what you're doing now)
-2. Discuss feature request with a committer, who may ask for a more detailed design
-3. After discussion & agreement on feature request, start implementation
+## Proposal Summary
 
+(In a few sentences, provide a clear, high-level description of the feature request)
 
-## Describe the proposal
-Provide a clear high-level description of the feature request in the following sections. Feature requests that are likely to be accepted:
-* Are minimal in scope (note that it's always easier to add additional functionality later than remove functionality)
-* Are extensible (e.g. if adding an integration with an ML framework, is it possible to add similar integrations with other frameworks?)
-* Have user impact & value that justifies the maintenance burden of supporting the feature moving forwards. The [JQuery contributor guide](https://contribute.jquery.org/open-source/#contributing-something-new) has an excellent discussion on this.
+## Motivation
+- What is the use case for this feature?
+- Why is this use case valuable to support for MLflow users in general?
+- Why is this use case valuable to support for your project(s) or organization?
+- Why is it currently difficult to achieve this use case? (please be as specific as possible about why related MLflow features and components are insufficient)
 
-### Motivation
-What is the use case in mind?  Why is it valuable to support, and why is it currently difficult or impossible to achieve? Could the desired functionality alternatively be implemented as a third-party package using MLflow public APIs?
+### What component(s), interfaces, languages, and integrations does this feature affect?
+Components 
+- [ ] `area/artifacts`: Artifact stores and artifact logging
+- [ ] `area/build`: Build and test infrastructure for MLflow
+- [ ] `area/docs`: MLflow documentation pages
+- [ ] `area/examples`: Example code
+- [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for
+Model Registry
+- [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
+- [ ] `area/projects`: MLproject format, project running backends
+- [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
+- [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
 
-### Proposed Changes
-For user-facing changes, what APIs are you proposing to add or modify? For internal changes, what code paths will need to be modified?
+Interfaces
+- [ ] `area/uiux`: Front-end, user experience, JavaScript, plotting
+- [ ] `area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
+- [ ] `area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry
+- [ ] `area/windows`: Windows support
+
+Languages 
+- [ ] `language/r`: R APIs and clients
+- [ ] `language/java`: Java APIs and clients
+
+Integrations
+- [ ] `integrations/azure`: Azure and Azure ML integrations
+- [ ] `integrations/sagemaker`: SageMaker integrations
+
+## Details
+
+(Use this section to include any additional information about the feature. If you have a proposal for how to implement this feature, please include it here. For implementation guidelines, please refer to the [Contributing Guide](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#contribution-guidelines).)

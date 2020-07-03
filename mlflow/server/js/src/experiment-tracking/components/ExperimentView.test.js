@@ -1,17 +1,18 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { ExperimentView, mapStateToProps } from './ExperimentView';
-import Fixtures from "../utils/test-utils/Fixtures";
-import {LIFECYCLE_FILTER} from "./ExperimentPage";
-import KeyFilter from "../utils/KeyFilter";
+import Fixtures from '../utils/test-utils/Fixtures';
+import { LIFECYCLE_FILTER } from './ExperimentPage';
+import KeyFilter from '../utils/KeyFilter';
 import {
   addApiToState,
   addExperimentToState,
   addExperimentTagsToState,
   createPendingApi,
-  emptyState} from "../utils/test-utils/ReduxStoreFixtures";
+  emptyState,
+} from '../utils/test-utils/ReduxStoreFixtures';
 import Utils from '../../common/utils/Utils';
-import {Spinner} from "../../common/components/Spinner";
+import { Spinner } from '../../common/components/Spinner';
 import { ExperimentViewPersistedState } from '../sdk/MlflowLocalStorageMessages';
 import { getUUID } from '../../common/utils/ActionUtils';
 
@@ -22,30 +23,32 @@ beforeEach(() => {
 });
 
 const getExperimentViewMock = () => {
-  return shallow(<ExperimentView
-    onSearch={onSearchSpy}
-    runInfos={[]}
-    experiment={Fixtures.createExperiment()}
-    history={[]}
-    paramKeyList={[]}
-    metricKeyList={[]}
-    paramsList={[]}
-    metricsList={[]}
-    tagsList={[]}
-    experimentTags={{}}
-    paramKeyFilter={new KeyFilter("")}
-    metricKeyFilter={new KeyFilter("")}
-    lifecycleFilter={LIFECYCLE_FILTER.ACTIVE}
-    searchInput={""}
-    searchRunsError={''}
-    isLoading
-    loadingMore={false}
-    handleLoadMoreRuns={jest.fn()}
-    orderByKey={null}
-    orderByAsc={false}
-    setExperimentTagApi={jest.fn()}
-    location={{pathname: "/"}}
-  />);
+  return shallow(
+    <ExperimentView
+      onSearch={onSearchSpy}
+      runInfos={[]}
+      experiment={Fixtures.createExperiment()}
+      history={[]}
+      paramKeyList={[]}
+      metricKeyList={[]}
+      paramsList={[]}
+      metricsList={[]}
+      tagsList={[]}
+      experimentTags={{}}
+      paramKeyFilter={new KeyFilter('')}
+      metricKeyFilter={new KeyFilter('')}
+      lifecycleFilter={LIFECYCLE_FILTER.ACTIVE}
+      searchInput={''}
+      searchRunsError={''}
+      isLoading
+      loadingMore={false}
+      handleLoadMoreRuns={jest.fn()}
+      orderByKey={null}
+      orderByAsc={false}
+      setExperimentTagApi={jest.fn()}
+      location={{ pathname: '/' }}
+    />,
+  );
 };
 
 test(`Clearing filter state calls search handler with correct arguments`, () => {
@@ -64,12 +67,14 @@ test('Entering search input updates component state', () => {
   const wrapper = getExperimentViewMock();
   wrapper.instance().setState = jest.fn();
   // Test entering search input
-  wrapper.find('.ExperimentView-search-input input').first().simulate(
-    'change', {target: {value: 'search input string'}});
-  expect(wrapper.instance().setState).toBeCalledWith({searchInput: 'search input string'});
+  wrapper
+    .find('.ExperimentView-search-input input')
+    .first()
+    .simulate('change', { target: { value: 'search input string' } });
+  expect(wrapper.instance().setState).toBeCalledWith({ searchInput: 'search input string' });
 });
 
-test("ExperimentView will show spinner if isLoading prop is true", () => {
+test('ExperimentView will show spinner if isLoading prop is true', () => {
   const wrapper = getExperimentViewMock();
   const instance = wrapper.instance();
   instance.setState({
@@ -78,11 +83,11 @@ test("ExperimentView will show spinner if isLoading prop is true", () => {
   expect(wrapper.find(Spinner)).toHaveLength(1);
 });
 
-test("Page title is set", () => {
+test('Page title is set', () => {
   const mockUpdatePageTitle = jest.fn();
   Utils.updatePageTitle = mockUpdatePageTitle;
   getExperimentViewMock();
-  expect(mockUpdatePageTitle.mock.calls[0][0]).toBe("Default - MLflow Experiment");
+  expect(mockUpdatePageTitle.mock.calls[0][0]).toBe('Default - MLflow Experiment');
 });
 
 // mapStateToProps should only be run after the call to getExperiment from ExperimentPage is

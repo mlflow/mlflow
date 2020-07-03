@@ -3,8 +3,12 @@ import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import ParallelCoordinatesPlotView from './ParallelCoordinatesPlotView';
 import { ParallelCoordinatesPlotControls } from './ParallelCoordinatesPlotControls';
-import { getAllParamKeysByRunUuids, getAllMetricKeysByRunUuids, getSharedMetricKeysByRunUuids,
-         getSharedParamKeysByRunUuids } from '../reducers/Reducers';
+import {
+  getAllParamKeysByRunUuids,
+  getAllMetricKeysByRunUuids,
+  getSharedMetricKeysByRunUuids,
+  getSharedParamKeysByRunUuids,
+} from '../reducers/Reducers';
 import _ from 'lodash';
 import { Empty } from 'antd';
 
@@ -12,15 +16,15 @@ import './ParallelCoordinatesPlotPanel.css';
 
 export class ParallelCoordinatesPlotPanel extends React.Component {
   static propTypes = {
-    runUuids: PropTypes.arrayOf(String).isRequired,
+    runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of all parameter keys across runs
-    allParamKeys: PropTypes.arrayOf(String).isRequired,
+    allParamKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of all metric keys across runs
-    allMetricKeys: PropTypes.arrayOf(String).isRequired,
+    allMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of parameter keys shared by all runs
-    sharedParamKeys: PropTypes.arrayOf(String).isRequired,
+    sharedParamKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of metric keys shared by all runs
-    sharedMetricKeys: PropTypes.arrayOf(String).isRequired,
+    sharedMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
   };
 
   state = {
@@ -52,13 +56,15 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
           handleMetricsSelectChange={this.handleMetricsSelectChange}
           handleParamsSelectChange={this.handleParamsSelectChange}
         />
-        {(!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys)) ? (
+        {!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys) ? (
           <ParallelCoordinatesPlotView
             runUuids={runUuids}
             paramKeys={selectedParamKeys}
             metricKeys={selectedMetricKeys}
           />
-        ) : <Empty style={{ width: '100%', height: '100%' }}/>}
+        ) : (
+          <Empty style={{ width: '100%', height: '100%' }} />
+        )}
       </div>
     );
   }

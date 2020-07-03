@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import qs from 'qs';
 import { connect } from 'react-redux';
-import { getExperimentApi, getRunApi} from '../actions';
+import { getExperimentApi, getRunApi } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import CompareRunView from './CompareRunView';
 import { getUUID } from '../../common/utils/ActionUtils';
@@ -10,7 +10,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 class CompareRunPage extends Component {
   static propTypes = {
     experimentId: PropTypes.string.isRequired,
-    runUuids: PropTypes.arrayOf(String).isRequired,
+    runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     dispatch: PropTypes.func.isRequired,
   };
 
@@ -30,7 +30,7 @@ class CompareRunPage extends Component {
     return (
       <div className='App-content'>
         <RequestStateWrapper requestIds={this.requestIds}>
-          <CompareRunView runUuids={this.props.runUuids} experimentId={this.props.experimentId}/>
+          <CompareRunView runUuids={this.props.runUuids} experimentId={this.props.experimentId} />
         </RequestStateWrapper>
       </div>
     );
@@ -40,8 +40,8 @@ class CompareRunPage extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { location } = ownProps;
   const searchValues = qs.parse(location.search);
-  const runUuids = JSON.parse(searchValues["?runs"]);
-  const experimentId = searchValues["experiment"];
+  const runUuids = JSON.parse(searchValues['?runs']);
+  const experimentId = searchValues['experiment'];
   return { experimentId, runUuids };
 };
 

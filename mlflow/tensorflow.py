@@ -7,9 +7,6 @@ TensorFlow (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
-
-from __future__ import absolute_import
-
 import os
 import shutil
 import yaml
@@ -33,6 +30,8 @@ from tensorflow.keras.callbacks import Callback, TensorBoard  # pylint: disable=
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import keyword_only, experimental
@@ -74,7 +73,8 @@ def get_default_conda_env():
 
 @keyword_only
 def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,
-              conda_env=None, registered_model_name=None):
+              conda_env=None, signature: ModelSignature=None,
+              input_example: ModelInputExample=None, registered_model_name=None):
     """
     Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
     for the current run. This method operates on TensorFlow variables and graphs that have been
@@ -119,20 +119,41 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                                 'tensorflow=1.8.0'
                             ]
                         }
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
+        :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.tensorflow,
                      tf_saved_model_dir=tf_saved_model_dir, tf_meta_graph_tags=tf_meta_graph_tags,
                      tf_signature_def_key=tf_signature_def_key, conda_env=conda_env,
-                     registered_model_name=registered_model_name)
+                     registered_model_name=registered_model_name,
+                     signature=signature,
+                     input_example=input_example)
 
 
 @keyword_only
 def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, path,
-               mlflow_model=Model(), conda_env=None):
+               mlflow_model=None, conda_env=None,
+               signature: ModelSignature = None, input_example: ModelInputExample = None):
     """
     Save a *serialized* collection of TensorFlow graphs and variables as an MLflow model
     to a local path. This method operates on TensorFlow variables and graphs that have been
@@ -168,6 +189,24 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
                                 'tensorflow=1.8.0'
                             ]
                         }
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
 
     """
     _logger.info(
@@ -181,6 +220,12 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path), DIRECTORY_NOT_EMPTY)
     os.makedirs(path)
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
     root_relative_path = _copy_file_or_tree(src=tf_saved_model_dir, dst=path, dst_dir=None)
     model_dir_subpath = "tfmodel"
     shutil.move(os.path.join(path, root_relative_path), os.path.join(path, model_dir_subpath))
@@ -471,13 +516,25 @@ class __MLflowTfKerasCallback(Callback):
 
     def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
         opt = self.model.optimizer
-        if hasattr(opt, 'optimizer'):
+        if hasattr(opt, '_name'):
+            try_mlflow_log(mlflow.log_param, 'optimizer_name', opt._name)
+        # Elif checks are if the optimizer is a TensorFlow optimizer rather than a Keras one.
+        elif hasattr(opt, 'optimizer'):
+            # TensorFlow optimizer parameters are associated with the inner optimizer variable.
+            # Therefore, we assign opt to be opt.optimizer for logging parameters.
             opt = opt.optimizer
             try_mlflow_log(mlflow.log_param, 'optimizer_name', type(opt).__name__)
-        if hasattr(opt, '_lr'):
+        if hasattr(opt, 'lr'):
+            lr = opt.lr if type(opt.lr) is float else tensorflow.keras.backend.eval(opt.lr)
+            try_mlflow_log(mlflow.log_param, 'learning_rate', lr)
+        elif hasattr(opt, '_lr'):
             lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
             try_mlflow_log(mlflow.log_param, 'learning_rate', lr)
-        if hasattr(opt, '_epsilon'):
+        if hasattr(opt, 'epsilon'):
+            epsilon = opt.epsilon if type(opt.epsilon) is float \
+                else tensorflow.keras.backend.eval(opt.epsilon)
+            try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
+        elif hasattr(opt, '_epsilon'):
             epsilon = opt._epsilon if type(opt._epsilon) is float \
                 else tensorflow.keras.backend.eval(opt._epsilon)
             try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
@@ -637,17 +694,57 @@ def _setup_callbacks(lst):
 def autolog(every_n_iter=100):
     # pylint: disable=E0611
     """
-    Enable automatic logging from TensorFlow to MLflow. If applicable,
-    model checkpoints are logged as artifacts to a 'models' directory, along
-    with any TensorBoard log data.
+    Enables automatic logging from TensorFlow to MLflow.
+    Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`,
+    not :py:func:`mlflow.keras.autolog`.
+    As an example, try running the
+    `TensorFlow examples <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 
-    Refer to the tracking documentation for
-    information on what is logged with different TensorFlow workflows.
+    For each TensorFlow module, autologging captures the following information:
+
+    **tf.keras**
+     - **Metrics** and **Parameters**
+
+      - Training loss; validation loss; user-specified metrics
+      - ``fit()`` or ``fit_generator()`` parameters; optimizer name; learning rate; epsilon
+
+     - **Artifacts**
+
+      - Model summary on training start
+      - `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model)
+      - TensorBoard logs on training end
+
+    **tf.keras.callbacks.EarlyStopping**
+     - **Metrics** and **Parameters**
+
+      - Metrics from the ``EarlyStopping`` callbacks: ``stopped_epoch``, ``restored_epoch``,
+        ``restore_best_weight``, etc
+      - ``fit()`` or ``fit_generator()`` parameters associated with ``EarlyStopping``:
+        ``min_delta``, ``patience``, ``baseline``, ``restore_best_weights``, etc
+
+    **tf.estimator**
+     - **Metrics** and **Parameters**
+
+      - TensorBoard metrics: ``average_loss``, ``loss``, etc
+      - Parameters ``steps`` and ``max_steps``
+
+     - **Artifacts**
+
+      - `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call
+        to ``tf.estimator.export_saved_model``
+
+    **TensorFlow Core**
+     - **Metrics**
+
+      - All ``tf.summary.scalar`` calls
+
+    Refer to the autologging tracking documentation for more
+    information on `TensorFlow workflows
+    <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.
 
     :param every_n_iter: The frequency with which metrics should be logged.
                                   Defaults to 100. Ex: a value of 100 will log metrics
                                   at step 0, 100, 200, etc.
-
     """
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter

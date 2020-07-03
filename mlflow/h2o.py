@@ -7,15 +7,14 @@ H20 (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
-
-from __future__ import absolute_import
-
 import os
 import yaml
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -38,7 +37,8 @@ def get_default_conda_env():
         additional_conda_channels=None)
 
 
-def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=None):
+def save_model(h2o_model, path, conda_env=None, mlflow_model=None, settings=None,
+               signature: ModelSignature = None, input_example: ModelInputExample = None):
     """
     Save an H2O model to a path on the local file system.
 
@@ -63,6 +63,25 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
                             ]
                         }
 
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
     import h2o
@@ -73,6 +92,13 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     model_data_subpath = "model.h2o"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
+
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
 
     # Save h2o-model
     h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
@@ -102,7 +128,9 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=None, **kwargs):
+def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=None,
+              signature: ModelSignature=None, input_example: ModelInputExample=None,
+              **kwargs):
     """
     Log an H2O model as an MLflow artifact for the current run.
 
@@ -126,15 +154,37 @@ def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=No
                                 ]
                             ]
                         }
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
+
     :param kwargs: kwargs to pass to ``h2o.save_model`` method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,
               registered_model_name=registered_model_name,
-              h2o_model=h2o_model, conda_env=conda_env, **kwargs)
+              h2o_model=h2o_model, conda_env=conda_env,
+              signature=signature, input_example=input_example,
+              **kwargs)
 
 
 def _load_model(path, init=False):

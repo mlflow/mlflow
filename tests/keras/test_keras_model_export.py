@@ -1,16 +1,22 @@
 # pep8: disable=E501
 
-from __future__ import print_function
-
 import h5py
 import os
 import json
 import pytest
 import shutil
 import importlib
+import random
+from packaging import version
+
+import tensorflow as tf
+from tensorflow.keras.models import Sequential as TfSequential
+from tensorflow.keras.layers import Dense as TfDense
+from tensorflow.keras.optimizers import SGD as TfSGD
 from keras.models import Sequential
 from keras.layers import Layer, Dense
 from keras import backend as K
+from keras.optimizers import SGD
 import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
@@ -22,16 +28,31 @@ import mlflow.keras
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
+
+
+@pytest.fixture(scope='module', autouse=True)
+def fix_random_seed():
+    SEED = 0
+    os.environ['PYTHONHASHSEED'] = str(SEED)
+    random.seed(SEED)
+    np.random.seed(SEED)
+
+    if version.parse(tf.__version__) >= version.parse('2.0.0'):
+        tf.random.set_seed(SEED)
+    else:
+        tf.set_random_seed(SEED)
 
 
 @pytest.fixture(scope='module')
@@ -50,7 +71,9 @@ def model(data):
     model = Sequential()
     model.add(Dense(3, input_dim=4))
     model.add(Dense(1))
-    model.compile(loss='mean_squared_error', optimizer='SGD')
+    # Use a small learning rate to prevent exploding gradients which may produce
+    # infinite prediction values
+    model.compile(loss='mean_squared_error', optimizer=SGD(learning_rate=0.001))
     model.fit(x, y)
     return model
 
@@ -58,12 +81,10 @@ def model(data):
 @pytest.fixture(scope='module')
 def tf_keras_model(data):
     x, y = data
-    from tensorflow.keras.models import Sequential as TfSequential
-    from tensorflow.keras.layers import Dense as TfDense
     model = TfSequential()
     model.add(TfDense(3, input_dim=4))
     model.add(TfDense(1))
-    model.compile(loss='mean_squared_error', optimizer='SGD')
+    model.compile(loss='mean_squared_error', optimizer=TfSGD(learning_rate=0.001))
     model.fit(x, y)
     return model
 
@@ -150,11 +171,13 @@ def test_that_keras_module_arg_works(model_path):
         def load_model(file, **kwars):
             return MyModel(file.get("x").value)
 
+    original_import = importlib.import_module
+
     def _import_module(name, **kwargs):
         if name.startswith(FakeKerasModule.__name__):
             return FakeKerasModule
         else:
-            return importlib.import_module(name, **kwargs)
+            return original_import(name, **kwargs)
 
     with mock.patch("importlib.import_module") as import_module_mock:
         import_module_mock.side_effect = _import_module
@@ -215,6 +238,25 @@ def test_model_save_load(build_model, model_path, data):
                                          result_type="float")
     np.allclose(
         np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)))
+
+
+@pytest.mark.large
+def test_signature_and_examples_are_saved_correctly(model, data):
+    signature_ = infer_signature(*data)
+    example_ = data[0].head(3)
+    for signature in (None, signature_):
+        for example in (None, example_):
+            with TempDir() as tmp:
+                path = tmp.path("model")
+                mlflow.keras.save_model(model, path=path,
+                                        signature=signature,
+                                        input_example=example)
+                mlflow_model = Model.load(path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.saved_input_example_info is None
+                else:
+                    assert all((_read_example(mlflow_model, path) == example).all())
 
 
 @pytest.mark.large

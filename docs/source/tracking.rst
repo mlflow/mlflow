@@ -61,9 +61,9 @@ Where Runs Are Recorded
 
 MLflow runs can be recorded to local files, to a SQLAlchemy compatible database, or remotely
 to a tracking server. By default, the MLflow Python API logs runs locally to files in an ``mlruns`` directory wherever you
-ran your program. You can then run ``mlflow ui`` to see the logged runs. 
+ran your program. You can then run ``mlflow ui`` to see the logged runs.
 
-To log runs remotely, set the ``MLFLOW_TRACKING_URI`` environment variable to a tracking server's URI or 
+To log runs remotely, set the ``MLFLOW_TRACKING_URI`` environment variable to a tracking server's URI or
 call :py:func:`mlflow.set_tracking_uri`.
 
 There are different kinds of remote tracking URIs:
@@ -169,7 +169,7 @@ statement exits, even if it exits due to an exception.
 Performance Tracking with Metrics
 ---------------------------------
 
-You log MLflow metrics with ``log`` methods in the Tracking API. The ``log`` methods support two alternative methods for distinguishing metric values on the x-axis: ``timestamp`` and ``step``. 
+You log MLflow metrics with ``log`` methods in the Tracking API. The ``log`` methods support two alternative methods for distinguishing metric values on the x-axis: ``timestamp`` and ``step``.
 
 ``timestamp`` is an optional long value that represents the time that the metric was logged. ``timestamp`` defaults to the current time. ``step`` is an optional integer that represents any measurement of training progress (number of training iterations, number of epochs, and so on). ``step`` defaults to 0 and has the following requirements and properties:
 
@@ -185,7 +185,7 @@ Examples
 
 Python
   .. code-block:: py
-  
+
     with mlflow.start_run():
         for epoch in range(0, 3):
             mlflow.log_metric(key="quality", value=2*epoch, step=epoch)
@@ -212,7 +212,7 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
 .. figure:: _static/images/metrics-time-wall.png
 
   X-axis wall time - graphs the absolute time each metric was logged
-  
+
 .. figure:: _static/images/metrics-time-relative.png
 
   X-axis relative time - graphs the time relative to the first metric logged, for each run
@@ -233,27 +233,38 @@ TensorFlow and Keras (experimental)
 Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
 `TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 
+Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`.
+Whether you are using TensorFlow 1.x or 2.x, the respective metrics associated with ``tf.estimator`` and ``EarlyStopping`` are automatically logged.
+As an example, try running the `MLflow TensorFlow examples <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
+
 Autologging captures the following information:
 
-+------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| Framework        | Metrics                                                | Parameters                                                   | Tags          | Artifacts                                                                                                                                        |
-+------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| Keras            | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end                      |
-+------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.keras``     | Training loss; validation loss; user-specified metrics | ``fit()`` parameters; optimizer name; learning rate; epsilon | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs on training end    |
-+------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.estimator`` | TensorBoard metrics                                    | steps, max_steps                                             | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call to ``tf.estimator.export_saved_model``                     |
-+------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                           | --            | --                                                                                                                                               |
-+------------------+--------------------------------------------------------+--------------------------------------------------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-
-Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`.
++------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework/module                         | Metrics                                                    | Parameters                                                                          | Tags          | Artifacts                                                                                                                                     |
++------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| ``keras``                                | Training loss; validation loss; user-specified metrics.    | ``fit()`` or ``fit_generator()`` parameters; optimizer name; learning rate; epsilon.| --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end                   |
+|                                          |                                                            |                                                                                     |               |                                                                                                                                               |
+|                                          | Metrics from the ``EarlyStopping`` callbacks.              | Parameters associated with ``EarlyStopping``.                                       |               |                                                                                                                                               |
+|                                          | For example, ``stopped_epoch``, ``restored_epoch``,        | For example, ``min_delta``, ``patience``, ``baseline``,                             |               |                                                                                                                                               |
+|                                          | ``restore_best_weight``, etc.                              | ``restore_best_weights``, etc                                                       |               |                                                                                                                                               |
++------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.keras``                             | Training loss; validation loss; user-specified metrics     | ``fit()`` or ``fit_generator()`` parameters; optimizer name; learning rate; epsilon | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model); TensorBoard logs on training end |
++------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.keras.callbacks.EarlyStopping``     | Metrics from the ``EarlyStopping`` callbacks. For example, | ``fit()`` or ``fit_generator()`` parameters from ``EarlyStopping``.                 | --            | --                                                                                                                                            |
+|                                          | ``stopped_epoch``, ``restored_epoch``,                     | For example, ``min_delta``, ``patience``, ``baseline``,                             |               |                                                                                                                                               |
+|                                          | ``restore_best_weight``, etc                               | ``restore_best_weights``, etc                                                       |               |                                                                                                                                               |
++------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.estimator``                         | TensorBoard metrics. For example, ``average_loss``,        | ``steps``, ``max_steps``                                                            | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model) on call to ``tf.estimator.export_saved_model``                  |
+|                                          | ``loss`` etc.                                              |                                                                                     |               |                                                                                                                                               |
++------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| TensorFlow Core                          | All ``tf.summary.scalar`` calls                            | --                                                                                  | --            | --                                                                                                                                            |
++------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
 
 If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information to.
-Once training ends via calls to ``tf.estimator.train()``, ``tf.keras.fit()``, ``tf.keras.fit_generator()``, ``keras.fit()`` or ``keras.fit_generator()``,
-or once ``tf.estimator`` models are exported via ``tf.estimator.export_saved_model()``, MLflow will automatically end that run.
+Also, MLflow will then automatically end the run once training ends via calls to ``tf.estimator.train()``, ``tf.keras.fit()``, ``tf.keras.fit_generator()``, ``keras.fit()`` or ``keras.fit_generator()``,
+or once ``tf.estimator`` models are exported via ``tf.estimator.export_saved_model()``.
 
-If a run exists when ``autolog()`` captures data, MLflow will log to that run and not automatically end that run after training.
+If a run already exists when ``autolog()`` captures data, MLflow will log to that run but not automatically end that run after training.
 
 .. note::
   - Parameters not explicitly passed by users (parameters that use default values) while using ``keras.Model.fit_generator()`` are not currently automatically logged.
@@ -373,7 +384,7 @@ Managing Experiments and Runs with the Tracking Service API
 
 MLflow provides a more detailed Tracking Service API for managing experiments and runs directly,
 which is available through client SDK in the :py:mod:`mlflow.tracking` module.
-This makes it possible to query data about past runs, log additional information about them, create experiments, 
+This makes it possible to query data about past runs, log additional information about them, create experiments,
 add tags to a run, and more.
 
 .. rubric:: Example
@@ -395,7 +406,7 @@ The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom
 .. code-block:: py
 
   client.set_tag(run.info.run_id, "tag_key", "tag_value")
-  
+
 .. important:: Do not use the prefix ``mlflow`` for a tag.  This prefix is reserved for use by MLflow.
 
 .. _tracking_ui:
@@ -424,7 +435,7 @@ Querying Runs Programmatically
 
 You can access all of the functions in the Tracking UI programmatically. This makes it easy to do several common tasks:
 
-* Query and compare runs using any data analysis tool of your choice, for example, **pandas**. 
+* Query and compare runs using any data analysis tool of your choice, for example, **pandas**.
 * Determine the artifact URI for a run to feed some of its artifacts into a new run when executing a workflow. For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
 * Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLflow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 * Run automated parameter search algorithms, where you query the metrics from various runs to submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
@@ -453,16 +464,24 @@ Storage
 
 An MLflow tracking server has two components for storage: a *backend store* and an *artifact store*.
 
+Backend Stores
+~~~~~~~~~~~~~~
 The backend store is where MLflow Tracking Server stores experiment and run metadata as well as
 params, metrics, and tags for runs. MLflow supports two types of backend stores: *file store* and
 *database-backed store*.
 
-Use ``--backend-store-uri`` to configure the type of backend store. You specify a *file store*
-backend as ``./path_to_store`` or ``file:/path_to_store`` and a *database-backed store* as
-`SQLAlchemy database URI <https://docs.sqlalchemy.org/en/latest/core/engines
-.html#database-urls>`_. The database URI typically takes the format ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``.
-MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
-Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver. For example, ``--backend-store-uri sqlite:///mlflow.db`` would use a local SQLite database.
+.. note::
+    In order to use model registry functionality, you must run your server using a database-backed store.
+
+
+Use ``--backend-store-uri`` to configure the type of backend store. You specify:
+
+- A file store backend as ``./path_to_store`` or ``file:/path_to_store``
+- A database-backed store as `SQLAlchemy database URI <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
+  The database URI typically takes the format ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``.
+  MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+  Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver. For example, ``--backend-store-uri sqlite:///mlflow.db`` would use a local SQLite database.
+
 
 .. important::
 
@@ -478,7 +497,8 @@ By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (t
 running ``mlflow run`` locally), but when running a server, make sure that this points to a
 persistent (that is, non-ephemeral) file system location.
 
-
+Artifact Stores
+~~~~~~~~~~~~~~~
 The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
 file system) and is where clients log their artifact output (for example, models).
 ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
@@ -503,6 +523,29 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
   (for example, ``mlflow experiments create --artifact-location s3://<my-bucket>``), the artifact root
   is a path inside the file store. Typically this is not an appropriate location, as the client and
   server probably refer to different physical locations (that is, the same path on different disks).
+
+File store performance
+~~~~~~~~~~~~~~~~~~~~~~
+
+MLflow will automatically try to use `LibYAML <https://pyyaml.org/wiki/LibYAML>`_ bindings if they are already installed.
+However if you notice any performance issues when using *file store* backend, it could mean LibYAML is not installed on your system.
+On Linux or Mac you can easily install it using your system package manager:
+
+.. code-block:: sh
+
+    # On Ubuntu/Debian
+    apt-get install libyaml-cpp-dev libyaml-dev
+
+    # On macOS using Homebrew
+    brew install yaml-cpp libyaml
+
+After installing LibYAML, you need to reinstall PyYAML:
+
+.. code-block:: sh
+
+    # Reinstall PyYAML
+    pip --no-cache-dir install --force-reinstall -I pyyaml
+
 
 Deletion Behavior
 ~~~~~~~~~~~~~~~~~
@@ -590,7 +633,7 @@ to access Google Cloud Storage; MLflow does not declare a dependency on this pac
 FTP server
 ^^^^^^^^^^^
 
-To store artifacts in a FTP server, specify a URI of the form ftp://user@host/path/to/directory . 
+To store artifacts in a FTP server, specify a URI of the form ftp://user@host/path/to/directory .
 The URI may optionally include a password for logging into the server, e.g. ``ftp://user:pass@host/path/to/directory``
 
 SFTP Server
@@ -626,16 +669,10 @@ There are also two ways to authenticate to HDFS:
   export MLFLOW_KERBEROS_TICKET_CACHE=/tmp/krb5cc_22222222
   export MLFLOW_KERBEROS_USER=user_name_to_use
 
-Most of the cluster contest settings are read from ``hdfs-site.xml`` accessed by the HDFS native 
+Most of the cluster contest settings are read from ``hdfs-site.xml`` accessed by the HDFS native
 driver using the ``CLASSPATH`` environment variable.
 
-Optionally you can select a different version of the HDFS driver library using:
-
-.. code-block:: bash
-
-  export MLFLOW_HDFS_DRIVER=libhdfs3
-
-The default driver is ``libhdfs``.
+The used HDFS driver is ``libhdfs``.
 
 
 Networking
@@ -654,10 +691,10 @@ Additionally, you should ensure that the ``--backend-store-uri`` (which defaults
 Logging to a Tracking Server
 ----------------------------
 
-To log to a tracking server, set the ``MLFLOW_TRACKING_URI`` environment variable to the server's URI, 
-along with its scheme and port (for example, ``http://10.0.0.1:5000``) or call :py:func:`mlflow.set_tracking_uri`. 
+To log to a tracking server, set the ``MLFLOW_TRACKING_URI`` environment variable to the server's URI,
+along with its scheme and port (for example, ``http://10.0.0.1:5000``) or call :py:func:`mlflow.set_tracking_uri`.
 
-The :py:func:`mlflow.start_run`, :py:func:`mlflow.log_param`, and :py:func:`mlflow.log_metric` calls 
+The :py:func:`mlflow.start_run`, :py:func:`mlflow.log_param`, and :py:func:`mlflow.log_metric` calls
 then make API requests to your remote tracking server.
 
   .. code-section::
@@ -694,9 +731,18 @@ allow passing HTTP authentication to the tracking server:
 - ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD`` - username and password to use with HTTP
   Basic authentication. To use Basic authentication, you must set `both` environment variables .
 - ``MLFLOW_TRACKING_TOKEN`` - token to use with HTTP Bearer authentication. Basic authentication takes precedence if set.
-- ``MLFLOW_TRACKING_INSECURE_TLS`` - if set to the literal ``true``, MLflow does not verify the TLS connection,
+- ``MLFLOW_TRACKING_INSECURE_TLS`` - If set to the literal ``true``, MLflow does not verify the TLS connection,
   meaning it does not validate certificates or hostnames for ``https://`` tracking URIs. This flag is not recommended for
-  production environments.
+  production environments. If this is set to ``true`` then ``MLFLOW_TRACKING_SERVER_CERT_PATH`` must not be set.
+- ``MLFLOW_TRACKING_SERVER_CERT_PATH`` - Path to a CA bundle to use. Sets the ``verify`` param of the
+  ``requests.request`` function
+  (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
+  When you use a self-signed server certificate you can use this to verify it on client side.
+  If this is set ``MLFLOW_TRACKING_INSECURE_TLS`` must not be set (false).
+- ``MLFLOW_TRACKING_CLIENT_CERT_PATH`` - Path to ssl client cert file (.pem). Sets the ``cert`` param
+  of the ``requests.request`` function
+  (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
+  This can be used to use a (self-signed) client certificate.
 
 .. _system_tags:
 
@@ -710,6 +756,10 @@ internal use. The following tags are set automatically by MLflow, when appropria
 | Key                           | Description                                                                            |
 +===============================+========================================================================================+
 | ``mlflow.runName``            | Human readable name that identifies this run.                                          |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.note.content``       | A descriptive note about this run. This reserved tag is not set automatically and can  |
+|                               | be overridden by the user to include additional information about the run. The content |
+|                               | is displayed on the run's page under the Notes section.                                |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.parentRunId``        | The ID of the parent run, if this is a nested run.                                     |
 +-------------------------------+----------------------------------------------------------------------------------------+

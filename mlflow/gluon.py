@@ -13,6 +13,8 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log
@@ -87,7 +89,8 @@ def _load_pyfunc(path):
 
 
 @experimental
-def save_model(gluon_model, path, mlflow_model=Model(), conda_env=None):
+def save_model(gluon_model, path, mlflow_model=None, conda_env=None,
+               signature: ModelSignature = None, input_example: ModelInputExample = None):
     """
     Save a Gluon model to a path on the local file system.
 
@@ -111,6 +114,27 @@ def save_model(gluon_model, path, mlflow_model=Model(), conda_env=None):
                                 'mxnet=1.5.0'
                             ]
                         }
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
+
 
     .. code-block:: python
         :caption: Example
@@ -141,6 +165,13 @@ def save_model(gluon_model, path, mlflow_model=Model(), conda_env=None):
     data_subpath = "data"
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
+
     # The epoch argument of the export method does not play any role in selecting
     # a specific epoch's paramaters, and is there only for display purposes.
     gluon_model.export(os.path.join(data_path, _MODEL_SAVE_PATH))
@@ -169,7 +200,8 @@ def get_default_conda_env():
 
 
 @experimental
-def log_model(gluon_model, artifact_path, conda_env=None):
+def log_model(gluon_model, artifact_path, conda_env=None, registered_model_name=None,
+              signature: ModelSignature=None, input_example: ModelInputExample=None):
     """
     Log a Gluon model as an MLflow artifact for the current run.
 
@@ -192,6 +224,30 @@ def log_model(gluon_model, artifact_path, conda_env=None):
                                 'mxnet=1.5.0'
                             ]
                         }
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
+
 
     .. code-block:: python
         :caption: Example
@@ -217,7 +273,8 @@ def log_model(gluon_model, artifact_path, conda_env=None):
             mlflow.gluon.log_model(net, "model")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.gluon, gluon_model=gluon_model,
-              conda_env=conda_env)
+              conda_env=conda_env, registered_model_name=registered_model_name,
+              signature=signature, input_example=input_example)
 
 
 @experimental

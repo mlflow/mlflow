@@ -10,6 +10,7 @@ import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.creds.*;
 
 import java.io.File;
+import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -21,7 +22,7 @@ import java.util.stream.Collectors;
 /**
  * Client to an MLflow Tracking Sever.
  */
-public class MlflowClient {
+public class MlflowClient implements Serializable {
   protected static final String DEFAULT_EXPERIMENT_ID = "0";
 
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();

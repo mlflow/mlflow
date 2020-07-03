@@ -33,16 +33,16 @@ const EMPTY_CELL_PLACEHOLDER = '-';
 export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   static propTypes = {
     experimentId: PropTypes.string,
-    runInfos: PropTypes.arrayOf(RunInfo).isRequired,
+    runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     // List of list of params in all the visible runs
-    paramsList: PropTypes.arrayOf(Array).isRequired,
+    paramsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // List of list of metrics in all the visible runs
-    metricsList: PropTypes.arrayOf(Array).isRequired,
+    metricsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     paramKeyList: PropTypes.arrayOf(PropTypes.string),
     metricKeyList: PropTypes.arrayOf(PropTypes.string),
     visibleTagKeyList: PropTypes.arrayOf(PropTypes.string),
     // List of tags dictionary in all the visible runs.
-    tagsList: PropTypes.arrayOf(Object).isRequired,
+    tagsList: PropTypes.arrayOf(PropTypes.object).isRequired,
     onSelectionChange: PropTypes.func.isRequired,
     onExpand: PropTypes.func.isRequired,
     onSortBy: PropTypes.func.isRequired,
@@ -104,10 +104,11 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     return rowNode.data.isFullWidth;
   }
 
-  getLocalStore = () => LocalStorageUtils.getStoreForComponent(
-    "ExperimentRunsTableMultiColumnView2",
-    this.props.experimentId,
-  );
+  getLocalStore = () =>
+    LocalStorageUtils.getStoreForComponent(
+      'ExperimentRunsTableMultiColumnView2',
+      this.props.experimentId,
+    );
 
   applyingRowSelectionFromProps = false;
 
@@ -264,9 +265,10 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds }) => {
       const tags = tagsList[idx];
       const params = paramsList[idx];
-      const metrics = metricsList[idx].map(
-        ({ key, value }) => ({ key, value: Utils.formatMetric(value) }),
-      );
+      const metrics = metricsList[idx].map(({ key, value }) => ({
+        key,
+        value: Utils.formatMetric(value),
+      }));
       const runInfo = runInfos[idx];
 
       const user = Utils.getUser(runInfo, tags);
@@ -383,9 +385,11 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
 
   persistGridState = () => {
     if (!this.columnApi) return;
-    this.getLocalStore().saveComponentState(new AgGridPersistedState({
-      columnGroupState: this.columnApi.getColumnGroupState(),
-    }));
+    this.getLocalStore().saveComponentState(
+      new AgGridPersistedState({
+        columnGroupState: this.columnApi.getColumnGroupState(),
+      }),
+    );
   };
 
   restoreGridState() {
@@ -498,7 +502,9 @@ function SourceCellRenderer(props) {
       {Utils.renderSourceTypeIcon(Utils.getSourceType(tags))}
       {sourceType}
     </React.Fragment>
-  ) : <React.Fragment>{EMPTY_CELL_PLACEHOLDER}</React.Fragment>;
+  ) : (
+    <React.Fragment>{EMPTY_CELL_PLACEHOLDER}</React.Fragment>
+  );
 }
 SourceCellRenderer.propTypes = { data: PropTypes.object };
 

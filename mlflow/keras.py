@@ -7,9 +7,6 @@ Keras (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
-
-from __future__ import absolute_import
-
 import importlib
 import os
 import yaml
@@ -24,6 +21,8 @@ from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -65,13 +64,10 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     # The Keras pyfunc representation requires the TensorFlow
     # backend for Keras. Therefore, the conda environment must
     # include TensorFlow
-    if LooseVersion(tf.__version__) < LooseVersion('2.0.0'):
+    if LooseVersion(tf.__version__) <= LooseVersion('1.13.2'):
         conda_deps.append("tensorflow=={}".format(tf.__version__))
     else:
-        if pip_deps is not None:
-            pip_deps.append("tensorflow=={}".format(tf.__version__))
-        else:
-            pip_deps.append("tensorflow=={}".format(tf.__version__))
+        pip_deps.append("tensorflow=={}".format(tf.__version__))
 
     return _mlflow_conda_env(
         additional_conda_deps=conda_deps,
@@ -79,8 +75,10 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
         additional_conda_channels=None)
 
 
-def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_objects=None,
-               keras_module=None, **kwargs):
+def save_model(keras_model, path, conda_env=None, mlflow_model=None, custom_objects=None,
+               keras_module=None,
+               signature: ModelSignature = None, input_example: ModelInputExample = None,
+               **kwargs):
     """
     Save a Keras model to a path on the local file system.
 
@@ -113,6 +111,25 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
                          (``keras`` or ``tf.keras``). If not provided, MLflow will
                          attempt to infer the Keras module based on the given model.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
 
     .. code-block:: python
         :caption: Example
@@ -165,6 +182,13 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)
 
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
+
     # save custom objects if there are custom objects
     if custom_objects is not None:
         _save_custom_objects(data_path, custom_objects)
@@ -211,7 +235,8 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
 
 
 def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, keras_module=None,
-              registered_model_name=None, **kwargs):
+              registered_model_name=None, signature: ModelSignature=None,
+              input_example: ModelInputExample=None, **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
@@ -244,10 +269,29 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     :param keras_module: Keras module to be used to save / load the model
                          (``keras`` or ``tf.keras``). If not provided, MLflow will
                          attempt to infer the Keras module based on the given model.
-    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     .. code-block:: python
@@ -266,7 +310,9 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
               keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects,
-              keras_module=keras_module, registered_model_name=registered_model_name, **kwargs)
+              keras_module=keras_module, registered_model_name=registered_model_name,
+              signature=signature, input_example=input_example,
+              **kwargs)
 
 
 def _save_custom_objects(path, custom_objects):
@@ -324,10 +370,10 @@ class _KerasModelWrapper:
         if self._graph is not None:
             with self._graph.as_default():
                 with self._sess.as_default():
-                    predicted = pd.DataFrame(self.keras_model.predict(dataframe))
+                    predicted = pd.DataFrame(self.keras_model.predict(dataframe.values))
         # In TensorFlow >= 2.0, we do not use a graph and session to predict
         else:
-            predicted = pd.DataFrame(self.keras_model.predict(dataframe))
+            predicted = pd.DataFrame(self.keras_model.predict(dataframe.values))
         predicted.index = dataframe.index
         return predicted
 
@@ -407,30 +453,51 @@ def load_model(model_uri, **kwargs):
 
 @experimental
 def autolog():
+    # pylint: disable=E0611
     """
-    Enable automatic logging from Keras to MLflow.
-    Logs loss and any other metrics specified in the fit
-    function, and optimizer data as parameters. Model checkpoints
-    are logged as artifacts to a 'models' directory.
+    Enables automatic logging from Keras to MLflow. Autologging captures the following information:
 
-    EarlyStopping Integration with Keras Automatic Logging
+    **Metrics** and **Parameters**
+     - Training loss; validation loss; user-specified metrics
+     - Metrics associated with the ``EarlyStopping`` callbacks: ``stopped_epoch``,
+       ``restored_epoch``, ``restore_best_weight``, ``last_epoch``, etc
+     - ``fit()`` or ``fit_generator()`` parameters; optimizer name; learning rate; epsilon
+     - ``fit()`` or ``fit_generator()`` parameters associated with ``EarlyStopping``: ``min_delta``,
+       ``patience``, ``baseline``, ``restore_best_weights``, etc
+    **Artifacts**
+     - Model summary on training start
+     - `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end
 
-    MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()``/``fit_generator()``
-    call, and if the ``restore_best_weights`` parameter is set to be ``True``, then MLflow will
-    log the metrics associated with the restored model as a final, extra step. The epoch of the
-    restored model will also be logged as the metric ``restored_epoch``.
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        import mlflow.keras
+        # Build, compile, enable autologging, and train your model
+        keras_model = ...
+        keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
+        # autolog your metrics, parameters, and model
+        mlflow.keras.autolog()
+        results = keras_model.fit(
+            x_train, y_train, epochs=20, batch_size=128, validation_data=(x_val, y_val))
+
+    ``EarlyStopping Integration with Keras AutoLogging``
+
+    MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()`` or
+    ``fit_generator()`` call, and if the ``restore_best_weights`` parameter is set to be ``True``,
+    then MLflow will log the metrics associated with the restored model as a final, extra step.
+    The epoch of the restored model will also be logged as the metric ``restored_epoch``.
     This allows for easy comparison between the actual metrics of the restored model and
     the metrics of other models.
 
-    If ``restore_best_weights`` is set to be ``False``,
-    then MLflow will not log an additional step.
+    If ``restore_best_weights`` is set to be ``False``, then MLflow will not log an additional step.
 
     Regardless of ``restore_best_weights``, MLflow will also log ``stopped_epoch``,
     which indicates the epoch at which training stopped due to early stopping.
 
     If training does not end due to early stopping, then ``stopped_epoch`` will be logged as ``0``.
 
-    MLflow will also log the parameters of the EarlyStopping callback,
+    MLflow will also log the parameters of the ``EarlyStopping`` callback,
     excluding ``mode`` and ``verbose``.
     """
     import keras
@@ -474,6 +541,15 @@ def autolog():
 
         def on_train_end(self, logs=None):
             try_mlflow_log(log_model, self.model, artifact_path='model')
+
+        # As of Keras 2.4.0, Keras Callback implementations must define the following
+        # methods indicating whether or not the callback overrides functions for
+        # batch training/testing/inference
+        def _implements_train_batch_hooks(self): return False
+
+        def _implements_test_batch_hooks(self): return False
+
+        def _implements_predict_batch_hooks(self): return False
 
     def _early_stop_check(callbacks):
         if LooseVersion(keras.__version__) < LooseVersion('2.3.0'):

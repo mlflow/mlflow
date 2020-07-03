@@ -1,6 +1,7 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { CompareRunContour } from './CompareRunContour';
+import { RunInfo } from '../sdk/MlflowMessages';
 
 describe('unit tests', () => {
   let wrapper;
@@ -9,7 +10,12 @@ describe('unit tests', () => {
   const runUuids = ['run_uuid_0', 'run_uuid_1', 'run_uuid_2'];
   const commonProps = {
     runUuids,
-    runInfos: runUuids.map(run_uuid => ({ run_uuid })),
+    runInfos: runUuids.map((run_uuid) =>
+      RunInfo.fromJs({
+        run_uuid,
+        experiment_id: '1',
+      }),
+    ),
     runDisplayNames: runUuids,
   };
 
@@ -55,11 +61,7 @@ describe('unit tests', () => {
   test('should render a div with a message when the number of unique params/metrics is less than three', () => {
     const props = {
       ...commonProps,
-      paramLists: [
-        [{ key: 'p1', value: 1 }],
-        [{ key: 'p1', value: 2 }],
-        [{ key: 'p1', value: 3 }],
-      ],
+      paramLists: [[{ key: 'p1', value: 1 }], [{ key: 'p1', value: 2 }], [{ key: 'p1', value: 3 }]],
       metricLists: [
         [{ key: 'm1', value: 4 }],
         [{ key: 'm1', value: 5 }],
