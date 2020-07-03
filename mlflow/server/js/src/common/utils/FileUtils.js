@@ -13,7 +13,6 @@ export const getLanguage = (path) => {
   if (ext in MLFLOW_FILE_LANGUAGES) {
     return MLFLOW_FILE_LANGUAGES[ext];
   }
-
   return ext;
 };
 
