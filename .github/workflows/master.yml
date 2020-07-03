@@ -53,6 +53,7 @@ jobs:
         Rscript ../.travis.R
     - name: Calculate code coverage
       run: |
+        export MLFLOW_HOME=$(pwd)
         cd mlflow/R/mlflow/tests
         Rscript -e 'covr::codecov()'
       env:
