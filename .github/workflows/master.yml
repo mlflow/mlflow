@@ -48,7 +48,7 @@ jobs:
         ./travis/run-small-python-tests.sh
 
   r-tests:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-16.04
     steps:
     - uses: actions/checkout@master
     - uses: r-lib/actions/setup-r@v1
