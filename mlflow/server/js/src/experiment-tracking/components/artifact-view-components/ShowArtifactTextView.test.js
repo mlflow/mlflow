@@ -58,8 +58,8 @@ describe('ShowArtifactTextView', () => {
       instance = wrapper.instance();
       wrapper.update();
       expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
-      expect(wrapper.find('.text-area').length).toBe(1);
-      expect(wrapper.find('.text-area').prop('value')).toEqual('my text');
+      expect(wrapper.find('code').length).toBe(1);
+      expect(wrapper.find('code').text()).toBe('my text');
       done();
     });
   });
