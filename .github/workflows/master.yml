@@ -48,10 +48,10 @@ jobs:
         ./travis/run-small-python-tests.sh
 
   r-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@master
-    - uses: r-lib/actions/setup-r@master
+    - uses: r-lib/actions/setup-r@v1
     - name: Install dependencies
       run: |
         install.packages("devtools")
