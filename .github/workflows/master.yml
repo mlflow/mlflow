@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         config:
-          - {os: ubuntu-16.04, r: 'release'}
+          - {os: ubuntu-18.04, r: 'release'}
     steps:
     - uses: actions/checkout@master
     - uses: r-lib/actions/setup-r@v1
