@@ -52,6 +52,8 @@ jobs:
     steps:
     - uses: actions/checkout@master
     - uses: r-lib/actions/setup-r@v1
+      with:
+        r-version: '4.0.0' # The R version to download (if necessary) and use.
     - name: Install dependencies
       run: |
         install.packages("devtools")
