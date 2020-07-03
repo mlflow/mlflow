@@ -55,12 +55,8 @@ jobs:
       with:
         r-version: '4.0.0' # The R version to download (if necessary) and use.
     - name: Install system dependencies
-      env:
-        RHUB_PLATFORM: linux-x86_64-ubuntu-gcc
       run: |
-        Rscript -e "remotes::install_github('r-hub/sysreqs')"
-        sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
-        sudo -s eval "$sysreqs"
+        sudo apt-get install -y libcurl-dev
     - name: Install dependencies
       run: |
         install.packages("devtools")
