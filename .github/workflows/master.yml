@@ -51,3 +51,7 @@ jobs:
         export LINTR_COMMENT_BOT=false
         cd tests
         Rscript ../.travis.R
+    - name: Calculate code coverage
+      run: |
+        export COVR_RUNNING=true
+        Rscript -e 'covr::codecov()'
