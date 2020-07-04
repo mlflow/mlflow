@@ -244,7 +244,7 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
                             meta_graph_tags=tf_meta_graph_tags,
                             signature_def_key=tf_signature_def_key)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=conda_env_subpath)
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME"))
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
