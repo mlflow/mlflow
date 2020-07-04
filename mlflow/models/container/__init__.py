@@ -18,6 +18,7 @@ import mlflow.version
 
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.docker_utils import DISABLE_ENV_CREATION
 from mlflow.version import VERSION as MLFLOW_VERSION
 
@@ -57,7 +58,7 @@ def _serve():
 
     Read the MLmodel config, initialize the Conda environment if needed and start python server.
     """
-    model_config_path = os.path.join(MODEL_PATH, "MLmodel")
+    model_config_path = os.path.join(MODEL_PATH, MLMODEL_FILE_NAME)
     m = Model.load(model_config_path)
 
     if DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME in os.environ:
@@ -82,7 +83,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False):
     # If model is a pyfunc model, create its conda env (even if it also has mleap flavor)
     has_env = False
     if model_path:
-        model_config_path = os.path.join(model_path, "MLmodel")
+        model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
         model = Model.load(model_config_path)
         # NOTE: this differs from _serve cause we always activate the env even if you're serving
         # an mleap model

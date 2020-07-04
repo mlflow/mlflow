@@ -30,6 +30,7 @@ from tensorflow.keras.callbacks import Callback, TensorBoard  # pylint: disable=
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
@@ -243,7 +244,7 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
                             meta_graph_tags=tf_meta_graph_tags,
                             signature_def_key=tf_signature_def_key)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=conda_env_subpath)
-    mlflow_model.save(os.path.join(path, "MLmodel"))
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME"))
 
 
 def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):

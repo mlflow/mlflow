@@ -2,6 +2,7 @@ import os
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.uri import append_to_uri_path
