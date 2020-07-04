@@ -1,6 +1,7 @@
 import React from 'react';
 import { shallow, mount } from 'enzyme';
 import ShowArtifactTextView from './ShowArtifactTextView';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
 describe('ShowArtifactTextView', () => {
   let wrapper;
@@ -68,12 +69,15 @@ describe('ShowArtifactTextView', () => {
       return Promise.resolve('print("foo")');
     });
     const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact: getArtifact };
-    wrapper = mount(<ShowArtifactTextView {...props} />);
+    wrapper = shallow(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
-      expect(wrapper.find('code').length).toBe(1);
-      expect(wrapper.find('code').text()).toBe('print("foo")');
+      expect(
+        wrapper
+          .find(SyntaxHighlighter)
+          .first()
+          .props().language,
+      ).toBe('py');
       done();
     });
   });
@@ -83,12 +87,15 @@ describe('ShowArtifactTextView', () => {
       return Promise.resolve('key: value');
     });
     const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact: getArtifact };
-    wrapper = mount(<ShowArtifactTextView {...props} />);
+    wrapper = shallow(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
-      expect(wrapper.find('code').length).toBe(1);
-      expect(wrapper.find('code').text()).toBe('key: value');
+      expect(
+        wrapper
+          .find(SyntaxHighlighter)
+          .first()
+          .props().language,
+      ).toBe('yaml');
       done();
     });
   });
@@ -98,12 +105,15 @@ describe('ShowArtifactTextView', () => {
       return Promise.resolve('key: value');
     });
     const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact: getArtifact };
-    wrapper = mount(<ShowArtifactTextView {...props} />);
+    wrapper = shallow(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
-      expect(wrapper.find('code').length).toBe(1);
-      expect(wrapper.find('code').text()).toBe('key: value');
+      expect(
+        wrapper
+          .find(SyntaxHighlighter)
+          .first()
+          .props().language,
+      ).toBe('yaml');
       done();
     });
   });
