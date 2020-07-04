@@ -1,6 +1,7 @@
 import React from 'react';
 import { shallow, mount } from 'enzyme';
 import ShowArtifactTextView from './ShowArtifactTextView';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
 describe('ShowArtifactTextView', () => {
   let wrapper;
@@ -18,7 +19,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('some content');
     });
-    commonProps = { ...minimalProps, getArtifact: getArtifact };
+    commonProps = { ...minimalProps, getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...commonProps} />);
   });
 
@@ -31,7 +32,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.reject(new Error('my error text'));
     });
-    const props = { ...minimalProps, getArtifact: getArtifact };
+    const props = { ...minimalProps, getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       expect(wrapper.find('.artifact-text-view-error').length).toBe(1);
@@ -52,14 +53,67 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('my text');
     });
-    const props = { ...minimalProps, getArtifact: getArtifact };
+    const props = { ...minimalProps, getArtifact };
     wrapper = mount(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
-      instance = wrapper.instance();
       wrapper.update();
       expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
-      expect(wrapper.find('.text-area').length).toBe(1);
-      expect(wrapper.find('.text-area').prop('value')).toEqual('my text');
+      expect(wrapper.find('code').length).toBe(1);
+      expect(wrapper.find('code').text()).toBe('my text');
+      done();
+    });
+  });
+
+  test('SyntaxHighlighter has an appropriate language prop for a python script', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('print("foo")');
+    });
+    const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact };
+    wrapper = shallow(<ShowArtifactTextView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(
+        wrapper
+          .find(SyntaxHighlighter)
+          .first()
+          .props().language,
+      ).toBe('py');
+      done();
+    });
+  });
+
+  test('SyntaxHighlighter has an appropriate language prop for an MLproject file', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('key: value');
+    });
+    const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact };
+    wrapper = shallow(<ShowArtifactTextView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(
+        wrapper
+          .find(SyntaxHighlighter)
+          .first()
+          .props().language,
+      ).toBe('yaml');
+      done();
+    });
+  });
+
+  test('SyntaxHighlighter has an appropriate language prop for an MLmodel file', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('key: value');
+    });
+    const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact };
+    wrapper = shallow(<ShowArtifactTextView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(
+        wrapper
+          .find(SyntaxHighlighter)
+          .first()
+          .props().language,
+      ).toBe('yaml');
       done();
     });
   });
