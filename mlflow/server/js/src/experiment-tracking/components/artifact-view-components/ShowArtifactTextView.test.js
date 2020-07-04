@@ -55,11 +55,55 @@ describe('ShowArtifactTextView', () => {
     const props = { ...minimalProps, getArtifact: getArtifact };
     wrapper = mount(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
-      instance = wrapper.instance();
       wrapper.update();
       expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
       expect(wrapper.find('code').length).toBe(1);
       expect(wrapper.find('code').text()).toBe('my text');
+      done();
+    });
+  });
+
+  test('should render a python script without crashing', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('print("foo")');
+    });
+    const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact: getArtifact };
+    wrapper = mount(<ShowArtifactTextView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
+      expect(wrapper.find('code').length).toBe(1);
+      expect(wrapper.find('code').text()).toBe('print("foo")');
+      done();
+    });
+  });
+
+  test('should render an MLproject file without crashing', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('key: value');
+    });
+    const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact: getArtifact };
+    wrapper = mount(<ShowArtifactTextView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
+      expect(wrapper.find('code').length).toBe(1);
+      expect(wrapper.find('code').text()).toBe('key: value');
+      done();
+    });
+  });
+
+  test('should render an MLmodel file without crashing', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('key: value');
+    });
+    const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact: getArtifact };
+    wrapper = mount(<ShowArtifactTextView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
+      expect(wrapper.find('code').length).toBe(1);
+      expect(wrapper.find('code').text()).toBe('key: value');
       done();
     });
   });
