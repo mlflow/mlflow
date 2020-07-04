@@ -19,7 +19,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('some content');
     });
-    commonProps = { ...minimalProps, getArtifact: getArtifact };
+    commonProps = { ...minimalProps, getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...commonProps} />);
   });
 
@@ -32,7 +32,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.reject(new Error('my error text'));
     });
-    const props = { ...minimalProps, getArtifact: getArtifact };
+    const props = { ...minimalProps, getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       expect(wrapper.find('.artifact-text-view-error').length).toBe(1);
@@ -53,7 +53,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('my text');
     });
-    const props = { ...minimalProps, getArtifact: getArtifact };
+    const props = { ...minimalProps, getArtifact };
     wrapper = mount(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
@@ -68,7 +68,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('print("foo")');
     });
-    const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact: getArtifact };
+    const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
@@ -86,7 +86,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
     });
-    const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact: getArtifact };
+    const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
@@ -104,7 +104,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
     });
-    const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact: getArtifact };
+    const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
