@@ -16,6 +16,9 @@ export const getLanguage = (path) => {
   return ext;
 };
 
+export const MLPROJECT_FILE_NAME = 'mlproject';
+export const MLMODEL_FILE_NAME = 'mlmodel';
+
 export const IMAGE_EXTENSIONS = new Set(['jpg', 'bmp', 'jpeg', 'png', 'gif', 'svg']);
 export const TEXT_EXTENSIONS = new Set([
   'txt',
@@ -29,8 +32,8 @@ export const TEXT_EXTENSIONS = new Set([
   'tsv',
   'md',
   'rst',
-  'mlmodel',
-  'mlproject',
+  MLPROJECT_FILE_NAME,
+  MLMODEL_FILE_NAME,
   'jsonnet',
 ]);
 export const HTML_EXTENSIONS = new Set(['html']);
@@ -38,6 +41,6 @@ export const MAP_EXTENSIONS = new Set(['geojson']);
 export const PDF_EXTENSIONS = new Set(['pdf']);
 
 export const MLFLOW_FILE_LANGUAGES = {
-  mlproject: 'yaml',
-  mlmodel: 'yaml',
+  [MLPROJECT_FILE_NAME.toLowerCase()]: 'yaml',
+  [MLMODEL_FILE_NAME.toLowerCase()]: 'yaml',
 };
