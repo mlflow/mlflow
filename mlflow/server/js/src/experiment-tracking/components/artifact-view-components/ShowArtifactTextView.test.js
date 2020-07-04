@@ -64,7 +64,7 @@ describe('ShowArtifactTextView', () => {
     });
   });
 
-  test('should render a python script without crashing', (done) => {
+  test('SyntaxHighlighter has an appropriate language prop for a python script', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('print("foo")');
     });
@@ -82,7 +82,7 @@ describe('ShowArtifactTextView', () => {
     });
   });
 
-  test('should render an MLproject file without crashing', (done) => {
+  test('SyntaxHighlighter has an appropriate language prop for an MLproject file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
     });
@@ -100,7 +100,7 @@ describe('ShowArtifactTextView', () => {
     });
   });
 
-  test('should render an MLmodel file without crashing', (done) => {
+  test('SyntaxHighlighter has an appropriate language prop for an MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
     });
