@@ -27,12 +27,8 @@ jobs:
         export PATH="$HOME/miniconda/bin:$PATH"
         source activate test-environment
         ./lint.sh
-  r-tests:
-    runs-on: ${{ matrix.config.os }}
-    strategy:
-      matrix:
-        config:
-          - {os: ubuntu-18.04, r: 'release'}
+  r:
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
     - uses: r-lib/actions/setup-r@v1
@@ -64,8 +60,6 @@ jobs:
         export PATH="$HOME/miniconda/bin:$PATH"
         source activate test-environment
         cd mlflow/R/mlflow
-        # Building the package here populates the /home/travis/R/Library cache,
-        # and is also used when python forks into R (e.g., rfunc via models CLI).
         R CMD build .
         export LINTR_COMMENT_BOT=false
         cd tests
