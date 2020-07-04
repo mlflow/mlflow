@@ -37,8 +37,8 @@ export const TEXT_EXTENSIONS = new Set([
   'tsv',
   'md',
   'rst',
-  MLPROJECT_FILE_NAME,
-  MLMODEL_FILE_NAME,
+  MLPROJECT_FILE_NAME.toLowerCase(),
+  MLMODEL_FILE_NAME.toLowerCase(),
   'jsonnet',
 ]);
 export const HTML_EXTENSIONS = new Set(['html']);
