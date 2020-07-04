@@ -3,6 +3,6 @@ pep8==1.7.1
 pyarrow==0.17.0
 pylint==1.8.2
 rstcheck==3.2
-# With isort >= 5.0.0, pylint raises the following error:
+# Pin isort version to prevent pylint from raising the following error:
 # AttributeError: module 'isort' has no attribute 'SortImports'
 isort<5.0.0
