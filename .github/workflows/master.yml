@@ -43,11 +43,11 @@ jobs:
 
     - name: Cache R packages
       if: runner.os != 'Windows'
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: ${{ env.R_LIBS_USER }}
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
-        # R dependencies 
+        # R dependencies
         key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
         restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
     - name: Install system dependencies
