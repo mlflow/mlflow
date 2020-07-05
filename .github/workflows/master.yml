@@ -27,7 +27,54 @@ jobs:
         export PATH="$HOME/miniconda/bin:$PATH"
         source activate test-environment
         ./lint.sh
+  r:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - uses: r-lib/actions/setup-r@v1
+    # This step dumps the current set of R dependencies and R version into files to be used
+    # as a cache key when caching/restoring R dependencies.
+    - name: Query dependencies
+      run: |
+        install.packages('remotes')
+        saveRDS(remotes::dev_package_deps("mlflow/R/mlflow", dependencies = TRUE), ".github/depends.Rds", version = 2)
+        writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
+      shell: Rscript {0}
 
+    - name: Cache R packages
+      if: runner.os != 'Windows'
+      uses: actions/cache@v2
+      with:
+        path: ${{ env.R_LIBS_USER }}
+        # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
+        # R dependencies
+        key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
+        restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
+    - name: Install system dependencies
+      run: |
+        sudo apt-get install -y libcurl4-openssl-dev
+    - name: Install dependencies
+      run: |
+        install.packages("devtools")
+        remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
+      shell: Rscript {0}
+    - name: Run tests
+      run: |
+        source ./travis/install-common-deps.sh
+        export PATH="$HOME/miniconda/bin:$PATH"
+        source activate test-environment
+        cd mlflow/R/mlflow
+        R CMD build .
+        export LINTR_COMMENT_BOT=false
+        cd tests
+        Rscript ../.travis.R
+    - name: Calculate code coverage
+      run: |
+        export MLFLOW_HOME=$(pwd)
+        cd mlflow/R/mlflow/tests
+        Rscript -e 'covr::codecov()'
+      env:
+        COVR_RUNNING: true
   python-small:
     runs-on: ubuntu-latest
     steps:
