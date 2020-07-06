@@ -64,7 +64,7 @@ def save_model(model, path, conda_env=None, mlflow_model=None,
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
-    filepath = str(path / 'model.pt')
+    filepath = str(path / _SERIALIZED_TORCH_MODEL_FILE_NAME)
     model.save(filepath, **kwargs)
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -81,13 +81,14 @@ def save_model(model, path, conda_env=None, mlflow_model=None,
 
 def load_model(model_uri, **kwargs):
     local_model_path = Path(_download_artifact_from_uri(artifact_uri=model_uri))
-    pytorch_conf = _get_flavor_configuration(model_path=local_model_path,
+    torchscript_conf = _get_flavor_configuration(model_path=local_model_path,
                                              flavor_name=FLAVOR_NAME)
-    if torch.__version__ != pytorch_conf["pytorch_version"]:
+    if torch.__version__ != torchscript_conf["pytorch_version"]:
         _logger.warning(
             "Stored model version '%s' does not match installed PyTorch version '%s'",
-            pytorch_conf["pytorch_version"], torch.__version__)
-    return torch.jit.load(str(local_model_path / 'model.pt'), **kwargs)
+            torchscript_conf["pytorch_version"], torch.__version__)
+    return torch.jit.load(
+        str(local_model_path / _SERIALIZED_TORCH_MODEL_FILE_NAME), **kwargs)
 
 
 def _load_pyfunc(path, **kwargs):
@@ -96,7 +97,8 @@ def _load_pyfunc(path, **kwargs):
 
     :param path: Local filesystem path to the MLflow Model with the ``torchscript`` flavor.
     """
-    return _PyTorchWrapper(torch.jit.load(path, **kwargs))
+    loaded = load_model(path, **kwargs)
+    return _PyTorchWrapper(loaded)
 
 
 class _PyTorchWrapper(object):

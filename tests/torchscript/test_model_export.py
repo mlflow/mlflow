@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-import importlib
 import os
 import json
 import logging
@@ -26,24 +25,9 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-
-
-# TODO: test traced model and script functions
+from tests.helper_functions import pyfunc_serve_and_score_model
 
 _logger = logging.getLogger(__name__)
-
-# This test suite is included as a code dependency when testing PyTorch model scoring in new
-# processes and docker containers. In these environments, the `tests` module is not available.
-# Therefore, we attempt to import from `tests` and gracefully emit a warning if it's unavailable.
-try:
-    from tests.helper_functions import pyfunc_serve_and_score_model
-    from tests.helper_functions import score_model_in_sagemaker_docker_container
-    from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-    from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-except ImportError:
-    _logger.warning(
-        "Failed to import test helper functions. Tests depending on these functions may fail!")
-
 
 @pytest.fixture(scope='module')
 def data():
@@ -95,51 +79,24 @@ def sequential_model(data):
     return model
 
 
-def get_subclassed_model_definition():
-    """
-    Defines a PyTorch model class that inherits from ``torch.nn.Module``. This method can be invoked
-    within a pytest fixture to define the model class in the ``__main__`` scope. Alternatively, it
-    can be invoked within a module to define the class in the module's scope.
-    """
-    class SubclassedModel(torch.nn.Module):
+class PyTorchModel(torch.nn.Module):
 
-        def __init__(self):
-            super(SubclassedModel, self).__init__()
-            self.linear = torch.nn.Linear(4, 1)
+    def __init__(self):
+        super().__init__()
+        self.linear = torch.nn.Linear(4, 1)
 
-        def forward(self, x):
-            y_pred = self.linear(x)
-            return y_pred
-
-    return SubclassedModel
+    def forward(self, x):
+        y_pred = self.linear(x)
+        return y_pred
 
 
 @pytest.fixture(scope='module')
-def main_scoped_subclassed_model(data):
+def subclassed_model(data):
     """
     A custom PyTorch model inheriting from ``torch.nn.Module`` whose class is defined in the
     "__main__" scope.
     """
-    model_class = get_subclassed_model_definition()
-    model = torch.jit.script(model_class())
-    train_model(model=model, data=data)
-    return model
-
-
-class ModuleScopedSubclassedModel(get_subclassed_model_definition()):
-    """
-    A custom PyTorch model class defined in the test module scope. This is a subclass of
-    ``torch.nn.Module``.
-    """
-
-
-@pytest.fixture(scope='module')
-def module_scoped_subclassed_model(data):
-    """
-    A custom PyTorch model inheriting from ``torch.nn.Module`` whose class is defined in the test
-    module scope.
-    """
-    model = torch.jit.script(ModuleScopedSubclassedModel())
+    model = torch.jit.script(PyTorchModel())
     train_model(model=model, data=data)
     return model
 
@@ -226,13 +183,13 @@ def test_log_model(sequential_model, data, sequential_predicted):
                 tracking.set_tracking_uri(old_uri)
 
 
-def test_log_model_calls_register_model(module_scoped_subclassed_model):
+def test_log_model_calls_register_model(subclassed_model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.torchscript.log_model(
             artifact_path=artifact_path,
-            model=module_scoped_subclassed_model,
+            model=subclassed_model,
             conda_env=None,
             registered_model_name="AdsModel1")
         model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
@@ -240,13 +197,13 @@ def test_log_model_calls_register_model(module_scoped_subclassed_model):
         mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
 
 
-def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
+def test_log_model_no_registered_model_name(subclassed_model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.torchscript.log_model(
             artifact_path=artifact_path,
-            model=module_scoped_subclassed_model,
+            model=subclassed_model,
             conda_env=None)
         mlflow.register_model.assert_not_called()
 
@@ -281,7 +238,7 @@ def test_raise_exception(sequential_model):
 def test_save_and_load_model(sequential_model, model_path, data, sequential_predicted):
     mlflow.torchscript.save_model(sequential_model, model_path)
 
-    # Loading pytorch model
+    # Loading torchscript model
     sequential_model_loaded = mlflow.torchscript.load_model(model_path)
     np.testing.assert_array_equal(_predict(sequential_model_loaded, data), sequential_predicted)
 
@@ -294,7 +251,7 @@ def test_save_and_load_model(sequential_model, model_path, data, sequential_pred
 @pytest.mark.large
 def test_load_model_from_remote_uri_succeeds(
         sequential_model, model_path, mock_s3_bucket, data, sequential_predicted):
-    mlflow.pytorch.save_model(sequential_model, model_path)
+    mlflow.torchscript.save_model(sequential_model, model_path)
 
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
@@ -302,15 +259,15 @@ def test_load_model_from_remote_uri_succeeds(
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
     model_uri = artifact_root + "/" + artifact_path
-    sequential_model_loaded = mlflow.pytorch.load_model(model_uri=model_uri)
+    sequential_model_loaded = mlflow.torchscript.load_model(model_uri=model_uri)
     np.testing.assert_array_equal(_predict(sequential_model_loaded, data), sequential_predicted)
 
 
 @pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         sequential_model, model_path, pytorch_custom_env):
-    mlflow.pytorch.save_model(
-            pytorch_model=sequential_model, path=model_path, conda_env=pytorch_custom_env)
+    mlflow.torchscript.save_model(
+            model=sequential_model, path=model_path, conda_env=pytorch_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -326,9 +283,9 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
-    conda_env = dict(mlflow.pytorch.get_default_conda_env())
+    conda_env = dict(mlflow.torchscript.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
-    mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path, conda_env=conda_env)
+    mlflow.torchscript.save_model(model=sequential_model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -344,9 +301,9 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         sequential_model, pytorch_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(pytorch_model=sequential_model,
-                                 artifact_path=artifact_path,
-                                 conda_env=pytorch_custom_env)
+        mlflow.torchscript.log_model(model=sequential_model,
+                                     artifact_path=artifact_path,
+                                     conda_env=pytorch_custom_env)
         model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
 
@@ -365,14 +322,14 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 @pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         sequential_model, model_path):
-    mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path, conda_env=None)
+    mlflow.torchscript.save_model(model=sequential_model, path=model_path, conda_env=None)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.pytorch.get_default_conda_env()
+    assert conda_env == mlflow.torchscript.get_default_conda_env()
 
 
 @pytest.mark.large
@@ -380,9 +337,9 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         sequential_model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.pytorch.log_model(pytorch_model=sequential_model,
-                                 artifact_path=artifact_path,
-                                 conda_env=None)
+        mlflow.torchscript.log_model(model=sequential_model,
+                                     artifact_path=artifact_path,
+                                     conda_env=None)
         model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
 
@@ -391,16 +348,16 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.pytorch.get_default_conda_env()
+    assert conda_env == mlflow.torchscript.get_default_conda_env()
 
 
 @pytest.mark.large
 def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model, model_path):
-    mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path)
+    mlflow.torchscript.save_model(model=sequential_model, path=model_path)
     saver_pytorch_version = "1.0"
     model_config_path = os.path.join(model_path, "MLmodel")
     model_config = Model.load(model_config_path)
-    model_config.flavors[mlflow.pytorch.FLAVOR_NAME]["pytorch_version"] = saver_pytorch_version
+    model_config.flavors[mlflow.torchscript.FLAVOR_NAME]["pytorch_version"] = saver_pytorch_version
     model_config.save(model_config_path)
 
     log_messages = []
@@ -409,11 +366,11 @@ def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model
         log_messages.append(message_text % args % kwargs)
 
     loader_pytorch_version = "0.8.2"
-    with mock.patch("mlflow.pytorch._logger.warning") as warn_mock,\
+    with mock.patch("mlflow.torchscript._logger.warning") as warn_mock,\
             mock.patch("torch.__version__") as torch_version_mock:
         torch_version_mock.__str__ = lambda *args, **kwargs: loader_pytorch_version
         warn_mock.side_effect = custom_warn
-        mlflow.pytorch.load_model(model_uri=model_path)
+        mlflow.torchscript.load_model(model_uri=model_path)
 
     assert any([
         "does not match installed PyTorch version" in log_message and
@@ -424,321 +381,22 @@ def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model
 
 
 @pytest.mark.large
-def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_conda_env(
-        module_scoped_subclassed_model, model_path, data):
-    mlflow.pytorch.save_model(
+def test_pyfunc_model_serving_with_default_conda_env(
+        subclassed_model, model_path, data):
+    mlflow.torchscript.save_model(
         path=model_path,
-        pytorch_model=module_scoped_subclassed_model,
-        conda_env=None,
-        code_paths=[__file__])
-
-    scoring_response = pyfunc_serve_and_score_model(
-            model_uri=model_path,
-            data=data[0],
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            extra_args=["--no-conda"])
-    assert scoring_response.status_code == 200
-
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-    np.testing.assert_array_almost_equal(
-        deployed_model_preds.values[:, 0],
-        _predict(model=module_scoped_subclassed_model, data=data),
-        decimal=4)
-
-
-def test_save_model_with_wrong_codepaths_fails_corrrectly(
-        module_scoped_subclassed_model, model_path, data):
-    with pytest.raises(TypeError) as exc_info:
-        mlflow.pytorch.save_model(
-            path=model_path,
-            pytorch_model=module_scoped_subclassed_model,
-            conda_env=None,
-            code_paths="some string")
-    assert "TypeError: Argument code_paths should be a list, not {}".format(type("")) \
-           in str(exc_info)
-    assert not os.path.exists(model_path)
-
-
-@pytest.mark.large
-def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickle_module(
-        main_scoped_subclassed_model, model_path, data):
-    mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=main_scoped_subclassed_model,
-        conda_env=None,
-        pickle_module=mlflow_pytorch_pickle_module)
-
-    scoring_response = pyfunc_serve_and_score_model(
-            model_uri=model_path,
-            data=data[0],
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            extra_args=["--no-conda"])
-    assert scoring_response.status_code == 200
-
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-    np.testing.assert_array_almost_equal(
-        deployed_model_preds.values[:, 0],
-        _predict(model=main_scoped_subclassed_model, data=data),
-        decimal=4)
-
-
-@pytest.mark.large
-def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
-        module_scoped_subclassed_model, model_path, data):
-    # Save a PyTorch model whose class is defined in the current test suite. Because the
-    # `tests` module is not available when the model is deployed for local scoring, we include
-    # the test suite file as a code dependency
-    mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=module_scoped_subclassed_model,
-        conda_env=None,
-        code_paths=[__file__])
-
-    # Define a custom pyfunc model that loads a PyTorch model artifact using
-    # `mlflow.pytorch.load_model`
-    class TorchValidatorModel(pyfunc.PythonModel):
-
-        def load_context(self, context):
-            self.pytorch_model = mlflow.pytorch.load_model(context.artifacts["pytorch_model"])
-
-        def predict(self, context, model_input):
-            with torch.no_grad():
-                input_tensor = torch.from_numpy(model_input.values.astype(np.float32))
-                output_tensor = self.pytorch_model(input_tensor)
-                return pd.DataFrame(output_tensor.numpy())
-
-    pyfunc_artifact_path = "pyfunc_model"
-    with mlflow.start_run():
-        pyfunc.log_model(artifact_path=pyfunc_artifact_path,
-                         python_model=TorchValidatorModel(),
-                         artifacts={
-                            "pytorch_model": model_path,
-                         })
-        pyfunc_model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path))
-
-    # Deploy the custom pyfunc model and ensure that it is able to successfully load its
-    # constituent PyTorch model via `mlflow.pytorch.load_model`
-    scoring_response = pyfunc_serve_and_score_model(
-            model_uri=pyfunc_model_path,
-            data=data[0],
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            extra_args=["--no-conda"])
-    assert scoring_response.status_code == 200
-
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-    np.testing.assert_array_almost_equal(
-        deployed_model_preds.values[:, 0],
-        _predict(model=module_scoped_subclassed_model, data=data),
-        decimal=4)
-
-
-@pytest.mark.large
-def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_time(
-        module_scoped_subclassed_model, model_path):
-    custom_pickle_module = pickle
-
-    mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=module_scoped_subclassed_model,
-        conda_env=None,
-        pickle_module=custom_pickle_module)
-
-    import_module_fn = importlib.import_module
-    imported_modules = []
-
-    def track_module_imports(module_name):
-        imported_modules.append(module_name)
-        return import_module_fn(module_name)
-
-    with mock.patch("importlib.import_module") as import_mock,\
-            mock.patch("torch.load") as torch_load_mock:
-        import_mock.side_effect = track_module_imports
-        pyfunc.load_pyfunc(model_path)
-
-    torch_load_mock.assert_called_with(mock.ANY, pickle_module=custom_pickle_module)
-    assert custom_pickle_module.__name__ in imported_modules
-
-
-@pytest.mark.large
-def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time(
-        module_scoped_subclassed_model):
-    custom_pickle_module = pickle
-
-    artifact_path = "pytorch_model"
-    with mlflow.start_run():
-        mlflow.pytorch.log_model(
-            artifact_path=artifact_path,
-            pytorch_model=module_scoped_subclassed_model,
-            conda_env=None,
-            pickle_module=custom_pickle_module)
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id,
-            artifact_path=artifact_path)
-
-    import_module_fn = importlib.import_module
-    imported_modules = []
-
-    def track_module_imports(module_name):
-        imported_modules.append(module_name)
-        return import_module_fn(module_name)
-
-    with mock.patch("importlib.import_module") as import_mock,\
-            mock.patch("torch.load") as torch_load_mock:
-        import_mock.side_effect = track_module_imports
-        pyfunc.load_pyfunc(model_uri=model_uri)
-
-    torch_load_mock.assert_called_with(mock.ANY, pickle_module=custom_pickle_module)
-    assert custom_pickle_module.__name__ in imported_modules
-
-
-@pytest.mark.large
-def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
-        module_scoped_subclassed_model, model_path, data):
-    """
-    This test verifies that PyTorch models saved in older versions of MLflow are loaded successfully
-    by ``mlflow.pytorch.load_model``. The ``data`` path associated with these older models is
-    serialized PyTorch model file, as opposed to the current format: a directory containing a
-    serialized model file and pickle module information.
-    """
-    mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=module_scoped_subclassed_model,
+        model=subclassed_model,
         conda_env=None)
 
-    model_conf_path = os.path.join(model_path, "MLmodel")
-    model_conf = Model.load(model_conf_path)
-    pyfunc_conf = model_conf.flavors.get(pyfunc.FLAVOR_NAME)
-    assert pyfunc_conf is not None
-    model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
-    assert os.path.exists(model_data_path)
-    assert mlflow.pytorch._SERIALIZED_TORCH_MODEL_FILE_NAME in os.listdir(model_data_path)
-    pyfunc_conf[pyfunc.DATA] = os.path.join(
-        model_data_path, mlflow.pytorch._SERIALIZED_TORCH_MODEL_FILE_NAME)
-    model_conf.save(model_conf_path)
-
-    loaded_pyfunc = pyfunc.load_pyfunc(model_path)
-
-    np.testing.assert_array_almost_equal(
-        loaded_pyfunc.predict(data[0]),
-        pd.DataFrame(_predict(model=module_scoped_subclassed_model, data=data)),
-        decimal=4)
-
-
-@pytest.mark.large
-def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
-        module_scoped_subclassed_model, model_path, data):
-    """
-    This test verifies that PyTorch models saved in older versions of MLflow are loaded successfully
-    by ``mlflow.pytorch.load_model``. The ``data`` path associated with these older models is
-    serialized PyTorch model file, as opposed to the current format: a directory containing a
-    serialized model file and pickle module information.
-    """
-    artifact_path = "pytorch_model"
-    with mlflow.start_run():
-        mlflow.pytorch.log_model(
-            artifact_path=artifact_path,
-            pytorch_model=module_scoped_subclassed_model,
-            conda_env=None)
-        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
-
-    model_conf_path = os.path.join(model_path, "MLmodel")
-    model_conf = Model.load(model_conf_path)
-    pyfunc_conf = model_conf.flavors.get(pyfunc.FLAVOR_NAME)
-    assert pyfunc_conf is not None
-    model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
-    assert os.path.exists(model_data_path)
-    assert mlflow.pytorch._SERIALIZED_TORCH_MODEL_FILE_NAME in os.listdir(model_data_path)
-    pyfunc_conf[pyfunc.DATA] = os.path.join(
-        model_data_path, mlflow.pytorch._SERIALIZED_TORCH_MODEL_FILE_NAME)
-    model_conf.save(model_conf_path)
-
-    loaded_pyfunc = pyfunc.load_pyfunc(model_path)
-
-    np.testing.assert_array_almost_equal(
-        loaded_pyfunc.predict(data[0]),
-        pd.DataFrame(_predict(model=module_scoped_subclassed_model, data=data)),
-        decimal=4)
-
-
-@pytest.mark.large
-def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
-        module_scoped_subclassed_model, model_path):
-    mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=module_scoped_subclassed_model,
-        conda_env=None,
-        pickle_module=pickle)
-
-    mlflow_torch_pickle_load = mlflow_pytorch_pickle_module.load
-    pickle_call_results = {
-        "mlflow_torch_pickle_load_called": False,
-    }
-
-    def validate_mlflow_torch_pickle_load_called(*args, **kwargs):
-        pickle_call_results["mlflow_torch_pickle_load_called"] = True
-        return mlflow_torch_pickle_load(*args, **kwargs)
-
-    log_messages = []
-
-    def custom_warn(message_text, *args, **kwargs):
-        log_messages.append(message_text % args % kwargs)
-
-    with mock.patch("mlflow.pytorch.pickle_module.load") as mlflow_torch_pickle_load_mock,\
-            mock.patch("mlflow.pytorch._logger.warning") as warn_mock:
-        mlflow_torch_pickle_load_mock.side_effect = validate_mlflow_torch_pickle_load_called
-        warn_mock.side_effect = custom_warn
-        mlflow.pytorch.load_model(model_uri=model_path, pickle_module=mlflow_pytorch_pickle_module)
-
-    assert all(pickle_call_results.values())
-    assert any([
-        "does not match the pickle module that was used to save the model" in log_message and
-        pickle.__name__ in log_message and
-        mlflow_pytorch_pickle_module.__name__ in log_message
-        for log_message in log_messages
-    ])
-
-
-@pytest.mark.large
-def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
-        main_scoped_subclassed_model, model_path):
-    mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=main_scoped_subclassed_model,
-        conda_env=None)
-
-    bad_pickle_module_name = "not.a.real.module"
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    model_data_path = os.path.join(model_path, pyfunc_conf[pyfunc.DATA])
-    assert os.path.exists(model_data_path)
-    assert mlflow.pytorch._PICKLE_MODULE_INFO_FILE_NAME in os.listdir(model_data_path)
-    with open(
-            os.path.join(model_data_path, mlflow.pytorch._PICKLE_MODULE_INFO_FILE_NAME), "w") as f:
-        f.write(bad_pickle_module_name)
-
-    with pytest.raises(MlflowException) as exc_info:
-        mlflow.pytorch.load_model(model_uri=model_path)
-
-    assert "Failed to import the pickle module" in str(exc_info)
-    assert bad_pickle_module_name in str(exc_info)
-
-
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_env(
-        model, model_path, data, sequential_predicted):
-    mlflow.pytorch.save_model(pytorch_model=model, path=model_path, conda_env=None)
-
-    scoring_response = score_model_in_sagemaker_docker_container(
+    scoring_response = pyfunc_serve_and_score_model(
             model_uri=model_path,
             data=data[0],
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            flavor=mlflow.pyfunc.FLAVOR_NAME,
-            activity_polling_timeout_seconds=360)
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+            extra_args=["--no-conda"])
+    assert scoring_response.status_code == 200
 
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
-        sequential_predicted,
+        _predict(model=subclassed_model, data=data),
         decimal=4)
