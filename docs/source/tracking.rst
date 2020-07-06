@@ -579,7 +579,7 @@ stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NF
 Amazon S3 and S3-compatible storage
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To store artifacts in S3 (whether on Amazon S3 or on a S3-compatible alternative such as `MinIO <https://min.io/>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
+To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as `MinIO <https://min.io/>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
 credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
 the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
 these are available. For more information on how to set credentials, see
