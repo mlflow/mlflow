@@ -8,7 +8,8 @@ import uuid
 import mlflow
 import mlflow.db
 import mlflow.store.db.base_sql_model
-from mlflow.entities.model_registry import RegisteredModel, ModelVersion
+from mlflow.entities.model_registry import RegisteredModel, ModelVersion, \
+    RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, \
     INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
@@ -34,11 +35,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
         os.remove(self.temp_dbfile)
 
-    def _rm_maker(self, name):
-        return self.store.create_registered_model(name)
+    def _rm_maker(self, name, tags=None):
+        return self.store.create_registered_model(name, tags)
 
-    def _mv_maker(self, name, source="path/to/source", run_id=uuid.uuid4().hex):
-        return self.store.create_model_version(name, source, run_id)
+    def _mv_maker(self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None):
+        return self.store.create_model_version(name, source, run_id, tags)
 
     def _extract_latest_by_stage(self, latest_versions):
         return {mvd.current_stage: mvd.version for mvd in latest_versions}
@@ -58,12 +59,22 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             rm2 = self._rm_maker(name2)
             self.assertEqual(rm2.name, name2)
 
+        # test create model with tags
+        name2 = random_str()
+        tags = [RegisteredModelTag("key", "value"),
+                RegisteredModelTag("anotherKey", "some other value")]
+        rm2 = self._rm_maker(name2, tags)
+        self.assertEqual(rm2.name, name2)
+        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in (tags or [])})
+
     def test_get_registered_model(self):
         name = "model_1"
+        tags = [RegisteredModelTag("key", "value"),
+                RegisteredModelTag("anotherKey", "some other value")]
         # use fake clock
         with mock.patch("time.time") as mock_time:
             mock_time.return_value = 1234
-            rm = self._rm_maker(name)
+            rm = self._rm_maker(name, tags)
             self.assertEqual(rm.name, name)
         rmd = self.store.get_registered_model(name=name)
         self.assertEqual(rmd.name, name)
@@ -71,6 +82,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rmd.last_updated_timestamp, 1234000)
         self.assertEqual(rmd.description, None)
         self.assertEqual(rmd.latest_versions, [])
+        self.assertEqual(rmd.tags, {tag.key: tag.value for tag in (tags or [])})
 
     def test_update_registered_model(self):
         name1 = "model_for_update_RM"
@@ -103,7 +115,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_delete_registered_model(self):
         name = "model_for_delete_RM"
-        rm = self._rm_maker(name)
+        self._rm_maker(name)
         rmd1 = self.store.get_registered_model(name=name)
         self.assertEqual(rmd1.name, name)
 
@@ -249,6 +261,82 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(self._extract_latest_by_stage(rmd5.latest_versions),
                          {"None": 1, "Production": 2, "Staging": 4})
 
+    def test_set_registered_model_tag(self):
+        name1 = random_str()
+        name2 = random_str()
+        initial_tags = [RegisteredModelTag("key", "value"),
+                        RegisteredModelTag("anotherKey", "some other value")]
+        self._rm_maker(name1, initial_tags)
+        self._rm_maker(name2, initial_tags)
+        new_tag = RegisteredModelTag("randomTag", "not a random value")
+        self.store.set_registered_model_tag(name1, new_tag)
+        rm1 = self.store.get_registered_model(name=name1)
+        all_tags = initial_tags[:].append(new_tag)
+        self.assertEqual(rm1.tags, {tag.key: tag.value for tag in (all_tags or [])})
+
+        # test overriding a tag with the same key
+        overriding_tag = RegisteredModelTag("key", "overriding")
+        self.store.set_registered_model_tag(name1, overriding_tag)
+        all_tags["key"] = "overriding"
+        rm1 = self.store.get_registered_model(name=name1)
+        self.assertEqual(rm1.tags, {tag.key: tag.value for tag in (all_tags or [])})
+        # does not affect other models with the same key
+        rm2 = self.store.get_registered_model(name=name2)
+        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+
+        # can not set tag on deleted (non-existed) registered model
+        self.store.delete_registered_model(name1)
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.set_registered_model_tag(name1, overriding_tag)
+            assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        # test cannot set tags that are too long
+        long_tag = RegisteredModelTag("longTagKey", "a" * 5001)
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.set_registered_model_tag(name2, long_tag)
+            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # test can set tags that are somewhat long
+        long_tag = RegisteredModelTag("longTagKey", "a" * 4999)
+        self.store.set_registered_model_tag(name2, long_tag)
+        # can not set invalid tag
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.set_registered_model_tag(name2, RegisteredModelTag(key=None, value=""))
+            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    def test_delete_registered_model_tag(self):
+        name1 = random_str()
+        name2 = random_str()
+        initial_tags = [RegisteredModelTag("key", "value"),
+                        RegisteredModelTag("anotherKey", "some other value")]
+        self._rm_maker(name1, initial_tags)
+        self._rm_maker(name2, initial_tags)
+        new_tag = RegisteredModelTag("randomTag", "not a random value")
+        self.store.set_registered_model_tag(name1, new_tag)
+        self.store.delete_registered_model_tag(name1, "randomTag")
+        rm1 = self.store.get_registered_model(name=name1)
+        self.assertEqual(rm1.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+
+        # testing deleting a key does not affect other models with the same key
+        self.store.delete_registered_model_tag(name1, "key")
+        rm1 = self.store.get_registered_model(name=name1)
+        rm2 = self.store.get_registered_model(name=name2)
+        self.assertEqual(rm1.tags, {"anotherKey": "some other value"})
+        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+
+        # delete tag that is already deleted does nothing
+        self.store.delete_registered_model_tag(name1, "key")
+        rm1 = self.store.get_registered_model(name=name1)
+        self.assertEqual(rm1.tags, {"anotherKey": "some other value"})
+
+        # can not delete tag on deleted (non-existed) registered model
+        self.store.delete_registered_model(name1)
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.delete_registered_model_tag(name1, "anotherKey")
+            assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        # can not delete tag with invalid key
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.delete_registered_model_tag(name2, None)
+            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
     def test_create_model_version(self):
         name = "test_for_update_MV"
         self._rm_maker(name)
@@ -270,6 +358,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd1.run_id, run_id)
         self.assertEqual(mvd1.status, "READY")
         self.assertEqual(mvd1.status_message, None)
+        self.assertEqual(mvd1.tags, {})
 
         # new model versions for same name autoincrement versions
         mv2 = self._mv_maker(name)
@@ -277,10 +366,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mv2.version, 2)
         self.assertEqual(mvd2.version, 2)
 
-        mv3 = self._mv_maker(name)
+        # create model version with tags return model version entity with tags
+        tags = [ModelVersionTag("key", "value"),
+                ModelVersionTag("anotherKey", "some other value")]
+        mv3 = self._mv_maker(name, tags=tags)
         mvd3 = self.store.get_model_version(name=mv3.name, version=mv3.version)
         self.assertEqual(mv3.version, 3)
+        self.assertEqual(mv3.tags, {tag.key: tag.value for tag in (tags or [])})
         self.assertEqual(mvd3.version, 3)
+        self.assertEqual(mvd3.tags, {tag.key: tag.value for tag in (tags or [])})
 
     def test_update_model_version(self):
         name = "test_for_update_MV"
@@ -327,8 +421,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_delete_model_version(self):
         name = "test_for_update_MV"
+        initial_tags = [ModelVersionTag("key", "value"),
+                        ModelVersionTag("anotherKey", "some other value")]
         self._rm_maker(name)
-        mv = self._mv_maker(name)
+        mv = self._mv_maker(name, tags=initial_tags)
         mvd = self.store.get_model_version(name=mv.name, version=mv.version)
         self.assertEqual(mvd.name, name)
 
@@ -760,3 +856,95 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                                      'last_updated_timestamp DESC blah'],
                                            max_results=5)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    def test_set_model_version_tag(self):
+        name1 = random_str()
+        name2 = random_str()
+        initial_tags = [ModelVersionTag("key", "value"),
+                        ModelVersionTag("anotherKey", "some other value")]
+        self._rm_maker(name1)
+        self._rm_maker(name2)
+        run_id_1 = uuid.uuid4().hex
+        run_id_2 = uuid.uuid4().hex
+        run_id_3 = uuid.uuid4().hex
+        self._mv_maker(name1, "A/B", run_id_1, initial_tags)
+        self._mv_maker(name1, "A/C", run_id_2, initial_tags)
+        self._mv_maker(name2, "A/D", run_id_3, initial_tags)
+        new_tag = ModelVersionTag("randomTag", "not a random value")
+        self.store.set_model_version_tag(name1, 1, new_tag)
+        all_tags = initial_tags[:].append(new_tag)
+        rm1mv1 = self.store.get_model_version(name1, 1)
+        self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in (all_tags or [])})
+
+        # test overriding a tag with the same key
+        overriding_tag = ModelVersionTag("key", "overriding")
+        self.store.set_model_version_tag(name1, 1, overriding_tag)
+        all_tags["key"] = "overriding"
+        rm1mv1 = self.store.get_model_version(name1, 1)
+        self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in (all_tags or [])})
+        # does not affect other model versions with the same key
+        rm1mv2 = self.store.get_model_version(name1, 2)
+        rm2mv1 = self.store.get_model_version(name2, 1)
+        self.assertEqual(rm1mv2.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+        self.assertEqual(rm2mv1.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+
+        # can not set tag on deleted (non-existed) model version
+        self.store.delete_model_version(name1, 2)
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.set_model_version_tag(name1, 2, overriding_tag)
+            assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        # can not set invalid tag
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.set_model_version_tag(name2, 1, ModelVersionTag(key=None, value=""))
+            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    def test_delete_model_version_tag(self):
+        name1 = random_str()
+        name2 = random_str()
+        initial_tags = [ModelVersionTag("key", "value"),
+                        ModelVersionTag("anotherKey", "some other value")]
+        self._rm_maker(name1)
+        self._rm_maker(name2)
+        run_id_1 = uuid.uuid4().hex
+        run_id_2 = uuid.uuid4().hex
+        run_id_3 = uuid.uuid4().hex
+        self._mv_maker(name1, "A/B", run_id_1, initial_tags)
+        self._mv_maker(name1, "A/C", run_id_2, initial_tags)
+        self._mv_maker(name2, "A/D", run_id_3, initial_tags)
+        new_tag = ModelVersionTag("randomTag", "not a random value")
+        self.store.set_model_version_tag(name1, 1, new_tag)
+        self.store.delete_model_version_tag(name1, 1, "randomTag")
+        rm1mv1 = self.store.get_model_version(name1, 1)
+        self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+
+        # testing deleting a key does not affect other model versions with the same key
+        self.store.delete_model_version_tag(name1, 1, "key")
+        rm1mv1 = self.store.get_model_version(name1, 1)
+        rm1mv2 = self.store.get_model_version(name1, 2)
+        rm2mv1 = self.store.get_model_version(name2, 1)
+        self.assertEqual(rm1mv1, {"anotherKey": "some other value"})
+        self.assertEqual(rm1mv2, {tag.key: tag.value for tag in (initial_tags or [])})
+        self.assertEqual(rm2mv1, {tag.key: tag.value for tag in (initial_tags or [])})
+
+        # delete tag that is already deleted does nothing
+        self.store.delete_model_version_tag(name1, 1, "key")
+        rm1mv1 = self.store.get_model_version(name1, 1)
+        self.assertEqual(rm1mv1, {"anotherKey": "some other value"})
+
+        # can not delete tag on deleted (non-existed) model version
+        self.store.delete_model_version(name2, 1)
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.delete_model_version_tag(name2, 1, "key")
+            assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        # test cannot set tags that are too long
+        long_tag = ModelVersionTag("longTagKey", "a" * 5001)
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.set_model_version_tag(name1, 1, long_tag)
+            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # test can set tags that are somewhat long
+        long_tag = ModelVersionTag("longTagKey", "a" * 4999)
+        self.store.set_model_version_tag(name1, 1, long_tag)
+        # can not delete tag with invalid key
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.delete_model_version_tag(name1, 2, None)
+            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

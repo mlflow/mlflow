@@ -128,6 +128,26 @@ class ModelRegistryClient(object):
         """
         return self.store.get_latest_versions(name, stages)
 
+    def set_registered_model_tag(self, name, tag):
+        """
+        Set a tag for the registered model
+
+        :param name: Registered model name.
+        :param tag: RegisteredModelTag instance to log
+        :return: None
+        """
+        self.store.set_registered_model_tag(name, tag)
+
+    def delete_registered_model_tag(self, name, key):
+        """
+        Delete a tag associated with the registered model
+
+        :param name: Registered model name.
+        :param key: Tag key
+        :return: None
+        """
+        self.store.delete_registered_model_tag(name, key)
+
     # Model Version Methods
 
     def create_model_version(self, name, source, run_id):
@@ -213,3 +233,25 @@ class ModelRegistryClient(object):
         :return: A list of valid stages.
         """
         return self.store.get_model_version_stages(name, version)
+
+    def set_model_version_tag(self, name, version, tag):
+        """
+        Set a tag for the model version
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param tag: ModelVersionTag instance to log
+        :return: None
+        """
+        self.store.set_model_version_tag(name, version, tag)
+
+    def delete_model_version_tag(self, name, version, key):
+        """
+        Delete a tag associated with the model version
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param key: Tag key
+        :return: None
+        """
+        self.store.delete_model_version_tag(name, version, key)
