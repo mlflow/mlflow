@@ -31,7 +31,6 @@ class ModelRegistryClient(object):
     def create_registered_model(self, name):
         """
         Create a new registered model in backend store.
-
         :param name: Name of the new model. This is expected to be unique in the backend store.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
@@ -43,9 +42,7 @@ class ModelRegistryClient(object):
     def update_registered_model(self, name, description):
         """
         Updates description for RegisteredModel entity.
-
         Backend raises exception if a registered model with given name does not exist.
-
         :param name: Name of the registered model to update.
         :param description: New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -55,10 +52,8 @@ class ModelRegistryClient(object):
     def rename_registered_model(self, name, new_name):
         """
         Update registered model name.
-
         :param name: Name of the registered model to update.
         :param new_name: New proposed name for the registered model.
-
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         if new_name.strip() == "":
@@ -69,7 +64,6 @@ class ModelRegistryClient(object):
         """
         Delete registered model.
         Backend raises exception if a registered model with given name does not exist.
-
         :param name: Name of the registered model to update.
         """
         self.store.delete_registered_model(name)
@@ -82,7 +76,6 @@ class ModelRegistryClient(object):
         :param max_results: Maximum number of registered models desired.
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_registered_models`` call.
-
         :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
@@ -96,7 +89,6 @@ class ModelRegistryClient(object):
                                  page_token=None):
         """
         Search for registered models in backend that satisfy the filter criteria.
-
         :param filter_string: Filter query string, defaults to searching all registered models.
         :param max_results: Maximum number of registered models desired.
         :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
@@ -120,7 +112,6 @@ class ModelRegistryClient(object):
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
-
         :param name: Name of the registered model to update.
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for 'Staging' and 'Production' stages.
@@ -128,32 +119,11 @@ class ModelRegistryClient(object):
         """
         return self.store.get_latest_versions(name, stages)
 
-    def set_registered_model_tag(self, name, tag):
-        """
-        Set a tag for the registered model
-
-        :param name: Registered model name.
-        :param tag: RegisteredModelTag instance to log
-        :return: None
-        """
-        self.store.set_registered_model_tag(name, tag)
-
-    def delete_registered_model_tag(self, name, key):
-        """
-        Delete a tag associated with the registered model
-
-        :param name: Registered model name.
-        :param key: Tag key
-        :return: None
-        """
-        self.store.delete_registered_model_tag(name, key)
-
     # Model Version Methods
 
     def create_model_version(self, name, source, run_id):
         """
         Create a new model version from given source or run ID.
-
         :param name: Name ID for containing registered model.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model
@@ -165,7 +135,6 @@ class ModelRegistryClient(object):
     def update_model_version(self, name, version, description):
         """
         Update metadata associated with a model version in backend.
-
         :param name: Name of the containing registered model.
         :param version: Version number of the model version.
         :param description: New description.
@@ -175,13 +144,11 @@ class ModelRegistryClient(object):
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):
         """
         Update model version stage.
-
         :param name: Registered model name.
         :param version: Registered model version.
         :param stage: New desired stage for this model version.
         :param archive_existing_versions: If this flag is set, all existing model
                versions in the stage will be atomically moved to the "archived" stage.
-
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         if stage.strip() == "":
@@ -201,7 +168,6 @@ class ModelRegistryClient(object):
     def delete_model_version(self, name, version):
         """
         Delete model version in backend.
-
         :param name: Name of the containing registered model.
         :param version: Version number of the model version.
         """
@@ -210,7 +176,6 @@ class ModelRegistryClient(object):
     def get_model_version_download_uri(self, name, version):
         """
         Get the download location in Model Registry for this model version.
-
         :param name: Name of the containing registered model.
         :param version: Version number of the model version.
         :return: A single URI location that allows reads for downloading.
@@ -220,7 +185,6 @@ class ModelRegistryClient(object):
     def search_model_versions(self, filter_string):
         """
         Search for model versions in backend that satisfy the filter criteria.
-
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
@@ -233,25 +197,3 @@ class ModelRegistryClient(object):
         :return: A list of valid stages.
         """
         return self.store.get_model_version_stages(name, version)
-
-    def set_model_version_tag(self, name, version, tag):
-        """
-        Set a tag for the model version
-
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param tag: ModelVersionTag instance to log
-        :return: None
-        """
-        self.store.set_model_version_tag(name, version, tag)
-
-    def delete_model_version_tag(self, name, version, key):
-        """
-        Delete a tag associated with the model version
-
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param key: Tag key
-        :return: None
-        """
-        self.store.delete_model_version_tag(name, version, key)
