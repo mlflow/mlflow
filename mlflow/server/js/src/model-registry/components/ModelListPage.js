@@ -30,7 +30,7 @@ class ModelListPage extends React.Component {
     this.loadModels(true);
   }
 
-  // Loads the initial set of models. Named generically for OSS.
+  // Loads the initial set of models.
   loadModels(isInitialLoading = false) {
     const { orderByKey, orderByAsc, searchInput } = this.state;
     this.loadPage(1, searchInput, orderByKey, orderByAsc, undefined, undefined, isInitialLoading);
