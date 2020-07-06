@@ -322,7 +322,7 @@ def _save_model(sk_model, output_path, serialization_format):
                     error_code=INTERNAL_ERROR)
 
 
-def load_model(model_uri, serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE):
+def load_model(model_uri):
     """
     Load a scikit-learn model from a local file or a run.
 
@@ -338,10 +338,6 @@ def load_model(model_uri, serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE)
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
-    :param serialization_format: The format in which the model was serialized. This should be one of
-                                 the formats listed in
-                                 ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
-                                 format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
 
     :return: A scikit-learn model.
 
@@ -358,4 +354,7 @@ def load_model(model_uri, serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE)
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf['pickled_model'])
-    return _load_model_from_local_file(path=sklearn_model_artifacts_path, serialization_format=serialization_format)
+    serialization_format = flavor_conf.get('serialization_format', SERIALIZATION_FORMAT_PICKLE)
+    return _load_model_from_local_file(
+        path=sklearn_model_artifacts_path,
+        serialization_format=serialization_format)
