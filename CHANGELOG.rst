@@ -1,5 +1,58 @@
 Changelog
 =========
+1.9.1 (2020-07-06)
+------------------
+MLflow 1.9.1 includes several major features and improvements:
+
+Features:
+
+- Search Registered Models API (#2951, @mparkhe)
+- Add autologging support for Fastai (#2619, @antoniomdk)
+- Introduce pluggable API for deploying models to custom serving tools (#2327, @hhsecond)
+- Enforce model signature during model predict/scoring (#2920, @aarondav)
+- Add Aliyun (Alibaba Cloud) oss Community Plugins and dependency (#2917, @SeaOfOcean)
+- Created cluster context provider to set cluster ID as part of run tags (#2919, @willzhan-db)
+- Add optional env var KUBE_MLFLOW_TRACKING_URI for passing a different tracking server to the kubernetes job (#2874, @catapulta)
+- Set guessed content type and encoding when uploading objects to s3 (#2881, @hajapy)
+- Add possibility to use client cert. with tracking API. (#2843, @PhilipMay)
+- [Issue #2790] view PDFs in artifact viewer (#2859, @ankmathur96)
+- Accessibility: Fix color contrast (#2872, @Zangr)
+- Accessibility: Ensures elements with an ARIA role that require child roles contain them (#2871, @Zangr)
+- Add support for cluster library definition in MLflow project execution (#2845, @pogil)
+- Replace data.download_uri with more updated artifact handling (#2774, @trangevi)
+- Support HDFS federation viewfs (#2782, @fhoering)
+- [ML-9511] create model registry link in the main UI (#2805, @zhidongqu-db)
+- Add schema and example logging to save_model methods of all supported flavors. (#2775, @tomasatdatabricks)
+- Add conda-forge to channels (#2797, @dbczumar)
+- Add Fastai flavor (#2689, @antoniomdk)
+- Add plugin interface for executing MLflow projects against custom backends (#2566, @jdlesage)
+- Add  model signature (#2698, @tomasatdatabricks)
+- Use LibYAML by default to increase performance in FileUtils (#2707, @Higgcz)
+- Add /health endpoint (#2725, @crflynn)
+- Change plotly to use scattergl (#2447, @mjlbach)
+
+Bug fixes and documentation updates:
+
+- Remove margins around icon buttons (#2827, @harupy)
+- Do not log engine url (#2849, @hajapy)
+- Fix field alignment for metric view (#2811, @zhidongqu-db)
+- Fix example tests and add spacy example test to CRON job (#2792, @juntai-zheng)
+- use posix path for artifact subpaths. (#2784, @mikeoconnor0308)
+- Fix tf.keras 1.X pyfunc prediction (#2762, @juntai-zheng)
+- Metrics plot view fixes: NaN handling, point plotting (#2773, @dbczumar)
+- [UI] Truncate run id in the run name when comparing multiple runs (#2508, @harupy)
+- I've had some problems running `mlflow run` on Windows: `conda activate` hasn't worked although I executed `conda init cmd.exe`. To my surprise, `mlflow models serve` does work although there as well a conda env is created and activated. The difference is in the Popen method: the backend for `mlflow models serve` is using `["cmd", "/c", command]` as argument, which is working fine. `mlflow run`, however, is using `command`, which does not work. I changed that. (#2731, @MynherVanKoek)
+- Onnx.predict handles list response (#2742, @andychow-db)
+- Unset _active_run_stack before the calling set_terminated (#2693, @ahmed-shariff)
+- Remove deprecated fields on client APIs (#2946, @mparkhe)
+- Added learning rate to lightGBM and update readme for mlflow ui tracking (#2916, @shubham769)
+- Add learning rate in XGBoost example and update readme for same (#2766, @shubham769)
+- [FIX] Run example from Github command (#2794, @Zethson)
+- [ML-9511] create model registry link in the main UI (#2805, @zhidongqu-db)
+- Add missing spaCy doc (#2771, @harupy)
+
+Small bug fixes and doc updates (#2940, #2942, #2941, #2943, #2927, #2929, #2926, #2914, #2928, #2913, #2852, #2876, #2808, #2810, #2442, #2780, #2758, #2732, #2734, #2431, #2733, #2716, @harupy; #2915, #2897, @jwgwalton; #2856, @jkthompson; #2962, @hhsecond; #2873, #2829, #2582, @dmatrix; #2985, #2908, #2865, #2880, #2866, #2833, #2785, #2723, @smurching; #2906, @dependabot[bot]; #2724, @aarondav; #2896, @ezeeetm; #2741, #2721, @mlflow-automation; #2864, @tallen94; #2726, @crflynn; #2710, @mparkhe; #2935, #2921, @ankitmathur-db; #2963, #2739, @dbczumar; #2853, @stat4jason; #2709, @juntai-zheng; #2749, @HiromuHota; #2957, #2911, #2718, @arjundc-db; #2885, @willzhan-db; #2803, #2761, @pogil; #2392, @jnmclarty)
+
 1.9.1 (2020-06-25)
 ------------------
 MLflow 1.9.1 is a patch release containing a number of bug-fixes and improvements:
