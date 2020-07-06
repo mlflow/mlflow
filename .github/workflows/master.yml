@@ -69,12 +69,24 @@ jobs:
         cd tests
         Rscript ../.travis.R
     - name: Calculate code coverage
+      if: ${{ success() }}
       run: |
         export MLFLOW_HOME=$(pwd)
         cd mlflow/R/mlflow/tests
-        Rscript -e 'covr::codecov()'
+        Rscript -e 'covr::codecov()' || :
       env:
         COVR_RUNNING: true
+    - name: Show 00check.log on failure
+      if: ${{ failure() }}
+      run: |
+        LOG_FILE="${HOME}/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
+        [ -r "${LOG_FILE}" ] && cat "${LOG_FILE}"
+        cp "${LOG_FILE}" /tmp
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: 00check.log
+        path: /tmp/00check.log
   python-small:
     runs-on: ubuntu-latest
     steps:
