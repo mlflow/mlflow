@@ -55,8 +55,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'MLflow'
-copyright = 'Databricks 2020. All rights reserved'
-author = 'Databricks'
+copyright = 'MLflow Project, a Series of LF Projects, LLC. All rights reserved'
+author = 'MLflow'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

@@ -63,7 +63,7 @@ or `Stack Overflow <https://stackoverflow.com/questions/tagged/mlflow>`_.
 To report a bug, file a documentation issue, or submit a feature request, please open a GitHub issue.
 
 For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
-or join us on `Slack <https://mlflow-users.slack.com/join/shared_invite/enQtMzkxMTAwNTcyODM5LTkzMDFhNzliNjExOGQ1ZGI1ZmFlMGE5YWE1OTI4ZGM1ZWZmYzc3NGNiZTM3YjgwOTdlODAzMjJhZTdiN2Y3MWY>`_.
+or join us on `Slack <https://mlflow-users.slack.com/join/shared_invite/zt-ezta6o05-DbAt0gOUiBt1AuGUCO5S0w#/>`_.
 
 Running a Sample App With the Tracking API
 ------------------------------------------
