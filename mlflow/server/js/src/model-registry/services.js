@@ -33,6 +33,7 @@ export class Services {
       dataType: 'json',
       converters: {
         'text json': StrictJsonBigInt.parse,
+
       },
       data: data,
       jsonp: false,
@@ -184,7 +185,7 @@ export class Services {
 
   /**
    * Delete model version
-   * @param data
+   * @param data/
    * @param success
    * @param error
    * @returns {*|jQuery|*|*|*|*}
