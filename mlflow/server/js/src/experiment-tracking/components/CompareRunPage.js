@@ -10,7 +10,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 class CompareRunPage extends Component {
   static propTypes = {
     experimentId: PropTypes.string.isRequired,
-    runUuids: PropTypes.arrayOf(String).isRequired,
+    runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     dispatch: PropTypes.func.isRequired,
   };
 

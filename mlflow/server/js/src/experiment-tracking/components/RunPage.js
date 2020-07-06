@@ -15,7 +15,7 @@ export class RunPageImpl extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     experimentId: PropTypes.string.isRequired,
-    modelVersions: PropTypes.arrayOf(Object),
+    modelVersions: PropTypes.arrayOf(PropTypes.object),
     getRunApi: PropTypes.func.isRequired,
     getExperimentApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,

@@ -14,10 +14,10 @@ import CompareRunUtil from './CompareRunUtil';
 
 export class CompareRunContour extends Component {
   static propTypes = {
-    runInfos: PropTypes.arrayOf(RunInfo).isRequired,
-    metricLists: PropTypes.arrayOf(Array).isRequired,
-    paramLists: PropTypes.arrayOf(Array).isRequired,
-    runDisplayNames: PropTypes.arrayOf(String).isRequired,
+    runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
+    metricLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
+    paramLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
+    runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
   };
 
   // Size limits for displaying keys and values in our plot axes and tooltips

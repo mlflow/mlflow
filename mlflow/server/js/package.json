@@ -37,6 +37,7 @@
     "react-router": "^5.2.0",
     "react-router-dom": "^5.2.0",
     "react-scripts": "2.1.8",
+    "react-syntax-highlighter": "^12.2.1",
     "react-treebeard": "2.1.0",
     "react-virtualized": "9.21.0",
     "redux": "3.7.2",
@@ -45,9 +46,7 @@
     "redux-thunk": "^2.3.0",
     "sanitize-html": "^1.18.5",
     "showdown": "^1.8.6",
-    "url-parse": "1.4.3",
-    "yamljs": "^0.3.0",
-    "yup": "^0.26.3"
+    "yamljs": "^0.3.0"
   },
   "devDependencies": {
     "canvas": "^2.6.1",

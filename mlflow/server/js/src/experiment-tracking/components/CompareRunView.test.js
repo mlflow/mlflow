@@ -9,8 +9,8 @@ const getCompareRunViewMock = () => {
     <CompareRunView
       runInfos={[Fixtures.createRunInfo(), Fixtures.createRunInfo()]}
       experiment={Fixtures.createExperiment()}
-      experimentId={0}
-      runUuids={[0]}
+      experimentId={'0'}
+      runUuids={['0']}
       metricLists={[]}
       paramLists={[]}
       runNames={['run1']}

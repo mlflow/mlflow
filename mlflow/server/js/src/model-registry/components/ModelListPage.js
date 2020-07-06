@@ -10,7 +10,7 @@ import { searchRegisteredModelsApi } from '../actions';
 
 class ModelListPage extends React.Component {
   static propTypes = {
-    models: PropTypes.arrayOf(Object),
+    models: PropTypes.arrayOf(PropTypes.object),
     searchRegisteredModelsApi: PropTypes.func.isRequired,
   };
 
