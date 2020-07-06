@@ -51,21 +51,24 @@ as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
     .. code-block:: python
 
         import os
-        from mlflow import log_metric, log_param, log_artifact
+		from random import random, randint
+        from mlflow import log_metric, log_param, log_artifacts
 
         if __name__ == "__main__":
             # Log a parameter (key-value pair)
-            log_param("param1", 5)
+            log_param("param1", randing(0, 100))
 
             # Log a metric; metrics can be updated throughout the run
-            log_metric("foo", 1)
-            log_metric("foo", 2)
-            log_metric("foo", 3)
+            log_metric("foo", random())
+            log_metric("foo", random() + 1)
+            log_metric("foo", random() + 2)
 
             # Log an artifact (output file)
-            with open("output.txt", "w") as f:
-                f.write("Hello world!")
-            log_artifact("output.txt")
+			if not os.path.exists("outputs"):
+				os.makedirs("outputs")
+            with open("outputs/test.txt", "w") as f:
+                f.write("hello world!")
+            log_artifacts("outputs")
             
     .. code-block:: R
 
@@ -120,7 +123,7 @@ either a local directory or a GitHub URI:
 
     mlflow run sklearn_elasticnet_wine -P alpha=0.5
 
-    mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5
+    mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5.0
 
 There's a sample project in ``tutorial``, including a ``MLproject`` file that
 specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,
@@ -180,7 +183,7 @@ the pyfunc model server, see the :ref:`MLflow deployment tools documentation <lo
 
 which returns::
 
-    {"predictions": [1, 0]}
+    [1, 0]
 
 For more information, see :doc:`models`.
 
