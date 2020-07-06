@@ -18,7 +18,7 @@ EXAMPLES_DIR = 'examples'
     ('hyperparam', ['-e', 'random']),
     ('hyperparam', ['-e', 'gpyopt']),
     ('hyperparam', ['-e', 'hyperopt', '-P', 'epochs=1']),
-    ('lightgbm', ['-P', 'learning-rate=0.1', '-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9']),
+    ('lightgbm', ['-P', 'learning_rate=0.1', '-P', 'colsample_bytree=0.8', '-P', 'subsample=0.9']),
     ('prophet', []),
     ('pytorch', ['-P', 'epochs=2']),
     ('sklearn_logistic_regression', []),
@@ -26,7 +26,7 @@ EXAMPLES_DIR = 'examples'
     (os.path.join('sklearn_elasticnet_diabetes', 'linux'), []),
     ('spacy', []),
     (os.path.join('tensorflow', 'tf1'), ['-P', 'steps=10']),
-    ('xgboost', ['-P', 'learning-rate=0.3', '-P', 'colsample-bytree=0.8', '-P', 'subsample=0.9'])
+    ('xgboost', ['-P', 'learning_rate=0.3', '-P', 'colsample_bytree=0.8', '-P', 'subsample=0.9'])
 ])
 def test_mlflow_run_example(directory, params):
     cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params

@@ -1,6 +1,9 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { coy as style } from 'react-syntax-highlighter/dist/cjs/styles/prism';
+import { getLanguage } from '../../../common/utils/FileUtils';
 import { getArtifactContent } from './ShowArtifactUtils';
 import './ShowArtifactTextView.css';
 
@@ -47,10 +50,13 @@ class ShowArtifactTextView extends Component {
         </div>
       );
     } else {
+      const language = getLanguage(this.props.path);
       return (
         <div className='ShowArtifactPage'>
           <div className='text-area-border-box'>
-            <textarea className={'text-area'} readOnly value={this.state.text} />
+            <SyntaxHighlighter language={language} style={style}>
+              {this.state.text}
+            </SyntaxHighlighter>
           </div>
         </div>
       );

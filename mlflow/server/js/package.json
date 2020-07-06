@@ -36,6 +36,7 @@
     "react-router": "^5.2.0",
     "react-router-dom": "^5.2.0",
     "react-scripts": "2.1.8",
+    "react-syntax-highlighter": "^12.2.1",
     "react-treebeard": "2.1.0",
     "react-virtualized": "9.21.0",
     "redux": "3.7.2",
