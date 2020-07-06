@@ -66,7 +66,7 @@ def delete_experiment(experiment_id):
     Mark an active experiment for deletion. This also applies to experiment's metadata, runs and
     associated data, and artifacts if they are store in default location. Use ``list`` command to
     view artifact location. Command will throw an error if experiment is not found or already
-    marked for deletion.
+    marked for deletion or it would leave the zeroth experiment.
 
     Experiments marked for deletion can be restored using ``restore`` command, unless they are
     permanently deleted.
@@ -78,8 +78,12 @@ def delete_experiment(experiment_id):
     workflow mechanism to clear ``.trash`` folder.
     """
     store = _get_store()
-    store.delete_experiment(experiment_id)
-    print("Experiment with ID %s has been deleted." % str(experiment_id))
+    experiments_list=store.list_experiments(ViewType.ACTIVE_ONLY)
+    if len(experiments_list)>1:
+        store.delete_experiment(experiment_id)
+        print("Experiment with ID %s has been deleted." % str(experiment_id))
+    else:
+        print("Not allowed to delete last experiment")
 
 
 @commands.command("restore")
