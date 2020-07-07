@@ -22,33 +22,36 @@ beforeEach(() => {
   onSearchSpy = jest.fn();
 });
 
-const getExperimentViewMock = () => {
-  return shallow(
-    <ExperimentView
-      onSearch={onSearchSpy}
-      runInfos={[]}
-      experiment={Fixtures.createExperiment()}
-      history={[]}
-      paramKeyList={[]}
-      metricKeyList={[]}
-      paramsList={[]}
-      metricsList={[]}
-      tagsList={[]}
-      experimentTags={{}}
-      paramKeyFilter={new KeyFilter('')}
-      metricKeyFilter={new KeyFilter('')}
-      lifecycleFilter={LIFECYCLE_FILTER.ACTIVE}
-      searchInput={''}
-      searchRunsError={''}
-      isLoading
-      loadingMore={false}
-      handleLoadMoreRuns={jest.fn()}
-      orderByKey={null}
-      orderByAsc={false}
-      setExperimentTagApi={jest.fn()}
-      location={{ pathname: '/' }}
-    />,
-  );
+const getDefaultExperimentViewProps = () => {
+  return {
+    onSearch: onSearchSpy,
+    runInfos: [],
+    experiment: Fixtures.createExperiment(),
+    history: [],
+    paramKeyList: [],
+    metricKeyList: [],
+    paramsList: [],
+    metricsList: [],
+    tagsList: [],
+    experimentTags: {},
+    paramKeyFilter: new KeyFilter(''),
+    metricKeyFilter: new KeyFilter(''),
+    lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
+    searchInput: '',
+    searchRunsError: '',
+    isLoading: true,
+    loadingMore: false,
+    handleLoadMoreRuns: jest.fn(),
+    orderByKey: null,
+    orderByAsc: false,
+    setExperimentTagApi: jest.fn(),
+    location: { pathname: '/' },
+  };
+};
+
+const getExperimentViewMock = (componentProps = {}) => {
+  const mergedProps = { ...getDefaultExperimentViewProps(), ...componentProps };
+  return shallow(<ExperimentView {...mergedProps} />);
 };
 
 test(`Clearing filter state calls search handler with correct arguments`, () => {
