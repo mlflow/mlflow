@@ -1,9 +1,9 @@
 import React from 'react';
-import { RequestStateWrapper } from '../../common/components/RequestStateWrapper';
-import { ErrorCodes } from '../../common/constants';
+import { RequestStateWrapper } from './RequestStateWrapper';
+import { ErrorCodes } from '../constants';
 import { shallow } from 'enzyme';
-import { Spinner } from '../../common/components/Spinner';
-import { ErrorWrapper } from '../../common/utils/ActionUtils';
+import { Spinner } from './Spinner';
+import { ErrorWrapper } from '../utils/ActionUtils';
 
 const activeRequest = {
   id: 'a',
