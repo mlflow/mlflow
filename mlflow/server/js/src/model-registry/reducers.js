@@ -1,5 +1,6 @@
 import {
   LIST_REGISTERED_MODELS,
+  SEARCH_REGISTERED_MODELS,
   SEARCH_MODEL_VERSIONS,
   GET_REGISTERED_MODEL,
   GET_MODEL_VERSION,
@@ -8,10 +9,12 @@ import {
 } from './actions';
 import { getProtoField } from './utils';
 import _ from 'lodash';
-import { fulfilled } from '../common/utils/ActionUtils';
+import { fulfilled, rejected } from '../common/utils/ActionUtils';
 
 const modelByName = (state = {}, action) => {
   switch (action.type) {
+    case fulfilled(SEARCH_REGISTERED_MODELS):
+    // eslint-disable-next-line no-fallthrough
     case fulfilled(LIST_REGISTERED_MODELS): {
       const models = action.payload[getProtoField('registered_models')];
       const nameToModelMap = {};
@@ -21,6 +24,9 @@ const modelByName = (state = {}, action) => {
       return {
         ...nameToModelMap,
       };
+    }
+    case rejected(SEARCH_REGISTERED_MODELS): {
+      return {};
     }
     case fulfilled(GET_REGISTERED_MODEL): {
       const detailedModel = action.payload[getProtoField('registered_model')];

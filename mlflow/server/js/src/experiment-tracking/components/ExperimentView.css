@@ -288,6 +288,17 @@ span.error-message {
   border-left-color: rgba(0, 0, 0, 0.75);
 }
 
+.artifact-location-public-tooltip  .ant-popover-inner-content {
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  border-radius: 4px;
+}
+
+.artifact-location-public-tooltip.ant-popover-placement-bottom > .ant-popover-content > .ant-popover-arrow {
+  border-top-color: rgba(0, 0, 0, 0.75);
+  border-left-color: rgba(0, 0, 0, 0.75);
+}
+
 .ExperimentView .ag-row-hover, .ExperimentView .ag-column-hover{
   background-color: #f3fafd !important; /* TODO(Zangr) override specificity in a better way */
 }

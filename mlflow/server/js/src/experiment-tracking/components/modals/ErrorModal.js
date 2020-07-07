@@ -14,7 +14,8 @@ const modalStyles = {
     bottom: 'auto',
     marginRight: '-50%',
     transform: 'translate(-50%, -50%)',
-    minWidth: '300px',
+    minWidth: 300,
+    maxWidth: 600,
     padding: 0,
   },
   overlay: {

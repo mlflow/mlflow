@@ -42,6 +42,27 @@ export class Services {
   }
 
   /**
+   * Search registered models
+   * @param data
+   * @param success
+   * @param error
+   * @returns {*|jQuery|*|*|*|*}
+   */
+  static searchRegisteredModels({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/search'), {
+      type: 'GET',
+      dataType: 'json',
+      converters: {
+        'text json': StrictJsonBigInt.parse,
+      },
+      data: data,
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
    * Update registered model
    * @param data
    * @param success
