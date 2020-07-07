@@ -273,7 +273,6 @@ describe('ArtifactView', () => {
         </BrowserRouter>
       </Provider>,
     );
-
     const dir1Element = wrapper.find('NodeHeader').at(1);
     dir1Element.simulate('click');
     expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir1');
