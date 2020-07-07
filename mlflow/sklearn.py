@@ -309,7 +309,7 @@ def _load_pyfunc(path):
         # specify the ``data`` field within the pyfunc flavor configuration. For these newer
         # models, the ``path`` parameter of ``load_pyfunc()`` refers to the top-level MLflow
         # Model directory. In this case, we parse the model path from the MLmodel's pyfunc
-        # flavor configuration and attempt to fetch the serialization format from the 
+        # flavor configuration and attempt to fetch the serialization format from the
         # scikit-learn flavor configuration
         pyfunc_flavor_conf = _get_flavor_configuration(
             model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
