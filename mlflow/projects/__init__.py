@@ -532,7 +532,7 @@ def _get_local_uri_or_none(uri):
 def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_env_vars=None):
     docker_path = "docker"
     cmd = [docker_path, "run", "--rm"]
-    
+
     if docker_args:
         # Allocate a pseudo-TTY support if specified
         if 'tty' in docker_args:
