@@ -51,12 +51,12 @@ as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
     .. code-block:: python
 
         import os
-		from random import random, randint
+        from random import random, randint
         from mlflow import log_metric, log_param, log_artifacts
 
         if __name__ == "__main__":
             # Log a parameter (key-value pair)
-            log_param("param1", randing(0, 100))
+            log_param("param1", randint(0, 100))
 
             # Log a metric; metrics can be updated throughout the run
             log_metric("foo", random())
@@ -64,8 +64,8 @@ as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
             log_metric("foo", random() + 2)
 
             # Log an artifact (output file)
-			if not os.path.exists("outputs"):
-				os.makedirs("outputs")
+            if not os.path.exists("outputs"):
+                os.makedirs("outputs")
             with open("outputs/test.txt", "w") as f:
                 f.write("hello world!")
             log_artifacts("outputs")
