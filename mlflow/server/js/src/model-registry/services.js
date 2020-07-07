@@ -33,7 +33,6 @@ export class Services {
       dataType: 'json',
       converters: {
         'text json': StrictJsonBigInt.parse,
-
       },
       data: data,
       jsonp: false,
