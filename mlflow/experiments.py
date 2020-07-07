@@ -78,8 +78,8 @@ def delete_experiment(experiment_id):
     workflow mechanism to clear ``.trash`` folder.
     """
     store = _get_store()
-    experiments_list=store.list_experiments(ViewType.ACTIVE_ONLY)
-    if len(experiments_list)>1:
+    experiments_list = store.list_experiments(ViewType.ACTIVE_ONLY)
+    if len(experiments_list) > 1:
         store.delete_experiment(experiment_id)
         print("Experiment with ID %s has been deleted." % str(experiment_id))
     else:
