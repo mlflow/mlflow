@@ -534,7 +534,7 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
     cmd = [docker_path, "run", "--rm"]
 
     if docker_args:
-        # Allocate a pseudo-TTY support if specified
+        # Allocate a pseudo-TTY if specified
         if 't' in docker_args:
             if docker_args['t'] == 'true':
                 cmd.append('-t')
