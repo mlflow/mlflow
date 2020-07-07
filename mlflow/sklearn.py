@@ -169,8 +169,8 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=None,
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn", model_path=model_data_subpath,
-                        env=conda_env_subpath, serialization_format=serialization_format)
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn",
+                        model_path=model_data_subpath, env=conda_env_subpath)
     mlflow_model.add_flavor(FLAVOR_NAME,
                             pickled_model=model_data_subpath,
                             sklearn_version=sklearn.__version__,
@@ -311,9 +311,6 @@ def _load_pyfunc(path):
         # Model directory. In this case, we parse the model path from the MLmodel's pyfunc
         # flavor configuration and attempt to fetch the serialization format from the
         # scikit-learn flavor configuration
-        pyfunc_flavor_conf = _get_flavor_configuration(
-            model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
-        path = os.path.join(path, pyfunc_flavor_conf['model_path'])
         try:
             sklearn_flavor_conf = _get_flavor_configuration(
                 model_path=path, flavor_name=FLAVOR_NAME)
@@ -324,6 +321,10 @@ def _load_pyfunc(path):
                 "Could not find scikit-learn flavor configuration during model loading process."
                 " Assuming 'pickle' serialization format.")
             serialization_format = SERIALIZATION_FORMAT_PICKLE
+
+        pyfunc_flavor_conf = _get_flavor_configuration(
+            model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
+        path = os.path.join(path, pyfunc_flavor_conf['model_path'])
 
     return _load_model_from_local_file(
         path=path,

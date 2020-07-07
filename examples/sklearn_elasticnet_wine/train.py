@@ -83,4 +83,6 @@ if __name__ == "__main__":
             # https://mlflow.org/docs/latest/model-registry.html#api-workflow
             mlflow.sklearn.log_model(lr, "model", registered_model_name="ElasticnetWineModel")
         else:
-            mlflow.sklearn.log_model(lr, "model")
+            print("runs:/"+mlflow.active_run().info.run_id+"/model")
+            mlflow.sklearn.log_model(lr, "model", serialization_format="cloudpickle")
+            # mlflow.sklearn.log_model(lr, "model", serialization_format="pickle")
