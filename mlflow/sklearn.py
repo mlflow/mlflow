@@ -282,10 +282,10 @@ def _load_model_from_local_file(path, serialization_format):
         # Models serialized with Cloudpickle cannot necessarily be deserialized using Pickle;
         # That's why we check the serialization format of the model before deserializing
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
-            pickle.load(f)
+            return pickle.load(f)
         elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
             import cloudpickle
-            cloudpickle.load(f)
+            return cloudpickle.load(f)
 
 
 def _load_pyfunc(path, serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE):
