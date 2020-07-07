@@ -532,14 +532,15 @@ def _get_local_uri_or_none(uri):
 def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_env_vars=None):
     docker_path = "docker"
     cmd = [docker_path, "run", "--rm"]
-    # Allocate a pseudo-TTY support if specified
-    if 'tty' in docker_args:
-        if docker_args['tty'] == 'true':
-            cmd.append('-t')
-            # Delete tty from docker args, since it is not supposed to be appended later again
-            del docker_args['tty']
-
+    
     if docker_args:
+        # Allocate a pseudo-TTY support if specified
+        if 'tty' in docker_args:
+            if docker_args['tty'] == 'true':
+                cmd.append('-t')
+                # Delete tty from docker args, since it is not supposed to be appended later again
+                del docker_args['tty']
+
         for key, value in docker_args.items():
             cmd += ['--' + key, value]
 
