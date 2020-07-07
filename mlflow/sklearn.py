@@ -166,8 +166,8 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=None,
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn", data=model_data_subpath,
-                        env=conda_env_subpath)
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn", model_path=model_data_subpath,
+                        env=conda_env_subpath, serialization_format=serialization_format)
     mlflow_model.add_flavor(FLAVOR_NAME,
                             pickled_model=model_data_subpath,
                             sklearn_version=sklearn.__version__,
@@ -288,17 +288,22 @@ def _load_model_from_local_file(path, serialization_format):
             return cloudpickle.load(f)
 
 
-def _load_pyfunc(path, serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE):
+def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
 
     :param path: Local filesystem path to the MLflow Model with the ``sklearn`` flavor.
-    :param serialization_format: The format in which the model was serialized. This should be one of
-                                 the formats listed in
-                                 ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
-                                 format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
     """
-    return _load_model_from_local_file(path, serialization_format)
+    if os.path.isfile(path):
+        serialization_format = SERIALIZATION_FORMAT_PICKLE
+    else:
+        from .pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
+        flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=PYFUNC_FLAVOR_NAME)
+        serialization_format = flavor_conf.get('serialization_format', SERIALIZATION_FORMAT_PICKLE)
+        path = os.path.join(path, flavor_conf['model_path'])
+    return _load_model_from_local_file(
+        path=path,
+        serialization_format=serialization_format)
 
 
 def _save_model(sk_model, output_path, serialization_format):
