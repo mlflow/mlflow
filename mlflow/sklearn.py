@@ -9,6 +9,7 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 import os
+import logging
 import pickle
 import yaml
 
@@ -33,6 +34,8 @@ SUPPORTED_SERIALIZATION_FORMATS = [
     SERIALIZATION_FORMAT_PICKLE,
     SERIALIZATION_FORMAT_CLOUDPICKLE
 ]
+
+_logger = logging.getLogger(__name__)
 
 
 def get_default_conda_env(include_cloudpickle=False):
@@ -295,12 +298,33 @@ def _load_pyfunc(path):
     :param path: Local filesystem path to the MLflow Model with the ``sklearn`` flavor.
     """
     if os.path.isfile(path):
+        # Scikit-learn models saved in older versions of MLflow (<= 1.9.1) specify the ``data``
+        # field within the pyfunc flavor configuration. For these older models, the ``path``
+        # parameter of ``_load_pyfunc()`` refers directly to a serialized scikit-learn model
+        # object. In this case, we assume that the serialization format is ``pickle``, since
+        # the model loading procedure in older versions of MLflow used ``pickle.load()``.
         serialization_format = SERIALIZATION_FORMAT_PICKLE
     else:
-        from .pyfunc import FLAVOR_NAME as PYFUNC_FLAVOR_NAME
-        flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=PYFUNC_FLAVOR_NAME)
-        serialization_format = flavor_conf.get('serialization_format', SERIALIZATION_FORMAT_PICKLE)
-        path = os.path.join(path, flavor_conf['model_path'])
+        # In contrast, scikit-learn models saved in versions of MLflow > 1.9.1 do not
+        # specify the ``data`` field within the pyfunc flavor configuration. For these newer
+        # models, the ``path`` parameter of ``load_pyfunc()`` refers to the top-level MLflow
+        # Model directory. In this case, we parse the model path from the MLmodel's pyfunc
+        # flavor configuration and attempt to fetch the serialization format from the 
+        # scikit-learn flavor configuration
+        pyfunc_flavor_conf = _get_flavor_configuration(
+            model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
+        path = os.path.join(path, pyfunc_flavor_conf['model_path'])
+        try:
+            sklearn_flavor_conf = _get_flavor_configuration(
+                model_path=path, flavor_name=FLAVOR_NAME)
+            serialization_format = sklearn_flavor_conf.get(
+                'serialization_format', SERIALIZATION_FORMAT_PICKLE)
+        except MlflowException:
+            _logger.warning(
+                "Could not find scikit-learn flavor configuration during model loading process."
+                " Assuming 'pickle' serialization format.")
+            serialization_format = SERIALIZATION_FORMAT_PICKLE
+
     return _load_model_from_local_file(
         path=path,
         serialization_format=serialization_format)
