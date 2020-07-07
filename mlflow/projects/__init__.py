@@ -535,11 +535,11 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
 
     if docker_args:
         # Allocate a pseudo-TTY support if specified
-        if 'tty' in docker_args:
-            if docker_args['tty'] == 'true':
+        if 't' in docker_args:
+            if docker_args['t'] == 'true':
                 cmd.append('-t')
                 # Delete tty from docker args, since it is not supposed to be appended later again
-                del docker_args['tty']
+                del docker_args['t']
 
         for key, value in docker_args.items():
             cmd += ['--' + key, value]

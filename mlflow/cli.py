@@ -54,7 +54,7 @@ def cli():
 @click.option("--docker-args", "-A", metavar="NAME=VALUE", multiple=True,
               help="A `docker run` flag or argument, of the form -A name=value. Where `name` "
               "will then be propagated as `docker run --name value`. "
-              "Pass -A tty=true to allocate a pseudo-TTY.")
+              "Pass -A t=true to allocate a pseudo-TTY.")
 @click.option("--experiment-name", envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
               help="Name of the experiment under which to launch the run. If not "
                    "specified, 'experiment-id' option will be used to launch run.")
