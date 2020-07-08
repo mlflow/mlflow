@@ -10,6 +10,7 @@ import sqlalchemy
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.store.db.db_types import SQLITE
 
 _logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ def _verify_schema(engine):
             "more detail." % (current_rev, head_revision))
 
 
-def _get_managed_session_maker(SessionMaker):
+def _get_managed_session_maker(SessionMaker, db_type):
     """
     Creates a factory for producing exception-safe SQLAlchemy sessions that are made available
     using a context manager. Any session produced by this factory is automatically committed
@@ -69,6 +70,9 @@ def _get_managed_session_maker(SessionMaker):
         """Provide a transactional scope around a series of operations."""
         session = SessionMaker()
         try:
+            if db_type == SQLITE:
+                session.execute("PRAGMA foreign_keys = ON;")
+                session.execute("PRAGMA case_sensitive_like = true;")
             yield session
             session.commit()
         except MlflowException:
