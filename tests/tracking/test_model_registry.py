@@ -225,7 +225,7 @@ def test_rename_registered_model_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
     start_time_2 = now()
-    mlflow_client.create_model_version(name, "rename/registered/model", "run_id_1")
+    mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
     end_time_2 = now()
     model_version_1 = mlflow_client.get_model_version(name, 1)
     assert model_version_1.version == '1'
@@ -257,6 +257,9 @@ def test_rename_registered_model_flow(mlflow_client, backend_store_uri):
     # rename the original model back to this name should fail
     with pytest.raises(MlflowException):
         mlflow_client.rename_registered_model(new_name, name)
+    # clean up model
+    mlflow_client.delete_registered_model(new_name)
+    mlflow_client.delete_registered_model(name)
 
 
 def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
