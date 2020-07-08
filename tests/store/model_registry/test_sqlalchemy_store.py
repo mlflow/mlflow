@@ -118,7 +118,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self._rm_maker(original_name)
         # cannot rename model to conflict with an existing model
         with self.assertRaises(MlflowException) as exception_context:
-            self.store.rename_registered_model(new_name, new_name=original_name)
+            self.store.rename_registered_model(new_name, original_name)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
 
     def test_delete_registered_model(self):
