@@ -4,3 +4,4 @@ export const ColumnTypes = {
   METRICS: 'metrics',
   TAGS: 'tags',
 };
+export const MLMODEL_FILE_NAME = 'MLmodel';
