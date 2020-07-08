@@ -204,57 +204,59 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
     with pytest.raises(MlflowException):
         mlflow_client.update_registered_model(name=name, description=None)
 
-    # update name
-    new_name = "UpdateRMTest 2"
-    start_time_2 = now()
-    mlflow_client.rename_registered_model(name=name, new_name=new_name)
-    end_time_2 = now()
-    with pytest.raises(MlflowException):
-        mlflow_client.get_registered_model(name)
-    registered_model_detailed_2 = mlflow_client.get_registered_model(new_name)
-    assert registered_model_detailed_2.name == new_name
-    assert str(registered_model_detailed_2.description) == ""
-    assert_is_between(start_time_1, end_time_1, registered_model_detailed_2.creation_timestamp)
-    assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.last_updated_timestamp)
-
     # update description
     start_time_3 = now()
-    mlflow_client.update_registered_model(name=new_name, description="This is a test")
+    mlflow_client.update_registered_model(name=name, description="This is a test")
     end_time_3 = now()
-    registered_model_detailed_3 = mlflow_client.get_registered_model(new_name)
-    assert registered_model_detailed_3.name == new_name
+    registered_model_detailed_3 = mlflow_client.get_registered_model(name)
+    assert registered_model_detailed_3.name == name
     assert registered_model_detailed_3.description == "This is a test"
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_3.creation_timestamp)
     assert_is_between(start_time_3, end_time_3, registered_model_detailed_3.last_updated_timestamp)
 
-    # update name and description
-    another_new = "UpdateRMTest 4"
-    start_time_4 = now()
-    mlflow_client.update_registered_model(new_name, "4th update")
-    mlflow_client.rename_registered_model(new_name, another_new)
-    end_time_4 = now()
-    registered_model_detailed_4 = mlflow_client.get_registered_model(another_new)
-    assert registered_model_detailed_4.name == another_new
-    assert registered_model_detailed_4.description == "4th update"
-    assert_is_between(start_time_1, end_time_1, registered_model_detailed_4.creation_timestamp)
-    assert_is_between(start_time_4, end_time_4, registered_model_detailed_4.last_updated_timestamp)
 
-    # using rename
-    previous_name = another_new
-    another_new = "UpdateRMTest 5"
-    start_time_5 = now()
-    mlflow_client.rename_registered_model(previous_name, another_new)
-    end_time_5 = now()
-    registered_model_detailed_5 = mlflow_client.get_registered_model(another_new)
-    assert registered_model_detailed_5.name == another_new
-    assert registered_model_detailed_5.description == "4th update"
-    assert_is_between(start_time_1, end_time_1, registered_model_detailed_5.creation_timestamp)
-    assert_is_between(start_time_5, end_time_5, registered_model_detailed_5.last_updated_timestamp)
+def test_rename_registered_model_flow(mlflow_client, backend_store_uri):
+    name = 'RenameRMTest'
+    start_time_1 = now()
+    mlflow_client.create_registered_model(name)
+    end_time_1 = now()
+    registered_model_detailed_1 = mlflow_client.get_registered_model(name)
+    assert registered_model_detailed_1.name == name
+    assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
+    assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
+    start_time_2 = now()
+    mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
+    end_time_2 = now()
+    model_version_1 = mlflow_client.get_model_version(name, 1)
+    assert model_version_1.version == '1'
+    assert model_version_1.name == name
+    assert_is_between(start_time_2, end_time_2, model_version_1.creation_timestamp)
+    assert_is_between(start_time_2, end_time_2, model_version_1.last_updated_timestamp)
 
-    # old named models are not accessible
-    for old_name in [previous_name, name, new_name]:
-        with pytest.raises(MlflowException):
-            mlflow_client.get_registered_model(old_name)
+    # update name cause both registered model and model version to update
+    new_name = "UpdateRMTest 2"
+    start_time_3 = now()
+    mlflow_client.rename_registered_model(name, new_name)
+    end_time_3 = now()
+    with pytest.raises(MlflowException):
+        mlflow_client.get_registered_model(name)
+    registered_model_detailed_2 = mlflow_client.get_registered_model(new_name)
+    assert registered_model_detailed_2.name == new_name
+    assert_is_between(start_time_1, end_time_1, registered_model_detailed_2.creation_timestamp)
+    assert_is_between(start_time_3, end_time_3, registered_model_detailed_2.last_updated_timestamp)
+    with pytest.raises(MlflowException):
+        mlflow_client.get_model_version(name, 1)
+    model_version_2 = mlflow_client.get_model_version(new_name, 1)
+    assert model_version_2.version == '1'
+    assert model_version_2.name == new_name
+    assert_is_between(start_time_2, end_time_2, model_version_2.creation_timestamp)
+    assert_is_between(start_time_3, end_time_3, model_version_2.last_updated_timestamp)
+
+    # creation of another model with old name should not fail
+    mlflow_client.create_registered_model(name)
+    # rename the original model back to this name should fail
+    with pytest.raises(MlflowException):
+        mlflow_client.rename_registered_model(new_name, name)
 
 
 def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
@@ -266,6 +268,14 @@ def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
     assert registered_model_detailed_1.name == name
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
+    start_time_2 = now()
+    mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
+    end_time_2 = now()
+    model_version_1 = mlflow_client.get_model_version(name, 1)
+    assert model_version_1.version == '1'
+    assert model_version_1.name == name
+    assert_is_between(start_time_2, end_time_2, model_version_1.creation_timestamp)
+    assert_is_between(start_time_2, end_time_2, model_version_1.last_updated_timestamp)
 
     assert [name] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
 
@@ -283,6 +293,10 @@ def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
     with pytest.raises(MlflowException):
         mlflow_client.rename_registered_model(name=name, new_name="something else")
 
+    # model versions get cascade deleted
+    with pytest.raises(MlflowException):
+        mlflow_client.get_model_version(name, 1)
+
     # list does not include deleted model
     assert [] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
 
@@ -294,6 +308,10 @@ def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
     assert registered_model_detailed_2.name == name
     assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.creation_timestamp)
     assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.last_updated_timestamp)
+
+    # model versions does not recover with recreation
+    with pytest.raises(MlflowException):
+        mlflow_client.get_model_version(name, 1)
 
     assert [name] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
 

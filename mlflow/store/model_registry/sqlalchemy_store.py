@@ -169,6 +169,7 @@ class SqlAlchemyStore(AbstractStore):
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         with self.ManagedSessionMaker() as session:
+            session.execute("PRAGMA foreign_keys = ON;")
             sql_registered_model = self._get_registered_model(session, name)
             try:
                 updated_time = now()
