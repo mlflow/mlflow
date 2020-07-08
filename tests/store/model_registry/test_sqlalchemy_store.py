@@ -73,39 +73,61 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rmd.latest_versions, [])
 
     def test_update_registered_model(self):
-        name1 = "model_for_update_RM"
-        name2 = "NewName"
-        rm1 = self._rm_maker(name1)
-        rmd1 = self.store.get_registered_model(name=name1)
-        self.assertEqual(rm1.name, name1)
+        name = "model_for_update_RM"
+        rm1 = self._rm_maker(name)
+        rmd1 = self.store.get_registered_model(name=name)
+        self.assertEqual(rm1.name, name)
         self.assertEqual(rmd1.description, None)
 
-        # update name
-        rm2 = self.store.rename_registered_model(name=name1, new_name=name2)
-        rmd2 = self.store.get_registered_model(name=name2)
-        self.assertEqual(rm2.name, "NewName")
-        self.assertEqual(rmd2.name, "NewName")
-        self.assertEqual(rmd2.description, None)
-
         # update description
-        rm3 = self.store.update_registered_model(name=name2, description="test model")
-        rmd3 = self.store.get_registered_model(name=name2)
-        self.assertEqual(rm3.name, "NewName")
-        self.assertEqual(rmd3.name, "NewName")
-        self.assertEqual(rmd3.description, "test model")
+        rm2 = self.store.update_registered_model(name=name, description="test model")
+        rmd2 = self.store.get_registered_model(name=name)
+        self.assertEqual(rm2.name, "model_for_update_RM")
+        self.assertEqual(rmd2.name, "model_for_update_RM")
+        self.assertEqual(rmd2.description, "test model")
 
-        # new models with old names
-        self._rm_maker(name1)
+    def test_rename_registered_model(self):
+        original_name = "original name"
+        new_name = "new name"
+        self._rm_maker(original_name)
+        self._mv_maker(original_name)
+        self._mv_maker(original_name)
+        rm = self.store.get_registered_model(original_name)
+        mv1 = self.store.get_model_version(original_name, 1)
+        mv2 = self.store.get_model_version(original_name, 2)
+        self.assertEqual(rm.name, original_name)
+        self.assertEqual(mv1.name, original_name)
+        self.assertEqual(mv2.name, original_name)
+
+        # test renaming registered model also updates its model versions
+        self.store.rename_registered_model(original_name, new_name)
+        rm = self.store.get_registered_model(new_name)
+        mv1 = self.store.get_model_version(new_name, 1)
+        mv2 = self.store.get_model_version(new_name, 2)
+        self.assertEqual(rm.name, new_name)
+        self.assertEqual(mv1.name, new_name)
+        self.assertEqual(mv2.name, new_name)
+
+        # test accessing the model with the old name will fail
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.get_registered_model(original_name)
+        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+        # test name another model with the replaced name is ok
+        self._rm_maker(original_name)
         # cannot rename model to conflict with an existing model
         with self.assertRaises(MlflowException) as exception_context:
-            self.store.rename_registered_model(name=name2, new_name=name1)
+            self.store.rename_registered_model(new_name, original_name)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
 
     def test_delete_registered_model(self):
         name = "model_for_delete_RM"
-        rm = self._rm_maker(name)
-        rmd1 = self.store.get_registered_model(name=name)
-        self.assertEqual(rmd1.name, name)
+        self._rm_maker(name)
+        self._mv_maker(name)
+        rm1 = self.store.get_registered_model(name=name)
+        mv1 = self.store.get_model_version(name, 1)
+        self.assertEqual(rm1.name, name)
+        self.assertEqual(mv1.name, name)
 
         # delete model
         self.store.delete_registered_model(name=name)
@@ -123,6 +145,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # cannot delete it again
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_registered_model(name=name)
+        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+        # model versions are cascade deleted with the registered model
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.get_model_version(name, 1)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
     def _list_registered_models(self, page_token=None, max_results=10):
