@@ -9,7 +9,7 @@ import sqlalchemy.sql.expression as sql
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
-from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE
+from mlflow.store.db.db_types import MYSQL, MSSQL
 import mlflow.store.db.utils
 from mlflow.store.tracking.dbmodels.models import SqlExperiment, SqlRun, \
     SqlMetric, SqlParam, SqlTag, SqlExperimentTag, SqlLatestMetric

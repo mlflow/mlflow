@@ -11,7 +11,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
 import mlflow.store.db.utils
 from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, \
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD
-from mlflow.store.db.db_types import SQLITE
 from mlflow.store.db.base_sql_model import Base
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
