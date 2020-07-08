@@ -99,7 +99,8 @@ class SqlAlchemyStore(AbstractStore):
             mlflow.store.db.utils._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(SessionMaker)
+        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(SessionMaker,
+                                                                                    self.db_type)
         mlflow.store.db.utils._verify_schema(self.engine)
 
         if is_local_uri(default_artifact_root):
@@ -624,9 +625,6 @@ class SqlAlchemyStore(AbstractStore):
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
 
         with self.ManagedSessionMaker() as session:
-            if self.db_type == SQLITE:
-                session.execute("PRAGMA case_sensitive_like = true;")
-
             # Fetch the appropriate runs and eagerly load their summary metrics, params, and
             # tags. These run attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries

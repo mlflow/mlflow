@@ -73,7 +73,8 @@ class SqlAlchemyStore(AbstractStore):
         SqlAlchemyStore._verify_registry_tables_exist(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(SessionMaker)
+        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(SessionMaker,
+                                                                                    self.db_type)
         # TODO: verify schema here once we add logic to initialize the registry tables if they
         # don't exist (schema verification will fail in tests otherwise)
         # mlflow.store.db.utils._verify_schema(self.engine)
@@ -169,8 +170,6 @@ class SqlAlchemyStore(AbstractStore):
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         with self.ManagedSessionMaker() as session:
-            if self.db_type == SQLITE:
-                session.execute("PRAGMA foreign_keys = ON;")
             sql_registered_model = self._get_registered_model(session, name)
             try:
                 updated_time = now()
@@ -282,8 +281,6 @@ class SqlAlchemyStore(AbstractStore):
                                   'Search registered models supports filter expressions like:' +
                                   sample_query, error_code=INVALID_PARAMETER_VALUE)
         with self.ManagedSessionMaker() as session:
-            if self.db_type == SQLITE:
-                session.execute("PRAGMA case_sensitive_like = true;")
             query = session\
                 .query(SqlRegisteredModel)\
                 .filter(*conditions)\
