@@ -17,7 +17,11 @@ def dump_db_schema(db_url, dst_file):
     # Write out table schema as described in
     # https://docs.sqlalchemy.org/en/13/faq/
     # metadata_schema.html#how-can-i-get-the-create-table-drop-table-output-as-a-string
-    schema = "".join([str(CreateTable(ti)) for ti in created_tables_metadata.sorted_tables])
+    lines = []
+    for ti in created_tables_metadata.sorted_tables:
+        for line in str(CreateTable(ti)).splitlines():
+            lines.append(line.rstrip() + "\n")
+    schema = "".join(lines)
     print("Writing database schema to %s" % dst_file)
     with open(dst_file, "w") as handle:
         handle.write(schema)
