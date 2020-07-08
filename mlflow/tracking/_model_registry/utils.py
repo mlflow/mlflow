@@ -4,7 +4,8 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import _TRACKING_USERNAME_ENV_VAR, \
-    _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR
+    _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR, \
+    get_tracking_uri
 from mlflow.utils import rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import get_db_profile_from_uri
@@ -48,9 +49,9 @@ def set_registry_uri(uri):
 
 def get_registry_uri():
     """
-    Get the current registry URI.
+    Get the current registry URI specified by `set_registry_uri`.
 
-    :return: The tracking URI.
+    :return: The registry URI.
     """
     global _registry_uri
     return _registry_uri
