@@ -225,7 +225,7 @@ def test_rename_registered_model_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
     start_time_2 = now()
-    mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
+    mlflow_client.create_model_version(name, "rename/registered/model", "run_id_1")
     end_time_2 = now()
     model_version_1 = mlflow_client.get_model_version(name, 1)
     assert model_version_1.version == '1'
@@ -234,7 +234,7 @@ def test_rename_registered_model_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_2, end_time_2, model_version_1.last_updated_timestamp)
 
     # update name cause both registered model and model version to update
-    new_name = "UpdateRMTest 2"
+    new_name = "RenameRMTest 2"
     start_time_3 = now()
     mlflow_client.rename_registered_model(name, new_name)
     end_time_3 = now()

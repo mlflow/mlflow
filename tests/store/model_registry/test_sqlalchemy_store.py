@@ -73,19 +73,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rmd.latest_versions, [])
 
     def test_update_registered_model(self):
-        name1 = "model_for_update_RM"
-        name2 = "NewName"
-        rm1 = self._rm_maker(name1)
-        rmd1 = self.store.get_registered_model(name=name1)
-        self.assertEqual(rm1.name, name1)
+        name = "model_for_update_RM"
+        rm1 = self._rm_maker(name)
+        rmd1 = self.store.get_registered_model(name=name)
+        self.assertEqual(rm1.name, name)
         self.assertEqual(rmd1.description, None)
 
         # update description
-        rm3 = self.store.update_registered_model(name=name2, description="test model")
-        rmd3 = self.store.get_registered_model(name=name2)
-        self.assertEqual(rm3.name, "NewName")
-        self.assertEqual(rmd3.name, "NewName")
-        self.assertEqual(rmd3.description, "test model")
+        rm2 = self.store.update_registered_model(name=name, description="test model")
+        rmd2 = self.store.get_registered_model(name=name)
+        self.assertEqual(rm2.name, "model_for_update_RM")
+        self.assertEqual(rmd2.name, "model_for_update_RM")
+        self.assertEqual(rmd2.description, "test model")
 
     def test_rename_registered_model(self):
         original_name = "original name"
@@ -112,7 +111,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # test accessing the model with the old name will fail
         with self.assertRaises(MlflowException) as exception_context:
             self.store.get_registered_model(original_name)
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
         # test name another model with the replaced name is ok
         self._rm_maker(original_name)
