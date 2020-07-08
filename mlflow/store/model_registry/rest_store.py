@@ -6,7 +6,8 @@ from mlflow.protos.model_registry_pb2 import ModelRegistryService, CreateRegiste
     GetLatestVersions, CreateModelVersion, UpdateModelVersion, \
     DeleteModelVersion, GetModelVersionDownloadUri, SearchModelVersions, \
     RenameRegisteredModel, GetRegisteredModel, GetModelVersion, TransitionModelVersionStage, \
-    SearchRegisteredModels
+    SearchRegisteredModels, SetRegisteredModelTag, SetModelVersionTag, \
+    DeleteRegisteredModelTag, DeleteModelVersionTag
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
@@ -40,16 +41,16 @@ class RestStore(AbstractStore):
 
     # CRUD API for RegisteredModel objects
 
-    def create_registered_model(self, name):
+    def create_registered_model(self, name, tags=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
-
+        :param tags: tags associated with this registered model
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
         created in the backend.
         """
-        req_body = message_to_json(CreateRegisteredModel(name=name))
+        req_body = message_to_json(CreateRegisteredModel(name=name, tags=tags))
         response_proto = self._call_endpoint(CreateRegisteredModel, req_body)
         return RegisteredModel.from_proto(response_proto.registered_model)
 
@@ -164,20 +165,41 @@ class RestStore(AbstractStore):
         return [ModelVersion.from_proto(model_version)
                 for model_version in response_proto.model_versions]
 
+    def set_registered_model_tag(self, name, tag):
+        """
+        Set a tag for the registered model
+        :param name: Registered model name.
+        :param tag: RegisteredModelTag instance to log
+        :return: None
+        """
+        req_body = message_to_json(SetRegisteredModelTag(name=name, key=tag.key, value=tag.value))
+        self._call_endpoint(SetRegisteredModelTag, req_body)
+
+    def delete_registered_model_tag(self, name, key):
+        """
+        Delete a tag associated with the registered model
+        :param name: Registered model name.
+        :param key: Tag key
+        :return: None
+        """
+        req_body = message_to_json(DeleteRegisteredModelTag(name=name, key=key))
+        self._call_endpoint(DeleteRegisteredModelTag, req_body)
+
     # CRUD API for ModelVersion objects
 
-    def create_model_version(self, name, source, run_id):
+    def create_model_version(self, name, source, run_id, tags=None):
         """
         Create a new model version from given source and run ID.
 
         :param name: Registered model name.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model
-
+        :param tags: tags associated with this model version
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
         created in the backend.
         """
-        req_body = message_to_json(CreateModelVersion(name=name, source=source, run_id=run_id))
+        req_body = message_to_json(CreateModelVersion(name=name, source=source,
+                                                      run_id=run_id, tags=tags))
         response_proto = self._call_endpoint(CreateModelVersion, req_body)
         return ModelVersion.from_proto(response_proto.model_version)
 
@@ -268,3 +290,26 @@ class RestStore(AbstractStore):
         model_versions = [ModelVersion.from_proto(mvd)
                           for mvd in response_proto.model_versions]
         return PagedList(model_versions, response_proto.next_page_token)
+
+    def set_model_version_tag(self, name, version, tag):
+        """
+        Set a tag for the model version
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param tag: ModelVersionTag instance to log
+        :return: None
+        """
+        req_body = message_to_json(SetModelVersionTag(name=name, version=version,
+                                                      key=tag.key, value=tag.value))
+        self._call_endpoint(SetModelVersionTag, req_body)
+
+    def delete_model_version_tag(self, name, version, key):
+        """
+        Delete a tag associated with the model version
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param key: Tag key
+        :return: None
+        """
+        req_body = message_to_json(DeleteModelVersionTag(name=name, version=version, key=key))
+        self._call_endpoint(DeleteModelVersionTag, req_body)

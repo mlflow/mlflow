@@ -19,12 +19,12 @@ class AbstractStore:
     # CRUD API for RegisteredModel objects
 
     @abstractmethod
-    def create_registered_model(self, name):
+    def create_registered_model(self, name, tags=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
-
+        :param tags: tags associated with this registered model
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
         created in the backend.
         """
@@ -123,17 +123,37 @@ class AbstractStore:
         """
         pass
 
+    @abstractmethod
+    def set_registered_model_tag(self, name, tag):
+        """
+        Set a tag for the registered model
+        :param name: Registered model name.
+        :param tag: RegisteredModelTag instance to log
+        :return: None
+        """
+        pass
+
+    @abstractmethod
+    def delete_registered_model_tag(self, name, key):
+        """
+        Delete a tag associated with the registered model
+        :param name: Registered model name.
+        :param key: Tag key
+        :return: None
+        """
+        pass
+
     # CRUD API for ModelVersion objects
 
     @abstractmethod
-    def create_model_version(self, name, source, run_id):
+    def create_model_version(self, name, source, run_id, tags=None):
         """
         Create a new model version from given source and run ID.
 
         :param name: Registered model name.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model
-
+        :param tags: tags associated with this model version
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
         created in the backend.
         """
@@ -203,5 +223,27 @@ class AbstractStore:
 
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  objects.
+        """
+        pass
+
+    @abstractmethod
+    def set_model_version_tag(self, name, version, tag):
+        """
+        Set a tag for the model version
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param tag: ModelVersionTag instance to log
+        :return: None
+        """
+        pass
+
+    @abstractmethod
+    def delete_model_version_tag(self, name, version, key):
+        """
+        Delete a tag associated with the model version
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param key: Tag key
+        :return: None
         """
         pass
