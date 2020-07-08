@@ -11,7 +11,6 @@ from google.protobuf import descriptor
 from querystring_parser import parser
 
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag
-from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
@@ -25,7 +24,8 @@ from mlflow.protos.model_registry_pb2 import ModelRegistryService, CreateRegiste
     GetLatestVersions, CreateModelVersion, UpdateModelVersion, DeleteModelVersion, \
     GetModelVersion, GetModelVersionDownloadUri, SearchModelVersions, RenameRegisteredModel, \
     TransitionModelVersionStage, SearchRegisteredModels, SetRegisteredModelTag, \
-    DeleteRegisteredModelTag, SetModelVersionTag, DeleteModelVersionTag
+    DeleteRegisteredModelTag, SetModelVersionTag, DeleteModelVersionTag, \
+    RegisteredModelTag, ModelVersionTag
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
