@@ -172,7 +172,7 @@ class SqlAlchemyStore(AbstractStore):
         query_options = cls._get_eager_registered_model_query_options() if eager else []
         rms = session \
             .query(SqlRegisteredModel) \
-            .option(*query_options) \
+            .options(*query_options) \
             .filter(SqlRegisteredModel.name == name) \
             .all()
 
@@ -514,7 +514,7 @@ class SqlAlchemyStore(AbstractStore):
             SqlModelVersion.version == version,
             SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL
         ]
-        versions = session.query(SqlModelVersion).option(*query_options).filter(*conditions).all()
+        versions = session.query(SqlModelVersion).options(*query_options).filter(*conditions).all()
 
         if len(versions) == 0:
             raise MlflowException('Model Version (name={}, version={}) '

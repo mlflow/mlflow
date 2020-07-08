@@ -497,7 +497,7 @@ def _wrap_response(response_message):
 def _create_registered_model():
     request_message = _get_request_message(CreateRegisteredModel())
     registered_model = _get_model_registry_store().create_registered_model(
-        name=request_message.name)
+        name=request_message.name, tags=request_message.tags)
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
     return _wrap_response(response_message)
 
@@ -584,7 +584,7 @@ def _get_latest_versions():
 @catch_mlflow_exception
 def _set_registered_model_tag():
     request_message = _get_request_message(SetRegisteredModelTag())
-    tag = RegisteredModelTag(request_message.key, request_message.value)
+    tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
     _get_model_registry_store().set_registered_model_tag(
         name=request_message.name,
         tag=tag)
@@ -605,7 +605,8 @@ def _create_model_version():
     request_message = _get_request_message(CreateModelVersion())
     model_version = _get_model_registry_store().create_model_version(name=request_message.name,
                                                                      source=request_message.source,
-                                                                     run_id=request_message.run_id)
+                                                                     run_id=request_message.run_id,
+                                                                     tags=request_message.tags)
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
 
@@ -672,7 +673,7 @@ def _search_model_versions():
 @catch_mlflow_exception
 def _set_model_version_tag():
     request_message = _get_request_message(SetModelVersionTag())
-    tag = ModelVersionTag(request_message.key, request_message.value)
+    tag = ModelVersionTag(key=request_message.key, value=request_message.value)
     _get_model_registry_store().set_model_version_tag(
         name=request_message.name,
         version=request_message.version,
@@ -773,4 +774,8 @@ HANDLERS = {
     TransitionModelVersionStage: _transition_stage,
     GetModelVersionDownloadUri: _get_model_version_download_uri,
     SearchModelVersions: _search_model_versions,
+    SetRegisteredModelTag: _set_registered_model_tag,
+    DeleteRegisteredModelTag: _delete_registered_model_tag,
+    SetModelVersionTag: _set_model_version_tag,
+    DeleteModelVersionTag: _delete_model_version_tag,
 }
