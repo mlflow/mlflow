@@ -193,6 +193,18 @@ export const setExperimentTagApi = (experimentId, tagName, tagValue, id = getUUI
   };
 };
 
+export const LIST_ALL_COLUMNS_API = 'LIST_ALL_COLUMNS_API';
+export const listAllColumnsApi = (experimentId, runViewType, id = getUUID()) => {
+  return {
+    type: LIST_ALL_COLUMNS_API,
+    payload: wrapDeferred(MlflowService.ListAllColumns, {
+      experiment_id: experimentId,
+      run_view_type: runViewType,
+    }),
+    meta: { id: id },
+  };
+};
+
 export const CLOSE_ERROR_MODAL = 'CLOSE_ERROR_MODAL';
 export const closeErrorModal = () => {
   return {
@@ -205,5 +217,14 @@ export const openErrorModal = (text) => {
   return {
     type: OPEN_ERROR_MODAL,
     text,
+  };
+};
+
+export const GET_TOKEN_API = 'GET_TOKEN_API';
+export const getTokenApi = (code, id = getUUID()) => {
+  return {
+    type: GET_TOKEN_API,
+    payload: wrapDeferred(MlflowService.GetToken, { code: code }),
+    meta: { id: id },
   };
 };
