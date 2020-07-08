@@ -7,6 +7,19 @@ contributing to MLflow.
   :local:
   :depth: 3
 
+Governance
+##########
+
+Governance of MLflow is conducted by the Technical Steering Committee (TSC), which is currently composed of the following members:
+
+ - Patrick Wendell (pwendell@gmail.com)
+
+ - Reynold Xin (reynoldx@gmail.com)
+
+ - Matei Zaharia (matei@cs.stanford.edu)
+
+The founding technical charter can be found `here <https://github.com/mlflow/mlflow/blob/master/mlflow-charter.pdf>`_.
+
 Contribution process
 ####################
 The MLflow contribution process starts with filing a GitHub issue. MLflow defines four
