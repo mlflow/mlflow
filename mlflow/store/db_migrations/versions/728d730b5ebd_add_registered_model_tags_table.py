@@ -22,7 +22,6 @@ def upgrade():
                     sa.Column('value', sa.String(length=5000)),
                     sa.Column('name', sa.String(length=256),
                               sa.ForeignKey('registered_models.name',
-                                            ondelete='cascade',
                                             onupdate='cascade'),
                               primary_key=True, nullable=False),
                     sa.PrimaryKeyConstraint('key', 'name', name='registered_model_tag_pk')

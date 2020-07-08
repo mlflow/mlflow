@@ -57,7 +57,7 @@ CREATE TABLE registered_model_tags (
 	value VARCHAR(5000),
 	name VARCHAR(256) NOT NULL,
 	CONSTRAINT registered_model_tag_pk PRIMARY KEY (key, name),
-	FOREIGN KEY(name) REFERENCES registered_models (name) ON DELETE CASCADE ON UPDATE CASCADE
+	FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
 )
 
 
@@ -114,7 +114,7 @@ CREATE TABLE model_version_tags (
 	name VARCHAR(256) NOT NULL,
 	version INTEGER NOT NULL,
 	CONSTRAINT model_version_tag_pk PRIMARY KEY (key, name, version),
-	FOREIGN KEY(name, version) REFERENCES model_versions (name, version) ON DELETE CASCADE ON UPDATE CASCADE
+	FOREIGN KEY(name, version) REFERENCES model_versions (name, version) ON UPDATE CASCADE
 )
 
 
