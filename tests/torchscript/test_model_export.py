@@ -29,6 +29,7 @@ from tests.helper_functions import pyfunc_serve_and_score_model
 
 _logger = logging.getLogger(__name__)
 
+
 @pytest.fixture(scope='module')
 def data():
     iris = datasets.load_iris()

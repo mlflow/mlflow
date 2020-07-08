@@ -9,7 +9,6 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -25,10 +24,12 @@ def get_default_conda_env():
              :func:`save_model()` and :func:`log_model()`.
     """
     import torch
+    import torchvision
 
     return _mlflow_conda_env(
         additional_conda_deps=[
             "pytorch={}".format(torch.__version__),
+            "torchvision={}".format(torchvision.__version__),
         ],
         additional_conda_channels=[
             "pytorch",
@@ -38,6 +39,98 @@ def get_default_conda_env():
 def log_model(model, artifact_path, conda_env=None, registered_model_name=None,
               signature: ModelSignature = None, input_example: ModelInputExample = None,
               **kwargs):
+    """Log a torchscript model as an MLflow artifact for the current run.
+
+    :param model: Torchscript model to be saved. Must accept a single ``torch.FloatTensor`` as
+                  input and produce a single output tensor.
+    :param artifact_path: Run-relative artifact path.
+    :param conda_env: Path to a Conda environment file. If provided, this decsribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
+                      :func:`get_default_conda_env()` environment is added to the model. The
+                      following is an *example* dictionary representation of a Conda environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults', 'pytorch'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'pytorch=0.4.1',
+                                'torchvision=0.2.1'
+                            ]
+                        }
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
+
+    :param kwargs: kwargs to pass to ``torch.jit.save`` method.
+
+    .. code-block:: python
+        :caption: Example
+
+        import torch
+        import mlflow
+        import mlflow.torchscript
+        # X data
+        x_data = torch.Tensor([[1.0], [2.0], [3.0]])
+        # Y data with its expected value: labels
+        y_data = torch.Tensor([[2.0], [4.0], [6.0]])
+        # Partial Model example modified from Sung Kim
+        # https://github.com/hunkim/PyTorchZeroToAll
+        class Model(torch.nn.Module):
+            def __init__(self):
+               super(Model, self).__init__()
+               self.linear = torch.nn.Linear(1, 1)  # One in and one out
+            def forward(self, x):
+                y_pred = self.linear(x)
+            return y_pred
+        # our model
+        model = Model()
+        criterion = torch.nn.MSELoss(size_average=False)
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        # Training loop
+        for epoch in range(500):
+            # Forward pass: Compute predicted y by passing x to the model
+            y_pred = model(x_data)
+            # Compute and print loss
+            loss = criterion(y_pred, y_data)
+            print(epoch, loss.data.item())
+            #Zero gradients, perform a backward pass, and update the weights.
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        # After training
+        for hv in [4.0, 5.0, 6.0]:
+            hour_var = torch.Tensor([[hv]])
+            y_pred = model(hour_var)
+            print("predict (after training)",  hv, model(hour_var).data[0][0])
+        # log the model
+        with mlflow.start_run() as run:
+            mlflow.log_param("epochs", 500)
+            scripted_model = torch.jit.script(model)
+            mlflow.pytorch.log_model(scripted_model, "models")
+    """
     Model.log(artifact_path=artifact_path, flavor=mlflow.torchscript, model=model,
               conda_env=conda_env, registered_model_name=registered_model_name,
               signature=signature, input_example=input_example, **kwargs)
@@ -46,6 +139,70 @@ def log_model(model, artifact_path, conda_env=None, registered_model_name=None,
 def save_model(model, path, conda_env=None, mlflow_model=None,
                signature: ModelSignature = None, input_example: ModelInputExample = None,
                **kwargs):
+    """
+    Save a torchscript model to a path on the local file system.
+
+    :param model: Torchscript model to be saved. Must accept a single ``torch.FloatTensor`` as
+                  input and produce a single output tensor.
+    :param path: Local path where the model is to be saved.
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decsribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
+                      :func:`get_default_conda_env()` environment is added to the model. The
+                      following is an *example* dictionary representation of a Conda environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults', 'pytorch'],
+                            'dependencies': [
+                                'python=3.7.0',
+                                'pytorch=1.5.0',
+                                'torchvision=0.2.1'
+                            ]
+                        }
+
+    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+
+    :param kwargs: kwargs to pass to ``torch.jit.save`` method.
+
+    .. code-block:: python
+        :caption: Example
+
+        import torch
+        import mlflow
+        import mlflow.torchscript
+        # Create model and set values
+        model = Model()
+        # train our model
+        for epoch in range(500):
+            y_pred = model(x_data)
+            ...
+        # Save the model
+        with mlflow.start_run() as run:
+            mlflow.log_param("epochs", 500)
+            scripted_model = torch.jit.script(model)
+            mlflow.torchscript.save_model(scripted_model, pytorch_model_path)
+    """
     if not hasattr(model, 'state_dict') or not hasattr(model, 'save'):
         # If it walks like a duck and it quacks like a duck, then it must be a duck
         raise TypeError("Argument 'model' should be a TorchScript model")
@@ -80,9 +237,40 @@ def save_model(model, path, conda_env=None, mlflow_model=None,
 
 
 def load_model(model_uri, **kwargs):
+    """
+        Load a torchscript model from a local file or a run.
+
+        :param model_uri: The location, in URI format, of the MLflow model, for example:
+
+                          - ``/Users/me/path/to/local/model``
+                          - ``relative/path/to/local/model``
+                          - ``s3://my_bucket/path/to/model``
+                          - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                          - ``models:/<model_name>/<model_version>``
+                          - ``models:/<model_name>/<stage>``
+
+                          For more information about supported URI schemes, see
+                          `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                          artifact-locations>`_.
+
+        :param kwargs: kwargs to pass to ``torch.jit.load`` method.
+        :return: A torchscript model.
+
+        .. code-block:: python
+            :caption: Example
+
+            import torch
+            import mlflow
+            import mlflow.torchscript
+            # Set values
+            model_path_dir = ...
+            run_id = "96771d893a5e46159d9f3b49bf9013e2"
+            model = mlflow.torchscript.load_model("runs:/" + run_id + "/" + model_path_dir)
+            y_pred = model(x_new_data)
+        """
     local_model_path = Path(_download_artifact_from_uri(artifact_uri=model_uri))
     torchscript_conf = _get_flavor_configuration(model_path=local_model_path,
-                                             flavor_name=FLAVOR_NAME)
+                                                 flavor_name=FLAVOR_NAME)
     if torch.__version__ != torchscript_conf["pytorch_version"]:
         _logger.warning(
             "Stored model version '%s' does not match installed PyTorch version '%s'",
