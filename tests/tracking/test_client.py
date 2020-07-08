@@ -227,7 +227,7 @@ def test_registry_uri_from_tracking_uri_param():
     assert client._registry_uri == tracking_uri
 
 
-def test_registry_uri_from_final_tracking_uri(mock_get_tracking_uri):
+def test_registry_uri_from_final_tracking_uri():
     tracking_uri = "databricks://tracking"
     with mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri")\
             as get_tracking_uri_mock:
