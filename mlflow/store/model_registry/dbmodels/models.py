@@ -93,7 +93,7 @@ class SqlModelVersion(Base):
 class SqlRegisteredModelTag(Base):
     __tablename__ = 'registered_model_tags'
 
-    name = Column(String(256), ForeignKey('registered_models.name'))
+    name = Column(String(256), ForeignKey('registered_models.name', onupdate='cascade'))
 
     key = Column(String(250), nullable=False)
 
