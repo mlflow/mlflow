@@ -12,8 +12,7 @@ from mlflow.protos.model_registry_pb2 import CreateRegisteredModel, \
     DeleteModelVersion, GetModelVersion, GetModelVersionDownloadUri, SearchModelVersions, \
     RenameRegisteredModel, TransitionModelVersionStage, SearchRegisteredModels, \
     SetRegisteredModelTag, SetModelVersionTag, DeleteRegisteredModelTag, \
-    DeleteModelVersionTag
-from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
+    DeleteModelVersionTag, RegisteredModelTag, ModelVersionTag
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -138,7 +137,7 @@ class TestRestStore(unittest.TestCase):
         tag = RegisteredModelTag("key", "value")
         self.store.set_registered_model_tag(name=name, tag=tag)
         self._verify_requests(mock_http, "registered-models/set-tag", "POST",
-                              SetRegisteredModelTag(name=name, tag=tag))
+                              SetRegisteredModelTag(name=name, key=tag.key, value=tag.value))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_registered_model_tag(self, mock_http):
@@ -214,7 +213,8 @@ class TestRestStore(unittest.TestCase):
         tag = ModelVersionTag("key", "value")
         self.store.set_model_version_tag(name=name, version="1", tag=tag)
         self._verify_requests(mock_http, "model-versions/set-tag", "POST",
-                              SetModelVersionTag(name=name, version="1", tag=tag))
+                              SetModelVersionTag(name=name, version="1",
+                                                 key=tag.key, value=tag.value))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_model_version_tag(self, mock_http):

@@ -149,7 +149,7 @@ class SqlAlchemyStore(AbstractStore):
                 registered_model = SqlRegisteredModel(name=name, creation_time=creation_time,
                                                       last_updated_time=creation_time)
                 tags_dict = {}
-                for tag in tags:
+                for tag in tags or []:
                     tags_dict[tag.key] = tag.value
                 registered_model.registered_model_tags = [SqlRegisteredModelTag(key=key,
                                                                                 value=value)
@@ -480,7 +480,7 @@ class SqlAlchemyStore(AbstractStore):
                                                     last_updated_time=creation_time,
                                                     source=source, run_id=run_id)
                     tags_dict = {}
-                    for tag in tags:
+                    for tag in tags or []:
                         tags_dict[tag.key] = tag.value
                     model_version.model_version_tags = [SqlModelVersionTag(key=key,
                                                                            value=value)
