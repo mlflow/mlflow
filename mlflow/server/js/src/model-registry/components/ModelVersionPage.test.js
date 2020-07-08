@@ -54,6 +54,7 @@ describe('ModelVersionPage', () => {
         },
         activitiesByModelVersion: {},
         transitionRequestsByModelVersion: {},
+        mlModelArtifactByModelVersion: {},
       },
       apis: {},
     });
