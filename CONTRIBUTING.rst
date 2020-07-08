@@ -108,10 +108,10 @@ First, ensure that your name and email are
 `configured in git <https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup>`_ so that
 you can `sign your work`_ when committing code changes and opening pull requests:
 
-```
-$ git config --global user.name "Your Name"
-$ git config --global user.email yourname@example.com
-```
+.. code-block:: bash
+
+    git config --global user.name "Your Name"
+    git config --global user.email yourname@example.com
 
 Then, install the Python MLflow package from source - this is required for developing & testing
 changes across all languages and APIs. We recommend installing MLflow in its own conda environment
