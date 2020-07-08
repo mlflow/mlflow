@@ -1,3 +1,5 @@
+name: Auto Labeling
+
 on:
   schedule:
     # Run this action every 10 minutes
