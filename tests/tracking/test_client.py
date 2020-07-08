@@ -5,7 +5,7 @@ from mlflow.entities import SourceType, ViewType, RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking import MlflowClient
+from mlflow.tracking import get_registry_uri, set_registry_uri, MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
@@ -204,3 +204,33 @@ def test_update_model_version(mock_registry_store):
     mock_registry_store.update_model_version.assert_called_once_with(
         name="orig name", version="1", description="desc")
     mock_registry_store.transition_model_version_stage.assert_not_called()
+
+
+def test_registry_uri_set_as_param():
+    uri = "sqlite:///somedb.db"
+    client = MlflowClient(tracking_uri="databricks://tracking", registry_uri=uri)
+    assert client._registry_uri == uri
+
+
+def test_registry_uri_from_set_registry_uri():
+    old_registry_uri = get_registry_uri()
+    uri = "sqlite:///somedb.db"
+    set_registry_uri(uri)
+    client = MlflowClient(tracking_uri="databricks://tracking")
+    assert client._registry_uri == uri
+    set_registry_uri(old_registry_uri)
+
+
+def test_registry_uri_from_tracking_uri_param():
+    tracking_uri = "databricks://tracking"
+    client = MlflowClient(tracking_uri=tracking_uri)
+    assert client._registry_uri == tracking_uri
+
+
+def test_registry_uri_from_final_tracking_uri(mock_get_tracking_uri):
+    tracking_uri = "databricks://tracking"
+    with mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri")\
+            as get_tracking_uri_mock:
+        get_tracking_uri_mock.return_value = tracking_uri
+        client = MlflowClient()
+        assert client._registry_uri == tracking_uri

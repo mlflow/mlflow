@@ -1,7 +1,7 @@
 import mock
 import pytest
 
-from mlflow import register_model, set_tracking_uri, get_tracking_uri
+from mlflow import register_model, set_registry_uri, get_registry_uri
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -19,14 +19,14 @@ def test_register_model_raises_exception_with_unsupported_registry_store():
     features (e.g., FileStore).
     """
     with TempDir() as tmp:
-        old_tracking_uri = get_tracking_uri() if is_tracking_uri_set() else None
+        old_registry_uri = get_registry_uri()
         try:
-            set_tracking_uri(tmp.path())
+            set_registry_uri(tmp.path())
             with pytest.raises(MlflowException) as exc:
                 register_model(model_uri="runs:/1234/some_model", name="testmodel")
                 assert exc.value.error_code == ErrorCode.Name(FEATURE_DISABLED)
         finally:
-            set_tracking_uri(old_tracking_uri)
+            set_registry_uri(old_registry_uri)
 
 
 def test_register_model_with_runs_uri():

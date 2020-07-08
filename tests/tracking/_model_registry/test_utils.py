@@ -7,7 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.model_registry.rest_store import RestStore
-from mlflow.tracking._model_registry.utils import _get_store
+from mlflow.tracking._model_registry.utils import _get_store, get_registry_uri, set_registry_uri
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
@@ -16,6 +16,17 @@ from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 # and https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#writing-python-tests
 # for more information.
 pytestmark = pytest.mark.notrackingurimock
+
+
+def test_set_get_registry_uri():
+    uri = "databricks://registry/path"
+    set_registry_uri(uri)
+    assert get_registry_uri() == uri
+
+
+def test_set_get_empty_registry_uri():
+    set_registry_uri("")
+    assert get_registry_uri() == ""
 
 
 def test_get_store_rest_store_from_arg():
