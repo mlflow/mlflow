@@ -44,15 +44,11 @@ export class ModelVersionPageImpl extends React.Component {
   updateModelVersionRequestId = getUUID();
   transitionModelVersionStageRequestId = getUUID();
   getModelVersionDetailsRequestId = getUUID();
+  state = {
+    criticalInitialRequestIds: [this.initGetModelVersionDetailsRequestId],
+  };
 
-  criticalInitialRequestIds = [this.initGetModelVersionDetailsRequestId];
-
-  pollingRelatedRequestIds = [
-    this.listTransitionRequestId,
-    this.getActivitiesRequestId,
-    this.getModelVersionDetailsRequestId,
-    this.getRunRequestId,
-  ];
+  pollingRelatedRequestIds = [this.getModelVersionDetailsRequestId, this.getRunRequestId];
 
   hasPendingPollingRequest = () =>
     this.pollingRelatedRequestIds.every((requestId) => {
@@ -61,7 +57,8 @@ export class ModelVersionPageImpl extends React.Component {
     });
 
   loadData = (isInitialLoading) => {
-    return Promise.all([this.getModelVersionDetailAndRunInfo(isInitialLoading)]);
+    const promises = [this.getModelVersionDetailAndRunInfo(isInitialLoading)];
+    return Promise.all([promises]);
   };
 
   // We need to do this because currently the ModelVersionDetailed we got does not contain
@@ -138,11 +135,11 @@ export class ModelVersionPageImpl extends React.Component {
 
     return (
       <div className='App-content'>
-        <RequestStateWrapper requestIds={this.criticalInitialRequestIds}>
+        <RequestStateWrapper requestIds={this.state.criticalInitialRequestIds}>
           {(loading, hasError, requests) => {
             if (hasError) {
               clearInterval(this.pollIntervalId);
-              if (Utils.shouldRender404(requests, this.criticalInitialRequestIds)) {
+              if (Utils.shouldRender404(requests, this.state.criticalInitialRequestIds)) {
                 return (
                   <Error404View
                     resourceName={`Model ${modelName} v${version}`}

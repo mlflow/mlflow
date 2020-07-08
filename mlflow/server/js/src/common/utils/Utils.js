@@ -11,6 +11,11 @@ import { message } from 'antd';
 import _ from 'lodash';
 import { ErrorCodes } from '../constants';
 
+message.config({
+  maxCount: 1,
+  duration: 5,
+});
+
 class Utils {
   /**
    * Merge a runs parameters / metrics.
@@ -562,8 +567,8 @@ class Utils {
   static logErrorAndNotifyUser(e) {
     console.error(e);
     // not all error is wrapped by ErrorWrapper
-    if (e.getMessageField) {
-      message.error(e.getMessageField());
+    if (e.renderHttpError) {
+      message.error(e.renderHttpError());
     }
   }
 

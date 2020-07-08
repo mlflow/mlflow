@@ -28,6 +28,7 @@ import spinner from '../../common/static/mlflow-spinner.png';
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { getAllModelVersions } from '../../model-registry/reducers';
 import { listArtifactsApi } from '../actions';
+import { MLMODEL_FILE_NAME } from '../constants';
 
 export class ArtifactViewImpl extends Component {
   static propTypes = {
@@ -47,21 +48,27 @@ export class ArtifactViewImpl extends Component {
     requestedNodeIds: new Set(),
   };
 
-  renderModelVersionInfoSection() {
-    const { runUuid, modelVersionsBySource } = this.props;
+  getExistingModelVersions() {
+    const { modelVersionsBySource } = this.props;
+    const activeNodeRealPath = this.getActiveNodeRealPath();
+    return modelVersionsBySource[activeNodeRealPath];
+  }
+
+  renderRegisterModelButton() {
+    const { runUuid } = this.props;
     const { activeNodeId } = this.state;
     const activeNodeRealPath = this.getActiveNodeRealPath();
-    const existingModelVersions = modelVersionsBySource[activeNodeRealPath];
-
-    return existingModelVersions ? (
-      <ModelVersionInfoSection modelVersion={_.last(existingModelVersions)} />
-    ) : (
+    return (
       <RegisterModelButton
         runUuid={runUuid}
         modelPath={activeNodeRealPath}
         disabled={activeNodeId === undefined}
       />
     );
+  }
+
+  renderModelVersionInfoSection(existingModelVersions) {
+    return <ModelVersionInfoSection modelVersion={_.last(existingModelVersions)} />;
   }
 
   renderPathAndSizeInfo() {
@@ -90,16 +97,23 @@ export class ArtifactViewImpl extends Component {
   }
 
   renderArtifactInfo() {
+    const existingModelVersions = this.getExistingModelVersions();
+    let toRender;
+    if (existingModelVersions && Utils.isModelRegistryEnabled()) {
+      // note that this case won't trigger for files inside a registered model/model version folder
+      // React searches for existing model versions under the path of the file, which won't exist.
+      toRender = this.renderModelVersionInfoSection(existingModelVersions);
+    } else if (this.activeNodeCanBeRegistered() && Utils.isModelRegistryEnabled()) {
+      toRender = this.renderRegisterModelButton();
+    } else if (this.activeNodeIsDirectory()) {
+      toRender = null;
+    } else {
+      toRender = this.renderDownloadLink();
+    }
     return (
       <div className='artifact-info'>
         {this.renderPathAndSizeInfo()}
-        <div className='artifact-info-right'>
-          {this.activeNodeIsDirectory()
-            ? Utils.isModelRegistryEnabled()
-              ? this.renderModelVersionInfoSection()
-              : null
-            : this.renderDownloadLink()}
-        </div>
+        <div className='artifact-info-right'>{toRender}</div>
       </div>
     );
   }
@@ -193,6 +207,16 @@ export class ArtifactViewImpl extends Component {
       // No node is highlighted so we're displaying the root, which is a directory.
       return true;
     }
+  }
+
+  activeNodeCanBeRegistered() {
+    if (this.state.activeNodeId) {
+      const node = ArtifactUtils.findChild(this.props.artifactNode, this.state.activeNodeId);
+      if (node && node.children && MLMODEL_FILE_NAME in node.children) {
+        return true;
+      }
+    }
+    return false;
   }
 
   componentDidUpdate(prevProps, prevState) {

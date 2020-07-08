@@ -346,6 +346,11 @@ export class ExperimentView extends Component {
     return _.difference(keyList, categorizedUncheckedKeys[columnType]);
   }
 
+  renderArtifactLocation() {
+    const { artifact_location } = this.props.experiment;
+    return <Descriptions.Item label='Artifact Location'>{artifact_location}</Descriptions.Item>;
+  }
+
   render() {
     const {
       runInfos,
@@ -359,7 +364,7 @@ export class ExperimentView extends Component {
       paramKeyList,
       metricKeyList,
     } = this.props;
-    const { experiment_id, name, artifact_location } = experiment;
+    const { experiment_id, name } = experiment;
     const { persistedState } = this.state;
     const { unbaggedParams, unbaggedMetrics, categorizedUncheckedKeys } = persistedState;
 
@@ -402,7 +407,7 @@ export class ExperimentView extends Component {
         <h1>{name}</h1>
         <Descriptions className='metadata-list'>
           <Descriptions.Item label='Experiment ID'>{experiment_id}</Descriptions.Item>
-          <Descriptions.Item label='Artifact Location'>{artifact_location}</Descriptions.Item>
+          {this.renderArtifactLocation()}
         </Descriptions>
         <div className='ExperimentView-info'>{this.renderNoteSection(noteInfo)}</div>
         <div className='ExperimentView-runs runs-table-flex-container'>

@@ -104,8 +104,16 @@ tracking, and model APIs.
 
 Prerequisites
 ~~~~~~~~~~~~~
+First, ensure that your name and email are
+`configured in git <https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup>`_ so that
+you can `sign your work`_ when committing code changes and opening pull requests:
 
-First, install the Python MLflow package from source - this is required for developing & testing
+.. code-block:: bash
+
+    git config --global user.name "Your Name"
+    git config --global user.email yourname@example.com
+
+Then, install the Python MLflow package from source - this is required for developing & testing
 changes across all languages and APIs. We recommend installing MLflow in its own conda environment
 by running the following from your checkout of MLflow:
 
@@ -448,3 +456,56 @@ usages of the modified APIs in guides and examples.
 If adding a new public Python module, create a corresponding doc file for the module under
 ``docs/source/python_api`` - `see here <https://github.com/mlflow/mlflow/blob/v0.9.1/docs/source/python_api/mlflow.tracking.rst#mlflowtracking>`_
 for an example.
+
+
+Sign your work
+~~~~~~~~~~~~~~
+
+In order to commit your work, you need to sign that you wrote the patch or otherwise have the right 
+to pass it on as an open-source patch. If you can certify the below (from developercertificate.org)::
+
+  Developer Certificate of Origin
+  Version 1.1
+
+  Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
+  1 Letterman Drive
+  Suite D4700
+  San Francisco, CA, 94129
+
+  Everyone is permitted to copy and distribute verbatim copies of this
+  license document, but changing it is not allowed.
+
+
+  Developer's Certificate of Origin 1.1
+
+  By making a contribution to this project, I certify that:
+
+  (a) The contribution was created in whole or in part by me and I
+      have the right to submit it under the open source license
+      indicated in the file; or
+
+  (b) The contribution is based upon previous work that, to the best
+      of my knowledge, is covered under an appropriate open source
+      license and I have the right under that license to submit that
+      work with modifications, whether created in whole or in part
+      by me, under the same open source license (unless I am
+      permitted to submit under a different license), as indicated
+      in the file; or
+
+  (c) The contribution was provided directly to me by some other
+      person who certified (a), (b) or (c) and I have not modified
+      it.
+
+  (d) I understand and agree that this project and the contribution
+      are public and that a record of the contribution (including all
+      personal information I submit with it, including my sign-off) is
+      maintained indefinitely and may be redistributed consistent with
+      this project or the open source license(s) involved.
+
+
+Then add a line to every git commit message::
+
+  Signed-off-by: Jane Smith <jane.smith@email.com>
+
+Use your real name (sorry, no pseudonyms or anonymous contributions). You can sign your commit 
+automatically with ``git commit -s`` after you set your ``user.name`` and ``user.email`` git configs.
