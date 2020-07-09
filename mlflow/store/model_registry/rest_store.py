@@ -50,7 +50,8 @@ class RestStore(AbstractStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
         created in the backend.
         """
-        req_body = message_to_json(CreateRegisteredModel(name=name, tags=tags))
+        proto_tags = [tag.to_proto() for tag in tags or []]
+        req_body = message_to_json(CreateRegisteredModel(name=name, tags=proto_tags))
         response_proto = self._call_endpoint(CreateRegisteredModel, req_body)
         return RegisteredModel.from_proto(response_proto.registered_model)
 
@@ -198,8 +199,9 @@ class RestStore(AbstractStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
         created in the backend.
         """
+        proto_tags = [tag.to_proto() for tag in tags or []]
         req_body = message_to_json(CreateModelVersion(name=name, source=source,
-                                                      run_id=run_id, tags=tags))
+                                                      run_id=run_id, tags=proto_tags))
         response_proto = self._call_endpoint(CreateModelVersion, req_body)
         return ModelVersion.from_proto(response_proto.model_version)
 

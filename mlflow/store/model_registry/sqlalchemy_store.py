@@ -403,7 +403,8 @@ class SqlAlchemyStore(AbstractStore):
     @classmethod
     def _get_registered_model_tag(cls, session, name, key):
         tags = session.query(SqlRegisteredModelTag).filter(
-            SqlRegisteredModelTag.name == name and SqlRegisteredModelTag.key == key
+            SqlRegisteredModelTag.name == name,
+            SqlRegisteredModelTag.key == key
         ).all()
         if len(tags) == 0:
             return None
@@ -424,6 +425,8 @@ class SqlAlchemyStore(AbstractStore):
                                   INVALID_PARAMETER_VALUE)
         _validate_registered_model_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
+            # check if registered model exists
+            self._get_registered_model(session, name)
             session.merge(SqlRegisteredModelTag(
                 name=name,
                 key=tag.key,
@@ -672,8 +675,8 @@ class SqlAlchemyStore(AbstractStore):
     @classmethod
     def _get_model_version_tag(cls, session, name, version, key):
         tags = session.query(SqlModelVersionTag).filter(
-            SqlModelVersionTag.name == name and
-            SqlModelVersionTag.version == version and
+            SqlModelVersionTag.name == name,
+            SqlModelVersionTag.version == version,
             SqlModelVersionTag.key == key
         ).all()
         if len(tags) == 0:
@@ -702,6 +705,8 @@ class SqlAlchemyStore(AbstractStore):
                                   .format(version), error_code=INVALID_PARAMETER_VALUE)
         _validate_model_version_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
+            # check if model version exists
+            self._get_sql_model_version(session, name, version)
             session.merge(SqlModelVersionTag(
                 name=name,
                 version=version,

@@ -213,7 +213,9 @@ def jsonify(obj):
 def test_create_registered_model(mock_get_request_message, mock_model_registry_store):
     tags = [RegisteredModelTag(key="key", value="value"),
             RegisteredModelTag(key="anotherKey", value="some other value")]
-    mock_get_request_message.return_value = CreateRegisteredModel(name="model_1", tags=tags)
+    mock_get_request_message.return_value = CreateRegisteredModel(name="model_1",
+                                                                  tags=[tag.to_proto()
+                                                                        for tag in tags])
     rm = RegisteredModel("model_1", tags=tags)
     mock_model_registry_store.create_registered_model.return_value = rm
     resp = _create_registered_model()
@@ -369,8 +371,11 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     run_id = uuid.uuid4().hex
     tags = [ModelVersionTag(key="key", value="value"),
             ModelVersionTag(key="anotherKey", value="some other value")]
-    mock_get_request_message.return_value = CreateModelVersion(name="model_1", source="A/B",
-                                                               run_id=run_id, tags=tags)
+    mock_get_request_message.return_value = CreateModelVersion(name="model_1",
+                                                               source="A/B",
+                                                               run_id=run_id,
+                                                               tags=[tag.to_proto()
+                                                                     for tag in tags])
     mv = ModelVersion(name="model_1", version="12", creation_timestamp=123, tags=tags)
     mock_model_registry_store.create_model_version.return_value = mv
     resp = _create_model_version()
@@ -476,7 +481,7 @@ def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_
                                                                   value=tag.value)
     _set_registered_model_tag()
     _, args = mock_model_registry_store.set_registered_model_tag.call_args
-    assert args == {"name": name, "tag": jsonify(tag)}
+    assert args == {"name": name, "tag": {"key": tag.key, "value": tag.value}}
 
 
 def test_delete_registered_model_tag(mock_get_request_message, mock_model_registry_store):
@@ -496,7 +501,7 @@ def test_set_model_version_tag(mock_get_request_message, mock_model_registry_sto
                                                                key=tag.key, value=tag.value)
     _set_model_version_tag()
     _, args = mock_model_registry_store.set_model_version_tag.call_args
-    assert args == {"name": name, "version": version, "tag": jsonify(tag)}
+    assert args == {"name": name, "version": version, "tag": {"key": tag.key, "value": tag.value}}
 
 
 def test_delete_model_version_tag(mock_get_request_message, mock_model_registry_store):
