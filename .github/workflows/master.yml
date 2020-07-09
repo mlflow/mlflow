@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  CONDA_DIR: /usr/share/miniconda
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -24,7 +27,7 @@ jobs:
         pip install -r ./travis/lint-requirements.txt
     - name: Run tests
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
+        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./lint.sh
   r:
@@ -61,7 +64,7 @@ jobs:
     - name: Run tests
       run: |
         source ./travis/install-common-deps.sh
-        export PATH="$HOME/miniconda/bin:$PATH"
+        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         cd mlflow/R/mlflow
         R CMD build .
@@ -102,7 +105,7 @@ jobs:
         source ./travis/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
+        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./travis/run-small-python-tests.sh
 
@@ -119,7 +122,7 @@ jobs:
         source ./travis/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
+        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         cd mlflow/java
         mvn clean package -q
@@ -173,7 +176,7 @@ jobs:
           source ./travis/install-common-deps.sh
       - name: Run tests
         run: |
-          export PATH="$HOME/miniconda/bin:$PATH"
+          export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
           ./travis/run-python-flavor-tests.sh;
 
@@ -193,7 +196,7 @@ jobs:
           source ./travis/install-common-deps.sh
       - name: Run tests
         run: |
-          export PATH="$HOME/miniconda/bin:$PATH"
+          export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
           ./travis/run-python-tf-tests.sh;
 
@@ -213,7 +216,7 @@ jobs:
           source ./travis/install-common-deps.sh
       - name: Run tests
         run: |
-          export PATH="$HOME/miniconda/bin:$PATH"
+          export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
           ./travis/run-python-sagemaker-tests.sh;
 
@@ -238,7 +241,7 @@ jobs:
           pip install sphinx==2.2.1 sphinx-click==2.3.1
       - name: Run tests
         run: |
-          export PATH="$HOME/miniconda/bin:$PATH"
+          export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
           cd docs
           make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
