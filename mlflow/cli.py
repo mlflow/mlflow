@@ -144,8 +144,8 @@ def _user_args_to_dict(arguments, argument_type='P'):
         # Docker arguments such as `t` don't require a value
         # -> set them to True if specified
         if len(split) == 1:
-                name = split[0]
-                value = True
+            name = split[0]
+            value = True
         elif len(split) == 2:
             name = split[0]
             value = split[1]
