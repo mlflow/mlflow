@@ -9,20 +9,20 @@ df -h
 sudo mkdir -p /travis-install
 # GITHUB_WORKFLOW is set by default during GitHub workflows
 if [[ -z $GITHUB_WORKFLOW ]]; then
-  CONDA_DIR=$HOME
+  CONDA_DIR=$HOME/miniconda
   sudo chown travis /travis-install
   # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
   # We do this conditionally because it saves us some downloading if the
   # version is the same.
-  wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $CONDA_DIR/miniconda.sh
-  bash $CONDA_DIR/miniconda.sh -b -p $CONDA_DIR/miniconda
+  wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
+  bash $HOME/miniconda.sh -b -p $CONDA_DIR
 else
   # Miniconda is pre-installed in the virtual-environments for GitHub Actions.
   # See this repository: https://github.com/actions/virtual-environments
-  CONDA_DIR=/usr/share
+  CONDA_DIR=/usr/share/miniconda
 fi
 
-export PATH="$CONDA_DIR/miniconda/bin:$PATH"
+export PATH="$CONDA_DIR/bin:$PATH"
 hash -r
 conda config --set always_yes yes --set changeps1 no
 # Useful for debugging any issues with conda
