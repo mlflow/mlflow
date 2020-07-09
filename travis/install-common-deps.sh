@@ -14,7 +14,7 @@ if [[ -z $GITHUB_WORKFLOW ]]; then
   # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
   # We do this conditionally because it saves us some downloading if the
   # version is the same.
-  wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
+  wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $CONDA_DIR/miniconda.sh
   bash $CONDA_DIR/miniconda.sh -b -p $CONDA_DIR/miniconda
 else
   # Miniconda is pre-installed in the virtual-environments for GitHub Actions.
@@ -44,9 +44,9 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   # Hack: make sure all spark-* scripts are executable. 
   # Conda installs 2 version spark-* scripts and makes the ones spark
   # uses not executable. This is a temporary fix to unblock the tests.
-  ls -lha $(find $HOME/miniconda/envs/test-environment/ -path "*bin/spark-*")
-  chmod 777 $(find $HOME/miniconda/envs/test-environment/ -path "*bin/spark-*")
-  ls -lha $(find $HOME/miniconda/envs/test-environment/ -path "*bin/spark-*")
+  ls -lha $(find $CONDA_DIR/miniconda/envs/test-environment/ -path "*bin/spark-*")
+  chmod 777 $(find $CONDA_DIR/miniconda/envs/test-environment/ -path "*bin/spark-*")
+  ls -lha $(find $CONDA_DIR/miniconda/envs/test-environment/ -path "*bin/spark-*")
 fi
 pip install .
 export MLFLOW_HOME=$(pwd)
