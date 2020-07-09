@@ -537,7 +537,10 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
         for name, value in docker_args.items():
             # Passed just the name as boolean flag
             if isinstance(value, bool) and value:
-                cmd += ['-' + name]
+                if len(name) == 1:
+                    cmd += ['-' + name]
+                else:
+                    cmd += ['--' + name]
             else:
                 # Passed name=value
                 cmd += ['--' + name, value]
