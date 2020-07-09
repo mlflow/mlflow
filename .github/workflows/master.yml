@@ -44,15 +44,15 @@ jobs:
         writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
       shell: Rscript {0}
 
-    - name: Cache R packages
-      if: runner.os != 'Windows'
-      uses: actions/cache@v2
-      with:
-        path: ${{ env.R_LIBS_USER }}
-        # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
-        # R dependencies
-        key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
-        restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
+    # - name: Cache R packages
+    #   if: runner.os != 'Windows'
+    #   uses: actions/cache@v2
+    #   with:
+    #     path: ${{ env.R_LIBS_USER }}
+    #     # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
+    #     # R dependencies
+    #     key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
+    #     restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
     - name: Install system dependencies
       run: |
         sudo apt-get install -y libcurl4-openssl-dev
@@ -66,13 +66,13 @@ jobs:
         source ./travis/install-common-deps.sh
         set -ex
         ls /usr/share/miniconda/bin
-        # export PATH="$CONDA_DIR/bin:$PATH"
-        # source activate test-environment
-        # cd mlflow/R/mlflow
-        # R CMD build .
-        # export LINTR_COMMENT_BOT=false
-        # cd tests
-        # Rscript ../.travis.R
+        export PATH="$CONDA_DIR/bin:$PATH"
+        source activate test-environment
+        cd mlflow/R/mlflow
+        R CMD build .
+        export LINTR_COMMENT_BOT=false
+        cd tests
+        Rscript ../.travis.R
     - name: Calculate code coverage
       if: ${{ success() }}
       run: |
