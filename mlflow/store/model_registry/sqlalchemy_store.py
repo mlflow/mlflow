@@ -446,6 +446,12 @@ class SqlAlchemyStore(AbstractStore):
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
+        is_active_stage = get_canonical_stage(stage) in DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS
+        if archive_existing_versions and not is_active_stage:
+            msg_tpl = ("Model version transition cannot archive existing model versions "
+                       "because '{}' is not an Active stage. Valid stages are {}")
+            raise MlflowException(msg_tpl.format(stage, DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS))
+
         with self.ManagedSessionMaker() as session:
             sql_model_version = self._get_sql_model_version(session=session,
                                                             name=name,
