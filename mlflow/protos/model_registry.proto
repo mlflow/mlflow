@@ -224,6 +224,62 @@ service ModelRegistryService {
       rpc_doc_title: "Get Download URI For ModelVersion Artifacts",
     };
   }
+
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
+  rpc setRegisteredModelTag (SetRegisteredModelTag) returns (SetRegisteredModelTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/registered-models/set-tag"
+        since { major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Set Registered Model Tag",
+    };
+  }
+
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
+  rpc setModelVersionTag (SetModelVersionTag) returns (SetModelVersionTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/model-versions/set-tag"
+        since { major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Set Model Version Tag",
+    };
+  }
+
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
+  rpc deleteRegisteredModelTag (DeleteRegisteredModelTag) returns (DeleteRegisteredModelTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/preview/mlflow/registered-models/delete-tag"
+        since { major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Registered Model Tag",
+    };
+  }
+
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
+  rpc deleteModelVersionTag (DeleteModelVersionTag) returns (DeleteModelVersionTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/preview/mlflow/model-versions/delete-tag"
+        since { major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Model Version Tag",
+    };
+  }
 }
 
 // .. note::
@@ -248,6 +304,9 @@ message RegisteredModel {
   // Collection of latest model versions for each stage.
   // Only contains models with current ``READY`` status.
   repeated ModelVersion latest_versions = 6;
+
+  // Tags: Additional metadata key-value pairs for this ``registered_model``.
+  repeated RegisteredModelTag tags = 7;
 }
 
 // .. note::
@@ -299,6 +358,9 @@ message ModelVersion {
 
   // Details on current ``status``, if it is pending or failed.
   optional string status_message = 11;
+
+  // Tags: Additional metadata key-value pairs for this ``model_version``.
+  repeated ModelVersionTag tags = 12;
 }
 
 message CreateRegisteredModel {
@@ -306,6 +368,9 @@ message CreateRegisteredModel {
 
   // Register models under this name
   optional string name = 1 [(validate_required) = true];
+
+  // Additional metadata for registered model.
+  repeated RegisteredModelTag tags = 2;
 
   message Response {
     optional RegisteredModel registered_model = 1;
@@ -435,6 +500,9 @@ message CreateModelVersion {
   // MLflow tracking server
   optional string run_id = 3;
 
+  // Additional metadata for model version.
+  repeated ModelVersionTag tags = 4;
+
   message Response {
     // Return new version number generated for this model in registry.
     optional ModelVersion model_version = 1;
@@ -550,5 +618,91 @@ message GetModelVersionDownloadUri {
   message Response {
     // URI corresponding to where artifacts for this model version are stored.
     optional string artifact_uri = 1;
+  }
+}
+
+// Tag for a model version.
+message ModelVersionTag {
+  // The tag key.
+  optional string key = 1;
+  // The tag value.
+  optional string value = 2;
+}
+
+// Tag for a registered model
+message RegisteredModelTag {
+  // The tag key.
+  optional string key = 1;
+  // The tag value.
+  optional string value = 2;
+}
+
+message SetRegisteredModelTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Unique name of the model.
+  optional string name = 1 [(validate_required) = true];
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 2 [(validate_required) = true];
+
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 5000 bytes in size.
+  optional string value = 3 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message SetModelVersionTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Unique name of the model.
+  optional string name = 1 [(validate_required) = true];
+
+  // Model version number.
+  optional string version = 2 [(validate_required) = true];
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 3 [(validate_required) = true];
+
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 5000 bytes in size.
+  optional string value = 4 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message DeleteRegisteredModelTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the registered model that the tag was logged under.
+  optional string name = 1 [(validate_required) = true];
+
+  // Name of the tag. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+  optional string key = 2 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message DeleteModelVersionTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the registered model that the tag was logged under.
+  optional string name = 1 [(validate_required) = true];
+
+  // Model version number that the tag was logged under.
+  optional string version = 2 [(validate_required) = true];
+
+  // Name of the tag. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+  optional string key = 3 [(validate_required) = true];
+
+  message Response {
   }
 }
