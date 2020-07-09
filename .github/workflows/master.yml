@@ -217,6 +217,24 @@ jobs:
           source activate test-environment
           ./travis/run-python-sagemaker-tests.sh;
 
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+
+      - name: Install dependecies
+        # export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
+        run: |
+          pip install -r dev-requirements.txt
+          pip install -r travis/small-requirements.txt
+          pip install -e .
+      - name: Run tests
+        run: |
+          pytest --verbose --ignore-flavors --ignore=tests/projects tests
+
   docs:
     runs-on: ubuntu-latest
     steps:
