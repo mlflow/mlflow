@@ -289,8 +289,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                          {"None": 1, "Production": 2, "Staging": 4})
 
     def test_set_registered_model_tag(self):
-        name1 = random_str()
-        name2 = random_str()
+        name1 = "SetRegisteredModelTag_TestMod"
+        name2 = "SetRegisteredModelTag_TestMod 2"
         initial_tags = [RegisteredModelTag("key", "value"),
                         RegisteredModelTag("anotherKey", "some other value")]
         self._rm_maker(name1, initial_tags)
@@ -298,13 +298,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         new_tag = RegisteredModelTag("randomTag", "not a random value")
         self.store.set_registered_model_tag(name1, new_tag)
         rm1 = self.store.get_registered_model(name=name1)
-        all_tags = initial_tags[:].append(new_tag)
+        all_tags = initial_tags + [new_tag]
         self.assertEqual(rm1.tags, {tag.key: tag.value for tag in (all_tags or [])})
 
         # test overriding a tag with the same key
         overriding_tag = RegisteredModelTag("key", "overriding")
         self.store.set_registered_model_tag(name1, overriding_tag)
-        all_tags["key"] = "overriding"
+        all_tags = [tag for tag in all_tags if tag.key != "key"] + [overriding_tag]
         rm1 = self.store.get_registered_model(name=name1)
         self.assertEqual(rm1.tags, {tag.key: tag.value for tag in (all_tags or [])})
         # does not affect other models with the same key
@@ -330,8 +330,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_delete_registered_model_tag(self):
-        name1 = random_str()
-        name2 = random_str()
+        name1 = "DeleteRegisteredModelTag_TestMod"
+        name2 = "DeleteRegisteredModelTag_TestMod 2"
         initial_tags = [RegisteredModelTag("key", "value"),
                         RegisteredModelTag("anotherKey", "some other value")]
         self._rm_maker(name1, initial_tags)
@@ -885,8 +885,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_set_model_version_tag(self):
-        name1 = random_str()
-        name2 = random_str()
+        name1 = "SetModelVersionTag_TestMod"
+        name2 = "SetModelVersionTag_TestMod 2"
         initial_tags = [ModelVersionTag("key", "value"),
                         ModelVersionTag("anotherKey", "some other value")]
         self._rm_maker(name1)
@@ -899,14 +899,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self._mv_maker(name2, "A/D", run_id_3, initial_tags)
         new_tag = ModelVersionTag("randomTag", "not a random value")
         self.store.set_model_version_tag(name1, 1, new_tag)
-        all_tags = initial_tags[:].append(new_tag)
+        all_tags = initial_tags + [new_tag]
         rm1mv1 = self.store.get_model_version(name1, 1)
         self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in (all_tags or [])})
 
         # test overriding a tag with the same key
         overriding_tag = ModelVersionTag("key", "overriding")
         self.store.set_model_version_tag(name1, 1, overriding_tag)
-        all_tags["key"] = "overriding"
+        all_tags = [tag for tag in all_tags if tag.key != "key"] + [overriding_tag]
         rm1mv1 = self.store.get_model_version(name1, 1)
         self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in (all_tags or [])})
         # does not affect other model versions with the same key
@@ -920,14 +920,22 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_model_version_tag(name1, 2, overriding_tag)
             assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        # test cannot set tags that are too long
+        long_tag = ModelVersionTag("longTagKey", "a" * 5001)
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.set_model_version_tag(name1, 1, long_tag)
+            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # test can set tags that are somewhat long
+        long_tag = ModelVersionTag("longTagKey", "a" * 4999)
+        self.store.set_model_version_tag(name1, 1, long_tag)
         # can not set invalid tag
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_model_version_tag(name2, 1, ModelVersionTag(key=None, value=""))
             assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_delete_model_version_tag(self):
-        name1 = random_str()
-        name2 = random_str()
+        name1 = "DeleteModelVersionTag_TestMod"
+        name2 = "DeleteModelVersionTag_TestMod 2"
         initial_tags = [ModelVersionTag("key", "value"),
                         ModelVersionTag("anotherKey", "some other value")]
         self._rm_maker(name1)
@@ -963,14 +971,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_model_version_tag(name2, 1, "key")
             assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-        # test cannot set tags that are too long
-        long_tag = ModelVersionTag("longTagKey", "a" * 5001)
-        with self.assertRaises(MlflowException) as exception_context:
-            self.store.set_model_version_tag(name1, 1, long_tag)
-            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        # test can set tags that are somewhat long
-        long_tag = ModelVersionTag("longTagKey", "a" * 4999)
-        self.store.set_model_version_tag(name1, 1, long_tag)
         # can not delete tag with invalid key
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_model_version_tag(name1, 2, None)

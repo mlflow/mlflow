@@ -16,7 +16,9 @@ from mlflow.server.handlers import get_endpoints, _create_experiment, _get_reque
     _list_registered_models, _search_registered_models, \
     _get_latest_versions, _create_model_version, _update_model_version, \
     _delete_model_version, _get_model_version_download_uri, \
-    _search_model_versions, _get_model_version, _transition_stage, _rename_registered_model
+    _search_model_versions, _get_model_version, _transition_stage, _rename_registered_model, \
+    _set_registered_model_tag, _delete_registered_model_tag, _set_model_version_tag, \
+    _delete_model_version_tag
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
@@ -24,7 +26,9 @@ from mlflow.protos.model_registry_pb2 import CreateRegisteredModel, UpdateRegist
     DeleteRegisteredModel, ListRegisteredModels, SearchRegisteredModels, GetRegisteredModel, \
     GetLatestVersions, CreateModelVersion, UpdateModelVersion, \
     DeleteModelVersion, GetModelVersion, GetModelVersionDownloadUri, SearchModelVersions, \
-    TransitionModelVersionStage, RenameRegisteredModel
+    TransitionModelVersionStage, RenameRegisteredModel, SetRegisteredModelTag, \
+    DeleteRegisteredModelTag, SetModelVersionTag, DeleteModelVersionTag, \
+    RegisteredModelTag, ModelVersionTag
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
@@ -207,12 +211,14 @@ def jsonify(obj):
 
 # Tests for Model Registry handlers
 def test_create_registered_model(mock_get_request_message, mock_model_registry_store):
-    mock_get_request_message.return_value = CreateRegisteredModel(name="model_1")
+    tags = [RegisteredModelTag(key="key", value="value"),
+            RegisteredModelTag(key="anotherKey", value="some other value")]
+    mock_get_request_message.return_value = CreateRegisteredModel(name="model_1", tags=tags)
     rm = RegisteredModel("model_1")
     mock_model_registry_store.create_registered_model.return_value = rm
     resp = _create_registered_model()
     _, args = mock_model_registry_store.create_registered_model.call_args
-    assert args == {"name": "model_1"}
+    assert args == {"name": "model_1", "tags": jsonify(tags)}
     assert json.loads(resp.get_data()) == {"registered_model": jsonify(rm)}
 
 
@@ -361,13 +367,15 @@ def test_get_latest_versions(mock_get_request_message, mock_model_registry_store
 
 def test_create_model_version(mock_get_request_message, mock_model_registry_store):
     run_id = uuid.uuid4().hex
+    tags = [ModelVersionTag(key="key", value="value"),
+            ModelVersionTag(key="anotherKey", value="some other value")]
     mock_get_request_message.return_value = CreateModelVersion(name="model_1", source="A/B",
-                                                               run_id=run_id)
+                                                               run_id=run_id, tags=tags)
     mv = ModelVersion(name="model_1", version="12", creation_timestamp=123)
     mock_model_registry_store.create_model_version.return_value = mv
     resp = _create_model_version()
     _, args = mock_model_registry_store.create_model_version.call_args
-    assert args == {"name": "model_1", "source": "A/B", "run_id": run_id}
+    assert args == {"name": "model_1", "source": "A/B", "run_id": run_id, "tags": jsonify(tags)}
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
 
 
@@ -458,3 +466,45 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     args, _ = mock_model_registry_store.search_model_versions.call_args
     assert args == ("source_path = 'A/B/CD'",)
     assert json.loads(resp.get_data()) == {"model_versions": jsonify(mvds)}
+
+
+def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    key = "some weird key"
+    value = "some value"
+    mock_get_request_message.return_value = SetRegisteredModelTag(name=name, key=key, value=value)
+    _set_registered_model_tag()
+    _, args = mock_model_registry_store.set_registered_model_tag.call_args
+    assert args == {"name": name, "key": key, "value": value}
+
+
+def test_delete_registered_model_tag(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    key = "some weird key"
+    mock_get_request_message.return_value = DeleteRegisteredModelTag(name=name, key=key)
+    _delete_registered_model_tag()
+    _, args = mock_model_registry_store.delete_registered_model_tag.call_args
+    assert args == {"name": name, "key": key}
+
+
+def test_set_model_version_tag(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    version = "1"
+    key = "some weird key"
+    value = "some value"
+    mock_get_request_message.return_value = SetModelVersionTag(name=name, version=version,
+                                                               key=key, value=value)
+    _set_model_version_tag()
+    _, args = mock_model_registry_store.set_model_version_tag.call_args
+    assert args == {"name": name, "version": version, "key": key, "value": value}
+
+
+def test_delete_model_version_tag(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    version = "1"
+    key = "some weird key"
+    mock_get_request_message.return_value = DeleteModelVersionTag(name=name, version=version,
+                                                                  key=key)
+    _delete_model_version_tag()
+    _, args = mock_model_registry_store.delete_model_version_tag.call_args
+    assert args == {"name": name, "version": version, "key": key}
