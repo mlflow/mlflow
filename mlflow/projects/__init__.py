@@ -534,15 +534,13 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
     cmd = [docker_path, "run", "--rm"]
 
     if docker_args:
-        # Allocate a pseudo-TTY if specified
-        if 't' in docker_args:
-            if docker_args['t']:
-                cmd.append('-t')
-                # Delete tty from docker args, since it is not supposed to be appended later again
-                del docker_args['t']
-
-        for key, value in docker_args.items():
-            cmd += ['--' + key, value]
+        for name, value in docker_args.items():
+            # Passed just the name as boolean flag
+            if isinstance(value, bool) and value:
+                cmd += ['-' + name]
+            else:
+                # Passed name=value
+                cmd += ['--' + name, value]
 
     env_vars = _get_run_env_vars(run_id=active_run.info.run_id,
                                  experiment_id=active_run.info.experiment_id)
