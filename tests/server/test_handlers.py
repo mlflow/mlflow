@@ -214,11 +214,11 @@ def test_create_registered_model(mock_get_request_message, mock_model_registry_s
     tags = [RegisteredModelTag(key="key", value="value"),
             RegisteredModelTag(key="anotherKey", value="some other value")]
     mock_get_request_message.return_value = CreateRegisteredModel(name="model_1", tags=tags)
-    rm = RegisteredModel("model_1")
+    rm = RegisteredModel("model_1", tags=tags)
     mock_model_registry_store.create_registered_model.return_value = rm
     resp = _create_registered_model()
     _, args = mock_model_registry_store.create_registered_model.call_args
-    assert args == {"name": "model_1", "tags": jsonify(tags)}
+    assert args == {"name": "model_1", "tags": tags}
     assert json.loads(resp.get_data()) == {"registered_model": jsonify(rm)}
 
 
@@ -371,11 +371,12 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
             ModelVersionTag(key="anotherKey", value="some other value")]
     mock_get_request_message.return_value = CreateModelVersion(name="model_1", source="A/B",
                                                                run_id=run_id, tags=tags)
-    mv = ModelVersion(name="model_1", version="12", creation_timestamp=123)
+    mv = ModelVersion(name="model_1", version="12", creation_timestamp=123, tags=tags)
     mock_model_registry_store.create_model_version.return_value = mv
     resp = _create_model_version()
     _, args = mock_model_registry_store.create_model_version.call_args
-    assert args == {"name": "model_1", "source": "A/B", "run_id": run_id, "tags": jsonify(tags)}
+    assert args == {"name": "model_1", "source": "A/B",
+                    "run_id": run_id, "tags": tags}
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
 
 
@@ -475,7 +476,7 @@ def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_
     mock_get_request_message.return_value = SetRegisteredModelTag(name=name, key=key, value=value)
     _set_registered_model_tag()
     _, args = mock_model_registry_store.set_registered_model_tag.call_args
-    assert args == {"name": name, "key": key, "value": value}
+    assert args == {"name": name, "tag": {"key": key, "value": value}}
 
 
 def test_delete_registered_model_tag(mock_get_request_message, mock_model_registry_store):
@@ -496,7 +497,7 @@ def test_set_model_version_tag(mock_get_request_message, mock_model_registry_sto
                                                                key=key, value=value)
     _set_model_version_tag()
     _, args = mock_model_registry_store.set_model_version_tag.call_args
-    assert args == {"name": name, "version": version, "key": key, "value": value}
+    assert args == {"name": name, "version": version, "tag": {"key": key, "value": value}}
 
 
 def test_delete_model_version_tag(mock_get_request_message, mock_model_registry_store):

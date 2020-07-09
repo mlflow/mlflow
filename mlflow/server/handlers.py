@@ -594,7 +594,7 @@ def _set_registered_model_tag():
 @catch_mlflow_exception
 def _delete_registered_model_tag():
     request_message = _get_request_message(DeleteRegisteredModelTag())
-    _get_model_registry_store().set_registered_model_tag(
+    _get_model_registry_store().delete_registered_model_tag(
         name=request_message.name,
         key=request_message.key)
     return _wrap_response(DeleteRegisteredModelTag.Response())

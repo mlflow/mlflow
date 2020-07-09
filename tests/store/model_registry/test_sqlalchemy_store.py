@@ -67,6 +67,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rm2.name, name2)
         self.assertEqual(rm2.tags, {tag.key: tag.value for tag in (tags or [])})
 
+        # invalid model name will fail
+        with self.assertRaises(MlflowException) as exception_context:
+            self._rm_maker(None)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        with self.assertRaises(MlflowException) as exception_context:
+            self._rm_maker("")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
     def test_get_registered_model(self):
         name = "model_1"
         tags = [RegisteredModelTag("key", "value"),
@@ -131,6 +139,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.assertRaises(MlflowException) as exception_context:
             self.store.rename_registered_model(new_name, original_name)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+        # invalid model name will fail
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.rename_registered_model(original_name, None)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.rename_registered_model(original_name, "")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_delete_registered_model(self):
         name = "model_for_delete_RM"
@@ -240,7 +255,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # test that providing too large of a max_results throws
         with self.assertRaises(MlflowException) as exception_context:
             self._list_registered_models(page_token="evilhax", max_results=1e15)
-            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self.assertIn("Invalid value for request parameter max_results",
                       exception_context.exception.message)
         # list should not return deleted models
@@ -315,19 +330,23 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.delete_registered_model(name1)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_registered_model_tag(name1, overriding_tag)
-            assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
         # test cannot set tags that are too long
         long_tag = RegisteredModelTag("longTagKey", "a" * 5001)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_registered_model_tag(name2, long_tag)
-            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # test can set tags that are somewhat long
         long_tag = RegisteredModelTag("longTagKey", "a" * 4999)
         self.store.set_registered_model_tag(name2, long_tag)
         # can not set invalid tag
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_registered_model_tag(name2, RegisteredModelTag(key=None, value=""))
-            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # can not use invalid model name
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.set_registered_model_tag(None, RegisteredModelTag(key="key", value="value"))
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_delete_registered_model_tag(self):
         name1 = "DeleteRegisteredModelTag_TestMod"
@@ -358,11 +377,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.delete_registered_model(name1)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_registered_model_tag(name1, "anotherKey")
-            assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
         # can not delete tag with invalid key
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_registered_model_tag(name2, None)
-            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # can not use invalid model name
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.delete_registered_model_tag(None, "key")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_create_model_version(self):
         name = "test_for_update_MV"
@@ -720,7 +743,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # test that providing too large of a max_results throws
         with self.assertRaises(MlflowException) as exception_context:
             self._search_registered_models(query, page_token="evilhax", max_results=1e15)
-            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self.assertIn("Invalid value for request parameter max_results",
                       exception_context.exception.message)
 
@@ -919,19 +942,27 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.delete_model_version(name1, 2)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_model_version_tag(name1, 2, overriding_tag)
-            assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
         # test cannot set tags that are too long
         long_tag = ModelVersionTag("longTagKey", "a" * 5001)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_model_version_tag(name1, 1, long_tag)
-            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # test can set tags that are somewhat long
         long_tag = ModelVersionTag("longTagKey", "a" * 4999)
         self.store.set_model_version_tag(name1, 1, long_tag)
         # can not set invalid tag
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_model_version_tag(name2, 1, ModelVersionTag(key=None, value=""))
-            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # can not use invalid model name or version
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.set_model_version_tag(None, 1, ModelVersionTag(key="key", value="value"))
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.set_model_version_tag(name2, "I am not a version",
+                                             ModelVersionTag(key="key", value="value"))
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_delete_model_version_tag(self):
         name1 = "DeleteModelVersionTag_TestMod"
@@ -970,8 +1001,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.delete_model_version(name2, 1)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_model_version_tag(name2, 1, "key")
-            assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
         # can not delete tag with invalid key
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_model_version_tag(name1, 2, None)
-            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # can not use invalid model name or version
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.delete_model_version_tag(None, 2, "key")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.delete_model_version_tag(name1, "I am not a version", "key")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

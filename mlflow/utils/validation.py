@@ -51,7 +51,7 @@ def path_not_unique(name):
 
 def _validate_metric_name(name):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
-    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException("Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
                               INVALID_PARAMETER_VALUE)
     if path_not_unique(name):
@@ -132,7 +132,7 @@ def _validate_model_version_tag(key, value):
 
 def _validate_param_name(name):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
-    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException("Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
                               INVALID_PARAMETER_VALUE)
     if path_not_unique(name):
@@ -143,7 +143,7 @@ def _validate_param_name(name):
 def _validate_tag_name(name):
     """Check that `name` is a valid tag name and raise an exception if it isn't."""
     # Reuse param & metric check.
-    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException("Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
                               INVALID_PARAMETER_VALUE)
     if path_not_unique(name):

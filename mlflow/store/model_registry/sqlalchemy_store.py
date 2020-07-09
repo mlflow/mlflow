@@ -142,7 +142,8 @@ class SqlAlchemyStore(AbstractStore):
         """
         if name is None or name == "":
             raise MlflowException('Registered model name cannot be empty.', INVALID_PARAMETER_VALUE)
-
+        for tag in tags or []:
+            _validate_registered_model_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
             try:
                 creation_time = now()
@@ -214,6 +215,8 @@ class SqlAlchemyStore(AbstractStore):
 
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
+        if new_name is None or new_name == "":
+            raise MlflowException('Registered model name cannot be empty.', INVALID_PARAMETER_VALUE)
         with self.ManagedSessionMaker() as session:
             sql_registered_model = self._get_registered_model(session, name)
             try:
@@ -467,6 +470,10 @@ class SqlAlchemyStore(AbstractStore):
             else:
                 return 1
 
+        if name is None or name == "":
+            raise MlflowException('Model version name cannot be empty.', INVALID_PARAMETER_VALUE)
+        for tag in tags or []:
+            _validate_registered_model_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
             creation_time = now()
             for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
