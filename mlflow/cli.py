@@ -10,6 +10,7 @@ import mlflow.azureml.cli
 import mlflow.db
 import mlflow.experiments
 import mlflow.models.cli
+import mlflow.deployments.cli
 import mlflow.projects as projects
 import mlflow.runs
 import mlflow.sagemaker.cli
@@ -334,6 +335,7 @@ def gc(backend_store_uri, run_ids):
 
 
 cli.add_command(mlflow.models.cli.commands)
+cli.add_command(mlflow.deployments.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)

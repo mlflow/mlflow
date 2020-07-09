@@ -45,7 +45,7 @@ describe('ModelVersionPage', () => {
           'Model A': {
             '1': mockModelVersionDetailed(
               'Model A',
-              1,
+              '1',
               Stages.PRODUCTION,
               ModelVersionStatus.READY,
               [],
@@ -54,6 +54,7 @@ describe('ModelVersionPage', () => {
         },
         activitiesByModelVersion: {},
         transitionRequestsByModelVersion: {},
+        mlModelArtifactByModelVersion: {},
       },
       apis: {},
     });

@@ -13,13 +13,20 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 import math
 
+from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel
+
 
 class SearchUtils(object):
+    LIKE_OPERATOR = "LIKE"
+    ILIKE_OPERATOR = "ILIKE"
+    ASC_OPERATOR = "asc"
+    DESC_OPERATOR = "desc"
+    VALID_ORDER_BY_TAGS = [ASC_OPERATOR, DESC_OPERATOR]
     VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
-    VALID_PARAM_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
-    VALID_TAG_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
-    VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '=', 'LIKE', 'ILIKE'])
-    CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set(['LIKE', 'ILIKE'])
+    VALID_PARAM_COMPARATORS = set(['!=', '=', LIKE_OPERATOR, ILIKE_OPERATOR])
+    VALID_TAG_COMPARATORS = set(['!=', '=', LIKE_OPERATOR, ILIKE_OPERATOR])
+    VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '=', LIKE_OPERATOR, ILIKE_OPERATOR])
+    CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set([LIKE_OPERATOR, ILIKE_OPERATOR])
     VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = \
         CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union({'='})
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
@@ -40,6 +47,18 @@ class SearchUtils(object):
                              + list(_ALTERNATE_ATTRIBUTE_IDENTIFIERS))
     STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
     NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
+    # Registered Models Constants
+    ORDER_BY_KEY_TIMESTAMP = "timestamp"
+    ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP = "last_updated_timestamp"
+    ORDER_BY_KEY_MODEL_NAME = SqlRegisteredModel.name.key
+    VALID_ORDER_BY_KEYS_REGISTERED_MODELS = set([ORDER_BY_KEY_TIMESTAMP,
+                                                 ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP,
+                                                 ORDER_BY_KEY_MODEL_NAME])
+    VALID_TIMESTAMP_ORDER_BY_KEYS = set([ORDER_BY_KEY_TIMESTAMP,
+                                         ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP])
+    # We encourage users to use timestamp for order-by
+    RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS = set([ORDER_BY_KEY_MODEL_NAME,
+                                                       ORDER_BY_KEY_TIMESTAMP])
 
     filter_ops = {
         '>': operator.gt,
@@ -317,30 +336,64 @@ class SearchUtils(object):
         return [run for run in runs if run_matches(run)]
 
     @classmethod
-    def parse_order_by(cls, order_by):
+    def _validate_order_by_and_generate_token(cls, order_by):
         try:
             parsed = sqlparse.parse(order_by)
         except Exception:
-            raise MlflowException("Error on parsing order_by clause '%s'" % order_by,
+            raise MlflowException(f"Error on parsing order_by clause '{order_by}'",
                                   error_code=INVALID_PARAMETER_VALUE)
         if len(parsed) != 1 or not isinstance(parsed[0], Statement):
-            raise MlflowException("Invalid order_by clause '%s'. Could not be parsed." %
-                                  order_by, error_code=INVALID_PARAMETER_VALUE)
-
+            raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
+                                  error_code=INVALID_PARAMETER_VALUE)
         statement = parsed[0]
-        if len(statement.tokens) != 1 or not isinstance(statement[0], Identifier):
-            raise MlflowException("Invalid order_by clause '%s'. Could not be parsed." %
-                                  order_by, error_code=INVALID_PARAMETER_VALUE)
+        if len(statement.tokens) == 1 and isinstance(statement[0], Identifier):
+            token_value = statement.tokens[0].value
+        elif len(statement.tokens) == 1 and \
+                statement.tokens[0].match(ttype=TokenType.Keyword,
+                                          values=[cls.ORDER_BY_KEY_TIMESTAMP]):
+            token_value = cls.ORDER_BY_KEY_TIMESTAMP
+        elif statement.tokens[0].match(ttype=TokenType.Keyword,
+                                       values=[cls.ORDER_BY_KEY_TIMESTAMP])\
+                and all([token.is_whitespace for token in statement.tokens[1:-1]])\
+                and statement.tokens[-1].ttype == TokenType.Keyword.Order:
+            token_value = cls.ORDER_BY_KEY_TIMESTAMP + ' ' + statement.tokens[-1].value
+        else:
+            raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
+                                  error_code=INVALID_PARAMETER_VALUE)
+        return token_value
 
-        token_value = statement.tokens[0].value
+    @classmethod
+    def _parse_order_by_string(cls, order_by):
+        token_value = cls._validate_order_by_and_generate_token(order_by)
         is_ascending = True
-        if token_value.lower().endswith(" desc"):
-            is_ascending = False
-            token_value = token_value[0:-len(" desc")]
-        elif token_value.lower().endswith(" asc"):
-            token_value = token_value[0:-len(" asc")]
+        tokens = token_value.split()
+        if len(tokens) > 2:
+            raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
+                                  error_code=INVALID_PARAMETER_VALUE)
+        elif len(tokens) == 2:
+            order_token = tokens[1].lower()
+            if order_token not in cls.VALID_ORDER_BY_TAGS:
+                raise MlflowException(f"Invalid ordering key in order_by clause '{order_by}'.",
+                                      error_code=INVALID_PARAMETER_VALUE)
+            is_ascending = (order_token == cls.ASC_OPERATOR)
+            token_value = tokens[0]
+        return token_value, is_ascending
+
+    @classmethod
+    def parse_order_by_for_search_runs(cls, order_by):
+        token_value, is_ascending = cls._parse_order_by_string(order_by)
         identifier = cls._get_identifier(token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
-        return (identifier["type"], identifier["key"], is_ascending)
+        return identifier["type"], identifier["key"], is_ascending
+
+    @classmethod
+    def parse_order_by_for_search_registered_models(cls, order_by):
+        token_value, is_ascending = cls._parse_order_by_string(order_by)
+        token_value = token_value.strip()
+        if token_value not in cls.VALID_ORDER_BY_KEYS_REGISTERED_MODELS:
+            raise MlflowException(f"Invalid order by key '{token_value}' specified. Valid keys "
+                                  f"are '{cls.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS}'",
+                                  error_code=INVALID_PARAMETER_VALUE)
+        return token_value, is_ascending
 
     @classmethod
     def _get_value_for_sort(cls, run, key_type, key, ascending):
@@ -376,7 +429,7 @@ class SearchUtils(object):
         # NB: We rely on the stability of Python's sort function, so that we can apply
         # the ordering conditions in reverse order.
         for order_by_clause in reversed(order_by_list):
-            (key_type, key, ascending) = cls.parse_order_by(order_by_clause)
+            (key_type, key, ascending) = cls.parse_order_by_for_search_runs(order_by_clause)
             # pylint: disable=cell-var-from-loop
             runs = sorted(runs,
                           key=lambda run: cls._get_value_for_sort(run, key_type, key, ascending),
@@ -442,16 +495,18 @@ class SearchUtils(object):
     # TODO: Tech debt. Refactor search code into common utils, tracking server, and model
     #       registry specific code.
 
-    VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY = set(["name", "run_id", "source_path"])
+    VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS = set(["name", "run_id", "source_path"])
+    VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS = set(["name"])
 
     @classmethod
-    def _get_comparison_for_model_registry(cls, comparison):
+    def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
         key = stripped_comparison[0].value
-        if key not in cls.VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY:
+        if key not in valid_search_keys:
             raise MlflowException("Invalid attribute key '{}' specified. Valid keys "
-                                  " are '{}'".format(key, cls.VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY))
+                                  " are '{}'".format(key, valid_search_keys),
+                                  error_code=INVALID_PARAMETER_VALUE)
         value_token = stripped_comparison[2]
         if value_token.ttype not in cls.STRING_VALUE_TYPES:
             raise MlflowException("Expected a quoted string value for attributes. "
@@ -465,7 +520,7 @@ class SearchUtils(object):
         return comp
 
     @classmethod
-    def parse_filter_for_model_registry(cls, filter_string):
+    def _parse_filter_for_model_registry(cls, filter_string, valid_search_keys):
         if not filter_string or filter_string == "":
             return []
         expected = "Expected search filter with single comparison operator. e.g. name='myModelName'"
@@ -488,5 +543,19 @@ class SearchUtils(object):
             raise MlflowException("Invalid clause(s) in filter string: %s. "
                                   "%s" % (invalid_clauses, expected),
                                   error_code=INVALID_PARAMETER_VALUE)
-        return [cls._get_comparison_for_model_registry(si)
-                for si in statement.tokens if isinstance(si, Comparison)]
+        return [cls._get_comparison_for_model_registry(
+            si,
+            valid_search_keys)
+            for si in statement.tokens if isinstance(si, Comparison)]
+
+    @classmethod
+    def parse_filter_for_model_versions(cls, filter_string):
+        return cls._parse_filter_for_model_registry(
+            filter_string,
+            cls.VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS)
+
+    @classmethod
+    def parse_filter_for_registered_models(cls, filter_string):
+        return cls._parse_filter_for_model_registry(
+            filter_string,
+            cls.VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS)

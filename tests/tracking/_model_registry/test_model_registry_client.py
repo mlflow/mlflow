@@ -9,6 +9,7 @@ import mock
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel, \
     RegisteredModel
 from mlflow.exceptions import MlflowException
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 
 
@@ -35,7 +36,7 @@ def test_create_registered_model(mock_store):
     assert result.name == "Model 1"
 
 
-def test_update_and_rename_registered_model(mock_store):
+def test_update_registered_model(mock_store):
     name = "Model 1"
     new_description = "New Description"
     new_description_2 = "New Description 2"
@@ -46,13 +47,16 @@ def test_update_and_rename_registered_model(mock_store):
         name=name,
         description=new_description)
     mock_store.update_registered_model.assert_called_with(name=name, description=new_description)
-
     assert result.description == new_description
-    newModelRegistryClient().update_registered_model(
+
+    mock_store.update_registered_model.return_value = RegisteredModel(name,
+                                                                      description=new_description_2)
+    result = newModelRegistryClient().update_registered_model(
         name=name,
         description=new_description_2)
     mock_store.update_registered_model.assert_called_with(name=name,
                                                           description="New Description 2")
+    assert result.description == new_description_2
 
 
 def test_rename_registered_model(mock_store):
@@ -65,11 +69,12 @@ def test_rename_registered_model(mock_store):
     mock_store.rename_registered_model.assert_called_with(name=name, new_name=new_name)
     assert result.name == "New Name"
 
-    mock_store.update_registered_model.return_value = RegisteredModel("New Name 2")
-    newModelRegistryClient().rename_registered_model(
+    mock_store.rename_registered_model.return_value = RegisteredModel("New Name 2")
+    result = newModelRegistryClient().rename_registered_model(
         name=name,
         new_name="New Name 2")
     mock_store.rename_registered_model.assert_called_with(name=name, new_name="New Name 2")
+    assert result.name == "New Name 2"
 
 
 def test_update_registered_model_validation_errors_on_empty_new_name(mock_store):
@@ -83,13 +88,43 @@ def test_delete_registered_model(mock_store):
 
 
 def test_list_registered_models(mock_store):
-    mock_store.list_registered_models.return_value = [
+    mock_store.list_registered_models.return_value = PagedList([
         RegisteredModel("Model 1"),
         RegisteredModel("Model 2")
-    ]
+    ], "")
     result = newModelRegistryClient().list_registered_models()
     mock_store.list_registered_models.assert_called_once()
     assert len(result) == 2
+
+
+def test_search_registered_models(mock_store):
+    mock_store.search_registered_models.return_value = PagedList([
+        RegisteredModel("Model 1"),
+        RegisteredModel("Model 2")
+    ], "")
+    result = newModelRegistryClient().search_registered_models(filter_string="test filter")
+    mock_store.search_registered_models.assert_called_with("test filter", 100, None, None)
+    assert len(result) == 2
+    assert result.token == ""
+
+    result = newModelRegistryClient().search_registered_models(filter_string="another filter",
+                                                               max_results=12,
+                                                               order_by=["A", "B DESC"],
+                                                               page_token="next one")
+    mock_store.search_registered_models.assert_called_with("another filter", 12,
+                                                           ["A", "B DESC"], "next one")
+    assert len(result) == 2
+    assert result.token == ""
+
+    mock_store.search_registered_models.return_value = PagedList([
+        RegisteredModel("model A"),
+        RegisteredModel("Model zz"),
+        RegisteredModel("Model b")
+    ], "page 2 token")
+    result = newModelRegistryClient().search_registered_models(max_results=5)
+    mock_store.search_registered_models.assert_called_with(None, 5, None, None)
+    assert [rm.name for rm in result] == ["model A", "Model zz", "Model b"]
+    assert result.token == "page 2 token"
 
 
 def test_get_registered_model_details(mock_store):

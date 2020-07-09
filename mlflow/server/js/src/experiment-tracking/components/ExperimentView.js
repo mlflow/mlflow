@@ -79,23 +79,23 @@ export class ExperimentView extends Component {
 
   static propTypes = {
     onSearch: PropTypes.func.isRequired,
-    runInfos: PropTypes.arrayOf(RunInfo).isRequired,
+    runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     history: PropTypes.any,
 
     // List of all parameter keys available in the runs we're viewing
-    paramKeyList: PropTypes.arrayOf(String).isRequired,
+    paramKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
     // List of all metric keys available in the runs we're viewing
-    metricKeyList: PropTypes.arrayOf(String).isRequired,
+    metricKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
 
     // List of list of params in all the visible runs
-    paramsList: PropTypes.arrayOf(Array).isRequired,
+    paramsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // List of list of metrics in all the visible runs
-    metricsList: PropTypes.arrayOf(Array).isRequired,
+    metricsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // List of tags dictionary in all the visible runs.
-    tagsList: PropTypes.arrayOf(Object).isRequired,
+    tagsList: PropTypes.arrayOf(PropTypes.object).isRequired,
     // Object of experiment tags
-    experimentTags: PropTypes.instanceOf(Object).isRequired,
+    experimentTags: PropTypes.object.isRequired,
 
     // Input to the paramKeyFilter field
     paramKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
@@ -343,6 +343,11 @@ export class ExperimentView extends Component {
     return _.difference(keyList, categorizedUncheckedKeys[columnType]);
   }
 
+  renderArtifactLocation() {
+    const { artifact_location } = this.props.experiment;
+    return <Descriptions.Item label='Artifact Location'>{artifact_location}</Descriptions.Item>;
+  }
+
   render() {
     const {
       runInfos,
@@ -356,7 +361,7 @@ export class ExperimentView extends Component {
       paramKeyList,
       metricKeyList,
     } = this.props;
-    const { experiment_id, name, artifact_location } = experiment;
+    const { experiment_id, name } = experiment;
     const { persistedState } = this.state;
     const { unbaggedParams, unbaggedMetrics, categorizedUncheckedKeys } = persistedState;
 
@@ -400,7 +405,7 @@ export class ExperimentView extends Component {
         <h1>{name}</h1>
         <Descriptions className='metadata-list'>
           <Descriptions.Item label='Experiment ID'>{experiment_id}</Descriptions.Item>
-          <Descriptions.Item label='Artifact Location'>{artifact_location}</Descriptions.Item>
+          {this.renderArtifactLocation()}
         </Descriptions>
         <div className='ExperimentView-info'>{this.renderNoteSection(noteInfo)}</div>
         <div className='ExperimentView-runs runs-table-flex-container'>

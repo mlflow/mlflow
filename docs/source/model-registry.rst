@@ -36,7 +36,7 @@ Annotations and Descriptions
 Model Registry Workflows
 ========================
 If running your own MLflow server, you must use a database-backed backend store in order to access
-the model registry via the UI or API. `See here <../tracking.html#backend-stores>`_ for more information.
+the model registry via the UI or API. `See here <tracking.html#backend-stores>`_ for more information.
 
 Before you can add a model to the Model Registry, you must log it using the ``log_model`` methods
 of the corresponding model flavors. Once a model has been logged, you can add, modify, update, transition,
@@ -151,6 +151,60 @@ While the method above creates an empty registered model with no version associa
         source="mlruns/0/d16076a3ec534311817565e6527539c0/artifacts/sklearn-model",
         run_id="d16076a3ec534311817565e6527539c0"
     )
+
+Fetching an MLflow Model from the Model Registry
+------------------------------------------------
+
+After you have registered an MLflow model, you can fetch that model using ``mlflow.<model_flavor>.load_model()``, or more generally, :meth:`~mlflow.pyfunc.load_model`. 
+
+**Fetch a specific model version**
+
+To fetch a specific model version, just supply that version number as part of the model URI.
+
+.. code-block:: py
+
+    import mlflow.pyfunc
+
+    model_name = "sk-learn-random-forest-reg-model"
+    model_version = 1
+
+    model = mlflow.pyfunc.load_model(
+        model_uri=f"models:/{model_name}/{model_version}
+    )
+
+    model.predict(data)
+
+**Fetch the latest model version in a specific stage**
+
+To fetch a model version by stage, simply provide the model stage as part of the model URI, and it will fetch the most recent version of the model in that stage.
+
+.. code-block:: py
+
+    import mlflow.pyfunc
+
+    model_name = "sk-learn-random-forest-reg-model"
+    stage = 'Staging'
+
+    model = mlflow.pyfunc.load_model(
+        model_uri=f"models:/{model_name}/{stage}
+    )
+
+    model.predict(data)
+
+Serving an MLflow Model from Model Registry
+-------------------------------------------
+
+After you have registered an MLflow model, you can serve the model as a service on your host.
+
+.. code-block:: bash
+
+    #!/usr/bin/env sh
+
+    # Set environment variable for the tracking URL where the Model Registry resides
+    export MLFLOW_TRACKING_URI=http://localhost:5000
+
+    # Serve the production model from the model registry
+    mlflow models serve -m "models:/sk-learn-random-forest-reg-model/Production"
 
 Adding or Updating an MLflow Model Descriptions
 -----------------------------------------------

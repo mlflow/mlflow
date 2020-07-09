@@ -38,6 +38,7 @@ describe('ArtifactView', () => {
     minimalProps = {
       runUuid: 'fakeUuid',
       artifactNode: node,
+      artifactRootUri: 'test_root',
       listArtifactsApi: jest.fn(() => Promise.resolve({})),
       modelVersionsBySource: {},
       handleActiveNodeChange: jest.fn(),
@@ -58,10 +59,14 @@ describe('ArtifactView', () => {
     rootNode.isLoaded = true;
     const file1 = new ArtifactNode(false, { path: 'file1', is_dir: false, file_size: '159' });
     const dir1 = new ArtifactNode(false, { path: 'dir1', is_dir: true });
+    const dir2 = new ArtifactNode(false, { path: 'dir2', is_dir: true });
     const file2 = new ArtifactNode(false, { path: 'dir1/file2', is_dir: false, file_size: '67' });
     const file3 = new ArtifactNode(false, { path: 'dir1/file3', is_dir: false, file_size: '123' });
+    const file4 = new ArtifactNode(false, { path: 'dir2/file4', is_dir: false, file_size: '67' });
+    const file5 = new ArtifactNode(false, { path: 'dir2/MLmodel', is_dir: false, file_size: '67' });
     dir1.setChildren([file2.fileInfo, file3.fileInfo]);
-    rootNode.children = { file1, dir1 };
+    dir2.setChildren([file4.fileInfo, file5.fileInfo]);
+    rootNode.children = { file1, dir1, dir2 };
     return rootNode;
   };
 
@@ -201,13 +206,13 @@ describe('ArtifactView', () => {
     dir1Element.simulate('click');
     expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir1');
     // Now that `dir1` has been selected, we expect the visible artifact tree
-    // to contain 4 elements: file1, dir1, file2, and file3
-    expect(wrapper.find('NodeHeader')).toHaveLength(4);
+    // to contain 5 elements: file1, dir2, dir1, file2, and file3
+    expect(wrapper.find('NodeHeader')).toHaveLength(5);
     // Directories should be displayed as zero bytes in size
     expect(wrapper.find('.artifact-info-size').html()).toContain('0B');
   });
 
-  test('should render register model button for directory when no versions exist', () => {
+  test('should not render register model button for directory with no MLmodel file', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
     const props = { ...minimalProps };
     wrapper = mount(
@@ -220,6 +225,22 @@ describe('ArtifactView', () => {
     const dir1Element = wrapper.find('NodeHeader').at(1);
     dir1Element.simulate('click');
     expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir1');
+    expect(wrapper.find('.register-model-btn-wrapper')).toHaveLength(0);
+  });
+
+  test('should render register model button for directory with MLmodel file', () => {
+    expect(Utils.isModelRegistryEnabled()).toEqual(true);
+    const props = { ...minimalProps };
+    wrapper = mount(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ArtifactView {...props} />
+        </BrowserRouter>
+      </Provider>,
+    );
+    const dir2Element = wrapper.find('NodeHeader').at(2);
+    dir2Element.simulate('click');
+    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir2');
     expect(wrapper.find('.register-model-btn-wrapper')).toHaveLength(1);
   });
 
@@ -246,7 +267,7 @@ describe('ArtifactView', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
 
     const modelVersionsBySource = {
-      'test_root/dir1': [
+      'test_root/dir2': [
         mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY, []),
       ],
     };
@@ -257,7 +278,7 @@ describe('ArtifactView', () => {
         'Model A': {
           '1': {
             ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
-            source: 'test_root/dir1',
+            source: 'test_root/dir2',
           },
         },
       },
@@ -272,12 +293,50 @@ describe('ArtifactView', () => {
         </BrowserRouter>
       </Provider>,
     );
-
-    const dir1Element = wrapper.find('NodeHeader').at(1);
-    dir1Element.simulate('click');
-    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir1');
+    const dir2Element = wrapper.find('NodeHeader').at(2);
+    dir2Element.simulate('click');
+    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir2');
     expect(wrapper.find('.model-version-info')).toHaveLength(1);
     expect(wrapper.find('.model-version-link')).toHaveLength(1);
     expect(wrapper.find('.model-version-link').props().title).toEqual('Model A, v1');
+  });
+
+  test('should not render model version link for file under valid model version directory', () => {
+    expect(Utils.isModelRegistryEnabled()).toEqual(true);
+
+    const modelVersionsBySource = {
+      'test_root/dir2': [
+        mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY, []),
+      ],
+    };
+    const props = { ...minimalProps, modelVersionsBySource };
+    const entities = {
+      ...minimalEntities,
+      modelVersionsByModel: {
+        'Model A': {
+          '1': {
+            ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
+            source: 'test_root/dir2',
+          },
+        },
+      },
+    };
+    const store = mockStore({
+      entities: entities,
+    });
+    wrapper = mount(
+      <Provider store={store}>
+        <BrowserRouter>
+          <ArtifactView {...props} />
+        </BrowserRouter>
+      </Provider>,
+    );
+    const dir2Element = wrapper.find('NodeHeader').at(2);
+    dir2Element.simulate('click');
+    const file4Element = wrapper.find('NodeHeader').at(3);
+    file4Element.simulate('click');
+    expect(wrapper.find('.model-version-info')).toHaveLength(0);
+    expect(wrapper.find('.model-version-link')).toHaveLength(0);
+    expect(wrapper.find('.artifact-info-link')).toHaveLength(1);
   });
 });

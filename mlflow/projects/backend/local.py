@@ -7,6 +7,7 @@ import posixpath
 import subprocess
 import sys
 
+import mlflow
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects.docker import (
     validate_docker_env, validate_docker_installation, build_docker_image,
@@ -17,6 +18,7 @@ from mlflow.projects.backend.abstract_backend import AbstractBackend
 from mlflow.projects.utils import (
     fetch_and_validate_project, get_or_create_run, load_project, get_conda_command,
     get_conda_bin_executable, get_entry_point_command, get_run_env_vars,
+    get_databricks_env_vars,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG, MLFLOW_DOCKER_WORKDIR_PATH,
     PROJECT_USE_CONDA, PROJECT_SYNCHRONOUS, PROJECT_DOCKER_ARGS,
     MLFLOW_CONDA_HOME, PROJECT_STORAGE_DIR
@@ -99,8 +101,10 @@ def _invoke_mlflow_run_subprocess(
     mlflow_run_arr = _build_mlflow_run_cmd(
         uri=work_dir, entry_point=entry_point, storage_dir=storage_dir, use_conda=use_conda,
         run_id=run_id, parameters=parameters)
+    env_vars = get_run_env_vars(run_id, experiment_id)
+    env_vars.update(get_databricks_env_vars(mlflow.get_tracking_uri()))
     mlflow_run_subprocess = _run_mlflow_run_cmd(
-        mlflow_run_arr, get_run_env_vars(run_id, experiment_id))
+        mlflow_run_arr, env_vars)
     return LocalSubmittedRun(run_id, mlflow_run_subprocess)
 
 
@@ -148,6 +152,7 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     """
     env = os.environ.copy()
     env.update(get_run_env_vars(run_id, experiment_id))
+    env.update(get_databricks_env_vars(tracking_uri=mlflow.get_tracking_uri()))
     _logger.info("=== Running command '%s' in run with ID '%s' === ", command, run_id)
     # in case os name is not 'nt', we are not running on windows. It introduces
     # bash command otherwise.

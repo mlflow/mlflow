@@ -73,39 +73,61 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rmd.latest_versions, [])
 
     def test_update_registered_model(self):
-        name1 = "model_for_update_RM"
-        name2 = "NewName"
-        rm1 = self._rm_maker(name1)
-        rmd1 = self.store.get_registered_model(name=name1)
-        self.assertEqual(rm1.name, name1)
+        name = "model_for_update_RM"
+        rm1 = self._rm_maker(name)
+        rmd1 = self.store.get_registered_model(name=name)
+        self.assertEqual(rm1.name, name)
         self.assertEqual(rmd1.description, None)
 
-        # update name
-        rm2 = self.store.rename_registered_model(name=name1, new_name=name2)
-        rmd2 = self.store.get_registered_model(name=name2)
-        self.assertEqual(rm2.name, "NewName")
-        self.assertEqual(rmd2.name, "NewName")
-        self.assertEqual(rmd2.description, None)
-
         # update description
-        rm3 = self.store.update_registered_model(name=name2, description="test model")
-        rmd3 = self.store.get_registered_model(name=name2)
-        self.assertEqual(rm3.name, "NewName")
-        self.assertEqual(rmd3.name, "NewName")
-        self.assertEqual(rmd3.description, "test model")
+        rm2 = self.store.update_registered_model(name=name, description="test model")
+        rmd2 = self.store.get_registered_model(name=name)
+        self.assertEqual(rm2.name, "model_for_update_RM")
+        self.assertEqual(rmd2.name, "model_for_update_RM")
+        self.assertEqual(rmd2.description, "test model")
 
-        # new models with old names
-        self._rm_maker(name1)
+    def test_rename_registered_model(self):
+        original_name = "original name"
+        new_name = "new name"
+        self._rm_maker(original_name)
+        self._mv_maker(original_name)
+        self._mv_maker(original_name)
+        rm = self.store.get_registered_model(original_name)
+        mv1 = self.store.get_model_version(original_name, 1)
+        mv2 = self.store.get_model_version(original_name, 2)
+        self.assertEqual(rm.name, original_name)
+        self.assertEqual(mv1.name, original_name)
+        self.assertEqual(mv2.name, original_name)
+
+        # test renaming registered model also updates its model versions
+        self.store.rename_registered_model(original_name, new_name)
+        rm = self.store.get_registered_model(new_name)
+        mv1 = self.store.get_model_version(new_name, 1)
+        mv2 = self.store.get_model_version(new_name, 2)
+        self.assertEqual(rm.name, new_name)
+        self.assertEqual(mv1.name, new_name)
+        self.assertEqual(mv2.name, new_name)
+
+        # test accessing the model with the old name will fail
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.get_registered_model(original_name)
+        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+        # test name another model with the replaced name is ok
+        self._rm_maker(original_name)
         # cannot rename model to conflict with an existing model
         with self.assertRaises(MlflowException) as exception_context:
-            self.store.rename_registered_model(name=name2, new_name=name1)
+            self.store.rename_registered_model(new_name, original_name)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
 
     def test_delete_registered_model(self):
         name = "model_for_delete_RM"
-        rm = self._rm_maker(name)
-        rmd1 = self.store.get_registered_model(name=name)
-        self.assertEqual(rmd1.name, name)
+        self._rm_maker(name)
+        self._mv_maker(name)
+        rm1 = self.store.get_registered_model(name=name)
+        mv1 = self.store.get_model_version(name, 1)
+        self.assertEqual(rm1.name, name)
+        self.assertEqual(mv1.name, name)
 
         # delete model
         self.store.delete_registered_model(name=name)
@@ -125,29 +147,94 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.store.delete_registered_model(name=name)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
+        # model versions are cascade deleted with the registered model
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.get_model_version(name, 1)
+        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    def _list_registered_models(self, page_token=None, max_results=10):
+        result = self.store.list_registered_models(max_results, page_token)
+        for idx in range(len(result)):
+            result[idx] = result[idx].name
+        return result
+
     def test_list_registered_model(self):
         self._rm_maker("A")
-        registered_models = self.store.list_registered_models()
+        registered_models = self.store.list_registered_models(max_results=10, page_token=None)
         self.assertEqual(len(registered_models), 1)
         self.assertEqual(registered_models[0].name, "A")
         self.assertIsInstance(registered_models[0], RegisteredModel)
 
         self._rm_maker("B")
-        self.assertEqual(set([rm.name for rm in self.store.list_registered_models()]),
+        self.assertEqual(set(self._list_registered_models()),
                          set(["A", "B"]))
 
         self._rm_maker("BB")
         self._rm_maker("BA")
         self._rm_maker("AB")
         self._rm_maker("BBC")
-        self.assertEqual(set([rm.name for rm in self.store.list_registered_models()]),
+        self.assertEqual(set(self._list_registered_models()),
                          set(["A", "B", "BB", "BA", "AB", "BBC"]))
 
         # list should not return deleted models
         self.store.delete_registered_model(name="BA")
         self.store.delete_registered_model(name="B")
-        self.assertEqual(set([rm.name for rm in self.store.list_registered_models()]),
+        self.assertEqual(set(self._list_registered_models()),
                          set(["A", "BB", "AB", "BBC"]))
+
+    def test_list_registered_model_paginated_last_page(self):
+        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
+
+        # test flow with fixed max_results
+        returned_rms = []
+        result = self._list_registered_models(page_token=None, max_results=25)
+        returned_rms.extend(result)
+        while result.token:
+            result = self._list_registered_models(page_token=result.token, max_results=25)
+            self.assertEqual(len(result), 25)
+            returned_rms.extend(result)
+        self.assertEqual(result.token, None)
+        self.assertEqual(set(rms), set(returned_rms))
+
+    def test_list_registered_model_paginated_returns_in_correct_order(self):
+        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
+
+        # test that pagination will return all valid results in sorted order
+        # by name ascending
+        result = self._list_registered_models(max_results=5)
+        self.assertNotEqual(result.token, None)
+        self.assertEqual(result, rms[0:5])
+
+        result = self._list_registered_models(page_token=result.token, max_results=10)
+        self.assertNotEqual(result.token, None)
+        self.assertEqual(result, rms[5:15])
+
+        result = self._list_registered_models(page_token=result.token, max_results=20)
+        self.assertNotEqual(result.token, None)
+        self.assertEqual(result, rms[15:35])
+
+        result = self._list_registered_models(page_token=result.token, max_results=100)
+        # assert that page token is None
+        self.assertEqual(result.token, None)
+        self.assertEqual(result, rms[35:])
+
+    def test_list_registered_model_paginated_errors(self):
+        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
+        # test that providing a completely invalid page token throws
+        with self.assertRaises(MlflowException) as exception_context:
+            self._list_registered_models(page_token="evilhax", max_results=20)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # test that providing too large of a max_results throws
+        with self.assertRaises(MlflowException) as exception_context:
+            self._list_registered_models(page_token="evilhax", max_results=1e15)
+            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        self.assertIn("Invalid value for request parameter max_results",
+                      exception_context.exception.message)
+        # list should not return deleted models
+        self.store.delete_registered_model(name=f"RM{0:03}")
+        self.assertEqual(set(self._list_registered_models(max_results=100)),
+                         set(rms[1:]))
 
     def test_get_latest_versions(self):
         name = "test_for_latest_versions"
@@ -382,98 +469,321 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert mvds[0].source == "A/B"
         assert mvds[0].description == "Online prediction model!"
 
+    def _search_registered_models(self,
+                                  filter_string,
+                                  max_results=10,
+                                  order_by=None,
+                                  page_token=None):
+        result = self.store.search_registered_models(filter_string=filter_string,
+                                                     max_results=max_results,
+                                                     order_by=order_by,
+                                                     page_token=page_token)
+        return [registered_model.name for registered_model in result], result.token
+
     def test_search_registered_models(self):
         # create some registered models
         prefix = "test_for_search_"
-        name1 = prefix + "RM1"
-        name2 = prefix + "RM2"
-        name3 = prefix + "RM3"
-        name4 = prefix + "RM4"
-        name5 = prefix + "RM4A"
-        name6 = prefix + "RM4a"
-        self._rm_maker(name1)
-        self._rm_maker(name2)
-        self._rm_maker(name3)
-        self._rm_maker(name4)
-        self._rm_maker(name5)
-        self._rm_maker(name6)
-
-        def search_registered_model(filter_string):
-            return [rm.name for rm in self.store.search_registered_models(filter_string)]
+        names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4a"]]
+        [self._rm_maker(name) for name in names]
 
         # search with no filter should return all registered models
-        self.assertEqual(set(search_registered_model(None)),
-                         set([name1, name2, name3, name4, name5, name6]))
+        rms, _ = self._search_registered_models(None)
+        self.assertEqual(rms, names)
 
         # equality search using name should return exactly the 1 name
-        self.assertEqual(set(search_registered_model(f"name='{name1}'")), set([name1]))
+        rms, _ = self._search_registered_models(f"name='{names[0]}'")
+        self.assertEqual(rms, [names[0]])
 
         # equality search using name that is not valid should return nothing
-        self.assertEqual(set(search_registered_model(f"name='{name1+'cats'}'")), set([]))
+        rms, _ = self._search_registered_models(f"name='{names[0] + 'cats'}'")
+        self.assertEqual(rms, [])
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        self.assertEqual(set(search_registered_model(f"name LIKE '{prefix}%'")),
-                         set([name1, name2, name3, name4, name5, name6]))
+        rms, _ = self._search_registered_models(f"name LIKE '{prefix}%'")
+        self.assertEqual(rms, names)
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
-        self.assertEqual(set(search_registered_model(f"name LIKE '%RM%'")),
-                         set([name1, name2, name3, name4, name5, name6]))
+        rms, _ = self._search_registered_models(f"name LIKE '%RM%'")
+        self.assertEqual(rms, names)
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
         # _e% matches test_for_search_ , so all RMs should match
-        self.assertEqual(set(search_registered_model(f"name LIKE '_e%'")),
-                         set([name1, name2, name3, name4, name5, name6]))
+        rms, _ = self._search_registered_models(f"name LIKE '_e%'")
+        self.assertEqual(rms, names)
 
-        # case-sensitive prefix search using LIKE should return just rm5
-        self.assertEqual(set(search_registered_model(f"name LIKE '{prefix + 'RM4A'}%'")),
-                         set([name5]))
+        # case-sensitive prefix search using LIKE should return just rm4
+        rms, _ = self._search_registered_models(f"name LIKE '{prefix + 'RM4A'}%'")
+        self.assertEqual(rms, [names[4]])
 
         # case-sensitive prefix search using LIKE should return no models if no match
-        self.assertEqual(set(search_registered_model(f"name LIKE '{prefix + 'cats'}%'")),
-                         set([]))
+        rms, _ = self._search_registered_models(f"name LIKE '{prefix + 'cats'}%'")
+        self.assertEqual(rms, [])
+
+        # confirm that LIKE is not case-sensitive
+        rms, _ = self._search_registered_models(f"name lIkE '%blah%'")
+        self.assertEqual(rms, [])
+
+        rms, _ = self._search_registered_models(f"name like '{prefix + 'RM4A'}%'")
+        self.assertEqual(rms, [names[4]])
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        self.assertEqual(set(search_registered_model(f"name ILIKE '{prefix + 'RM4A'}%'")),
-                         set([name5, name6]))
+        rms, _ = self._search_registered_models(f"name ILIKE '{prefix + 'RM4A'}%'")
+        self.assertEqual(rms, names[4:])
 
         # case-insensitive postfix search with ILIKE
-        self.assertEqual(set(search_registered_model(f"name ILIKE '%RM4a'")),
-                         set([name5, name6]))
+        rms, _ = self._search_registered_models(f"name ILIKE '%RM4a'")
+        self.assertEqual(rms, names[4:])
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        self.assertEqual(set(search_registered_model(f"name ILIKE '{prefix + 'cats'}%'")),
-                         set([]))
+        rms, _ = self._search_registered_models(f"name ILIKE '{prefix + 'cats'}%'")
+        self.assertEqual(rms, [])
+
+        # confirm that ILIKE is not case-sensitive
+        rms, _ = self._search_registered_models(f"name iLike '%blah%'")
+        self.assertEqual(rms, [])
+
+        # confirm that ILIKE works for empty query
+        rms, _ = self._search_registered_models(f"name iLike '%%'")
+        self.assertEqual(rms, names)
+
+        rms, _ = self._search_registered_models(f"name ilike '%RM4a'")
+        self.assertEqual(rms, names[4:])
 
         # cannot search by invalid comparator types
         with self.assertRaises(MlflowException) as exception_context:
-            search_registered_model("name!=something")
+            self._search_registered_models("name!=something")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by run_id
         with self.assertRaises(MlflowException) as exception_context:
-            search_registered_model("run_id='%s'" % "somerunID")
+            self._search_registered_models("run_id='%s'" % "somerunID")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by source_path
         with self.assertRaises(MlflowException) as exception_context:
-            search_registered_model("source_path = 'A/D'")
+            self._search_registered_models("source_path = 'A/D'")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by other params
         with self.assertRaises(MlflowException) as exception_context:
-            search_registered_model("evilhax = true")
+            self._search_registered_models("evilhax = true")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-        # delete rm6. search should not return RM 6
-        self.store.delete_registered_model(name=name6)
+        # delete last registered model. search should not return the first 5
+        self.store.delete_registered_model(name=names[-1])
+        self.assertEqual(self._search_registered_models(None, max_results=1000), (names[:-1], None))
 
         # equality search using name should return no names
-        self.assertEqual(set(search_registered_model("name='%s'" % name6)), set([]))
+        self.assertEqual(self._search_registered_models(f"name='{names[-1]}'"), ([], None))
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        self.assertEqual(set(search_registered_model(f"name LIKE '{prefix}%'")),
-                         set([name1, name2, name3, name4, name5]))
+        self.assertEqual(self._search_registered_models(f"name LIKE '{prefix}%'"),
+                         (names[0:5], None))
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        self.assertEqual(set(search_registered_model(f"name ILIKE '{prefix + 'RM4A'}%'")),
-                         set([name5]))
+        self.assertEqual(self._search_registered_models(f"name ILIKE '{prefix + 'RM4A'}%'"),
+                         ([names[4]], None))
+
+    def test_search_registered_model_pagination(self):
+        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
+
+        # test flow with fixed max_results
+        returned_rms = []
+        query = "name LIKE 'RM%'"
+        result, token = self._search_registered_models(query, page_token=None, max_results=5)
+        returned_rms.extend(result)
+        while token:
+            result, token = self._search_registered_models(query, page_token=token, max_results=5)
+            returned_rms.extend(result)
+        self.assertEqual(rms, returned_rms)
+
+        # test that pagination will return all valid results in sorted order
+        # by name ascending
+        result, token1 = self._search_registered_models(query, max_results=5)
+        self.assertNotEqual(token1, None)
+        self.assertEqual(result, rms[0:5])
+
+        result, token2 = self._search_registered_models(query, page_token=token1, max_results=10)
+        self.assertNotEqual(token2, None)
+        self.assertEqual(result, rms[5:15])
+
+        result, token3 = self._search_registered_models(query, page_token=token2, max_results=20)
+        self.assertNotEqual(token3, None)
+        self.assertEqual(result, rms[15:35])
+
+        result, token4 = self._search_registered_models(query, page_token=token3, max_results=100)
+        # assert that page token is None
+        self.assertEqual(token4, None)
+        self.assertEqual(result, rms[35:])
+
+        # test that providing a completely invalid page token throws
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_registered_models(query, page_token="evilhax", max_results=20)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # test that providing too large of a max_results throws
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_registered_models(query, page_token="evilhax", max_results=1e15)
+            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        self.assertIn("Invalid value for request parameter max_results",
+                      exception_context.exception.message)
+
+    def test_search_registered_model_order_by(self):
+        rms = []
+        # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
+        for i in range(50):
+            with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=i):
+                rms.append(self._rm_maker(f"RM{i:03}").name)
+
+        # test flow with fixed max_results and order_by (test stable order across pages)
+        returned_rms = []
+        query = "name LIKE 'RM%'"
+        result, token = self._search_registered_models(query,
+                                                       page_token=None,
+                                                       order_by=['name DESC'],
+                                                       max_results=5)
+        returned_rms.extend(result)
+        while token:
+            result, token = self._search_registered_models(query,
+                                                           page_token=token,
+                                                           order_by=['name DESC'],
+                                                           max_results=5)
+            returned_rms.extend(result)
+        # name descending should be the opposite order of the current order
+        self.assertEqual(rms[::-1], returned_rms)
+        # last_updated_timestamp descending should have the newest RMs first
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['last_updated_timestamp DESC'],
+                                                   max_results=100)
+        self.assertEqual(rms[::-1], result)
+        # timestamp returns same result as last_updated_timestamp
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp DESC'],
+                                                   max_results=100)
+        self.assertEqual(rms[::-1], result)
+        # last_updated_timestamp ascending should have the oldest RMs first
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['last_updated_timestamp ASC'],
+                                                   max_results=100)
+        self.assertEqual(rms, result)
+        # timestamp returns same result as last_updated_timestamp
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp ASC'],
+                                                   max_results=100)
+        self.assertEqual(rms, result)
+        # timestamp returns same result as last_updated_timestamp
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp'],
+                                                   max_results=100)
+        self.assertEqual(rms, result)
+        # name ascending should have the original order
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['name ASC'],
+                                                   max_results=100)
+        self.assertEqual(rms, result)
+        # test that no ASC/DESC defaults to ASC
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['last_updated_timestamp'],
+                                                   max_results=100)
+        self.assertEqual(rms, result)
+        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=1):
+            rm1 = self._rm_maker("MR1").name
+            rm2 = self._rm_maker("MR2").name
+        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=2):
+            rm3 = self._rm_maker("MR3").name
+            rm4 = self._rm_maker("MR4").name
+        query = "name LIKE 'MR%'"
+        # test with multiple clauses
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['last_updated_timestamp ASC',
+                                                             'name DESC'],
+                                                   max_results=100)
+        self.assertEqual([rm2, rm1, rm4, rm3], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp ASC',
+                                                             'name   DESC'],
+                                                   max_results=100)
+        self.assertEqual([rm2, rm1, rm4, rm3], result)
+        # confirm that name ascending is the default, even if ties exist on other fields
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=[],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        # test default tiebreak with descending timestamps
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['last_updated_timestamp DESC'],
+                                                   max_results=100)
+        self.assertEqual([rm3, rm4, rm1, rm2], result)
+        # test timestamp parsing
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp\tASC'],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp\r\rASC'],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp\nASC'],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp  ASC'],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        # validate order by key is case-insensitive
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp  asc'],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp  aSC'],
+                                                   max_results=100)
+        self.assertEqual([rm1, rm2, rm3, rm4], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp  desc',
+                                                             'name desc'],
+                                                   max_results=100)
+        self.assertEqual([rm4, rm3, rm2, rm1], result)
+        result, _ = self._search_registered_models(query,
+                                                   page_token=None,
+                                                   order_by=['timestamp  deSc',
+                                                             'name deSc'],
+                                                   max_results=100)
+        self.assertEqual([rm4, rm3, rm2, rm1], result)
+
+    def test_search_registered_model_order_by_errors(self):
+        query = "name LIKE 'RM%'"
+        # test that invalid columns throw even if they come after valid columns
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_registered_models(query,
+                                           page_token=None,
+                                           order_by=['name ASC', 'creation_timestamp DESC'],
+                                           max_results=5)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # test that invalid columns with random text throw even if they come after valid columns
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_registered_models(query,
+                                           page_token=None,
+                                           order_by=['name ASC',
+                                                     'last_updated_timestamp DESC blah'],
+                                           max_results=5)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

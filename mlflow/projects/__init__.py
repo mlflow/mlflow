@@ -3,9 +3,7 @@ The ``mlflow.projects`` module provides an API for running MLflow projects local
 """
 import json
 import os
-from six.moves import urllib
 import logging
-import posixpath
 
 import mlflow.projects.databricks
 import mlflow.tracking as tracking
@@ -17,9 +15,7 @@ from mlflow.projects.utils import (
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
     PROJECT_USE_CONDA, PROJECT_SYNCHRONOUS, PROJECT_DOCKER_ARGS, PROJECT_STORAGE_DIR
 )
-from mlflow.projects.docker import (
-    validate_docker_env, validate_docker_installation, build_docker_image
-)
+
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_BACKEND

@@ -7,6 +7,8 @@ import tempfile
 from distutils import dir_util
 from six.moves import urllib
 
+import mlflow.utils
+from mlflow.utils.uri import get_db_profile_from_uri
 from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
@@ -324,3 +326,26 @@ def get_run_env_vars(run_id, experiment_id):
         tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
         tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
     }
+
+
+def get_databricks_env_vars(tracking_uri):
+    if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
+        return {}
+
+    db_profile = get_db_profile_from_uri(tracking_uri)
+    config = databricks_utils.get_databricks_host_creds(db_profile)
+    # We set these via environment variables so that only the current profile is exposed, rather
+    # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
+    # part of ~/.databrickscfg into the container
+    env_vars = {}
+    env_vars[tracking._TRACKING_URI_ENV_VAR] = 'databricks'
+    env_vars['DATABRICKS_HOST'] = config.host
+    if config.username:
+        env_vars['DATABRICKS_USERNAME'] = config.username
+    if config.password:
+        env_vars['DATABRICKS_PASSWORD'] = config.password
+    if config.token:
+        env_vars['DATABRICKS_TOKEN'] = config.token
+    if config.ignore_tls_verification:
+        env_vars['DATABRICKS_INSECURE'] = str(config.ignore_tls_verification)
+    return env_vars

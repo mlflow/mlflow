@@ -8,11 +8,11 @@ import tempfile
 import docker
 
 from mlflow import tracking
+from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.exceptions import ExecutionException
-from mlflow.projects.databricks import is_databricks_uri, get_db_profile_from_uri
 from mlflow.projects.utils import MLFLOW_DOCKER_WORKDIR_PATH
 from mlflow.tracking.context.git_context import _get_git_commit
-from mlflow.utils import process, file_utils, databricks_utils
+from mlflow.utils import process, file_utils
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID
 
 _logger = logging.getLogger(__name__)
@@ -120,22 +120,7 @@ def get_docker_tracking_cmd_and_envs(tracking_uri):
     if local_path is not None:
         cmds = ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
         env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
-    if is_databricks_uri(tracking_uri):
-        db_profile = get_db_profile_from_uri(tracking_uri)
-        config = databricks_utils.get_databricks_host_creds(db_profile)
-        # We set these via environment variables so that only the current profile is exposed, rather
-        # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
-        # part of ~/.databrickscfg into the container
-        env_vars[tracking._TRACKING_URI_ENV_VAR] = 'databricks'
-        env_vars['DATABRICKS_HOST'] = config.host
-        if config.username:
-            env_vars['DATABRICKS_USERNAME'] = config.username
-        if config.password:
-            env_vars['DATABRICKS_PASSWORD'] = config.password
-        if config.token:
-            env_vars['DATABRICKS_TOKEN'] = config.token
-        if config.ignore_tls_verification:
-            env_vars['DATABRICKS_INSECURE'] = config.ignore_tls_verification
+    env_vars.update(get_databricks_env_vars(tracking_uri))
     return cmds, env_vars
 
 

@@ -24,7 +24,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='mlflow',
   syntax='proto2',
   serialized_options=_b('\n\024org.mlflow.api.proto\220\001\001\240\001\001\342?\002\020\001'),
-  serialized_pb=_b('\n\x14model_registry.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xb0\x01\n\x0fRegisteredModel\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1a\n\x12\x63reation_timestamp\x18\x02 \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\x03 \x01(\x03\x12\x0f\n\x07user_id\x18\x04 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12-\n\x0flatest_versions\x18\x06 \x03(\x0b\x32\x14.mlflow.ModelVersion\"\x8a\x02\n\x0cModelVersion\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x1a\n\x12\x63reation_timestamp\x18\x03 \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\x04 \x01(\x03\x12\x0f\n\x07user_id\x18\x05 \x01(\t\x12\x15\n\rcurrent_stage\x18\x06 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x07 \x01(\t\x12\x0e\n\x06source\x18\x08 \x01(\t\x12\x0e\n\x06run_id\x18\t \x01(\t\x12*\n\x06status\x18\n \x01(\x0e\x32\x1a.mlflow.ModelVersionStatus\x12\x16\n\x0estatus_message\x18\x0b \x01(\t\"\x97\x01\n\x15\x43reateRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a=\n\x08Response\x12\x31\n\x10registered_model\x18\x01 \x01(\x0b\x32\x17.mlflow.RegisteredModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa9\x01\n\x15RenameRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08new_name\x18\x02 \x01(\t\x1a=\n\x08Response\x12\x31\n\x10registered_model\x18\x01 \x01(\x0b\x32\x17.mlflow.RegisteredModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xac\x01\n\x15UpdateRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x1a=\n\x08Response\x12\x31\n\x10registered_model\x18\x01 \x01(\x0b\x32\x17.mlflow.RegisteredModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"d\n\x15\x44\x65leteRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x94\x01\n\x12GetRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a=\n\x08Response\x12\x31\n\x10registered_model\x18\x01 \x01(\x0b\x32\x17.mlflow.RegisteredModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9f\x01\n\x14ListRegisteredModels\x12\x1a\n\x0bmax_results\x18\x01 \x01(\x03:\x05\x35\x30\x30\x30\x30\x1a>\n\x08Response\x12\x32\n\x11registered_models\x18\x01 \x03(\x0b\x32\x17.mlflow.RegisteredModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9e\x01\n\x11GetLatestVersions\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06stages\x18\x02 \x03(\t\x1a\x38\n\x08Response\x12,\n\x0emodel_versions\x18\x01 \x03(\x0b\x32\x14.mlflow.ModelVersion:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb4\x01\n\x12\x43reateModelVersion\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06source\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x1a\x37\n\x08Response\x12+\n\rmodel_version\x18\x01 \x01(\x0b\x32\x14.mlflow.ModelVersion:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xba\x01\n\x12UpdateModelVersion\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x1a\x37\n\x08Response\x12+\n\rmodel_version\x18\x01 \x01(\x0b\x32\x14.mlflow.ModelVersion:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xec\x01\n\x1bTransitionModelVersionStage\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05stage\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\'\n\x19\x61rchive_existing_versions\x18\x04 \x01(\x08\x42\x04\xf8\x86\x19\x01\x1a\x37\n\x08Response\x12+\n\rmodel_version\x18\x01 \x01(\x0b\x32\x14.mlflow.ModelVersion:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"x\n\x12\x44\x65leteModelVersion\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa2\x01\n\x0fGetModelVersion\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x37\n\x08Response\x12+\n\rmodel_version\x18\x01 \x01(\x0b\x32\x14.mlflow.ModelVersion:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe8\x01\n\x13SearchModelVersions\x12\x0e\n\x06\x66ilter\x18\x01 \x01(\t\x12\x1b\n\x0bmax_results\x18\x02 \x01(\x03:\x06\x32\x30\x30\x30\x30\x30\x12\x10\n\x08order_by\x18\x03 \x03(\t\x12\x12\n\npage_token\x18\x04 \x01(\t\x1aQ\n\x08Response\x12,\n\x0emodel_versions\x18\x01 \x03(\x0b\x32\x14.mlflow.ModelVersion\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x96\x01\n\x1aGetModelVersionDownloadUri\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a \n\x08Response\x12\x14\n\x0c\x61rtifact_uri\x18\x01 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*R\n\x12ModelVersionStatus\x12\x18\n\x14PENDING_REGISTRATION\x10\x01\x12\x17\n\x13\x46\x41ILED_REGISTRATION\x10\x02\x12\t\n\x05READY\x10\x03\x32\x97\x14\n\x14ModelRegistryService\x12\xb6\x01\n\x15\x63reateRegisteredModel\x12\x1d.mlflow.CreateRegisteredModel\x1a&.mlflow.CreateRegisteredModel.Response\"V\xf2\x86\x19R\n6\n\x04POST\x12(/preview/mlflow/registered-models/create\x1a\x04\x08\x02\x10\x00\x10\x01*\x16\x43reate RegisteredModel\x12\xb6\x01\n\x15renameRegisteredModel\x12\x1d.mlflow.RenameRegisteredModel\x1a&.mlflow.RenameRegisteredModel.Response\"V\xf2\x86\x19R\n6\n\x04POST\x12(/preview/mlflow/registered-models/rename\x1a\x04\x08\x02\x10\x00\x10\x01*\x16Rename RegisteredModel\x12\xb7\x01\n\x15updateRegisteredModel\x12\x1d.mlflow.UpdateRegisteredModel\x1a&.mlflow.UpdateRegisteredModel.Response\"W\xf2\x86\x19S\n7\n\x05PATCH\x12(/preview/mlflow/registered-models/update\x1a\x04\x08\x02\x10\x00\x10\x01*\x16Update RegisteredModel\x12\xb8\x01\n\x15\x64\x65leteRegisteredModel\x12\x1d.mlflow.DeleteRegisteredModel\x1a&.mlflow.DeleteRegisteredModel.Response\"X\xf2\x86\x19T\n8\n\x06\x44\x45LETE\x12(/preview/mlflow/registered-models/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\x16\x44\x65lete RegisteredModel\x12\xa6\x01\n\x12getRegisteredModel\x12\x1a.mlflow.GetRegisteredModel\x1a#.mlflow.GetRegisteredModel.Response\"O\xf2\x86\x19K\n2\n\x03GET\x12%/preview/mlflow/registered-models/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x13Get RegisteredModel\x12\xaf\x01\n\x14listRegisteredModels\x12\x1c.mlflow.ListRegisteredModels\x1a%.mlflow.ListRegisteredModels.Response\"R\xf2\x86\x19N\n3\n\x03GET\x12&/preview/mlflow/registered-models/list\x1a\x04\x08\x02\x10\x00\x10\x01*\x15List RegisteredModels\x12\xb8\x01\n\x11getLatestVersions\x12\x19.mlflow.GetLatestVersions\x1a\".mlflow.GetLatestVersions.Response\"d\xf2\x86\x19`\nB\n\x03GET\x12\x35/preview/mlflow/registered-models/get-latest-versions\x1a\x04\x08\x02\x10\x00\x10\x01*\x18Get Latest ModelVersions\x12\xa7\x01\n\x12\x63reateModelVersion\x12\x1a.mlflow.CreateModelVersion\x1a#.mlflow.CreateModelVersion.Response\"P\xf2\x86\x19L\n3\n\x04POST\x12%/preview/mlflow/model-versions/create\x1a\x04\x08\x02\x10\x00\x10\x01*\x13\x43reate ModelVersion\x12\xa8\x01\n\x12updateModelVersion\x12\x1a.mlflow.UpdateModelVersion\x1a#.mlflow.UpdateModelVersion.Response\"Q\xf2\x86\x19M\n4\n\x05PATCH\x12%/preview/mlflow/model-versions/update\x1a\x04\x08\x02\x10\x00\x10\x01*\x13Update ModelVersion\x12\xd6\x01\n\x1btransitionModelVersionStage\x12#.mlflow.TransitionModelVersionStage\x1a,.mlflow.TransitionModelVersionStage.Response\"d\xf2\x86\x19`\n=\n\x04POST\x12//preview/mlflow/model-versions/transition-stage\x1a\x04\x08\x02\x10\x00\x10\x01*\x1dTransition ModelVersion Stage\x12\xa9\x01\n\x12\x64\x65leteModelVersion\x12\x1a.mlflow.DeleteModelVersion\x1a#.mlflow.DeleteModelVersion.Response\"R\xf2\x86\x19N\n5\n\x06\x44\x45LETE\x12%/preview/mlflow/model-versions/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\x13\x44\x65lete ModelVersion\x12\x97\x01\n\x0fgetModelVersion\x12\x17.mlflow.GetModelVersion\x1a .mlflow.GetModelVersion.Response\"I\xf2\x86\x19\x45\n/\n\x03GET\x12\"/preview/mlflow/model-versions/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x10Get ModelVersion\x12\xaa\x01\n\x13searchModelVersions\x12\x1b.mlflow.SearchModelVersions\x1a$.mlflow.SearchModelVersions.Response\"P\xf2\x86\x19L\n2\n\x03GET\x12%/preview/mlflow/model-versions/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x14Search ModelVersions\x12\xe0\x01\n\x1agetModelVersionDownloadUri\x12\".mlflow.GetModelVersionDownloadUri\x1a+.mlflow.GetModelVersionDownloadUri.Response\"q\xf2\x86\x19m\n<\n\x03GET\x12//preview/mlflow/model-versions/get-download-uri\x1a\x04\x08\x02\x10\x00\x10\x01*+Get Download URI For ModelVersion ArtifactsB!\n\x14org.mlflow.api.proto\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
+  serialized_pb=_b('\n\x14model_registry.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"\xda\x01\n\x0fRegisteredModel\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1a\n\x12\x63reation_timestamp\x18\x02 \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\x03 \x01(\x03\x12\x0f\n\x07user_id\x18\x04 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12-\n\x0flatest_versions\x18\x06 \x03(\x0b\x32\x14.mlflow.ModelVersion\x12(\n\x04tags\x18\x07 \x03(\x0b\x32\x1a.mlflow.RegisteredModelTag\"\xb1\x02\n\x0cModelVersion\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x1a\n\x12\x63reation_timestamp\x18\x03 \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\x04 \x01(\x03\x12\x0f\n\x07user_id\x18\x05 \x01(\t\x12\x15\n\rcurrent_stage\x18\x06 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x07 \x01(\t\x12\x0e\n\x06source\x18\x08 \x01(\t\x12\x0e\n\x06run_id\x18\t \x01(\t\x12*\n\x06status\x18\n \x01(\x0e\x32\x1a.mlflow.ModelVersionStatus\x12\x16\n\x0estatus_message\x18\x0b \x01(\t\x12%\n\x04tags\x18\x0c \x03(\x0b\x32\x17.mlflow.ModelVersionTag\"\xc1\x01\n\x15\x43reateRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12(\n\x04tags\x18\x02 \x03(\x0b\x32\x1a.mlflow.RegisteredModelTag\x1a=\n\x08Response\x12\x31\n\x10registered_model\x18\x01 \x01(\x0b\x32\x17.mlflow.RegisteredModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa9\x01\n\x15RenameRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08new_name\x18\x02 \x01(\t\x1a=\n\x08Response\x12\x31\n\x10registered_model\x18\x01 \x01(\x0b\x32\x17.mlflow.RegisteredModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xac\x01\n\x15UpdateRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x1a=\n\x08Response\x12\x31\n\x10registered_model\x18\x01 \x01(\x0b\x32\x17.mlflow.RegisteredModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"d\n\x15\x44\x65leteRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x94\x01\n\x12GetRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a=\n\x08Response\x12\x31\n\x10registered_model\x18\x01 \x01(\x0b\x32\x17.mlflow.RegisteredModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xca\x01\n\x14ListRegisteredModels\x12\x18\n\x0bmax_results\x18\x01 \x01(\x03:\x03\x31\x30\x30\x12\x12\n\npage_token\x18\x02 \x01(\t\x1aW\n\x08Response\x12\x32\n\x11registered_models\x18\x01 \x03(\x0b\x32\x17.mlflow.RegisteredModel\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xee\x01\n\x16SearchRegisteredModels\x12\x0e\n\x06\x66ilter\x18\x01 \x01(\t\x12\x18\n\x0bmax_results\x18\x02 \x01(\x03:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x03 \x03(\t\x12\x12\n\npage_token\x18\x04 \x01(\t\x1aW\n\x08Response\x12\x32\n\x11registered_models\x18\x01 \x03(\x0b\x32\x17.mlflow.RegisteredModel\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9e\x01\n\x11GetLatestVersions\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06stages\x18\x02 \x03(\t\x1a\x38\n\x08Response\x12,\n\x0emodel_versions\x18\x01 \x03(\x0b\x32\x14.mlflow.ModelVersion:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xdb\x01\n\x12\x43reateModelVersion\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06source\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12%\n\x04tags\x18\x04 \x03(\x0b\x32\x17.mlflow.ModelVersionTag\x1a\x37\n\x08Response\x12+\n\rmodel_version\x18\x01 \x01(\x0b\x32\x14.mlflow.ModelVersion:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xba\x01\n\x12UpdateModelVersion\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x1a\x37\n\x08Response\x12+\n\rmodel_version\x18\x01 \x01(\x0b\x32\x14.mlflow.ModelVersion:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xec\x01\n\x1bTransitionModelVersionStage\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05stage\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\'\n\x19\x61rchive_existing_versions\x18\x04 \x01(\x08\x42\x04\xf8\x86\x19\x01\x1a\x37\n\x08Response\x12+\n\rmodel_version\x18\x01 \x01(\x0b\x32\x14.mlflow.ModelVersion:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"x\n\x12\x44\x65leteModelVersion\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa2\x01\n\x0fGetModelVersion\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x37\n\x08Response\x12+\n\rmodel_version\x18\x01 \x01(\x0b\x32\x14.mlflow.ModelVersion:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe8\x01\n\x13SearchModelVersions\x12\x0e\n\x06\x66ilter\x18\x01 \x01(\t\x12\x1b\n\x0bmax_results\x18\x02 \x01(\x03:\x06\x32\x30\x30\x30\x30\x30\x12\x10\n\x08order_by\x18\x03 \x03(\t\x12\x12\n\npage_token\x18\x04 \x01(\t\x1aQ\n\x08Response\x12,\n\x0emodel_versions\x18\x01 \x03(\x0b\x32\x14.mlflow.ModelVersion\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x96\x01\n\x1aGetModelVersionDownloadUri\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a \n\x08Response\x12\x14\n\x0c\x61rtifact_uri\x18\x01 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"-\n\x0fModelVersionTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"0\n\x12RegisteredModelTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x8c\x01\n\x15SetRegisteredModelTag\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa0\x01\n\x12SetModelVersionTag\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x04 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"z\n\x18\x44\x65leteRegisteredModelTag\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8e\x01\n\x15\x44\x65leteModelVersionTag\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*R\n\x12ModelVersionStatus\x12\x18\n\x14PENDING_REGISTRATION\x10\x01\x12\x17\n\x13\x46\x41ILED_REGISTRATION\x10\x02\x12\t\n\x05READY\x10\x03\x32\xc7\x1b\n\x14ModelRegistryService\x12\xb6\x01\n\x15\x63reateRegisteredModel\x12\x1d.mlflow.CreateRegisteredModel\x1a&.mlflow.CreateRegisteredModel.Response\"V\xf2\x86\x19R\n6\n\x04POST\x12(/preview/mlflow/registered-models/create\x1a\x04\x08\x02\x10\x00\x10\x01*\x16\x43reate RegisteredModel\x12\xb6\x01\n\x15renameRegisteredModel\x12\x1d.mlflow.RenameRegisteredModel\x1a&.mlflow.RenameRegisteredModel.Response\"V\xf2\x86\x19R\n6\n\x04POST\x12(/preview/mlflow/registered-models/rename\x1a\x04\x08\x02\x10\x00\x10\x01*\x16Rename RegisteredModel\x12\xb7\x01\n\x15updateRegisteredModel\x12\x1d.mlflow.UpdateRegisteredModel\x1a&.mlflow.UpdateRegisteredModel.Response\"W\xf2\x86\x19S\n7\n\x05PATCH\x12(/preview/mlflow/registered-models/update\x1a\x04\x08\x02\x10\x00\x10\x01*\x16Update RegisteredModel\x12\xb8\x01\n\x15\x64\x65leteRegisteredModel\x12\x1d.mlflow.DeleteRegisteredModel\x1a&.mlflow.DeleteRegisteredModel.Response\"X\xf2\x86\x19T\n8\n\x06\x44\x45LETE\x12(/preview/mlflow/registered-models/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\x16\x44\x65lete RegisteredModel\x12\xa6\x01\n\x12getRegisteredModel\x12\x1a.mlflow.GetRegisteredModel\x1a#.mlflow.GetRegisteredModel.Response\"O\xf2\x86\x19K\n2\n\x03GET\x12%/preview/mlflow/registered-models/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x13Get RegisteredModel\x12\xb9\x01\n\x16searchRegisteredModels\x12\x1e.mlflow.SearchRegisteredModels\x1a\'.mlflow.SearchRegisteredModels.Response\"V\xf2\x86\x19R\n5\n\x03GET\x12(/preview/mlflow/registered-models/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x17Search RegisteredModels\x12\xaf\x01\n\x14listRegisteredModels\x12\x1c.mlflow.ListRegisteredModels\x1a%.mlflow.ListRegisteredModels.Response\"R\xf2\x86\x19N\n3\n\x03GET\x12&/preview/mlflow/registered-models/list\x1a\x04\x08\x02\x10\x00\x10\x01*\x15List RegisteredModels\x12\xb8\x01\n\x11getLatestVersions\x12\x19.mlflow.GetLatestVersions\x1a\".mlflow.GetLatestVersions.Response\"d\xf2\x86\x19`\nB\n\x03GET\x12\x35/preview/mlflow/registered-models/get-latest-versions\x1a\x04\x08\x02\x10\x00\x10\x01*\x18Get Latest ModelVersions\x12\xa7\x01\n\x12\x63reateModelVersion\x12\x1a.mlflow.CreateModelVersion\x1a#.mlflow.CreateModelVersion.Response\"P\xf2\x86\x19L\n3\n\x04POST\x12%/preview/mlflow/model-versions/create\x1a\x04\x08\x02\x10\x00\x10\x01*\x13\x43reate ModelVersion\x12\xa8\x01\n\x12updateModelVersion\x12\x1a.mlflow.UpdateModelVersion\x1a#.mlflow.UpdateModelVersion.Response\"Q\xf2\x86\x19M\n4\n\x05PATCH\x12%/preview/mlflow/model-versions/update\x1a\x04\x08\x02\x10\x00\x10\x01*\x13Update ModelVersion\x12\xd6\x01\n\x1btransitionModelVersionStage\x12#.mlflow.TransitionModelVersionStage\x1a,.mlflow.TransitionModelVersionStage.Response\"d\xf2\x86\x19`\n=\n\x04POST\x12//preview/mlflow/model-versions/transition-stage\x1a\x04\x08\x02\x10\x00\x10\x01*\x1dTransition ModelVersion Stage\x12\xa9\x01\n\x12\x64\x65leteModelVersion\x12\x1a.mlflow.DeleteModelVersion\x1a#.mlflow.DeleteModelVersion.Response\"R\xf2\x86\x19N\n5\n\x06\x44\x45LETE\x12%/preview/mlflow/model-versions/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\x13\x44\x65lete ModelVersion\x12\x97\x01\n\x0fgetModelVersion\x12\x17.mlflow.GetModelVersion\x1a .mlflow.GetModelVersion.Response\"I\xf2\x86\x19\x45\n/\n\x03GET\x12\"/preview/mlflow/model-versions/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x10Get ModelVersion\x12\xaa\x01\n\x13searchModelVersions\x12\x1b.mlflow.SearchModelVersions\x1a$.mlflow.SearchModelVersions.Response\"P\xf2\x86\x19L\n2\n\x03GET\x12%/preview/mlflow/model-versions/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x14Search ModelVersions\x12\xe0\x01\n\x1agetModelVersionDownloadUri\x12\".mlflow.GetModelVersionDownloadUri\x1a+.mlflow.GetModelVersionDownloadUri.Response\"q\xf2\x86\x19m\n<\n\x03GET\x12//preview/mlflow/model-versions/get-download-uri\x1a\x04\x08\x02\x10\x00\x10\x01*+Get Download URI For ModelVersion Artifacts\x12\xb9\x01\n\x15setRegisteredModelTag\x12\x1d.mlflow.SetRegisteredModelTag\x1a&.mlflow.SetRegisteredModelTag.Response\"Y\xf2\x86\x19U\n7\n\x04POST\x12)/preview/mlflow/registered-models/set-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x18Set Registered Model Tag\x12\xaa\x01\n\x12setModelVersionTag\x12\x1a.mlflow.SetModelVersionTag\x1a#.mlflow.SetModelVersionTag.Response\"S\xf2\x86\x19O\n4\n\x04POST\x12&/preview/mlflow/model-versions/set-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x15Set Model Version Tag\x12\xca\x01\n\x18\x64\x65leteRegisteredModelTag\x12 .mlflow.DeleteRegisteredModelTag\x1a).mlflow.DeleteRegisteredModelTag.Response\"a\xf2\x86\x19]\n<\n\x06\x44\x45LETE\x12,/preview/mlflow/registered-models/delete-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x1b\x44\x65lete Registered Model Tag\x12\xbb\x01\n\x15\x64\x65leteModelVersionTag\x12\x1d.mlflow.DeleteModelVersionTag\x1a&.mlflow.DeleteModelVersionTag.Response\"[\xf2\x86\x19W\n9\n\x06\x44\x45LETE\x12)/preview/mlflow/model-versions/delete-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x18\x44\x65lete Model Version TagB!\n\x14org.mlflow.api.proto\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
   ,
   dependencies=[scalapb_dot_scalapb__pb2.DESCRIPTOR,databricks__pb2.DESCRIPTOR,])
 
@@ -49,8 +49,8 @@ _MODELVERSIONSTATUS = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=2884,
-  serialized_end=2966,
+  serialized_start=4002,
+  serialized_end=4084,
 )
 _sym_db.RegisterEnumDescriptor(_MODELVERSIONSTATUS)
 
@@ -110,6 +110,13 @@ _REGISTEREDMODEL = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='tags', full_name='mlflow.RegisteredModel.tags', index=6,
+      number=7, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -123,7 +130,7 @@ _REGISTEREDMODEL = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=74,
-  serialized_end=250,
+  serialized_end=292,
 )
 
 
@@ -211,6 +218,13 @@ _MODELVERSION = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='tags', full_name='mlflow.ModelVersion.tags', index=11,
+      number=12, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -223,8 +237,8 @@ _MODELVERSION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=253,
-  serialized_end=519,
+  serialized_start=295,
+  serialized_end=600,
 )
 
 
@@ -254,8 +268,8 @@ _CREATEREGISTEREDMODEL_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=567,
-  serialized_end=628,
+  serialized_start=690,
+  serialized_end=751,
 )
 
 _CREATEREGISTEREDMODEL = _descriptor.Descriptor(
@@ -272,6 +286,13 @@ _CREATEREGISTEREDMODEL = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='tags', full_name='mlflow.CreateRegisteredModel.tags', index=1,
+      number=2, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -284,8 +305,8 @@ _CREATEREGISTEREDMODEL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=522,
-  serialized_end=673,
+  serialized_start=603,
+  serialized_end=796,
 )
 
 
@@ -315,8 +336,8 @@ _RENAMEREGISTEREDMODEL_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=567,
-  serialized_end=628,
+  serialized_start=690,
+  serialized_end=751,
 )
 
 _RENAMEREGISTEREDMODEL = _descriptor.Descriptor(
@@ -352,8 +373,8 @@ _RENAMEREGISTEREDMODEL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=676,
-  serialized_end=845,
+  serialized_start=799,
+  serialized_end=968,
 )
 
 
@@ -383,8 +404,8 @@ _UPDATEREGISTEREDMODEL_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=567,
-  serialized_end=628,
+  serialized_start=690,
+  serialized_end=751,
 )
 
 _UPDATEREGISTEREDMODEL = _descriptor.Descriptor(
@@ -420,8 +441,8 @@ _UPDATEREGISTEREDMODEL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=848,
-  serialized_end=1020,
+  serialized_start=971,
+  serialized_end=1143,
 )
 
 
@@ -444,8 +465,8 @@ _DELETEREGISTEREDMODEL_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=567,
-  serialized_end=577,
+  serialized_start=690,
+  serialized_end=700,
 )
 
 _DELETEREGISTEREDMODEL = _descriptor.Descriptor(
@@ -474,8 +495,8 @@ _DELETEREGISTEREDMODEL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1022,
-  serialized_end=1122,
+  serialized_start=1145,
+  serialized_end=1245,
 )
 
 
@@ -505,8 +526,8 @@ _GETREGISTEREDMODEL_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=567,
-  serialized_end=628,
+  serialized_start=690,
+  serialized_end=751,
 )
 
 _GETREGISTEREDMODEL = _descriptor.Descriptor(
@@ -535,8 +556,8 @@ _GETREGISTEREDMODEL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1125,
-  serialized_end=1273,
+  serialized_start=1248,
+  serialized_end=1396,
 )
 
 
@@ -554,6 +575,13 @@ _LISTREGISTEREDMODELS_RESPONSE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='next_page_token', full_name='mlflow.ListRegisteredModels.Response.next_page_token', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -566,8 +594,8 @@ _LISTREGISTEREDMODELS_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1328,
-  serialized_end=1390,
+  serialized_start=1469,
+  serialized_end=1556,
 )
 
 _LISTREGISTEREDMODELS = _descriptor.Descriptor(
@@ -580,7 +608,14 @@ _LISTREGISTEREDMODELS = _descriptor.Descriptor(
     _descriptor.FieldDescriptor(
       name='max_results', full_name='mlflow.ListRegisteredModels.max_results', index=0,
       number=1, type=3, cpp_type=2, label=1,
-      has_default_value=True, default_value=50000,
+      has_default_value=True, default_value=100,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='page_token', full_name='mlflow.ListRegisteredModels.page_token', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
@@ -596,8 +631,97 @@ _LISTREGISTEREDMODELS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1276,
-  serialized_end=1435,
+  serialized_start=1399,
+  serialized_end=1601,
+)
+
+
+_SEARCHREGISTEREDMODELS_RESPONSE = _descriptor.Descriptor(
+  name='Response',
+  full_name='mlflow.SearchRegisteredModels.Response',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='registered_models', full_name='mlflow.SearchRegisteredModels.Response.registered_models', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='next_page_token', full_name='mlflow.SearchRegisteredModels.Response.next_page_token', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1469,
+  serialized_end=1556,
+)
+
+_SEARCHREGISTEREDMODELS = _descriptor.Descriptor(
+  name='SearchRegisteredModels',
+  full_name='mlflow.SearchRegisteredModels',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='filter', full_name='mlflow.SearchRegisteredModels.filter', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='max_results', full_name='mlflow.SearchRegisteredModels.max_results', index=1,
+      number=2, type=3, cpp_type=2, label=1,
+      has_default_value=True, default_value=100,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='order_by', full_name='mlflow.SearchRegisteredModels.order_by', index=2,
+      number=3, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='page_token', full_name='mlflow.SearchRegisteredModels.page_token', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[_SEARCHREGISTEREDMODELS_RESPONSE, ],
+  enum_types=[
+  ],
+  serialized_options=_b('\342?(\n&com.databricks.rpc.RPC[$this.Response]'),
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1604,
+  serialized_end=1842,
 )
 
 
@@ -627,8 +751,8 @@ _GETLATESTVERSIONS_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1495,
-  serialized_end=1551,
+  serialized_start=1902,
+  serialized_end=1958,
 )
 
 _GETLATESTVERSIONS = _descriptor.Descriptor(
@@ -664,8 +788,8 @@ _GETLATESTVERSIONS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1438,
-  serialized_end=1596,
+  serialized_start=1845,
+  serialized_end=2003,
 )
 
 
@@ -695,8 +819,8 @@ _CREATEMODELVERSION_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1679,
-  serialized_end=1734,
+  serialized_start=2125,
+  serialized_end=2180,
 )
 
 _CREATEMODELVERSION = _descriptor.Descriptor(
@@ -727,6 +851,13 @@ _CREATEMODELVERSION = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='tags', full_name='mlflow.CreateModelVersion.tags', index=3,
+      number=4, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -739,8 +870,8 @@ _CREATEMODELVERSION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1599,
-  serialized_end=1779,
+  serialized_start=2006,
+  serialized_end=2225,
 )
 
 
@@ -770,8 +901,8 @@ _UPDATEMODELVERSION_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1679,
-  serialized_end=1734,
+  serialized_start=2125,
+  serialized_end=2180,
 )
 
 _UPDATEMODELVERSION = _descriptor.Descriptor(
@@ -814,8 +945,8 @@ _UPDATEMODELVERSION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1782,
-  serialized_end=1968,
+  serialized_start=2228,
+  serialized_end=2414,
 )
 
 
@@ -845,8 +976,8 @@ _TRANSITIONMODELVERSIONSTAGE_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1679,
-  serialized_end=1734,
+  serialized_start=2125,
+  serialized_end=2180,
 )
 
 _TRANSITIONMODELVERSIONSTAGE = _descriptor.Descriptor(
@@ -896,8 +1027,8 @@ _TRANSITIONMODELVERSIONSTAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1971,
-  serialized_end=2207,
+  serialized_start=2417,
+  serialized_end=2653,
 )
 
 
@@ -920,8 +1051,8 @@ _DELETEMODELVERSION_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=567,
-  serialized_end=577,
+  serialized_start=690,
+  serialized_end=700,
 )
 
 _DELETEMODELVERSION = _descriptor.Descriptor(
@@ -957,8 +1088,8 @@ _DELETEMODELVERSION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2209,
-  serialized_end=2329,
+  serialized_start=2655,
+  serialized_end=2775,
 )
 
 
@@ -988,8 +1119,8 @@ _GETMODELVERSION_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1679,
-  serialized_end=1734,
+  serialized_start=2125,
+  serialized_end=2180,
 )
 
 _GETMODELVERSION = _descriptor.Descriptor(
@@ -1025,8 +1156,8 @@ _GETMODELVERSION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2332,
-  serialized_end=2494,
+  serialized_start=2778,
+  serialized_end=2940,
 )
 
 
@@ -1063,8 +1194,8 @@ _SEARCHMODELVERSIONS_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2603,
-  serialized_end=2684,
+  serialized_start=3049,
+  serialized_end=3130,
 )
 
 _SEARCHMODELVERSIONS = _descriptor.Descriptor(
@@ -1114,8 +1245,8 @@ _SEARCHMODELVERSIONS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2497,
-  serialized_end=2729,
+  serialized_start=2943,
+  serialized_end=3175,
 )
 
 
@@ -1145,8 +1276,8 @@ _GETMODELVERSIONDOWNLOADURI_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2805,
-  serialized_end=2837,
+  serialized_start=3251,
+  serialized_end=3283,
 )
 
 _GETMODELVERSIONDOWNLOADURI = _descriptor.Descriptor(
@@ -1182,14 +1313,365 @@ _GETMODELVERSIONDOWNLOADURI = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2732,
-  serialized_end=2882,
+  serialized_start=3178,
+  serialized_end=3328,
+)
+
+
+_MODELVERSIONTAG = _descriptor.Descriptor(
+  name='ModelVersionTag',
+  full_name='mlflow.ModelVersionTag',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='mlflow.ModelVersionTag.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='mlflow.ModelVersionTag.value', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=3330,
+  serialized_end=3375,
+)
+
+
+_REGISTEREDMODELTAG = _descriptor.Descriptor(
+  name='RegisteredModelTag',
+  full_name='mlflow.RegisteredModelTag',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='mlflow.RegisteredModelTag.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='mlflow.RegisteredModelTag.value', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=3377,
+  serialized_end=3425,
+)
+
+
+_SETREGISTEREDMODELTAG_RESPONSE = _descriptor.Descriptor(
+  name='Response',
+  full_name='mlflow.SetRegisteredModelTag.Response',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=690,
+  serialized_end=700,
+)
+
+_SETREGISTEREDMODELTAG = _descriptor.Descriptor(
+  name='SetRegisteredModelTag',
+  full_name='mlflow.SetRegisteredModelTag',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='name', full_name='mlflow.SetRegisteredModelTag.name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='key', full_name='mlflow.SetRegisteredModelTag.key', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='mlflow.SetRegisteredModelTag.value', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[_SETREGISTEREDMODELTAG_RESPONSE, ],
+  enum_types=[
+  ],
+  serialized_options=_b('\342?(\n&com.databricks.rpc.RPC[$this.Response]'),
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=3428,
+  serialized_end=3568,
+)
+
+
+_SETMODELVERSIONTAG_RESPONSE = _descriptor.Descriptor(
+  name='Response',
+  full_name='mlflow.SetModelVersionTag.Response',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=690,
+  serialized_end=700,
+)
+
+_SETMODELVERSIONTAG = _descriptor.Descriptor(
+  name='SetModelVersionTag',
+  full_name='mlflow.SetModelVersionTag',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='name', full_name='mlflow.SetModelVersionTag.name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='version', full_name='mlflow.SetModelVersionTag.version', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='key', full_name='mlflow.SetModelVersionTag.key', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='mlflow.SetModelVersionTag.value', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[_SETMODELVERSIONTAG_RESPONSE, ],
+  enum_types=[
+  ],
+  serialized_options=_b('\342?(\n&com.databricks.rpc.RPC[$this.Response]'),
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=3571,
+  serialized_end=3731,
+)
+
+
+_DELETEREGISTEREDMODELTAG_RESPONSE = _descriptor.Descriptor(
+  name='Response',
+  full_name='mlflow.DeleteRegisteredModelTag.Response',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=690,
+  serialized_end=700,
+)
+
+_DELETEREGISTEREDMODELTAG = _descriptor.Descriptor(
+  name='DeleteRegisteredModelTag',
+  full_name='mlflow.DeleteRegisteredModelTag',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='name', full_name='mlflow.DeleteRegisteredModelTag.name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='key', full_name='mlflow.DeleteRegisteredModelTag.key', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[_DELETEREGISTEREDMODELTAG_RESPONSE, ],
+  enum_types=[
+  ],
+  serialized_options=_b('\342?(\n&com.databricks.rpc.RPC[$this.Response]'),
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=3733,
+  serialized_end=3855,
+)
+
+
+_DELETEMODELVERSIONTAG_RESPONSE = _descriptor.Descriptor(
+  name='Response',
+  full_name='mlflow.DeleteModelVersionTag.Response',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=690,
+  serialized_end=700,
+)
+
+_DELETEMODELVERSIONTAG = _descriptor.Descriptor(
+  name='DeleteModelVersionTag',
+  full_name='mlflow.DeleteModelVersionTag',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='name', full_name='mlflow.DeleteModelVersionTag.name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='version', full_name='mlflow.DeleteModelVersionTag.version', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='key', full_name='mlflow.DeleteModelVersionTag.key', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[_DELETEMODELVERSIONTAG_RESPONSE, ],
+  enum_types=[
+  ],
+  serialized_options=_b('\342?(\n&com.databricks.rpc.RPC[$this.Response]'),
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=3858,
+  serialized_end=4000,
 )
 
 _REGISTEREDMODEL.fields_by_name['latest_versions'].message_type = _MODELVERSION
+_REGISTEREDMODEL.fields_by_name['tags'].message_type = _REGISTEREDMODELTAG
 _MODELVERSION.fields_by_name['status'].enum_type = _MODELVERSIONSTATUS
+_MODELVERSION.fields_by_name['tags'].message_type = _MODELVERSIONTAG
 _CREATEREGISTEREDMODEL_RESPONSE.fields_by_name['registered_model'].message_type = _REGISTEREDMODEL
 _CREATEREGISTEREDMODEL_RESPONSE.containing_type = _CREATEREGISTEREDMODEL
+_CREATEREGISTEREDMODEL.fields_by_name['tags'].message_type = _REGISTEREDMODELTAG
 _RENAMEREGISTEREDMODEL_RESPONSE.fields_by_name['registered_model'].message_type = _REGISTEREDMODEL
 _RENAMEREGISTEREDMODEL_RESPONSE.containing_type = _RENAMEREGISTEREDMODEL
 _UPDATEREGISTEREDMODEL_RESPONSE.fields_by_name['registered_model'].message_type = _REGISTEREDMODEL
@@ -1199,10 +1681,13 @@ _GETREGISTEREDMODEL_RESPONSE.fields_by_name['registered_model'].message_type = _
 _GETREGISTEREDMODEL_RESPONSE.containing_type = _GETREGISTEREDMODEL
 _LISTREGISTEREDMODELS_RESPONSE.fields_by_name['registered_models'].message_type = _REGISTEREDMODEL
 _LISTREGISTEREDMODELS_RESPONSE.containing_type = _LISTREGISTEREDMODELS
+_SEARCHREGISTEREDMODELS_RESPONSE.fields_by_name['registered_models'].message_type = _REGISTEREDMODEL
+_SEARCHREGISTEREDMODELS_RESPONSE.containing_type = _SEARCHREGISTEREDMODELS
 _GETLATESTVERSIONS_RESPONSE.fields_by_name['model_versions'].message_type = _MODELVERSION
 _GETLATESTVERSIONS_RESPONSE.containing_type = _GETLATESTVERSIONS
 _CREATEMODELVERSION_RESPONSE.fields_by_name['model_version'].message_type = _MODELVERSION
 _CREATEMODELVERSION_RESPONSE.containing_type = _CREATEMODELVERSION
+_CREATEMODELVERSION.fields_by_name['tags'].message_type = _MODELVERSIONTAG
 _UPDATEMODELVERSION_RESPONSE.fields_by_name['model_version'].message_type = _MODELVERSION
 _UPDATEMODELVERSION_RESPONSE.containing_type = _UPDATEMODELVERSION
 _TRANSITIONMODELVERSIONSTAGE_RESPONSE.fields_by_name['model_version'].message_type = _MODELVERSION
@@ -1213,6 +1698,10 @@ _GETMODELVERSION_RESPONSE.containing_type = _GETMODELVERSION
 _SEARCHMODELVERSIONS_RESPONSE.fields_by_name['model_versions'].message_type = _MODELVERSION
 _SEARCHMODELVERSIONS_RESPONSE.containing_type = _SEARCHMODELVERSIONS
 _GETMODELVERSIONDOWNLOADURI_RESPONSE.containing_type = _GETMODELVERSIONDOWNLOADURI
+_SETREGISTEREDMODELTAG_RESPONSE.containing_type = _SETREGISTEREDMODELTAG
+_SETMODELVERSIONTAG_RESPONSE.containing_type = _SETMODELVERSIONTAG
+_DELETEREGISTEREDMODELTAG_RESPONSE.containing_type = _DELETEREGISTEREDMODELTAG
+_DELETEMODELVERSIONTAG_RESPONSE.containing_type = _DELETEMODELVERSIONTAG
 DESCRIPTOR.message_types_by_name['RegisteredModel'] = _REGISTEREDMODEL
 DESCRIPTOR.message_types_by_name['ModelVersion'] = _MODELVERSION
 DESCRIPTOR.message_types_by_name['CreateRegisteredModel'] = _CREATEREGISTEREDMODEL
@@ -1221,6 +1710,7 @@ DESCRIPTOR.message_types_by_name['UpdateRegisteredModel'] = _UPDATEREGISTEREDMOD
 DESCRIPTOR.message_types_by_name['DeleteRegisteredModel'] = _DELETEREGISTEREDMODEL
 DESCRIPTOR.message_types_by_name['GetRegisteredModel'] = _GETREGISTEREDMODEL
 DESCRIPTOR.message_types_by_name['ListRegisteredModels'] = _LISTREGISTEREDMODELS
+DESCRIPTOR.message_types_by_name['SearchRegisteredModels'] = _SEARCHREGISTEREDMODELS
 DESCRIPTOR.message_types_by_name['GetLatestVersions'] = _GETLATESTVERSIONS
 DESCRIPTOR.message_types_by_name['CreateModelVersion'] = _CREATEMODELVERSION
 DESCRIPTOR.message_types_by_name['UpdateModelVersion'] = _UPDATEMODELVERSION
@@ -1229,6 +1719,12 @@ DESCRIPTOR.message_types_by_name['DeleteModelVersion'] = _DELETEMODELVERSION
 DESCRIPTOR.message_types_by_name['GetModelVersion'] = _GETMODELVERSION
 DESCRIPTOR.message_types_by_name['SearchModelVersions'] = _SEARCHMODELVERSIONS
 DESCRIPTOR.message_types_by_name['GetModelVersionDownloadUri'] = _GETMODELVERSIONDOWNLOADURI
+DESCRIPTOR.message_types_by_name['ModelVersionTag'] = _MODELVERSIONTAG
+DESCRIPTOR.message_types_by_name['RegisteredModelTag'] = _REGISTEREDMODELTAG
+DESCRIPTOR.message_types_by_name['SetRegisteredModelTag'] = _SETREGISTEREDMODELTAG
+DESCRIPTOR.message_types_by_name['SetModelVersionTag'] = _SETMODELVERSIONTAG
+DESCRIPTOR.message_types_by_name['DeleteRegisteredModelTag'] = _DELETEREGISTEREDMODELTAG
+DESCRIPTOR.message_types_by_name['DeleteModelVersionTag'] = _DELETEMODELVERSIONTAG
 DESCRIPTOR.enum_types_by_name['ModelVersionStatus'] = _MODELVERSIONSTATUS
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
@@ -1335,6 +1831,21 @@ ListRegisteredModels = _reflection.GeneratedProtocolMessageType('ListRegisteredM
   ))
 _sym_db.RegisterMessage(ListRegisteredModels)
 _sym_db.RegisterMessage(ListRegisteredModels.Response)
+
+SearchRegisteredModels = _reflection.GeneratedProtocolMessageType('SearchRegisteredModels', (_message.Message,), dict(
+
+  Response = _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), dict(
+    DESCRIPTOR = _SEARCHREGISTEREDMODELS_RESPONSE,
+    __module__ = 'model_registry_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.SearchRegisteredModels.Response)
+    ))
+  ,
+  DESCRIPTOR = _SEARCHREGISTEREDMODELS,
+  __module__ = 'model_registry_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.SearchRegisteredModels)
+  ))
+_sym_db.RegisterMessage(SearchRegisteredModels)
+_sym_db.RegisterMessage(SearchRegisteredModels.Response)
 
 GetLatestVersions = _reflection.GeneratedProtocolMessageType('GetLatestVersions', (_message.Message,), dict(
 
@@ -1456,6 +1967,80 @@ GetModelVersionDownloadUri = _reflection.GeneratedProtocolMessageType('GetModelV
 _sym_db.RegisterMessage(GetModelVersionDownloadUri)
 _sym_db.RegisterMessage(GetModelVersionDownloadUri.Response)
 
+ModelVersionTag = _reflection.GeneratedProtocolMessageType('ModelVersionTag', (_message.Message,), dict(
+  DESCRIPTOR = _MODELVERSIONTAG,
+  __module__ = 'model_registry_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.ModelVersionTag)
+  ))
+_sym_db.RegisterMessage(ModelVersionTag)
+
+RegisteredModelTag = _reflection.GeneratedProtocolMessageType('RegisteredModelTag', (_message.Message,), dict(
+  DESCRIPTOR = _REGISTEREDMODELTAG,
+  __module__ = 'model_registry_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.RegisteredModelTag)
+  ))
+_sym_db.RegisterMessage(RegisteredModelTag)
+
+SetRegisteredModelTag = _reflection.GeneratedProtocolMessageType('SetRegisteredModelTag', (_message.Message,), dict(
+
+  Response = _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), dict(
+    DESCRIPTOR = _SETREGISTEREDMODELTAG_RESPONSE,
+    __module__ = 'model_registry_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.SetRegisteredModelTag.Response)
+    ))
+  ,
+  DESCRIPTOR = _SETREGISTEREDMODELTAG,
+  __module__ = 'model_registry_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.SetRegisteredModelTag)
+  ))
+_sym_db.RegisterMessage(SetRegisteredModelTag)
+_sym_db.RegisterMessage(SetRegisteredModelTag.Response)
+
+SetModelVersionTag = _reflection.GeneratedProtocolMessageType('SetModelVersionTag', (_message.Message,), dict(
+
+  Response = _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), dict(
+    DESCRIPTOR = _SETMODELVERSIONTAG_RESPONSE,
+    __module__ = 'model_registry_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.SetModelVersionTag.Response)
+    ))
+  ,
+  DESCRIPTOR = _SETMODELVERSIONTAG,
+  __module__ = 'model_registry_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.SetModelVersionTag)
+  ))
+_sym_db.RegisterMessage(SetModelVersionTag)
+_sym_db.RegisterMessage(SetModelVersionTag.Response)
+
+DeleteRegisteredModelTag = _reflection.GeneratedProtocolMessageType('DeleteRegisteredModelTag', (_message.Message,), dict(
+
+  Response = _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), dict(
+    DESCRIPTOR = _DELETEREGISTEREDMODELTAG_RESPONSE,
+    __module__ = 'model_registry_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.DeleteRegisteredModelTag.Response)
+    ))
+  ,
+  DESCRIPTOR = _DELETEREGISTEREDMODELTAG,
+  __module__ = 'model_registry_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.DeleteRegisteredModelTag)
+  ))
+_sym_db.RegisterMessage(DeleteRegisteredModelTag)
+_sym_db.RegisterMessage(DeleteRegisteredModelTag.Response)
+
+DeleteModelVersionTag = _reflection.GeneratedProtocolMessageType('DeleteModelVersionTag', (_message.Message,), dict(
+
+  Response = _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), dict(
+    DESCRIPTOR = _DELETEMODELVERSIONTAG_RESPONSE,
+    __module__ = 'model_registry_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.DeleteModelVersionTag.Response)
+    ))
+  ,
+  DESCRIPTOR = _DELETEMODELVERSIONTAG,
+  __module__ = 'model_registry_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.DeleteModelVersionTag)
+  ))
+_sym_db.RegisterMessage(DeleteModelVersionTag)
+_sym_db.RegisterMessage(DeleteModelVersionTag.Response)
+
 
 DESCRIPTOR._options = None
 _CREATEREGISTEREDMODEL.fields_by_name['name']._options = None
@@ -1469,6 +2054,7 @@ _DELETEREGISTEREDMODEL._options = None
 _GETREGISTEREDMODEL.fields_by_name['name']._options = None
 _GETREGISTEREDMODEL._options = None
 _LISTREGISTEREDMODELS._options = None
+_SEARCHREGISTEREDMODELS._options = None
 _GETLATESTVERSIONS.fields_by_name['name']._options = None
 _GETLATESTVERSIONS._options = None
 _CREATEMODELVERSION.fields_by_name['name']._options = None
@@ -1492,6 +2078,22 @@ _SEARCHMODELVERSIONS._options = None
 _GETMODELVERSIONDOWNLOADURI.fields_by_name['name']._options = None
 _GETMODELVERSIONDOWNLOADURI.fields_by_name['version']._options = None
 _GETMODELVERSIONDOWNLOADURI._options = None
+_SETREGISTEREDMODELTAG.fields_by_name['name']._options = None
+_SETREGISTEREDMODELTAG.fields_by_name['key']._options = None
+_SETREGISTEREDMODELTAG.fields_by_name['value']._options = None
+_SETREGISTEREDMODELTAG._options = None
+_SETMODELVERSIONTAG.fields_by_name['name']._options = None
+_SETMODELVERSIONTAG.fields_by_name['version']._options = None
+_SETMODELVERSIONTAG.fields_by_name['key']._options = None
+_SETMODELVERSIONTAG.fields_by_name['value']._options = None
+_SETMODELVERSIONTAG._options = None
+_DELETEREGISTEREDMODELTAG.fields_by_name['name']._options = None
+_DELETEREGISTEREDMODELTAG.fields_by_name['key']._options = None
+_DELETEREGISTEREDMODELTAG._options = None
+_DELETEMODELVERSIONTAG.fields_by_name['name']._options = None
+_DELETEMODELVERSIONTAG.fields_by_name['version']._options = None
+_DELETEMODELVERSIONTAG.fields_by_name['key']._options = None
+_DELETEMODELVERSIONTAG._options = None
 
 _MODELREGISTRYSERVICE = _descriptor.ServiceDescriptor(
   name='ModelRegistryService',
@@ -1499,8 +2101,8 @@ _MODELREGISTRYSERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=2969,
-  serialized_end=5552,
+  serialized_start=4087,
+  serialized_end=7614,
   methods=[
   _descriptor.MethodDescriptor(
     name='createRegisteredModel',
@@ -1548,9 +2150,18 @@ _MODELREGISTRYSERVICE = _descriptor.ServiceDescriptor(
     serialized_options=_b('\362\206\031K\n2\n\003GET\022%/preview/mlflow/registered-models/get\032\004\010\002\020\000\020\001*\023Get RegisteredModel'),
   ),
   _descriptor.MethodDescriptor(
+    name='searchRegisteredModels',
+    full_name='mlflow.ModelRegistryService.searchRegisteredModels',
+    index=5,
+    containing_service=None,
+    input_type=_SEARCHREGISTEREDMODELS,
+    output_type=_SEARCHREGISTEREDMODELS_RESPONSE,
+    serialized_options=_b('\362\206\031R\n5\n\003GET\022(/preview/mlflow/registered-models/search\032\004\010\002\020\000\020\001*\027Search RegisteredModels'),
+  ),
+  _descriptor.MethodDescriptor(
     name='listRegisteredModels',
     full_name='mlflow.ModelRegistryService.listRegisteredModels',
-    index=5,
+    index=6,
     containing_service=None,
     input_type=_LISTREGISTEREDMODELS,
     output_type=_LISTREGISTEREDMODELS_RESPONSE,
@@ -1559,7 +2170,7 @@ _MODELREGISTRYSERVICE = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='getLatestVersions',
     full_name='mlflow.ModelRegistryService.getLatestVersions',
-    index=6,
+    index=7,
     containing_service=None,
     input_type=_GETLATESTVERSIONS,
     output_type=_GETLATESTVERSIONS_RESPONSE,
@@ -1568,7 +2179,7 @@ _MODELREGISTRYSERVICE = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='createModelVersion',
     full_name='mlflow.ModelRegistryService.createModelVersion',
-    index=7,
+    index=8,
     containing_service=None,
     input_type=_CREATEMODELVERSION,
     output_type=_CREATEMODELVERSION_RESPONSE,
@@ -1577,7 +2188,7 @@ _MODELREGISTRYSERVICE = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='updateModelVersion',
     full_name='mlflow.ModelRegistryService.updateModelVersion',
-    index=8,
+    index=9,
     containing_service=None,
     input_type=_UPDATEMODELVERSION,
     output_type=_UPDATEMODELVERSION_RESPONSE,
@@ -1586,7 +2197,7 @@ _MODELREGISTRYSERVICE = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='transitionModelVersionStage',
     full_name='mlflow.ModelRegistryService.transitionModelVersionStage',
-    index=9,
+    index=10,
     containing_service=None,
     input_type=_TRANSITIONMODELVERSIONSTAGE,
     output_type=_TRANSITIONMODELVERSIONSTAGE_RESPONSE,
@@ -1595,7 +2206,7 @@ _MODELREGISTRYSERVICE = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='deleteModelVersion',
     full_name='mlflow.ModelRegistryService.deleteModelVersion',
-    index=10,
+    index=11,
     containing_service=None,
     input_type=_DELETEMODELVERSION,
     output_type=_DELETEMODELVERSION_RESPONSE,
@@ -1604,7 +2215,7 @@ _MODELREGISTRYSERVICE = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='getModelVersion',
     full_name='mlflow.ModelRegistryService.getModelVersion',
-    index=11,
+    index=12,
     containing_service=None,
     input_type=_GETMODELVERSION,
     output_type=_GETMODELVERSION_RESPONSE,
@@ -1613,7 +2224,7 @@ _MODELREGISTRYSERVICE = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='searchModelVersions',
     full_name='mlflow.ModelRegistryService.searchModelVersions',
-    index=12,
+    index=13,
     containing_service=None,
     input_type=_SEARCHMODELVERSIONS,
     output_type=_SEARCHMODELVERSIONS_RESPONSE,
@@ -1622,11 +2233,47 @@ _MODELREGISTRYSERVICE = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='getModelVersionDownloadUri',
     full_name='mlflow.ModelRegistryService.getModelVersionDownloadUri',
-    index=13,
+    index=14,
     containing_service=None,
     input_type=_GETMODELVERSIONDOWNLOADURI,
     output_type=_GETMODELVERSIONDOWNLOADURI_RESPONSE,
     serialized_options=_b('\362\206\031m\n<\n\003GET\022//preview/mlflow/model-versions/get-download-uri\032\004\010\002\020\000\020\001*+Get Download URI For ModelVersion Artifacts'),
+  ),
+  _descriptor.MethodDescriptor(
+    name='setRegisteredModelTag',
+    full_name='mlflow.ModelRegistryService.setRegisteredModelTag',
+    index=15,
+    containing_service=None,
+    input_type=_SETREGISTEREDMODELTAG,
+    output_type=_SETREGISTEREDMODELTAG_RESPONSE,
+    serialized_options=_b('\362\206\031U\n7\n\004POST\022)/preview/mlflow/registered-models/set-tag\032\004\010\002\020\000\020\001*\030Set Registered Model Tag'),
+  ),
+  _descriptor.MethodDescriptor(
+    name='setModelVersionTag',
+    full_name='mlflow.ModelRegistryService.setModelVersionTag',
+    index=16,
+    containing_service=None,
+    input_type=_SETMODELVERSIONTAG,
+    output_type=_SETMODELVERSIONTAG_RESPONSE,
+    serialized_options=_b('\362\206\031O\n4\n\004POST\022&/preview/mlflow/model-versions/set-tag\032\004\010\002\020\000\020\001*\025Set Model Version Tag'),
+  ),
+  _descriptor.MethodDescriptor(
+    name='deleteRegisteredModelTag',
+    full_name='mlflow.ModelRegistryService.deleteRegisteredModelTag',
+    index=17,
+    containing_service=None,
+    input_type=_DELETEREGISTEREDMODELTAG,
+    output_type=_DELETEREGISTEREDMODELTAG_RESPONSE,
+    serialized_options=_b('\362\206\031]\n<\n\006DELETE\022,/preview/mlflow/registered-models/delete-tag\032\004\010\002\020\000\020\001*\033Delete Registered Model Tag'),
+  ),
+  _descriptor.MethodDescriptor(
+    name='deleteModelVersionTag',
+    full_name='mlflow.ModelRegistryService.deleteModelVersionTag',
+    index=18,
+    containing_service=None,
+    input_type=_DELETEMODELVERSIONTAG,
+    output_type=_DELETEMODELVERSIONTAG_RESPONSE,
+    serialized_options=_b('\362\206\031W\n9\n\006DELETE\022)/preview/mlflow/model-versions/delete-tag\032\004\010\002\020\000\020\001*\030Delete Model Version Tag'),
   ),
 ])
 _sym_db.RegisterServiceDescriptor(_MODELREGISTRYSERVICE)

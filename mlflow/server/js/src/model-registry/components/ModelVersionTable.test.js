@@ -13,6 +13,7 @@ describe('ModelVersionTable', () => {
     minimalProps = {
       modelName: 'Model A',
       modelVersions: [],
+      onChange: jest.fn(),
     };
   });
 

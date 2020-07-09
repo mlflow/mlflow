@@ -12,8 +12,9 @@ import './BreadcrumbTitle.css';
 export class BreadcrumbTitle extends Component {
   static propTypes = {
     experiment: PropTypes.instanceOf(Experiment).isRequired,
-    runUuids: PropTypes.arrayOf(String), // Optional because not all pages are nested under runs
-    runNames: PropTypes.arrayOf(String),
+    // Optional because not all pages are nested under runs
+    runUuids: PropTypes.arrayOf(PropTypes.string),
+    runNames: PropTypes.arrayOf(PropTypes.string),
     title: PropTypes.any.isRequired,
   };
 

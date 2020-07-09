@@ -1,0 +1,129 @@
+syntax = "proto2";
+
+package mlflow;
+
+import "scalapb/scalapb.proto";
+import "databricks.proto";
+
+option java_package = "com.databricks.api.proto.mlflow";
+option java_generate_equals_and_hash = true;
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+service DatabricksMlflowArtifactsService {
+
+  // Fetch credentials to read from the specified MLflow artifact location
+  //
+  // Note: Even if no artifacts exist at the specified artifact location, this API will
+  // still provide read credentials as long as the format of the location is valid.
+  // Callers must subsequently check for the existence of the artifacts using the appropriate
+  // cloud storage APIs (as determined by the `ArtifactCredentialType` property of the response)
+  rpc getCredentialsForRead (GetCredentialsForRead) returns (GetCredentialsForRead.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/artifacts/credentials-for-read"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  // Fetch credentials to write to the specified MLflow artifact location
+  rpc getCredentialsForWrite (GetCredentialsForWrite) returns (GetCredentialsForWrite.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/artifacts/credentials-for-write"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+}
+
+// The type of a given artifact access credential
+enum ArtifactCredentialType {
+
+  // The credential is an Azure Shared Access Signature URI. For more information, see
+  // https://docs.microsoft.com/en-us/azure/storage/common/storage-sas-overview
+  AZURE_SAS_URI = 1;
+
+  // The credential is an AWS Presigned URL. For more information, see
+  // https://docs.aws.amazon.com/AmazonS3/latest/dev/ShareObjectPreSignedURL.html
+  AWS_PRESIGNED_URL = 2;
+
+}
+
+message ArtifactCredentialInfo {
+
+  // The ID of the MLflow Run containing the artifact that can be accessed
+  // with the credential
+  optional string run_id = 1;
+
+  // The path, relative to the Run's artifact root location, of the artifact
+  // that can be accessed with the credential
+  optional string path = 2;
+
+  // The signed URI credential that provides access to the artifact
+  optional string signed_uri = 3;
+
+  message HttpHeader {
+
+    // The HTTP header name
+    optional string name = 1;
+
+    // The HTTP header value
+    optional string value = 2;
+
+  }
+
+  // A collection of HTTP headers that should be specified when uploading to
+  // or downloading from the specified `signed_uri`
+  repeated HttpHeader headers = 4;
+
+  // The type of the signed credential URI (e.g., an AWS presigned URL
+  // or an Azure Shared Access Signature URI)
+  optional ArtifactCredentialType type = 5;
+
+}
+
+message GetCredentialsForRead {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // The ID of the MLflow Run for which to fetch artifact read credentials
+  optional string run_id = 1 [(validate_required) = true];
+
+  // The artifact path, relative to the Run's artifact root location, for which to
+  // fetch artifact read credentials
+  optional string path = 2 [(validate_required) = true];
+
+  message Response {
+
+    // Credentials for reading from the specified artifact location
+    optional ArtifactCredentialInfo credentials = 1;
+
+  }
+}
+
+message GetCredentialsForWrite {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // The ID of the MLflow Run for which to fetch artifact write credentials
+  optional string run_id = 1 [(validate_required) = true];
+
+  // The artifact path, relative to the Run's artifact root location, for which to
+  // fetch artifact write credentials
+  optional string path = 2 [(validate_required) = true];
+
+  message Response {
+
+    // Credentials for writing to the specified artifacts location
+    optional ArtifactCredentialInfo credentials = 1;
+
+  }
+}
