@@ -1,11 +1,11 @@
-import pytest
 import mock
+import pytest
 
 from mlflow.entities import SourceType, ViewType, RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking import get_registry_uri, set_registry_uri, MlflowClient
+from mlflow.tracking import set_registry_uri, MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
@@ -213,24 +213,26 @@ def test_registry_uri_set_as_param():
 
 
 def test_registry_uri_from_set_registry_uri():
-    old_registry_uri = get_registry_uri()
     uri = "sqlite:///somedb.db"
     set_registry_uri(uri)
     client = MlflowClient(tracking_uri="databricks://tracking")
     assert client._registry_uri == uri
-    set_registry_uri(old_registry_uri)
+    set_registry_uri(None)
 
 
 def test_registry_uri_from_tracking_uri_param():
-    tracking_uri = "databricks://tracking"
-    client = MlflowClient(tracking_uri=tracking_uri)
-    assert client._registry_uri == tracking_uri
+    with mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri") \
+            as get_tracking_uri_mock:
+        get_tracking_uri_mock.return_value = "databricks://default_tracking"
+        tracking_uri = "databricks://tracking_vhawoierj"
+        client = MlflowClient(tracking_uri=tracking_uri)
+        assert client._registry_uri == tracking_uri
 
 
-def test_registry_uri_from_final_tracking_uri():
-    tracking_uri = "databricks://tracking"
+def test_registry_uri_from_implicit_tracking_uri():
     with mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri")\
             as get_tracking_uri_mock:
+        tracking_uri = "databricks://tracking_wierojasdf"
         get_tracking_uri_mock.return_value = tracking_uri
         client = MlflowClient()
         assert client._registry_uri == tracking_uri
