@@ -360,6 +360,38 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             with self.assertRaisesRegex(MlflowException, msg):
                 self.store.transition_model_version_stage("model", "1", "None", True)
 
+        name = "model"
+        self._rm_maker(name)
+        mv1 = self._mv_maker(name)
+        mv2 = self._mv_maker(name)
+        mv3 = self._mv_maker(name)
+
+        self.store.transition_model_version_stage(name, mv1.version, "Staging", False)
+        self.store.transition_model_version_stage(name, mv2.version, "Production", False)
+        self.store.transition_model_version_stage(name, mv3.version, "Staging", True)
+
+        mvd1 = self.store.get_model_version(name=name, version=mv1.version)
+        mvd2 = self.store.get_model_version(name=name, version=mv2.version)
+        mvd3 = self.store.get_model_version(name=name, version=mv3.version)
+
+        self.assertEqual(mvd1.current_stage, "Archived")
+        self.assertEqual(mvd2.current_stage, "Production")
+        self.assertEqual(mvd3.current_stage, "Staging")
+
+        self.assertEqual(mvd1.last_updated_timestamp, mvd3.last_updated_timestamp)
+
+        self.store.transition_model_version_stage(name, mv3.version, "Production", True)
+
+        mvd1 = self.store.get_model_version(name=name, version=mv1.version)
+        mvd2 = self.store.get_model_version(name=name, version=mv2.version)
+        mvd3 = self.store.get_model_version(name=name, version=mv3.version)
+
+        self.assertEqual(mvd1.current_stage, "Archived")
+        self.assertEqual(mvd2.current_stage, "Archived")
+        self.assertEqual(mvd3.current_stage, "Production")
+
+        self.assertEqual(mvd2.last_updated_timestamp, mvd3.last_updated_timestamp)
+
     def test_delete_model_version(self):
         name = "test_for_update_MV"
         self._rm_maker(name)
