@@ -53,8 +53,8 @@ def cli():
                    "corresponding entry point as command-line arguments in the form `--name value`")
 @click.option("--docker-args", "-A", metavar="NAME=VALUE", multiple=True,
               help="A `docker run` argument or flag, of the form -A name=value (e.g. -A gpus=all) "
-                   "or -A name (e.g. -A t). The argument will then be passed as `docker run --name value` "
-                   "or `docker run -name` respectively. ")
+                   "or -A name (e.g. -A t). The argument will then be passed as "
+                   "`docker run --name value` or `docker run -name` respectively. ")
 @click.option("--experiment-name", envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
               help="Name of the experiment under which to launch the run. If not "
                    "specified, 'experiment-id' option will be used to launch run.")
