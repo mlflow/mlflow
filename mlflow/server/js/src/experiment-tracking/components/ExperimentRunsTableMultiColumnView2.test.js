@@ -26,7 +26,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
       handleLoadMoreRuns: jest.fn(),
       loadingMore: false,
       isLoading: false,
-      categorizedUncheckedKeys: {
+      categorizedCheckedKeys: {
         [ColumnTypes.ATTRIBUTES]: [],
         [ColumnTypes.PARAMS]: [],
         [ColumnTypes.METRICS]: [],

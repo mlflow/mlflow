@@ -17,6 +17,7 @@ import { Spinner } from '../../common/components/Spinner';
 import { ExperimentViewPersistedState } from '../sdk/MlflowLocalStorageMessages';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { RunInfo } from '../sdk/MlflowMessages';
+import { ColumnTypes } from '../constants';
 
 let onSearchSpy;
 
@@ -192,4 +193,57 @@ test('test on filter changes call the correct !search on backend', () => {
     searchInput:
       'params.foo == "bar" AND metrics.acc > 42 AND params.method LIKE \'%adam%\' AND metrics.it <= 0.3',
   });
+});
+
+test('test conversion from list of columns to object of checked keys', () => {
+  const wrapper = getExperimentViewMock();
+  const instance = wrapper.instance();
+  expect(
+    instance.getCategorizedCheckedKeysFromList([
+      'params.myparam',
+      'metrics.mymetric',
+      'tags.mytag',
+      'tags.`mlflow.user`',
+      'attributes.start_time',
+    ]),
+  ).toEqual({
+    [ColumnTypes.ATTRIBUTES]: ['User', 'Start Time'],
+    [ColumnTypes.METRICS]: ['mymetric'],
+    [ColumnTypes.PARAMS]: ['myparam'],
+    [ColumnTypes.TAGS]: ['mytag'],
+  });
+});
+
+test('test bad name of columns are discarded and do not crash', () => {
+  const wrapper = getExperimentViewMock();
+  const instance = wrapper.instance();
+  expect(
+    instance.getCategorizedCheckedKeysFromList(['parameters.myparam', 'attributes.foo']),
+  ).toEqual({
+    [ColumnTypes.ATTRIBUTES]: [],
+    [ColumnTypes.METRICS]: [],
+    [ColumnTypes.PARAMS]: [],
+    [ColumnTypes.TAGS]: [],
+  });
+});
+
+test('test conversion categorizedKeys to list of columns', () => {
+  const wrapper = getExperimentViewMock();
+  const instance = wrapper.instance();
+  expect(
+    instance.convertCategorizedCheckedKeysToList({
+      [ColumnTypes.ATTRIBUTES]: ['Start Time'],
+      [ColumnTypes.METRICS]: ['m1', 'm2'],
+      [ColumnTypes.PARAMS]: ['p1'],
+      [ColumnTypes.TAGS]: ['t1', 't2', 't3'],
+    }),
+  ).toEqual([
+    'attributes.start_time',
+    'metrics.m1',
+    'metrics.m2',
+    'params.p1',
+    'tags.t1',
+    'tags.t2',
+    'tags.t3',
+  ]);
 });

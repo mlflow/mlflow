@@ -183,10 +183,34 @@ export default class ExperimentViewUtil {
     VERSION: 'Version',
   };
 
+  static MapAttributeToCanonicalName = new Map([
+    ['Start Time', 'attributes.start_time'],
+    ['User', 'tags.`mlflow.user`'],
+    ['Run Name', 'tags.`mlflow.runName`'],
+    ['Source', 'tags.`mlflow.source.name`'],
+    ['Version', 'tags.`mlflow.source.git.commit`'],
+  ]);
+
+  static MapCanonicalNameToAttribute = new Map([
+    ['attributes.start_time', 'Start Time'],
+    ['tags.`mlflow.user`', 'User'],
+    ['tags.`mlflow.runName`', 'Run Name'],
+    ['tags.`mlflow.source.name`', 'Source'],
+    ['tags.`mlflow.source.git.commit`', 'Version'],
+  ]);
+
+  static convertToCanonicalName(attributeName) {
+    return this.MapAttributeToCanonicalName.get(attributeName);
+  }
+
+  static convertToAttribute(canonicalName) {
+    return this.MapCanonicalNameToAttribute.get(canonicalName);
+  }
+
   /**
    * Returns header-row table cells for columns containing run metadata.
    */
-  static getRunMetadataHeaderCells(onSortBy, curOrderByKey, curOrderByAsc, cellType, excludedCols) {
+  static getRunMetadataHeaderCells(onSortBy, curOrderByKey, curOrderByAsc, cellType, includedCols) {
     const CellComponent = `${cellType}`;
     const getHeaderCell = (key, text, canonicalSortKey) => {
       const sortIcon = ExperimentViewUtil.getSortIcon(
@@ -211,7 +235,7 @@ export default class ExperimentViewUtil {
         </CellComponent>
       );
     };
-    const excludedColsSet = new Set(excludedCols);
+    const includedColsSet = new Set(includedCols);
     return [
       {
         key: 'status',
@@ -248,7 +272,7 @@ export default class ExperimentViewUtil {
         canonicalSortKey: null,
       },
     ]
-      .filter((column) => !excludedColsSet.has(column.displayName))
+      .filter((column) => includedColsSet.has(column.displayName) || column.key === 'status')
       .map((h) => getHeaderCell(h.key, <span>{h.displayName}</span>, h.canonicalSortKey));
   }
 

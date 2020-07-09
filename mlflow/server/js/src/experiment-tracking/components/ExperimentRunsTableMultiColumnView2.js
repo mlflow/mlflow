@@ -61,7 +61,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
     isLoading: PropTypes.bool.isRequired,
-    categorizedUncheckedKeys: PropTypes.object.isRequired,
+    categorizedCheckedKeys: PropTypes.object,
   };
 
   static defaultColDef = {
@@ -122,7 +122,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     const {
       metricKeyList,
       paramKeyList,
-      categorizedUncheckedKeys,
+      categorizedCheckedKeys,
       visibleTagKeyList,
       orderByKey,
       orderByAsc,
@@ -194,7 +194,11 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           },
           filter: false,
         },
-      ].filter((c) => !categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES].includes(c.headerName)),
+      ].filter(
+        (c) =>
+          categorizedCheckedKeys === undefined ||
+          categorizedCheckedKeys[ColumnTypes.ATTRIBUTES].includes(c.headerName),
+      ),
       {
         headerName: 'Parameters',
         children: paramKeyList.map((paramKey, i) => {

@@ -29,6 +29,8 @@ export class ExperimentPage extends Component {
         searchInput: urlState.search === undefined ? '' : urlState.search,
         orderByKey: urlState.orderByKey === undefined ? null : urlState.orderByKey,
         orderByAsc: urlState.orderByAsc === undefined ? true : urlState.orderByAsc === 'true',
+        columnsToWhitelist:
+          urlState.columnsToWhitelist === undefined ? null : urlState.columnsToWhitelist,
       },
       nextPageToken: null,
       loadingMore: false,
@@ -45,7 +47,7 @@ export class ExperimentPage extends Component {
   loadData() {
     const { persistedState, lifecycleFilter } = this.state;
     const { experimentId } = this.props;
-    const { orderByKey, orderByAsc, searchInput } = persistedState;
+    const { orderByKey, orderByAsc, searchInput, columnsToWhitelist } = persistedState;
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
 
@@ -53,7 +55,14 @@ export class ExperimentPage extends Component {
       console.error(e);
     });
     this.props
-      .searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId)
+      .searchRunsApi(
+        [experimentId],
+        searchInput,
+        viewType,
+        orderBy,
+        columnsToWhitelist,
+        this.searchRunsRequestId,
+      )
       .then(this.updateNextPageToken)
       .catch((e) => {
         Utils.logErrorAndNotifyUser(e);
@@ -85,7 +94,7 @@ export class ExperimentPage extends Component {
   handleLoadMoreRuns = () => {
     const { experimentId } = this.props;
     const { persistedState, lifecycleFilter, nextPageToken } = this.state;
-    const { orderByKey, orderByAsc, searchInput } = persistedState;
+    const { orderByKey, orderByAsc, searchInput, columnsToWhitelist } = persistedState;
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
     this.setState({ loadingMore: true });
@@ -95,6 +104,7 @@ export class ExperimentPage extends Component {
         searchInput,
         viewType,
         orderBy,
+        columnsToWhitelist,
         nextPageToken,
         this.loadMoreRunsRequestId,
       )
@@ -161,6 +171,7 @@ export class ExperimentPage extends Component {
     lifecycleFilterInput,
     orderByKey,
     orderByAsc,
+    columnsToWhitelist,
   ) => {
     this.setState({
       persistedState: new ExperimentPagePersistedState({
@@ -169,6 +180,7 @@ export class ExperimentPage extends Component {
         searchInput,
         orderByKey,
         orderByAsc,
+        columnsToWhitelist,
       }).toJSON(),
       lifecycleFilter: lifecycleFilterInput,
     });
@@ -180,6 +192,7 @@ export class ExperimentPage extends Component {
         searchInput,
         lifecycleFilterToRunViewType(lifecycleFilterInput),
         orderBy,
+        columnsToWhitelist,
         this.searchRunsRequestId,
       )
       .then(this.updateNextPageToken)
@@ -209,6 +222,7 @@ export class ExperimentPage extends Component {
       searchInput,
       orderByKey,
       orderByAsc,
+      columnsToWhitelist,
     });
   };
 
@@ -230,6 +244,7 @@ export class ExperimentPage extends Component {
     searchInput,
     orderByKey,
     orderByAsc,
+    columnsToWhitelist,
   }) {
     const state = {};
     if (paramKeyFilterString) {
@@ -248,6 +263,10 @@ export class ExperimentPage extends Component {
     if (orderByAsc === false) {
       state['orderByAsc'] = orderByAsc;
     }
+    if (columnsToWhitelist) {
+      state['columnsToWhitelist'] = columnsToWhitelist;
+    }
+
     const newUrl = `/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(
       state,
     )}`;
@@ -296,6 +315,7 @@ export class ExperimentPage extends Component {
         metricKeysList={this.state.metricsList}
         paramKeysList={this.state.paramsList}
         tagKeysList={this.state.tagsList}
+        columnsToWhitelist={this.state.persistedState.columnsToWhitelist}
       />
     );
   };
