@@ -32,6 +32,6 @@ class TrackingStoreRegistry(StoreRegistry):
                  requirements.
         """
         from mlflow.tracking._tracking_service import utils
-        store_uri = store_uri if store_uri is not None else utils.get_tracking_uri()
+        store_uri = utils._resolve_tracking_uri(store_uri)
         builder = self.get_store_builder(store_uri)
         return builder(store_uri=store_uri, artifact_uri=artifact_uri)
