@@ -64,6 +64,8 @@ jobs:
     - name: Run tests
       run: |
         source ./travis/install-common-deps.sh
+        set -ex
+        ls /usr/share/miniconda/bin
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         cd mlflow/R/mlflow
