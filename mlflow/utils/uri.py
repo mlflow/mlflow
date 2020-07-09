@@ -38,6 +38,20 @@ def get_db_profile_from_uri(uri):
     return None
 
 
+def get_db_path_info_from_uri(uri):
+    """
+    Get additional prefix information specified by the tracking URI (if any), otherwise
+    returns None.
+    """
+    parsed_uri = urllib.parse.urlparse(uri)
+    if parsed_uri.scheme == "databricks":
+        if parsed_uri.path:
+            if parsed_uri.path[0] == '/':
+                return parsed_uri.path[1:]
+            return parsed_uri.path
+    return None
+
+
 def extract_db_type_from_uri(db_uri):
     """
     Parse the specified DB URI to extract the database type. Confirm the database type is

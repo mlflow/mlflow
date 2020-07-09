@@ -143,25 +143,42 @@ def _fail_malformed_databricks_auth(profile):
                           "https://github.com/databricks/databricks-cli." % profile)
 
 
-def get_databricks_host_creds(profile=None):
+def get_databricks_host_creds(profile=None, path=None):
     """
     Reads in configuration necessary to make HTTP requests to a Databricks server. This
     uses the Databricks CLI's ConfigProvider interface to load the DatabricksConfig object.
     This method will throw an exception if sufficient auth cannot be found.
 
     :param profile: Databricks CLI profile. If not provided, we will read the default profile.
+    :param path: Additional path information provided in the Databricks URI.
     :return: :py:class:`mlflow.rest_utils.MlflowHostCreds` which includes the hostname and
         authentication information necessary to talk to the Databricks server.
     """
+    print('top')
     if not hasattr(provider, 'get_config'):
         _logger.warning(
             "Support for databricks-cli<0.8.0 is deprecated and will be removed"
             " in a future version.")
         config = provider.get_config_for_profile(profile)
     elif profile:
+        print('the')
         config = provider.ProfileConfigProvider(profile).get_config()
     else:
+        print('middle')
         config = provider.get_config()
+    if not config or not config.host:
+        dbutils = _get_dbutils()
+        # Prefix differentiates users and is provided as path information in the URI
+        print('here')
+        key_prefix = path
+        if dbutils:
+            host = dbutils.secrets.get(scope=profile, key=key_prefix + "host")
+            token = dbutils.secrets.get(scope=profile, key=key_prefix + "token")
+            if host and token:
+                config = provider.DatabricksConfig.from_token(
+                    host=host,
+                    token=token,
+                    insecure=False)
     if not config or not config.host:
         _fail_malformed_databricks_auth(profile)
 
