@@ -8,6 +8,7 @@ from distutils import dir_util
 from six.moves import urllib
 
 import mlflow.utils
+from mlflow.utils import databricks_utils
 from mlflow.utils.uri import get_db_profile_from_uri
 from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
