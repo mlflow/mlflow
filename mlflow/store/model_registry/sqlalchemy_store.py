@@ -4,7 +4,7 @@ import logging
 import sqlalchemy
 
 from mlflow.entities.model_registry.model_version_stages import get_canonical_stage, \
-    DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS, STAGE_DELETED_INTERNAL
+    DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS, STAGE_DELETED_INTERNAL, STAGE_ARCHIVED
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST
@@ -453,15 +453,21 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException(msg_tpl.format(stage, DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS))
 
         with self.ManagedSessionMaker() as session:
+            last_updated_time = now()
+            in_same_stage = SqlModelVersion.current_stage == stage
+            model_versions = session.query(SqlModelVersion).filter(in_same_stage).all()
+            for mv in model_versions:
+                mv.current_stage = STAGE_ARCHIVED
+                mv.last_updated_time = last_updated_time
+
             sql_model_version = self._get_sql_model_version(session=session,
                                                             name=name,
                                                             version=version)
-            last_updated_time = now()
             sql_model_version.current_stage = get_canonical_stage(stage)
             sql_model_version.last_updated_time = last_updated_time
             sql_registered_model = sql_model_version.registered_model
             sql_registered_model.last_updated_time = last_updated_time
-            self._save_to_db(session, [sql_model_version, sql_registered_model])
+            self._save_to_db(session, [*model_versions, sql_model_version, sql_registered_model])
             return sql_model_version.to_mlflow_entity()
 
     def delete_model_version(self, name, version):
