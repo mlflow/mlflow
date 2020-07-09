@@ -7,7 +7,8 @@ import pytest
 import os
 import mlflow
 from mlflow.entities import ViewType
-from mlflow.entities.model_registry import RegisteredModel, ModelVersion
+from mlflow.entities.model_registry import RegisteredModel, ModelVersion, \
+    RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.server.handlers import get_endpoints, _create_experiment, _get_request_message, \
@@ -27,8 +28,7 @@ from mlflow.protos.model_registry_pb2 import CreateRegisteredModel, UpdateRegist
     GetLatestVersions, CreateModelVersion, UpdateModelVersion, \
     DeleteModelVersion, GetModelVersion, GetModelVersionDownloadUri, SearchModelVersions, \
     TransitionModelVersionStage, RenameRegisteredModel, SetRegisteredModelTag, \
-    DeleteRegisteredModelTag, SetModelVersionTag, DeleteModelVersionTag, \
-    RegisteredModelTag, ModelVersionTag
+    DeleteRegisteredModelTag, SetModelVersionTag, DeleteModelVersionTag
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
@@ -218,7 +218,7 @@ def test_create_registered_model(mock_get_request_message, mock_model_registry_s
     mock_model_registry_store.create_registered_model.return_value = rm
     resp = _create_registered_model()
     _, args = mock_model_registry_store.create_registered_model.call_args
-    assert args == {"name": "model_1", "tags": tags}
+    assert args == {"name": "model_1", "tags": jsonify(tags)}
     assert json.loads(resp.get_data()) == {"registered_model": jsonify(rm)}
 
 
@@ -376,7 +376,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     resp = _create_model_version()
     _, args = mock_model_registry_store.create_model_version.call_args
     assert args == {"name": "model_1", "source": "A/B",
-                    "run_id": run_id, "tags": tags}
+                    "run_id": run_id, "tags": jsonify(tags)}
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
 
 
@@ -471,12 +471,12 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
 
 def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_store):
     name = "model1"
-    key = "some weird key"
-    value = "some value"
-    mock_get_request_message.return_value = SetRegisteredModelTag(name=name, key=key, value=value)
+    tag = RegisteredModelTag(key="some weird key", value="some value")
+    mock_get_request_message.return_value = SetRegisteredModelTag(name=name, key=tag.key,
+                                                                  value=tag.value)
     _set_registered_model_tag()
     _, args = mock_model_registry_store.set_registered_model_tag.call_args
-    assert args == {"name": name, "tag": {"key": key, "value": value}}
+    assert args == {"name": name, "tag": jsonify(tag)}
 
 
 def test_delete_registered_model_tag(mock_get_request_message, mock_model_registry_store):
@@ -491,13 +491,12 @@ def test_delete_registered_model_tag(mock_get_request_message, mock_model_regist
 def test_set_model_version_tag(mock_get_request_message, mock_model_registry_store):
     name = "model1"
     version = "1"
-    key = "some weird key"
-    value = "some value"
+    tag = ModelVersionTag(key="some weird key", value="some value")
     mock_get_request_message.return_value = SetModelVersionTag(name=name, version=version,
-                                                               key=key, value=value)
+                                                               key=tag.key, value=tag.value)
     _set_model_version_tag()
     _, args = mock_model_registry_store.set_model_version_tag.call_args
-    assert args == {"name": name, "version": version, "tag": {"key": key, "value": value}}
+    assert args == {"name": name, "version": version, "tag": jsonify(tag)}
 
 
 def test_delete_model_version_tag(mock_get_request_message, mock_model_registry_store):

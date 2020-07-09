@@ -6,13 +6,14 @@ import mock
 import pytest
 import uuid
 
+from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.protos.model_registry_pb2 import CreateRegisteredModel, \
     UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, \
     GetRegisteredModel, GetLatestVersions, CreateModelVersion, UpdateModelVersion, \
     DeleteModelVersion, GetModelVersion, GetModelVersionDownloadUri, SearchModelVersions, \
     RenameRegisteredModel, TransitionModelVersionStage, SearchRegisteredModels, \
     SetRegisteredModelTag, SetModelVersionTag, DeleteRegisteredModelTag, \
-    DeleteModelVersionTag, RegisteredModelTag, ModelVersionTag
+    DeleteModelVersionTag
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
