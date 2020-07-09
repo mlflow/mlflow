@@ -446,9 +446,6 @@ class SqlAlchemyStore(AbstractStore):
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        if archive_existing_versions:
-            raise MlflowException("'archive_existing_versions' flag is not supported in "
-                                  "SqlAlchemyStore. Set it to 'False'")
         with self.ManagedSessionMaker() as session:
             sql_model_version = self._get_sql_model_version(session=session,
                                                             name=name,
