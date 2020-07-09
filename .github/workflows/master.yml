@@ -224,9 +224,7 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: 3.7
-
       - name: Install dependecies
-        # export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
         run: |
           pip install -r dev-requirements.txt
           pip install -r travis/small-requirements.txt
