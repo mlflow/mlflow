@@ -31,7 +31,8 @@ _registry_uri = None
 
 def set_registry_uri(uri):
     """
-    Set the registry server URI.
+    Set the registry server URI. This method is especially useful if you have a registry server
+    that's different from the tracking server.
 
     :param uri:
 
