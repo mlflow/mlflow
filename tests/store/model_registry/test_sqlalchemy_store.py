@@ -356,11 +356,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         msg = (r"Model version transition cannot archive existing model versions "
                r"because .+ is not an Active stage. Valid stages are .+")
 
-        with self.assertRaisesRegex(MlflowException, msg):
-            self.store.transition_model_version_stage("model", "1", "None", True)
-
-        with self.assertRaisesRegex(MlflowException, msg):
-            self.store.transition_model_version_stage("model", "1", "Archived", True)
+        for stage in ["None", "Archived"]:
+            with self.assertRaisesRegex(MlflowException, msg):
+                self.store.transition_model_version_stage("model", "1", "None", True)
 
     def test_delete_model_version(self):
         name = "test_for_update_MV"
