@@ -4,7 +4,8 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import _TRACKING_USERNAME_ENV_VAR, \
-    _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR
+    _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR, \
+    _resolve_tracking_uri, get_tracking_uri
 from mlflow.utils import rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import get_db_profile_from_uri
@@ -12,11 +13,11 @@ from mlflow.utils.uri import get_db_profile_from_uri
 
 # NOTE: in contrast to tracking, we do not support the following ways to specify
 # the model registry URI:
-#  - via a utility method like tracking.tracking.utils.set_tracking_uri
 #  - via environment variables like MLFLOW_TRACKING_URI, MLFLOW_TRACKING_USERNAME, ...
 # We do support specifying it
 #  - via the ``model_registry_uri`` parameter when creating an ``MlflowClient`` or
 #    ``ModelRegistryClient``.
+#  - via a utility method ``mlflow.set_registry_uri``
 #  - by not specifying anything: in this case we assume the model registry store URI is
 #    the same as the tracking store URI. This means Tracking and Model Registry are
 #    backed by the same backend DB/Rest server. However, note that we access them via
@@ -25,7 +26,46 @@ from mlflow.utils.uri import get_db_profile_from_uri
 # This means the following combinations are not supported:
 #  - Tracking RestStore & Model Registry RestStore that use different credentials.
 
-# NOTE: SqlAlchemyStore code is commented out here - we can add it back once it's available
+_registry_uri = None
+
+
+def set_registry_uri(uri):
+    """
+    Set the registry server URI. This method is especially useful if you have a registry server
+    that's different from the tracking server.
+
+    :param uri:
+
+                - An empty string, or a local file path, prefixed with ``file:/``. Data is stored
+                  locally at the provided file (or ``./mlruns`` if empty).
+                - An HTTP URI like ``https://my-tracking-server:5000``.
+                - A Databricks workspace, provided as the string "databricks" or, to use a
+                  Databricks CLI
+                  `profile <https://github.com/databricks/databricks-cli#installation>`_,
+                  "databricks://<profileName>".
+    """
+    global _registry_uri
+    _registry_uri = uri
+
+
+def _get_registry_uri_from_context():
+    global _registry_uri
+    # in the future, REGISTRY_URI env var support can go here
+    return _registry_uri
+
+
+def get_registry_uri():
+    """
+    Get the current registry URI. If none has been specified, defaults to the tracking URI.
+
+    :return: The registry URI.
+    """
+    return _get_registry_uri_from_context() or get_tracking_uri()
+
+
+def _resolve_registry_uri(registry_uri=None, tracking_uri=None):
+    return registry_uri or _get_registry_uri_from_context() or _resolve_tracking_uri(tracking_uri)
+
 
 def _get_sqlalchemy_store(store_uri):
     from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore

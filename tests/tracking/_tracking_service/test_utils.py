@@ -10,9 +10,9 @@ from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
-from mlflow.tracking._tracking_service.utils import _get_store, _TRACKING_URI_ENV_VAR, \
-    _TRACKING_USERNAME_ENV_VAR, _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, \
-    _TRACKING_INSECURE_TLS_ENV_VAR
+from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri, \
+    _TRACKING_INSECURE_TLS_ENV_VAR, _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, \
+    _TRACKING_URI_ENV_VAR, _TRACKING_USERNAME_ENV_VAR
 
 # pylint: disable=unused-argument
 
@@ -297,3 +297,19 @@ def test_ensure_run_id_in_path():
     assert ensure_run_id_in_path('path', 'run_id') == 'path/run_id'
     assert ensure_run_id_in_path('path/', 'run_id') == 'path/run_id'
     assert ensure_run_id_in_path('path/run_id', 'run_id') == 'path/run_id'
+
+
+def test_resolve_tracking_uri_with_param():
+    with mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri") \
+            as get_tracking_uri_mock:
+        get_tracking_uri_mock.return_value = "databricks://tracking_qoeirj"
+        overriding_uri = "databricks://tracking_poiwerow"
+        assert _resolve_tracking_uri(overriding_uri) == overriding_uri
+
+
+def test_resolve_tracking_uri_with_no_param():
+    with mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri") \
+            as get_tracking_uri_mock:
+        default_uri = "databricks://tracking_zlkjdas"
+        get_tracking_uri_mock.return_value = default_uri
+        assert _resolve_tracking_uri() == default_uri

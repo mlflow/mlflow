@@ -441,3 +441,31 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(sklearn_knn_model
         pd.DataFrame(reloaded_knn_pyfunc.predict(inference_df)),
         check_dtype=False,
         check_less_precise=6)
+
+
+@pytest.mark.large
+def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
+        sklearn_knn_model, model_path):
+    """
+    This test verifies that scikit-learn models saved in older versions of MLflow are loaded
+    successfully by ``mlflow.pyfunc.load_model``. These older models specify a pyfunc ``data``
+    field referring directly to a serialized scikit-learn model file. In contrast, newer models
+    omit the ``data`` field.
+    """
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model.model, path=model_path,
+        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
+
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    pyfunc_conf = model_conf.flavors.get(pyfunc.FLAVOR_NAME)
+    sklearn_conf = model_conf.flavors.get(mlflow.sklearn.FLAVOR_NAME)
+    assert sklearn_conf is not None
+    assert pyfunc_conf is not None
+    pyfunc_conf[pyfunc.DATA] = sklearn_conf["pickled_model"]
+
+    reloaded_knn_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+
+    np.testing.assert_array_equal(
+        sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),
+        reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data))

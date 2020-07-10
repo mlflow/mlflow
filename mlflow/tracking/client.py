@@ -11,6 +11,7 @@ from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry.client import ModelRegistryClient
+from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
@@ -34,10 +35,11 @@ class MlflowClient(object):
                              `Where Runs Get Recorded <../tracking.html#where-runs-get-recorded>`_
                              for more info.
         :param registry_uri: Address of local or remote model registry server. If not provided,
-                             defaults to the service set by ``mlflow.tracking.set_tracking_uri``.
+                             defaults to the service set by ``mlflow.tracking.set_registry_uri``. If
+                             no such service was set, defaults to the tracking uri of the client.
         """
-        final_tracking_uri = tracking_uri or utils.get_tracking_uri()
-        self._registry_uri = registry_uri or final_tracking_uri
+        final_tracking_uri = utils._resolve_tracking_uri(tracking_uri)
+        self._registry_uri = registry_utils._resolve_registry_uri(registry_uri, tracking_uri)
         self._tracking_client = TrackingServiceClient(final_tracking_uri)
         # `MlflowClient` also references a `ModelRegistryClient` instance that is provided by the
         # `MlflowClient._get_registry_client()` method. This `ModelRegistryClient` is not explicitly
