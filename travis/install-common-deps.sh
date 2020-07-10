@@ -9,15 +9,20 @@ df -h
 sudo mkdir -p /travis-install
 # GITHUB_WORKFLOW is set by default during GitHub workflows
 if [[ -z $GITHUB_WORKFLOW ]]; then
+  CONDA_DIR=$HOME/miniconda
   sudo chown travis /travis-install
+  # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
+  # We do this conditionally because it saves us some downloading if the
+  # version is the same.
+  wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
+  bash $HOME/miniconda.sh -b -p $CONDA_DIR
+else
+  # Miniconda is pre-installed in the virtual-environments for GitHub Actions.
+  # See this repository: https://github.com/actions/virtual-environments
+  CONDA_DIR=/usr/share/miniconda
 fi
-# (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
-# We do this conditionally because it saves us some downloading if the
-# version is the same.
-wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
 
-bash $HOME/miniconda.sh -b -p $HOME/miniconda
-export PATH="$HOME/miniconda/bin:$PATH"
+export PATH="$CONDA_DIR/bin:$PATH"
 hash -r
 conda config --set always_yes yes --set changeps1 no
 # Useful for debugging any issues with conda
@@ -39,9 +44,9 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   # Hack: make sure all spark-* scripts are executable. 
   # Conda installs 2 version spark-* scripts and makes the ones spark
   # uses not executable. This is a temporary fix to unblock the tests.
-  ls -lha $(find $HOME/miniconda/envs/test-environment/ -path "*bin/spark-*")
-  chmod 777 $(find $HOME/miniconda/envs/test-environment/ -path "*bin/spark-*")
-  ls -lha $(find $HOME/miniconda/envs/test-environment/ -path "*bin/spark-*")
+  ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
+  chmod 777 $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
+  ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
 fi
 pip install .
 export MLFLOW_HOME=$(pwd)
