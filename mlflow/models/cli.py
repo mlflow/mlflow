@@ -3,6 +3,7 @@ import click
 import os
 
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -161,7 +162,7 @@ def _get_flavor_backend(model_uri, **kwargs):
         else:
             underlying_model_uri = model_uri
         local_path = _download_artifact_from_uri(
-            append_to_uri_path(underlying_model_uri, "MLmodel"), output_path=tmp.path())
+            append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path())
         model = Model.load(local_path)
     flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
     if flavor_backend is None:
