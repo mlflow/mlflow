@@ -154,23 +154,19 @@ def get_databricks_host_creds(profile=None, path=None):
     :return: :py:class:`mlflow.rest_utils.MlflowHostCreds` which includes the hostname and
         authentication information necessary to talk to the Databricks server.
     """
-    print('top')
     if not hasattr(provider, 'get_config'):
         _logger.warning(
             "Support for databricks-cli<0.8.0 is deprecated and will be removed"
             " in a future version.")
         config = provider.get_config_for_profile(profile)
     elif profile:
-        print('the')
         config = provider.ProfileConfigProvider(profile).get_config()
     else:
-        print('middle')
         config = provider.get_config()
     # if a path is specified, that implies a Databricks tracking URI of the form:
     # databricks://profile-name/path-specifier
     if (not config or not config.host) and path:
         dbutils = _get_dbutils()
-        print('here')
         # Prefix differentiates users and is provided as path information in the URI
         key_prefix = path
         if dbutils:

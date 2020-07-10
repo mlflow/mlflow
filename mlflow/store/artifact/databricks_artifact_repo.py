@@ -21,8 +21,8 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path, yield_file_i
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
 from mlflow.utils.uri import (
-    extract_and_normalize_path, is_databricks_acled_artifacts_uri, get_db_profile_from_uri
-)
+    extract_and_normalize_path, is_databricks_acled_artifacts_uri, get_db_profile_from_uri,
+    get_db_path_info_from_uri)
 
 _logger = logging.getLogger(__name__)
 _PATH_PREFIX = "/api/2.0"
@@ -89,7 +89,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def _call_endpoint(self, service, api, json_body):
         db_profile = get_db_profile_from_uri(mlflow.tracking.get_tracking_uri())
-        db_creds = get_databricks_host_creds(db_profile)
+        db_path_info = get_db_path_info_from_uri(mlflow.tracking.get_tracking_uri())
+        db_creds = get_databricks_host_creds(db_profile, db_path_info)
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
         response_proto = api.Response()
         return call_endpoint(db_creds, endpoint, method, json_body, response_proto)
