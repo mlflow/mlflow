@@ -1,4 +1,4 @@
-name: Auto Labeling
+name: Labeling
 
 on:
   schedule:
