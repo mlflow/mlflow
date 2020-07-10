@@ -113,6 +113,13 @@ you can `sign your work`_ when committing code changes and opening pull requests
     git config --global user.name "Your Name"
     git config --global user.email yourname@example.com
 
+For convenience, we provide a pre-commit git hook that validates that commits are signed-off.
+Enable it by running:
+
+.. code-block:: bash
+
+    git config core.hooksPath hooks
+
 Then, install the Python MLflow package from source - this is required for developing & testing
 changes across all languages and APIs. We recommend installing MLflow in its own conda environment
 by running the following from your checkout of MLflow:
