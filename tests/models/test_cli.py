@@ -30,9 +30,8 @@ from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED, \
     CONTENT_TYPE_JSON, CONTENT_TYPE_CSV
 
-in_travis = 'TRAVIS' in os.environ
-# NB: for now, windows tests on Travis do not have conda available.
-no_conda = ["--no-conda"] if in_travis and sys.platform == "win32" else []
+# NB: for now, windows tests do not have conda available.
+no_conda = ["--no-conda"] if sys.platform == "win32" else []
 
 # NB: need to install mlflow since the pip version does not have mlflow models cli.
 install_mlflow = ["--install-mlflow"] if not no_conda else []

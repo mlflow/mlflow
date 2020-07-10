@@ -8,36 +8,17 @@ services:
 matrix:
   include:
     # Nightly builds run the tests/examples end-to-end test suite.
-    # Does not include Windows since Projects/Models are mostly not compatible with Windows as of now.
     - stage: Nightly
       if: type == cron
     - stage: Large
       if: type != cron
-    # Run Windows tests in the "large" test builder so that we don't spend Travis executor
-    # time running Windows tests if Python 3 small tests fail.
-    - os: windows
-      name: "Windows"
-      if: type != cron
-      language: sh
-      before_install:
-        - choco install python3 --version=3.7.4
-      install:
-        - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
-        - pip install -r dev-requirements.txt
-        - pip install -r travis/small-requirements.txt
-        - pip install -e .
-      script:
-        - pytest --verbose --ignore-flavors --ignore=tests/projects tests
-
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME";
   - CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
-  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
-      echo "skipping this step on windows.";
-    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]] && ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
+  - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Nightly" ]] && ! [[ "$TRAVIS_EVENT_TYPE" == "cron" || ! -z "$CHANGED_FILES" ]]; then
       echo "skipping the nightly stage because this build is not nightly and there are no changed files associated with nightly tests.";
     else
       INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
