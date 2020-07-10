@@ -31,6 +31,8 @@ def test_get_db_path_info_from_profile():
     assert get_db_path_info_from_uri('databricks://profile/prefix') == 'prefix'
     assert get_db_path_info_from_uri('nondatabricks://profile/prefix') is None
     assert get_db_path_info_from_uri('databricks://profile') is None
+    assert get_db_path_info_from_uri('databricks://profile/') is None
+    assert get_db_path_info_from_uri('databricks://') is None
 
 
 def test_uri_types():

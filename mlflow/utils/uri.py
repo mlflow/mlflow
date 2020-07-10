@@ -43,12 +43,14 @@ def get_db_path_info_from_uri(uri):
     Get additional prefix information specified by the tracking URI (if any), otherwise
     returns None.
     """
-    parsed_uri = urllib.parse.urlparse(uri)
+    parsed_uri = urllib.parse.urlparse(uri.strip())
     if parsed_uri.scheme == "databricks":
         if parsed_uri.path:
-            if parsed_uri.path[0] == '/':
-                return parsed_uri.path[1:]
-            return parsed_uri.path
+            parsed = parsed_uri.path
+            if parsed == '/':
+                parsed = parsed[1:]
+            if parsed:
+                return parsed_uri.path
     return None
 
 
