@@ -543,7 +543,10 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
                     cmd += ['--' + name]
             else:
                 # Passed name=value
-                cmd += ['--' + name, value]
+                if len(name) == 1:
+                    cmd += ['-' + name, value]
+                else:
+                    cmd += ['--' + name, value]
 
     env_vars = _get_run_env_vars(run_id=active_run.info.run_id,
                                  experiment_id=active_run.info.experiment_id)

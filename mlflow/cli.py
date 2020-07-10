@@ -54,7 +54,7 @@ def cli():
 @click.option("--docker-args", "-A", metavar="NAME=VALUE", multiple=True,
               help="A `docker run` argument or flag, of the form -A name=value (e.g. -A gpus=all) "
                    "or -A name (e.g. -A t). The argument will then be passed as "
-                   "`docker run --name value` or `docker run -name` respectively. ")
+                   "`docker run --name value` or `docker run --name` respectively. ")
 @click.option("--experiment-name", envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
               help="Name of the experiment under which to launch the run. If not "
                    "specified, 'experiment-id' option will be used to launch run.")
@@ -141,9 +141,8 @@ def _user_args_to_dict(arguments, argument_type='P'):
     user_dict = {}
     for arg in arguments:
         split = arg.split('=')
-        # Docker arguments such as `t` don't require a value
-        # -> set them to True if specified
-        if len(split) == 1:
+        # Docker arguments such as `t` don't require a value -> set to True if specified
+        if len(split) == 1 and argument_type == 'A':
             name = split[0]
             value = True
         elif len(split) == 2:
