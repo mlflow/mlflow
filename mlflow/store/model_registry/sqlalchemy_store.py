@@ -476,7 +476,7 @@ class SqlAlchemyStore(AbstractStore):
         if name is None or name == "":
             raise MlflowException('Model version name cannot be empty.', INVALID_PARAMETER_VALUE)
         for tag in tags or []:
-            _validate_registered_model_tag(tag.key, tag.value)
+            _validate_model_version_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
             creation_time = now()
             for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
