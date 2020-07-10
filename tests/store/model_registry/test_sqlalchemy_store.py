@@ -358,7 +358,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         for stage in ["None", "Archived"]:
             with self.assertRaisesRegex(MlflowException, msg):
-                self.store.transition_model_version_stage("model", "1", "None", True)
+                self.store.transition_model_version_stage("model", "1", stage, True)
 
         name = "model"
         self._rm_maker(name)
