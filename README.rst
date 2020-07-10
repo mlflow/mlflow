@@ -16,7 +16,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 * `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
-|docs| |travis| |pypi| |conda-forge| |cran| |maven| |license| |downloads|
+|docs| |travis| |labeling| |pypi| |conda-forge| |cran| |maven| |license| |downloads|
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg
     :target: https://mlflow.org/docs/latest/index.html
@@ -24,6 +24,9 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 .. |travis| image:: https://img.shields.io/travis/mlflow/mlflow.svg
     :target: https://travis-ci.org/mlflow/mlflow
     :alt: Build Status
+.. |labeling| image:: https://github.com/mlflow/mlflow/workflows/Labeling/badge.svg
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ALabeling
+    :alt: Labeling Action Status
 .. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg
     :target: https://pypi.org/project/mlflow/
     :alt: Latest Python Release
@@ -42,6 +45,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 .. |downloads| image:: https://pepy.tech/badge/mlflow
     :target: https://pepy.tech/project/mlflow
     :alt: Total Downloads
+
 
 Installing
 ----------
