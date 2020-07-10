@@ -352,19 +352,55 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             mvd5 = self.store.get_model_version(name=mv1.name, version=mv1.version)
             self.assertEqual(mvd5.current_stage, "Staging")
 
-    def test_transition_model_version_stage(self):
-        msg = (r"Model version transition cannot archive existing model versions "
-               r"because .+ is not an Active stage. Valid stages are .+")
-
-        for stage in ["None", "Archived"]:
-            with self.assertRaisesRegex(MlflowException, msg):
-                self.store.transition_model_version_stage("model", "1", stage, True)
-
+    def test_transition_model_version_stage_when_archive_existing_versions_is_false(self):
         name = "model"
         self._rm_maker(name)
         mv1 = self._mv_maker(name)
         mv2 = self._mv_maker(name)
         mv3 = self._mv_maker(name)
+
+        # test that when `archive_existing_versions` is False, transitioning a model version
+        # to the inactive stages ("Archived" and "None") does not throw.
+        for stage in ["Archived", "None"]:
+            self.store.transition_model_version_stage(name, mv1.version, stage, False)
+
+        self.store.transition_model_version_stage(name, mv1.version, "Staging", False)
+        self.store.transition_model_version_stage(name, mv2.version, "Production", False)
+        self.store.transition_model_version_stage(name, mv3.version, "Staging", False)
+
+        mvd1 = self.store.get_model_version(name=name, version=mv1.version)
+        mvd2 = self.store.get_model_version(name=name, version=mv2.version)
+        mvd3 = self.store.get_model_version(name=name, version=mv3.version)
+
+        self.assertEqual(mvd1.current_stage, "Staging")
+        self.assertEqual(mvd2.current_stage, "Production")
+        self.assertEqual(mvd3.current_stage, "Staging")
+
+        self.store.transition_model_version_stage(name, mv3.version, "Production", False)
+
+        mvd1 = self.store.get_model_version(name=name, version=mv1.version)
+        mvd2 = self.store.get_model_version(name=name, version=mv2.version)
+        mvd3 = self.store.get_model_version(name=name, version=mv3.version)
+
+        self.assertEqual(mvd1.current_stage, "Staging")
+        self.assertEqual(mvd2.current_stage, "Production")
+        self.assertEqual(mvd3.current_stage, "Production")
+
+    def test_transition_model_version_stage_when_archive_existing_versions_is_true(self):
+        name = "model"
+        self._rm_maker(name)
+        mv1 = self._mv_maker(name)
+        mv2 = self._mv_maker(name)
+        mv3 = self._mv_maker(name)
+
+        msg = (r"Model version transition cannot archive existing model versions "
+               r"because .+ is not an Active stage. Valid stages are .+")
+
+        # test that when `archive_existing_versions` is False, transitioning a model version
+        # to the inactive stages ("Archived" and "None") throws.
+        for stage in ["Archived", "None"]:
+            with self.assertRaisesRegex(MlflowException, msg):
+                self.store.transition_model_version_stage(name, mv1.version, stage, True)
 
         self.store.transition_model_version_stage(name, mv1.version, "Staging", False)
         self.store.transition_model_version_stage(name, mv2.version, "Production", False)
@@ -377,7 +413,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd1.current_stage, "Archived")
         self.assertEqual(mvd2.current_stage, "Production")
         self.assertEqual(mvd3.current_stage, "Staging")
-
         self.assertEqual(mvd1.last_updated_timestamp, mvd3.last_updated_timestamp)
 
         self.store.transition_model_version_stage(name, mv3.version, "Production", True)
@@ -389,7 +424,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd1.current_stage, "Archived")
         self.assertEqual(mvd2.current_stage, "Archived")
         self.assertEqual(mvd3.current_stage, "Production")
-
         self.assertEqual(mvd2.last_updated_timestamp, mvd3.last_updated_timestamp)
 
     def test_delete_model_version(self):
