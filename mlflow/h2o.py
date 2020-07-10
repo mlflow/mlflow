@@ -13,6 +13,7 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -125,7 +126,7 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=None, settings=None
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.h2o",
                         data=model_data_subpath, env=conda_env_subpath)
     mlflow_model.add_flavor(FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath)
-    mlflow_model.save(os.path.join(path, "MLmodel"))
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=None,
