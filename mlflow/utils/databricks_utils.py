@@ -166,10 +166,12 @@ def get_databricks_host_creds(profile=None, path=None):
     else:
         print('middle')
         config = provider.get_config()
-    if not config or not config.host:
+    # if a path is specified, that implies a Databricks tracking URI of the form:
+    # databricks://profile-name/path-specifier
+    if (not config or not config.host) and path:
         dbutils = _get_dbutils()
-        # Prefix differentiates users and is provided as path information in the URI
         print('here')
+        # Prefix differentiates users and is provided as path information in the URI
         key_prefix = path
         if dbutils:
             host = dbutils.secrets.get(scope=profile, key=key_prefix + "host")

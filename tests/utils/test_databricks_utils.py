@@ -53,19 +53,20 @@ def test_databricks_params_custom_profile(ProfileConfigProvider):
     assert params.ignore_tls_verification
     ProfileConfigProvider.assert_called_with("profile")
 
-#
-# @mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
-# @mock.patch.multiple('mlflow.utils.databricks_utils', _get_dbutils=mock.DEFAULT)
-# def test_databricks_registry_profile(ProfileConfigProvider, _get_dbutils):
-#     mock_provider = mock.MagicMock()
-#     mock_provider.get_config.return_value = None
-#     ProfileConfigProvider.return_value = mock_provider
-#     # mock_dbutils = mock.MagicMock()
-#     # mock_dbutils.secrets.get.return_value = 'blah'
-#     # get_dbutils.return_value = mock_dbutils
-#     params = databricks_utils.get_databricks_host_creds("profile", "/prefix")
-#     print(params.host, params.token)
-#     raise Exception()
+
+@mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
+def test_databricks_registry_profile(ProfileConfigProvider):
+    mock_provider = mock.MagicMock()
+    mock_provider.get_config.return_value = None
+    ProfileConfigProvider.return_value = mock_provider
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.secrets.get.return_value = 'random'
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        params = databricks_utils.get_databricks_host_creds("profile", "prefix")
+        mock_dbutils.secrets.get.assert_any_call(key='prefixhost', scope='profile')
+        mock_dbutils.secrets.get.assert_any_call(key='prefixtoken', scope='profile')
+        assert params.host == 'random'
+        assert params.token == 'random'
 
 
 @mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
