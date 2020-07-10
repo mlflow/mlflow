@@ -29,7 +29,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
-
 FLAVOR_NAME = "keras"
 # File name to which custom objects cloudpickle is saved - used during save and load
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
@@ -235,8 +234,8 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=None, custom_obje
 
 
 def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, keras_module=None,
-              registered_model_name=None, signature: ModelSignature=None,
-              input_example: ModelInputExample=None, **kwargs):
+              registered_model_name=None, signature: ModelSignature = None,
+              input_example: ModelInputExample = None, **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
@@ -365,16 +364,42 @@ class _KerasModelWrapper:
         self._graph = graph
         self._sess = sess
 
-    def predict(self, dataframe):
+    def _data_adapter(self, data):
+        """
+        data adapter before model predict
+        :param data: The input data, as a pandas dataframe or Numpy array
+                    (or list of Numpy arrays if the model has multiple inputs).
+                    default dataframe.
+        :return:
+        """
+        try:
+            class_name = data.__class__.__name__
+        except:
+            print("Unknown datatype. Please check your data.")
+            return data
+        if class_name == 'DataFrame':  # if dataframe, change dataframe to numpy
+            return data.values
+        elif class_name == 'ndarray':  # if numpy, no process
+            return data
+        elif class_name == 'list':  # if list
+            if data.__len__() > 0:
+                if data[0].__class__.__name__ == 'ndarray':
+                    return data
+        print("Not supported data type.")
+        return None
+
+    def predict(self, data):
+        # Do data adapter
+        _data = self._data_adapter(data)
         # In TensorFlow < 2.0, we use a graph and session to predict
         if self._graph is not None:
             with self._graph.as_default():
                 with self._sess.as_default():
-                    predicted = pd.DataFrame(self.keras_model.predict(dataframe.values))
+                    predicted = pd.DataFrame(self.keras_model.predict(_data))
         # In TensorFlow >= 2.0, we do not use a graph and session to predict
         else:
-            predicted = pd.DataFrame(self.keras_model.predict(dataframe.values))
-        predicted.index = dataframe.index
+            predicted = pd.DataFrame(self.keras_model.predict(_data))
+        # predicted.index = dataframe.index
         return predicted
 
 
@@ -487,6 +512,7 @@ def autolog():
         Records available logs after each epoch.
         Records model structural information as params when training begins
         """
+
         def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
             try_mlflow_log(mlflow.log_param, 'num_layers', len(self.model.layers))
             try_mlflow_log(mlflow.log_param, 'optimizer_name', type(self.model.optimizer).__name__)
