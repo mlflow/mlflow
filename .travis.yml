@@ -10,6 +10,8 @@ matrix:
     # Nightly builds run the tests/examples end-to-end test suite.
     - stage: Nightly
       if: type == cron
+    - stage: Large
+      if: type != cron
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
