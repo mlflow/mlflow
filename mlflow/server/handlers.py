@@ -13,6 +13,8 @@ from querystring_parser import parser
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.projects._project_spec import MLPROJECT_FILE_NAME
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
@@ -163,7 +165,7 @@ def catch_mlflow_exception(func):
 
 
 _TEXT_EXTENSIONS = ['txt', 'log', 'yaml', 'yml', 'json', 'js', 'py',
-                    'csv', 'tsv', 'md', 'rst', 'MLmodel', 'MLproject']
+                    'csv', 'tsv', 'md', 'rst', MLMODEL_FILE_NAME, MLPROJECT_FILE_NAME]
 
 
 @catch_mlflow_exception

@@ -15,6 +15,7 @@ import mlflow.pyfunc
 import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -179,7 +180,7 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
 
     mlflow.pyfunc.add_to_model(model=mlflow_model, loader_module=__name__, code=saved_code_subpath,
                                env=conda_env_subpath, **custom_model_config_kwargs)
-    mlflow_model.save(os.path.join(path, 'MLmodel'))
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 def _load_pyfunc(model_path):
