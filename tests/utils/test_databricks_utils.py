@@ -63,8 +63,8 @@ def test_databricks_registry_profile(ProfileConfigProvider):
     mock_dbutils.secrets.get.return_value = 'random'
     with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
         params = databricks_utils.get_databricks_host_creds("profile", "prefix")
-        mock_dbutils.secrets.get.assert_any_call(key='prefixhost', scope='profile')
-        mock_dbutils.secrets.get.assert_any_call(key='prefixtoken', scope='profile')
+        mock_dbutils.secrets.get.assert_any_call(key='prefix-host', scope='profile')
+        mock_dbutils.secrets.get.assert_any_call(key='prefix-token', scope='profile')
         assert params.host == 'random'
         assert params.token == 'random'
 

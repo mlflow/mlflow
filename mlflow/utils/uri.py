@@ -47,7 +47,7 @@ def get_db_path_info_from_uri(uri):
     if parsed_uri.scheme == "databricks":
         if parsed_uri.path:
             parsed = parsed_uri.path
-            if parsed == '/':
+            if len(parsed) > 0 and parsed[0] == '/':
                 parsed = parsed[1:]
             if parsed:
                 return parsed_uri.path
