@@ -457,8 +457,12 @@ class SqlAlchemyStore(AbstractStore):
 
             model_versions = []
             if archive_existing_versions:
-                in_same_stage = SqlModelVersion.current_stage == stage
-                model_versions = session.query(SqlModelVersion).filter(in_same_stage).all()
+                conditions = [
+                    SqlModelVersion.name == name,
+                    SqlModelVersion.version != version,
+                    SqlModelVersion.current_stage == stage,
+                ]
+                model_versions = session.query(SqlModelVersion).filter(*conditions).all()
                 for mv in model_versions:
                     mv.current_stage = STAGE_ARCHIVED
                     mv.last_updated_time = last_updated_time
