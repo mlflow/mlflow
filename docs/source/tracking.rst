@@ -497,48 +497,6 @@ By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (t
 running ``mlflow run`` locally), but when running a server, make sure that this points to a
 persistent (that is, non-ephemeral) file system location.
 
-File store performance
-~~~~~~~~~~~~~~~~~~~~~~
-
-MLflow will automatically try to use `LibYAML <https://pyyaml.org/wiki/LibYAML>`_ bindings if they are already installed.
-However if you notice any performance issues when using *file store* backend, it could mean LibYAML is not installed on your system.
-On Linux or Mac you can easily install it using your system package manager:
-
-.. code-block:: sh
-
-    # On Ubuntu/Debian
-    apt-get install libyaml-cpp-dev libyaml-dev
-
-    # On macOS using Homebrew
-    brew install yaml-cpp libyaml
-
-After installing LibYAML, you need to reinstall PyYAML:
-
-.. code-block:: sh
-
-    # Reinstall PyYAML
-    pip --no-cache-dir install --force-reinstall -I pyyaml
-
-
-Deletion Behavior
-~~~~~~~~~~~~~~~~~
-In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
-from the backend store or artifact store when a Run is deleted. The :ref:`mlflow gc <cli>` CLI is provided
-for permanently removing Run metadata and artifacts for deleted runs.
-
-SQLAlchemy Options
-~~~~~~~~~~~~~~~~~~
-
-You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalchemy.org/en/latest/core/pooling.html>`_ using environment variables.
-
-+-----------------------------------------+-----------------------------+
-| MLflow Environment Variable             | SQLAlchemy QueuePool Option |
-+-----------------------------------------+-----------------------------+
-| ``MLFLOW_SQLALCHEMYSTORE_POOL_SIZE``    | ``pool_size``               |
-+-----------------------------------------+-----------------------------+
-| ``MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW`` | ``max_overflow``            |
-+-----------------------------------------+-----------------------------+
-
 Artifact Stores
 ~~~~~~~~~~~~~~~~
 
@@ -546,18 +504,24 @@ Artifact Stores
   :local:
   :depth: 1
 
+<<<<<<< HEAD
 In addition to local file paths, MLflow supports the following storage systems as artifact
 stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
 
 Amazon S3 and S3-compatible storage
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+=======
+>>>>>>> PR review comments
 The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
 file system) and is where clients log their artifact output (for example, models).
 ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
 default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``
 is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
 this run are stored.
+
+In addition to local file paths, MLflow supports the following storage systems as artifact
+stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
 Use ``--default-artifact-root`` (defaults to local ``./mlruns`` directory) to configure default
 location to server's artifact store. This will be used as artifact location for newly-created
@@ -675,6 +639,48 @@ driver using the ``CLASSPATH`` environment variable.
 The used HDFS driver is ``libhdfs``.
 
 
+File store performance
+~~~~~~~~~~~~~~~~~~~~~~
+
+MLflow will automatically try to use `LibYAML <https://pyyaml.org/wiki/LibYAML>`_ bindings if they are already installed.
+However if you notice any performance issues when using *file store* backend, it could mean LibYAML is not installed on your system.
+On Linux or Mac you can easily install it using your system package manager:
+
+.. code-block:: sh
+
+    # On Ubuntu/Debian
+    apt-get install libyaml-cpp-dev libyaml-dev
+
+    # On macOS using Homebrew
+    brew install yaml-cpp libyaml
+
+After installing LibYAML, you need to reinstall PyYAML:
+
+.. code-block:: sh
+
+    # Reinstall PyYAML
+    pip --no-cache-dir install --force-reinstall -I pyyaml
+
+
+Deletion Behavior
+~~~~~~~~~~~~~~~~~
+In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
+from the backend store or artifact store when a Run is deleted. The :ref:`mlflow gc <cli>` CLI is provided
+for permanently removing Run metadata and artifacts for deleted runs.
+
+SQLAlchemy Options
+~~~~~~~~~~~~~~~~~~
+
+You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalchemy.org/en/latest/core/pooling.html>`_ using environment variables.
+
++-----------------------------------------+-----------------------------+
+| MLflow Environment Variable             | SQLAlchemy QueuePool Option |
++-----------------------------------------+-----------------------------+
+| ``MLFLOW_SQLALCHEMYSTORE_POOL_SIZE``    | ``pool_size``               |
++-----------------------------------------+-----------------------------+
+| ``MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW`` | ``max_overflow``            |
++-----------------------------------------+-----------------------------+
+
 Networking
 ----------
 
@@ -722,13 +728,10 @@ then make API requests to your remote tracking server.
         mlflow_set_experiment("/my-experiment")
         mlflow_log_param("a", "1")
 
-Note that to use the artifact storage capabilities of a remote server, 
-the client need a direct access to the artifact store. 
-The client is the one pushing directly artifacts to the artifact storage, 
-and not through the tracking server. 
-How to setup credentials for the artifact storage depends on the :ref:`Artifact Stores <artifact-stores>` 
-technology setup for the server. 
-Note that some technology choices impose that credential will transit in clear text on the network.
+Note that to use the artifact storage capabilities of a remote server, the client need a direct access to the artifact store.
+The client is the one pushing directly artifacts to the artifact storage, and not through the tracking server.
+How to setup credentials for the artifact storage depends on the :ref:`Artifact Stores <artifact-stores>` technology setup for the server.
+Note that some technology choices impose that credentials will transit in clear text on the network.
 
 .. _tracking_auth:
 
