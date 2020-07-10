@@ -113,7 +113,7 @@ you can `sign your work`_ when committing code changes and opening pull requests
     git config --global user.name "Your Name"
     git config --global user.email yourname@example.com
 
-We proivde a git hook that blocks an unsigned commit. You can enable it by running:
+We proivde a git hook to block an unsigned-off commit. You can enable it by running:
 
 .. code-block:: bash
 

@@ -1,4 +1,4 @@
-# A hook to abort `git commit` if it's not signed-off
+# A git hook to block an unsigned-off commit
 
 COMMIT_MSG_FILE=$1
 
