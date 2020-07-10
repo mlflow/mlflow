@@ -29,7 +29,7 @@ class ModelRegistryStoreRegistry(StoreRegistry):
         :return: An instance of `mlflow.store.model_registry.AbstractStore` that fulfills the
                  store URI requirements.
         """
-        from mlflow.tracking._tracking_service import utils
-        store_uri = store_uri if store_uri is not None else utils.get_tracking_uri()
+        from mlflow.tracking._model_registry import utils
+        store_uri = utils._resolve_registry_uri(store_uri)
         builder = self.get_store_builder(store_uri)
         return builder(store_uri=store_uri)
