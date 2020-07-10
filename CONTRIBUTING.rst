@@ -113,6 +113,12 @@ you can `sign your work`_ when committing code changes and opening pull requests
     git config --global user.name "Your Name"
     git config --global user.email yourname@example.com
 
+We proivde a git hook that blocks an unsigned commit. You can enable it by running:
+
+.. code-block:: bash
+
+    git config core.hooksPath hooks
+
 Then, install the Python MLflow package from source - this is required for developing & testing
 changes across all languages and APIs. We recommend installing MLflow in its own conda environment
 by running the following from your checkout of MLflow:
