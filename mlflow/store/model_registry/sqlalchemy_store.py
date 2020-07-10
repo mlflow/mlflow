@@ -454,11 +454,14 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             last_updated_time = now()
-            in_same_stage = SqlModelVersion.current_stage == stage
-            model_versions = session.query(SqlModelVersion).filter(in_same_stage).all()
-            for mv in model_versions:
-                mv.current_stage = STAGE_ARCHIVED
-                mv.last_updated_time = last_updated_time
+
+            model_versions = []
+            if archive_existing_versions:
+                in_same_stage = SqlModelVersion.current_stage == stage
+                model_versions = session.query(SqlModelVersion).filter(in_same_stage).all()
+                for mv in model_versions:
+                    mv.current_stage = STAGE_ARCHIVED
+                    mv.last_updated_time = last_updated_time
 
             sql_model_version = self._get_sql_model_version(session=session,
                                                             name=name,
