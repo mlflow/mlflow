@@ -60,12 +60,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.assertEqual(rm2.name, name2)
 
         # test create model with tags
-        name2 = random_str()
+        name2 = random_str() + "tags"
         tags = [RegisteredModelTag("key", "value"),
                 RegisteredModelTag("anotherKey", "some other value")]
         rm2 = self._rm_maker(name2, tags)
+        rmd2 = self.store.get_registered_model(name2)
         self.assertEqual(rm2.name, name2)
-        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in (tags or [])})
+        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in tags or []})
+        self.assertEqual(rmd2.name, name2)
+        self.assertEqual(rmd2.tags, {tag.key: tag.value for tag in tags or []})
 
         # invalid model name will fail
         with self.assertRaises(MlflowException) as exception_context:
@@ -988,14 +991,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rm1mv1 = self.store.get_model_version(name1, 1)
         rm1mv2 = self.store.get_model_version(name1, 2)
         rm2mv1 = self.store.get_model_version(name2, 1)
-        self.assertEqual(rm1mv1, {"anotherKey": "some other value"})
-        self.assertEqual(rm1mv2, {tag.key: tag.value for tag in (initial_tags or [])})
-        self.assertEqual(rm2mv1, {tag.key: tag.value for tag in (initial_tags or [])})
+        self.assertEqual(rm1mv1.tags, {"anotherKey": "some other value"})
+        self.assertEqual(rm1mv2.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+        self.assertEqual(rm2mv1.tags, {tag.key: tag.value for tag in (initial_tags or [])})
 
         # delete tag that is already deleted does nothing
         self.store.delete_model_version_tag(name1, 1, "key")
         rm1mv1 = self.store.get_model_version(name1, 1)
-        self.assertEqual(rm1mv1, {"anotherKey": "some other value"})
+        self.assertEqual(rm1mv1.tags, {"anotherKey": "some other value"})
 
         # can not delete tag on deleted (non-existed) model version
         self.store.delete_model_version(name2, 1)

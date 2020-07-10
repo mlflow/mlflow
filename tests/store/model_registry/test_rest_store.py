@@ -59,7 +59,8 @@ class TestRestStore(unittest.TestCase):
                 RegisteredModelTag(key="anotherKey", value="some other value")]
         self.store.create_registered_model("model_1", tags)
         self._verify_requests(mock_http, "registered-models/create", "POST",
-                              CreateRegisteredModel(name="model_1", tags=tags))
+                              CreateRegisteredModel(name="model_1",
+                                                    tags=[tag.to_proto() for tag in tags]))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_update_registered_model_name(self, mock_http):
@@ -155,7 +156,8 @@ class TestRestStore(unittest.TestCase):
         self.store.create_model_version("model_1", "path/to/source", run_id, tags)
         self._verify_requests(mock_http, "model-versions/create", "POST",
                               CreateModelVersion(name="model_1", source="path/to/source",
-                                                 run_id=run_id, tags=tags))
+                                                 run_id=run_id,
+                                                 tags=[tag.to_proto() for tag in tags]))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_transition_model_version_stage(self, mock_http):
