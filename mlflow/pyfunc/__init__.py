@@ -213,7 +213,7 @@ import mlflow
 import mlflow.pyfunc.model
 import mlflow.pyfunc.utils
 from mlflow.models import Model, ModelSignature, ModelInputExample
-
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
 from mlflow.pyfunc.model import PythonModel, PythonModelContext, get_default_conda_env
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -456,7 +456,7 @@ def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
                               messages will be emitted.
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    model_meta = Model.load(os.path.join(local_path, "MLmodel"))
+    model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
     if conf is None:
@@ -990,7 +990,7 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
 
     mlflow.pyfunc.add_to_model(
         mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath)
-    mlflow_model.save(os.path.join(path, 'MLmodel'))
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
     return mlflow_model
 
 

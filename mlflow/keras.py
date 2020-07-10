@@ -19,6 +19,7 @@ import pandas as pd
 from distutils.version import LooseVersion
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
@@ -231,7 +232,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=None, custom_obje
                         data=data_subpath, env=_CONDA_ENV_SUBPATH)
 
     # save mlflow_model to path/MLmodel
-    mlflow_model.save(os.path.join(path, "MLmodel"))
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, keras_module=None,

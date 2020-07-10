@@ -25,6 +25,7 @@ from mlflow.models import Model, ModelSignature, ModelInputExample
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _save_example
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -137,7 +138,7 @@ def save_model(fastai_learner, path, conda_env=None, mlflow_model=None,
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.fastai",
                         data=model_data_subpath, env=conda_env_subpath)
     mlflow_model.add_flavor(FLAVOR_NAME, fastai_version=fastai.__version__, data=model_data_subpath)
-    mlflow_model.save(os.path.join(path, "MLmodel"))
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 def log_model(fastai_learner, artifact_path, conda_env=None, registered_model_name=None,
