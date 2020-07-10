@@ -221,7 +221,7 @@ def test_create_registered_model(mock_get_request_message, mock_model_registry_s
     resp = _create_registered_model()
     _, args = mock_model_registry_store.create_registered_model.call_args
     assert args["name"] == "model_1"
-    assert args["tags"] == tags
+    assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert json.loads(resp.get_data()) == {"registered_model": jsonify(rm)}
 
 
@@ -384,8 +384,27 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     assert args["name"] == "model_1"
     assert args["source"] == "A/B"
     assert args["run_id"] == run_id
-    assert args["tags"] == tags
+    assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
+
+
+def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    tag = RegisteredModelTag(key="some weird key", value="some value")
+    mock_get_request_message.return_value = SetRegisteredModelTag(name=name, key=tag.key,
+                                                                  value=tag.value)
+    _set_registered_model_tag()
+    _, args = mock_model_registry_store.set_registered_model_tag.call_args
+    assert args == {"name": name, "tag": tag}
+
+
+def test_delete_registered_model_tag(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    key = "some weird key"
+    mock_get_request_message.return_value = DeleteRegisteredModelTag(name=name, key=key)
+    _delete_registered_model_tag()
+    _, args = mock_model_registry_store.delete_registered_model_tag.call_args
+    assert args == {"name": name, "key": key}
 
 
 def test_get_model_version_details(mock_get_request_message, mock_model_registry_store):
@@ -475,25 +494,6 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     args, _ = mock_model_registry_store.search_model_versions.call_args
     assert args == ("source_path = 'A/B/CD'",)
     assert json.loads(resp.get_data()) == {"model_versions": jsonify(mvds)}
-
-
-def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_store):
-    name = "model1"
-    tag = RegisteredModelTag(key="some weird key", value="some value")
-    mock_get_request_message.return_value = SetRegisteredModelTag(name=name, key=tag.key,
-                                                                  value=tag.value)
-    _set_registered_model_tag()
-    _, args = mock_model_registry_store.set_registered_model_tag.call_args
-    assert args == {"name": name, "tag": tag}
-
-
-def test_delete_registered_model_tag(mock_get_request_message, mock_model_registry_store):
-    name = "model1"
-    key = "some weird key"
-    mock_get_request_message.return_value = DeleteRegisteredModelTag(name=name, key=key)
-    _delete_registered_model_tag()
-    _, args = mock_model_registry_store.delete_registered_model_tag.call_args
-    assert args == {"name": name, "key": key}
 
 
 def test_set_model_version_tag(mock_get_request_message, mock_model_registry_store):
