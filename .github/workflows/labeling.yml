@@ -14,5 +14,5 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           label-pattern: '- \[(.*?)\] ?`(.+?)`'
-          # Label issues from last day
-          offset: '1d'
+          # Label issues from last week
+          offset: '7d'
