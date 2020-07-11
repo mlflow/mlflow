@@ -66,9 +66,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rm2 = self._rm_maker(name2, tags)
         rmd2 = self.store.get_registered_model(name2)
         self.assertEqual(rm2.name, name2)
-        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in tags or []})
+        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in tags})
         self.assertEqual(rmd2.name, name2)
-        self.assertEqual(rmd2.tags, {tag.key: tag.value for tag in tags or []})
+        self.assertEqual(rmd2.tags, {tag.key: tag.value for tag in tags})
 
         # invalid model name will fail
         with self.assertRaises(MlflowException) as exception_context:
@@ -93,7 +93,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rmd.last_updated_timestamp, 1234000)
         self.assertEqual(rmd.description, None)
         self.assertEqual(rmd.latest_versions, [])
-        self.assertEqual(rmd.tags, {tag.key: tag.value for tag in (tags or [])})
+        self.assertEqual(rmd.tags, {tag.key: tag.value for tag in tags})
 
     def test_update_registered_model(self):
         name = "model_for_update_RM"
@@ -317,17 +317,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.set_registered_model_tag(name1, new_tag)
         rm1 = self.store.get_registered_model(name=name1)
         all_tags = initial_tags + [new_tag]
-        self.assertEqual(rm1.tags, {tag.key: tag.value for tag in (all_tags or [])})
+        self.assertEqual(rm1.tags, {tag.key: tag.value for tag in all_tags})
 
         # test overriding a tag with the same key
         overriding_tag = RegisteredModelTag("key", "overriding")
         self.store.set_registered_model_tag(name1, overriding_tag)
         all_tags = [tag for tag in all_tags if tag.key != "key"] + [overriding_tag]
         rm1 = self.store.get_registered_model(name=name1)
-        self.assertEqual(rm1.tags, {tag.key: tag.value for tag in (all_tags or [])})
+        self.assertEqual(rm1.tags, {tag.key: tag.value for tag in all_tags})
         # does not affect other models with the same key
         rm2 = self.store.get_registered_model(name=name2)
-        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in initial_tags})
 
         # can not set tag on deleted (non-existed) registered model
         self.store.delete_registered_model(name1)
@@ -362,14 +362,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.set_registered_model_tag(name1, new_tag)
         self.store.delete_registered_model_tag(name1, "randomTag")
         rm1 = self.store.get_registered_model(name=name1)
-        self.assertEqual(rm1.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+        self.assertEqual(rm1.tags, {tag.key: tag.value for tag in initial_tags})
 
         # testing deleting a key does not affect other models with the same key
         self.store.delete_registered_model_tag(name1, "key")
         rm1 = self.store.get_registered_model(name=name1)
         rm2 = self.store.get_registered_model(name=name2)
         self.assertEqual(rm1.tags, {"anotherKey": "some other value"})
-        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+        self.assertEqual(rm2.tags, {tag.key: tag.value for tag in initial_tags})
 
         # delete tag that is already deleted does nothing
         self.store.delete_registered_model_tag(name1, "key")
@@ -425,9 +425,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         mv3 = self._mv_maker(name, tags=tags)
         mvd3 = self.store.get_model_version(name=mv3.name, version=mv3.version)
         self.assertEqual(mv3.version, 3)
-        self.assertEqual(mv3.tags, {tag.key: tag.value for tag in (tags or [])})
+        self.assertEqual(mv3.tags, {tag.key: tag.value for tag in tags})
         self.assertEqual(mvd3.version, 3)
-        self.assertEqual(mvd3.tags, {tag.key: tag.value for tag in (tags or [])})
+        self.assertEqual(mvd3.tags, {tag.key: tag.value for tag in tags})
 
     def test_update_model_version(self):
         name = "test_for_update_MV"
@@ -927,19 +927,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.set_model_version_tag(name1, 1, new_tag)
         all_tags = initial_tags + [new_tag]
         rm1mv1 = self.store.get_model_version(name1, 1)
-        self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in (all_tags or [])})
+        self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in all_tags})
 
         # test overriding a tag with the same key
         overriding_tag = ModelVersionTag("key", "overriding")
         self.store.set_model_version_tag(name1, 1, overriding_tag)
         all_tags = [tag for tag in all_tags if tag.key != "key"] + [overriding_tag]
         rm1mv1 = self.store.get_model_version(name1, 1)
-        self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in (all_tags or [])})
+        self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in all_tags})
         # does not affect other model versions with the same key
         rm1mv2 = self.store.get_model_version(name1, 2)
         rm2mv1 = self.store.get_model_version(name2, 1)
-        self.assertEqual(rm1mv2.tags, {tag.key: tag.value for tag in (initial_tags or [])})
-        self.assertEqual(rm2mv1.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+        self.assertEqual(rm1mv2.tags, {tag.key: tag.value for tag in initial_tags})
+        self.assertEqual(rm2mv1.tags, {tag.key: tag.value for tag in initial_tags})
 
         # can not set tag on deleted (non-existed) model version
         self.store.delete_model_version(name1, 2)
@@ -984,7 +984,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.set_model_version_tag(name1, 1, new_tag)
         self.store.delete_model_version_tag(name1, 1, "randomTag")
         rm1mv1 = self.store.get_model_version(name1, 1)
-        self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+        self.assertEqual(rm1mv1.tags, {tag.key: tag.value for tag in initial_tags})
 
         # testing deleting a key does not affect other model versions with the same key
         self.store.delete_model_version_tag(name1, 1, "key")
@@ -992,8 +992,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rm1mv2 = self.store.get_model_version(name1, 2)
         rm2mv1 = self.store.get_model_version(name2, 1)
         self.assertEqual(rm1mv1.tags, {"anotherKey": "some other value"})
-        self.assertEqual(rm1mv2.tags, {tag.key: tag.value for tag in (initial_tags or [])})
-        self.assertEqual(rm2mv1.tags, {tag.key: tag.value for tag in (initial_tags or [])})
+        self.assertEqual(rm1mv2.tags, {tag.key: tag.value for tag in initial_tags})
+        self.assertEqual(rm2mv1.tags, {tag.key: tag.value for tag in initial_tags})
 
         # delete tag that is already deleted does nothing
         self.store.delete_model_version_tag(name1, 1, "key")

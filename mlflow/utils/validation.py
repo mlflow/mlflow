@@ -223,6 +223,19 @@ def _validate_experiment_name(experiment_name):
                               error_code=INVALID_PARAMETER_VALUE)
 
 
+def _validate_model_name(model_name):
+    if model_name is None or model_name == "":
+        raise MlflowException('Registered model name cannot be empty.', INVALID_PARAMETER_VALUE)
+
+
+def _validate_model_version(model_version):
+    try:
+        model_version = int(model_version)
+    except ValueError:
+        raise MlflowException("Model version must be an integer, got '{}'"
+                              .format(model_version), error_code=INVALID_PARAMETER_VALUE)
+
+
 def _validate_experiment_artifact_location(artifact_location):
     if artifact_location is not None and artifact_location.startswith("runs:"):
         raise MlflowException("Artifact location cannot be a runs:/ URI. Given: '%s'"

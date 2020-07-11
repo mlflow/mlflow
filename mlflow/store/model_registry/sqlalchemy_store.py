@@ -18,7 +18,8 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModel, SqlModelVersion, SqlRegisteredModelTag, SqlModelVersionTag)
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.utils.validation import _validate_registered_model_tag, _validate_model_version_tag
+from mlflow.utils.validation import _validate_registered_model_tag, _validate_model_version_tag, \
+    _validate_model_name, _validate_model_version, _validate_tag_name
 
 _logger = logging.getLogger(__name__)
 
@@ -135,13 +136,14 @@ class SqlAlchemyStore(AbstractStore):
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
+
         :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
-        instances associated with this registered model
+        instances associated with this registered model.
+
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
         created in the backend.
         """
-        if name is None or name == "":
-            raise MlflowException('Registered model name cannot be empty.', INVALID_PARAMETER_VALUE)
+        _validate_model_name(name)
         for tag in tags or []:
             _validate_registered_model_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
@@ -170,6 +172,7 @@ class SqlAlchemyStore(AbstractStore):
                       will be loaded when their corresponding object properties
                       are accessed from the resulting ``SqlRegisteredModel`` object.
         """
+        _validate_model_name(name)
         query_options = cls._get_eager_registered_model_query_options() if eager else []
         rms = session \
             .query(SqlRegisteredModel) \
@@ -187,9 +190,9 @@ class SqlAlchemyStore(AbstractStore):
 
     def update_registered_model(self, name, description):
         """
-        Updates description for Registered Model entity.
+        Update description of the registered model.
 
-        :param name: Name of the registered model.
+        :param name: Registered model name.
 
         :param description: New description.
 
@@ -207,16 +210,15 @@ class SqlAlchemyStore(AbstractStore):
 
     def rename_registered_model(self, name, new_name):
         """
-        Updates name for RegisteredModel entity.
+        Rename the registered model.
 
-        :param name: Name of the registered model.
+        :param name: Registered model name.
 
         :param new_name: New proposed name.
 
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        if new_name is None or new_name == "":
-            raise MlflowException('Registered model name cannot be empty.', INVALID_PARAMETER_VALUE)
+        _validate_model_name(new_name)
         with self.ManagedSessionMaker() as session:
             sql_registered_model = self._get_registered_model(session, name)
             try:
@@ -236,7 +238,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_registered_model(self, name):
         """
-        Delete registered model.
+        Delete the registered model.
         Backend raises exception if a registered model with given name does not exist.
 
         :param name: Registered model name.
@@ -250,7 +252,9 @@ class SqlAlchemyStore(AbstractStore):
     def list_registered_models(self, max_results, page_token):
         """
         List of all registered models.
+
         :param max_results: Maximum number of registered models desired.
+
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_registered_models`` call.
 
@@ -270,14 +274,15 @@ class SqlAlchemyStore(AbstractStore):
         Search for registered models in backend that satisfy the filter criteria.
 
         :param filter_string: Filter query string, defaults to searching all registered models.
-                              Currently supports a single filter condition based on
-                              the name of the model like ``name = 'model_name'``
+
         :param max_results: Maximum number of registered models desired.
+
         :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                          matching search results.
-                         Note:: This field is currently not supported.
+
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``search_registered_models`` call.
+
         :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
@@ -371,6 +376,8 @@ class SqlAlchemyStore(AbstractStore):
 
     def get_registered_model(self, name):
         """
+        Get registered model instance by name.
+
         :param name: Registered model name.
 
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -384,6 +391,7 @@ class SqlAlchemyStore(AbstractStore):
         returns the latest version for each stage.
 
         :param name: Registered model name.
+
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for 'Staging' and 'Production' stages.
 
@@ -415,14 +423,15 @@ class SqlAlchemyStore(AbstractStore):
 
     def set_registered_model_tag(self, name, tag):
         """
-        Set a tag for the registered model
+        Set a tag for the registered model.
+
         :param name: Registered model name.
-        :param tag: RegisteredModelTag instance to log
+
+        :param tag: :py:class:`mlflow.entities.model_registry.RegisteredModelTag` instance to log.
+
         :return: None
         """
-        if name is None or name == "":
-            raise MlflowException('Registered model name cannot be empty.',
-                                  INVALID_PARAMETER_VALUE)
+        _validate_model_name(name)
         _validate_registered_model_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
             # check if registered model exists
@@ -435,17 +444,16 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_registered_model_tag(self, name, key):
         """
-        Delete a tag associated with the registered model
+        Delete a tag associated with the registered model.
+
         :param name: Registered model name.
-        :param key: Tag key
+
+        :param key: Registered model tag key.
+
         :return: None
         """
-        if name is None or name == "":
-            raise MlflowException('Registered model name cannot be empty.',
-                                  INVALID_PARAMETER_VALUE)
-        if key is None or key == "":
-            raise MlflowException('Registered model tag key cannot be empty.',
-                                  INVALID_PARAMETER_VALUE)
+        _validate_model_name(name)
+        _validate_tag_name(key)
         with self.ManagedSessionMaker() as session:
             # check if registered model exists
             self._get_registered_model(session, name)
@@ -458,23 +466,26 @@ class SqlAlchemyStore(AbstractStore):
     def create_model_version(self, name, source, run_id, tags=None):
         """
         Create a new model version from given source and run ID.
+
         :param name: Registered model name.
+
         :param source: Source path where the MLflow model is stored.
-        :param run_id: Run ID from MLflow tracking server that generated the model
+
+        :param run_id: Run ID from MLflow tracking server that generated the model.
+
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
-        instances associated with this registered model
+        instances associated with this model version.
+
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
         created in the backend.
         """
-
         def next_version(sql_registered_model):
             if sql_registered_model.model_versions:
                 return max([mv.version for mv in sql_registered_model.model_versions]) + 1
             else:
                 return 1
 
-        if name is None or name == "":
-            raise MlflowException('Model version name cannot be empty.', INVALID_PARAMETER_VALUE)
+        _validate_model_name(name)
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
@@ -513,12 +524,9 @@ class SqlAlchemyStore(AbstractStore):
                       will be loaded when their corresponding object properties
                       are accessed from the resulting ``SqlModelVersion`` object.
         """
+        _validate_model_name(name)
+        _validate_model_version(version)
         query_options = cls._get_eager_model_version_query_options() if eager else []
-        try:
-            version = int(version)
-        except ValueError:
-            raise MlflowException("Model version must be an integer, got '{}'"
-                                  .format(version), error_code=INVALID_PARAMETER_VALUE)
         conditions = [
             SqlModelVersion.name == name,
             SqlModelVersion.version == version,
@@ -540,8 +548,10 @@ class SqlAlchemyStore(AbstractStore):
         Update metadata associated with a model version in backend.
 
         :param name: Registered model name.
+
         :param version: Registered model version.
-        :param description: New description.
+
+        :param description: New model description.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
@@ -558,10 +568,13 @@ class SqlAlchemyStore(AbstractStore):
         """
         Update model version stage.
 
-        :param name: :py:string: Registered model name.
-        :param version: :py:string: Registered model version.
+        :param name: Registered model name.
+
+        :param version: Registered model version.
+
         :param new_stage: New desired stage for this model version.
-        :param archive_existing_versions: :py:boolean: If this flag is set, all existing model
+
+        :param archive_existing_versions: If this flag is set, all existing model
         versions in the stage will be atomically moved to the "archived" stage.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
@@ -586,10 +599,12 @@ class SqlAlchemyStore(AbstractStore):
         Delete model version in backend.
 
         :param name: Registered model name.
+
         :param version: Registered model version.
 
         :return: None
         """
+        # currently delete model version still keeps the tags associated with the version
         with self.ManagedSessionMaker() as session:
             updated_time = now()
             sql_model_version = self._get_sql_model_version(session, name, version)
@@ -606,7 +621,10 @@ class SqlAlchemyStore(AbstractStore):
 
     def get_model_version(self, name, version):
         """
+        Get the model version instance by name and version.
+
         :param name: Registered model name.
+
         :param version: Registered model version.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
@@ -622,6 +640,7 @@ class SqlAlchemyStore(AbstractStore):
               location, download URI points to input source path.
 
         :param name: Registered model name.
+
         :param version: Registered model version.
 
         :return: A single URI location that allows reads for downloading.
@@ -689,20 +708,18 @@ class SqlAlchemyStore(AbstractStore):
 
     def set_model_version_tag(self, name, version, tag):
         """
-        Set a tag for the model version
+        Set a tag for the model version.
+
         :param name: Registered model name.
+
         :param version: Registered model version.
-        :param tag: ModelVersionTag instance to log
+
+        :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
+
         :return: None
         """
-        if name is None or name == "":
-            raise MlflowException('Registered model name cannot be empty.',
-                                  INVALID_PARAMETER_VALUE)
-        try:
-            version = int(version)
-        except ValueError:
-            raise MlflowException("Model version must be an integer, got '{}'"
-                                  .format(version), error_code=INVALID_PARAMETER_VALUE)
+        _validate_model_name(name)
+        _validate_model_version(version)
         _validate_model_version_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
             # check if model version exists
@@ -716,23 +733,19 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_model_version_tag(self, name, version, key):
         """
-        Delete a tag associated with the model version
+        Delete a tag associated with the model version.
+
         :param name: Registered model name.
+
         :param version: Registered model version.
-        :param key: Tag key
+
+        :param key: Tag key.
+
         :return: None
         """
-        if name is None or name == "":
-            raise MlflowException('Registered model name cannot be empty.',
-                                  INVALID_PARAMETER_VALUE)
-        try:
-            version = int(version)
-        except ValueError:
-            raise MlflowException("Model version must be an integer, got '{}'"
-                                  .format(version), error_code=INVALID_PARAMETER_VALUE)
-        if key is None or key == "":
-            raise MlflowException('Model version tag key cannot be empty.',
-                                  INVALID_PARAMETER_VALUE)
+        _validate_model_name(name)
+        _validate_model_version(version)
+        _validate_tag_name(key)
         with self.ManagedSessionMaker() as session:
             # check if model version exists
             self._get_sql_model_version(session, name, version)

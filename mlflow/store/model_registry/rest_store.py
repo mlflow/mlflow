@@ -46,7 +46,10 @@ class RestStore(AbstractStore):
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
-        :param tags: tags associated with this registered model
+
+        :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
+        instances associated with this registered model.
+
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
         created in the backend.
         """
@@ -57,11 +60,11 @@ class RestStore(AbstractStore):
 
     def update_registered_model(self, name, description):
         """
-        Updates metadata for RegisteredModel entity.
+        Update description of the registered model.
 
-        :param name: :py:string: Registered model name.
+        :param name: Registered model name.
 
-        :param description: New model description.
+        :param description: New description.
 
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
@@ -72,11 +75,11 @@ class RestStore(AbstractStore):
 
     def rename_registered_model(self, name, new_name):
         """
-        Renames the registered model.
+        Rename the registered model.
 
         :param name: Registered model name.
 
-        :param new_name: New proposed name for the registered model.
+        :param new_name: New proposed name.
 
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
@@ -87,10 +90,10 @@ class RestStore(AbstractStore):
 
     def delete_registered_model(self, name):
         """
-        Delete registered model.
+        Delete the registered model.
         Backend raises exception if a registered model with given name does not exist.
 
-        :param registered_model: :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        :param name: Registered model name.
 
         :return: None
         """
@@ -101,11 +104,15 @@ class RestStore(AbstractStore):
     def list_registered_models(self, max_results, page_token):
         """
         List of all registered models.
+
         :param max_results: Maximum number of registered models desired.
+
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_registered_models`` call.
 
-        :return: PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
         """
         req_body = message_to_json(ListRegisteredModels(
             page_token=page_token,
@@ -121,12 +128,16 @@ class RestStore(AbstractStore):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
-        :param filter_string: Filter query string supported by backend implementation.
+        :param filter_string: Filter query string, defaults to searching all registered models.
+
         :param max_results: Maximum number of registered models desired.
+
         :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                          matching search results.
+
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``search_registered_models`` call.
+
         :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
@@ -142,6 +153,8 @@ class RestStore(AbstractStore):
 
     def get_registered_model(self, name):
         """
+        Get registered model instance by name.
+
         :param name: Registered model name.
 
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -156,6 +169,7 @@ class RestStore(AbstractStore):
         returns the latest version for each stage.
 
         :param name: Registered model name.
+
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for 'Staging' and 'Production' stages.
 
@@ -168,9 +182,12 @@ class RestStore(AbstractStore):
 
     def set_registered_model_tag(self, name, tag):
         """
-        Set a tag for the registered model
+        Set a tag for the registered model.
+
         :param name: Registered model name.
-        :param tag: RegisteredModelTag instance to log
+
+        :param tag: :py:class:`mlflow.entities.model_registry.RegisteredModelTag` instance to log.
+
         :return: None
         """
         req_body = message_to_json(SetRegisteredModelTag(name=name, key=tag.key, value=tag.value))
@@ -178,9 +195,12 @@ class RestStore(AbstractStore):
 
     def delete_registered_model_tag(self, name, key):
         """
-        Delete a tag associated with the registered model
+        Delete a tag associated with the registered model.
+
         :param name: Registered model name.
-        :param key: Tag key
+
+        :param key: Registered model tag key.
+
         :return: None
         """
         req_body = message_to_json(DeleteRegisteredModelTag(name=name, key=key))
@@ -193,9 +213,14 @@ class RestStore(AbstractStore):
         Create a new model version from given source and run ID.
 
         :param name: Registered model name.
+
         :param source: Source path where the MLflow model is stored.
-        :param run_id: Run ID from MLflow tracking server that generated the model
-        :param tags: tags associated with this model version
+
+        :param run_id: Run ID from MLflow tracking server that generated the model.
+
+        :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
+        instances associated with this model version.
+
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
         created in the backend.
         """
@@ -211,8 +236,11 @@ class RestStore(AbstractStore):
         Update model version stage.
 
         :param name: Registered model name.
+
         :param version: Registered model version.
+
         :param new_stage: New desired stage for this model version.
+
         :param archive_existing_versions: If this flag is set, all existing model
         versions in the stage will be atomically moved to the "archived" stage.
 
@@ -230,10 +258,12 @@ class RestStore(AbstractStore):
         Update metadata associated with a model version in backend.
 
         :param name: Registered model name.
-        :param version: Registered model version.
-        :param description: New description.
 
-        :return: None.
+        :param version: Registered model version.
+
+        :param description: New model description.
+
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         req_body = message_to_json(UpdateModelVersion(name=name, version=str(version),
                                                       description=description))
@@ -245,6 +275,7 @@ class RestStore(AbstractStore):
         Delete model version in backend.
 
         :param name: Registered model name.
+
         :param version: Registered model version.
 
         :return: None
@@ -254,7 +285,10 @@ class RestStore(AbstractStore):
 
     def get_model_version(self, name, version):
         """
+        Get the model version instance by name and version.
+
         :param name: Registered model name.
+
         :param version: Registered model version.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
@@ -266,8 +300,11 @@ class RestStore(AbstractStore):
     def get_model_version_download_uri(self, name, version):
         """
         Get the download location in Model Registry for this model version.
+        NOTE: For first version of Model Registry, since the models are not copied over to another
+              location, download URI points to input source path.
 
         :param name: Registered model name.
+
         :param version: Registered model version.
 
         :return: A single URI location that allows reads for downloading.
@@ -295,10 +332,14 @@ class RestStore(AbstractStore):
 
     def set_model_version_tag(self, name, version, tag):
         """
-        Set a tag for the model version
+        Set a tag for the model version.
+
         :param name: Registered model name.
+
         :param version: Registered model version.
-        :param tag: ModelVersionTag instance to log
+
+        :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
+
         :return: None
         """
         req_body = message_to_json(SetModelVersionTag(name=name, version=version,
@@ -307,10 +348,14 @@ class RestStore(AbstractStore):
 
     def delete_model_version_tag(self, name, version, key):
         """
-        Delete a tag associated with the model version
+        Delete a tag associated with the model version.
+
         :param name: Registered model name.
+
         :param version: Registered model version.
-        :param key: Tag key
+
+        :param key: Tag key.
+
         :return: None
         """
         req_body = message_to_json(DeleteModelVersionTag(name=name, version=version, key=key))
