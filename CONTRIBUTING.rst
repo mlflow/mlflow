@@ -10,7 +10,7 @@ contributing to MLflow.
 Governance
 ##########
 
-Governance of MLflow is conducted by the Technical Steering Committee (TSC), which is currently composed of the following members:
+Governance of MLflow is conducted by the Technical Steering Committee (TSC), which is currently includes the following members:
 
  - Patrick Wendell (pwendell@gmail.com)
 
