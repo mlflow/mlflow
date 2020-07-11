@@ -1,5 +1,5 @@
-Package: mlflow
 Type: Package
+Package: mlflow
 Title: Interface to 'MLflow'
 Version: 1.10.1
 Authors@R: c(
@@ -10,44 +10,42 @@ Authors@R: c(
   person(family = "RStudio", role = c("cph"))
   )
 Maintainer: Matei Zaharia <matei@databricks.com>
-Description: R interface to 'MLflow', open source platform for the complete machine
-  learning life cycle, see <https://mlflow.org/>. This package supports installing
-  'MLflow', tracking experiments, creating and running projects, and saving and
-  serving models.
+Description: R interface to 'MLflow', open source platform for
+    the complete machine learning life cycle, see <https://mlflow.org/>.
+    This package supports installing 'MLflow', tracking experiments,
+    creating and running projects, and saving and serving models.
 License: Apache License 2.0
 URL: https://github.com/mlflow/mlflow
 BugReports: https://github.com/mlflow/mlflow/issues
-SystemRequirements: MLflow (https://www.mlflow.org/)
-Encoding: UTF-8
-LazyData: true
 Depends:
-  R (>= 3.3.0)
+    R (>= 3.3.0)
 Imports:
-  base64enc,
-  forge,
-  fs,
-  git2r,
-  httpuv,
-  httr,
-  ini,
-  jsonlite,
-  openssl,
-  processx,
-  reticulate,
-  purrr,
-  swagger,
-  withr,
-  xml2,
-  yaml,
-  rlang (>= 0.2.0),
-  zeallot,
-  tibble (>= 2.0.0),
-  glue
-RoxygenNote: 7.0.2
+    base64enc,
+    forge,
+    fs,
+    git2r,
+    glue,
+    httpuv,
+    httr,
+    ini,
+    jsonlite,
+    openssl,
+    processx,
+    purrr,
+    reticulate,
+    rlang (>= 0.2.0),
+    swagger,
+    tibble (>= 2.0.0),
+    withr,
+    xml2,
+    yaml,
+    zeallot
 Suggests: 
   covr,
   carrier,
   keras,
   lintr,
   testthat,
-  stringi (< 1.4.4)
+  stringi (< 1.4.4),
+  xgboost
+RoxygenNote: 7.0.2
