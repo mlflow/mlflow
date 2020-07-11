@@ -48,4 +48,4 @@ Suggests:
   testthat,
   stringi (< 1.4.4),
   xgboost
-RoxygenNote: 7.0.2
+RoxygenNote: 7.1.1

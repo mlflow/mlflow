@@ -456,7 +456,7 @@ XGBoost (``xgboost``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The ``xgboost`` model flavor enables logging of `XGBoost models
 <https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster>`_
-in MLflow format via the :py:func:`mlflow.xgboost.save_model()` and :py:func:`mlflow.xgboost.log_model()` methods.
+in MLflow format via the :py:func:`mlflow.xgboost.save_model()` and :py:func:`mlflow.xgboost.log_model()` methods in python and `mlflow_save_model <R-api.html#mlflow-save-model-crate>`__ and `mlflow_log_model <R-api.html#mlflow-log-model>`__ in R respectively.
 These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via
 :py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.xgboost.load_model()`
