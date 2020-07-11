@@ -69,6 +69,13 @@ def test_databricks_registry_profile(ProfileConfigProvider):
         assert params.token == 'random'
 
 
+@mock.patch('databricks_cli.configure.provider.get_config')
+def test_databricks_empty_uri(get_config):
+    get_config.return_value = None
+    with pytest.raises(Exception):
+        databricks_utils.get_databricks_host_creds("")
+
+
 @mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
 def test_databricks_params_throws_errors(ProfileConfigProvider):
     # No hostname

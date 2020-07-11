@@ -167,8 +167,8 @@ def get_databricks_host_creds(profile=None, path=None):
     # databricks://profile-name/path-specifier
     if (not config or not config.host) and path:
         dbutils = _get_dbutils()
-        # Prefix differentiates users and is provided as path information in the URI
         if dbutils:
+            # Prefix differentiates users and is provided as path information in the URI
             key_prefix = path + "-"
             host = dbutils.secrets.get(scope=profile, key=key_prefix + "host")
             token = dbutils.secrets.get(scope=profile, key=key_prefix + "token")

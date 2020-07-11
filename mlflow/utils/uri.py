@@ -50,7 +50,7 @@ def get_db_path_info_from_uri(uri):
             if len(parsed) > 0 and parsed[0] == '/':
                 parsed = parsed[1:]
             if parsed:
-                return parsed_uri.path
+                return parsed
     return None
 
 
