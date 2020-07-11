@@ -2,8 +2,8 @@ name: Labeling
 
 on:
   schedule:
-    # Run this action every one hour
-    - cron: "0 * * * *"
+    # Run this action daily at 7:00 UTC
+    - cron: "0 7 * * *"
 
 jobs:
   labeling:
@@ -14,3 +14,5 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           label-pattern: '- \[(.*?)\] ?`(.+?)`'
+          # Label issues from last day
+          offset: '1d'
