@@ -31,6 +31,8 @@ MAX_TAG_VAL_LENGTH = 5000
 MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
 MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
 MAX_ENTITY_KEY_LENGTH = 250
+MAX_MODEL_REGISTRY_TAG_KEY_LENGTH = 250
+MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ', '.join(DATABASE_ENGINES)
 
@@ -49,7 +51,7 @@ def path_not_unique(name):
 
 def _validate_metric_name(name):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
-    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException("Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
                               INVALID_PARAMETER_VALUE)
     if path_not_unique(name):
@@ -110,9 +112,27 @@ def _validate_experiment_tag(key, value):
     _validate_length_limit("Tag value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
 
 
+def _validate_registered_model_tag(key, value):
+    """
+    Check that a tag with the specified key & value is valid and raise an exception if it isn't.
+    """
+    _validate_tag_name(key)
+    _validate_length_limit("Registered model key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
+    _validate_length_limit("Registered model value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
+
+
+def _validate_model_version_tag(key, value):
+    """
+    Check that a tag with the specified key & value is valid and raise an exception if it isn't.
+    """
+    _validate_tag_name(key)
+    _validate_length_limit("Model version key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
+    _validate_length_limit("Model version value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
+
+
 def _validate_param_name(name):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
-    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException("Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
                               INVALID_PARAMETER_VALUE)
     if path_not_unique(name):
@@ -123,7 +143,7 @@ def _validate_param_name(name):
 def _validate_tag_name(name):
     """Check that `name` is a valid tag name and raise an exception if it isn't."""
     # Reuse param & metric check.
-    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException("Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
                               INVALID_PARAMETER_VALUE)
     if path_not_unique(name):
@@ -135,7 +155,7 @@ def _validate_length_limit(entity_name, limit, value):
     if len(value) > limit:
         raise MlflowException(
             "%s '%s' had length %s, which exceeded length limit of %s" %
-            (entity_name, value[:250], len(value), limit))
+            (entity_name, value[:250], len(value), limit), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_run_id(run_id):
@@ -201,6 +221,19 @@ def _validate_experiment_name(experiment_name):
     if not is_string_type(experiment_name):
         raise MlflowException("Invalid experiment name: %s. Expects a string." % experiment_name,
                               error_code=INVALID_PARAMETER_VALUE)
+
+
+def _validate_model_name(model_name):
+    if model_name is None or model_name == "":
+        raise MlflowException('Registered model name cannot be empty.', INVALID_PARAMETER_VALUE)
+
+
+def _validate_model_version(model_version):
+    try:
+        model_version = int(model_version)
+    except ValueError:
+        raise MlflowException("Model version must be an integer, got '{}'"
+                              .format(model_version), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_artifact_location(artifact_location):
