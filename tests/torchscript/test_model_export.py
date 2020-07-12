@@ -26,6 +26,9 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
+
 
 _logger = logging.getLogger(__name__)
 
@@ -77,6 +80,19 @@ def sequential_model(data):
 
     model = torch.jit.script(model)
     train_model(model=model, data=data)
+    return model
+
+
+@pytest.fixture(scope='module')
+def sequential_traced_model(data):
+    model = nn.Sequential(
+        nn.Linear(4, 3),
+        nn.ReLU(),
+        nn.Linear(3, 1),
+    )
+    train_model(model=model, data=data)
+    x = torch.rand((2, 4))
+    model = torch.jit.trace(model, (x,))
     return model
 
 
@@ -223,6 +239,10 @@ def test_raise_exception(sequential_model):
         with pytest.raises(RuntimeError):
             mlflow.torchscript.save_model(sequential_model, path)
 
+        valid_pytorch_model = PyTorchModel()  # not torchscript model
+        with pytest.raises(TypeError):
+            mlflow.torchscript.save_model(valid_pytorch_model, path)
+
         from mlflow import sklearn
         import sklearn.neighbors as knn
         path = tmp.path("knn.pkl")
@@ -247,6 +267,23 @@ def test_save_and_load_model(sequential_model, model_path, data, sequential_pred
     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
     np.testing.assert_array_almost_equal(
         pyfunc_loaded.predict(data[0]).values[:, 0], sequential_predicted, decimal=4)
+
+
+@ pytest.mark.large
+def test_save_and_load_traced_model(sequential_traced_model, model_path,
+                                    data, sequential_predicted):
+    mlflow.torchscript.save_model(sequential_traced_model, model_path)
+    # Loading torchscript model
+    sequential_model_loaded = mlflow.torchscript.load_model(model_path)
+    np.testing.assert_array_equal(_predict(sequential_model_loaded, data),
+                                  _predict(sequential_traced_model, data))
+
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    np.testing.assert_array_almost_equal(
+        pyfunc_loaded.predict(data[0]).values[:, 0],
+        _predict(sequential_traced_model, data),
+        decimal=4)
 
 
 @pytest.mark.large

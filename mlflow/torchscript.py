@@ -3,6 +3,7 @@ import logging
 import yaml
 
 import torch
+import torchvision
 import pandas as pd
 import numpy as np
 import mlflow
@@ -23,8 +24,6 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import torch
-    import torchvision
 
     return _mlflow_conda_env(
         additional_conda_deps=[
@@ -203,9 +202,10 @@ def save_model(model, path, conda_env=None, mlflow_model=None,
             scripted_model = torch.jit.script(model)
             mlflow.torchscript.save_model(scripted_model, pytorch_model_path)
     """
-    if not hasattr(model, 'state_dict') or not hasattr(model, 'save'):
-        # If it walks like a duck and it quacks like a duck, then it must be a duck
-        raise TypeError("Argument 'model' should be a TorchScript model")
+    if not isinstance(model, (torch.jit.ScriptModule, torch.jit.ScriptFunction)):
+        raise TypeError("Argument 'model' should be a TorchScript model. Use "
+                        "torch.jit.script() or torch.jit.trace() to convert your model "
+                        "into a TorchScript model before passing it to this function.")
     path = Path(path)
     try:
         path.mkdir(parents=True, exist_ok=False)
