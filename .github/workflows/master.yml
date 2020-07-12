@@ -21,7 +21,7 @@ jobs:
     - name: Run tests
       run: |
         export PATH="$CONDA_DIR/bin:$PATH"
-        source create -n test-environment python=3.6
+        conda create -n test-environment python=3.6
         source activate test-environment
         pip install -r ./travis/lint-requirements.txt
         ./lint.sh
