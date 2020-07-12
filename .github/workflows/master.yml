@@ -116,13 +116,8 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: 8
-    - name: Install dependencies
-      run: |
-        source ./travis/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
         cd mlflow/java
         mvn clean package -q
 
