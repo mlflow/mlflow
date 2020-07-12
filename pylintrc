@@ -148,6 +148,7 @@ disable=print-statement,
         # (see https://stackoverflow.com/questions/46089480/pytest-fixtures-redefining-name-from-outer-scope-pylint)
         redefined-outer-name,
         import-error,
+        no-name-in-module,
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
