@@ -18,10 +18,12 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: 3.6
-    - name: Run tests
+    - name: Install dependencies
       run: |
         export PATH="$CONDA_DIR/bin:$PATH"
         conda create -n test-environment python=3.6
+    - name: Run tests
+      run: |
         source activate test-environment
         pip install -r ./travis/lint-requirements.txt
         ./lint.sh
