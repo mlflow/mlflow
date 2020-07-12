@@ -18,18 +18,14 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: 3.6
-    - name: Install dependencies
-      env:
-        INSTALL_LARGE_PYTHON_DEPS: true
-        INSTALL_SMALL_PYTHON_DEPS: true
-      run: |
-        source ./travis/install-common-deps.sh
-        pip install -r ./travis/lint-requirements.txt
     - name: Run tests
       run: |
         export PATH="$CONDA_DIR/bin:$PATH"
+        source create -n test-environment python=3.6
         source activate test-environment
+        pip install -r ./travis/lint-requirements.txt
         ./lint.sh
+
   r:
     runs-on: ubuntu-latest
     steps:
