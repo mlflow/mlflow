@@ -20,8 +20,7 @@ from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
-from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri, is_http_uri,\
-    construct_db_uri_from_profile
+from mlflow.utils.uri import is_databricks_uri, is_http_uri
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
