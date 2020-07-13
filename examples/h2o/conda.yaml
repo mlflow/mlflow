@@ -10,4 +10,3 @@ dependencies:
   - pip
   - pip:
     - h2o
-    - mlflow>=1.0
