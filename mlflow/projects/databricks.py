@@ -302,7 +302,7 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
-    profile, path = get_db_info_from_uri(tracking.get_tracking_uri())
+    profile, _ = get_db_info_from_uri(tracking.get_tracking_uri())
     run_id = remote_run.info.run_id
     db_job_runner = DatabricksJobRunner(databricks_profile=profile)
     db_run_id = db_job_runner.run_databricks(
