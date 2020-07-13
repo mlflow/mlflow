@@ -1,5 +1,7 @@
 # LightGBM Example
 
+Note: A minimum MLflow version of 1.6 is required to run this example.
+
 This example trains a LightGBM classifier with the iris dataset and logs hyperparameters, metrics, and trained model.
 
 ## Running the code

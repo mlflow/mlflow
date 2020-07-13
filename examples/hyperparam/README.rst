@@ -29,6 +29,8 @@ examples/hyperparam/MLproject has 4 targets:
 Running this Example
 ^^^^^^^^^^^^^^^^^^^^
 
+Note: A minimum MLflow version of 1.0 is required to run this example.
+
 You can run any of the targets as a standard MLflow run.
 
 .. code-block:: bash
