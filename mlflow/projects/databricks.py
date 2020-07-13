@@ -69,8 +69,8 @@ class DatabricksJobRunner(object):
     :param databricks_profile: Optional Databricks CLI profile to use to fetch hostname &
            authentication information when making Databricks API requests.
     """
-    def __init__(self, databricks_profile):
-        self.databricks_profile_uri = construct_db_uri_from_profile(databricks_profile)
+    def __init__(self, databricks_profile_uri):
+        self.databricks_profile_uri = databricks_profile_uri
 
     def _databricks_api_request(self, endpoint, method, **kwargs):
         host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile_uri)
@@ -302,9 +302,8 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
-    profile, _ = get_db_info_from_uri(tracking.get_tracking_uri())
     run_id = remote_run.info.run_id
-    db_job_runner = DatabricksJobRunner(databricks_profile=profile)
+    db_job_runner = DatabricksJobRunner(databricks_profile_uri=tracking.get_tracking_uri())
     db_run_id = db_job_runner.run_databricks(
         uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id)
     submitted_run = DatabricksSubmittedRun(db_run_id, run_id, db_job_runner)
