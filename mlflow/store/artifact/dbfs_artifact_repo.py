@@ -13,6 +13,7 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
 import mlflow.utils.databricks_utils
+from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import is_databricks_acled_artifacts_uri, get_uri_scheme
 
 LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
@@ -29,13 +30,16 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     together with the RestStore.
     """
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri, databricks_profile_uri=None):
         super(DbfsRestArtifactRepository, self).__init__(artifact_uri)
-        # NOTE: if we ever need to support databricks profiles different from that set for
-        #  tracking, we could pass in the databricks profile name into this class.
-        self.get_host_creds = _get_host_creds_from_default_store()
         if not artifact_uri.startswith('dbfs:/'):
             raise MlflowException('DbfsArtifactRepository URI must start with dbfs:/')
+        self.get_host_creds = (
+            # TODO: do we need to get the value and then put it in the lambda?
+            lambda: get_databricks_host_creds(databricks_profile_uri)
+            if databricks_profile_uri
+            else _get_host_creds_from_default_store()
+        )
 
     def _databricks_api_request(self, endpoint, **kwargs):
         host_creds = self.get_host_creds()

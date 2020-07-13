@@ -2,12 +2,15 @@
 Utilities for dealing with artifacts in the context of a Run.
 """
 import posixpath
+import shutil
+import tempfile
 
 from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.uri import append_to_uri_path
@@ -72,3 +75,29 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
 
     return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
         artifact_path=artifact_path, dst_path=output_path)
+
+
+def _upload_artifacts_to_databricks(source, run_id, databricks_profile_uri=None):
+    """
+    Copy the artifacts from ``source`` to the destination Databricks workspace (DBFS) given by
+    ``databricks_profile_uri`` or the current tracking URI.
+    :param source: Source location for the artifacts to copy.
+    :param run_id: Run ID to associate the artifacts with.
+    :param databricks_profile_uri: Specifies the destination Databricks host. If not given,
+        defaults to the current tracking URI.
+    :return: The DBFS location in the target Databricks workspace the model files have been
+        uploaded to.
+    """
+    import uuid
+    local_dir = tempfile.mkdtemp()
+    try:
+        _download_artifact_from_uri(source, local_dir)
+        dest_root = 'dbfs:/databricks/mlflow/tmp-external-source/'  # TODO: "/" or "-"?
+        dest_repo = DbfsRestArtifactRepository(dest_root, databricks_profile_uri)
+        dest_dir = run_id if run_id else uuid.uuid1()
+        dest_repo.log_artifacts(local_dir, artifact_path=dest_dir)
+        return dest_root + dest_dir  # new source
+    finally:
+        shutil.rmtree(local_dir)
+    # NOTE: we can't easily delete the target temp location due to the async nature
+    # of the model version creation.
