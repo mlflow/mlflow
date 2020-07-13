@@ -41,6 +41,9 @@ reuse the cached results.
 
 Running this Example
 ^^^^^^^^^^^^^^^^^^^^
+
+Note: A minimum MLflow version of 1.0 is required to run this example.
+
 In order for the multistep workflow to find the other steps, you must
 execute ``mlflow run`` from this directory. So, in order to find out if
 the Keras model does in fact improve upon the ALS model, you can simply

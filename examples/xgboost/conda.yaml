@@ -8,5 +8,4 @@ dependencies:
   - xgboost
   - pip
   - pip:
-      - mlflow>=1.6.0
       - matplotlib

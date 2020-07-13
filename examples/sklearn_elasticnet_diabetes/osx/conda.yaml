@@ -11,6 +11,3 @@ dependencies:
   - pandas=0.22.0
   - scikit-learn=0.19.1
   - python.app
-  - pip
-  - pip:
-    - mlflow>=1.0
