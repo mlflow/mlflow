@@ -12,7 +12,6 @@ dependencies:
   - keras==2.2.2
   - pip
   - pip:
-    - mlflow>=1.0
     - Gpy==1.9.2
     - GpyOpt==1.2.5
     - pyDOE==0.3.8
