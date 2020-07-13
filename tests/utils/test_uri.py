@@ -4,8 +4,9 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.uri import is_databricks_uri, is_http_uri, is_local_uri, \
-    extract_db_type_from_uri, get_db_profile_from_uri, get_uri_scheme, append_to_uri_path, \
-    extract_and_normalize_path, is_databricks_acled_artifacts_uri, get_db_path_info_from_uri
+    extract_db_type_from_uri, get_uri_scheme, append_to_uri_path, \
+    extract_and_normalize_path, is_databricks_acled_artifacts_uri, \
+    get_db_info_from_uri
 
 
 def test_extract_db_type_from_uri():
@@ -23,16 +24,19 @@ def test_extract_db_type_from_uri():
             extract_db_type_from_uri(unsupported_db)
 
 
-def test_get_db_profile_from_uri_casing():
-    assert get_db_profile_from_uri('databricks://aAbB') == 'aAbB'
-
-
-def test_get_db_path_info_from_profile():
-    assert get_db_path_info_from_uri('databricks://profile/prefix') == 'prefix'
-    assert get_db_path_info_from_uri('nondatabricks://profile/prefix') is None
-    assert get_db_path_info_from_uri('databricks://profile') is None
-    assert get_db_path_info_from_uri('databricks://profile/') is None
-    assert get_db_path_info_from_uri('databricks://') is None
+def test_get_db_info_from_uri():
+    # profile-specific tests
+    assert get_db_info_from_uri('databricks://aAbB')[0] == 'aAbB'
+    # path tests
+    assert get_db_info_from_uri('databricks://profile/prefix')[1] == 'prefix'
+    assert get_db_info_from_uri('nondatabricks://profile/prefix')[1] is None
+    assert get_db_info_from_uri('databricks://profile')[1] is None
+    assert get_db_info_from_uri('databricks://profile/')[1] is None
+    assert get_db_info_from_uri('databricks://')[1] is None
+    # verify trailing slash is correctly parsed behavior
+    profile, path = get_db_info_from_uri('databricks://aAbB/')
+    assert profile == 'aAbB'
+    assert path is None
 
 
 def test_uri_types():

@@ -7,7 +7,6 @@ from mlflow.tracking._tracking_service.utils import _TRACKING_USERNAME_ENV_VAR, 
     _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR
 from mlflow.utils import rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.uri import get_db_profile_from_uri, get_db_path_info_from_uri
 
 
 # NOTE: in contrast to tracking, we do not support the following ways to specify
@@ -45,9 +44,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    profile = get_db_profile_from_uri(store_uri)
-    path_info = get_db_path_info_from_uri(store_uri)
-    return RestStore(lambda: get_databricks_host_creds(profile, path_info))
+    return RestStore(lambda: get_databricks_host_creds(store_uri))
 
 
 _model_registry_store_registry = ModelRegistryStoreRegistry()

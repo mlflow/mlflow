@@ -6,6 +6,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
 from databricks_cli.configure import provider
 from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils.uri import get_db_info_from_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ def _fail_malformed_databricks_auth(profile):
                           "https://github.com/databricks/databricks-cli." % profile)
 
 
-def get_databricks_host_creds(profile=None, path=None):
+def get_databricks_host_creds(server_uri=None):
     """
     Reads in configuration necessary to make HTTP requests to a Databricks server. This
     uses the Databricks CLI's ConfigProvider interface to load the DatabricksConfig object.
@@ -154,6 +155,7 @@ def get_databricks_host_creds(profile=None, path=None):
     :return: :py:class:`mlflow.rest_utils.MlflowHostCreds` which includes the hostname and
         authentication information necessary to talk to the Databricks server.
     """
+    profile, path = get_db_info_from_uri(server_uri)
     if not hasattr(provider, 'get_config'):
         _logger.warning(
             "Support for databricks-cli<0.8.0 is deprecated and will be removed"

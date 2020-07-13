@@ -20,7 +20,8 @@ from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
-from mlflow.utils.uri import get_db_profile_from_uri, is_databricks_uri, is_http_uri
+from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri, is_http_uri,\
+    construct_db_uri_from_profile
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -69,10 +70,10 @@ class DatabricksJobRunner(object):
            authentication information when making Databricks API requests.
     """
     def __init__(self, databricks_profile):
-        self.databricks_profile = databricks_profile
+        self.databricks_profile_uri = construct_db_uri_from_profile(databricks_profile)
 
     def _databricks_api_request(self, endpoint, method, **kwargs):
-        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
+        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile_uri)
         return rest_utils.http_request_safe(
             host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
 
@@ -103,7 +104,7 @@ class DatabricksJobRunner(object):
         default Databricks CLI profile. The path is expected to be a relative path to the DBFS root
         directory, e.g. 'path/to/file'.
         """
-        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
+        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile_uri)
         response = rest_utils.http_request(
             host_creds=host_creds, endpoint="/api/2.0/dbfs/get-status", method="GET",
             json={"path": "/%s" % dbfs_path})
@@ -301,7 +302,7 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
-    profile = get_db_profile_from_uri(tracking.get_tracking_uri())
+    profile, path = get_db_info_from_uri(tracking.get_tracking_uri())
     run_id = remote_run.info.run_id
     db_job_runner = DatabricksJobRunner(databricks_profile=profile)
     db_run_id = db_job_runner.run_databricks(
@@ -338,7 +339,8 @@ class DatabricksSubmittedRun(SubmittedRun):
         run_info = self._job_runner.jobs_runs_get(self._databricks_run_id)
         jobs_page_url = run_info["run_page_url"]
         _logger.info("=== Check the run's status at %s ===", jobs_page_url)
-        host_creds = databricks_utils.get_databricks_host_creds(self._job_runner.databricks_profile)
+        host_creds = databricks_utils.get_databricks_host_creds(
+            self._job_runner.databricks_profile_uri)
         tracking.MlflowClient().set_tag(self._mlflow_run_id,
                                         MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
         tracking.MlflowClient().set_tag(self._mlflow_run_id,

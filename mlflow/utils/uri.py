@@ -27,31 +27,22 @@ def is_databricks_uri(uri):
     return scheme == 'databricks' or uri == 'databricks'
 
 
-def get_db_profile_from_uri(uri):
+def construct_db_uri_from_profile(profile):
+    if profile:
+        return 'databricks://' + profile
+
+
+def get_db_info_from_uri(uri):
     """
     Get the Databricks profile specified by the tracking URI (if any), otherwise
     returns None.
     """
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.scheme == "databricks":
-        return parsed_uri.netloc
-    return None
-
-
-def get_db_path_info_from_uri(uri):
-    """
-    Get additional prefix information specified by the tracking URI (if any), otherwise
-    returns None.
-    """
-    parsed_uri = urllib.parse.urlparse(uri.strip())
-    if parsed_uri.scheme == "databricks":
-        if parsed_uri.path:
-            parsed = parsed_uri.path
-            if len(parsed) > 0 and parsed[0] == '/':
-                parsed = parsed[1:]
-            if parsed:
-                return parsed
-    return None
+        parsed_path = parsed_uri.path.lstrip('/') or None
+        parsed_profile = parsed_uri.netloc
+        return parsed_profile, parsed_path
+    return None, None
 
 
 def extract_db_type_from_uri(db_uri):
