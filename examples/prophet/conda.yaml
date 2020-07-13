@@ -6,6 +6,3 @@ channels:
 dependencies:
   - python=3.6
   - fbprophet
-  - pip
-  - pip:
-    - mlflow>=1.0
