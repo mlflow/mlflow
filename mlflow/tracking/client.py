@@ -353,15 +353,17 @@ class MlflowClient(object):
     # Registered Model Methods
 
     @experimental
-    def create_registered_model(self, name):
+    def create_registered_model(self, name, tags=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
+        :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
+        instances associated with this registered model.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
         """
-        return self._get_registry_client().create_registered_model(name)
+        return self._get_registry_client().create_registered_model(name, tags)
 
     @experimental
     def rename_registered_model(self, name, new_name):
@@ -460,20 +462,45 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_latest_versions(name, stages)
 
+    @experimental
+    def set_registered_model_tag(self, name, key, value):
+        """
+        Set a tag for the registered model.
+
+        :param name: Registered model name.
+        :param key: Tag key to log.
+        :param value: Tag value log.
+        :return: None
+        """
+        self._get_registry_client().set_registered_model_tag(name, key, value)
+
+    @experimental
+    def delete_registered_model_tag(self, name, key):
+        """
+        Delete a tag associated with the registered model.
+
+        :param name: Registered model name.
+        :param key: Registered model tag key.
+        :return: None
+        """
+        self._get_registry_client().delete_registered_model_tag(name, key)
+
     # Model Version Methods
 
     @experimental
-    def create_model_version(self, name, source, run_id):
+    def create_model_version(self, name, source, run_id, tags=None):
         """
         Create a new model version from given source or run ID.
 
         :param name: Name ID for containing registered model.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model
+        :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
+        instances associated with this model version.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
-        return self._get_registry_client().create_model_version(name, source, run_id)
+        return self._get_registry_client().create_model_version(name, source, run_id, tags)
 
     @experimental
     def update_model_version(self, name, version, description=None):
@@ -553,3 +580,28 @@ class MlflowClient(object):
         :return: A list of valid stages.
         """
         return ALL_STAGES
+
+    @experimental
+    def set_model_version_tag(self, name, version, key, value):
+        """
+        Set a tag for the model version.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param key: Tag key to log.
+        :param value: Tag value to log.
+        :return: None
+        """
+        self._get_registry_client().set_model_version_tag(name, version, key, value)
+
+    @experimental
+    def delete_model_version_tag(self, name, version, key):
+        """
+        Delete a tag associated with the model version.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param key: Tag key.
+        :return: None
+        """
+        self._get_registry_client().delete_model_version_tag(name, version, key)
