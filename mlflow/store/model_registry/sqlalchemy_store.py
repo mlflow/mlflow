@@ -4,7 +4,7 @@ import logging
 import sqlalchemy
 
 from mlflow.entities.model_registry.model_version_stages import get_canonical_stage, \
-    DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS, STAGE_DELETED_INTERNAL
+    DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS, STAGE_DELETED_INTERNAL, STAGE_ARCHIVED
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST
@@ -548,19 +548,35 @@ class SqlAlchemyStore(AbstractStore):
         versions in the stage will be atomically moved to the "archived" stage.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        if archive_existing_versions:
-            raise MlflowException("'archive_existing_versions' flag is not supported in "
-                                  "SqlAlchemyStore. Set it to 'False'")
+        is_active_stage = get_canonical_stage(stage) in DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS
+        if archive_existing_versions and not is_active_stage:
+            msg_tpl = ("Model version transition cannot archive existing model versions "
+                       "because '{}' is not an Active stage. Valid stages are {}")
+            raise MlflowException(msg_tpl.format(stage, DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS))
+
         with self.ManagedSessionMaker() as session:
+            last_updated_time = now()
+
+            model_versions = []
+            if archive_existing_versions:
+                conditions = [
+                    SqlModelVersion.name == name,
+                    SqlModelVersion.version != version,
+                    SqlModelVersion.current_stage == stage,
+                ]
+                model_versions = session.query(SqlModelVersion).filter(*conditions).all()
+                for mv in model_versions:
+                    mv.current_stage = STAGE_ARCHIVED
+                    mv.last_updated_time = last_updated_time
+
             sql_model_version = self._get_sql_model_version(session=session,
                                                             name=name,
                                                             version=version)
-            last_updated_time = now()
             sql_model_version.current_stage = get_canonical_stage(stage)
             sql_model_version.last_updated_time = last_updated_time
             sql_registered_model = sql_model_version.registered_model
             sql_registered_model.last_updated_time = last_updated_time
-            self._save_to_db(session, [sql_model_version, sql_registered_model])
+            self._save_to_db(session, [*model_versions, sql_model_version, sql_registered_model])
             return sql_model_version.to_mlflow_entity()
 
     def delete_model_version(self, name, version):
