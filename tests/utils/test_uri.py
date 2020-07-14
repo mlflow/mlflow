@@ -24,19 +24,17 @@ def test_extract_db_type_from_uri():
             extract_db_type_from_uri(unsupported_db)
 
 
-def test_get_db_info_from_uri():
-    # profile-specific tests
-    assert get_db_info_from_uri('databricks://aAbB')[0] == 'aAbB'
-    # path tests
-    assert get_db_info_from_uri('databricks://profile/prefix')[1] == 'prefix'
-    assert get_db_info_from_uri('nondatabricks://profile/prefix')[1] is None
-    assert get_db_info_from_uri('databricks://profile')[1] is None
-    assert get_db_info_from_uri('databricks://profile/')[1] is None
-    assert get_db_info_from_uri('databricks://')[1] is None
-    # verify trailing slash is correctly parsed behavior
-    profile, path = get_db_info_from_uri('databricks://aAbB/')
-    assert profile == 'aAbB'
-    assert path is None
+@pytest.mark.parametrize("server_uri, result", [
+    ('databricks://aAbB', ('aAbB', None)),
+    ('databricks://profile/prefix', ('profile', 'prefix')),
+    ('nondatabricks://profile/prefix', (None, None)),
+    ('databricks://profile', ('profile', None)),
+    ('databricks://profile/', ('profile', None)),
+    ('databricks://', ('', None)),
+    ('databricks://aAbB/', ('aAbB', None))
+])
+def test_get_db_info_from_uri(server_uri, result):
+    assert get_db_info_from_uri(server_uri) == result
 
 
 def test_uri_types():

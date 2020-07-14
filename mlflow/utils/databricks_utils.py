@@ -148,10 +148,15 @@ def get_databricks_host_creds(server_uri=None):
     """
     Reads in configuration necessary to make HTTP requests to a Databricks server. This
     uses the Databricks CLI's ConfigProvider interface to load the DatabricksConfig object.
-    This method will throw an exception if sufficient auth cannot be found.
+    If no Databricks CLI profile is found corresponding to the server URI, this function
+    will attempt to retrieve these credentials from the Databricks Secret Manager. For that to work,
+    the server URI will need to be of the following format: "databricks://profile/prefix". In the
+    Databricks Secret Manager, we will query for a secret in the scope "<profile>" for secrets with
+    keys of the form "<prefix>-host" and "<prefix>-token". If found, those host credentials will be
+    used. This method will throw an exception if sufficient auth cannot be found.
 
-    :param profile: Databricks CLI profile. If not provided, we will read the default profile.
-    :param path: Additional path information provided in the Databricks URI.
+    :param server_uri: A URI that specifies the Databricks profile you want to use for making
+    requests.
     :return: :py:class:`mlflow.rest_utils.MlflowHostCreds` which includes the hostname and
         authentication information necessary to talk to the Databricks server.
     """
@@ -171,9 +176,9 @@ def get_databricks_host_creds(server_uri=None):
         dbutils = _get_dbutils()
         if dbutils:
             # Prefix differentiates users and is provided as path information in the URI
-            key_prefix = path + "-"
-            host = dbutils.secrets.get(scope=profile, key=key_prefix + "host")
-            token = dbutils.secrets.get(scope=profile, key=key_prefix + "token")
+            key_prefix = path
+            host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
+            token = dbutils.secrets.get(scope=profile, key=key_prefix + "-token")
             if host and token:
                 config = provider.DatabricksConfig.from_token(
                     host=host,

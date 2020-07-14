@@ -4,6 +4,8 @@ import pytest
 from mlflow.utils import databricks_utils
 from databricks_cli.configure.provider import DatabricksConfig
 
+from mlflow.utils.uri import construct_db_uri_from_profile
+
 
 def test_no_throw():
     """
@@ -49,7 +51,7 @@ def test_databricks_params_custom_profile(ProfileConfigProvider):
     mock_provider.get_config.return_value = \
         DatabricksConfig("host", "user", "pass", None, insecure=True)
     ProfileConfigProvider.return_value = mock_provider
-    params = databricks_utils.get_databricks_host_creds("databricks://profile")
+    params = databricks_utils.get_databricks_host_creds(construct_db_uri_from_profile("profile"))
     assert params.ignore_tls_verification
     ProfileConfigProvider.assert_called_with("profile")
 
