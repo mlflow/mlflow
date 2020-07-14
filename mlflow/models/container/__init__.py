@@ -86,22 +86,30 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
         import yaml
 
         # Generate requirements.txt file with the dependencies from the conda.yaml file.
-        print("Installing required dependencies")
+        python_deps=[]
+
         with open(env_path_dst) as env_file:
             env_dep = yaml.full_load(env_file)
             dependency = env_dep["dependencies"]
-            exclude = ["python", "mlflow"]
+
             with open('/opt/mlflow/requirements.txt', 'w') as req:
+                exclude = ["pip", "mlflow"]
                 for lib in dependency:
                     if isinstance(lib, dict):
                         for i in lib["pip"]:
-                            if i not in exclude:
+                            if i.split('==')[0] not in exclude:
                                 req.write(i+'\n')
                     else:
-                        if lib.split('=')[0] not in exclude:
-                            req.write(lib.replace("=", "==")+'\n')
-        return ["pip install -r /opt/mlflow/requirements.txt"]
+                        if "python" in lib:
+                            python_deps.append("conda install " + lib)
+                            python_deps.append("pip install /opt/mlflow/.")
+                        else:
+                            python_deps.append("conda install " + lib)
 
+        python_deps.append("pip install --upgrade pip")
+        python_deps.append("pip install -r /opt/mlflow/requirements.txt")
+        #_logger.info(python_deps)
+        return python_deps
     has_env = False
     model_dependencies = []
     if model_path:
@@ -120,7 +128,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
                 os.makedirs(env_path_dst_dir)
             shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
             if no_conda:
-                model_dependencies = ["conda env update -f {}".format(env_path_dst)]
+                model_dependencies = install_dependency_from_condafile(env_path_dst)
             else:
                 print("creating and activating custom environment")
                 conda_create_model_env = "conda env create -n custom_env -f {}".format(env_path_dst)
@@ -132,7 +140,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
     # NB: install gunicorn[gevent] from pip rather than from conda because gunicorn is already
     # dependency of mlflow on pip and we expect mlflow to be part of the environment.
     install_server_deps = ["pip install gunicorn[gevent]"]
-    if Popen(["bash", "-c", " && ".join(activate_cmd + install_server_deps + model_dependencies)]).\
+    if Popen(["bash", "-c", " && ".join(activate_cmd + model_dependencies + install_server_deps)]).\
             wait() != 0:
         raise Exception("Failed to install serving dependencies into the model environment.")
     if has_env and install_mlflow:
