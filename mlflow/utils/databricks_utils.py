@@ -152,8 +152,9 @@ def get_databricks_host_creds(server_uri=None):
     will attempt to retrieve these credentials from the Databricks Secret Manager. For that to work,
     the server URI will need to be of the following format: "databricks://profile/prefix". In the
     Databricks Secret Manager, we will query for a secret in the scope "<profile>" for secrets with
-    keys of the form "<prefix>-host" and "<prefix>-token". If found, those host credentials will be
-    used. This method will throw an exception if sufficient auth cannot be found.
+    keys of the form "<prefix>-host" and "<prefix>-token". Note that this prefix *cannot* be empty
+    if trying to authenticate with this method. If found, those host credentials will be used. This
+    method will throw an exception if sufficient auth cannot be found.
 
     :param server_uri: A URI that specifies the Databricks profile you want to use for making
     requests.
