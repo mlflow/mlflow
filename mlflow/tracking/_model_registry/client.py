@@ -8,6 +8,7 @@ import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
+from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.tracking._model_registry import utils
 
 _logger = logging.getLogger(__name__)
@@ -28,17 +29,19 @@ class ModelRegistryClient(object):
 
     # Registered Model Methods
 
-    def create_registered_model(self, name):
+    def create_registered_model(self, name, tags=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
+        :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
+        instances associated with this registered model.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
         """
         # TODO: Do we want to validate the name is legit here - non-empty without "/" and ":" ?
         #       Those are constraints applicable to any backend, given the model URI format.
-        return self.store.create_registered_model(name)
+        return self.store.create_registered_model(name, tags)
 
     def update_registered_model(self, name, description):
         """
@@ -128,19 +131,42 @@ class ModelRegistryClient(object):
         """
         return self.store.get_latest_versions(name, stages)
 
+    def set_registered_model_tag(self, name, key, value):
+        """
+        Set a tag for the registered model.
+
+        :param name: Registered model name.
+        :param key: Tag key to log.
+        :param value: Tag value log.
+        :return: None
+        """
+        self.store.set_registered_model_tag(name, RegisteredModelTag(key, value))
+
+    def delete_registered_model_tag(self, name, key):
+        """
+        Delete a tag associated with the registered model.
+
+        :param name: Registered model name.
+        :param key: Registered model tag key.
+        :return: None
+        """
+        self.store.delete_registered_model_tag(name, key)
+
     # Model Version Methods
 
-    def create_model_version(self, name, source, run_id):
+    def create_model_version(self, name, source, run_id, tags=None):
         """
         Create a new model version from given source or run ID.
 
         :param name: Name ID for containing registered model.
         :param source: Source path where the MLflow model is stored.
-        :param run_id: Run ID from MLflow tracking server that generated the model
+        :param run_id: Run ID from MLflow tracking server that generated the model.
+        :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
+        instances associated with this model version.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
-        return self.store.create_model_version(name, source, run_id)
+        return self.store.create_model_version(name, source, run_id, tags)
 
     def update_model_version(self, name, version, description):
         """
@@ -213,3 +239,26 @@ class ModelRegistryClient(object):
         :return: A list of valid stages.
         """
         return self.store.get_model_version_stages(name, version)
+
+    def set_model_version_tag(self, name, version, key, value):
+        """
+        Set a tag for the model version.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param key: Tag key to log.
+        :param value: Tag value to log.
+        :return: None
+        """
+        self.store.set_model_version_tag(name, version, ModelVersionTag(key, value))
+
+    def delete_model_version_tag(self, name, version, key):
+        """
+        Delete a tag associated with the model version.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param key: Tag key.
+        :return: None
+        """
+        self.store.delete_model_version_tag(name, version, key)
