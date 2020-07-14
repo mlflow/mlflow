@@ -4,6 +4,8 @@ import pytest
 from mlflow.utils import databricks_utils
 from databricks_cli.configure.provider import DatabricksConfig
 
+from mlflow.utils.uri import construct_db_uri_from_profile
+
 
 def test_no_throw():
     """
@@ -49,9 +51,38 @@ def test_databricks_params_custom_profile(ProfileConfigProvider):
     mock_provider.get_config.return_value = \
         DatabricksConfig("host", "user", "pass", None, insecure=True)
     ProfileConfigProvider.return_value = mock_provider
-    params = databricks_utils.get_databricks_host_creds("profile")
+    params = databricks_utils.get_databricks_host_creds(construct_db_uri_from_profile("profile"))
     assert params.ignore_tls_verification
     ProfileConfigProvider.assert_called_with("profile")
+
+
+@mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
+def test_databricks_registry_profile(ProfileConfigProvider):
+    mock_provider = mock.MagicMock()
+    mock_provider.get_config.return_value = None
+    ProfileConfigProvider.return_value = mock_provider
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.secrets.get.return_value = 'random'
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        params = databricks_utils.get_databricks_host_creds("databricks://profile/prefix")
+        mock_dbutils.secrets.get.assert_any_call(key='prefix-host', scope='profile')
+        mock_dbutils.secrets.get.assert_any_call(key='prefix-token', scope='profile')
+        assert params.host == 'random'
+        assert params.token == 'random'
+
+
+@mock.patch('databricks_cli.configure.provider.get_config')
+def test_databricks_empty_uri(get_config):
+    get_config.return_value = None
+    with pytest.raises(Exception):
+        databricks_utils.get_databricks_host_creds("")
+
+
+@mock.patch('databricks_cli.configure.provider.get_config')
+def test_databricks_single_slash_in_uri_scheme_throws(get_config):
+    get_config.return_value = None
+    with pytest.raises(Exception):
+        databricks_utils.get_databricks_host_creds("databricks:/profile/path")
 
 
 @mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
