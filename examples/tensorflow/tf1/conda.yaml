@@ -6,4 +6,7 @@ channels:
 dependencies:
   - python=3.6
   - tensorflow=1.13.1
+  - pip
+  - pip:
+    - mlflow
 

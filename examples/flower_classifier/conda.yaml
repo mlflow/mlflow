@@ -10,3 +10,6 @@ dependencies:
   - tensorflow=1.13.1
   - keras=2.3.1
   - pillow=7.0.0
+  - pip=20.0.2
+  - pip:
+    - mlflow>=1.6
