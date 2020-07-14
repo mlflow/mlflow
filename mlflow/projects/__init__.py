@@ -38,7 +38,6 @@ from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID, MLFLOW_PROJECT_BACKEND,
 )
-from mlflow.utils.uri import get_db_profile_from_uri
 import mlflow.utils.uri
 
 # Environment variable indicating a path to a conda installation. MLflow will default to running
@@ -791,8 +790,7 @@ def _get_databricks_env_vars(tracking_uri):
     if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
         return {}
 
-    db_profile = get_db_profile_from_uri(tracking_uri)
-    config = databricks_utils.get_databricks_host_creds(db_profile)
+    config = databricks_utils.get_databricks_host_creds(tracking_uri)
     # We set these via environment variables so that only the current profile is exposed, rather
     # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
     # part of ~/.databrickscfg into the container
