@@ -4,6 +4,7 @@ import os.path
 import re
 import shutil
 
+import mlflow
 from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.file_utils import path_to_local_file_uri
@@ -22,9 +23,10 @@ def find_conda_yaml(directory):
     return os.path.join(directory, conda_yaml)
 
 
-def replace_mlflow_with_dev_version(yml_path, mlflow_dir):
+def replace_mlflow_with_dev_version(yml_path):
     with open(yml_path, 'r') as f:
         old_src = f.read()
+        mlflow_dir = os.path.dirname(mlflow.__path__[0])
         new_src = re.sub(r"- mlflow.*\n", "- {}\n".format(mlflow_dir), old_src)
 
     with open(yml_path, 'w') as f:
@@ -54,7 +56,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
 
     shutil.copytree(example_dir, tmp_example_dir)
     conda_yml_path = find_conda_yaml(tmp_example_dir)
-    replace_mlflow_with_dev_version(conda_yml_path, os.path.abspath('.'))
+    replace_mlflow_with_dev_version(conda_yml_path)
 
     cli_run_list = [tmp_example_dir] + params
     invoke_cli_runner(cli.run, cli_run_list)
