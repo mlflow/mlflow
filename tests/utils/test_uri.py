@@ -4,8 +4,9 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.uri import is_databricks_uri, is_http_uri, is_local_uri, \
-    extract_db_type_from_uri, get_db_profile_from_uri, get_uri_scheme, append_to_uri_path, \
-    extract_and_normalize_path, is_databricks_acled_artifacts_uri
+    extract_db_type_from_uri, get_uri_scheme, append_to_uri_path, \
+    extract_and_normalize_path, is_databricks_acled_artifacts_uri, \
+    get_db_info_from_uri
 
 
 def test_extract_db_type_from_uri():
@@ -23,8 +24,17 @@ def test_extract_db_type_from_uri():
             extract_db_type_from_uri(unsupported_db)
 
 
-def test_get_db_profile_from_uri_casing():
-    assert get_db_profile_from_uri('databricks://aAbB') == 'aAbB'
+@pytest.mark.parametrize("server_uri, result", [
+    ('databricks://aAbB', ('aAbB', None)),
+    ('databricks://profile/prefix', ('profile', 'prefix')),
+    ('nondatabricks://profile/prefix', (None, None)),
+    ('databricks://profile', ('profile', None)),
+    ('databricks://profile/', ('profile', None)),
+    ('databricks://', ('', None)),
+    ('databricks://aAbB/', ('aAbB', None))
+])
+def test_get_db_info_from_uri(server_uri, result):
+    assert get_db_info_from_uri(server_uri) == result
 
 
 def test_uri_types():
