@@ -11,7 +11,7 @@ import pytest
 import shutil
 import tempfile
 
-from mlflow.entities.model_registry import RegisteredModel, RegisteredModelTag, ModelVersionTag
+from mlflow.entities.model_registry import RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import path_to_local_file_uri
