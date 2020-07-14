@@ -50,13 +50,13 @@ def replace_mlflow_with_dev_version(yml_path, mlflow_dir):
 ])
 def test_mlflow_run_example(directory, params, tmpdir):
     example_dir = os.path.join(EXAMPLES_DIR, directory)
-    tmpdir = os.path.join(tmpdir.strpath, directory)
+    tmp_example_dir = os.path.join(tmpdir.strpath, directory)
 
-    shutil.copytree(example_dir, tmpdir)
-    conda_yml_path = find_conda_yaml(tmpdir)
+    shutil.copytree(example_dir, tmp_example_dir)
+    conda_yml_path = find_conda_yaml(tmp_example_dir)
     replace_mlflow_with_dev_version(conda_yml_path, os.path.abspath('.'))
 
-    cli_run_list = [tmpdir] + params
+    cli_run_list = [tmp_example_dir] + params
     invoke_cli_runner(cli.run, cli_run_list)
 
 
