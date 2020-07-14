@@ -86,7 +86,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
         import yaml
 
         # Generate requirements.txt file with the dependencies from the conda.yaml file.
-        python_deps=[]
+        python_deps = []
 
         with open(env_path_dst) as env_file:
             env_dep = yaml.full_load(env_file)
@@ -108,7 +108,6 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
 
         python_deps.append("pip install --upgrade pip")
         python_deps.append("pip install -r /opt/mlflow/requirements.txt")
-        #_logger.info(python_deps)
         return python_deps
     has_env = False
     model_dependencies = []
