@@ -25,7 +25,7 @@ def find_conda_yaml(directory):
 def replace_mlflow_with_dev_version(yml_path, mlflow_dir):
     with open(yml_path, 'r') as f:
         old_src = f.read()
-        new_src = re.sub(r"- mlflow.+\n", "- {}\n".format(mlflow_dir), old_src)
+        new_src = re.sub(r"- mlflow.*\n", "- {}\n".format(mlflow_dir), old_src)
 
     with open(yml_path, 'w') as f:
         f.write(new_src)
