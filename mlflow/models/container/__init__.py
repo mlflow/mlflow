@@ -120,7 +120,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, no_conda=False):
                 os.makedirs(env_path_dst_dir)
             shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
             if no_conda:
-                model_dependencies = install_dependency_from_condafile(env_path_dst)
+                model_dependencies = ["conda env update -f {}".format(env_path_dst)]
             else:
                 print("creating and activating custom environment")
                 conda_create_model_env = "conda env create -n custom_env -f {}".format(env_path_dst)
