@@ -47,9 +47,9 @@ class RestStore(AbstractStore):
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
-        instances associated with this registered model.
+                     instances associated with this registered model.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
-        created in the backend.
+                 created in the backend.
         """
         proto_tags = [tag.to_proto() for tag in tags or []]
         req_body = message_to_json(CreateRegisteredModel(name=name, tags=proto_tags))
@@ -196,9 +196,9 @@ class RestStore(AbstractStore):
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
-        instances associated with this model version.
+                     instances associated with this model version.
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
-        created in the backend.
+                 created in the backend.
         """
         proto_tags = [tag.to_proto() for tag in tags or []]
         req_body = message_to_json(CreateModelVersion(name=name, source=source,

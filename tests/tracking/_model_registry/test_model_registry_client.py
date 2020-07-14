@@ -25,7 +25,7 @@ def newModelRegistryClient():
 
 def _model_version(name, version, stage, source="some:/source", run_id="run13579", tags=None):
     return ModelVersion(name, version, "2345671890", "234567890",
-                        "some description", "UserID", stage, source, run_id, tags)
+                        "some description", "UserID", stage, source, run_id, tags=tags)
 
 
 # Registered Model API

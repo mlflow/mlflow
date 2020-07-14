@@ -319,7 +319,7 @@ def test_set_delete_registered_model_tag_flow(mlflow_client, backend_store_uri):
     assert registered_model_detailed.tags == {tag.key: tag.value for tag in tags}
     mlflow_client.delete_registered_model_tag(name, "key")
     registered_model_detailed = mlflow_client.get_registered_model(name)
-    assert registered_model_detailed.tags == {"anotherKey": "some other value"}
+    assert registered_model_detailed.tags == {"another key": "some other value"}
 
 
 def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
@@ -539,16 +539,16 @@ def test_set_delete_model_version_tag_flow(mlflow_client, backend_store_uri):
     name = 'SetDeleteMVTagTest'
     mlflow_client.create_registered_model(name)
     mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
-    model_version_detailed = mlflow_client.get_model_version(name, 1)
+    model_version_detailed = mlflow_client.get_model_version(name, "1")
     assert model_version_detailed.tags == {}
     tags = [
         ModelVersionTag("key", "value"),
         ModelVersionTag("another key", "some other value")
     ]
     for tag in tags:
-        mlflow_client.set_model_version_tag(name, 1, tag.key, tag.value)
-    model_version_detailed = mlflow_client.get_model_version(name, 1)
+        mlflow_client.set_model_version_tag(name, "1", tag.key, tag.value)
+    model_version_detailed = mlflow_client.get_model_version(name, "1")
     assert model_version_detailed.tags == {tag.key: tag.value for tag in tags}
-    mlflow_client.delete_model_version_tag(name, 1, "key")
-    model_version_detailed = mlflow_client.get_model_version(name, 1)
+    mlflow_client.delete_model_version_tag(name, "1", "key")
+    model_version_detailed = mlflow_client.get_model_version(name, "1")
     assert model_version_detailed.tags == {"anotherKey": "some other value"}
