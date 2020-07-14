@@ -4,6 +4,8 @@ import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
 import { Stages } from '../constants';
 import { Dropdown } from 'antd';
 
+import { mockGetFieldValue } from '../test-utils';
+
 describe('ModelStageTransitionDropdown', () => {
   let wrapper;
   let minimalProps;
@@ -38,7 +40,7 @@ describe('ModelStageTransitionDropdown', () => {
     expect(menuHtml).toContain(Stages.ARCHIVED);
   });
 
-  test('handleMenuItemClick', () => {
+  test('handleMenuItemClick - archiveExistingVersions', () => {
     const mockOnSelect = jest.fn();
     const props = {
       ...commonProps,
@@ -46,9 +48,19 @@ describe('ModelStageTransitionDropdown', () => {
     };
     const activity = {};
     wrapper = shallow(<ModelStageTransitionDropdown {...props} />);
-    const instance = wrapper.instance();
-    instance.handleMenuItemClick(activity);
-    instance.state.handleConfirm();
-    expect(mockOnSelect).toHaveBeenCalledWith(activity);
+    const mockArchiveFieldValues = [true, false, undefined];
+    mockArchiveFieldValues.forEach((fieldValue) => {
+      const expectArchiveFieldValue = Boolean(fieldValue); // undefined should become false also
+      const instance = wrapper.instance();
+      instance.transitionFormRef = {
+        current: {
+          getFieldValue: mockGetFieldValue('', fieldValue),
+          resetFields: () => {},
+        },
+      };
+      instance.handleMenuItemClick(activity);
+      instance.state.handleConfirm();
+      expect(mockOnSelect).toHaveBeenCalledWith(activity, expectArchiveFieldValue);
+    });
   });
 });
