@@ -551,4 +551,4 @@ def test_set_delete_model_version_tag_flow(mlflow_client, backend_store_uri):
     assert model_version_detailed.tags == {tag.key: tag.value for tag in tags}
     mlflow_client.delete_model_version_tag(name, "1", "key")
     model_version_detailed = mlflow_client.get_model_version(name, "1")
-    assert model_version_detailed.tags == {"anotherKey": "some other value"}
+    assert model_version_detailed.tags == {"another key": "some other value"}
