@@ -109,6 +109,11 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             else:  # Just a plain old blob
                 file_name = posixpath.relpath(path=r.name, start=artifact_path)
                 infos.append(FileInfo(file_name, False, r.size))
+        # The list_artifacts API expects us to return an empty list if the
+        # the path references a single file.
+        rel_path = dest_path[len(artifact_path)+1:]
+        if (len(infos) == 1) and not infos[0].is_dir and (infos[0].path == rel_path):
+            return []
         return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):

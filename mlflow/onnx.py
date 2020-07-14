@@ -15,6 +15,7 @@ import pandas as pd
 
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
@@ -129,7 +130,7 @@ def save_model(onnx_model, path, conda_env=None, mlflow_model=None,
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.onnx",
                         data=model_data_subpath, env=conda_env_subpath)
     mlflow_model.add_flavor(FLAVOR_NAME, onnx_version=onnx.__version__, data=model_data_subpath)
-    mlflow_model.save(os.path.join(path, "MLmodel"))
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 def _load_model(model_file):

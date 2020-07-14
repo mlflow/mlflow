@@ -7,6 +7,19 @@ contributing to MLflow.
   :local:
   :depth: 3
 
+Governance
+##########
+
+Governance of MLflow is conducted by the Technical Steering Committee (TSC), which currently includes the following members:
+
+ - Patrick Wendell (pwendell@gmail.com)
+
+ - Reynold Xin (reynoldx@gmail.com)
+
+ - Matei Zaharia (matei@cs.stanford.edu)
+
+The founding technical charter can be found `here <https://github.com/mlflow/mlflow/blob/master/mlflow-charter.pdf>`_.
+
 Contribution process
 ####################
 The MLflow contribution process starts with filing a GitHub issue. MLflow defines four
@@ -112,6 +125,13 @@ you can `sign your work`_ when committing code changes and opening pull requests
 
     git config --global user.name "Your Name"
     git config --global user.email yourname@example.com
+
+For convenience, we provide a pre-commit git hook that validates that commits are signed-off.
+Enable it by running:
+
+.. code-block:: bash
+
+    git config core.hooksPath hooks
 
 Then, install the Python MLflow package from source - this is required for developing & testing
 changes across all languages and APIs. We recommend installing MLflow in its own conda environment

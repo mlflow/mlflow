@@ -28,6 +28,7 @@ import mlflow
 from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -335,7 +336,7 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
                             model_data=_SPARK_MODEL_PATH_SUB)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data=_SPARK_MODEL_PATH_SUB,
                         env=conda_env_subpath)
-    mlflow_model.save(os.path.join(dst_dir, "MLmodel"))
+    mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
 
 
 def _validate_model(spark_model):

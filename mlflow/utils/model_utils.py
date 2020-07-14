@@ -2,6 +2,7 @@ import os
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.uri import append_to_uri_path
@@ -18,11 +19,11 @@ def _get_flavor_configuration(model_path, flavor_name):
     :param flavor_name: The name of the flavor configuration to load.
     :return: The flavor configuration as a dictionary.
     """
-    model_configuration_path = os.path.join(model_path, "MLmodel")
+    model_configuration_path = os.path.join(model_path, MLMODEL_FILE_NAME)
     if not os.path.exists(model_configuration_path):
         raise MlflowException(
-            "Could not find an \"MLmodel\" configuration file at \"{model_path}\"".format(
-                model_path=model_path),
+            "Could not find an \"{model_file}\" configuration file at \"{model_path}\"".format(
+                model_file=MLMODEL_FILE_NAME, model_path=model_path),
             RESOURCE_DOES_NOT_EXIST)
 
     model_conf = Model.load(model_configuration_path)
@@ -47,11 +48,11 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
     """
     try:
         ml_model_file = _download_artifact_from_uri(
-            artifact_uri=append_to_uri_path(model_uri, "MLmodel"))
+            artifact_uri=append_to_uri_path(model_uri, MLMODEL_FILE_NAME))
     except Exception as ex:
         raise MlflowException(
-            "Failed to download an \"MLmodel\" model file from \"{model_uri}\": {ex}".format(
-                model_uri=model_uri, ex=ex),
+            "Failed to download an \"{model_file}\" model file from \"{model_uri}\": {ex}".format(
+                model_file=MLMODEL_FILE_NAME, model_uri=model_uri, ex=ex),
             RESOURCE_DOES_NOT_EXIST)
     model_conf = Model.load(ml_model_file)
     if flavor_name not in model_conf.flavors:

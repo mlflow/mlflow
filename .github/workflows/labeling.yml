@@ -1,0 +1,18 @@
+name: Labeling
+
+on:
+  schedule:
+    # Run this action daily at 7:00 UTC
+    - cron: "0 7 * * *"
+
+jobs:
+  labeling:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: harupy/auto-labeling@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          label-pattern: '- \[(.*?)\] ?`(.+?)`'
+          # Label issues from last week
+          offset: '7d'
