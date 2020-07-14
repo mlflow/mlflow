@@ -12,3 +12,4 @@ dependencies:
   - pip:
     - tensorflow==1.15.2
     - keras==2.2.4
+    - mlflow>=1.0
