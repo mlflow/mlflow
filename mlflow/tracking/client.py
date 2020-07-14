@@ -358,8 +358,8 @@ class MlflowClient(object):
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
-        :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
-                     instances associated with this registered model.
+        :param tags: A dictionary of key-value pairs that are converted into
+                     :py:class:`mlflow.entities.model_registry.RegisteredModelTag` objects.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
         """
@@ -495,8 +495,8 @@ class MlflowClient(object):
         :param name: Name ID for containing registered model.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model
-        :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
-                     instances associated with this model version.
+        :param tags: A dictionary of key-value pairs that are converted into
+                     :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """

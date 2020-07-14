@@ -34,13 +34,15 @@ class ModelRegistryClient(object):
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
-        :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
-                     instances associated with this registered model.
+        :param tags: A dictionary of key-value pairs that are converted into
+                     :py:class:`mlflow.entities.model_registry.RegisteredModelTag` objects.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
         """
         # TODO: Do we want to validate the name is legit here - non-empty without "/" and ":" ?
         #       Those are constraints applicable to any backend, given the model URI format.
+        tags = tags if tags else {}
+        tags = [RegisteredModelTag(key, value) for key, value in tags.items()]
         return self.store.create_registered_model(name, tags)
 
     def update_registered_model(self, name, description):
@@ -161,11 +163,13 @@ class ModelRegistryClient(object):
         :param name: Name ID for containing registered model.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model.
-        :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
-                     instances associated with this model version.
+        :param tags: A dictionary of key-value pairs that are converted into
+                     :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
+        tags = tags if tags else {}
+        tags = [ModelVersionTag(key, value) for key, value in tags.items()]
         return self.store.create_model_version(name, source, run_id, tags)
 
     def update_model_version(self, name, version, description):

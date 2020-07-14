@@ -30,15 +30,16 @@ def _model_version(name, version, stage, source="some:/source", run_id="run13579
 
 # Registered Model API
 def test_create_registered_model(mock_store):
-    tags = [
-        RegisteredModelTag("key", "value"),
-        RegisteredModelTag("another key", "some other value")
-    ]
+    tags_dict = {
+        "key": "value",
+        "another key": "some other value"
+    }
+    tags = [RegisteredModelTag(key, value) for key, value in tags_dict.items()]
     mock_store.create_registered_model.return_value = RegisteredModel("Model 1", tags=tags)
-    result = newModelRegistryClient().create_registered_model("Model 1", tags)
-    mock_store.create_registered_model.assert_called_once_with("Model 1", tags)
+    result = newModelRegistryClient().create_registered_model("Model 1", tags_dict)
+    mock_store.create_registered_model.assert_called_once_with("Model 1", tags_dict)
     assert result.name == "Model 1"
-    assert result.tags == {tag.key: tag.value for tag in tags}
+    assert result.tags == tags_dict
 
 
 def test_update_registered_model(mock_store):
@@ -178,17 +179,18 @@ def test_delete_registered_model_tag(mock_store):
 def test_create_model_version(mock_store):
     name = "Model 1"
     version = "1"
-    tags = [
-        ModelVersionTag("key", "value"),
-        ModelVersionTag("another key", "some other value")
-    ]
+    tags_dict = {
+        "key": "value",
+        "another key": "some other value"
+    }
+    tags = [RegisteredModelTag(key, value) for key, value in tags_dict.items()]
     mock_store.create_model_version.return_value = ModelVersion(name=name, version=version,
                                                                 creation_timestamp=123, tags=tags)
-    result = newModelRegistryClient().create_model_version(name, "uri:/for/source", "run123", tags)
-    mock_store.create_model_version.assert_called_once_with(name, "uri:/for/source", "run123", tags)
+    result = newModelRegistryClient().create_model_version(name, "uri:/for/source", "run123", tags_dict)
+    mock_store.create_model_version.assert_called_once_with(name, "uri:/for/source", "run123", tags_dict)
     assert result.name == name
     assert result.version == version
-    assert result.tags == {tag.key: tag.value for tag in tags}
+    assert result.tags == tags_dict
 
 
 def test_update_model_version(mock_store):

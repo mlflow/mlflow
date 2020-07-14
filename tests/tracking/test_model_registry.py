@@ -96,20 +96,20 @@ def now():
 
 def test_create_and_query_registered_model_flow(mlflow_client, backend_store_uri):
     name = 'CreateRMTest'
-    tags = [
-        RegisteredModelTag("key", "value"),
-        RegisteredModelTag("another key", "some other value")
-    ]
+    tags = {
+        "key": "value",
+        "another key": "some other value"
+    }
     start_time = now()
     registered_model = mlflow_client.create_registered_model(name, tags)
     end_time = now()
     assert isinstance(registered_model, RegisteredModel)
     assert registered_model.name == name
-    assert registered_model.tags == {tag.key: tag.value for tag in tags}
+    assert registered_model.tags == tags
     registered_model_detailed = mlflow_client.get_registered_model(name)
     assert isinstance(registered_model_detailed, RegisteredModel)
     assert registered_model_detailed.name == name
-    assert registered_model_detailed.tags == {tag.key: tag.value for tag in tags}
+    assert registered_model_detailed.tags == tags
     assert str(registered_model_detailed.description) == ""
     assert registered_model_detailed.latest_versions == []
     assert_is_between(start_time, end_time, registered_model_detailed.creation_timestamp)
@@ -309,14 +309,14 @@ def test_set_delete_registered_model_tag_flow(mlflow_client, backend_store_uri):
     mlflow_client.create_registered_model(name)
     registered_model_detailed = mlflow_client.get_registered_model(name)
     assert registered_model_detailed.tags == {}
-    tags = [
-        RegisteredModelTag("key", "value"),
-        RegisteredModelTag("another key", "some other value")
-    ]
-    for tag in tags:
-        mlflow_client.set_registered_model_tag(name, tag.key, tag.value)
+    tags = {
+        "key": "value",
+        "another key": "some other value"
+    }
+    for key, value in tags.items():
+        mlflow_client.set_registered_model_tag(name, key, value)
     registered_model_detailed = mlflow_client.get_registered_model(name)
-    assert registered_model_detailed.tags == {tag.key: tag.value for tag in tags}
+    assert registered_model_detailed.tags == tags
     mlflow_client.delete_registered_model_tag(name, "key")
     registered_model_detailed = mlflow_client.get_registered_model(name)
     assert registered_model_detailed.tags == {"another key": "some other value"}
@@ -324,17 +324,17 @@ def test_set_delete_registered_model_tag_flow(mlflow_client, backend_store_uri):
 
 def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
     name = 'CreateMVTest'
-    tags = [
-        ModelVersionTag("key", "value"),
-        ModelVersionTag("another key", "some other value")
-    ]
+    tags = {
+        "key": "value",
+        "another key": "some other value"
+    }
     mlflow_client.create_registered_model(name)
     mv1 = mlflow_client.create_model_version(name, "path/to/model", "run_id_1", tags)
     assert mv1.version == '1'
     assert mv1.name == name
-    assert mv1.tags == {tag.key: tag.value for tag in tags}
+    assert mv1.tags == tags
     mvd1 = mlflow_client.get_model_version(name, '1')
-    assert mvd1.tags == {tag.key: tag.value for tag in tags}
+    assert mvd1.tags == tags
     assert [[mvd1]] == [rm.latest_versions
                         for rm in mlflow_client.list_registered_models() if rm.name == name]
     mv2 = mlflow_client.create_model_version(name, "another_path/to/model", "run_id_1")
@@ -541,14 +541,14 @@ def test_set_delete_model_version_tag_flow(mlflow_client, backend_store_uri):
     mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
     model_version_detailed = mlflow_client.get_model_version(name, "1")
     assert model_version_detailed.tags == {}
-    tags = [
-        ModelVersionTag("key", "value"),
-        ModelVersionTag("another key", "some other value")
-    ]
-    for tag in tags:
-        mlflow_client.set_model_version_tag(name, "1", tag.key, tag.value)
+    tags = {
+        "key": "value",
+        "another key": "some other value"
+    }
+    for key, value in tags.items():
+        mlflow_client.set_model_version_tag(name, "1", key, value)
     model_version_detailed = mlflow_client.get_model_version(name, "1")
-    assert model_version_detailed.tags == {tag.key: tag.value for tag in tags}
+    assert model_version_detailed.tags == tags
     mlflow_client.delete_model_version_tag(name, "1", "key")
     model_version_detailed = mlflow_client.get_model_version(name, "1")
     assert model_version_detailed.tags == {"another key": "some other value"}
