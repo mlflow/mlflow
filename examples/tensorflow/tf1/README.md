@@ -13,9 +13,6 @@ The ML model artifact creation is handled during the call to `tf.estimator.expor
 This function loads back the model as a generic python function. You can predict on this with a pandas DataFrame input.
 
 ### Running the code
-
-Note: A minimum MLflow version of 1.6 is required to run this example.
-
 To run the example via MLflow, navigate to the `mlflow/examples/tensorflow/tf1` directory and run the command
 
 ```

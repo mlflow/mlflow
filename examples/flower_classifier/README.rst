@@ -70,8 +70,6 @@ The example contains the following files:
 Running this Example
 ^^^^^^^^^^^^^^^^^^^^
 
-Note: A minimum MLflow version of 1.6 is required to run this example.
-
 To train the model, run the example as a standard MLflow project:
 
 
