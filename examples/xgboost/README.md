@@ -4,8 +4,6 @@ This example trains an XGBoost classifier with the iris dataset and logs hyperpa
 
 ## Running the code
 
-Note: A minimum MLflow version of 1.6 is required to run this example.
-
 ```
 python train.py --learning-rate 0.2 --colsample-bytree 0.8 --subsample 0.9
 ```
