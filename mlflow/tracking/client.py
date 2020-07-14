@@ -493,17 +493,21 @@ class MlflowClient(object):
                                                                 description=description)
 
     @experimental
-    def transition_model_version_stage(self, name, version, stage):
+    def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):
         """
         Update model version stage.
 
         :param name: Registered model name.
         :param version: Registered model version.
         :param stage: New desired stage for this model version.
+        :param archive_existing_versions: If this flag is set, all existing model
+        versions in the stage will be atomically moved to the "archived" stage.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        return self._get_registry_client().transition_model_version_stage(name, version, stage)
+        return self._get_registry_client().transition_model_version_stage(
+            name, version, stage, archive_existing_versions
+        )
 
     @experimental
     def delete_model_version(self, name, version):
