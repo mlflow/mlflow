@@ -501,7 +501,7 @@ class MlflowClient(object):
         :param version: Registered model version.
         :param stage: New desired stage for this model version.
         :param archive_existing_versions: If this flag is set, all existing model
-        versions in the stage will be atomically moved to the "archived" stage.
+            versions in the stage will be atomically moved to the "archived" stage.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
