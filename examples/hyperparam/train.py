@@ -112,11 +112,7 @@ class MLflowCheckpoint(Callback):
 @click.argument("training_data")
 def run(training_data, epochs, batch_size, learning_rate, momentum, seed):
     warnings.filterwarnings("ignore")
-    wine_url = (
-        "http://archive.ics.uci.edu/ml/machine-learning-databases/"
-        "wine-quality/winequality-white.csv"
-    )
-    data = pd.read_csv(training_data) if training_data != '' else pd.read_csv(wine_url, sep=';')
+    data = pd.read_csv(training_data, sep=';')
     # Split the data into training and test sets. (0.75, 0.25) split.
     train, test = train_test_split(data, random_state=seed)
     train, valid = train_test_split(train, random_state=seed)
