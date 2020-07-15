@@ -144,6 +144,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
     cmd = os_command_separator.join(
         [docker_login_cmd, docker_tag_cmd, docker_push_cmd])
+
     _logger.info("Executing: %s", cmd)
     os.system(cmd)
 
