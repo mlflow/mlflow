@@ -37,7 +37,7 @@ def test_create_registered_model(mock_store):
     tags = [RegisteredModelTag(key, value) for key, value in tags_dict.items()]
     mock_store.create_registered_model.return_value = RegisteredModel("Model 1", tags=tags)
     result = newModelRegistryClient().create_registered_model("Model 1", tags_dict)
-    mock_store.create_registered_model.assert_called_once_with("Model 1", tags_dict)
+    mock_store.create_registered_model.assert_called_once_with("Model 1", tags)
     assert result.name == "Model 1"
     assert result.tags == tags_dict
 
@@ -189,7 +189,7 @@ def test_create_model_version(mock_store):
     result = newModelRegistryClient().create_model_version(name, "uri:/for/source",
                                                            "run123", tags_dict)
     mock_store.create_model_version.assert_called_once_with(name, "uri:/for/source",
-                                                            "run123", tags_dict)
+                                                            "run123", tags)
     assert result.name == name
     assert result.version == version
     assert result.tags == tags_dict
