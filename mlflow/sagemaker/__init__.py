@@ -135,6 +135,9 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
                             region=region)
 
     os_command_separator = ";\n"
+    if platform.system() == "Windows":
+        os_command_separator = " && "
+
     docker_tag_cmd = "docker tag {image} {fullname}".format(
         image=image, fullname=fullname)
     docker_push_cmd = "docker push {}".format(fullname)
