@@ -42,7 +42,7 @@ class ModelRegistryClient(object):
         # TODO: Do we want to validate the name is legit here - non-empty without "/" and ":" ?
         #       Those are constraints applicable to any backend, given the model URI format.
         tags = tags if tags else {}
-        tags = [RegisteredModelTag(key, value) for key, value in tags.items()]
+        tags = [RegisteredModelTag(key, str(value)) for key, value in tags.items()]
         return self.store.create_registered_model(name, tags)
 
     def update_registered_model(self, name, description):
@@ -169,7 +169,7 @@ class ModelRegistryClient(object):
                  backend.
         """
         tags = tags if tags else {}
-        tags = [ModelVersionTag(key, value) for key, value in tags.items()]
+        tags = [ModelVersionTag(key, str(value)) for key, value in tags.items()]
         return self.store.create_model_version(name, source, run_id, tags)
 
     def update_model_version(self, name, version, description):

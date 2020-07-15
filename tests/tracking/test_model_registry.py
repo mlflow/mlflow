@@ -98,18 +98,27 @@ def test_create_and_query_registered_model_flow(mlflow_client, backend_store_uri
     name = 'CreateRMTest'
     tags = {
         "key": "value",
-        "another key": "some other value"
+        "another key": "some other value",
+        "numeric value": 12345
     }
     start_time = now()
     registered_model = mlflow_client.create_registered_model(name, tags)
     end_time = now()
     assert isinstance(registered_model, RegisteredModel)
     assert registered_model.name == name
-    assert registered_model.tags == tags
+    assert registered_model.tags == {
+        "key": "value",
+        "another key": "some other value",
+        "numeric value": "12345"
+    }
     registered_model_detailed = mlflow_client.get_registered_model(name)
     assert isinstance(registered_model_detailed, RegisteredModel)
     assert registered_model_detailed.name == name
-    assert registered_model_detailed.tags == tags
+    assert registered_model_detailed.tags == {
+        "key": "value",
+        "another key": "some other value",
+        "numeric value": "12345"
+    }
     assert str(registered_model_detailed.description) == ""
     assert registered_model_detailed.latest_versions == []
     assert_is_between(start_time, end_time, registered_model_detailed.creation_timestamp)
@@ -329,15 +338,24 @@ def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
     name = 'CreateMVTest'
     tags = {
         "key": "value",
-        "another key": "some other value"
+        "another key": "some other value",
+        "numeric value": 12345
     }
     mlflow_client.create_registered_model(name)
     mv1 = mlflow_client.create_model_version(name, "path/to/model", "run_id_1", tags)
     assert mv1.version == '1'
     assert mv1.name == name
-    assert mv1.tags == tags
+    assert mv1.tags == {
+        "key": "value",
+        "another key": "some other value",
+        "numeric value": "12345"
+    }
     mvd1 = mlflow_client.get_model_version(name, '1')
-    assert mvd1.tags == tags
+    assert mvd1.tags == {
+        "key": "value",
+        "another key": "some other value",
+        "numeric value": "12345"
+    }
     assert [[mvd1]] == [rm.latest_versions
                         for rm in mlflow_client.list_registered_models() if rm.name == name]
     mv2 = mlflow_client.create_model_version(name, "another_path/to/model", "run_id_1")
