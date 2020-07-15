@@ -98,7 +98,7 @@ def _run(uri, experiment_id, entry_point, version, parameters,
         backend = loader.load_backend(backend_name)
         if backend:
             submitted_run = backend.run(uri, entry_point, parameters,
-                                        version, backend_config, experiment_id, tracking_store_uri)
+                                        version, backend_config, tracking_store_uri, experiment_id)
             tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_PROJECT_BACKEND,
                                             backend_name)
             return submitted_run
