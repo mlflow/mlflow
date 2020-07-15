@@ -22,6 +22,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, \
     MLFLOW_DATABRICKS_WEBAPP_URL
 from mlflow.utils.rest_utils import _DEFAULT_HEADERS
+from mlflow.utils.uri import construct_db_uri_from_profile
 from tests import helper_functions
 from tests.integration.utils import invoke_cli_runner
 
@@ -139,7 +140,7 @@ def test_upload_project_to_dbfs(
         upload_to_dbfs_mock):  # pylint: disable=unused-argument
     # Upload project to a mock directory
     dbfs_path_exists_mock.return_value = False
-    runner = DatabricksJobRunner(databricks_profile="DEFAULT")
+    runner = DatabricksJobRunner(databricks_profile_uri=construct_db_uri_from_profile("DEFAULT"))
     dbfs_uri = runner._upload_project_to_dbfs(
         project_dir=TEST_PROJECT_DIR, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
     # Get expected tar
@@ -157,7 +158,8 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disa
     with mock.patch("mlflow.projects.databricks.DatabricksJobRunner._upload_to_dbfs") \
             as upload_to_dbfs_mock:
         dbfs_path_exists_mock.return_value = True
-        runner = DatabricksJobRunner(databricks_profile="DEFAULT")
+        runner = DatabricksJobRunner(
+            databricks_profile_uri=construct_db_uri_from_profile("DEFAULT"))
         runner._upload_project_to_dbfs(
             project_dir=TEST_PROJECT_DIR, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
         assert upload_to_dbfs_mock.call_count == 0
@@ -174,7 +176,7 @@ def test_dbfs_path_exists_error_response_handling(response_mock):
             mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
         # given a well formed DatabricksJobRunner
         # note: databricks_profile is None needed because clients using profile are mocked
-        job_runner = DatabricksJobRunner(databricks_profile=None)
+        job_runner = DatabricksJobRunner(databricks_profile_uri=None)
 
         # when the http request to validate the dbfs path returns a 400 response with an
         # error message that is either well-formed JSON or not
@@ -394,12 +396,13 @@ def test_databricks_http_request_integration(get_config, request):
     get_config.return_value = \
         DatabricksConfig("host", "user", "pass", None, insecure=False)
 
-    response = DatabricksJobRunner(databricks_profile=None)._databricks_api_request(
+    response = DatabricksJobRunner(databricks_profile_uri=None)._databricks_api_request(
         '/clusters/list', 'PUT', json={'a': 'b'})
     assert json.loads(response.text) == {'OK': 'woo'}
     get_config.reset_mock()
-    response = DatabricksJobRunner(databricks_profile="my-profile")._databricks_api_request(
-        '/clusters/list', 'PUT', json={'a': 'b'})
+    response = DatabricksJobRunner(
+        databricks_profile_uri=construct_db_uri_from_profile("my-profile"))\
+        ._databricks_api_request('/clusters/list', 'PUT', json={'a': 'b'})
     assert json.loads(response.text) == {'OK': 'woo'}
     assert get_config.call_count == 0
 
@@ -409,7 +412,7 @@ def test_run_databricks_failed(_):
     with mock.patch('mlflow.utils.rest_utils.http_request') as m:
         text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
         m.return_value = mock.Mock(text=text, status_code=400)
-        runner = DatabricksJobRunner('profile')
+        runner = DatabricksJobRunner(construct_db_uri_from_profile('profile'))
         with pytest.raises(MlflowException):
             runner._run_shell_command_job('/project', 'command', {}, {})
 

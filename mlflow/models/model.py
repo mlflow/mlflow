@@ -15,6 +15,9 @@ from mlflow.utils.file_utils import TempDir
 _logger = logging.getLogger(__name__)
 
 
+MLMODEL_FILE_NAME = "MLmodel"
+
+
 class Model(object):
     """
     An MLflow Model that can support multiple model flavors. Provides APIs for implementing
@@ -97,7 +100,7 @@ class Model(object):
     def load(cls, path):
         """Load a model from its YAML representation."""
         if os.path.isdir(path):
-            path = os.path.join(path, "MLmodel")
+            path = os.path.join(path, MLMODEL_FILE_NAME)
         with open(path) as f:
             return cls.from_dict(yaml.safe_load(f.read()))
 

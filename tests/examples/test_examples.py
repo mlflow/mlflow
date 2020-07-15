@@ -1,7 +1,10 @@
 
 import os
 import os.path
+import re
 import shutil
+
+import mlflow
 from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.file_utils import path_to_local_file_uri
@@ -9,6 +12,25 @@ from tests.integration.utils import invoke_cli_runner
 import pytest
 
 EXAMPLES_DIR = 'examples'
+
+
+def is_conda_yaml(path):
+    return bool(re.search('conda.ya?ml$', path))
+
+
+def find_conda_yaml(directory):
+    conda_yaml = list(filter(is_conda_yaml, os.listdir(directory)))[0]
+    return os.path.join(directory, conda_yaml)
+
+
+def replace_mlflow_with_dev_version(yml_path):
+    with open(yml_path, 'r') as f:
+        old_src = f.read()
+        mlflow_dir = os.path.dirname(mlflow.__path__[0])
+        new_src = re.sub(r"- mlflow.*\n", "- {}\n".format(mlflow_dir), old_src)
+
+    with open(yml_path, 'w') as f:
+        f.write(new_src)
 
 
 @pytest.mark.large
@@ -28,8 +50,15 @@ EXAMPLES_DIR = 'examples'
     (os.path.join('tensorflow', 'tf1'), ['-P', 'steps=10']),
     ('xgboost', ['-P', 'learning_rate=0.3', '-P', 'colsample_bytree=0.8', '-P', 'subsample=0.9'])
 ])
-def test_mlflow_run_example(directory, params):
-    cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params
+def test_mlflow_run_example(directory, params, tmpdir):
+    example_dir = os.path.join(EXAMPLES_DIR, directory)
+    tmp_example_dir = os.path.join(tmpdir.strpath, directory)
+
+    shutil.copytree(example_dir, tmp_example_dir)
+    conda_yml_path = find_conda_yaml(tmp_example_dir)
+    replace_mlflow_with_dev_version(conda_yml_path)
+
+    cli_run_list = [tmp_example_dir] + params
     invoke_cli_runner(cli.run, cli_run_list)
 
 

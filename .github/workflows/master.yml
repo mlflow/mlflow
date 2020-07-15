@@ -112,6 +112,21 @@ jobs:
         source activate test-environment
         ./travis/run-small-python-tests.sh
 
+  python-large:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      env:
+        INSTALL_LARGE_PYTHON_DEPS: true
+      run: |
+        source ./travis/install-common-deps.sh
+    - name: Run tests
+      run: |
+        export PATH="$CONDA_DIR/bin:$PATH"
+        source activate test-environment
+        ./travis/run-large-python-tests.sh
+
   java:
     runs-on: ubuntu-latest
     steps:
@@ -222,6 +237,22 @@ jobs:
           export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
           ./travis/run-python-sagemaker-tests.sh;
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - name: Install dependecies
+        run: |
+          pip install -r dev-requirements.txt
+          pip install -r travis/small-requirements.txt
+          pip install -e .
+      - name: Run tests
+        run: |
+          pytest --verbose --ignore-flavors --ignore=tests/projects tests
 
   docs:
     runs-on: ubuntu-latest
