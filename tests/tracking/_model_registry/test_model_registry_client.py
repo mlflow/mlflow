@@ -183,7 +183,7 @@ def test_create_model_version(mock_store):
         "key": "value",
         "another key": "some other value"
     }
-    tags = [RegisteredModelTag(key, value) for key, value in tags_dict.items()]
+    tags = [ModelVersionTag(key, value) for key, value in tags_dict.items()]
     mock_store.create_model_version.return_value = ModelVersion(name=name, version=version,
                                                                 creation_timestamp=123, tags=tags)
     result = newModelRegistryClient().create_model_version(name, "uri:/for/source",
