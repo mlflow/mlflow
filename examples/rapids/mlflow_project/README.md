@@ -3,7 +3,7 @@
 
 **[RAPIDS cuML](https://github.com/rapidsai/cuml)** matches the scikit-learn API, so it can build on MLFlow's existing support for scikit-learn-like models to support 
 persistence and deployment."
-
+The example workflows below train RAPIDs regression models to predict airline flight delays, using MLflow to log models and deploy them as local REST API endpoints for real-time inference.
 #### Jupyter Notebook Workflow
 [Jupyter Notebook](notebooks/rapids_mlflow.ipynb)
 
