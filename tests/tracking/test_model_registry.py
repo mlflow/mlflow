@@ -316,7 +316,10 @@ def test_set_delete_registered_model_tag_flow(mlflow_client, backend_store_uri):
     for key, value in tags.items():
         mlflow_client.set_registered_model_tag(name, key, value)
     registered_model_detailed = mlflow_client.get_registered_model(name)
-    assert registered_model_detailed.tags == tags
+    assert registered_model_detailed.tags == {
+        "key": "value",
+        "numeric value": "12345"
+    }
     mlflow_client.delete_registered_model_tag(name, "key")
     registered_model_detailed = mlflow_client.get_registered_model(name)
     assert registered_model_detailed.tags == {"numeric value": "12345"}
@@ -548,7 +551,10 @@ def test_set_delete_model_version_tag_flow(mlflow_client, backend_store_uri):
     for key, value in tags.items():
         mlflow_client.set_model_version_tag(name, "1", key, value)
     model_version_detailed = mlflow_client.get_model_version(name, "1")
-    assert model_version_detailed.tags == tags
+    assert model_version_detailed.tags == {
+        "key": "value",
+        "numeric value": "12345"
+    }
     mlflow_client.delete_model_version_tag(name, "1", "key")
     model_version_detailed = mlflow_client.get_model_version(name, "1")
     assert model_version_detailed.tags == {"numeric value": "12345"}
