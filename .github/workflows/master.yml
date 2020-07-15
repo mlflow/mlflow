@@ -122,6 +122,8 @@ jobs:
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./travis/run-large-python-tests.sh
+        ./travis/test-anaconda-compatibility.sh "anaconda3:2020.02"
+        ./travis/test-anaconda-compatibility.sh "anaconda3:2019.03"
 
   java:
     runs-on: ubuntu-latest
