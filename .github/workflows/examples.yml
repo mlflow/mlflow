@@ -22,7 +22,8 @@ jobs:
         EXAMPLES_CHANGED=$([[ "$CHANGED_FILES" == *"examples"* ]] && echo "true" || echo "false")
         DOCKER_CHANGED=$([[ "$CHANGED_FILES" == *"Dockerfile"* ]] && echo "true" || echo "false")
 
-        echo "CHANGED_FILES: $CHANGED_FILES"
+        echo "CHANGED_FILES:"
+        echo "$CHANGED_FILES"
         echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
         echo "DOCKER_CHANGED: $DOCKER_CHANGED"
 
