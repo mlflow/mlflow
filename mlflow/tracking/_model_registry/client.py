@@ -142,7 +142,7 @@ class ModelRegistryClient(object):
         :param value: Tag value log.
         :return: None
         """
-        self.store.set_registered_model_tag(name, RegisteredModelTag(key, value))
+        self.store.set_registered_model_tag(name, RegisteredModelTag(key, str(value)))
 
     def delete_registered_model_tag(self, name, key):
         """
@@ -254,7 +254,7 @@ class ModelRegistryClient(object):
         :param value: Tag value to log.
         :return: None
         """
-        self.store.set_model_version_tag(name, version, ModelVersionTag(key, value))
+        self.store.set_model_version_tag(name, version, ModelVersionTag(key, str(value)))
 
     def delete_model_version_tag(self, name, version, key):
         """
