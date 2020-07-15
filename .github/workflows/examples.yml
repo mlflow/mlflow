@@ -1,4 +1,4 @@
-name: MLflow tests
+name: Examples
 
 on:
   push:
