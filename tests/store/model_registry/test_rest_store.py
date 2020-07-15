@@ -151,14 +151,16 @@ class TestRestStore(unittest.TestCase):
         tag = RegisteredModelTag(key="key", value="value")
         self.store.set_registered_model_tag(name=name, tag=tag)
         self._verify_requests(mock_http, "registered-models/set-tag", "POST",
-                              SetRegisteredModelTag(name=name, key=tag.key, value=tag.value))
+                              SetRegisteredModelTag(name=name, key=tag.key, value=tag.value),
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_registered_model_tag(self, mock_http):
         name = "model_1"
         self.store.delete_registered_model_tag(name=name, key="key")
         self._verify_requests(mock_http, "registered-models/delete-tag", "DELETE",
-                              DeleteRegisteredModelTag(name=name, key="key"))
+                              DeleteRegisteredModelTag(name=name, key="key"),
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_create_model_version(self, mock_http):
@@ -235,11 +237,13 @@ class TestRestStore(unittest.TestCase):
         self.store.set_model_version_tag(name=name, version="1", tag=tag)
         self._verify_requests(mock_http, "model-versions/set-tag", "POST",
                               SetModelVersionTag(name=name, version="1",
-                                                 key=tag.key, value=tag.value))
+                                                 key=tag.key, value=tag.value),
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_model_version_tag(self, mock_http):
         name = "model_1"
         self.store.delete_model_version_tag(name=name, version="1", key="key")
         self._verify_requests(mock_http, "model-versions/delete-tag", "DELETE",
-                              DeleteModelVersionTag(name=name, version="1", key="key"))
+                              DeleteModelVersionTag(name=name, version="1", key="key"),
+                              self.generate_creds)
