@@ -1,0 +1,45 @@
+name: Examples
+
+on:
+  pull_request:
+    branches: [ master ]
+  schedule:
+    # Run this action daily at 7:00 UTC
+    - cron: "0 7 * * *"
+
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Check diff
+      id: check-diff
+      run: |
+        git fetch origin master:master
+        CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
+        EXAMPLES_CHANGED=$([[ "$CHANGED_FILES" == *"examples"* ]] && echo "true" || echo "false")
+        DOCKER_CHANGED=$([[ "$CHANGED_FILES" == *"Dockerfile"* ]] && echo "true" || echo "false")
+
+        echo "CHANGED_FILES:"
+        echo "$CHANGED_FILES"
+        echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
+        echo "DOCKER_CHANGED: $DOCKER_CHANGED"
+
+        echo "::set-output name=examples_changed::$EXAMPLES_CHANGED"
+        echo "::set-output name=docker_changed::$DOCKER_CHANGED"
+
+    - name: Run example tests
+      if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
+      env:
+        INSTALL_LARGE_PYTHON_DEPS: true
+      run: |
+        source ./travis/install-common-deps.sh
+        source activate test-environment
+        pytest --verbose tests/examples --large
+
+    - name: Run docker tests
+      if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
+      run: |
+        docker build -t mlflow_test_build . && docker images | grep mlflow_test_build
+
+

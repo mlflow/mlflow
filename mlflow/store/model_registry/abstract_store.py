@@ -25,9 +25,9 @@ class AbstractStore:
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
-        instances associated with this registered model.
+                     instances associated with this registered model.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
-        created in the backend.
+                 created in the backend.
         """
         pass
 
@@ -152,9 +152,9 @@ class AbstractStore:
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
-        instances associated with this model version.
+                     instances associated with this model version.
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
-        created in the backend.
+                 created in the backend.
         """
         pass
 
@@ -179,8 +179,10 @@ class AbstractStore:
         :param name: Registered model name.
         :param version: Registered model version.
         :param new_stage: New desired stage for this model version.
-        :param archive_existing_versions: If this flag is set, all existing model
-        versions in the stage will be atomically moved to the "archived" stage.
+        :param archive_existing_versions: If this flag is set to ``True``, all existing model
+            versions in the stage will be automically moved to the "archived" stage. Only valid
+            when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
+
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         pass

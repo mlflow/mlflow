@@ -18,10 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.6
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.6
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
@@ -97,10 +93,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.6
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.6
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
@@ -126,6 +118,8 @@ jobs:
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./travis/run-large-python-tests.sh
+        ./travis/test-anaconda-compatibility.sh "anaconda3:2020.02"
+        ./travis/test-anaconda-compatibility.sh "anaconda3:2019.03"
 
   java:
     runs-on: ubuntu-latest
@@ -182,10 +176,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python 3.6
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.6
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
@@ -202,10 +192,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python 3.6
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.6
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
@@ -222,10 +208,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python 3.6
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.6
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
@@ -258,10 +240,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python 3.6
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.6
       - name: Set up Java
         uses: actions/setup-java@v1
         with:

@@ -10,10 +10,10 @@ RUN apt-get update && \
 # cmake and protobuf-compiler required for onnx install
     cmake protobuf-compiler &&  \
 # install required python packages
-    pip install -r dev-requirements.txt && \
-    pip install -r test-requirements.txt && \
+    pip install -r dev-requirements.txt --no-cache-dir && \
+    pip install -r test-requirements.txt --no-cache-dir && \
 # install mlflow in editable form
-    pip install -e . && \
+    pip install --no-cache-dir -e . && \
 # mkdir required to support install openjdk-11-jre-headless
     mkdir -p /usr/share/man/man1 && apt-get install -y openjdk-11-jre-headless && \
 # install npm for node.js support
