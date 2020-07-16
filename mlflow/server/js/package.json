@@ -20,7 +20,7 @@
     "jquery": "^3.4.1",
     "json-bigint": "databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658",
     "leaflet": "^1.5.1",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.19",
     "plotly.js": "1.50.0",
     "prop-types": "15.6.1",
     "qs": "6.5.2",
