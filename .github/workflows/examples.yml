@@ -15,7 +15,10 @@ jobs:
     - name: Check diff
       id: check-diff
       run: |
-        git fetch origin master:master
+        if [ ! "$(git branch --show-current)" == "master" ]; then
+          git fetch origin master:master
+        fi
+
         CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
         EXAMPLES_CHANGED=$([[ "$CHANGED_FILES" == *"examples"* ]] && echo "true" || echo "false")
         DOCKER_CHANGED=$([[ "$CHANGED_FILES" == *"Dockerfile"* ]] && echo "true" || echo "false")
@@ -41,5 +44,3 @@ jobs:
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
       run: |
         docker build -t mlflow_test_build . && docker images | grep mlflow_test_build
-
-
