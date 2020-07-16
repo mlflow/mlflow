@@ -94,8 +94,13 @@ if (__name__ == "__main__"):
     fn = partial(train, fpath=args.fpath, hyperopt=True)
     experid = 0
 
+    artifact_path = "Airline-Demo"
+    artifact_uri = None
+
+    mlflow.set_tracking_uri(uri='sqlite:////tmp/mlflow-db.sqlite')
     with mlflow.start_run():
-        mlflow.set_tag("mlflow.runName", "RAPIDS-Hyperopt")
+        mlflow.set_tag("mlflow.runName", "(CLI) RAPIDS-Hyperopt")
+
         argmin = fmin(fn=fn,
                       space=search_space,
                       algo=algorithm,
@@ -106,17 +111,7 @@ if (__name__ == "__main__"):
         fn = partial(train, fpath=args.fpath, hyperopt=False)
         final_model = fn(tuple(argmin.values()))
 
-        conda_data = ""
-        if (args.conda_env.startswith("http")):
-            import requests
-
-            resp = requests.get(args.conda_env)
-            conda_data = str(resp.text)
-        else:
-            with open(args.conda_env, 'r') as reader:
-                conda_data = reader.read()
-
-        with open("conda.yaml", 'w') as writer:
-            writer.write(conda_data)
-
-        mlflow.sklearn.log_model(final_model, "rapids_mlflow", conda_env='conda.yaml')
+        mlflow.sklearn.log_model(final_model,
+                                 artifact_path=artifact_path,
+                                 registered_model_name="rapids_mlflow_cli",
+                                 conda_env='envs/conda.yaml')

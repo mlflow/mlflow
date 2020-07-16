@@ -71,9 +71,21 @@ if (__name__ == "__main__"):
 
     experid = 0
 
+    artifact_path = "Airline-Demo"
+    artifact_uri = None
+    experiment_name = "RAPIDS-CLI"
+    experiment_id = None
+
+    mlflow.set_tracking_uri(uri='sqlite:////tmp/mlflow-db.sqlite')
     with mlflow.start_run():
-        mlflow.set_tag("mlflow.runName", "RAPIDS-MLFlow-Demo")
-        train(max_depth=args.max_depth,
-              max_features=args.max_features,
-              n_estimators=args.n_estimators,
-              fpath=args.fpath)
+        mlflow.set_tag("mlflow.runName", "(CLI) RAPIDS-MLFlow")
+
+        model = train(args.fpath, args.max_depth, args.max_features, args.n_estimators)
+
+        mlflow.sklearn.log_model(model,
+                                 artifact_path=artifact_path,
+                                 registered_model_name="rapids_mlflow_cli",
+                                 conda_env='conda.yaml')
+        artifact_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
+
+    print(f"Model uri: {artifact_uri}")
