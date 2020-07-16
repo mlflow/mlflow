@@ -39,6 +39,7 @@ setup(
         'gunicorn; platform_system != "Windows"',
         'Flask',
         'numpy',
+        'packaging',
         'pandas',
         'python-dateutil',
         'protobuf>=3.6.0',

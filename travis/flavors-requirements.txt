@@ -1,0 +1,15 @@
+h2o==3.22.1.4
+onnx==1.4.1;
+onnxmltools==1.4.0
+onnxruntime==0.3.0
+mxnet==1.5.0
+pyspark==2.4.0
+spacy==2.2.3
+tf2onnx==1.5.4
+torch==1.4.0
+torchvision==0.5.0
+xgboost>=0.82
+lightgbm==2.3.0
+fastai==1.0.60
+matplotlib==3.2.1
+azureml-sdk==1.2.0

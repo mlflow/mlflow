@@ -48,6 +48,19 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   chmod 777 $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
   ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
 fi
+
+if [[ "$INSTALL_TF_DEPS" == "true" ]]; then
+  pip install --quiet -r ./travis/tf-requirements.txt
+fi
+
+if [[ "$INSTALL_SAGEMAKER_DEPS" == "true" ]]; then
+  pip install --quiet -r ./travis/sagemaker-requirements.txt
+fi
+
+if [[ "$INSTALL_FLAVORS_DEPS" == "true" ]]; then
+  pip install --quiet -r ./travis/flavors-requirements.txt
+fi
+
 pip install .
 export MLFLOW_HOME=$(pwd)
 # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
