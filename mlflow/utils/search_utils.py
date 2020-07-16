@@ -2,6 +2,7 @@ import base64
 import json
 import operator
 import re
+import shlex
 
 import sqlparse
 from sqlparse.sql import Identifier, Token, Comparison, Statement
@@ -366,7 +367,8 @@ class SearchUtils(object):
     def _parse_order_by_string(cls, order_by):
         token_value = cls._validate_order_by_and_generate_token(order_by)
         is_ascending = True
-        tokens = token_value.split()
+        tokens = shlex.split(token_value.replace("`", "\""))
+        print(tokens)
         if len(tokens) > 2:
             raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
                                   error_code=INVALID_PARAMETER_VALUE)
