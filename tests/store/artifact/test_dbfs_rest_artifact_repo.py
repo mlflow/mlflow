@@ -84,7 +84,7 @@ class TestDbfsArtifactRepository(object):
     def test_init_get_host_creds_with_databricks_profile_uri(self):
         with mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + '._get_host_creds_from_default_store') \
                 as get_creds_mock, \
-                mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + 'get_databricks_host_creds') \
+                mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + '.get_databricks_host_creds') \
                 as get_db_creds_mock:
             databricks_host = 'https://something.databricks.com'
             get_db_creds_mock.return_value = MlflowHostCreds(databricks_host)

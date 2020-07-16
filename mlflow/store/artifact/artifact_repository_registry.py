@@ -49,7 +49,7 @@ class ArtifactRepositoryRegistry:
                     stacklevel=2
                 )
 
-    def get_artifact_repository(self, artifact_uri):
+    def get_artifact_repository(self, artifact_uri, host_uri=None):
         """Get an artifact repository from the registry based on the scheme of artifact_uri
 
         :param store_uri: The store URI. This URI is used to select which artifact repository
@@ -68,7 +68,12 @@ class ArtifactRepositoryRegistry:
                     artifact_uri, list(self._registry.keys())
                 )
             )
-        return repository(artifact_uri)
+        # TODO: alternatively, we can make dbfs and runs repositories take in URIs of the form
+        #   runs:/profile:key_prefix/run_id/...
+        #   dbfs:/profile:key_prefix/path/...
+        #  and have the repository classes parse that.
+        return repository(artifact_uri, host_uri) if repository.requires_host_uri() \
+            else repository(artifact_uri)
 
 
 _artifact_repository_registry = ArtifactRepositoryRegistry()
@@ -89,7 +94,7 @@ _artifact_repository_registry.register('models', ModelsArtifactRepository)
 _artifact_repository_registry.register_entrypoints()
 
 
-def get_artifact_repository(artifact_uri):
+def get_artifact_repository(artifact_uri, host_uri=None):
     """Get an artifact repository from the registry based on the scheme of artifact_uri
 
     :param store_uri: The store URI. This URI is used to select which artifact repository
@@ -99,4 +104,4 @@ def get_artifact_repository(artifact_uri):
     :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
              requirements.
     """
-    return _artifact_repository_registry.get_artifact_repository(artifact_uri)
+    return _artifact_repository_registry.get_artifact_repository(artifact_uri, host_uri)

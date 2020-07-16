@@ -15,11 +15,15 @@ class RunsArtifactRepository(ArtifactRepository):
     users should take special care when constructing the URI.
     """
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri, databricks_profile_uri=None):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
         uri = RunsArtifactRepository.get_underlying_uri(artifact_uri)
         super(RunsArtifactRepository, self).__init__(artifact_uri)
-        self.repo = get_artifact_repository(uri)
+        self.repo = get_artifact_repository(uri, databricks_profile_uri)
+
+    @classmethod
+    def requires_host_uri(cls):
+        return True
 
     @staticmethod
     def is_runs_uri(uri):

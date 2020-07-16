@@ -21,6 +21,16 @@ class ArtifactRepository:
     def __init__(self, artifact_uri):
         self.artifact_uri = artifact_uri
 
+    @classmethod
+    def requires_host_uri(cls):
+        """
+        :return: Whether this Repository class requires a host URI (e.g. a
+            tracking URI that can bre passed in, or by using the default tracking
+            or registry URI). For example, DBFS repositories require a Databricks
+            host to connect to.
+        """
+        return False
+
     @abstractmethod
     def log_artifact(self, local_file, artifact_path=None):
         """

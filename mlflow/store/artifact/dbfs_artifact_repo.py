@@ -41,6 +41,10 @@ class DbfsRestArtifactRepository(ArtifactRepository):
             else _get_host_creds_from_default_store()
         )
 
+    @classmethod
+    def requires_host_uri(cls):
+        return True
+
     def _databricks_api_request(self, endpoint, **kwargs):
         host_creds = self.get_host_creds()
         return http_request_safe(host_creds=host_creds, endpoint=endpoint, **kwargs)
@@ -160,7 +164,7 @@ def _get_host_creds_from_default_store():
     return store.get_host_creds
 
 
-def dbfs_artifact_repo_factory(artifact_uri):
+def dbfs_artifact_repo_factory(artifact_uri, databricks_profile_uri=None):
     """
     Returns an ArtifactRepository subclass for storing artifacts on DBFS.
 
@@ -181,7 +185,7 @@ def dbfs_artifact_repo_factory(artifact_uri):
         raise MlflowException("DBFS URI must be of the form "
                               "dbfs:/<path>, but received {uri}".format(uri=artifact_uri))
     if is_databricks_acled_artifacts_uri(artifact_uri):
-        return DatabricksArtifactRepository(cleaned_artifact_uri)
+        return DatabricksArtifactRepository(cleaned_artifact_uri, databricks_profile_uri)
     elif mlflow.utils.databricks_utils.is_dbfs_fuse_available() \
             and os.environ.get(USE_FUSE_ENV_VAR, "").lower() != "false" \
             and not artifact_uri.startswith("dbfs:/databricks/mlflow-registry"):
@@ -189,4 +193,4 @@ def dbfs_artifact_repo_factory(artifact_uri):
         # local filesystem APIs
         file_uri = "file:///dbfs/{}".format(strip_prefix(cleaned_artifact_uri, "dbfs:/"))
         return LocalArtifactRepository(file_uri)
-    return DbfsRestArtifactRepository(cleaned_artifact_uri)
+    return DbfsRestArtifactRepository(cleaned_artifact_uri, databricks_profile_uri)

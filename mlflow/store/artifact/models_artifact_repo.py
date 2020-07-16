@@ -13,13 +13,17 @@ class ModelsArtifactRepository(ArtifactRepository):
     and uses the artifact repository for that URI.
     """
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri, databricks_profile_uri=None):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
         uri = ModelsArtifactRepository.get_underlying_uri(artifact_uri)
         super(ModelsArtifactRepository, self).__init__(artifact_uri)
         # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
         #  we don't get a download URI here, or fail during the download itself.
         self.repo = get_artifact_repository(uri)
+
+    @classmethod
+    def requires_host_uri(cls):
+        return True
 
     @staticmethod
     def _improper_model_uri_msg(uri):

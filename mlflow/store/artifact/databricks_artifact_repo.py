@@ -44,7 +44,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
     dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/
     """
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri, databricks_profile_uri=None):
         super(DatabricksArtifactRepository, self).__init__(artifact_uri)
         if not artifact_uri.startswith('dbfs:/'):
             raise MlflowException(message='DatabricksArtifactRepository URI must start with dbfs:/',
@@ -68,6 +68,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # If the paths are equal, then use empty string over "./" for ListArtifact compatibility.
         self.run_relative_artifact_repo_root_path = \
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
+
+    @classmethod
+    def requires_host_uri(cls):
+        return True
 
     @staticmethod
     def _extract_run_id(artifact_uri):
