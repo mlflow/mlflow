@@ -18,6 +18,8 @@ jobs:
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
         INSTALL_SMALL_PYTHON_DEPS: true
+        INSTALL_FLAVORS_DEPS: true
+        INSTALL_TF_DEPS: true
       run: |
         source ./travis/install-common-deps.sh
         pip install -r ./travis/lint-requirements.txt
