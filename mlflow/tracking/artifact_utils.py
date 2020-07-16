@@ -13,7 +13,7 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_store
-from mlflow.utils.uri import append_to_uri_path, is_databricks_uri
+from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, append_to_uri_path
 
 
 def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
@@ -97,7 +97,7 @@ def _upload_artifacts_to_databricks(source, run_id, source_host_uri=None,
     local_dir = tempfile.mkdtemp()
     try:
         # TODO: might want to throw if `source` is a models URI??
-        source_with_profile = _add_databricks_profile_info_to_artifact_uri(source, source_host_uri)
+        source_with_profile = add_databricks_profile_info_to_artifact_uri(source, source_host_uri)
         _download_artifact_from_uri(source_with_profile, local_dir)
         dest_root = 'dbfs:/databricks/mlflow/tmp-external-source/'  # TODO: "/" or "-"?
         dest_repo = DbfsRestArtifactRepository(dest_root, target_databricks_profile_uri)
@@ -108,26 +108,3 @@ def _upload_artifacts_to_databricks(source, run_id, source_host_uri=None,
         shutil.rmtree(local_dir)
     # NOTE: we can't easily delete the target temp location due to the async nature
     # of the model version creation.
-
-
-def _add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile_uri):
-    """
-    TODO
-    :param artifact_uri:
-    :param host_uri:
-    :return:
-    """
-    if not is_databricks_uri(databricks_profile_uri):
-        return artifact_uri
-    artifact_uri_parsed = urllib.parse.urlparse(artifact_uri)
-    scheme = artifact_uri_parsed.scheme
-    if artifact_uri_parsed.netloc:
-        return artifact_uri
-    if scheme == 'dbfs' or scheme == 'runs' or scheme == 'models':
-        db_profile_parts = urllib.parse.urlparse(databricks_profile_uri)
-        # TODO: validate path --
-        netloc = db_profile_parts.netloc + ":" + db_profile_parts.path + "@databricks"
-        artifact_uri_parsed._replace(netloc=netloc)
-        # TODO: write lots of unit tests
-        return urllib.parse.urlunparse(artifact_uri_parsed)
-    return artifact_uri

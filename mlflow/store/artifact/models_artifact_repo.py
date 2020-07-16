@@ -2,6 +2,8 @@ from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, \
+    get_databricks_profile_uri_from_artifact_uri
 
 
 class ModelsArtifactRepository(ArtifactRepository):
@@ -66,7 +68,10 @@ class ModelsArtifactRepository(ArtifactRepository):
                 raise MlflowException("No versions of model with name '{name}' and "
                                       "stage '{stage}' found".format(name=name, stage=stage))
             version = latest[0].version
-        return client.get_model_version_download_uri(name, version)
+        databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(uri)
+        download_uri = client.get_model_version_download_uri(name, version)
+        # TODO(sueann): write unit tests for databricks_profile_uri
+        return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
         """

@@ -9,11 +9,13 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.tracking._tracking_service import utils
+import mlflow.utils.databricks_utils
+from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
-import mlflow.utils.databricks_utils
-from mlflow.utils.uri import is_databricks_acled_artifacts_uri, get_uri_scheme
+from mlflow.utils.uri import is_databricks_acled_artifacts_uri, \
+    get_databricks_profile_uri_from_artifact_uri, get_uri_scheme
 
 LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
 GET_STATUS_ENDPOINT = '/api/2.0/dbfs/get-status'
@@ -30,12 +32,16 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        super(DbfsRestArtifactRepository, self).__init__(artifact_uri)
-        # NOTE: if we ever need to support databricks profiles different from that set for
-        #  tracking, we could pass in the databricks profile name into this class.
-        self.get_host_creds = _get_host_creds_from_default_store()
         if not artifact_uri.startswith('dbfs:/'):
             raise MlflowException('DbfsArtifactRepository URI must start with dbfs:/')
+        # TODO(sueann): remove the databricks profile info from the uri then call super with it
+        super(DbfsRestArtifactRepository, self).__init__(artifact_uri)
+        databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri)
+        if databricks_profile_uri:
+            hostcreds_from_uri = get_databricks_host_creds(databricks_profile_uri)
+            self.get_host_creds = lambda: hostcreds_from_uri
+        else:
+            self.get_host_creds = _get_host_creds_from_default_store()
 
     def _databricks_api_request(self, endpoint, **kwargs):
         host_creds = self.get_host_creds()
@@ -183,6 +189,7 @@ def dbfs_artifact_repo_factory(artifact_uri):
             and not artifact_uri.startswith("dbfs:/databricks/mlflow-registry"):
         # If the DBFS FUSE mount is available, write artifacts directly to /dbfs/... using
         # local filesystem APIs
+        # TODO(sueann): remove databricks profile info
         file_uri = "file:///dbfs/{}".format(strip_prefix(cleaned_artifact_uri, "dbfs:/"))
         return LocalArtifactRepository(file_uri)
     return DbfsRestArtifactRepository(cleaned_artifact_uri)

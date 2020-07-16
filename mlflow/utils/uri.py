@@ -45,6 +45,44 @@ def get_db_info_from_uri(uri):
     return None, None
 
 
+# TODO(sueann): write unit tests
+def get_databricks_profile_uri_from_artifact_uri(uri):
+    parsed = urllib.parse.urlparse(uri).netloc
+    if not parsed.netloc or parsed.host != 'databricks':
+        return None
+    key_prefix = '/' + parsed.password if parsed.password else ''
+    return 'databricks://' + parsed.username + key_prefix
+
+
+# TODO(sueann): write lots of unit tests
+def remove_databricks_profile_info_from_artifact_uri(artifact_uri):
+    # TODO(sueann): implement
+    return artifact_uri
+
+
+# TODO(sueann): write lots of unit tests
+def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile_uri):
+    """
+    TODO(sueann)
+    :param artifact_uri:
+    :param databricks_profile_uri:
+    :return:
+    """
+    if not databricks_profile_uri or not is_databricks_uri(databricks_profile_uri):
+        return artifact_uri
+    artifact_uri_parsed = urllib.parse.urlparse(artifact_uri)
+    scheme = artifact_uri_parsed.scheme
+    if artifact_uri_parsed.netloc:
+        return artifact_uri
+    if scheme == 'dbfs' or scheme == 'runs' or scheme == 'models':
+        db_profile_parts = urllib.parse.urlparse(databricks_profile_uri)
+        # TODO(sueann): validate path --
+        netloc = db_profile_parts.netloc + ":" + db_profile_parts.path + "@databricks"
+        artifact_uri_parsed._replace(netloc=netloc)
+        return urllib.parse.urlunparse(artifact_uri_parsed)
+    return artifact_uri
+
+
 def extract_db_type_from_uri(db_uri):
     """
     Parse the specified DB URI to extract the database type. Confirm the database type is
