@@ -189,8 +189,9 @@ class ModelRegistryClient(object):
         :param name: Registered model name.
         :param version: Registered model version.
         :param stage: New desired stage for this model version.
-        :param archive_existing_versions: If this flag is set, all existing model
-               versions in the stage will be atomically moved to the "archived" stage.
+        :param archive_existing_versions: If this flag is set to ``True``, all existing model
+            versions in the stage will be automically moved to the "archived" stage. Only valid
+            when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
