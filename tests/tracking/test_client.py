@@ -2,6 +2,7 @@ import mock
 import pytest
 
 from mlflow.entities import SourceType, ViewType, RunTag
+from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -204,6 +205,21 @@ def test_update_model_version(mock_registry_store):
     mock_registry_store.update_model_version.assert_called_once_with(
         name="orig name", version="1", description="desc")
     mock_registry_store.transition_model_version_stage.assert_not_called()
+
+
+def test_transition_model_version_stage(mock_registry_store):
+    name = "Model 1"
+    version = "12"
+    stage = "Production"
+    expected_result = ModelVersion(name, version, creation_timestamp=123, current_stage=stage)
+    mock_registry_store.transition_model_version_stage.return_value = expected_result
+    actual_result = (
+        MlflowClient(registry_uri="sqlite:///somedb.db")
+        .transition_model_version_stage(name, version, stage)
+    )
+    mock_registry_store.transition_model_version_stage.assert_called_once_with(
+        name=name, version=version, stage=stage, archive_existing_versions=False)
+    assert expected_result == actual_result
 
 
 def test_registry_uri_set_as_param():
