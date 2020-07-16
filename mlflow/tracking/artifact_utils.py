@@ -26,7 +26,8 @@ def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
     :param artifact_path: The run-relative artifact path. For example,
                           ``path/to/artifact``. If unspecified, the artifact root URI for the
                           specified run will be returned.
-    :param tracking_uri: If not default, the tracking URI to use to get the artifact location.
+    :param tracking_uri: The tracking URI from which to get the run and its artifact location. If
+                         not given, the current default tracking URI is used.
     :return: An *absolute* URI referring to the specified artifact or the specified run's artifact
              root. For example, if an artifact path is provided and the specified run uses an
              S3-backed  store, this may be a uri of the form
@@ -39,8 +40,7 @@ def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
             message="A run_id must be specified in order to obtain an artifact uri!",
             error_code=INVALID_PARAMETER_VALUE)
 
-    # TODO: get store from trackign_uri if given
-    store = _get_store()
+    store = _get_store(tracking_uri)
     run = store.get_run(run_id)
     # Maybe move this method to RunsArtifactRepository so the circular dependency is clearer.
     assert urllib.parse.urlparse(run.info.artifact_uri).scheme != "runs"  # avoid an infinite loop
@@ -52,11 +52,13 @@ def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
 
 # TODO: This would be much simpler if artifact_repo.download_artifacts could take the absolute path
 # or no path.
-def _download_artifact_from_uri(artifact_uri, output_path=None):
+def _download_artifact_from_uri(artifact_uri, output_path=None, host_uri=None):
     """
     :param artifact_uri: The *absolute* URI of the artifact to download.
     :param output_path: The local filesystem path to which to download the artifact. If unspecified,
                         a local output path will be created.
+    :param host_uri: For artifact locations needing host information (e.g. Databricks workspace DBFS),
+                     the host URI in the same format as tracking URI.
     """
     parsed_uri = urllib.parse.urlparse(artifact_uri)
     prefix = ""
@@ -75,36 +77,19 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
         parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
         root_uri = prefix + urllib.parse.urlunparse(parsed_uri)
 
-    return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
+    return get_artifact_repository(artifact_uri=root_uri, host_uri=host_uri).download_artifacts(
         artifact_path=artifact_path, dst_path=output_path)
 
 
-
-### TODO: maybe just move these methods to MlflowClient... so many params to pass in
-### TODO: or... could move this one to
-def _download_artifact_from_uri_with_tracking_uri(artifact_uri, tracking_uri, output_path=None):
-    repo = get_artifact_repository(artifact_uri)
-    if isinstance(repo, ModelsArtifactRepository):
-        # TODO: throw
-    elif isinstance(repo, DbfsRestArtifactRepository):
-        # TODO: DatabricksArtifactRepository needs to take in the URI too...
-        # TODO: DbfsRestArtifactRepository or DatabricksArtifactRepository...
-        #  or fuse... (only if profile is default...)
-    elif isinstance(repo, RunsArtifactRepository):
-        # TODO: get the underlying path?
-    else:
-        _download_artifact_from_uri(artifact_uri, output_path)
-
-
-def _upload_artifacts_to_databricks(source, run_id, source_databricks_profile_uri=None,
+def _upload_artifacts_to_databricks(source, run_id, source_host_uri=None,
                                     target_databricks_profile_uri=None):
     """
     Copy the artifacts from ``source`` to the destination Databricks workspace (DBFS) given by
     ``databricks_profile_uri`` or the current tracking URI.
     :param source: Source location for the artifacts to copy.
     :param run_id: Run ID to associate the artifacts with.
-    :param source_databricks_profile_uri: Specifies the source Databricks host if applicable. If
-        not given, defaults to the current tracking URI.
+    :param source_host_uri: Specifies the source artifact's host URI (e.g. Databricks tracking URI)
+        if applicable. If not given, defaults to the current tracking URI.
     :param target_databricks_profile_uri: Specifies the destination Databricks host. If not given,
         defaults to the current tracking URI.
     :return: The DBFS location in the target Databricks workspace the model files have been
@@ -113,9 +98,7 @@ def _upload_artifacts_to_databricks(source, run_id, source_databricks_profile_ur
     import uuid
     local_dir = tempfile.mkdtemp()
     try:
-        # TODO: _download_artifact_from_uri needs to know about the source tracking URI!!!
-        #       for: dbfs, runs, models
-        _download_artifact_from_uri_with_tracking_uri(source, source_databricks_profile_uri, local_dir)
+        _download_artifact_from_uri(source, local_dir, source_host_uri)
         dest_root = 'dbfs:/databricks/mlflow/tmp-external-source/'  # TODO: "/" or "-"?
         dest_repo = DbfsRestArtifactRepository(dest_root, target_databricks_profile_uri)
         dest_dir = run_id if run_id else uuid.uuid1()
@@ -125,4 +108,3 @@ def _upload_artifacts_to_databricks(source, run_id, source_databricks_profile_ur
         shutil.rmtree(local_dir)
     # NOTE: we can't easily delete the target temp location due to the async nature
     # of the model version creation.
-

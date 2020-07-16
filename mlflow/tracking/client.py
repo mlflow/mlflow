@@ -502,15 +502,11 @@ class MlflowClient(object):
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
-        :param run_id: Run ID from MLflow tracking server that generated the model.
-        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
-                 backend.
-        """
-        if (is_databricks_uri(self._registry_uri) and
-                self._tracking_client.tracking_uri != self._registry_uri):
-            new_source = _upload_artifacts_to_databricks(source, run_id, self._registry_uri)
-        else:
-            new_source = source
+        new_source = source
+        tracking_uri = self._tracking_client.tracking_uri
+        if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
+            new_source = _upload_artifacts_to_databricks(source, run_id, tracking_uri,
+                                                         self._registry_uri)
         return self._get_registry_client().create_model_version(name, new_source, run_id, tags)
 
     @experimental

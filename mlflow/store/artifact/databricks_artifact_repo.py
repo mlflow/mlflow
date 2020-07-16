@@ -69,6 +69,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self.run_relative_artifact_repo_root_path = \
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
 
+        self.databricks_profile_uri = databricks_profile_uri or mlflow.tracking.get_tracking_uri()
+
     @classmethod
     def requires_host_uri(cls):
         return True
@@ -90,7 +92,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return artifact_path.split('/')[3]
 
     def _call_endpoint(self, service, api, json_body):
-        db_creds = get_databricks_host_creds(mlflow.tracking.get_tracking_uri())
+        db_creds = get_databricks_host_creds(self.databricks_profile_uri)
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
         response_proto = api.Response()
         return call_endpoint(db_creds, endpoint, method, json_body, response_proto)
