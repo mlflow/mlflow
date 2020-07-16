@@ -9,13 +9,14 @@ from mlflow.entities import ViewType
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._model_registry import utils as registry_utils
-from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
+from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
+from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import experimental
 from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri, \
     is_in_databricks_notebook, get_workspace_info_from_dbutils, \
@@ -494,9 +495,9 @@ class MlflowClient(object):
     @experimental
     def create_model_version(self, name, source, run_id, tags=None, run_link=None):
         """
-        Create a new model version from given source or run ID.
+        Create a new model version from given source (artifact URI).
 
-        :param name: Name ID for containing registered model.
+        :param name: Name for the containing registered model.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model
         :param tags: A dictionary of key-value pairs that are converted into
@@ -536,6 +537,13 @@ class MlflowClient(object):
             run_id=run_id,
             tags=tags,
             run_link=run_link)
+
+        new_source = source
+        tracking_uri = self._tracking_client.tracking_uri
+        if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
+            new_source = _upload_artifacts_to_databricks(source, run_id, tracking_uri,
+                                                         self._registry_uri)
+        return self._get_registry_client().create_model_version(name, new_source, run_id, tags)
 
     @experimental
     def update_model_version(self, name, version, description=None):

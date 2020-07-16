@@ -2,18 +2,21 @@
 Utilities for dealing with artifacts in the context of a Run.
 """
 import posixpath
+import shutil
+import tempfile
 
 from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_store
-from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.uri import append_to_uri_path, is_databricks_uri
 
 
-def get_artifact_uri(run_id, artifact_path=None):
+def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
     """
     Get the absolute URI of the specified artifact in the specified run. If `path` is not specified,
     the artifact root URI of the specified run will be returned; calls to ``log_artifact``
@@ -23,6 +26,8 @@ def get_artifact_uri(run_id, artifact_path=None):
     :param artifact_path: The run-relative artifact path. For example,
                           ``path/to/artifact``. If unspecified, the artifact root URI for the
                           specified run will be returned.
+    :param tracking_uri: The tracking URI from which to get the run and its artifact location. If
+                         not given, the current default tracking URI is used.
     :return: An *absolute* URI referring to the specified artifact or the specified run's artifact
              root. For example, if an artifact path is provided and the specified run uses an
              S3-backed  store, this may be a uri of the form
@@ -35,7 +40,7 @@ def get_artifact_uri(run_id, artifact_path=None):
             message="A run_id must be specified in order to obtain an artifact uri!",
             error_code=INVALID_PARAMETER_VALUE)
 
-    store = _get_store()
+    store = _get_store(tracking_uri)
     run = store.get_run(run_id)
     # Maybe move this method to RunsArtifactRepository so the circular dependency is clearer.
     assert urllib.parse.urlparse(run.info.artifact_uri).scheme != "runs"  # avoid an infinite loop
@@ -72,3 +77,57 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
 
     return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
         artifact_path=artifact_path, dst_path=output_path)
+
+
+def _upload_artifacts_to_databricks(source, run_id, source_host_uri=None,
+                                    target_databricks_profile_uri=None):
+    """
+    Copy the artifacts from ``source`` to the destination Databricks workspace (DBFS) given by
+    ``databricks_profile_uri`` or the current tracking URI.
+    :param source: Source location for the artifacts to copy.
+    :param run_id: Run ID to associate the artifacts with.
+    :param source_host_uri: Specifies the source artifact's host URI (e.g. Databricks tracking URI)
+        if applicable. If not given, defaults to the current tracking URI.
+    :param target_databricks_profile_uri: Specifies the destination Databricks host. If not given,
+        defaults to the current tracking URI.
+    :return: The DBFS location in the target Databricks workspace the model files have been
+        uploaded to.
+    """
+    import uuid
+    local_dir = tempfile.mkdtemp()
+    try:
+        # TODO: might want to throw if `source` is a models URI??
+        source_with_profile = _add_databricks_profile_info_to_artifact_uri(source, source_host_uri)
+        _download_artifact_from_uri(source_with_profile, local_dir)
+        dest_root = 'dbfs:/databricks/mlflow/tmp-external-source/'  # TODO: "/" or "-"?
+        dest_repo = DbfsRestArtifactRepository(dest_root, target_databricks_profile_uri)
+        dest_dir = run_id if run_id else uuid.uuid1()
+        dest_repo.log_artifacts(local_dir, artifact_path=dest_dir)
+        return dest_root + dest_dir  # new source
+    finally:
+        shutil.rmtree(local_dir)
+    # NOTE: we can't easily delete the target temp location due to the async nature
+    # of the model version creation.
+
+
+def _add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile_uri):
+    """
+    TODO
+    :param artifact_uri:
+    :param host_uri:
+    :return:
+    """
+    if not is_databricks_uri(databricks_profile_uri):
+        return artifact_uri
+    artifact_uri_parsed = urllib.parse.urlparse(artifact_uri)
+    scheme = artifact_uri_parsed.scheme
+    if artifact_uri_parsed.netloc:
+        return artifact_uri
+    if scheme == 'dbfs' or scheme == 'runs' or scheme == 'models':
+        db_profile_parts = urllib.parse.urlparse(databricks_profile_uri)
+        # TODO: validate path --
+        netloc = db_profile_parts.netloc + ":" + db_profile_parts.path + "@databricks"
+        artifact_uri_parsed._replace(netloc=netloc)
+        # TODO: write lots of unit tests
+        return urllib.parse.urlunparse(artifact_uri_parsed)
+    return artifact_uri
