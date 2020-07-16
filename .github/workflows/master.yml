@@ -16,8 +16,8 @@ jobs:
     - uses: actions/checkout@v2
     - name: Install dependencies
       env:
-        INSTALL_LARGE_PYTHON_DEPS: true
         INSTALL_SMALL_PYTHON_DEPS: true
+        INSTALL_LARGE_PYTHON_DEPS: true
         INSTALL_FLAVORS_DEPS: true
         INSTALL_TF_DEPS: true
       run: |
