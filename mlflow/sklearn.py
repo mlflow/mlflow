@@ -17,6 +17,7 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
@@ -175,7 +176,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=None,
                             pickled_model=model_data_subpath,
                             sklearn_version=sklearn.__version__,
                             serialization_format=serialization_format)
-    mlflow_model.save(os.path.join(path, "MLmodel"))
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 def log_model(sk_model, artifact_path, conda_env=None,

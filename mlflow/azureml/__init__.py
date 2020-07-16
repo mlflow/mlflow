@@ -16,6 +16,7 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import PYTHON_VERSION, experimental, get_unique_resource_id
@@ -486,7 +487,7 @@ def _load_pyfunc_conf_with_model(model_path):
     :return: The model's `python_function` flavor configuration and the model.
     """
     model_path = os.path.abspath(model_path)
-    model = Model.load(os.path.join(model_path, "MLmodel"))
+    model = Model.load(os.path.join(model_path, MLMODEL_FILE_NAME))
     if pyfunc.FLAVOR_NAME not in model.flavors:
         raise MlflowException(
             message=("The specified model does not contain the `python_function` flavor. This "
