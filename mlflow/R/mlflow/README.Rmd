@@ -6,7 +6,7 @@ output:
     fig_height: 5
 ---
 
-[![Build Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-ci.org/rstudio/mlflow) [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow) [![codecov](https://codecov.io/gh/mlflow/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/mlflow/mlflow) 
+[![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow) [![codecov](https://codecov.io/gh/mlflow/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/mlflow/mlflow) 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.path = "tools/readme/", dev = "png")
