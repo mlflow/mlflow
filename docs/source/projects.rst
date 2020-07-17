@@ -162,9 +162,10 @@ file in YAML syntax, to the project's root directory. The following is an exampl
     name: My Project
 
     conda_env: my_env.yaml
-    # Can have a docker_env instead of a conda_env, e.g.
+    # Can have a docker_env image xor dockerfile instead of a conda_env, e.g.
     # docker_env:
     #    image:  mlflow-docker-example
+    #    dockerfile: /path-to-dockerfile/Dockerfile.my-image
 
     entry_points:
       main:
@@ -247,6 +248,19 @@ Docker container environment
   `Amazon ECR registry <https://docs.aws.amazon.com/AmazonECR/latest/userguide/Registries.html>`_.
   When the MLflow project is run, Docker attempts to pull the image from the specified registry. 
   The system executing the MLflow project must have credentials to pull this image from  the specified registry.
+
+  .. rubric:: Example 4: Dockerfile
+
+  .. code-block:: yaml
+
+    docker_env:
+      dockerfile: /path-to-dockerfile/Dockerfile.my_image
+
+  In this example, ``/path-to-dockerfile/Dockerfile.my_image`` refers to a Dockerfile that builds a Docker image.
+  The Docker image will be built and the suffix ``my_name`` will be used as the iamge tag. If Dockerfile does not
+  have a suffix, then a hash is generated based on the Dockerfile contents.
+  When the MLflow project is run, Docker attempts to build the image from the specified Dockerfile.
+  Other values, such as ``volumes`` and ``environments`` can be entered too.
 
 .. _mlproject-command-syntax:
 

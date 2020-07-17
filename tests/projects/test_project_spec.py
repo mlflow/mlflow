@@ -86,8 +86,13 @@ def test_load_docker_project(tmpdir):
     (textwrap.dedent("""
     docker_env:
         not-image-attribute: blah
-    """), "no image attribute found"),
-])
+    """), "no image or dockerfile attribute found"),
+    (textwrap.dedent("""
+    docker_env:
+        image: some-image
+        dockerfile: /path-to-dockerfile
+    """), "both an image and a dockerfile attribute were specified"),
+    ])
 def test_load_invalid_project(tmpdir, invalid_project_contents, expected_error_msg):
     tmpdir.join("MLproject").write(invalid_project_contents)
     with pytest.raises(ExecutionException) as e:

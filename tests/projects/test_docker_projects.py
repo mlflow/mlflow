@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import mock
 import pytest
@@ -61,6 +62,50 @@ def test_docker_project_execution(
         assert run_tags[k].startswith(v)
     artifacts = mlflow_service.list_artifacts(run_id=run_id)
     assert len(artifacts) == 1
+
+
+@pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
+@pytest.mark.large
+def test_dockerfile_project_execution(
+        use_start_run,
+        tmpdir, docker_example_base_image):  # pylint: disable=unused-argument
+    shutil.move(os.path.join(TEST_DOCKER_PROJECT_DIR, 'MLproject'),
+                os.path.join(TEST_DOCKER_PROJECT_DIR, 'backup'))
+    shutil.copy2(os.path.join(TEST_DOCKER_PROJECT_DIR, 'MLproject_dockerfile'),
+                 os.path.join(TEST_DOCKER_PROJECT_DIR, 'MLproject'))
+    expected_params = {"use_start_run": use_start_run}
+    submitted_run = mlflow.projects.run(
+        TEST_DOCKER_PROJECT_DIR, experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
+        parameters=expected_params, entry_point="test_tracking")
+    # Validate run contents in the FileStore
+    run_id = submitted_run.run_id
+    mlflow_service = mlflow.tracking.MlflowClient()
+    run_infos = mlflow_service.list_run_infos(
+        experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
+        run_view_type=ViewType.ACTIVE_ONLY)
+    assert len(run_infos) == 1
+    store_run_id = run_infos[0].run_id
+    assert run_id == store_run_id
+    run = mlflow_service.get_run(run_id)
+    assert run.data.params == expected_params
+    assert run.data.metrics == {"some_key": 3}
+    exact_expected_tags = {
+        MLFLOW_PROJECT_ENV: "docker",
+        MLFLOW_PROJECT_BACKEND: "local",
+    }
+    approx_expected_tags = {
+        MLFLOW_DOCKER_IMAGE_URI: "image_",
+        MLFLOW_DOCKER_IMAGE_ID: "sha256:",
+    }
+    run_tags = run.data.tags
+    for k, v in exact_expected_tags.items():
+        assert run_tags[k] == v
+    for k, v in approx_expected_tags.items():
+        assert run_tags[k].startswith(v)
+    artifacts = mlflow_service.list_artifacts(run_id=run_id)
+    assert len(artifacts) == 1
+    shutil.move(os.path.join(TEST_DOCKER_PROJECT_DIR, 'backup'),
+                os.path.join(TEST_DOCKER_PROJECT_DIR, 'MLproject'))
 
 
 @pytest.mark.parametrize("tracking_uri, expected_command_segment", [

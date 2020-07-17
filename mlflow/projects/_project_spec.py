@@ -38,9 +38,13 @@ def load_project(directory):
     # Validate config if docker_env parameter is present
     docker_env = yaml_obj.get("docker_env")
     if docker_env:
-        if not docker_env.get("image"):
+        if not (docker_env.get("image") or docker_env.get("dockerfile")):
             raise ExecutionException("Project configuration (MLproject file) was invalid: Docker "
-                                     "environment specified but no image attribute found.")
+                                     "environment specified but no image or dockerfile attribute "
+                                     "found.")
+        if docker_env.get("image") and docker_env.get("dockerfile"):
+            raise ExecutionException("Project configuration (MLproject file) was invalid: both an "
+                                     "image and a dockerfile attribute were specified.")
         if docker_env.get("volumes"):
             if not (isinstance(docker_env["volumes"], list)
                     and all([isinstance(i, str) for i in docker_env["volumes"]])):

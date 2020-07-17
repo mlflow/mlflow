@@ -135,6 +135,7 @@ def _run(uri, experiment_id, entry_point, version, parameters,
             image = _build_docker_image(work_dir=work_dir,
                                         repository_uri=project.name,
                                         base_image=project.docker_env.get('image'),
+                                        dockerfile_uri=project.docker_env.get('dockerfile'),
                                         run_id=active_run.info.run_id)
             command_args += _get_docker_command(image=image, active_run=active_run,
                                                 docker_args=docker_args,
@@ -171,6 +172,7 @@ def _run(uri, experiment_id, entry_point, version, parameters,
         image = _build_docker_image(work_dir=work_dir,
                                     repository_uri=kube_config["repository-uri"],
                                     base_image=project.docker_env.get('image'),
+                                    dockerfile_uri=project.docker_env.get('dockerfile'),
                                     run_id=active_run.info.run_id)
         image_digest = kb.push_image_to_registry(image.tags[0])
         submitted_run = kb.run_kubernetes_job(
@@ -600,9 +602,10 @@ def _validate_docker_env(project):
     if not project.name:
         raise ExecutionException("Project name in MLProject must be specified when using docker "
                                  "for image tagging.")
-    if not project.docker_env.get('image'):
+    if not (project.docker_env.get('image') or project.docker_env.get('dockerfile')):
         raise ExecutionException("Project with docker environment must specify the docker image "
-                                 "to use via an 'image' field under the 'docker_env' field.")
+                                 "to use via an 'image' field or a dockerfile via a 'dockerfile' "
+                                 "field under the 'docker_env' field.")
 
 
 def _parse_kubernetes_config(backend_config):
@@ -651,18 +654,30 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
     return result_path
 
 
-def _build_docker_image(work_dir, repository_uri, base_image, run_id):
+def _build_docker_image(work_dir, repository_uri, base_image, run_id, dockerfile_uri):
     """
-    Build a docker image containing the project in `work_dir`, using the base image.
+    Build a docker image containing the project in `work_dir`, using the base image or Dockerfile.
     """
-    image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
-    dockerfile = (
-        "FROM {imagename}\n"
-        "COPY {build_context_path}/ {workdir}\n"
-        "WORKDIR {workdir}\n"
-    ).format(imagename=base_image,
-             build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
-             workdir=_MLFLOW_DOCKER_WORKDIR_PATH)
+    if dockerfile_uri is not None:
+        with open(dockerfile_uri, 'r') as f:
+            dockerfile = f.read()
+        dockerfile += (
+            "COPY {build_context_path}/ {workdir}\n"
+            "WORKDIR {workdir}\n"
+            ).format(build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
+                     workdir=_MLFLOW_DOCKER_WORKDIR_PATH)
+        basename = os.path.basename(os.path.normpath(dockerfile_uri))
+        dockerfile_md5 = hashlib.md5(dockerfile.encode('utf-8')).hexdigest()
+        image_uri = dockerfile_uri.split('.')[-1] if '.' in basename else 'image_' + dockerfile_md5
+    elif base_image is not None:
+        image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
+        dockerfile = (
+            "FROM {imagename}\n"
+            "COPY {build_context_path}/ {workdir}\n"
+            "WORKDIR {workdir}\n"
+        ).format(imagename=base_image,
+                 build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
+                 workdir=_MLFLOW_DOCKER_WORKDIR_PATH)
     build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
     with open(build_ctx_path, 'rb') as docker_build_ctx:
         _logger.info("=== Building docker image %s ===", image_uri)
