@@ -184,7 +184,7 @@ export class Services {
 
   /**
    * Delete model version
-   * @param data
+   * @param data/
    * @param success
    * @param error
    * @returns {*|jQuery|*|*|*|*}

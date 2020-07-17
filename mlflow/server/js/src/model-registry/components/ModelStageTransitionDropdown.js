@@ -2,6 +2,7 @@ import React from 'react';
 import { Dropdown, Menu, Icon, Modal } from 'antd';
 import PropTypes from 'prop-types';
 import { Stages, StageTagComponents, ActivityTypes } from '../constants';
+import { DirectTransitionForm } from './DirectTransitionForm';
 import _ from 'lodash';
 
 export class ModelStageTransitionDropdown extends React.Component {
@@ -20,6 +21,8 @@ export class ModelStageTransitionDropdown extends React.Component {
     handleConfirm: undefined,
   };
 
+  transitionFormRef = React.createRef();
+
   handleMenuItemClick = (activity) => {
     const { onSelect } = this.props;
     this.setState({
@@ -29,7 +32,10 @@ export class ModelStageTransitionDropdown extends React.Component {
         onSelect &&
         (() => {
           this.setState({ confirmModalVisible: false });
-          this.props.onSelect(activity);
+          const archiveExistingVersions = Boolean(
+            this.transitionFormRef.current.getFieldValue('archiveExistingVersions'),
+          );
+          this.props.onSelect(activity, archiveExistingVersions);
         }),
     });
   };
@@ -72,6 +78,9 @@ export class ModelStageTransitionDropdown extends React.Component {
   renderConfirmModal() {
     const { confirmModalVisible, confirmingActivity, handleConfirm } = this.state;
     if (confirmingActivity) {
+      const formComponent = (
+        <DirectTransitionForm ref={this.transitionFormRef} toStage={confirmingActivity.to_stage} />
+      );
       return (
         <Modal
           title='Stage Transition'
@@ -80,6 +89,7 @@ export class ModelStageTransitionDropdown extends React.Component {
           onCancel={this.handleConfirmModalCancel}
         >
           {renderActivityDescription(confirmingActivity)}
+          {formComponent}
         </Modal>
       );
     }
