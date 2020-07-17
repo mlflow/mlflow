@@ -1,7 +1,7 @@
-### Train and Publish Locally With RAPIDS and MLFlow
+### Train and Publish Locally With RAPIDS and MLflow
 **[RAPIDS](https://rapids.ai/)** is a suite of open source libraries for GPU-accelerated analytics. 
 
-**[RAPIDS cuML](https://github.com/rapidsai/cuml)** matches the scikit-learn API, so it can build on MLFlow's existing support for scikit-learn-like models to support 
+**[RAPIDS cuML](https://github.com/rapidsai/cuml)** matches the scikit-learn API, so it can build on MLflow's existing support for scikit-learn-like models to support
 persistence and deployment."
 
 #### Jupyter Notebook Workflow
@@ -14,7 +14,7 @@ persistence and deployment."
         # Download the file
         wget -N https://rapidsai-cloud-ml-sample-data.s3-us-west-2.amazonaws.com/airline_small.parquet
         ```
-1. Set MLFlow tracking uri
+1. Set MLflow tracking uri
     1. ```shell script
         export MLFLOW_TRACKING_URI=sqlite:////tmp/mlflow-db.sqlite
        ```
