@@ -15,12 +15,12 @@ from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects.backend.abstract_backend import AbstractBackend
 from mlflow.projects.utils import (
     fetch_and_validate_project, get_or_create_run, load_project,
-    get_run_env_vars, get_databricks_env_vars,
+    get_run_env_vars, get_databricks_env_vars, get_entry_point_command,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG, MLFLOW_DOCKER_WORKDIR_PATH,
     PROJECT_USE_CONDA, PROJECT_SYNCHRONOUS, PROJECT_DOCKER_ARGS,
     PROJECT_STORAGE_DIR
 )
-from mlflow.utils.conda import get_conda_command, get_or_create_conda_env, get_entry_point_command
+from mlflow.utils.conda import get_conda_command, get_or_create_conda_env
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
