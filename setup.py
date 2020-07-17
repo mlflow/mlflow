@@ -54,16 +54,6 @@ setup(
         'prometheus-flask-exporter',
     ],
     extras_require={
-        'extras': [
-            "scikit-learn; python_version >= '3.5'",
-            # scikit-learn 0.20 is the last version to support Python 2.x  & Python 3.4.
-            "scikit-learn==0.20; python_version < '3.5'",
-            'boto3>=1.7.12',
-            'mleap>=0.16.0',
-            'azure-storage-blob>=12.0',
-            'google-cloud-storage',
-            'azureml-core>=1.2.0'
-        ],
          'sqlserver': [
             "mlflow-dbstore",
         ],
