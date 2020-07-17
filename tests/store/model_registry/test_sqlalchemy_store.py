@@ -40,7 +40,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def _mv_maker(self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None,
                   run_link=None):
-        return self.store.create_model_version(name, source, run_id, run_link, tags)
+        return self.store.create_model_version(name, source, run_id, tags, run_link=run_link)
 
     def _extract_latest_by_stage(self, latest_versions):
         return {mvd.current_stage: mvd.version for mvd in latest_versions}
