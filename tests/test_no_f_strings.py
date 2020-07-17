@@ -1,4 +1,4 @@
-# Remove this test script once we drop Python 3.5 support.
+# TODO: Remove this test script once we drop Python 3.5 support.
 
 import ast
 import os
