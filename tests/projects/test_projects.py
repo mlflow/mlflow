@@ -250,7 +250,7 @@ def test_run_async():
     "mock_env,expected_conda,expected_activate",
     [
         ({"CONDA_EXE": "/abc/conda"}, "/abc/conda", "/abc/activate"),
-        ({mlflow.projects.utils.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
+        ({mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
          "/some/dir/bin/activate")
     ]
 )

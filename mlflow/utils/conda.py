@@ -6,6 +6,9 @@ import os
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
 
+
+# Environment variable indicating a path to a conda installation. MLflow will default to running
+# "conda" if unset
 MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
 
 _logger = logging.getLogger(__name__)

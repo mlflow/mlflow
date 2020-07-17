@@ -26,10 +26,6 @@ from mlflow.utils.mlflow_tags import (
 )
 import mlflow.utils.uri
 
-# Environment variable indicating a path to a conda installation. MLflow will default to running
-# "conda" if unset
-MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
-
 _logger = logging.getLogger(__name__)
 
 
