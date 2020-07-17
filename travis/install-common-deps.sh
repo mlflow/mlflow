@@ -6,35 +6,21 @@ set -ex
 sudo apt clean
 df -h
 
-sudo mkdir -p /travis-install
-# GITHUB_WORKFLOW is set by default during GitHub workflows
-if [[ -z $GITHUB_WORKFLOW ]]; then
-  CONDA_DIR=$HOME/miniconda
-  sudo chown travis /travis-install
-  # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
-  # We do this conditionally because it saves us some downloading if the
-  # version is the same.
-  wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
-  bash $HOME/miniconda.sh -b -p $CONDA_DIR
-else
-  # Miniconda is pre-installed in the virtual-environments for GitHub Actions.
-  # See this repository: https://github.com/actions/virtual-environments
-  CONDA_DIR=/usr/share/miniconda
-fi
-
+# Miniconda is pre-installed in the virtual-environments for GitHub Actions.
+# See this repository: https://github.com/actions/virtual-environments
+CONDA_DIR=/usr/share/miniconda
 export PATH="$CONDA_DIR/bin:$PATH"
 hash -r
 conda config --set always_yes yes --set changeps1 no
+
 # Useful for debugging any issues with conda
 conda info -a
-if [[ -n "$TRAVIS_PYTHON_VERSION" ]]; then
-  conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
-else
-  conda create -q -n test-environment python=3.6
-fi
+conda create -q -n test-environment python=3.6
 source activate test-environment
+
 python --version
 pip install --upgrade pip==19.3.1
+
 # Install Python test dependencies only if we're running Python tests
 if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
   pip install --quiet -r ./travis/small-requirements.txt
@@ -48,12 +34,10 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   chmod 777 $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
   ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
 fi
+
 pip install .
 export MLFLOW_HOME=$(pwd)
-# Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
-if [[ -z $GITHUB_WORKFLOW ]]; then
-  sudo rm -f /etc/boto.cfg
-fi
+
 # Print current environment info
 pip list
 which mlflow
