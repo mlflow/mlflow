@@ -30,12 +30,6 @@ fi
 
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   REQUIREMENTS="${REQUIREMENTS} -r ./travis/large-requirements.txt"
-  # Hack: make sure all spark-* scripts are executable. 
-  # Conda installs 2 version spark-* scripts and makes the ones spark
-  # uses not executable. This is a temporary fix to unblock the tests.
-  ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
-  chmod 777 $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
-  ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
 fi
 
 if [[ "$INSTALL_TF_DEPS" == "true" ]]; then
@@ -60,6 +54,15 @@ fi
 
 if [[ ! -z "$REQUIREMENTS" ]]; then
   pip install --quiet $REQUIREMENTS
+fi
+
+if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
+  # Hack: make sure all spark-* scripts are executable. 
+  # Conda installs 2 version spark-* scripts and makes the ones spark
+  # uses not executable. This is a temporary fix to unblock the tests.
+  ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
+  chmod 777 $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
+  ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
 fi
 
 pip install .
