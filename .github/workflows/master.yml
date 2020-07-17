@@ -253,9 +253,9 @@ jobs:
           INSTALL_SMALL_PYTHON_DEPS: true
           INSTALL_TF_DEPS: true
           INSTALL_FLAVORS_DEPS: true
+          INSTALL_DOCS_DEPS: true
         run: |
           source ./travis/install-common-deps.sh
-          pip install sphinx==2.2.1 sphinx-click==2.3.1
       - name: Run tests
         run: |
           export PATH="$CONDA_DIR/bin:$PATH"

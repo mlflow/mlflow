@@ -61,6 +61,10 @@ if [[ "$INSTALL_FLAVORS_DEPS" == "true" ]]; then
   pip install --quiet -r ./travis/flavors-requirements.txt
 fi
 
+if [[ "$INSTALL_DOCS_DEPS" == "true" ]]; then
+  pip install --quiet -r ./travis/docs-requirements.txt
+fi
+
 pip install .
 export MLFLOW_HOME=$(pwd)
 # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
