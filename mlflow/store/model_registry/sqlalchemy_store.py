@@ -316,8 +316,8 @@ class SqlAlchemyStore(AbstractStore):
         else:
             supported_ops = ''.join(['(' + op + ')' for op in
                                      SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS])
-            sample_query = f'name {supported_ops} "<model_name>"'
-            raise MlflowException(f'Invalid filter string: {filter_string}'
+            sample_query = 'name {} "<model_name>"'.format(supported_ops)
+            raise MlflowException('Invalid filter string: {}'.format(filter_string) +
                                   'Search registered models supports filter expressions like:' +
                                   sample_query, error_code=INVALID_PARAMETER_VALUE)
         with self.ManagedSessionMaker() as session:
@@ -349,9 +349,9 @@ class SqlAlchemyStore(AbstractStore):
                     field = SqlRegisteredModel.last_updated_time
                 else:
                     raise MlflowException(
-                        f"Invalid order by key '{attribute_token}' specified."
-                        f"Valid keys are "
-                        f"'{SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS}'",
+                        "Invalid order by key '{}' specified.".format(attribute_token) +
+                        "Valid keys are " +
+                        "'{}'".format(SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS),
                         error_code=INVALID_PARAMETER_VALUE)
                 if ascending:
                     clauses.append(field.asc())

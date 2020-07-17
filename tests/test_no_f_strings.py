@@ -20,6 +20,7 @@ def read_file(path):
 def search_f_strings(node):
     for c in ast.iter_child_nodes(node):
         if isinstance(c, ast.JoinedStr):
+            print(ast.dump(c))
             yield (c.lineno, c.col_offset)
         yield from search_f_strings(c)
 

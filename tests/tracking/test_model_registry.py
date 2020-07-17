@@ -148,7 +148,7 @@ def _verify_pagination(rm_getter_with_token, expected_rms):
 
 @pytest.mark.parametrize("max_results", [1, 6, 100])
 def test_list_registered_model_flow_paginated(mlflow_client, backend_store_uri, max_results):
-    names = [f'CreateRMlist{i:03}' for i in range(20)]
+    names = ['CreateRMlist{:03}'.format(i) for i in range(20)]
     rms = [mlflow_client.create_registered_model(name) for name in names]
     for rm in rms:
         assert isinstance(rm, RegisteredModel)
@@ -176,7 +176,7 @@ def test_list_registered_model_flow_paginated(mlflow_client, backend_store_uri, 
 ])
 def test_search_registered_model_flow_paginated(mlflow_client, backend_store_uri,
                                                 max_results, filter_string, filter_func):
-    names = [f'CreateRMsearch{i:03}' for i in range(29)]
+    names = ['CreateRMsearch{:03}'.format for i in range(29)]
     rms = [mlflow_client.create_registered_model(name) for name in names]
     for rm in rms:
         assert isinstance(rm, RegisteredModel)
