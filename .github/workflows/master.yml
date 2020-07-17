@@ -21,9 +21,9 @@ jobs:
         INSTALL_FLAVORS_DEPS: true
         INSTALL_SAGEMAKER_DEPS: true
         INSTALL_TF_DEPS: true
+        INSTALL_LINT_DEPS: true
       run: |
         source ./travis/setup-test-env.sh
-        pip install -r ./travis/lint-requirements.txt
     - name: Run tests
       run: |
         export PATH="$CONDA_DIR/bin:$PATH"

@@ -47,6 +47,10 @@ if [[ "$INSTALL_FLAVORS_DEPS" == "true" ]]; then
   pip install --quiet -r ./travis/flavors-requirements.txt
 fi
 
+if [[ "$INSTALL_LINT_DEPS" == "true" ]]; then
+  pip install --quiet -r ./travis/lint-requirements.txt
+fi
+
 if [[ "$INSTALL_DOCS_DEPS" == "true" ]]; then
   pip install --quiet -r ./travis/docs-requirements.txt
 fi
