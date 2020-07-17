@@ -248,26 +248,6 @@ def _wait_for(submitted_run_obj):
         raise
 
 
-def _get_conda_bin_executable(executable_name):
-    """
-    Return path to the specified executable, assumed to be discoverable within the 'bin'
-    subdirectory of a conda installation.
-
-    The conda home directory (expected to contain a 'bin' subdirectory) is configurable via the
-    ``mlflow.projects.MLFLOW_CONDA_HOME`` environment variable. If
-    ``mlflow.projects.MLFLOW_CONDA_HOME`` is unspecified, this method simply returns the passed-in
-    executable name.
-    """
-    conda_home = os.environ.get(MLFLOW_CONDA_HOME)
-    if conda_home:
-        return os.path.join(conda_home, "bin/%s" % executable_name)
-    # Use CONDA_EXE as per https://github.com/conda/conda/issues/7126
-    if "CONDA_EXE" in os.environ:
-        conda_bin_dir = os.path.dirname(os.environ["CONDA_EXE"])
-        return os.path.join(conda_bin_dir, executable_name)
-    return executable_name
-
-
 def _maybe_set_run_terminated(active_run, status):
     """
     If the passed-in active run is defined and still running (i.e. hasn't already been terminated
