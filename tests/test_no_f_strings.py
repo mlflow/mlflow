@@ -8,7 +8,7 @@ def search_python_scripts(dirs):
     for d in dirs:
         for root, dirs, files in os.walk(d):
             for f in files:
-                if f.endswith(".py"):
+                if f.endswith('.py'):
                     yield os.path.join(root, f)
 
 
@@ -34,7 +34,7 @@ def test_no_f_strings():
         f_strings = list(search_f_strings(root))
         if len(f_strings) > 0:
             f_strings_all += [
-                "{}:{}:{}: {}".format(path, *pos, "Remove f-string")
+                '{}:{}:{}: {}'.format(path, *pos, 'Remove f-string')
                 for pos in f_strings
             ]
 
