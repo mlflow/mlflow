@@ -34,6 +34,7 @@ jobs:
     - name: Run example tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
       env:
+        INSTALL_SMALL_PYTHON_DEPS: true
         INSTALL_LARGE_PYTHON_DEPS: true
       run: |
         source ./travis/setup-test-env.sh
