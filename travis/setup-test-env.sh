@@ -21,12 +21,15 @@ source activate test-environment
 python --version
 pip install --upgrade pip==19.3.1
 
+REQUIREMENTS=""
+
 # Install Python test dependencies only if we're running Python tests
 if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
-  pip install --quiet -r ./travis/small-requirements.txt
+  REQUIREMENTS="${REQUIREMENTS} -r ./travis/small-requirements.txt"
 fi
+
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
-  pip install --quiet -r ./travis/large-requirements.txt
+  REQUIREMENTS="${REQUIREMENTS} -r ./travis/large-requirements.txt"
   # Hack: make sure all spark-* scripts are executable. 
   # Conda installs 2 version spark-* scripts and makes the ones spark
   # uses not executable. This is a temporary fix to unblock the tests.
@@ -36,23 +39,27 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
 fi
 
 if [[ "$INSTALL_TF_DEPS" == "true" ]]; then
-  pip install --quiet -r ./travis/tf-requirements.txt
+  REQUIREMENTS="${REQUIREMENTS} -r ./travis/tf-requirements.txt"
 fi
 
 if [[ "$INSTALL_SAGEMAKER_DEPS" == "true" ]]; then
-  pip install --quiet -r ./travis/sagemaker-requirements.txt
+  REQUIREMENTS="${REQUIREMENTS} -r ./travis/sagemaker-requirements.txt"
 fi
 
 if [[ "$INSTALL_FLAVORS_DEPS" == "true" ]]; then
-  pip install --quiet -r ./travis/flavors-requirements.txt
+  REQUIREMENTS="${REQUIREMENTS} -r ./travis/flavors-requirements.txt"
 fi
 
 if [[ "$INSTALL_LINT_DEPS" == "true" ]]; then
-  pip install --quiet -r ./travis/lint-requirements.txt
+  REQUIREMENTS="${REQUIREMENTS} -r ./travis/lint-requirements.txt"
 fi
 
 if [[ "$INSTALL_DOCS_DEPS" == "true" ]]; then
-  pip install --quiet -r ./travis/docs-requirements.txt
+  REQUIREMENTS="${REQUIREMENTS} -r ./travis/docs-requirements.txt"
+fi
+
+if [[ ! -z "$REQUIREMENTS" ]]; then
+  pip install --quiet $REQUIREMENTS
 fi
 
 pip install .
