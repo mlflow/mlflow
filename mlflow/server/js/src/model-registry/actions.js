@@ -82,12 +82,19 @@ export const updateModelVersionApi = (modelName, version, description, id = getU
 });
 
 export const TRANSITION_MODEL_VERSION_STAGE = 'TRANSITION_MODEL_VERSION_STAGE';
-export const transitionModelVersionStageApi = (modelName, version, stage, id = getUUID()) => ({
+export const transitionModelVersionStageApi = (
+  modelName,
+  version,
+  stage,
+  archiveExistingVersions,
+  id = getUUID(),
+) => ({
   type: TRANSITION_MODEL_VERSION_STAGE,
   payload: wrapDeferred(Services.transitionModelVersionStage, {
     name: modelName,
     version,
     stage,
+    archive_existing_versions: archiveExistingVersions,
   }),
   meta: { id },
 });
