@@ -195,9 +195,9 @@ class RestStore(AbstractStore):
         :param name: Registered model name.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model.
-        :param run_link: Link to the run from an MLflow tracking server that generated this model.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.
+        :param run_link: Link to the run from an MLflow tracking server that generated this model.
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  created in the backend.
         """
