@@ -141,7 +141,6 @@ by running the following from your checkout of MLflow:
 
     conda create --name mlflow-dev-env python=3.6
     source activate mlflow-dev-env
-    pip install -r dev-requirements.txt
     pip install -r test-requirements.txt
     pip install -e .  # installs mlflow from current checkout
 
