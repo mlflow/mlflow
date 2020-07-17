@@ -526,6 +526,13 @@ class SqlAlchemyStore(AbstractStore):
         return cls._get_model_version_from_db(session, name, version, conditions, query_options)
 
     def _get_sql_model_version_including_deleted(self, name, version):
+        """
+        Private method to retrieve model versions including those that are internally deleted.
+        Used to verify redaction behavior on deletion.
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        """
         with self.ManagedSessionMaker() as session:
             conditions = [
                 SqlModelVersion.name == name,
