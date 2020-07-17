@@ -15,7 +15,8 @@ class ModelVersion(_ModelRegistryEntity):
 
     def __init__(self, name, version, creation_timestamp,
                  last_updated_timestamp=None, description=None, user_id=None, current_stage=None,
-                 source=None, run_id=None, status=None, status_message=None, tags=None):
+                 source=None, run_id=None, status=None, status_message=None, tags=None,
+                 run_link=None):
         super(ModelVersion, self).__init__()
         self._name = name
         self._version = version
@@ -26,6 +27,7 @@ class ModelVersion(_ModelRegistryEntity):
         self._current_stage = current_stage
         self._source = source
         self._run_id = run_id
+        self._run_link = run_link
         self._status = status
         self._status_message = status_message
         self._tags = {tag.key: tag.value for tag in (tags or [])}
@@ -75,6 +77,11 @@ class ModelVersion(_ModelRegistryEntity):
     def run_id(self):
         """String. MLflow run ID that generated this model."""
         return self._run_id
+
+    @property
+    def run_link(self):
+        """String. MLflow run link referring to the exact run that generated this model version."""
+        return self._run_link
 
     @property
     def status(self):

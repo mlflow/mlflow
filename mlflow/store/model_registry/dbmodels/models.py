@@ -67,6 +67,8 @@ class SqlModelVersion(Base):
 
     run_id = Column(String(32), nullable=False)
 
+    run_link = Column(String(500), nullable=True, default=None)
+
     status = Column(String(20),
                     default=ModelVersionStatus.to_string(ModelVersionStatus.READY))
 
@@ -87,7 +89,8 @@ class SqlModelVersion(Base):
                             self.creation_time, self.last_updated_time, self.description,
                             self.user_id, self.current_stage, self.source, self.run_id,
                             self.status, self.status_message,
-                            [tag.to_mlflow_entity() for tag in self.model_version_tags])
+                            [tag.to_mlflow_entity() for tag in self.model_version_tags],
+                            self.run_link)
 
 
 class SqlRegisteredModelTag(Base):

@@ -38,8 +38,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def _rm_maker(self, name, tags=None):
         return self.store.create_registered_model(name, tags)
 
-    def _mv_maker(self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None):
-        return self.store.create_model_version(name, source, run_id, tags)
+    def _mv_maker(self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None,
+                  run_link=None):
+        return self.store.create_model_version(name, source, run_id, run_link, tags)
 
     def _extract_latest_by_stage(self, latest_versions):
         return {mvd.current_stage: mvd.version for mvd in latest_versions}
@@ -429,6 +430,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd3.version, 3)
         self.assertEqual(mvd3.tags, {tag.key: tag.value for tag in tags})
 
+        # create model versions with runLink
+        run_link = "http://localhost:3000/path/to/run/"
+        mv4 = self._mv_maker(name, run_link=run_link)
+        mvd4 = self.store.get_model_version(name, mv4.version)
+        self.assertEqual(mv4.version, 4)
+        self.assertEqual(mv4.run_link, run_link)
+        self.assertEqual(mvd4.version, 4)
+        self.assertEqual(mvd4.run_link, run_link)
+
     def test_update_model_version(self):
         name = "test_for_update_MV"
         self._rm_maker(name)
@@ -547,7 +557,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd2.last_updated_timestamp, mvd3.last_updated_timestamp)
 
     def test_delete_model_version(self):
-        name = "test_for_update_MV"
+        name = "test_for_delete_MV"
         initial_tags = [ModelVersionTag("key", "value"),
                         ModelVersionTag("anotherKey", "some other value")]
         self._rm_maker(name)
@@ -571,6 +581,26 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_model_version(name=mv.name, version=mv.version)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    def test_delete_model_version_redaction(self):
+        name = "test_for_delete_MV_redaction"
+        run_link = "http://localhost:5000/path/to/run"
+        run_id = "12345"
+        source = "path/to/source"
+        self._rm_maker(name)
+        mv = self._mv_maker(name, source=source, run_id=run_id, run_link=run_link)
+        mvd = self.store.get_model_version(name=name, version=mv.version)
+        self.assertEqual(mvd.run_link, run_link)
+        self.assertEqual(mvd.run_id, run_id)
+        self.assertEqual(mvd.source, source)
+        # delete the MV now
+        self.store.delete_model_version(name, mv.version)
+        # verify that the relevant fields are redacted
+        mvd_deleted = self.store._get_sql_model_version_including_deleted(name=name,
+                                                                          version=mv.version)
+        self.assertIn('REDACTED', mvd_deleted.run_link)
+        self.assertIn('REDACTED', mvd_deleted.source)
+        self.assertIn('REDACTED', mvd_deleted.run_id)
 
     def test_get_model_version_download_uri(self):
         name = "test_for_update_MV"

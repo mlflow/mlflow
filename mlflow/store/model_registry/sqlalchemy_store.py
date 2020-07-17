@@ -443,13 +443,14 @@ class SqlAlchemyStore(AbstractStore):
 
     # CRUD API for ModelVersion objects
 
-    def create_model_version(self, name, source, run_id, tags=None):
+    def create_model_version(self, name, source, run_id, run_link=None, tags=None):
         """
         Create a new model version from given source and run ID.
 
         :param name: Registered model name.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model.
+        :param run_link: Link to the run from an MLflow tracking server that generated this model.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -460,7 +461,6 @@ class SqlAlchemyStore(AbstractStore):
                 return max([mv.version for mv in sql_registered_model.model_versions]) + 1
             else:
                 return 1
-
         _validate_model_name(name)
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
@@ -475,7 +475,7 @@ class SqlAlchemyStore(AbstractStore):
                                                     version=version,
                                                     creation_time=creation_time,
                                                     last_updated_time=creation_time,
-                                                    source=source, run_id=run_id)
+                                                    source=source, run_id=run_id, run_link=run_link)
                     tags_dict = {}
                     for tag in tags or []:
                         tags_dict[tag.key] = tag.value
@@ -493,6 +493,21 @@ class SqlAlchemyStore(AbstractStore):
                               '{} attempts.'.format(name, self.CREATE_MODEL_VERSION_RETRIES))
 
     @classmethod
+    def _get_model_version_from_db(cls, session, name, version, conditions, query_options=None):
+        if query_options is None:
+            query_options = []
+        versions = session.query(SqlModelVersion).options(*query_options).filter(*conditions).all()
+
+        if len(versions) == 0:
+            raise MlflowException('Model Version (name={}, version={}) '
+                                  'not found'.format(name, version), RESOURCE_DOES_NOT_EXIST)
+        if len(versions) > 1:
+            raise MlflowException('Expected only 1 model version with (name={}, version={}). '
+                                  'Found {}.'.format(name, version, len(versions)),
+                                  INVALID_STATE)
+        return versions[0]
+
+    @classmethod
     def _get_sql_model_version(cls, session, name, version, eager=False):
         """
         :param eager: If ``True``, eagerly loads the model version's tags.
@@ -508,16 +523,16 @@ class SqlAlchemyStore(AbstractStore):
             SqlModelVersion.version == version,
             SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL
         ]
-        versions = session.query(SqlModelVersion).options(*query_options).filter(*conditions).all()
+        return cls._get_model_version_from_db(session, name, version, conditions, query_options)
 
-        if len(versions) == 0:
-            raise MlflowException('Model Version (name={}, version={}) '
-                                  'not found'.format(name, version), RESOURCE_DOES_NOT_EXIST)
-        if len(versions) > 1:
-            raise MlflowException('Expected only 1 model version with (name={}, version={}). '
-                                  'Found {}.'.format(name, version, len(versions)),
-                                  INVALID_STATE)
-        return versions[0]
+    def _get_sql_model_version_including_deleted(self, name, version):
+        with self.ManagedSessionMaker() as session:
+            conditions = [
+                SqlModelVersion.name == name,
+                SqlModelVersion.version == version,
+            ]
+            sql_model_version = self._get_model_version_from_db(session, name, version, conditions)
+            return sql_model_version.to_mlflow_entity()
 
     def update_model_version(self, name, version, description=None):
         """
@@ -601,6 +616,7 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version.user_id = None
             sql_model_version.source = "REDACTED-SOURCE-PATH"
             sql_model_version.run_id = "REDACTED-RUN-ID"
+            sql_model_version.run_link = "REDACTED-RUN-LINK"
             sql_model_version.status_message = None
             self._save_to_db(session, [sql_registered_model, sql_model_version])
 
