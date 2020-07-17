@@ -12,6 +12,7 @@ import mlflow
 
 from mlflow.entities import RunStatus, ViewType, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
+from mlflow.projects import _parse_kubernetes_config
 from mlflow.projects import _resolve_experiment_id
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils import env
@@ -140,7 +141,8 @@ def test_run_local_git_repo(local_git_repo,
     run = mlflow_service.get_run(run_id)
 
     assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
-    assert run.data.params == {"use_start_run": use_start_run}
+
+    assert run.data.params == {"use_start_run": use_start_run, }
     assert run.data.metrics == {"some_key": 3}
 
     tags = run.data.tags
@@ -193,7 +195,7 @@ def test_run(use_start_run):
 
     assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
 
-    assert run.data.params == {"use_start_run": use_start_run}
+    assert run.data.params == {"use_start_run": use_start_run, }
     assert run.data.metrics == {"some_key": 3}
 
     tags = run.data.tags
@@ -248,15 +250,15 @@ def test_run_async():
     "mock_env,expected_conda,expected_activate",
     [
         ({"CONDA_EXE": "/abc/conda"}, "/abc/conda", "/abc/activate"),
-        ({mlflow.projects.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
+        ({mlflow.projects.utils.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
          "/some/dir/bin/activate")
     ]
 )
 def test_conda_path(mock_env, expected_conda, expected_activate):
     """Verify that we correctly determine the path to conda executables"""
     with mock.patch.dict("os.environ", mock_env):
-        assert mlflow.projects._get_conda_bin_executable("conda") == expected_conda
-        assert mlflow.projects._get_conda_bin_executable("activate") == expected_activate
+        assert mlflow.projects.utils.get_conda_bin_executable("conda") == expected_conda
+        assert mlflow.projects.utils.get_conda_bin_executable("activate") == expected_activate
 
 
 def test_cancel_run():
@@ -284,7 +286,7 @@ def test_parse_kubernetes_config():
     yaml_obj = None
     with open(kubernetes_config["kube-job-template-path"], 'r') as job_template:
         yaml_obj = yaml.safe_load(job_template.read())
-    kube_config = mlflow.projects._parse_kubernetes_config(kubernetes_config)
+    kube_config = _parse_kubernetes_config(kubernetes_config)
     assert kube_config["kube-context"] == kubernetes_config["kube-context"]
     assert kube_config["kube-job-template-path"] == kubernetes_config["kube-job-template-path"]
     assert kube_config["repository-uri"] == kubernetes_config["repository-uri"]
@@ -297,7 +299,7 @@ def test_parse_kubernetes_config_without_context():
         "kube-job-template-path": "kubernetes_job_template.yaml"
     }
     with pytest.raises(ExecutionException):
-        mlflow.projects._parse_kubernetes_config(kubernetes_config)
+        _parse_kubernetes_config(kubernetes_config)
 
 
 def test_parse_kubernetes_config_without_image_uri():
@@ -306,7 +308,7 @@ def test_parse_kubernetes_config_without_image_uri():
         "kube-job-template-path": "kubernetes_job_template.yaml"
     }
     with pytest.raises(ExecutionException):
-        mlflow.projects._parse_kubernetes_config(kubernetes_config)
+        _parse_kubernetes_config(kubernetes_config)
 
 
 def test_parse_kubernetes_config_invalid_template_job_file():
@@ -316,7 +318,7 @@ def test_parse_kubernetes_config_invalid_template_job_file():
         "kube-job-template-path": "file_not_found.yaml"
     }
     with pytest.raises(ExecutionException):
-        mlflow.projects._parse_kubernetes_config(kubernetes_config)
+        _parse_kubernetes_config(kubernetes_config)
 
 
 @pytest.mark.parametrize('synchronous', [True, False])

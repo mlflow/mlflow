@@ -8,8 +8,8 @@ from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
 from mlflow.pyfunc import ENV
 from mlflow.pyfunc import scoring_server
 
-from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable, \
-                            _get_conda_command
+from mlflow.projects.utils import get_or_create_conda_env, get_conda_bin_executable, \
+    get_conda_command
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.version import VERSION
@@ -101,7 +101,7 @@ class PyFuncBackend(FlavorBackend):
         if self._no_conda:
             # noconda => already in python and dependencies are assumed to be installed.
             return True
-        conda_path = _get_conda_bin_executable("conda")
+        conda_path = get_conda_bin_executable("conda")
         try:
             p = subprocess.Popen([conda_path, "--version"], stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE)
@@ -145,8 +145,8 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=N
     if command_env is None:
         command_env = os.environ
     env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
-    conda_env_name = _get_or_create_conda_env(conda_env_path, env_id=env_id)
-    activate_conda_env = _get_conda_command(conda_env_name)
+    conda_env_name = get_or_create_conda_env(conda_env_path, env_id=env_id)
+    activate_conda_env = get_conda_command(conda_env_name)
     if install_mlflow:
         if "MLFLOW_HOME" in os.environ:  # dev version
             install_mlflow = "pip install -e {} 1>&2".format(os.environ["MLFLOW_HOME"])
