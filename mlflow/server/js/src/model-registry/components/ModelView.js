@@ -27,8 +27,8 @@ export class ModelView extends React.Component {
   static propTypes = {
     model: PropTypes.shape({
       name: PropTypes.string.isRequired,
-      creation_timestamp: PropTypes.number.isRequired,
-      last_updated_timestamp: PropTypes.number.isRequired,
+      creation_timestamp: PropTypes.string.isRequired,
+      last_updated_timestamp: PropTypes.string.isRequired,
     }),
     modelVersions: PropTypes.arrayOf(
       PropTypes.shape({
