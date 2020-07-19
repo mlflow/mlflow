@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import pandas.testing
 import tensorflow as tf
-import iris_data_utils
+from tests.tensorflow import iris_data_utils
 
 import mlflow
 import mlflow.tensorflow
