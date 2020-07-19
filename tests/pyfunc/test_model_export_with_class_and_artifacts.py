@@ -3,6 +3,7 @@ import os
 import json
 import mock
 from subprocess import Popen, PIPE
+import shutil
 
 import numpy as np
 import pandas as pd
@@ -400,12 +401,23 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
         return sk_model.predict(model_input) * 2
 
     pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+
+    # Copy files required to use `ModuleScopedSklearnModel` in a temporary directory
+    code_path = os.path.join(str(tmpdir), 'tests')
+    for rel_path in ['pyfunc', 'helper_functions.py', '__init__.py']:
+        src = os.path.join(os.path.dirname(tests.__file__), rel_path)
+        dst = os.path.join(code_path, rel_path)
+        if os.path.isdir(src):
+            shutil.copytree(src, dst)
+        else:
+            shutil.copyfile(src, dst)
+
     mlflow.pyfunc.save_model(path=pyfunc_model_path,
                              artifacts={
                                  "sk_model": sklearn_model_path
                              },
                              python_model=ModuleScopedSklearnModel(test_predict),
-                             code_path=[os.path.dirname(tests.__file__)],
+                             code_path=[code_path],
                              conda_env=_conda_env())
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
 
