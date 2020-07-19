@@ -11,7 +11,6 @@ import pickle
 import pytest
 import numpy as np
 import pandas as pd
-import pandas.testing
 import sklearn.datasets as datasets
 import yaml
 
@@ -107,6 +106,7 @@ def get_subclassed_model_definition():
             self.linear = torch.nn.Linear(4, 1)
 
         def forward(self, x):
+            # pylint: disable=arguments-differ
             y_pred = self.linear(x)
             return y_pred
 
@@ -450,7 +450,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
 
 
 def test_save_model_with_wrong_codepaths_fails_corrrectly(
-        module_scoped_subclassed_model, model_path, data):
+        module_scoped_subclassed_model, model_path):
     with pytest.raises(TypeError) as exc_info:
         mlflow.pytorch.save_model(
             path=model_path,
@@ -502,6 +502,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     class TorchValidatorModel(pyfunc.PythonModel):
 
         def load_context(self, context):
+            # pylint: disable=attribute-defined-outside-init
             self.pytorch_model = mlflow.pytorch.load_model(context.artifacts["pytorch_model"])
 
         def predict(self, context, model_input):

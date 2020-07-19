@@ -11,7 +11,6 @@ def main(expected_env_name):
         assert actual_conda_env == expected_env_name,\
             "Script expected to be run from conda env %s but was actually run from env" \
             " %s" % (expected_env_name, actual_conda_env)
-        import gunicorn
     except ImportError:
         print("Import of gunicorn failed as expected")
         return

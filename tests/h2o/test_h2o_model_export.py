@@ -37,7 +37,7 @@ def h2o_iris_model():
         'feature2': list(iris.data[:, 1]),
         'target': list(map(lambda i: "Flower %d" % i, iris.target))
     })
-    train, test = data.split_frame(ratios=[.7])
+    train, test = data.split_frame(ratios=[.7])  # pylint: disable=unbalanced-tuple-unpacking
 
     h2o_gbm = H2OGradientBoostingEstimator(ntrees=10, max_depth=6)
     h2o_gbm.train(['feature1', 'feature2'], 'target', training_frame=train)

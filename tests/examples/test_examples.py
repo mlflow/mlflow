@@ -7,7 +7,6 @@ import shutil
 import mlflow
 from mlflow import cli
 from mlflow.utils import process
-from mlflow.utils.file_utils import path_to_local_file_uri
 from tests.integration.utils import invoke_cli_runner
 import pytest
 

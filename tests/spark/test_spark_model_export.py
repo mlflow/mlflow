@@ -66,7 +66,7 @@ def spark_context():
         try:
             spark = get_spark_session(conf)
             return spark.sparkContext
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             if num_tries >= max_tries - 1:
                 raise
             _logger.exception(e, "Attempt %s to create a SparkSession failed, retrying..." %
@@ -117,6 +117,7 @@ def spark_model_transformer(iris_df):
 
 @pytest.fixture(scope="session")
 def spark_model_estimator(iris_df, spark_context):
+    # pylint: disable=unused-argument
     feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
     features_df = assembler.transform(iris_spark_df)
@@ -358,7 +359,7 @@ def test_sparkml_estimator_model_log(tmpdir, spark_model_estimator):
 
 
 @pytest.mark.large
-def test_sparkml_model_log_invalid_args(spark_model_transformer, model_path):
+def test_sparkml_model_log_invalid_args(spark_model_transformer):
     with pytest.raises(MlflowException) as e:
         sparkm.log_model(
             spark_model=spark_model_transformer.model,

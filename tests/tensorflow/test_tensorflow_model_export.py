@@ -345,7 +345,7 @@ def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris
     # loaded from the specified MLflow model path
     shutil.rmtree(saved_tf_iris_model.path)
     with tf.Session(graph=tf.Graph()) as tf_sess:
-        signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
+        mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
 
 
 def test_log_model_with_non_keyword_args_fails(saved_tf_iris_model):

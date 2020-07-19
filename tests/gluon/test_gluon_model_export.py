@@ -113,7 +113,7 @@ def test_signature_and_examples_are_saved_correctly(gluon_model, model_data):
 
 
 @pytest.mark.large
-def test_model_log_load(gluon_model, model_data, model_path):
+def test_model_log_load(gluon_model, model_data):
     _, _, test_data = model_data
     expected = nd.argmax(gluon_model(test_data), axis=1)
 

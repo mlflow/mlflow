@@ -680,7 +680,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # create some registered models
         prefix = "test_for_search_"
         names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4a"]]
-        [self._rm_maker(name) for name in names]
+        for name in names:
+            self._rm_maker(name)
 
         # search with no filter should return all registered models
         rms, _ = self._search_registered_models(None)
