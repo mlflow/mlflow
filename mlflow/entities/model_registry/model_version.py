@@ -15,7 +15,8 @@ class ModelVersion(_ModelRegistryEntity):
 
     def __init__(self, name, version, creation_timestamp,
                  last_updated_timestamp=None, description=None, user_id=None, current_stage=None,
-                 source=None, run_id=None, status=None, status_message=None, tags=None):
+                 source=None, run_id=None, status=None, status_message=None, tags=None,
+                 run_link=None):
         super(ModelVersion, self).__init__()
         self._name = name
         self._version = version
@@ -26,6 +27,7 @@ class ModelVersion(_ModelRegistryEntity):
         self._current_stage = current_stage
         self._source = source
         self._run_id = run_id
+        self._run_link = run_link
         self._status = status
         self._status_message = status_message
         self._tags = {tag.key: tag.value for tag in (tags or [])}
@@ -77,6 +79,11 @@ class ModelVersion(_ModelRegistryEntity):
         return self._run_id
 
     @property
+    def run_link(self):
+        """String. MLflow run link referring to the exact run that generated this model version."""
+        return self._run_link
+
+    @property
     def status(self):
         """String. Current Model Registry status for this model."""
         return self._status
@@ -114,7 +121,8 @@ class ModelVersion(_ModelRegistryEntity):
                             proto.source,
                             proto.run_id,
                             ModelVersionStatus.to_string(proto.status),
-                            proto.status_message)
+                            proto.status_message,
+                            run_link=proto.run_link)
         for tag in proto.tags:
             model_version._add_tag(ModelVersionTag.from_proto(tag))
         return model_version
@@ -138,6 +146,8 @@ class ModelVersion(_ModelRegistryEntity):
             model_version.source = str(self.source)
         if self.run_id is not None:
             model_version.run_id = str(self.run_id)
+        if self.run_link is not None:
+            model_version.run_link = str(self.run_link)
         if self.status is not None:
             model_version.status = ModelVersionStatus.from_string(self.status)
         if self.status_message:
