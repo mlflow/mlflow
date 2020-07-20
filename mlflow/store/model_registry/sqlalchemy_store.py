@@ -443,7 +443,7 @@ class SqlAlchemyStore(AbstractStore):
 
     # CRUD API for ModelVersion objects
 
-    def create_model_version(self, name, source, run_id, tags=None):
+    def create_model_version(self, name, source, run_id, tags=None, user_id=None):
         """
         Create a new model version from given source and run ID.
 
@@ -452,6 +452,7 @@ class SqlAlchemyStore(AbstractStore):
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.
+        :param user_id: User ID from basic authentication that initiated version creation
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  created in the backend.
         """
@@ -475,6 +476,7 @@ class SqlAlchemyStore(AbstractStore):
                                                     version=version,
                                                     creation_time=creation_time,
                                                     last_updated_time=creation_time,
+                                                    user_id=user_id,
                                                     source=source, run_id=run_id)
                     tags_dict = {}
                     for tag in tags or []:
