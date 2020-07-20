@@ -374,7 +374,8 @@ def test_get_latest_versions(mock_get_request_message, mock_model_registry_store
         assert args == {"name": name, "stages": stages}
 
 
-def test_create_model_version(mock_get_request_message, mock_model_registry_store, mock_get_username):
+def test_create_model_version(mock_get_request_message, mock_model_registry_store,
+                              mock_get_username):
     run_id = uuid.uuid4().hex
     tags = [ModelVersionTag(key="key", value="value"),
             ModelVersionTag(key="anotherKey", value="some other value")]
