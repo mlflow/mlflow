@@ -2,30 +2,30 @@ Changelog
 =========
 1.10.0 (2020-07-20)
 -------------------
-MLflow 1.10.0 includes several major features and improvements:
+MLflow 1.10.0 includes several major features and improvements, in particular the release of
+several new model registry Python client APIs.
 
 Features:
 
-- Add `archive_existing_versions` to model registry client (#3095, @harupy)
-- Add support for `archive_existing_versions` (#3076, @harupy)
-- Add set_registry_uri, get_registry_uri (#3072, @sueann)
-- Add syntax highlighting to the artifact text viewer (#3041, @harupy)
-- [pagination] update listRM proto to have correct max_results value (#3027, @ankitmathur-db)
-- [pagination] followups to clean up search registered models (#3023, @ankitmathur-db)
-- Adding client API for searching registered models (#2966, @mparkhe)
-- [Search RM Pagination] switch listRegisteredModels to be paginated (#2939, @ankitmathur-db)
+- ``MlflowClient.transition_model_version_stage`` now supports an
+  ``archive_existing_versions`` argument for archiving existing staging or production model
+  versions when transitioning a new model version to staging or production (#3095, @harupy)
+- Added ``set_registry_uri``, ``get_registry_uri`` APIs. Setting the model registry URI causes
+  fluent APIs like ``mlflow.register_model`` to communicate with the model registry at the specified
+  URI (#3072, @sueann)
+- Added paginated ``MlflowClient.search_registered_models`` API (#2939, #3023, #3027 @ankitmathur-db; #2966, @mparkhe)
+- Added syntax highlighting when viewing text files (YAML etc) in the MLflow runs UI (#3041, @harupy)
 
 Bug fixes and documentation updates:
 
-- aws ecr get-login is deprecated since v1. Using  get-login-password instead, issue 3013 (#3036, @mrugeles)
-- fix bug in list_artifacts() (#3014, @Trollgeir)
-- Propagate credentials when running MLflow projects within a notebook (#3035, @smurching)
-- Java CliBasedArtifactRepository: Propagate Databricks host credentials (#3001, @dbczumar)
-- Fix model version description update in UI (#2969, @AnastasiaKol)
-- Remove use of too-new Pandas API (#2988, @aarondav)
-- [docs] Fetching a MLflow model from the registry (#3000, @andychow-db)
+- Removed usage of deprecated ``aws ecr get-login`` command in ``mlflow.sagemaker``.
+- Fixed bug where artifacts could not be viewed and downloaded from the artifact UI when using
+  Azure Blob Storage (#3014, @Trollgeir)
+- Databricks credentials are now propagated to the project subprocess when running MLflow projects
+  within a notebook (#3035, @smurching)
+- Added docs explaining how to fetching an MLflow model from the model registry (#3000, @andychow-db)
 
-Small bug fixes and doc updates (#3005, #2992, #2971, @mlflow-automation; #3112, #3102, #3089, #3103, #3096, #3090, #3049, #3080, #3070, #3078, #3083, #3051, #3050, #2875, #2982, #2949, @harupy; #3094, @zhidongqu-db; #3082, @ankitmathur-db; #3084, #3019, @smurching)
+Small bug fixes and doc updates (#3112, #3102, #3089, #3103, #3096, #3090, #3049, #3080, #3070, #3078, #3083, #3051, #3050, #2875, #2982, #2949, @harupy; #3094, @zhidongqu-db; #3082, @ankitmathur-db; #3084, #3019, @smurching)
 
 1.9.1 (2020-06-25)
 ------------------
