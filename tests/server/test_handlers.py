@@ -372,12 +372,15 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     run_id = uuid.uuid4().hex
     tags = [ModelVersionTag(key="key", value="value"),
             ModelVersionTag(key="anotherKey", value="some other value")]
+    run_link = "localhost:5000/path/to/run"
     mock_get_request_message.return_value = CreateModelVersion(name="model_1",
                                                                source="A/B",
                                                                run_id=run_id,
+                                                               run_link=run_link,
                                                                tags=[tag.to_proto()
                                                                      for tag in tags])
-    mv = ModelVersion(name="model_1", version="12", creation_timestamp=123, tags=tags)
+    mv = ModelVersion(name="model_1", version="12", creation_timestamp=123, tags=tags,
+                      run_link=run_link)
     mock_model_registry_store.create_model_version.return_value = mv
     resp = _create_model_version()
     _, args = mock_model_registry_store.create_model_version.call_args
@@ -385,6 +388,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     assert args["source"] == "A/B"
     assert args["run_id"] == run_id
     assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
+    assert args["run_link"] == run_link
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
 
 
