@@ -631,7 +631,7 @@ accepts the following data formats as input:
     aci_config = AciWebservice.deploy_configuration(cpu_cores=1, memory_gb=1)                                       
 
     # Register and deploy model to Azure Container Instance (ACI)
-    (webservice, model) = mlflow.azureml.deploy(model_uri='runs:/{}/{}'.format(run.id, model_path),
+    (webservice, model) = mlflow.azureml.deploy(model_uri='<your-model-uri>',
                                                 workspace=azure_workspace,
                                                 model_name='mymodelname', 
                                                 service_name='myservice', 
