@@ -10,8 +10,7 @@ import mlflow
 from mlflow.entities import ViewType
 from mlflow.projects.docker import _get_docker_image_uri
 from mlflow.projects import ExecutionException
-from mlflow.projects.backend.local import _get_docker_command,\
-    _get_docker_artifact_storage_cmd_and_envs
+from mlflow.projects.backend.local import _get_docker_command
 from mlflow.store.tracking import file_store
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND, MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID,
