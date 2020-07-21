@@ -89,7 +89,7 @@ Language Surface
 """"""""
 - ``language/r``: R APIs and clients
 - ``language/java``: Java APIs and clients
-- ``language/new``: Proposals for new languages in the clients
+- ``language/new``: Proposals for new client languages
 
 Integrations
 """"""""
