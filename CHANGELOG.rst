@@ -18,7 +18,7 @@ Features:
 
 Bug fixes and documentation updates:
 
-- Removed usage of deprecated ``aws ecr get-login`` command in ``mlflow.sagemaker``.
+- Removed usage of deprecated ``aws ecr get-login`` command in ``mlflow.sagemaker`` (#3036, @mrugeles)
 - Fixed bug where artifacts could not be viewed and downloaded from the artifact UI when using
   Azure Blob Storage (#3014, @Trollgeir)
 - Databricks credentials are now propagated to the project subprocess when running MLflow projects
