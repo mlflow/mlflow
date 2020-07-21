@@ -1,0 +1,41 @@
+version: 2.1
+
+jobs:
+  build_doc:
+    docker:
+      - image: circleci/python:3.6
+
+    steps:
+      - checkout
+      - run:
+          name: Install Java
+          command: |
+            sudo apt-get update
+            sudo apt-get install default-jdk -y
+            sudo apt-get install maven -y
+            java -version
+      - run:
+          name: Install Python dependencies
+          environment:
+            INSTALL_SMALL_PYTHON_DEPS: true
+            INSTALL_LARGE_PYTHON_DEPS: true
+          command: |
+            pip install --progress-bar off . \
+              -r ./travis/small-requirements.txt \
+              -r ./travis/large-requirements.txt \
+              sphinx==2.2.1 sphinx-click==2.3.0
+      - run:
+          name: Build documentation
+          working_directory: docs
+          environment:
+            JAVA_HOME: /usr/lib/jvm/default-java
+          command: |
+            make rsthtml SPHINXOPTS="-W --keep-going"
+            make javadocs
+      - store_artifacts:
+          path: docs/build/html
+
+workflows:
+  ci:
+    jobs:
+      - build_doc
