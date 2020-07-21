@@ -91,6 +91,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Install dependencies
       env:
+        INSTALL_SMALL_PYTHON_DEPS: true
         INSTALL_LARGE_PYTHON_DEPS: true
       run: |
         source ./travis/install-common-deps.sh
@@ -106,6 +107,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Install dependencies
       env:
+        INSTALL_SMALL_PYTHON_DEPS: true
         INSTALL_LARGE_PYTHON_DEPS: true
       run: |
         source ./travis/install-common-deps.sh
