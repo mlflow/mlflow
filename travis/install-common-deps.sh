@@ -23,10 +23,10 @@ pip install --upgrade pip==19.3.1
 
 # Install Python test dependencies only if we're running Python tests
 if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
-  pip install --quiet -r ./travis/small-requirements.txt
+  pip install -r ./travis/small-requirements.txt
 fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
-  pip install --quiet -r ./travis/large-requirements.txt
+  pip install -r ./travis/large-requirements.txt
   # Hack: make sure all spark-* scripts are executable. 
   # Conda installs 2 version spark-* scripts and makes the ones spark
   # uses not executable. This is a temporary fix to unblock the tests.
