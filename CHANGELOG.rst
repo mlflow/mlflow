@@ -25,7 +25,7 @@ Bug fixes and documentation updates:
   within a notebook (#3035, @smurching)
 - Added docs explaining how to fetching an MLflow model from the model registry (#3000, @andychow-db)
 
-Small bug fixes and doc updates (#3112, #3102, #3089, #3103, #3096, #3090, #3049, #3080, #3070, #3078, #3083, #3051, #3050, #2875, #2982, #2949, @harupy; #3094, @zhidongqu-db; #3082, @ankitmathur-db; #3084, #3019, @smurching)
+Small bug fixes and doc updates (#3112, #3102, #3089, #3103, #3096, #3090, #3049, #3080, #3070, #3078, #3083, #3051, #3050, #2875, #2982, #2949, #3121 @harupy; #3094, @zhidongqu-db; #3082, @ankitmathur-db; #3084, #3019, @smurching)
 
 1.9.1 (2020-06-25)
 ------------------
