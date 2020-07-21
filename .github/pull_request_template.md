@@ -26,6 +26,7 @@ Model Registry
 - [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
 - [ ] `area/projects`: MLproject format, project running backends
 - [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
+- [ ] `area/server`: MLflow server, UI server
 - [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
 
 Interface 
@@ -37,10 +38,12 @@ Interface
 Language 
 - [ ] `language/r`: R APIs and clients
 - [ ] `language/java`: Java APIs and clients
+- [ ] `language/new`: Proposals for new client languages
 
 Integrations
 - [ ] `integrations/azure`: Azure and Azure ML integrations
 - [ ] `integrations/sagemaker`: SageMaker integrations
+- [ ] `integrations/databricks`: Databricks integrations
 
 ### How should the PR be classified in the release notes? Choose one:
 
