@@ -35,7 +35,7 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
 fi
 
-# pip install .
+pip install .
 export MLFLOW_HOME=$(pwd)
 
 # Print current environment info
