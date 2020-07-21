@@ -30,11 +30,6 @@ mlflow_cli <- function(...,
     MLFLOW_BIN = mlflow_bin,
     MLFLOW_PYTHON_BIN = python_bin()
   ), env)
-  if (is.null(stderr_callback)) {
-    stderr_callback <- function(x, p) {
-      cat(x, file = stderr())
-    }
-  }
   with_envvar(env, {
     if (background) {
       result <- process$new(mlflow_bin, args = unlist(args), echo_cmd = verbose, supervise = TRUE)
