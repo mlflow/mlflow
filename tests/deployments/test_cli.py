@@ -74,6 +74,6 @@ def test_run_local():
     runner = CliRunner()
     res = runner.invoke(cli.run_local,
                         ['-f', f_flavor, '-m', f_model_uri, '-t', f_target, '--name', f_name])
-    assert f"Deployed locally at the key {f_name}" in res.stdout
-    assert f"using the model from {f_model_uri}." in res.stdout
-    assert f"It's flavor is {f_flavor} and config is {str({})}" in res.stdout
+    assert "Deployed locally at the key {}".format(f_name) in res.stdout
+    assert "using the model from {}.".format(f_model_uri) in res.stdout
+    assert "It's flavor is {} and config is {}".format(f_flavor, str({})) in res.stdout
