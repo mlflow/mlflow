@@ -94,3 +94,24 @@ class RegisteredModel(_ModelRegistryEntity):
         rmd.tags.extend([ProtoRegisteredModelTag(key=key, value=value)
                         for key, value in self._tags.items()])
         return rmd
+
+    def to_dictionary(self):
+        """
+        Converts mlflow.entities.model_registry.registered_model.RegisteredModel contents into a python dictionary
+        """
+        model_version_dict = {
+            "creation_timestamp": self.creation_timestamp,
+            "current_stage": self.current_stage,
+            "description": self.description,
+            "last_updated_timestamp": self.last_updated_timestamp,
+            "name": self.name,
+            "run_id": self.run_id,
+            "source": self.source,
+            "status": self.status,
+            "status_message": self.status_message,
+            "tags": self.tags,
+            "user_id": self.user_id,
+            "version": self.version}
+        return model_version_dict
+
+
