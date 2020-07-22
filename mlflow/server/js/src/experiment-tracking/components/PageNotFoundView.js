@@ -7,21 +7,5 @@ import { ErrorView } from '../../common/components/ErrorView';
 export class PageNotFoundView extends Component {
   render() {
     return <ErrorView statusCode={404} fallbackHomePageReactRoute={Routes.rootRoute} />
-    return (
-      <div>
-        <img
-          className='center'
-          alt='404 not found'
-          style={{ height: '300px', marginTop: '80px' }}
-          src={overflow}
-        />
-        <h1 className='center' style={{ paddingTop: '10px' }}>
-          Page not found
-        </h1>
-        <h2 className='center' style={{ color: '#888' }}>
-          Go back to <Link to={Routes.rootRoute}>the home page.</Link>
-        </h2>
-      </div>
-    );
   }
 }
