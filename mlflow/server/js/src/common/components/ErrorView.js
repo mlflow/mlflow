@@ -45,10 +45,7 @@ function ErrorImage(props) {
   }
 }
 
-const centerMessages = {
-  400: 'Bad Request',
-  404: 'Page Not Found',
-};
+ErrorImage.propTypes = { statusCode: PropTypes.number.isRequired };
 
 export class ErrorView extends Component {
   static propTypes = {
@@ -57,9 +54,14 @@ export class ErrorView extends Component {
     fallbackHomePageReactRoute: PropTypes.string,
   };
 
+  static centerMessages = {
+    400: 'Bad Request',
+    404: 'Page Not Found',
+  };
+
   render() {
     const { statusCode, subMessage, fallbackHomePageReactRoute } = this.props;
-    const centerMessage = centerMessages[statusCode] || 'HTTP Request Error';
+    const centerMessage = ErrorView.centerMessages[statusCode] || 'HTTP Request Error';
 
     return (
       <div>
