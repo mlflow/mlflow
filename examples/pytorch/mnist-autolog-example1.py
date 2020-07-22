@@ -92,7 +92,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         x, y = test_batch
         output = self.forward(x)
         a, y_hat = torch.max(output, dim=1)
-        test_acc = accuracy_score(y_hat.cpu(), y.cpu())
+        test_acc = accuracy_score(y_hat, y)
         return {"test_acc": torch.tensor(test_acc)}
 
     def test_epoch_end(self, outputs):
