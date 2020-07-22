@@ -541,8 +541,21 @@ class MlflowClient(object):
         new_source = source
         tracking_uri = self._tracking_client.tracking_uri
         if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
+            # Print out some info for user since the copy may take a while for large models.
+            _logger.info("=== Copying model files from the source location to the model " +
+                         " registry workspace ===")
             new_source = _upload_artifacts_to_databricks(source, run_id, tracking_uri,
                                                          self._registry_uri)
+            # NOTE: we can't easily delete the target temp location due to the async nature
+            # of the model version creation.
+            _logger.info(
+                """
+                === Source model files were copied to %s 
+                    in the model registry workspace. You may want to delete the files once the 
+                    model version is in 'READY' status. You can also find this location in the
+                    `source` field of the created model version. ===
+                """,
+                new_source)
         return self._get_registry_client().create_model_version(name, new_source, run_id, tags)
 
     @experimental

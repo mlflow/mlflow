@@ -190,6 +190,8 @@ def dbfs_artifact_repo_factory(artifact_uri):
         # If the DBFS FUSE mount is available, write artifacts directly to /dbfs/... using
         # local filesystem APIs
         # TODO(sueann): remove databricks profile info
+        # TODO(sueann): check that the host_uri is not default -> use DbfsRestArtifactRepository
+        # TODO(sueann): add tests for these cases
         file_uri = "file:///dbfs/{}".format(strip_prefix(cleaned_artifact_uri, "dbfs:/"))
         return LocalArtifactRepository(file_uri)
     return DbfsRestArtifactRepository(cleaned_artifact_uri)

@@ -22,7 +22,10 @@ def is_http_uri(uri):
 
 
 def is_databricks_uri(uri):
-    """Databricks URIs look like 'databricks' (default profile) or 'databricks://profile'"""
+    """
+    Databricks URIs look like 'databricks' (default profile) or 'databricks://profile'
+    or 'databricks://secret_scope:secret_key_prefix'.
+    """
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == 'databricks' or uri == 'databricks'
 
@@ -45,42 +48,47 @@ def get_db_info_from_uri(uri):
     return None, None
 
 
-# TODO(sueann): write unit tests
 def get_databricks_profile_uri_from_artifact_uri(uri):
-    parsed = urllib.parse.urlparse(uri).netloc
-    if not parsed.netloc or parsed.host != 'databricks':
+    parsed = urllib.parse.urlparse(uri)
+    if not parsed.netloc or parsed.hostname != 'databricks':
         return None
+    if not parsed.username:  # no profile or scope:key
+        return 'databricks'  # the default tracking/registry URI
+    # TODO: we may change the delimiter to ":" from "/" for key_prefix
     key_prefix = '/' + parsed.password if parsed.password else ''
     return 'databricks://' + parsed.username + key_prefix
 
 
-# TODO(sueann): write lots of unit tests
 def remove_databricks_profile_info_from_artifact_uri(artifact_uri):
-    # TODO(sueann): implement
-    return artifact_uri
+    parsed = urllib.parse.urlparse(artifact_uri)
+    if not parsed.netloc or parsed.hostname != 'databricks':
+        return artifact_uri
+    return urllib.parse.urlunparse(parsed._replace(netloc=''))
 
 
-# TODO(sueann): write lots of unit tests
 def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile_uri):
-    """
-    TODO(sueann)
-    :param artifact_uri:
-    :param databricks_profile_uri:
-    :return:
-    """
     if not databricks_profile_uri or not is_databricks_uri(databricks_profile_uri):
         return artifact_uri
     artifact_uri_parsed = urllib.parse.urlparse(artifact_uri)
-    scheme = artifact_uri_parsed.scheme
+    # Do not overwrite the authority section if there is already one
     if artifact_uri_parsed.netloc:
         return artifact_uri
+
+    scheme = artifact_uri_parsed.scheme
     if scheme == 'dbfs' or scheme == 'runs' or scheme == 'models':
-        db_profile_parts = urllib.parse.urlparse(databricks_profile_uri)
-        # TODO(sueann): validate path --
-        netloc = db_profile_parts.netloc + ":" + db_profile_parts.path + "@databricks"
-        artifact_uri_parsed._replace(netloc=netloc)
-        return urllib.parse.urlunparse(artifact_uri_parsed)
-    return artifact_uri
+        if databricks_profile_uri == 'databricks':
+            netloc = 'databricks'
+        else:
+            (profile, key_prefix) = get_db_info_from_uri(databricks_profile_uri)
+            if ':' in profile:
+                raise MlflowException("Unsupported Databricks profile name: %s." % profile +
+                                      " Profile names cannot contain ':'.")
+            prefix = ":" + key_prefix if key_prefix else ""
+            netloc = profile + prefix + "@databricks"
+        new_parsed = artifact_uri_parsed._replace(netloc=netloc)
+        return urllib.parse.urlunparse(new_parsed)
+    else:
+        return artifact_uri
 
 
 def extract_db_type_from_uri(db_uri):

@@ -106,5 +106,3 @@ def _upload_artifacts_to_databricks(source, run_id, source_host_uri=None,
         return dest_root + dest_dir  # new source
     finally:
         shutil.rmtree(local_dir)
-    # NOTE: we can't easily delete the target temp location due to the async nature
-    # of the model version creation.

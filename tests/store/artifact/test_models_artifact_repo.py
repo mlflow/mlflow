@@ -96,3 +96,10 @@ def test_models_artifact_repo_uses_repo_download_artifacts():
         models_repo.repo = Mock()
         models_repo.download_artifacts('artifact_path', 'dst_path')
         models_repo.repo.download_artifacts.assert_called_once()
+
+
+## TODO(sueann): add tests for - basically the same ones as test_runs_artifact_repo
+#   - get_underlying_uri (empty, profile, scope:key, error, non-dbfs)
+#   - on init, self.repo is set properly (empty, profile, scope:key, error, non-dbfs)
+#   - also add the URI with profile case to other method unit tests,
+#     especially ones that deal with URI

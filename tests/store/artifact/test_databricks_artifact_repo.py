@@ -461,3 +461,9 @@ class TestDatabricksArtifactRepository(object):
             with pytest.raises(MlflowException):
                 databricks_artifact_repo.download_artifacts(test_file.strpath)
             read_credentials_mock.assert_called_with(MOCK_RUN_ID, test_file.strpath)
+
+
+## TODO(sueann): add tests for
+#   - self.databricks_profile_uri set correctly (empty, profile, scope:key, error)
+#   - also add the URI with profile case to other method unit tests,
+#     especially one that uses _call_endpoint

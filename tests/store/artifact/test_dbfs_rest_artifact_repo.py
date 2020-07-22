@@ -228,3 +228,10 @@ def test_get_host_creds_from_default_store_rest_store():
     with mock.patch('mlflow.tracking._tracking_service.utils._get_store') as get_store_mock:
         get_store_mock.return_value = RestStore(lambda: MlflowHostCreds('http://host'))
         assert isinstance(_get_host_creds_from_default_store()(), MlflowHostCreds)
+
+
+# TODO(sueann): add tests
+#   - the one from the original PR that tests self.get_host_creds
+
+
+# TODO(sueann): add tests for dbfs_artifact_repo_factory

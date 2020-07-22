@@ -264,6 +264,8 @@ class TrackingServiceClient(object):
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
+        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
+        #   for DBFS artifact repositories to use the correct tracking URI.
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.log_artifacts(local_dir, artifact_path)
 
@@ -278,6 +280,8 @@ class TrackingServiceClient(object):
         """
         run = self.get_run(run_id)
         artifact_root = run.info.artifact_uri
+        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
+        #   for DBFS artifact repositories to use the correct tracking URI.
         artifact_repo = get_artifact_repository(artifact_root)
         return artifact_repo.list_artifacts(path)
 
@@ -297,6 +301,8 @@ class TrackingServiceClient(object):
         """
         run = self.get_run(run_id)
         artifact_root = run.info.artifact_uri
+        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
+        #   for DBFS artifact repositories to use the correct tracking URI.
         artifact_repo = get_artifact_repository(artifact_root)
         return artifact_repo.download_artifacts(path, dst_path)
 
