@@ -1,5 +1,32 @@
 Changelog
 =========
+1.10.0 (2020-07-20)
+-------------------
+MLflow 1.10.0 includes several major features and improvements, in particular the release of
+several new model registry Python client APIs.
+
+Features:
+
+- ``MlflowClient.transition_model_version_stage`` now supports an
+  ``archive_existing_versions`` argument for archiving existing staging or production model
+  versions when transitioning a new model version to staging or production (#3095, @harupy)
+- Added ``set_registry_uri``, ``get_registry_uri`` APIs. Setting the model registry URI causes
+  fluent APIs like ``mlflow.register_model`` to communicate with the model registry at the specified
+  URI (#3072, @sueann)
+- Added paginated ``MlflowClient.search_registered_models`` API (#2939, #3023, #3027 @ankitmathur-db; #2966, @mparkhe)
+- Added syntax highlighting when viewing text files (YAML etc) in the MLflow runs UI (#3041, @harupy)
+
+Bug fixes and documentation updates:
+
+- Removed usage of deprecated ``aws ecr get-login`` command in ``mlflow.sagemaker`` (#3036, @mrugeles)
+- Fixed bug where artifacts could not be viewed and downloaded from the artifact UI when using
+  Azure Blob Storage (#3014, @Trollgeir)
+- Databricks credentials are now propagated to the project subprocess when running MLflow projects
+  within a notebook (#3035, @smurching)
+- Added docs explaining how to fetching an MLflow model from the model registry (#3000, @andychow-db)
+
+Small bug fixes and doc updates (#3112, #3102, #3089, #3103, #3096, #3090, #3049, #3080, #3070, #3078, #3083, #3051, #3050, #2875, #2982, #2949, #3121 @harupy; #3094, @zhidongqu-db; #3082, @ankitmathur-db; #3084, #3019, @smurching)
+
 1.9.1 (2020-06-25)
 ------------------
 MLflow 1.9.1 is a patch release containing a number of bug-fixes and improvements:
