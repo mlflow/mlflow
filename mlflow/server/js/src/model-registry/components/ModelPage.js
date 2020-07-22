@@ -12,7 +12,7 @@ import { getModelVersions } from '../reducers';
 import { MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../constants';
 import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
 import { Spinner } from '../../common/components/Spinner';
-import { Error404View } from '../../common/components/Error404View';
+import { ErrorView } from '../../common/components/ErrorView';
 import { modelListPageRoute } from '../routes';
 import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
@@ -113,8 +113,9 @@ export class ModelPageImpl extends React.Component {
               clearInterval(this.pollIntervalId);
               if (Utils.shouldRender404(requests, [this.initgetRegisteredModelApiId])) {
                 return (
-                  <Error404View
-                    resourceName={`Model ${modelName}`}
+                  <ErrorView
+                    statusCode={404}
+                    resourceName={`Model ${modelName} does not exist`}
                     fallbackHomePageReactRoute={modelListPageRoute}
                   />
                 );
