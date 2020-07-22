@@ -216,6 +216,29 @@ def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
 
 
 @pytest.mark.large
+def test_log_model_with_signature_and_examples(iris_df, spark_model_iris):
+    _, _, iris_spark_df = iris_df
+    signature_ = infer_signature(iris_spark_df)
+    example_ = iris_spark_df.toPandas().head(3)
+    artifact_path = "model"
+    for signature in (None, signature_):
+        for example in (None, example_):
+            with mlflow.start_run():
+                sparkm.log_model(spark_model_iris.model,
+                                 artifact_path=artifact_path,
+                                 signature=signature,
+                                 input_example=example)
+                artifact_uri = mlflow.get_artifact_uri()
+                model_path = os.path.join(artifact_uri, artifact_path)
+                mlflow_model = Model.load(model_path)
+                assert signature == mlflow_model.signature
+                if example is None:
+                    assert mlflow_model.saved_input_example_info is None
+                else:
+                    assert all((_read_example(mlflow_model, model_path) == example).all())
+
+
+@pytest.mark.large
 def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_env):
     sparkm.save_model(spark_model_estimator.model, path=model_path, conda_env=spark_custom_env)
     # score and compare the reloaded sparkml model
