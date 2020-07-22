@@ -7,12 +7,8 @@ import { getUUID } from '../../common/utils/ActionUtils';
 import Utils from '../../common/utils/Utils';
 import { AntdTableSortOrder, REGISTERED_MODELS_SEARCH_NAME_FIELD } from '../constants';
 import { searchRegisteredModelsApi } from '../actions';
-<<<<<<< HEAD
-=======
 import { Spinner } from '../../common/components/Spinner';
 import { ErrorView } from '../../common/components/ErrorView';
-
->>>>>>> 8ef52e06... Use ErrorView
 
 class ModelListPage extends React.Component {
   static propTypes = {
@@ -39,7 +35,10 @@ class ModelListPage extends React.Component {
   // Loads the initial set of models.
   loadModels(isInitialLoading = false) {
     const { orderByKey, orderByAsc, searchInput } = this.state;
-    this.loadPage(1, searchInput, orderByKey, orderByAsc, undefined, (e) => { throw e }, isInitialLoading);
+    const throwError = (e) => {
+      throw e;
+    };
+    this.loadPage(1, searchInput, orderByKey, orderByAsc, undefined, throwError, isInitialLoading);
   }
 
   resetHistoryState() {
