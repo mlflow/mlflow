@@ -174,7 +174,8 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     if is_local_uri(run_root_artifact_uri):
         return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
                          conda_env=conda_env, dfs_tmpdir=dfs_tmpdir, sample_input=sample_input,
-                         registered_model_name=registered_model_name)
+                         registered_model_name=registered_model_name,
+                         signature=signature, input_example=input_example)
     # If Spark cannot write directly to the artifact repo, defer to Model.log() to persist the
     # model
     model_dir = os.path.join(run_root_artifact_uri, artifact_path)
