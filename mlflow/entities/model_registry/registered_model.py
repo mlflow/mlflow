@@ -97,7 +97,8 @@ class RegisteredModel(_ModelRegistryEntity):
 
     def to_dictionary(self):
         """
-        Converts mlflow.entities.model_registry.registered_model.RegisteredModel contents into a python dictionary
+        Converts mlflow.entities.model_registry.registered_model.RegisteredModel
+        contents into a python dictionary
         """
         model_version_dict = {
             "creation_timestamp": self.creation_timestamp,
@@ -113,5 +114,3 @@ class RegisteredModel(_ModelRegistryEntity):
             "user_id": self.user_id,
             "version": self.version}
         return model_version_dict
-
-
