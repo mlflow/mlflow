@@ -116,7 +116,7 @@ def _infer_numpy_array(col: np.ndarray) -> DataType:
             self.seen_instances = 0
 
         def __call__(self, x):
-            if x is None:
+            if x is None or np.isnan(x):
                 return True
             elif any(map(lambda c: isinstance(x, c), self.classes)):
                 self.seen_instances += 1
