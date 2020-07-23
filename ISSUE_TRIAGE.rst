@@ -75,7 +75,7 @@ Components
 - ``area/models``: MLmodel format, model serialization/deserialization, flavors
 - ``area/projects``: MLproject format, project execution backends
 - ``area/scoring``: Local serving, model deployment tools, Spark UDFs
-- ``area/server``: MLflow server, UI server
+- ``area/server-infra``: MLflow server, Javascript dev server
 - ``area/tracking``: Tracking Service, tracking client APIs, autologging
 
 Interface Surface
