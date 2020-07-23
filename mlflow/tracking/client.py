@@ -17,6 +17,10 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.utils import experimental
+from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri, \
+    is_in_databricks_notebook, get_workspace_info_from_dbutils, \
+    get_workspace_info_from_databricks_secrets
+from mlflow.utils.uri import is_databricks_uri, construct_run_url
 
 _logger = logging.getLogger(__name__)
 
@@ -488,7 +492,7 @@ class MlflowClient(object):
     # Model Version Methods
 
     @experimental
-    def create_model_version(self, name, source, run_id, tags=None):
+    def create_model_version(self, name, source, run_id, tags=None, run_link=None):
         """
         Create a new model version from given source or run ID.
 
@@ -497,10 +501,35 @@ class MlflowClient(object):
         :param run_id: Run ID from MLflow tracking server that generated the model
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
+        :param run_link: Link to the run from an MLflow tracking server that generated this model.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
-        return self._get_registry_client().create_model_version(name, source, run_id, tags)
+        tracking_uri = self._tracking_client.tracking_uri
+        # for Databricks backends, we support automatically populating the run link field
+        if is_databricks_uri(tracking_uri) and tracking_uri != self._registry_uri and not run_link:
+            # if using the default Databricks tracking URI and in a notebook, we can automatically
+            # figure out the run-link.
+            if is_databricks_default_tracking_uri(tracking_uri) and is_in_databricks_notebook():
+                # use DBUtils to determine workspace information.
+                workspace_host, workspace_id = get_workspace_info_from_dbutils()
+            else:
+                # in this scenario, we're not able to automatically extract the workspace ID
+                # to proceed, and users will need to pass in a databricks profile with the scheme:
+                # databricks://scope/prefix and store the host and workspace-ID as a secret in the
+                # Databricks Secret Manager with scope=<scope> and key=<prefix>-workspaceid.
+                workspace_host, workspace_id = \
+                    get_workspace_info_from_databricks_secrets(tracking_uri)
+            # retrieve experiment ID of the run for the URL
+            experiment_id = self.get_run(run_id).info.experiment_id
+            if workspace_host and run_id and experiment_id:
+                run_link = construct_run_url(workspace_host, experiment_id, run_id, workspace_id)
+        return self._get_registry_client().create_model_version(
+            name=name,
+            source=source,
+            run_id=run_id,
+            tags=tags,
+            run_link=run_link)
 
     @experimental
     def update_model_version(self, name, version, description=None):
