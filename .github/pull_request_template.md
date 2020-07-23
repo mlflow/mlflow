@@ -26,7 +26,7 @@ Model Registry
 - [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
 - [ ] `area/projects`: MLproject format, project running backends
 - [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
-- [ ] `area/server-infra`: MLflow server, Javascript dev server
+- [ ] `area/server-infra`: MLflow server, JavaScript dev server
 - [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
 
 Interface 
