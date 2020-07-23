@@ -14,7 +14,7 @@ describe('ErrorView', () => {
     expect(title.name()).toBe('h1');
     expect(title.text()).toBe('Bad Request');
     expect(subtitle.name()).toBe('h2');
-    expect(subtitle.text()).toMatch(/^Go back to/)
+    expect(subtitle.text()).toMatch(/^Go back to/);
     expect(
       subtitle
         .find('ForwardRef')
@@ -35,7 +35,7 @@ describe('ErrorView', () => {
     expect(title.name()).toBe('h1');
     expect(title.text()).toBe('Page Not Found');
     expect(subtitle.name()).toBe('h2');
-    expect(subtitle.text()).toMatch(/^Go back to/)
+    expect(subtitle.text()).toMatch(/^Go back to/);
     expect(
       subtitle
         .find('ForwardRef')
