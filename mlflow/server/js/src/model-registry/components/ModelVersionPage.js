@@ -144,7 +144,7 @@ export class ModelVersionPageImpl extends React.Component {
                 return (
                   <ErrorView
                     statusCode={404}
-                    resourceName={`Model ${modelName} v${version} does not exist`}
+                    subMessage={`Model ${modelName} v${version} does not exist`}
                     fallbackHomePageReactRoute={modelListPageRoute}
                   />
                 );

@@ -115,7 +115,7 @@ export class ModelPageImpl extends React.Component {
                 return (
                   <ErrorView
                     statusCode={404}
-                    resourceName={`Model ${modelName} does not exist`}
+                    subMessage={`Model ${modelName} does not exist`}
                     fallbackHomePageReactRoute={modelListPageRoute}
                   />
                 );
