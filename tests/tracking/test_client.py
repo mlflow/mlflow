@@ -10,7 +10,6 @@ from mlflow.tracking import set_registry_uri, MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
-from mlflow.utils import databricks_utils
 from mlflow.utils.uri import construct_run_url
 
 
@@ -257,8 +256,6 @@ def test_registry_uri_from_implicit_tracking_uri():
 
 
 def test_create_model_version_normal(mock_registry_store):
-    # mock lots of functions
-    experiment_id = 'test-exp-id'
     run_id = 'runid'
     client = MlflowClient(tracking_uri='localhost:5000')
     mock_registry_store.create_model_version.return_value = \
@@ -273,7 +270,6 @@ def test_create_model_version_normal(mock_registry_store):
 
 
 def test_create_model_version_run_link_in_notebook_with_default_profile(mock_registry_store):
-    # mock lots of functions
     experiment_id = 'test-exp-id'
     hostname = 'https://workspace.databricks.com/'
     workspace_id = '10002'
@@ -297,7 +293,6 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
 
 
 def test_create_model_version_run_link_with_configured_profile(mock_registry_store):
-    # mock lots of functions
     experiment_id = 'test-exp-id'
     hostname = 'https://workspace.databricks.com/'
     workspace_id = '10002'
