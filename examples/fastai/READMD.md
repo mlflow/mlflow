@@ -22,7 +22,7 @@ You can run the `fastai` example with default or supplied arguments in three way
  
  `python train.py --lr=0.02 --epochs=3`
 
-2. Run from the current git directory as a MLflow Project
+2. Run from the current git directory as an MLflow Project
 
  `mlflow run . -e main`
  
