@@ -82,28 +82,27 @@ def test_schema_inference_on_numpy_array(pandas_df_with_all_types):
     assert schema == Schema([ColSpec(DataType.double)])
 
     # test bytes
-    schema = _infer_schema(np.array([bytes([1])], dtype=np.bytes_))
-
+    schema = _infer_schema(np.array([bytes([1]), np.nan], dtype=np.bytes_))
     assert schema == Schema([ColSpec(DataType.binary)])
-    schema = _infer_schema(np.array([bytearray([1])], dtype=np.bytes_))
+    schema = _infer_schema(np.array([bytearray([1]), np.nan], dtype=np.bytes_))
     assert schema == Schema([ColSpec(DataType.binary)])
 
     # test string
-    schema = _infer_schema(np.array(["a"], dtype=np.str))
+    schema = _infer_schema(np.array(["a", np.nan], dtype=np.str))
     assert schema == Schema([ColSpec(DataType.string)])
 
     # test boolean
-    schema = _infer_schema(np.array([True], dtype=np.bool))
+    schema = _infer_schema(np.array([True, np.nan], dtype=np.bool))
     assert schema == Schema([ColSpec(DataType.boolean)])
 
     # test ints
     for t in [np.uint8, np.uint16, np.int8, np.int16, np.int32]:
-        schema = _infer_schema(np.array([1, 2, 3], dtype=t))
+        schema = _infer_schema(np.array([1, 2, 3, np.nan], dtype=t))
         assert schema == Schema([ColSpec("integer")])
 
     # test longs
     for t in [np.uint32, np.int64]:
-        schema = _infer_schema(np.array([1, 2, 3], dtype=t))
+        schema = _infer_schema(np.array([1, 2, 3, np.nan], dtype=t))
         assert schema == Schema([ColSpec("long")])
 
     # unsigned long is unsupported
@@ -112,11 +111,11 @@ def test_schema_inference_on_numpy_array(pandas_df_with_all_types):
 
     # test floats
     for t in [np.float16, np.float32]:
-        schema = _infer_schema(np.array([1.1, 2.2, 3.3], dtype=t))
+        schema = _infer_schema(np.array([1.1, 2.2, 3.3, np.nan], dtype=t))
         assert schema == Schema([ColSpec("float")])
 
     # test doubles
-    schema = _infer_schema(np.array([1.1, 2.2, 3.3], dtype=np.float64))
+    schema = _infer_schema(np.array([1.1, 2.2, 3.3, np.nan], dtype=np.float64))
     assert schema == Schema([ColSpec("double")])
 
     # unsupported
