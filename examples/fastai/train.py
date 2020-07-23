@@ -4,7 +4,7 @@
 # Modified here to show mlflow.fastai.autolog() capabilities
 #
 import argparse
-from fastai.vision import untar_data, ImageDataBunch, models, URLs, imagenet_stats, rand_pad, cnn_learner, accuracy
+import fastai.vision as vis
 import mlflow.fastai
 
 def parse_args():
@@ -20,14 +20,14 @@ def main():
     args = parse_args()
 
     # Download and untar the MNIST data set
-    path = untar_data(URLs.MNIST_SAMPLE)
+    path = vis.untar_data(vis.URLs.MNIST_SAMPLE)
 
     # Prepare, transform, and normalize the data
-    data = ImageDataBunch.from_folder(path, ds_tfms=(rand_pad(2, 28), []), bs=64)
-    data.normalize(imagenet_stats)
+    data = vis.ImageDataBunch.from_folder(path, ds_tfms=(vis.rand_pad(2, 28), []), bs=64)
+    data.normalize(vis.imagenet_stats)
 
     # Train and fit the Learner model
-    learn = cnn_learner(data, models.resnet18, metrics=accuracy)
+    learn = vis.cnn_learner(data, vis.models.resnet18, metrics=vis.accuracy)
 
     # Enable auto logging
     mlflow.fastai.autolog()
