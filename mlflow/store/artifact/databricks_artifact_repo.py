@@ -21,7 +21,8 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path, yield_file_i
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
 from mlflow.utils.uri import extract_and_normalize_path, \
-    get_databricks_profile_uri_from_artifact_uri, is_databricks_acled_artifacts_uri
+    get_databricks_profile_uri_from_artifact_uri, is_databricks_acled_artifacts_uri, \
+    remove_databricks_profile_info_from_artifact_uri
 
 _logger = logging.getLogger(__name__)
 _PATH_PREFIX = "/api/2.0"
@@ -53,10 +54,14 @@ class DatabricksArtifactRepository(ArtifactRepository):
             raise MlflowException(message=('Artifact URI incorrect. Expected path prefix to be'
                                            ' databricks/mlflow-tracking/path/to/artifact/..'),
                                   error_code=INVALID_PARAMETER_VALUE)
-        # TODO(sueann): remove the databricks profile info from the uri then call super with it
-        super(DatabricksArtifactRepository, self).__init__(artifact_uri)
-        self.run_id = self._extract_run_id(self.artifact_uri)
+        # The dbfs:/ path ultimately used for artifact operations should not contain the
+        # Databricks profile info.
+        artifact_uri_no_db_profile = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
+        super(DatabricksArtifactRepository, self).__init__(artifact_uri_no_db_profile)
+        self.databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri) \
+                                      or mlflow.tracking.get_tracking_uri()
 
+        self.run_id = self._extract_run_id(self.artifact_uri)
         # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
         # the path of `artifact_uri` relative to the MLflow Run's artifact root
         # (the `run_relative_artifact_repo_root_path`). All operations performed on this artifact
@@ -70,8 +75,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # If the paths are equal, then use empty string over "./" for ListArtifact compatibility.
         self.run_relative_artifact_repo_root_path = \
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
-        self.databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri) \
-                                      or mlflow.tracking.get_tracking_uri()
 
     @staticmethod
     def _extract_run_id(artifact_uri):

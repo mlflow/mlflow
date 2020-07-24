@@ -11,6 +11,7 @@ from mlflow.utils.uri import (
     is_local_uri, remove_databricks_profile_info_from_artifact_uri
 )
 
+
 def test_extract_db_type_from_uri():
     uri = "{}://username:password@host:port/database"
     for legit_db in DATABASE_ENGINES:
@@ -26,7 +27,6 @@ def test_extract_db_type_from_uri():
             extract_db_type_from_uri(unsupported_db)
 
 
-# TODO(sueann): make sure 'databricks' tracking URI works okay with the new factor
 @pytest.mark.parametrize("server_uri, result", [
     ('databricks://aAbB', ('aAbB', None)),
     ('databricks://aAbB/', ('aAbB', None)),
@@ -262,10 +262,13 @@ def test_is_databricks_acled_artifacts_uri():
         'dbfs:/databricks/mlflow//EXP_ID//RUN_ID///artifacts//')
 
 
-# TODO(sueann): any error cases?
 @pytest.mark.parametrize("uri, result", [
+    # URIs with no databricks profile info -> return None
     ('ftp://user:pass@realhost:port/path/to/nowhere', None),
     ('dbfs:/path/to/nowhere', None),
+    ('dbfs://nondatabricks/path/to/nowhere', None),
+    ('dbfs://incorrect:netloc:format/path/to/nowhere', None),
+    # URIs with legit databricks profile info
     ('dbfs://databricks', 'databricks'),
     ('dbfs://databricks/', 'databricks'),
     ('dbfs://databricks/path/to/nowhere', 'databricks'),
@@ -276,6 +279,9 @@ def test_is_databricks_acled_artifacts_uri():
     ('dbfs://profile@databricks:port/path/to/nowhere', 'databricks://profile'),
     ('dbfs://scope:key_prefix@databricks/path/abc', 'databricks://scope/key_prefix'),
     ('dbfs://scope:key_prefix@databricks:port/path/abc', 'databricks://scope/key_prefix'),
+    # Treats secret key prefixes with ":" to be valid
+    ('dbfs://incorrect:netloc:format@databricks/path/a', 'databricks://incorrect/netloc:format'),
+    # Doesn't care about the scheme of the artifact URI
     ('runs://scope:key_prefix@databricks/path/abc', 'databricks://scope/key_prefix'),
     ('models://scope:key_prefix@databricks/path/abc', 'databricks://scope/key_prefix'),
     ('s3://scope:key_prefix@databricks/path/abc', 'databricks://scope/key_prefix')
@@ -284,12 +290,15 @@ def test_get_databricks_profile_uri_from_artifact_uri(uri, result):
     assert get_databricks_profile_uri_from_artifact_uri(uri) == result
 
 
-# TODO(sueann): any error cases?
 @pytest.mark.parametrize("uri, result", [
+    # URIs with no databricks profile info should stay the same
     ('ftp://user:pass@realhost:port/path/nowhere', 'ftp://user:pass@realhost:port/path/nowhere'),
     ('dbfs:/path/to/nowhere', 'dbfs:/path/to/nowhere'),
-    ('dbfs://databricks', 'dbfs:/'),
-    ('dbfs://databricks/', 'dbfs:'),
+    ('dbfs://nondatabricks/path/to/nowhere', 'dbfs://nondatabricks/path/to/nowhere'),
+    ('dbfs://incorrect:netloc:format/path/to/nowhere', 'dbfs://incorrect:netloc:format/path/to/nowhere'),
+    # URIs with legit databricks profile info
+    ('dbfs://databricks', 'dbfs:'),
+    ('dbfs://databricks/', 'dbfs:/'),
     ('dbfs://databricks/path/to/nowhere', 'dbfs:/path/to/nowhere'),
     ('dbfs://databricks:port/path/to/nowhere', 'dbfs:/path/to/nowhere'),
     ('dbfs://@databricks/path/to/nowhere', 'dbfs:/path/to/nowhere'),
@@ -298,6 +307,9 @@ def test_get_databricks_profile_uri_from_artifact_uri(uri, result):
     ('dbfs://profile@databricks:port/path/to/nowhere', 'dbfs:/path/to/nowhere'),
     ('dbfs://scope:key_prefix@databricks/path/abc', 'dbfs:/path/abc'),
     ('dbfs://scope:key_prefix@databricks:port/path/abc', 'dbfs:/path/abc'),
+    # Treats secret key prefixes with ":" to be valid
+    ('dbfs://incorrect:netloc:format@databricks/path/to/nowhere', 'dbfs:/path/to/nowhere'),
+    # Doesn't care about the scheme of the artifact URI
     ('runs://scope:key_prefix@databricks/path/abc', 'runs:/path/abc'),
     ('models://scope:key_prefix@databricks/path/abc', 'models:/path/abc'),
     ('s3://scope:key_prefix@databricks/path/abc', 's3:/path/abc')
@@ -342,10 +354,26 @@ def test_add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri, 
     add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri) == result
 
 
-# TODO(sueann): any other error cases?
 @pytest.mark.parametrize("artifact_uri, profile_uri", [
     ('dbfs:/path/a/b', 'databricks://not:legit:auth')
 ])
 def test_add_databricks_profile_info_to_artifact_uri_errors(artifact_uri, profile_uri):
     with pytest.raises(MlflowException):
         add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri)
+
+
+@pytest.mark.parametrize("uri, result", [
+    ('dbfs:/path/a/b', True),
+    ('dbfs://databricks/a/b', True),
+    ('dbfs://@databricks/a/b', True),
+    ('dbfs://profile@databricks/a/b', True),
+    ('dbfs://scope:key@databricks/a/b', True),
+    ('dbfs://profile@notdatabricks/a/b', False),
+    ('dbfs://scope:key/a/b', False),
+    ('dbfs://notdatabricks/a/b', False),
+    ('s3:/path/a/b', False),
+    ('ftp://user:pass@host:port/path/a/b', False),
+    ('ftp://user:pass@databricks/path/a/b', False),
+])
+def test_is_valid_dbfs_uri(uri, result):
+    assert is_valid_dbfs_uri(uri) == result

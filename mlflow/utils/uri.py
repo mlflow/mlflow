@@ -49,6 +49,11 @@ def get_db_info_from_uri(uri):
 
 
 def get_databricks_profile_uri_from_artifact_uri(uri):
+    """
+    Retrieves the netloc portion of the URI as a ``databricks://`` URI,
+    if it is a proper Databricks profile specification, e.g.
+    ``profile@databricks`` or ``secret_scope:key_prefix@databricks``.
+    """
     parsed = urllib.parse.urlparse(uri)
     if not parsed.netloc or parsed.hostname != 'databricks':
         return None
@@ -60,6 +65,11 @@ def get_databricks_profile_uri_from_artifact_uri(uri):
 
 
 def remove_databricks_profile_info_from_artifact_uri(artifact_uri):
+    """
+    Only removes the netloc portion of the URI if it is a Databricks
+    profile specification, e.g.
+    ``profile@databricks`` or ``secret_scope:key_prefix@databricks``.
+    """
     parsed = urllib.parse.urlparse(artifact_uri)
     if not parsed.netloc or parsed.hostname != 'databricks':
         return artifact_uri
@@ -67,6 +77,9 @@ def remove_databricks_profile_info_from_artifact_uri(artifact_uri):
 
 
 def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile_uri):
+    """
+    Throws an exception if ``databricks_profile_uri`` is not valid.
+    """
     if not databricks_profile_uri or not is_databricks_uri(databricks_profile_uri):
         return artifact_uri
     artifact_uri_parsed = urllib.parse.urlparse(artifact_uri)
@@ -206,3 +219,11 @@ def construct_run_url(hostname, experiment_id, run_id, workspace_id=None):
     return prefix + '#mlflow/experiments/{experiment_id}/runs/{run_id}'.format(
         experiment_id=experiment_id,
         run_id=run_id)
+
+
+def is_valid_dbfs_uri(uri):
+    parsed = urllib.parse.urlparse(uri)
+    if parsed.scheme != 'dbfs':
+        return False
+    db_profile_uri = get_databricks_profile_uri_from_artifact_uri(uri)
+    return not parsed.netloc or db_profile_uri is not None

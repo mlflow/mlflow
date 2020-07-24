@@ -70,7 +70,6 @@ class ModelsArtifactRepository(ArtifactRepository):
             version = latest[0].version
         databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(uri)
         download_uri = client.get_model_version_download_uri(name, version)
-        # TODO(sueann): write unit tests for databricks_profile_uri
         return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri)
 
     def log_artifact(self, local_file, artifact_path=None):

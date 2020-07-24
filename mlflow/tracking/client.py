@@ -550,8 +550,8 @@ class MlflowClient(object):
             # of the model version creation.
             _logger.info(
                 """
-                === Source model files were copied to %s 
-                    in the model registry workspace. You may want to delete the files once the 
+                === Source model files were copied to %s
+                    in the model registry workspace. You may want to delete the files once the
                     model version is in 'READY' status. You can also find this location in the
                     `source` field of the created model version. ===
                 """,

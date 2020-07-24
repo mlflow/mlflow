@@ -34,7 +34,6 @@ class RunsArtifactRepository(ArtifactRepository):
         tracking_uri = get_databricks_profile_uri_from_artifact_uri(runs_uri)
         uri = get_artifact_uri(run_id, artifact_path, tracking_uri)
         assert not RunsArtifactRepository.is_runs_uri(uri)  # avoid an infinite loop
-        # TODO(sueann): write unit tests for tracking_uri
         return add_databricks_profile_info_to_artifact_uri(uri, tracking_uri)
 
     @staticmethod
@@ -44,7 +43,6 @@ class RunsArtifactRepository(ArtifactRepository):
             raise MlflowException(
                 "Not a proper runs:/ URI: %s. " % run_uri +
                 "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'")
-        # hostname = parsed.netloc  # TODO: support later
 
         path = parsed.path
         if not path.startswith('/') or len(path) <= 1:
