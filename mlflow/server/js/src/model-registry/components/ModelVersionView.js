@@ -43,7 +43,7 @@ export class ModelVersionView extends React.Component {
 
   handleDeleteConfirm = () => {
     const { modelName, modelVersion, history } = this.props;
-    const version = modelVersion.version;
+    const { version } = modelVersion;
     this.showConfirmLoading();
     this.props
       .deleteModelVersionApi(modelName, version)

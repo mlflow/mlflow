@@ -275,13 +275,13 @@ const getMetricValues = (latestMetrics, getMetricPagePath) => {
   return Object.values(latestMetrics)
     .sort()
     .map((m) => {
-      const key = m.key;
+      const { key, value } = m;
       return [
         <Link to={getMetricPagePath(key)} title='Plot chart'>
           {key}
           <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
         </Link>,
-        <span title={m.value}>{Utils.formatMetric(m.value)}</span>,
+        <span title={value}>{Utils.formatMetric(value)}</span>,
       ];
     });
 };
