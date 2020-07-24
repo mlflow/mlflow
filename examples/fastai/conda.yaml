@@ -1,11 +1,11 @@
+name: fastai-example
 channels:
-- defaults
-- anaconda
-- conda-forge
+  - defaults
+  - anaconda
+  - conda-forge
 dependencies:
-- python=3.7.5
-- pip
-- pip:
-  - mlflow
-  - fastai==1.0.61
-name: mlflow-env
+  - python=3.7.5
+  - pip
+  - pip:
+    - mlflow>=1.9.0
+    - fastai==1.0.61
