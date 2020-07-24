@@ -19,9 +19,10 @@
     align-items: center;
     position: sticky;
     z-index: 1001;
-    top: 0px;
-    background: #fafafa;
+    top: 0;
     padding-bottom: 15px;
+    background-color: rgba(250,250,250,0.6);
+    padding-top: 10px;
 }
 
 .document {
