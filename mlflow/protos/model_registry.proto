@@ -361,6 +361,9 @@ message ModelVersion {
 
   // Tags: Additional metadata key-value pairs for this ``model_version``.
   repeated ModelVersionTag tags = 12;
+
+  // Run Link: Direct link to the run that generated this version
+  optional string run_link = 13;
 }
 
 message CreateRegisteredModel {
@@ -502,6 +505,10 @@ message CreateModelVersion {
 
   // Additional metadata for model version.
   repeated ModelVersionTag tags = 4;
+
+  // MLflow run link - this is the exact link of the run that generated this model version,
+  // potentially hosted at another instance of MLflow.
+  optional string run_link = 5;
 
   message Response {
     // Return new version number generated for this model in registry.

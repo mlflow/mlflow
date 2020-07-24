@@ -33,9 +33,11 @@ class TestModelVersion(unittest.TestCase):
         t1, t2 = 100, 150
         source = "path/to/source"
         run_id = uuid.uuid4().hex
+        run_link = "http://localhost:5000/path/to/run"
         tags = [ModelVersionTag("key", "value"), ModelVersionTag("randomKey", "not a random value")]
         mvd = ModelVersion(name, "5", t1, t2, "version five", "user 1", "Production",
-                           source, run_id, "READY", "Model version #5 is ready to use.", tags)
+                           source, run_id, "READY", "Model version #5 is ready to use.", tags,
+                           run_link)
         self._check(mvd, name, "5", t1, t2, "version five", "user 1",
                     "Production", source, run_id, "READY",
                     "Model version #5 is ready to use.",
@@ -51,6 +53,7 @@ class TestModelVersion(unittest.TestCase):
             "current_stage": "Production",
             "source": source,
             "run_id": run_id,
+            "run_link": run_link,
             "status": "READY",
             "status_message": "Model version #5 is ready to use.",
             "tags": {tag.key: tag.value for tag in (tags or [])}}
@@ -90,6 +93,7 @@ class TestModelVersion(unittest.TestCase):
                                      current_stage="Archived",
                                      source="path/to/a/notebook",
                                      run_id="some run",
+                                     run_link="http://localhost:5000/path/to/run",
                                      status="PENDING_REGISTRATION",
                                      status_message="Copying!",
                                      tags=[])
@@ -98,6 +102,7 @@ class TestModelVersion(unittest.TestCase):
                                      "current_stage='Archived', description='This is a test " \
                                      "model.', last_updated_timestamp=100, " \
                                      "name='myname', " \
-                                     "run_id='some run', source='path/to/a/notebook', " \
+                                     "run_id='some run', run_link='http://localhost:5000/path/" \
+                                     "to/run', source='path/to/a/notebook', " \
                                      "status='PENDING_REGISTRATION', status_message='Copying!', " \
                                      "tags={}, user_id='user one', version='43'>"

@@ -75,6 +75,7 @@ Components
 - ``area/models``: MLmodel format, model serialization/deserialization, flavors
 - ``area/projects``: MLproject format, project execution backends
 - ``area/scoring``: Local serving, model deployment tools, Spark UDFs
+- ``area/server-infra``: MLflow server, JavaScript dev server
 - ``area/tracking``: Tracking Service, tracking client APIs, autologging
 
 Interface Surface
@@ -88,8 +89,10 @@ Language Surface
 """"""""
 - ``language/r``: R APIs and clients
 - ``language/java``: Java APIs and clients
+- ``language/new``: Proposals for new client languages
 
 Integrations
 """"""""
 - ``integrations/azure``: Azure and Azure ML integrations
 - ``integrations/sagemaker``: SageMaker integrations
+- ``integrations/databricks``: Databricks integrations

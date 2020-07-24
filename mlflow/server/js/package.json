@@ -90,7 +90,8 @@
       "lcov"
     ],
     "setupFiles": [
-      "jest-canvas-mock"
+      "jest-canvas-mock",
+      "<rootDir>/scripts/throw-on-prop-type-warning.js"
     ]
   },
   "browserslist": [
