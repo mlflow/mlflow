@@ -7,6 +7,8 @@ import tempfile
 from distutils import dir_util
 from six.moves import urllib
 
+import mlflow.utils
+from mlflow.utils import databricks_utils
 from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
@@ -25,7 +27,14 @@ from mlflow.utils.mlflow_tags import (
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
-_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
+MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
+MLFLOW_DOCKER_WORKDIR_PATH = "/mlflow/projects/code/"
+
+PROJECT_USE_CONDA = "USE_CONDA"
+PROJECT_SYNCHRONOUS = "SYNCHRONOUS"
+PROJECT_DOCKER_ARGS = "DOCKER_ARGS"
+PROJECT_STORAGE_DIR = "STORAGE_DIR"
+
 
 _logger = logging.getLogger(__name__)
 
@@ -245,3 +254,57 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
                    list(final_params.items()) + list(extra_params.items())]
     tracking.MlflowClient().log_batch(active_run.info.run_id, params=params_list)
     return active_run
+
+
+def get_entry_point_command(project, entry_point, parameters, storage_dir):
+    """
+    Returns the shell command to execute in order to run the specified entry point.
+    :param project: Project containing the target entry point
+    :param entry_point: Entry point to run
+    :param parameters: Parameters (dictionary) for the entry point command
+    :param storage_dir: Base local directory to use for downloading remote artifacts passed to
+                        arguments of type 'path'. If None, a temporary base directory is used.
+    """
+    storage_dir_for_run = _get_storage_dir(storage_dir)
+    _logger.info(
+        "=== Created directory %s for downloading remote URIs passed to arguments of"
+        " type 'path' ===",
+        storage_dir_for_run)
+    commands = []
+    commands.append(
+        project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))
+    return commands
+
+
+def get_run_env_vars(run_id, experiment_id):
+    """
+    Returns a dictionary of environment variable key-value pairs to set in subprocess launched
+    to run MLflow projects.
+    """
+    return {
+        tracking._RUN_ID_ENV_VAR: run_id,
+        tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
+        tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
+    }
+
+
+def get_databricks_env_vars(tracking_uri):
+    if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
+        return {}
+
+    config = databricks_utils.get_databricks_host_creds(tracking_uri)
+    # We set these via environment variables so that only the current profile is exposed, rather
+    # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
+    # part of ~/.databrickscfg into the container
+    env_vars = {}
+    env_vars[tracking._TRACKING_URI_ENV_VAR] = 'databricks'
+    env_vars['DATABRICKS_HOST'] = config.host
+    if config.username:
+        env_vars['DATABRICKS_USERNAME'] = config.username
+    if config.password:
+        env_vars['DATABRICKS_PASSWORD'] = config.password
+    if config.token:
+        env_vars['DATABRICKS_TOKEN'] = config.token
+    if config.ignore_tls_verification:
+        env_vars['DATABRICKS_INSECURE'] = str(config.ignore_tls_verification)
+    return env_vars
