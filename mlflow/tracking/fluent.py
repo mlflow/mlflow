@@ -16,6 +16,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking import artifact_utils
 from mlflow.tracking.context import registry as context_registry
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -500,6 +501,38 @@ def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_result
         else:
             break
     return all_runs
+
+
+def list_run_infos(experiment_id, run_view_type=ViewType.ACTIVE_ONLY,
+                   max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None):
+    """
+    Return run information for runs which belong to the experiment_id.
+
+    :param experiment_id: The experiment id which to search
+    :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+    :param max_results: Maximum number of results desired.
+    :param order_by: List of order_by clauses.
+
+    :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
+        search expressions.
+    """
+    all_run_infos = []
+    next_page_token = None
+    while(len(all_run_infos) < max_results):
+        infos_to_get = max_results - len(all_run_infos)
+        if infos_to_get < SEARCH_MAX_RESULTS_DEFAULT:
+            infos = MlflowClient.list_run_infos(experiment_id, run_view_type, infos_to_get,
+                                                order_by, next_page_token)
+        else:
+            infos = MlflowClient.list_run_infos(experiment_id, run_view_type,
+                                                SEARCH_MAX_RESULTS_DEFAULT, order_by,
+                                                next_page_token)
+        all_run_infos.extend(infos)
+        if hasattr(infos, 'token') and infos.token != '' and infos.token is not None:
+            next_page_token = infos.token
+        else:
+            break
+    return all_run_infos
 
 
 def _get_or_start_run():
