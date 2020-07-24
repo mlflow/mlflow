@@ -30,10 +30,10 @@ You can run the `fastai` example with default or supplied arguments in three way
  
 3. Run from outside git repository as a MLflow Project
 
- `mlflow run https://github.com/mlflow/\#examples/fastai`
+ `mlflow run https://github.com/mlflow/mlflow/\#examples/fastai`
  
- `mlflow run https://github.com/mlflow/\#examples/fastai -P lr=0.02 -P epochs=3`
-
+ `mlflow run https://github.com/mlflow/mlflow/\#examples/fastai -P lr=0.02 -P epochs=3`
+ 
 #### How to inspect your runs
 All these runs will create a `mlruns` directory at the same directory level where you execute
 these commands. To inspect the parameters, metrics, and artifacts automatically

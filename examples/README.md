@@ -30,5 +30,5 @@ tracking server.
 `mlflow.tensorflow.autolog()` API, which captures TensorBoard data and logs to MLflow with no code change.
 * `docker` demonstrates how to create and run an MLflow project using docker (rather than conda)
   to manage project dependencies
-* `fastai` demonstrates how to use `mlflow.fastai.autolog()` API. This example shows three
-  ways to run the training code. 
+* `fastai` modifies a [fastai classification example](https://github.com/fastai/fastai/blob/master/examples/train_mnist.py) and highlights MLflow's `mlflow.fastai.autolog()` 
+   API to track parameters, metrics, and artifacts while training a simple MNIST model. 
