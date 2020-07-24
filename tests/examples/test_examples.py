@@ -49,7 +49,7 @@ def replace_mlflow_with_dev_version(yml_path):
     ('spacy', []),
     (os.path.join('tensorflow', 'tf1'), ['-P', 'steps=10']),
     ('xgboost', ['-P', 'learning_rate=0.3', '-P', 'colsample_bytree=0.8', '-P', 'subsample=0.9']),
-    ('fastai', ['-P', 'lr=0.02', '-P', 'epochs=3', '-P']),
+    ('fastai', ['-P', 'lr=0.02', '-P', 'epochs=3']),
 ])
 def test_mlflow_run_example(directory, params, tmpdir):
     example_dir = os.path.join(EXAMPLES_DIR, directory)
