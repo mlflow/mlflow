@@ -274,8 +274,7 @@ const getParamValues = (params) => {
 const getMetricValues = (latestMetrics, getMetricPagePath) => {
   return Object.values(latestMetrics)
     .sort()
-    .map((m) => {
-      const { key, value } = m;
+    .map(({ key, value }) => {
       return [
         <Link to={getMetricPagePath(key)} title='Plot chart'>
           {key}
