@@ -1,13 +1,18 @@
 import entrypoints
 import logging
 
+from mlflow.projects.backend.local import LocalBackend
+
+
 ENTRYPOINT_GROUP_NAME = "mlflow.project_backend"
 
 __logger__ = logging.getLogger(__name__)
 
 
 # Statically register backend defined in mlflow
-MLFLOW_BACKENDS = dict()
+MLFLOW_BACKENDS = {
+    'local': LocalBackend,
+}
 
 
 def load_backend(backend_name):
