@@ -520,6 +520,12 @@ class MlflowClient(object):
                 # Databricks Secret Manager with scope=<scope> and key=<prefix>-workspaceid.
                 workspace_host, workspace_id = \
                     get_workspace_info_from_databricks_secrets(tracking_uri)
+                if not workspace_id:
+                    print("No workspace ID specified; if your Databricks workspaces share the same"
+                          "host URL, you may want to specify the workspace ID (along with the host"
+                          "information in the secret manager) for run lineage tracking. For more"
+                          "details on how to specify this information in the secret manager,"
+                          "please refer to the model registry documentation.")
             # retrieve experiment ID of the run for the URL
             experiment_id = self.get_run(run_id).info.experiment_id
             if workspace_host and run_id and experiment_id:
