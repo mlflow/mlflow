@@ -299,7 +299,7 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
     get_run_mock.return_value = Run(RunInfo(run_id, experiment_id, 'userid', 'status', 0, 1, None),
                                     None)
     with mock.patch('mlflow.tracking.client.is_in_databricks_notebook',
-                    return_value=True),\
+                    return_value=True), \
         mock.patch('mlflow.tracking.client.get_workspace_info_from_dbutils',
                    return_value=(hostname, workspace_id)):
         client = MlflowClient(tracking_uri='databricks', registry_uri='otherplace')
