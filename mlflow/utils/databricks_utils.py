@@ -151,14 +151,14 @@ def get_workspace_info_from_dbutils():
         workspace_host = context['extraContext']['api_url']
         workspace_id = context['tags']['orgId']
         return workspace_host, workspace_id
+    return None, None
 
 
 def get_workspace_info_from_databricks_secrets(tracking_uri):
-    profile, path = get_db_info_from_uri(tracking_uri)
-    if path:
+    profile, key_prefix = get_db_info_from_uri(tracking_uri)
+    if key_prefix:
         dbutils = _get_dbutils()
         if dbutils:
-            key_prefix = path
             workspace_id = dbutils.secrets.get(scope=profile, key=key_prefix + "-workspace-id")
             workspace_host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
             return workspace_host, workspace_id

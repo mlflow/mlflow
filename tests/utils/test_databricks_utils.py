@@ -112,6 +112,14 @@ def test_get_workspace_info_from_dbutils():
         assert workspace_id == '1111'
 
 
+def test_get_workspace_info_from_dbutils_when_no_dbutils_available():
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=None):
+        workspace_host, workspace_id = \
+            get_workspace_info_from_dbutils()
+        assert workspace_host is None
+        assert workspace_id is None
+
+
 @pytest.mark.parametrize("tracking_uri, result", [
     ('databricks', True),
     ('databricks://profile/prefix', False),

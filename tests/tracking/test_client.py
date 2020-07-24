@@ -255,7 +255,7 @@ def test_registry_uri_from_implicit_tracking_uri():
         assert client._registry_uri == tracking_uri
 
 
-def test_create_model_version_normal(mock_registry_store):
+def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_store):
     run_id = 'runid'
     client = MlflowClient(tracking_uri='http://10.123.1231.11')
     mock_registry_store.create_model_version.return_value = \
@@ -269,6 +269,26 @@ def test_create_model_version_normal(mock_registry_store):
         "name", 'source', 'runid', [], None)
 
 
+def test_create_model_version_explicitly_set_run_link(mock_registry_store):
+    run_id = 'runid'
+    run_link = 'my-run-link'
+    hostname = 'https://workspace.databricks.com/'
+    workspace_id = '10002'
+    mock_registry_store.create_model_version.return_value = \
+        ModelVersion('name', 1, 0, 1, source='source', run_id=run_id, run_link=run_link)
+    # mocks to make sure that even if you're in a notebook, this setting is respected.
+    with mock.patch('mlflow.tracking.client.is_in_databricks_notebook',
+                    return_value=True), \
+        mock.patch('mlflow.tracking.client.get_workspace_info_from_dbutils',
+                   return_value=(hostname, workspace_id)):
+        client = MlflowClient(tracking_uri='databricks', registry_uri='otherplace')
+        model_version = client.create_model_version('name', 'source', 'runid', run_link=run_link)
+        assert(model_version.run_link == run_link)
+        # verify that the store was provided with the explicitly passed in run link
+        mock_registry_store.create_model_version.assert_called_once_with(
+            "name", 'source', 'runid', [], run_link)
+
+
 def test_create_model_version_run_link_in_notebook_with_default_profile(mock_registry_store):
     experiment_id = 'test-exp-id'
     hostname = 'https://workspace.databricks.com/'
@@ -278,8 +298,9 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
     get_run_mock = mock.MagicMock()
     get_run_mock.return_value = Run(RunInfo(run_id, experiment_id, 'userid', 'status', 0, 1, None),
                                     None)
-    with mock.patch('mlflow.tracking.client.is_in_databricks_notebook', return_value=True), mock\
-            .patch('mlflow.tracking.client.get_workspace_info_from_dbutils',
+    with mock.patch('mlflow.tracking.client.is_in_databricks_notebook',
+                    return_value=True),\
+        mock.patch('mlflow.tracking.client.get_workspace_info_from_dbutils',
                    return_value=(hostname, workspace_id)):
         client = MlflowClient(tracking_uri='databricks', registry_uri='otherplace')
         client.get_run = get_run_mock

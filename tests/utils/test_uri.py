@@ -45,17 +45,18 @@ def test_get_db_info_from_uri(server_uri, result):
     ('https://www.databricks.com/', '19201', '2231', '0',
      'https://www.databricks.com/#mlflow/experiments/19201/runs/2231'),
     ('https://www.databricks.com/', '19201', '2231', '0',
-     'https://www.databricks.com/#mlflow/experiments/19201/runs/2231'),
-    (None, '19201', '2231', '0', 'Exception'),
-    ('https://www.databricks.com/', None, '2231', '0', 'Exception'),
-    ('https://www.databricks.com/', '19201', None, '0', 'Exception'),
-])
+     'https://www.databricks.com/#mlflow/experiments/19201/runs/2231')])
 def test_construct_run_url(hostname, experiment_id, run_id, workspace_id, result):
-    if result == 'Exception':
-        with pytest.raises(MlflowException):
-            construct_run_url(hostname, experiment_id, run_id, workspace_id)
-    else:
-        assert(construct_run_url(hostname, experiment_id, run_id, workspace_id) == result)
+    assert(construct_run_url(hostname, experiment_id, run_id, workspace_id) == result)
+
+
+@pytest.mark.parametrize("hostname, experiment_id, run_id, workspace_id", [
+    (None, '19201', '2231', '0'),
+    ('https://www.databricks.com/', None, '2231', '0'),
+    ('https://www.databricks.com/', '19201', None, '0')])
+def test_construct_run_url_errors(hostname, experiment_id, run_id, workspace_id):
+    with pytest.raises(MlflowException):
+        construct_run_url(hostname, experiment_id, run_id, workspace_id)
 
 
 def test_uri_types():
