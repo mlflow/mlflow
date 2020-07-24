@@ -106,8 +106,7 @@ def test_get_workspace_info_from_dbutils():
                                             '{"api_url": "https://mlflow.databricks.com"},' \
                                             '"tags": {"orgId" : "1111"}}'
     with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
-        workspace_host, workspace_id = \
-            get_workspace_info_from_dbutils()
+        workspace_host, workspace_id = get_workspace_info_from_dbutils()
         assert workspace_host == 'https://mlflow.databricks.com'
         assert workspace_id == '1111'
 
