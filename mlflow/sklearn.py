@@ -171,7 +171,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=None,
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn",
-                        model_path=model_data_subpath, env=conda_env_subpath)
+                        data=model_data_subpath, env=conda_env_subpath)
     mlflow_model.add_flavor(FLAVOR_NAME,
                             pickled_model=model_data_subpath,
                             sklearn_version=sklearn.__version__,
