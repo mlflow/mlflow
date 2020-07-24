@@ -46,7 +46,7 @@ UI Workflow
 -----------
 
 Registering a Model
-^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^
 
 #. From the MLflow Runs detail page, select a logged MLflow Model in the **Artifacts** section.
 
