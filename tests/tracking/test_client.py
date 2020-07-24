@@ -257,7 +257,7 @@ def test_registry_uri_from_implicit_tracking_uri():
 
 def test_create_model_version_normal(mock_registry_store):
     run_id = 'runid'
-    client = MlflowClient(tracking_uri='localhost:5000')
+    client = MlflowClient(tracking_uri='http://10.123.1231.11')
     mock_registry_store.create_model_version.return_value = \
         ModelVersion('name', 1, 0, 1, source='source', run_id=run_id)
     model_version = client.create_model_version('name', 'source', 'runid')
