@@ -386,7 +386,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
                                                                run_link=run_link,
                                                                tags=[tag.to_proto()
                                                                      for tag in tags])
-    mock_get_username.return_value = "basic_auth_username"                                                                 
+    mock_get_username.return_value = "basic_auth_username"
     mv = ModelVersion(name="model_1", version="12", creation_timestamp=123, tags=tags,
                       run_link=run_link)
     mock_model_registry_store.create_model_version.return_value = mv
