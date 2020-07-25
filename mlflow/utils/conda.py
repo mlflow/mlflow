@@ -29,7 +29,7 @@ def get_conda_command(conda_env_name):
         if os.name != "nt":
             return ["source %s %s 1>&2" % (activate_path, conda_env_name)]
         else:
-            return ["conda activate %s" % (conda_env_name)]
+            return ["conda.bat activate %s" % (conda_env_name)]
     return activate_conda_env
 
 
