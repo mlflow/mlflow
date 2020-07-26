@@ -21,7 +21,6 @@ source activate test-environment
 python --version
 # pip install --upgrade pip==19.3.1
 pip cache list
-ls $
 
 # Install Python test dependencies only if we're running Python tests
 if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
