@@ -6,6 +6,9 @@ import { Document, Page } from 'react-pdf';
 import { Pagination, Spin } from 'antd';
 import { getArtifactBytesContent } from './ShowArtifactUtils';
 import './ShowArtifactPdfView.css';
+import { pdfjs } from 'react-pdf';
+
+pdfjs.GlobalWorkerOptions.workerSrc = 'static-files/pdf.worker.js';
 
 class ShowArtifactPdfView extends Component {
   state = {
