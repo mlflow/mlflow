@@ -328,6 +328,19 @@ def test_invalid_order_by_search_runs(order_by, error_message):
     assert error_message in e.value.message
 
 
+@pytest.mark.parametrize("order_by, ascending_expected", [
+    ("metrics.`Mean Square Error`", True),
+    ("metrics.`Mean Square Error` ASC", True),
+    ("metrics.`Mean Square Error` DESC", False),
+])
+def test_space_order_by_search_runs(order_by, ascending_expected):
+    identifier_type, identifier_name, ascending = SearchUtils.parse_order_by_for_search_runs(
+        order_by)
+    assert identifier_type == "metric"
+    assert identifier_name == "Mean Square Error"
+    assert ascending == ascending_expected
+
+
 @pytest.mark.parametrize("order_by, error_message", [
     ("creation_timestamp DESC", "Invalid order by key"),
     ('last_updated_timestamp DESC blah', "Invalid order_by clause"),

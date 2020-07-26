@@ -2,6 +2,7 @@ import base64
 import json
 import operator
 import re
+import shlex
 
 import sqlparse
 from sqlparse.sql import Identifier, Token, Comparison, Statement
@@ -340,10 +341,11 @@ class SearchUtils(object):
         try:
             parsed = sqlparse.parse(order_by)
         except Exception:
-            raise MlflowException(f"Error on parsing order_by clause '{order_by}'",
+            raise MlflowException("Error on parsing order_by clause '{}'".format(order_by),
                                   error_code=INVALID_PARAMETER_VALUE)
         if len(parsed) != 1 or not isinstance(parsed[0], Statement):
-            raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
+            raise MlflowException("Invalid order_by clause '{}'. Could not be parsed."
+                                  .format(order_by),
                                   error_code=INVALID_PARAMETER_VALUE)
         statement = parsed[0]
         if len(statement.tokens) == 1 and isinstance(statement[0], Identifier):
@@ -358,7 +360,8 @@ class SearchUtils(object):
                 and statement.tokens[-1].ttype == TokenType.Keyword.Order:
             token_value = cls.ORDER_BY_KEY_TIMESTAMP + ' ' + statement.tokens[-1].value
         else:
-            raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
+            raise MlflowException("Invalid order_by clause '{}'. Could not be parsed."
+                                  .format(order_by),
                                   error_code=INVALID_PARAMETER_VALUE)
         return token_value
 
@@ -366,14 +369,16 @@ class SearchUtils(object):
     def _parse_order_by_string(cls, order_by):
         token_value = cls._validate_order_by_and_generate_token(order_by)
         is_ascending = True
-        tokens = token_value.split()
+        tokens = shlex.split(token_value.replace("`", "\""))
         if len(tokens) > 2:
-            raise MlflowException(f"Invalid order_by clause '{order_by}'. Could not be parsed.",
+            raise MlflowException("Invalid order_by clause '{}'. Could not be parsed."
+                                  .format(order_by),
                                   error_code=INVALID_PARAMETER_VALUE)
         elif len(tokens) == 2:
             order_token = tokens[1].lower()
             if order_token not in cls.VALID_ORDER_BY_TAGS:
-                raise MlflowException(f"Invalid ordering key in order_by clause '{order_by}'.",
+                raise MlflowException("Invalid ordering key in order_by clause '{}'."
+                                      .format(order_by),
                                       error_code=INVALID_PARAMETER_VALUE)
             is_ascending = (order_token == cls.ASC_OPERATOR)
             token_value = tokens[0]
@@ -390,8 +395,10 @@ class SearchUtils(object):
         token_value, is_ascending = cls._parse_order_by_string(order_by)
         token_value = token_value.strip()
         if token_value not in cls.VALID_ORDER_BY_KEYS_REGISTERED_MODELS:
-            raise MlflowException(f"Invalid order by key '{token_value}' specified. Valid keys "
-                                  f"are '{cls.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS}'",
+            raise MlflowException("Invalid order by key '{}' specified. Valid keys "
+                                  .format(token_value) +
+                                  "are '{}'"
+                                  .format(cls.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS),
                                   error_code=INVALID_PARAMETER_VALUE)
         return token_value, is_ascending
 

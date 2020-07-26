@@ -81,15 +81,16 @@ export class ModelVersionPageImpl extends React.Component {
       });
   }
 
-  handleStageTransitionDropdownSelect = (activity) => {
+  handleStageTransitionDropdownSelect = (activity, archiveExistingVersions) => {
     const { modelName, version } = this.props;
     const toStage = activity.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {
       this.props
         .transitionModelVersionStageApi(
           modelName,
-          version,
+          version.toString(),
           toStage,
+          archiveExistingVersions,
           this.transitionModelVersionStageRequestId,
         )
         .then(this.loadData)

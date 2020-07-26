@@ -38,8 +38,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def _rm_maker(self, name, tags=None):
         return self.store.create_registered_model(name, tags)
 
-    def _mv_maker(self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None):
-        return self.store.create_model_version(name, source, run_id, tags)
+    def _mv_maker(self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None,
+                  run_link=None):
+        return self.store.create_model_version(name, source, run_id, tags, run_link=run_link)
 
     def _extract_latest_by_stage(self, latest_versions):
         return {mvd.current_stage: mvd.version for mvd in latest_versions}
@@ -213,7 +214,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                          set(["A", "BB", "AB", "BBC"]))
 
     def test_list_registered_model_paginated_last_page(self):
-        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
+        rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
 
         # test flow with fixed max_results
         returned_rms = []
@@ -227,7 +228,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(set(rms), set(returned_rms))
 
     def test_list_registered_model_paginated_returns_in_correct_order(self):
-        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
+        rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
 
         # test that pagination will return all valid results in sorted order
         # by name ascending
@@ -249,7 +250,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(result, rms[35:])
 
     def test_list_registered_model_paginated_errors(self):
-        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
+        rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
         # test that providing a completely invalid page token throws
         with self.assertRaises(MlflowException) as exception_context:
             self._list_registered_models(page_token="evilhax", max_results=20)
@@ -262,7 +263,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertIn("Invalid value for request parameter max_results",
                       exception_context.exception.message)
         # list should not return deleted models
-        self.store.delete_registered_model(name=f"RM{0:03}")
+        self.store.delete_registered_model(name="RM{0:03}".format(0))
         self.assertEqual(set(self._list_registered_models(max_results=100)),
                          set(rms[1:]))
 
@@ -429,6 +430,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd3.version, 3)
         self.assertEqual(mvd3.tags, {tag.key: tag.value for tag in tags})
 
+        # create model versions with runLink
+        run_link = "http://localhost:3000/path/to/run/"
+        mv4 = self._mv_maker(name, run_link=run_link)
+        mvd4 = self.store.get_model_version(name, mv4.version)
+        self.assertEqual(mv4.version, 4)
+        self.assertEqual(mv4.run_link, run_link)
+        self.assertEqual(mvd4.version, 4)
+        self.assertEqual(mvd4.run_link, run_link)
+
     def test_update_model_version(self):
         name = "test_for_update_MV"
         self._rm_maker(name)
@@ -547,7 +557,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd2.last_updated_timestamp, mvd3.last_updated_timestamp)
 
     def test_delete_model_version(self):
-        name = "test_for_update_MV"
+        name = "test_for_delete_MV"
         initial_tags = [ModelVersionTag("key", "value"),
                         ModelVersionTag("anotherKey", "some other value")]
         self._rm_maker(name)
@@ -571,6 +581,26 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_model_version(name=mv.name, version=mv.version)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    def test_delete_model_version_redaction(self):
+        name = "test_for_delete_MV_redaction"
+        run_link = "http://localhost:5000/path/to/run"
+        run_id = "12345"
+        source = "path/to/source"
+        self._rm_maker(name)
+        mv = self._mv_maker(name, source=source, run_id=run_id, run_link=run_link)
+        mvd = self.store.get_model_version(name=name, version=mv.version)
+        self.assertEqual(mvd.run_link, run_link)
+        self.assertEqual(mvd.run_id, run_id)
+        self.assertEqual(mvd.source, source)
+        # delete the MV now
+        self.store.delete_model_version(name, mv.version)
+        # verify that the relevant fields are redacted
+        mvd_deleted = self.store._get_sql_model_version_including_deleted(name=name,
+                                                                          version=mv.version)
+        self.assertIn('REDACTED', mvd_deleted.run_link)
+        self.assertIn('REDACTED', mvd_deleted.source)
+        self.assertIn('REDACTED', mvd_deleted.run_id)
 
     def test_get_model_version_download_uri(self):
         name = "test_for_update_MV"
@@ -687,62 +717,62 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rms, names)
 
         # equality search using name should return exactly the 1 name
-        rms, _ = self._search_registered_models(f"name='{names[0]}'")
+        rms, _ = self._search_registered_models("name='{}'".format(names[0]))
         self.assertEqual(rms, [names[0]])
 
         # equality search using name that is not valid should return nothing
-        rms, _ = self._search_registered_models(f"name='{names[0] + 'cats'}'")
+        rms, _ = self._search_registered_models("name='{}'".format(names[0] + 'cats'))
         self.assertEqual(rms, [])
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        rms, _ = self._search_registered_models(f"name LIKE '{prefix}%'")
+        rms, _ = self._search_registered_models("name LIKE '{}%'".format(prefix))
         self.assertEqual(rms, names)
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
-        rms, _ = self._search_registered_models(f"name LIKE '%RM%'")
+        rms, _ = self._search_registered_models("name LIKE '%RM%'")
         self.assertEqual(rms, names)
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
         # _e% matches test_for_search_ , so all RMs should match
-        rms, _ = self._search_registered_models(f"name LIKE '_e%'")
+        rms, _ = self._search_registered_models("name LIKE '_e%'")
         self.assertEqual(rms, names)
 
         # case-sensitive prefix search using LIKE should return just rm4
-        rms, _ = self._search_registered_models(f"name LIKE '{prefix + 'RM4A'}%'")
+        rms, _ = self._search_registered_models("name LIKE '{}%'".format(prefix + 'RM4A'))
         self.assertEqual(rms, [names[4]])
 
         # case-sensitive prefix search using LIKE should return no models if no match
-        rms, _ = self._search_registered_models(f"name LIKE '{prefix + 'cats'}%'")
+        rms, _ = self._search_registered_models("name LIKE '{}%'".format(prefix + 'cats'))
         self.assertEqual(rms, [])
 
         # confirm that LIKE is not case-sensitive
-        rms, _ = self._search_registered_models(f"name lIkE '%blah%'")
+        rms, _ = self._search_registered_models("name lIkE '%blah%'")
         self.assertEqual(rms, [])
 
-        rms, _ = self._search_registered_models(f"name like '{prefix + 'RM4A'}%'")
+        rms, _ = self._search_registered_models("name like '{}%'".format(prefix + 'RM4A'))
         self.assertEqual(rms, [names[4]])
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        rms, _ = self._search_registered_models(f"name ILIKE '{prefix + 'RM4A'}%'")
+        rms, _ = self._search_registered_models("name ILIKE '{}%'".format(prefix + 'RM4A'))
         self.assertEqual(rms, names[4:])
 
         # case-insensitive postfix search with ILIKE
-        rms, _ = self._search_registered_models(f"name ILIKE '%RM4a'")
+        rms, _ = self._search_registered_models("name ILIKE '%RM4a'")
         self.assertEqual(rms, names[4:])
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        rms, _ = self._search_registered_models(f"name ILIKE '{prefix + 'cats'}%'")
+        rms, _ = self._search_registered_models("name ILIKE '{}%'".format(prefix + 'cats'))
         self.assertEqual(rms, [])
 
         # confirm that ILIKE is not case-sensitive
-        rms, _ = self._search_registered_models(f"name iLike '%blah%'")
+        rms, _ = self._search_registered_models("name iLike '%blah%'")
         self.assertEqual(rms, [])
 
         # confirm that ILIKE works for empty query
-        rms, _ = self._search_registered_models(f"name iLike '%%'")
+        rms, _ = self._search_registered_models("name iLike '%%'")
         self.assertEqual(rms, names)
 
-        rms, _ = self._search_registered_models(f"name ilike '%RM4a'")
+        rms, _ = self._search_registered_models("name ilike '%RM4a'")
         self.assertEqual(rms, names[4:])
 
         # cannot search by invalid comparator types
@@ -770,18 +800,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(self._search_registered_models(None, max_results=1000), (names[:-1], None))
 
         # equality search using name should return no names
-        self.assertEqual(self._search_registered_models(f"name='{names[-1]}'"), ([], None))
+        self.assertEqual(self._search_registered_models("name='{}'".format(names[-1])), ([], None))
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        self.assertEqual(self._search_registered_models(f"name LIKE '{prefix}%'"),
+        self.assertEqual(self._search_registered_models("name LIKE '{}%'".format(prefix)),
                          (names[0:5], None))
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        self.assertEqual(self._search_registered_models(f"name ILIKE '{prefix + 'RM4A'}%'"),
+        self.assertEqual(self._search_registered_models("name ILIKE '{}%'".format(prefix + 'RM4A')),
                          ([names[4]], None))
 
     def test_search_registered_model_pagination(self):
-        rms = [self._rm_maker(f"RM{i:03}").name for i in range(50)]
+        rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
 
         # test flow with fixed max_results
         returned_rms = []
@@ -829,7 +859,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
         for i in range(50):
             with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=i):
-                rms.append(self._rm_maker(f"RM{i:03}").name)
+                rms.append(self._rm_maker("RM{:03}".format(i)).name)
 
         # test flow with fixed max_results and order_by (test stable order across pages)
         returned_rms = []
