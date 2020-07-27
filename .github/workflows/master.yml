@@ -22,7 +22,6 @@ jobs:
         MAX=100
         for i in `seq 2 $MAX`
         do
-
           pip download -q torch==1.4.0
           pip hash torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl | grep hash
           if [[ -f torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl ]]; then
