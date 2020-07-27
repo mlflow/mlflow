@@ -53,3 +53,14 @@ def test_mlflow_conda_env_includes_pip_dependencies_and_pip_is_specified(pip_spe
         assert conda_dep in env["dependencies"]
     assert pip_specification in env["dependencies"]
     assert env["dependencies"].count("pip") == (2 if pip_specification == "pip" else 1)
+
+
+def test_mlflow_conda_env_includes_a_fixed_mlflow_version_by_default():
+    import mlflow
+    env = _mlflow_conda_env()
+    for dep in env["dependencies"]:
+        if isinstance(dep, dict) and dep.get("pip") is not None:
+            assert "mlflow=={}".format(mlflow.__version__) in dep.get("pip")
+            return
+
+    assert False
