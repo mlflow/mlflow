@@ -18,7 +18,7 @@ jobs:
         MAX=100
         for i in `seq 2 $MAX`
         do
-          wget https://files.pythonhosted.org/packages/24/19/4804aea17cd136f1705a5e98a00618cb8f6ccc375ad8bfa437408e09d058/torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl#sha256=8856f334aa9ecb742c1504bd2563d0ffb8dceb97149c8d72a04afa357f667dbc
+          wget -q https://files.pythonhosted.org/packages/24/19/4804aea17cd136f1705a5e98a00618cb8f6ccc375ad8bfa437408e09d058/torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl#sha256=8856f334aa9ecb742c1504bd2563d0ffb8dceb97149c8d72a04afa357f667dbc
           pip hash torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl | grep hash
           if [[ -f torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl ]]; then
             rm torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl
