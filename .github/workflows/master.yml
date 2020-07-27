@@ -17,7 +17,7 @@ jobs:
     - run: |
         export PATH="$CONDA_DIR/bin:$PATH"
         conda create -n test-env python=3.6
-        conda activate test-env
+        source activate test-env
 
         MAX=100
         for i in `seq 2 $MAX`
@@ -38,7 +38,7 @@ jobs:
     - run: |
         export PATH="$CONDA_DIR/bin:$PATH"
         conda create -n test-env python=3.6
-        conda activate test-env
+        source activate test-env
 
         MAX=300
         WHEEL_NAME=scipy-1.2.1-cp36-cp36m-manylinux1_x86_64.whl
