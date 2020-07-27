@@ -15,9 +15,10 @@ Features:
   URI (#3072, @sueann)
 - Added paginated ``MlflowClient.search_registered_models`` API (#2939, #3023, #3027 @ankitmathur-db; #2966, @mparkhe)
 - Added syntax highlighting when viewing text files (YAML etc) in the MLflow runs UI (#3041, @harupy)
-- Added REST API and Python client support for setting tags on model versions and registered models,
+- Added REST API and Python client support for setting and deleting tags on model versions and registered models,
   via the ``MlflowClient.create_registered_model``,  ``MlflowClient.create_model_version``,
-  ``MlflowClient.set_registered_model_tag`` and ``MlflowClient.set_model_version_tag`` APIs (#3094, @zhidongqu-db)
+  ``MlflowClient.set_registered_model_tag``, ``MlflowClient.set_model_version_tag``,
+  ``MlflowClient.delete_registered_model_tag``, and ``MlflowClient.delete_model_version_tag`` APIs (#3094, @zhidongqu-db)
 
 Bug fixes and documentation updates:
 
