@@ -17,7 +17,7 @@ Features:
 - Added syntax highlighting when viewing text files (YAML etc) in the MLflow runs UI (#3041, @harupy)
 - Added REST API and Python client support for setting tags on model versions and registered models,
   via the ``MlflowClient.create_registered_model``,  ``MlflowClient.create_model_version``,
-  ``MlflowClient.set_registered_model_tag`` and ``MlflowClient.set_model_version_tag`` methods (#3094, @zhidongqu-db)
+  ``MlflowClient.set_registered_model_tag`` and ``MlflowClient.set_model_version_tag`` APIs (#3094, @zhidongqu-db)
 
 Bug fixes and documentation updates:
 
