@@ -4,6 +4,7 @@ The ``mlflow.entities`` module defines entities returned by the MLflow
 """
 
 from mlflow.entities.experiment import Experiment
+from mlflow.entities.columns import Columns
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -19,6 +20,7 @@ from mlflow.entities.view_type import ViewType
 
 __all__ = [
     "Experiment",
+    "Columns",
     "FileInfo",
     "Metric",
     "Param",

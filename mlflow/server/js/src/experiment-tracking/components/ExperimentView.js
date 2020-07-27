@@ -52,6 +52,7 @@ export class ExperimentView extends Component {
     this.onSearch = this.onSearch.bind(this);
     this.onClear = this.onClear.bind(this);
     this.onSortBy = this.onSortBy.bind(this);
+    this.onFilter = this.onFilter.bind(this);
     this.isAllChecked = this.isAllChecked.bind(this);
     this.onCheckbox = this.onCheckbox.bind(this);
     this.onCheckAll = this.onCheckAll.bind(this);
@@ -87,6 +88,8 @@ export class ExperimentView extends Component {
     paramKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
     // List of all metric keys available in the runs we're viewing
     metricKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
+    // List of all metric keys available in the experiment we're viewing
+    tagKeyList: PropTypes.arrayOf(PropTypes.String).isRequired,
 
     // List of list of params in all the visible runs
     paramsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
@@ -117,6 +120,8 @@ export class ExperimentView extends Component {
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
     setExperimentTagApi: PropTypes.func.isRequired,
+
+    columnsToWhitelist: PropTypes.arrayOf(String),
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -329,18 +334,61 @@ export class ExperimentView extends Component {
     );
   }
 
-  handleColumnSelectionCheck = (categorizedUncheckedKeys) => {
-    this.setState({
-      persistedState: new ExperimentViewPersistedState({
-        ...this.state.persistedState,
-        categorizedUncheckedKeys,
-      }).toJSON(),
+  handleColumnSelectionCheck = (categorizedCheckedKeys) => {
+    const {
+      paramKeyFilterInput,
+      metricKeyFilterInput,
+      searchInput,
+      lifecycleFilterInput,
+    } = this.state;
+    const { orderByKey, orderByAsc } = this.props;
+    this.initiateSearch({
+      paramKeyFilterInput,
+      metricKeyFilterInput,
+      searchInput,
+      lifecycleFilterInput,
+      orderByKey,
+      orderByAsc,
+      categorizedCheckedKeys,
     });
   };
 
+  getCategorizedCheckedKeysFromList(columnsList) {
+    if (!columnsList) {
+      return undefined;
+    }
+    const categorizedCheckedKey = {
+      [ColumnTypes.ATTRIBUTES]: [],
+      [ColumnTypes.METRICS]: [],
+      [ColumnTypes.PARAMS]: [],
+      [ColumnTypes.TAGS]: [],
+    };
+    columnsList.forEach((name) => {
+      if (ExperimentViewUtil.MapCanonicalNameToAttribute.has(name)) {
+        categorizedCheckedKey[ColumnTypes.ATTRIBUTES].push(
+          ExperimentViewUtil.convertToAttribute(name),
+        );
+      } else {
+        const index = name.indexOf('.');
+        const typecolumn = name.substr(0, index);
+        if (
+          typecolumn !== ColumnTypes.ATTRIBUTES &&
+          categorizedCheckedKey.hasOwnProperty(typecolumn)
+        ) {
+          categorizedCheckedKey[typecolumn].push(name.substr(index + 1));
+        }
+      }
+    });
+    return categorizedCheckedKey;
+  }
+
   getFilteredKeys(keyList, columnType) {
-    const { categorizedUncheckedKeys } = this.state.persistedState;
-    return _.difference(keyList, categorizedUncheckedKeys[columnType]);
+    const { columnsToWhitelist } = this.props;
+    const categorizedCheckedKeys = this.getCategorizedCheckedKeysFromList(columnsToWhitelist);
+    if (categorizedCheckedKeys === undefined) {
+      return keyList;
+    }
+    return _.intersection(keyList, categorizedCheckedKeys[columnType]);
   }
 
   renderArtifactLocation() {
@@ -357,19 +405,20 @@ export class ExperimentView extends Component {
       handleLoadMoreRuns,
       experimentTags,
       experiment,
-      tagsList,
+      tagKeyList,
       paramKeyList,
       metricKeyList,
+      columnsToWhitelist,
     } = this.props;
     const { experiment_id, name } = experiment;
     const { persistedState } = this.state;
-    const { unbaggedParams, unbaggedMetrics, categorizedUncheckedKeys } = persistedState;
+    const categorizedCheckedKeys = this.getCategorizedCheckedKeysFromList(columnsToWhitelist);
+    const { unbaggedParams, unbaggedMetrics } = persistedState;
 
     const filteredParamKeys = this.getFilteredKeys(paramKeyList, ColumnTypes.PARAMS);
     const filteredMetricKeys = this.getFilteredKeys(metricKeyList, ColumnTypes.METRICS);
 
-    const visibleTagKeyList = Utils.getVisibleTagKeyList(tagsList);
-    const filteredVisibleTagKeyList = this.getFilteredKeys(visibleTagKeyList, ColumnTypes.TAGS);
+    const filteredVisibleTagKeyList = this.getFilteredKeys(tagKeyList, ColumnTypes.TAGS);
     const filteredUnbaggedParamKeys = this.getFilteredKeys(unbaggedParams, ColumnTypes.PARAMS);
     const filteredUnbaggedMetricKeys = this.getFilteredKeys(unbaggedMetrics, ColumnTypes.METRICS);
 
@@ -506,9 +555,9 @@ export class ExperimentView extends Component {
               <RunsTableColumnSelectionDropdown
                 paramKeyList={paramKeyList}
                 metricKeyList={metricKeyList}
-                visibleTagKeyList={visibleTagKeyList}
-                categorizedUncheckedKeys={categorizedUncheckedKeys}
-                onCheck={this.handleColumnSelectionCheck}
+                visibleTagKeyList={tagKeyList}
+                categorizedCheckedKeys={categorizedCheckedKeys}
+                onCheck={this.handleColumnSelectionCheck.bind(this)}
               />
             </span>
             <span style={{ cursor: 'pointer', float: 'right' }}>
@@ -541,9 +590,10 @@ export class ExperimentView extends Component {
               paramKeyList={filteredParamKeys}
               metricKeyList={filteredMetricKeys}
               visibleTagKeyList={filteredVisibleTagKeyList}
-              categorizedUncheckedKeys={categorizedUncheckedKeys}
+              categorizedCheckedKeys={categorizedCheckedKeys}
               isAllChecked={this.isAllChecked()}
               onSortBy={this.onSortBy}
+              onFilter={this.onFilter}
               orderByKey={this.props.orderByKey}
               orderByAsc={this.props.orderByAsc}
               runsSelected={this.state.runsSelected}
@@ -566,7 +616,7 @@ export class ExperimentView extends Component {
               paramsList={this.props.paramsList}
               metricsList={this.props.metricsList}
               tagsList={this.props.tagsList}
-              categorizedUncheckedKeys={categorizedUncheckedKeys}
+              categorizedCheckedKeys={categorizedCheckedKeys}
               onCheckAll={this.onCheckAll}
               isAllChecked={this.isAllChecked()}
               onSortBy={this.onSortBy}
@@ -593,6 +643,35 @@ export class ExperimentView extends Component {
     this.initiateSearch({ orderByKey, orderByAsc });
   }
 
+  onFilter(filters) {
+    const mapFilters = Object.entries(filters);
+    const conditions = mapFilters
+      .map((entry) => {
+        return entry[0] + translateQuery(entry[1]);
+      })
+      .join(' AND ');
+
+    const all_conditions = [];
+    if (this.state.searchInput !== undefined && this.state.searchInput.length > 0) {
+      all_conditions.push(this.state.searchInput);
+    }
+    if (conditions.length > 0) {
+      all_conditions.push(conditions);
+    }
+
+    this.initiateSearch({ searchInput: all_conditions.join(' AND ') });
+  }
+
+  convertCategorizedCheckedKeysToList(categorizedCheckedKeys) {
+    return categorizedCheckedKeys[ColumnTypes.ATTRIBUTES]
+      .map((name) => ExperimentViewUtil.convertToCanonicalName(name))
+      .concat(
+        categorizedCheckedKeys[ColumnTypes.METRICS].map((name) => 'metrics.' + name),
+        categorizedCheckedKeys[ColumnTypes.PARAMS].map((name) => 'params.' + name),
+        categorizedCheckedKeys[ColumnTypes.TAGS].map((name) => 'tags.' + name),
+      );
+  }
+
   initiateSearch({
     paramKeyFilterInput,
     metricKeyFilterInput,
@@ -600,6 +679,7 @@ export class ExperimentView extends Component {
     lifecycleFilterInput,
     orderByKey,
     orderByAsc,
+    categorizedCheckedKeys,
   }) {
     const myParamKeyFilterInput =
       paramKeyFilterInput !== undefined ? paramKeyFilterInput : this.state.paramKeyFilterInput;
@@ -610,7 +690,10 @@ export class ExperimentView extends Component {
       lifecycleFilterInput !== undefined ? lifecycleFilterInput : this.state.lifecycleFilterInput;
     const myOrderByKey = orderByKey !== undefined ? orderByKey : this.props.orderByKey;
     const myOrderByAsc = orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc;
-
+    const columnsToWhitelist =
+      categorizedCheckedKeys !== undefined
+        ? this.convertCategorizedCheckedKeysToList(categorizedCheckedKeys)
+        : this.props.columnsToWhitelist;
     try {
       this.props.onSearch(
         myParamKeyFilterInput,
@@ -619,6 +702,7 @@ export class ExperimentView extends Component {
         myLifecycleFilterInput,
         myOrderByKey,
         myOrderByAsc,
+        columnsToWhitelist,
       );
     } catch (ex) {
       if (ex.errorMessage !== undefined) {
@@ -732,12 +816,14 @@ export class ExperimentView extends Component {
       metricKeyFilterInput,
       searchInput,
       lifecycleFilterInput,
+      categorizedCheckedKeys,
     } = this.state;
     this.initiateSearch({
       paramKeyFilterInput,
       metricKeyFilterInput,
       searchInput,
       lifecycleFilterInput,
+      categorizedCheckedKeys,
     });
   }
 
@@ -747,17 +833,28 @@ export class ExperimentView extends Component {
     const newPersistedState = new ExperimentViewPersistedState({
       showMultiColumns: this.state.persistedState.showMultiColumns,
     });
-    this.setState({ persistedState: newPersistedState.toJSON() }, () => {
-      this.snapshotComponentState();
-      this.initiateSearch({
-        paramKeyFilterInput: '',
-        metricKeyFilterInput: '',
-        searchInput: '',
-        lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
-        orderByKey: null,
-        orderByAsc: true,
-      });
-    });
+    this.setState(
+      {
+        persistedState: newPersistedState.toJSON(),
+        categorizedCheckedKeys: {
+          [ColumnTypes.ATTRIBUTES]: Object.values(ExperimentViewUtil.AttributeColumnLabels),
+          [ColumnTypes.PARAMS]: this.props.paramKeyList,
+          [ColumnTypes.METRICS]: this.props.metricKeyList,
+          [ColumnTypes.TAGS]: this.props.tagKeyList,
+        },
+      },
+      () => {
+        this.snapshotComponentState();
+        this.initiateSearch({
+          paramKeyFilterInput: '',
+          metricKeyFilterInput: '',
+          searchInput: '',
+          lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
+          orderByKey: null,
+          orderByAsc: true,
+        });
+      },
+    );
   }
 
   onCompare() {
@@ -875,7 +972,7 @@ export class ExperimentView extends Component {
 }
 
 export const mapStateToProps = (state, ownProps) => {
-  const { lifecycleFilter } = ownProps;
+  const { lifecycleFilter, metricKeysList, paramKeysList, tagKeysList } = ownProps;
 
   // The runUuids we should serve.
   const { runInfosByUuid } = state.entities;
@@ -895,29 +992,52 @@ export const mapStateToProps = (state, ownProps) => {
   const experiment = getExperiment(ownProps.experimentId, state);
   const metricKeysSet = new Set();
   const paramKeysSet = new Set();
+  const tagKeysSet = new Set();
   const metricsList = runInfos.map((runInfo) => {
     const metricsByRunUuid = getLatestMetrics(runInfo.getRunUuid(), state);
-    const metrics = Object.values(metricsByRunUuid || {});
-    metrics.forEach((metric) => {
-      metricKeysSet.add(metric.key);
-    });
-    return metrics;
+    return Object.values(metricsByRunUuid || {});
   });
-  const paramsList = runInfos.map((runInfo) => {
-    const params = Object.values(getParams(runInfo.getRunUuid(), state));
-    params.forEach((param) => {
-      paramKeysSet.add(param.key);
-    });
-    return params;
+  metricsList.forEach((metricByRunId) => {
+    metricByRunId.forEach((metric) => metricKeysSet.add(metric.key));
   });
 
+  if (Array.isArray(metricKeysList) && metricKeysList.length) {
+    metricKeysList.forEach((metric) => {
+      metricKeysSet.add(metric);
+    });
+  }
+
+  const paramsList = runInfos.map((runInfo) =>
+    Object.values(getParams(runInfo.getRunUuid(), state)),
+  );
+  paramsList.forEach((paramByRunId) => {
+    paramByRunId.forEach((param) => paramKeysSet.add(param.key));
+  });
+
+  if (Array.isArray(paramKeysList) && paramKeysList.length) {
+    paramKeysList.forEach((param) => {
+      paramKeysSet.add(param);
+    });
+  }
+
   const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
+  tagsList.forEach((tagMap) => {
+    Object.values(tagMap).forEach((tag) => tagKeysSet.add(tag.key));
+  });
+
+  if (Array.isArray(tagKeysList) && tagKeysList.length) {
+    tagKeysList.forEach((tag) => {
+      tagKeysSet.add(tag);
+    });
+  }
+
   const experimentTags = getExperimentTags(experiment.experiment_id, state);
   return {
     runInfos,
     experiment,
     metricKeyList: Array.from(metricKeysSet.values()).sort(),
     paramKeyList: Array.from(paramKeysSet.values()).sort(),
+    tagKeyList: Array.from(tagKeysSet.values()).sort(),
     metricsList,
     paramsList,
     tagsList,
@@ -939,6 +1059,21 @@ const styles = {
   tableToggleButtonGroup: {
     marginLeft: 16,
   },
+};
+
+const translateQuery = (entry) => {
+  const filter = entry[0];
+  const value = entry[1];
+  if (filter === 'contains') {
+    return " LIKE '%" + value + "%'";
+  }
+  if (filter === 'greaterThan') {
+    return ' >= ' + value;
+  }
+  if (filter === 'lessThan') {
+    return ' <= ' + value;
+  }
+  return '';
 };
 
 export default withRouter(connect(mapStateToProps, mapDispatchToProps)(ExperimentView));

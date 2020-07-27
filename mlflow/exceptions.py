@@ -19,6 +19,13 @@ ERROR_CODE_TO_HTTP_STATUS = {
 }
 
 
+class ExceptionEncoder(json.JSONEncoder):
+    def default(self, obj):  # pylint: disable=E0202,W0221
+        if isinstance(obj, Exception):
+            return str(obj)
+        return json.JSONEncoder.default(self, obj)
+
+
 class MlflowException(Exception):
     """
     Generic exception thrown to surface failure information about external-facing operations.
@@ -47,7 +54,7 @@ class MlflowException(Exception):
     def serialize_as_json(self):
         exception_dict = {'error_code': self.error_code, 'message': self.message}
         exception_dict.update(self.json_kwargs)
-        return json.dumps(exception_dict)
+        return json.dumps(exception_dict, cls=ExceptionEncoder)
 
     def get_http_status_code(self):
         return ERROR_CODE_TO_HTTP_STATUS.get(self.error_code, 500)

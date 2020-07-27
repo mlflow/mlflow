@@ -15,6 +15,7 @@ const EXPERIMENT_ID = '17';
 let searchRunsApi;
 let getExperimentApi;
 let loadMoreRunsApi;
+let listAllColumnsApi;
 let history;
 let location;
 
@@ -22,6 +23,9 @@ beforeEach(() => {
   searchRunsApi = jest.fn(() => Promise.resolve());
   getExperimentApi = jest.fn(() => Promise.resolve());
   loadMoreRunsApi = jest.fn(() => Promise.resolve());
+  listAllColumnsApi = jest.fn(() =>
+    Promise.resolve({ value: { metrics: [], params: [], tags: [] } }),
+  );
   location = {};
 
   history = {};
@@ -38,6 +42,7 @@ const getExperimentPageMock = () => {
       searchRunsApi={searchRunsApi}
       getExperimentApi={getExperimentApi}
       loadMoreRunsApi={loadMoreRunsApi}
+      listAllColumnsApi={listAllColumnsApi}
       history={history}
       location={location}
     />,
@@ -92,6 +97,25 @@ test('URL can encode order_by', () => {
   expect(searchRunsCall[3]).toEqual(['my_key DESC']);
 });
 
+test('URL can encode columns to whitelist', () => {
+  const wrapper = getExperimentPageMock();
+  wrapper
+    .instance()
+    .onSearch('key_filter', 'metric0, metric1', '', 'Active', null, true, [
+      'metric.metric0',
+      'metric.metric1',
+      'metric.metric2',
+    ]);
+  expectSearchState(history.push.mock.calls[0][0], {
+    metrics: 'metric0, metric1',
+    params: 'key_filter',
+    columnsToWhitelist: ['metric.metric0', 'metric.metric1', 'metric.metric2'],
+  });
+  const searchRunsCall = searchRunsApi.mock.calls[1];
+  expect(searchRunsCall[1]).toEqual('');
+  expect(searchRunsCall[4]).toEqual(['metric.metric0', 'metric.metric1', 'metric.metric2']);
+});
+
 test('Loading state without any URL params', () => {
   const wrapper = getExperimentPageMock();
   const state = wrapper.instance().state;
@@ -103,7 +127,8 @@ test('Loading state without any URL params', () => {
 });
 
 test('Loading state with all URL params', () => {
-  location.search = 'params=a&metrics=b&search=c&orderByKey=d&orderByAsc=false';
+  location.search =
+    'params=a&metrics=b&search=c&orderByKey=d&orderByAsc=false&columnsToWhitelist=metrics.foo&columnsToWhitelist=metrics.bar%202';
   const wrapper = getExperimentPageMock();
   const state = wrapper.instance().state;
   expect(state.persistedState.paramKeyFilterString).toEqual('a');
@@ -111,6 +136,7 @@ test('Loading state with all URL params', () => {
   expect(state.persistedState.searchInput).toEqual('c');
   expect(state.persistedState.orderByKey).toEqual('d');
   expect(state.persistedState.orderByAsc).toEqual(false);
+  expect(state.persistedState.columnsToWhitelist).toEqual(['metrics.foo', 'metrics.bar 2']);
 });
 
 test('should render permission denied view when getExperiment yields permission error', () => {
@@ -192,4 +218,12 @@ test('should update next page token to null when load-more response has no token
   return Promise.all([promise1, promise2]).then(() =>
     expect(instance.state.nextPageToken).toBe(null),
   );
+});
+
+test('should ask all columns with the correct lifecycle state', () => {
+  const wrapper = getExperimentPageMock();
+  const instance = wrapper.instance();
+  instance.onSearch(null, null, null, 'Deleted', null, null);
+  const listAllColumnsApiCalls = listAllColumnsApi.mock.calls[1];
+  expect(listAllColumnsApiCalls[1]).toEqual(ViewType.DELETED_ONLY);
 });

@@ -31,27 +31,34 @@ def request_fixture():
 
 @pytest.mark.usefixtures("request_fixture")
 class TestRestStore(unittest.TestCase):
+
     def setUp(self):
         self.creds = MlflowHostCreds('https://hello')
-        self.store = RestStore(lambda: self.creds)
+        self.store = RestStore(self.generate_creds)
+
+    def generate_creds(self):
+        return self.creds
 
     def tearDown(self):
         pass
 
-    def _args(self, host_creds, endpoint, method, json_body):
+    def _args(self, host_creds, endpoint, method, json_body, host_creds_refresh_func):
         res = {'host_creds': host_creds,
                'endpoint': "/api/2.0/preview/mlflow/%s" % endpoint,
-               'method': method}
+               'method': method,
+               'host_creds_refresh_func': host_creds_refresh_func}
         if method == "GET":
             res["params"] = json.loads(json_body)
         else:
             res["json"] = json.loads(json_body)
         return res
 
-    def _verify_requests(self, http_request, endpoint, method, proto_message):
+    def _verify_requests(self, http_request, endpoint, method, proto_message,
+                         host_creds_refresh_func):
         print(http_request.call_args_list)
         json_body = message_to_json(proto_message)
-        http_request.assert_any_call(**(self._args(self.creds, endpoint, method, json_body)))
+        http_request.assert_any_call(**(self._args(self.creds, endpoint, method, json_body,
+                                                   host_creds_refresh_func)))
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_create_registered_model(self, mock_http):
@@ -60,7 +67,8 @@ class TestRestStore(unittest.TestCase):
         self.store.create_registered_model("model_1", tags)
         self._verify_requests(mock_http, "registered-models/create", "POST",
                               CreateRegisteredModel(name="model_1",
-                                                    tags=[tag.to_proto() for tag in tags]))
+                                                    tags=[tag.to_proto() for tag in tags]),
+                                                    self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_update_registered_model_name(self, mock_http):
@@ -68,7 +76,8 @@ class TestRestStore(unittest.TestCase):
         new_name = "model_2"
         self.store.rename_registered_model(name=name, new_name=new_name)
         self._verify_requests(mock_http, "registered-models/rename", "POST",
-                              RenameRegisteredModel(name=name, new_name=new_name))
+                              RenameRegisteredModel(name=name, new_name=new_name),
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_update_registered_model_description(self, mock_http):
@@ -76,26 +85,28 @@ class TestRestStore(unittest.TestCase):
         description = "test model"
         self.store.update_registered_model(name=name, description=description)
         self._verify_requests(mock_http, "registered-models/update", "PATCH",
-                              UpdateRegisteredModel(name=name, description=description))
+                              UpdateRegisteredModel(name=name, description=description),
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_registered_model(self, mock_http):
         name = "model_1"
         self.store.delete_registered_model(name=name)
         self._verify_requests(mock_http, "registered-models/delete", "DELETE",
-                              DeleteRegisteredModel(name=name))
+                              DeleteRegisteredModel(name=name), self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_list_registered_model(self, mock_http):
         self.store.list_registered_models(max_results=50, page_token=None)
         self._verify_requests(mock_http, "registered-models/list", "GET",
-                              ListRegisteredModels(page_token=None, max_results=50))
+                              ListRegisteredModels(page_token=None, max_results=50),
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_search_registered_model(self, mock_http):
         self.store.search_registered_models()
         self._verify_requests(mock_http, "registered-models/search", "GET",
-                              SearchRegisteredModels())
+                              SearchRegisteredModels(), self.generate_creds)
         params_list = [
             {"filter_string": "model = 'yo'"},
             {"max_results": 400},
@@ -110,28 +121,29 @@ class TestRestStore(unittest.TestCase):
                 if "filter_string" in params:
                     params["filter"] = params.pop("filter_string")
                 self._verify_requests(mock_http, "registered-models/search", "GET",
-                                      SearchRegisteredModels(**params))
+                                      SearchRegisteredModels(**params), self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_get_registered_model(self, mock_http):
         name = "model_1"
         self.store.get_registered_model(name=name)
         self._verify_requests(mock_http, "registered-models/get", "GET",
-                              GetRegisteredModel(name=name))
+                              GetRegisteredModel(name=name), self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_get_latest_versions(self, mock_http):
         name = "model_1"
         self.store.get_latest_versions(name=name)
         self._verify_requests(mock_http, "registered-models/get-latest-versions", "GET",
-                              GetLatestVersions(name=name))
+                              GetLatestVersions(name=name), self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_get_latest_versions_with_stages(self, mock_http):
         name = "model_1"
         self.store.get_latest_versions(name=name, stages=["blaah"])
         self._verify_requests(mock_http, "registered-models/get-latest-versions", "GET",
-                              GetLatestVersions(name=name, stages=["blaah"]))
+                              GetLatestVersions(name=name, stages=["blaah"]),
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_set_registered_model_tag(self, mock_http):
@@ -139,14 +151,16 @@ class TestRestStore(unittest.TestCase):
         tag = RegisteredModelTag(key="key", value="value")
         self.store.set_registered_model_tag(name=name, tag=tag)
         self._verify_requests(mock_http, "registered-models/set-tag", "POST",
-                              SetRegisteredModelTag(name=name, key=tag.key, value=tag.value))
+                              SetRegisteredModelTag(name=name, key=tag.key, value=tag.value),
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_registered_model_tag(self, mock_http):
         name = "model_1"
         self.store.delete_registered_model_tag(name=name, key="key")
         self._verify_requests(mock_http, "registered-models/delete-tag", "DELETE",
-                              DeleteRegisteredModelTag(name=name, key="key"))
+                              DeleteRegisteredModelTag(name=name, key="key"),
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_create_model_version(self, mock_http):
@@ -158,8 +172,9 @@ class TestRestStore(unittest.TestCase):
                                         run_link=run_link)
         self._verify_requests(mock_http, "model-versions/create", "POST",
                               CreateModelVersion(name="model_1", source="path/to/source",
-                                                 run_id=run_id, run_link=run_link,
-                                                 tags=[tag.to_proto() for tag in tags]))
+                                                 run_id=run_id,
+                                                 tags=[tag.to_proto() for tag in tags]),
+                                                 self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_transition_model_version_stage(self, mock_http):
@@ -170,7 +185,8 @@ class TestRestStore(unittest.TestCase):
         self._verify_requests(mock_http, "model-versions/transition-stage", "POST",
                               TransitionModelVersionStage(name=name, version=version,
                                                           stage="prod",
-                                                          archive_existing_versions=True))
+                                                          archive_existing_versions=True),
+                                                          self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_update_model_version_decription(self, mock_http):
@@ -180,7 +196,8 @@ class TestRestStore(unittest.TestCase):
         self.store.update_model_version(name=name, version=version, description=description)
         self._verify_requests(mock_http, "model-versions/update", "PATCH",
                               UpdateModelVersion(name=name, version=version,
-                                                 description="test model version"))
+                                                 description="test model version"),
+                                                 self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_model_version(self, mock_http):
@@ -188,7 +205,8 @@ class TestRestStore(unittest.TestCase):
         version = "12"
         self.store.delete_model_version(name=name, version=version)
         self._verify_requests(mock_http, "model-versions/delete", "DELETE",
-                              DeleteModelVersion(name=name, version=version))
+                              DeleteModelVersion(name=name, version=version),
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_get_model_version_details(self, mock_http):
@@ -196,7 +214,8 @@ class TestRestStore(unittest.TestCase):
         version = "8"
         self.store.get_model_version(name=name, version=version)
         self._verify_requests(mock_http, "model-versions/get", "GET",
-                              GetModelVersion(name=name, version=version))
+                              GetModelVersion(name=name, version=version),
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_get_model_version_download_uri(self, mock_http):
@@ -204,13 +223,14 @@ class TestRestStore(unittest.TestCase):
         version = "8"
         self.store.get_model_version_download_uri(name=name, version=version)
         self._verify_requests(mock_http, "model-versions/get-download-uri", "GET",
-                              GetModelVersionDownloadUri(name=name, version=version))
+                              GetModelVersionDownloadUri(name=name, version=version),
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_search_model_versions(self, mock_http):
         self.store.search_model_versions(filter_string="name='model_12'")
         self._verify_requests(mock_http, "model-versions/search", "GET",
-                              SearchModelVersions(filter="name='model_12'"))
+                              SearchModelVersions(filter="name='model_12'"), self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_set_model_version_tag(self, mock_http):
@@ -219,11 +239,13 @@ class TestRestStore(unittest.TestCase):
         self.store.set_model_version_tag(name=name, version="1", tag=tag)
         self._verify_requests(mock_http, "model-versions/set-tag", "POST",
                               SetModelVersionTag(name=name, version="1",
-                                                 key=tag.key, value=tag.value))
+                                                 key=tag.key, value=tag.value),
+                                                 self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_model_version_tag(self, mock_http):
         name = "model_1"
         self.store.delete_model_version_tag(name=name, version="1", key="key")
         self._verify_requests(mock_http, "model-versions/delete-tag", "DELETE",
-                              DeleteModelVersionTag(name=name, version="1", key="key"))
+                              DeleteModelVersionTag(name=name, version="1", key="key"),
+                              self.generate_creds)
