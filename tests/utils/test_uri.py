@@ -322,16 +322,15 @@ def test_remove_databricks_profile_info_from_artifact_uri(uri, result):
     # test various profile URIs
     ('dbfs:/path/a/b', 'databricks', 'dbfs://databricks/path/a/b'),
     ('dbfs:/path/a/b/', 'databricks', 'dbfs://databricks/path/a/b/'),
-    ('dbfs:/path/a/b/', 'databricks://', 'dbfs://databricks/path/a/b/'),
+    ('dbfs:/path/a/b/', 'databricks://', 'dbfs://@databricks/path/a/b/'),
     ('dbfs:/path/a/b/', 'databricks://Profile', 'dbfs://Profile@databricks/path/a/b/'),
     ('dbfs:/path/a/b/', 'databricks://profile/', 'dbfs://profile@databricks/path/a/b/'),
     ('dbfs:/path/a/b/', 'databricks://scope/key', 'dbfs://scope:key@databricks/path/a/b/'),
-    ('dbfs:/path/a/b/', 'databricks://scope/key/', 'dbfs://scope:key@databricks/path/a/b/'),
     ('dbfs:/path/a/b/', 'nondatabricks://profile', 'dbfs:/path/a/b/'),
     # test various artifact schemes
     ('runs:/path/a/b/', 'databricks://Profile', 'runs://Profile@databricks/path/a/b/'),
     ('runs:/path/a/b/', 'nondatabricks://profile', 'runs:/path/a/b/'),
-    ('models:/path/a/b/', 'databricks://profile', 'models://Profile@databricks/path/a/b/'),
+    ('models:/path/a/b/', 'databricks://profile', 'models://profile@databricks/path/a/b/'),
     ('models:/path/a/b/', 'nondatabricks://Profile', 'models:/path/a/b/'),
     ('s3:/path/a/b/', 'databricks://Profile', 's3:/path/a/b/'),
     ('s3:/path/a/b/', 'nondatabricks://profile', 's3:/path/a/b/'),
@@ -351,11 +350,12 @@ def test_remove_databricks_profile_info_from_artifact_uri(uri, result):
     ('dbfs://profile@databricks/path', 'nondatabricks://Profile', 'dbfs://profile@databricks/path')
 ])
 def test_add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri, result):
-    add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri) == result
+    assert add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri) == result
 
 
 @pytest.mark.parametrize("artifact_uri, profile_uri", [
-    ('dbfs:/path/a/b', 'databricks://not:legit:auth')
+    ('dbfs:/path/a/b', 'databricks://not:legit:auth'),
+    ('dbfs:/path/a/b/', 'databricks://scope/key/'),
 ])
 def test_add_databricks_profile_info_to_artifact_uri_errors(artifact_uri, profile_uri):
     with pytest.raises(MlflowException):

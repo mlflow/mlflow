@@ -339,6 +339,7 @@ def test_create_model_version_run_link_with_configured_profile(mock_registry_sto
 def test_create_model_version_copy_called_db_to_db(mock_registry_store):
     client = MlflowClient(tracking_uri="databricks://tracking",
                           registry_uri="databricks://registry:workspace")
+    mock_registry_store.create_model_version.return_value = ""
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") \
             as upload_mock:
         client.create_model_version("model name", "dbfs:/source", "run_12345",
@@ -350,6 +351,7 @@ def test_create_model_version_copy_called_db_to_db(mock_registry_store):
 def test_create_model_version_copy_called_nondb_to_db(mock_registry_store):
     client = MlflowClient(tracking_uri="https://tracking",
                           registry_uri="databricks://registry:workspace")
+    mock_registry_store.create_model_version.return_value = ""
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") \
             as upload_mock:
         client.create_model_version("model name", "s3:/source", "run_12345",
@@ -361,6 +363,7 @@ def test_create_model_version_copy_called_nondb_to_db(mock_registry_store):
 def test_create_model_version_copy_not_called_to_db(mock_registry_store):
     client = MlflowClient(tracking_uri="databricks://registry:workspace",
                           registry_uri="databricks://registry:workspace")
+    mock_registry_store.create_model_version.return_value = ""
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") \
             as upload_mock:
         client.create_model_version("model name", "dbfs:/source", "run_12345",
@@ -371,6 +374,7 @@ def test_create_model_version_copy_not_called_to_db(mock_registry_store):
 def test_create_model_version_copy_not_called_to_nondb(mock_registry_store):
     client = MlflowClient(tracking_uri="databricks://tracking",
                           registry_uri="https://registry")
+    mock_registry_store.create_model_version.return_value = ""
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") \
             as upload_mock:
         client.create_model_version("model name", "dbfs:/source", "run_12345",

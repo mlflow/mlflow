@@ -1,7 +1,6 @@
 import json
 import os
 import posixpath
-from six.moves import urllib
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -14,7 +13,7 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
-from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri, get_uri_scheme, \
+from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri, \
     is_databricks_acled_artifacts_uri, is_valid_dbfs_uri, \
     remove_databricks_profile_info_from_artifact_uri
 import mlflow.utils.databricks_utils

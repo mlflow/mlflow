@@ -96,6 +96,9 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
             if ':' in profile:
                 raise MlflowException("Unsupported Databricks profile name: %s." % profile +
                                       " Profile names cannot contain ':'.")
+            if key_prefix and '/' in key_prefix:
+                raise MlflowException("Unsupported Databricks profile key prefix: %s."
+                                      % key_prefix + " Key prefixes cannot contain '/'.")
             prefix = ":" + key_prefix if key_prefix else ""
             netloc = profile + prefix + "@databricks"
         new_parsed = artifact_uri_parsed._replace(netloc=netloc)
