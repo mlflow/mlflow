@@ -18,7 +18,8 @@ jobs:
         MAX=100
         for i in `seq 2 $MAX`
         do
-          wget -q https://files.pythonhosted.org/packages/24/19/4804aea17cd136f1705a5e98a00618cb8f6ccc375ad8bfa437408e09d058/torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl#sha256=8856f334aa9ecb742c1504bd2563d0ffb8dceb97149c8d72a04afa357f667dbc
+          pip download torch==1.4.0
+          # wget -q https://files.pythonhosted.org/packages/24/19/4804aea17cd136f1705a5e98a00618cb8f6ccc375ad8bfa437408e09d058/torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl#sha256=8856f334aa9ecb742c1504bd2563d0ffb8dceb97149c8d72a04afa357f667dbc
           pip hash torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl | grep hash
           if [[ -f torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl ]]; then
             rm torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl
@@ -34,7 +35,8 @@ jobs:
         WHEEL_NAME=scipy-1.2.1-cp36-cp36m-manylinux1_x86_64.whl
         for i in `seq 2 $MAX`
         do
-          wget -q https://files.pythonhosted.org/packages/7f/5f/c48860704092933bf1c4c1574a8de1ffd16bf4fde8bab190d747598844b2/scipy-1.2.1-cp36-cp36m-manylinux1_x86_64.whl#sha256=f31338ee269d201abe76083a990905473987371ff6f3fdb76a3f9073a361cf37
+          pip download scipy==1.2.1
+          # wget -q https://files.pythonhosted.org/packages/7f/5f/c48860704092933bf1c4c1574a8de1ffd16bf4fde8bab190d747598844b2/scipy-1.2.1-cp36-cp36m-manylinux1_x86_64.whl#sha256=f31338ee269d201abe76083a990905473987371ff6f3fdb76a3f9073a361cf37
           pip hash $WHEEL_NAME | grep hash
           if [[ -f "$WHEEL_NAME" ]]; then
             rm $WHEEL_NAME
