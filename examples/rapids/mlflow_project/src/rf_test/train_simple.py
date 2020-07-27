@@ -86,4 +86,4 @@ if (__name__ == "__main__"):
                                  conda_env='conda.yaml')
         artifact_uri = mlflow.get_artifact_uri(artifact_path=artifact_path)
 
-    print(f"Model uri: {artifact_uri}")
+    print("Model uri: %s" % artifact_uri)
