@@ -148,3 +148,15 @@ def is_databricks_acled_artifacts_uri(artifact_uri):
     _ACLED_ARTIFACT_URI = "databricks/mlflow-tracking/"
     artifact_uri_path = extract_and_normalize_path(artifact_uri)
     return artifact_uri_path.startswith(_ACLED_ARTIFACT_URI)
+
+
+def construct_run_url(hostname, experiment_id, run_id, workspace_id=None):
+    if not hostname or not experiment_id or not run_id:
+        raise MlflowException('Hostname, experiment ID, and run ID are all required to construct'
+                              'a run URL')
+    prefix = hostname
+    if workspace_id and workspace_id != '0':
+        prefix += "?o=" + workspace_id
+    return prefix + '#mlflow/experiments/{experiment_id}/runs/{run_id}'.format(
+        experiment_id=experiment_id,
+        run_id=run_id)
