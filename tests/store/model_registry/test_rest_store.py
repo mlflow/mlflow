@@ -68,7 +68,7 @@ class TestRestStore(unittest.TestCase):
         self._verify_requests(mock_http, "registered-models/create", "POST",
                               CreateRegisteredModel(name="model_1",
                                                     tags=[tag.to_proto() for tag in tags]),
-                                                    self.generate_creds)
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_update_registered_model_name(self, mock_http):
@@ -172,9 +172,9 @@ class TestRestStore(unittest.TestCase):
                                         run_link=run_link)
         self._verify_requests(mock_http, "model-versions/create", "POST",
                               CreateModelVersion(name="model_1", source="path/to/source",
-                                                 run_id=run_id,
+                                                 run_id=run_id, run_link=run_link,
                                                  tags=[tag.to_proto() for tag in tags]),
-                                                 self.generate_creds)
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_transition_model_version_stage(self, mock_http):
@@ -186,7 +186,7 @@ class TestRestStore(unittest.TestCase):
                               TransitionModelVersionStage(name=name, version=version,
                                                           stage="prod",
                                                           archive_existing_versions=True),
-                                                          self.generate_creds)
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_update_model_version_decription(self, mock_http):
@@ -197,7 +197,7 @@ class TestRestStore(unittest.TestCase):
         self._verify_requests(mock_http, "model-versions/update", "PATCH",
                               UpdateModelVersion(name=name, version=version,
                                                  description="test model version"),
-                                                 self.generate_creds)
+                              self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_model_version(self, mock_http):
