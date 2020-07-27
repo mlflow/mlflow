@@ -22,11 +22,11 @@ jobs:
         MAX=100
         for i in `seq 2 $MAX`
         do
+
           pip download -q torch==1.4.0
           pip hash torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl | grep hash
           if [[ -f torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl ]]; then
-            rm torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl
-          fi
+          find . -type f -name "*.whl" -delete
         done
 
   hash-scipy:
@@ -44,9 +44,7 @@ jobs:
         do
           pip download -q scipy==1.2.1
           pip hash $WHEEL_NAME | grep hash
-          if [[ -f "$WHEEL_NAME" ]]; then
-            rm $WHEEL_NAME
-          fi
+          find . -type f -name "*.whl" -delete
         done
 
   # lint:
