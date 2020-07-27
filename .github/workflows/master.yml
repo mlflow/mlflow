@@ -13,7 +13,7 @@ jobs:
   hash:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@2
+    - uses: actions/checkout@v2
     - run: |
         MAX=100
         for i in `seq 2 $MAX`
