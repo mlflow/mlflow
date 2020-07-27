@@ -10,7 +10,7 @@ env:
   CONDA_DIR: /usr/share/miniconda
 
 jobs:
-  check-hash:
+  hash:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@2
