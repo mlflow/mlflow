@@ -35,7 +35,7 @@ jobs:
         for i in `seq 2 $MAX`
         do
           wget -q https://files.pythonhosted.org/packages/7f/5f/c48860704092933bf1c4c1574a8de1ffd16bf4fde8bab190d747598844b2/scipy-1.2.1-cp36-cp36m-manylinux1_x86_64.whl#sha256=f31338ee269d201abe76083a990905473987371ff6f3fdb76a3f9073a361cf37
-          pip $WHEEL_NAME | grep hash
+          pip hash $WHEEL_NAME | grep hash
           if [[ -f "$WHEEL_NAME" ]]; then
             rm $WHEEL_NAME
           fi
