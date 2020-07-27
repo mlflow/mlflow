@@ -5,10 +5,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri, append_to_uri_path, construct_run_url,
-    extract_and_normalize_path, extract_db_type_from_uri, 
+    extract_and_normalize_path, extract_db_type_from_uri,
     get_databricks_profile_uri_from_artifact_uri, get_db_info_from_uri, get_uri_scheme,
     is_databricks_acled_artifacts_uri, is_databricks_uri, is_http_uri,
-    is_local_uri, remove_databricks_profile_info_from_artifact_uri
+    is_local_uri, is_valid_dbfs_uri, remove_databricks_profile_info_from_artifact_uri,
 )
 
 

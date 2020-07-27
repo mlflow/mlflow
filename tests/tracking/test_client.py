@@ -279,8 +279,8 @@ def test_create_model_version_explicitly_set_run_link(mock_registry_store):
     # mocks to make sure that even if you're in a notebook, this setting is respected.
     with mock.patch('mlflow.tracking.client.is_in_databricks_notebook',
                     return_value=True), \
-        mock.patch('mlflow.tracking.client.get_workspace_info_from_dbutils',
-                   return_value=(hostname, workspace_id)):
+            mock.patch('mlflow.tracking.client.get_workspace_info_from_dbutils',
+                       return_value=(hostname, workspace_id)):
         client = MlflowClient(tracking_uri='databricks', registry_uri='otherplace')
         model_version = client.create_model_version('name', 'source', 'runid', run_link=run_link)
         assert(model_version.run_link == run_link)
@@ -300,8 +300,8 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
                                     None)
     with mock.patch('mlflow.tracking.client.is_in_databricks_notebook',
                     return_value=True), \
-        mock.patch('mlflow.tracking.client.get_workspace_info_from_dbutils',
-                   return_value=(hostname, workspace_id)):
+            mock.patch('mlflow.tracking.client.get_workspace_info_from_dbutils',
+                       return_value=(hostname, workspace_id)):
         client = MlflowClient(tracking_uri='databricks', registry_uri='otherplace')
         client.get_run = get_run_mock
         mock_registry_store.create_model_version.return_value = \
@@ -322,9 +322,9 @@ def test_create_model_version_run_link_with_configured_profile(mock_registry_sto
     get_run_mock = mock.MagicMock()
     get_run_mock.return_value = Run(RunInfo(run_id, experiment_id, 'userid', 'status', 0, 1, None),
                                     None)
-    with mock.patch('mlflow.tracking.client.is_in_databricks_notebook', return_value=False), mock\
-            .patch('mlflow.tracking.client.get_workspace_info_from_databricks_secrets',
-                   return_value=(hostname, workspace_id)):
+    with mock.patch('mlflow.tracking.client.is_in_databricks_notebook', return_value=False), \
+            mock.patch('mlflow.tracking.client.get_workspace_info_from_databricks_secrets',
+                       return_value=(hostname, workspace_id)):
         client = MlflowClient(tracking_uri='databricks', registry_uri='otherplace')
         client.get_run = get_run_mock
         mock_registry_store.create_model_version.return_value = \
@@ -339,10 +339,11 @@ def test_create_model_version_run_link_with_configured_profile(mock_registry_sto
 def test_create_model_version_copy_called_db_to_db(mock_registry_store):
     client = MlflowClient(tracking_uri="databricks://tracking",
                           registry_uri="databricks://registry:workspace")
-    mock_registry_store.create_model_version.return_value = ""
+    # mock_registry_store.create_model_version.return_value = ""
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") \
             as upload_mock:
-        client.create_model_version("model name", "dbfs:/source", "run_12345")
+        client.create_model_version("model name", "dbfs:/source", "run_12345",
+                                    run_link='not:/important/for/test')
         upload_mock.assert_called_once_with("dbfs:/source", "run_12345", "databricks://tracking",
                                             "databricks://registry:workspace")
 
@@ -353,7 +354,8 @@ def test_create_model_version_copy_called_nondb_to_db(mock_registry_store):
     mock_registry_store.create_model_version.return_value = ""
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") \
             as upload_mock:
-        client.create_model_version("model name", "s3:/source", "run_12345")
+        client.create_model_version("model name", "s3:/source", "run_12345",
+                                    run_link='not:/important/for/test')
         upload_mock.assert_called_once_with("s3:/source", "run_12345", "https://tracking",
                                             "databricks://registry:workspace")
 
@@ -364,7 +366,8 @@ def test_create_model_version_copy_not_called_to_db(mock_registry_store):
     mock_registry_store.create_model_version.return_value = ""
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") \
             as upload_mock:
-        client.create_model_version("model name", "dbfs:/source", "run_12345")
+        client.create_model_version("model name", "dbfs:/source", "run_12345",
+                                    run_link='not:/important/for/test')
         upload_mock.assert_not_called()
 
 
@@ -374,6 +377,6 @@ def test_create_model_version_copy_not_called_to_nondb(mock_registry_store):
     mock_registry_store.create_model_version.return_value = ""
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") \
             as upload_mock:
-        client.create_model_version("model name", "dbfs:/source", "run_12345")
+        client.create_model_version("model name", "dbfs:/source", "run_12345",
+                                    run_link='not:/important/for/test')
         upload_mock.assert_not_called()
-
