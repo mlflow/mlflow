@@ -30,7 +30,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - run: |
-        MAX=100
+        MAX=300
         WHEEL_NAME=scipy-1.2.1-cp36-cp36m-manylinux1_x86_64.whl
         for i in `seq 2 $MAX`
         do
