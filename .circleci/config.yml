@@ -36,6 +36,6 @@ jobs:
           path: docs/build/html
 
 workflows:
-  ci:
+  build:
     jobs:
       - build_doc
