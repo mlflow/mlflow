@@ -28,7 +28,7 @@ You can run the `fastai` example with default or supplied arguments in three way
  
  `mlflow run . -e main -P lr=0.02 -P epochs=3`
  
-3. Run from outside git repository as a MLflow Project
+3. Run from outside git repository as an MLflow Project
 
  `mlflow run https://github.com/mlflow/mlflow/\#examples/fastai`
  
