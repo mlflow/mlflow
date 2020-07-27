@@ -79,10 +79,6 @@ class TestDatabricksArtifactRepository(object):
             with pytest.raises(MlflowException):
                 DatabricksArtifactRepository('dbfs:/databricks/mlflow/EXP/RUN/artifact')
 
-
-    ## TODO(sueann): add tests for
-    #   - also add the URI with profile case to other method unit tests,
-    #     especially one that uses _call_endpoint
     @pytest.mark.parametrize("artifact_uri, expected_uri, expected_db_uri", [
         ('dbfs:/databricks/mlflow-tracking/experiment/1/run/2',
          'dbfs:/databricks/mlflow-tracking/experiment/1/run/2',
@@ -96,8 +92,14 @@ class TestDatabricksArtifactRepository(object):
         ('dbfs://scope:key@databricks/databricks/mlflow-tracking/experiment/1/run/2',
          'dbfs:/databricks/mlflow-tracking/experiment/1/run/2',
          'databricks://scope/key'),
+        ('dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts',
+         'dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts',
+         'databricks://getTrackingUriDefault'),
+        ('dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/awesome/path',
+         'dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/awesome/path',
+         'databricks://getTrackingUriDefault'),
     ])
-    def test_init_databricks_profile_uri(self, artifact_uri, expected_uri, expected_db_uri):
+    def test_init_artifact_uri(self, artifact_uri, expected_uri, expected_db_uri):
         with mock.patch(DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE + ".get_databricks_host_creds",
                         return_value=None), \
              mock.patch(DATABRICKS_ARTIFACT_REPOSITORY + "._get_run_artifact_root",
@@ -108,10 +110,11 @@ class TestDatabricksArtifactRepository(object):
             assert repo.artifact_uri == expected_uri
             assert repo.databricks_profile_uri == expected_db_uri
 
-
     @pytest.mark.parametrize("artifact_uri, expected_relative_path", [
         ('dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts', ''),
         ('dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts/arty', 'arty'),
+        ('dbfs://prof@databricks/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts/arty',
+         'arty'),
         ('dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/awesome/path', '../awesome/path'),
     ])
     def test_run_relative_artifact_repo_root_path(self, artifact_uri, expected_relative_path):
@@ -120,7 +123,6 @@ class TestDatabricksArtifactRepository(object):
             get_run_artifact_root_mock.return_value = MOCK_RUN_ROOT_URI
             # Basic artifact uri
             repo = get_artifact_repository(artifact_uri)
-            assert repo.artifact_uri == artifact_uri
             assert repo.run_id == MOCK_RUN_ID
             assert repo.run_relative_artifact_repo_root_path == expected_relative_path
 
@@ -163,7 +165,7 @@ class TestDatabricksArtifactRepository(object):
             azure_upload_mock.assert_called_with(mock_credentials, test_file.strpath,
                                                  expected_location)
 
-    @pytest.mark.parametrize("artifact_path,expected_location", [
+    @pytest.mark.parametrize("artifact_path, expected_location", [
         (None, 'test.txt'),
     ])
     def test_log_artifact_azure_with_headers(self, databricks_artifact_repo, test_file,

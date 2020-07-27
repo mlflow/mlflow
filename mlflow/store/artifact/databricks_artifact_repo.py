@@ -59,7 +59,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         artifact_uri_no_db_profile = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
         super(DatabricksArtifactRepository, self).__init__(artifact_uri_no_db_profile)
         self.databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri) \
-                                      or mlflow.tracking.get_tracking_uri()
+            or mlflow.tracking.get_tracking_uri()
 
         self.run_id = self._extract_run_id(self.artifact_uri)
         # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute

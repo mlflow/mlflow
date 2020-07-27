@@ -295,7 +295,7 @@ def test_get_databricks_profile_uri_from_artifact_uri(uri, result):
     ('ftp://user:pass@realhost:port/path/nowhere', 'ftp://user:pass@realhost:port/path/nowhere'),
     ('dbfs:/path/to/nowhere', 'dbfs:/path/to/nowhere'),
     ('dbfs://nondatabricks/path/to/nowhere', 'dbfs://nondatabricks/path/to/nowhere'),
-    ('dbfs://incorrect:netloc:format/path/to/nowhere', 'dbfs://incorrect:netloc:format/path/to/nowhere'),
+    ('dbfs://incorrect:netloc:format/path/', 'dbfs://incorrect:netloc:format/path/'),
     # URIs with legit databricks profile info
     ('dbfs://databricks', 'dbfs:'),
     ('dbfs://databricks/', 'dbfs:/'),
