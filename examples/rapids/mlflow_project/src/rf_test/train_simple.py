@@ -77,9 +77,7 @@ if (__name__ == "__main__"):
     experiment_id = None
 
     mlflow.set_tracking_uri(uri='sqlite:////tmp/mlflow-db.sqlite')
-    with mlflow.start_run():
-        mlflow.set_tag("mlflow.runName", "(CLI) RAPIDS-MLFlow")
-
+    with mlflow.start_run(run_name="(CLI) RAPIDS-MLFlow"):
         model = train(args.fpath, args.max_depth, args.max_features, args.n_estimators)
 
         mlflow.sklearn.log_model(model,

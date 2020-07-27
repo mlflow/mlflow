@@ -21,7 +21,7 @@ persistence and deployment."
 1. Train the model using a single run.
     1. ```shell script
        # Launch the job
-       mlflow run . -b local -e hyperopt \
+       mlflow run . -e simple\
                 --experiment-name RAPIDS-CLI \
                 -P max_depth=10 -P max_features=0.75 -P n_estimators=500 \
                 -P conda-env=$PWD/envs/conda.yaml \
@@ -30,7 +30,7 @@ persistence and deployment."
 1. Train the model with Hyperopt
     1. ```shell script
        # Launch the job
-       mlflow run . -b local -e hyperopt \
+       mlflow run . -e hyperopt \
                 --experiment-name RAPIDS-CLI \
                 -P conda-env=$PWD/envs/conda.yaml \
                 -P fpath=airline_small.parquet
