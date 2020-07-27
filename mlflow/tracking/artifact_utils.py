@@ -96,10 +96,9 @@ def _upload_artifacts_to_databricks(source, run_id, source_host_uri=None,
     import uuid
     local_dir = tempfile.mkdtemp()
     try:
-        # TODO: might want to throw if `source` is a models URI??
         source_with_profile = add_databricks_profile_info_to_artifact_uri(source, source_host_uri)
         _download_artifact_from_uri(source_with_profile, local_dir)
-        dest_root = 'dbfs:/databricks/mlflow/tmp-external-source/'  # TODO: "/" or "-"?
+        dest_root = 'dbfs:/databricks/mlflow/tmp-external-source/'
         dest_repo = DbfsRestArtifactRepository(dest_root, target_databricks_profile_uri)
         dest_dir = run_id if run_id else uuid.uuid1()
         dest_repo.log_artifacts(local_dir, artifact_path=dest_dir)

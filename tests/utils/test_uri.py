@@ -34,7 +34,7 @@ def test_extract_db_type_from_uri():
     ('nondatabricks://profile/prefix', (None, None)),
     ('databricks://profile', ('profile', None)),
     ('databricks://profile/', ('profile', None)),
-    ('databricks://', ('', None))
+    ('databricks://', ('', None)),
 ])
 def test_get_db_info_from_uri(server_uri, result):
     assert get_db_info_from_uri(server_uri) == result
