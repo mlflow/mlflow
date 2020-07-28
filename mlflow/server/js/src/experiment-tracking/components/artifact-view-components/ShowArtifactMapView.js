@@ -11,7 +11,7 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
 function onEachFeature(feature, layer) {
   if (feature.properties && feature.properties.popupContent) {
-    const popupContent = feature.properties.popupContent;
+    const { popupContent } = feature.properties;
     layer.bindPopup(popupContent);
   }
 }
