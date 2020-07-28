@@ -337,7 +337,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     this.handleLoadingOverlay();
 
     window.addEventListener('resize', () => {
-      this.gridApi.sizeColumnsToFit();
+      _.debounce(this.gridApi.sizeColumnsToFit, 100);
     });
   };
 
