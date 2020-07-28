@@ -103,7 +103,7 @@ export class ModelVersionViewImpl extends React.Component {
     e.preventDefault();
     const { form } = this.formRef.props;
     const { modelName } = this.props;
-    const version = this.props.modelVersion.version;
+    const { version } = this.props.modelVersion;
     form.validateFields((err, values) => {
       if (!err) {
         this.setState({ isTagsRequestPending: true });
@@ -124,7 +124,7 @@ export class ModelVersionViewImpl extends React.Component {
 
   handleSaveEdit = ({ name, value }) => {
     const { modelName } = this.props;
-    const version = this.props.modelVersion.version;
+    const { version } = this.props.modelVersion;
     return this.props.setModelVersionTagApi(modelName, version, name, value).catch((ex) => {
       console.error(ex);
       message.error('Failed to set tag. Error: ' + ex.getUserVisibleError());
@@ -133,7 +133,7 @@ export class ModelVersionViewImpl extends React.Component {
 
   handleDeleteTag = ({ name }) => {
     const { modelName } = this.props;
-    const version = this.props.modelVersion.version;
+    const { version } = this.props.modelVersion.version;
     return this.props.deleteModelVersionTagApi(modelName, version, name).catch((ex) => {
       console.error(ex);
       message.error('Failed to delete tag. Error: ' + ex.getUserVisibleError());
@@ -314,7 +314,7 @@ export class ModelVersionViewImpl extends React.Component {
 
 const mapStateToProps = (state, ownProps) => {
   const { modelName } = ownProps;
-  const version = ownProps.modelVersion.version;
+  const { version } = ownProps.modelVersion;
   const tags = getModelVersionTags(modelName, version, state);
   return { ...ownProps, tags };
 };

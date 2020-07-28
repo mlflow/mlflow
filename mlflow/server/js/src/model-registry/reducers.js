@@ -134,7 +134,7 @@ const tagsByRegisteredModel = (state = {}, action) => {
       const detailedModel = action.payload[getProtoField('registered_model')];
       const { modelName } = action.meta;
       if (detailedModel.tags && detailedModel.tags.length > 0) {
-        const tags = detailedModel.tags;
+        const { tags } = detailedModel;
         const newState = { ...state };
         newState[modelName] = tagArrToObject(tags);
         return newState;
@@ -188,7 +188,7 @@ const tagsByModelVersion = (state = {}, action) => {
       const modelVersion = action.payload[getProtoField('model_version')];
       const { modelName, version } = action.meta;
       if (modelVersion.tags && modelVersion.tags.length > 0) {
-        const tags = modelVersion.tags;
+        const { tags } = modelVersion;
         const newState = { ...state };
         newState[modelName] = newState[modelName] || {};
         newState[modelName][version] = tagArrToObject(tags);
