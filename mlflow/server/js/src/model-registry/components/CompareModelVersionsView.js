@@ -17,7 +17,7 @@ import { modelListPageRoute, getModelPageRoute, getModelVersionPageRoute } from 
 import { css } from 'emotion';
 import _ from 'lodash';
 
-const TabPane = Tabs.TabPane;
+const { TabPane } = Tabs;
 
 export class CompareModelVersionsView extends Component {
   static propTypes = {
