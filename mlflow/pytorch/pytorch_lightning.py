@@ -12,7 +12,7 @@ from pytorch_lightning.callbacks import EarlyStopping
 logging.basicConfig(level=logging.ERROR)
 
 
-def autolog():
+def autolog(every_n_iter=1):
     """
     Enable automatic logging from Pytorch-Lightning to MLflow.
     Logs loss and any other metrics specified in the fit
@@ -21,6 +21,8 @@ def autolog():
 
     MLflow will also log the parameters of the EarlyStopping callback
     """
+    global _LOG_EVERY_N_STEPS
+    _LOG_EVERY_N_STEPS = every_n_iter
 
     class __MLflowPLCallback(pl.Callback):
         """
@@ -34,10 +36,10 @@ def autolog():
             """
             Log loss and other metrics values after each epoch
             """
-            loss_metrics = trainer.callback_metrics
+            if (pl_module.current_epoch - 1) % _LOG_EVERY_N_STEPS == 0:
+                metrics = trainer.callback_metrics
 
-            for key, value in loss_metrics.items():
-                if "loss" in key:
+                for key, value in metrics.items():
                     try_mlflow_log(mlflow.log_metric, key, float(value))
 
         def on_train_start(self, trainer, pl_module):
@@ -90,8 +92,7 @@ def autolog():
             metrics = trainer.callback_metrics
 
             for key, value in metrics.items():
-                if key != "epoch":
-                    try_mlflow_log(mlflow.log_metric, key, float(value))
+                try_mlflow_log(mlflow.log_metric, key, float(value))
 
     def _log_early_stop_params(early_stop_obj):
         """

@@ -17,7 +17,7 @@ from torchvision import datasets, transforms
 
 
 class LightningMNISTClassifier(pl.LightningModule):
-    def __init__(self):
+    def __init__(self, **kwargs):
         """
         Initializes the network
         """
@@ -27,6 +27,38 @@ class LightningMNISTClassifier(pl.LightningModule):
         self.layer_1 = torch.nn.Linear(28 * 28, 128)
         self.layer_2 = torch.nn.Linear(128, 256)
         self.layer_3 = torch.nn.Linear(256, 10)
+        self.args = kwargs
+
+        # transforms for images
+        self.transform = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+        )
+
+    @staticmethod
+    def add_model_specific_args(parent_parser):
+        parser = ArgumentParser(parents=[parent_parser], add_help=False)
+        parser.add_argument(
+            "--batch-size",
+            type=int,
+            default=64,
+            metavar="N",
+            help="input batch size for training (default: 64)",
+        )
+        parser.add_argument(
+            "--num-workers",
+            type=int,
+            default=0,
+            metavar="N",
+            help="number of workers (default: 0)",
+        )
+        parser.add_argument(
+            "--lr",
+            type=float,
+            default=1e-3,
+            metavar="LR",
+            help="learning rate (default: 1e-3)",
+        )
+        return parser
 
     def forward(self, x):
         """
@@ -92,7 +124,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         x, y = test_batch
         output = self.forward(x)
         a, y_hat = torch.max(output, dim=1)
-        test_acc = accuracy_score(y_hat, y)
+        test_acc = accuracy_score(y_hat.cpu(), y.cpu())
         return {"test_acc": torch.tensor(test_acc)}
 
     def test_epoch_end(self, outputs):
@@ -106,44 +138,54 @@ class LightningMNISTClassifier(pl.LightningModule):
         """
         Preprocess the input data.
         """
-        # transforms for images
-        transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-        )
-
-        mnist_train = datasets.MNIST(
-            "dataset", download=True, train=True, transform=transform
-        )
-        self.mnist_test = datasets.MNIST(
-            "dataset", download=True, train=False, transform=transform
-        )
-
-        self.mnist_train, self.mnist_val = \
-            random_split(mnist_train, [55000, 5000])
+        return {}
 
     def train_dataloader(self):
         """
         Loading training data as batches
         """
-        return DataLoader(self.mnist_train, batch_size=64)
+        mnist_train = datasets.MNIST(
+            "dataset", download=True, train=True, transform=self.transform
+        )
+        return DataLoader(
+            mnist_train,
+            batch_size=self.args["batch_size"],
+            num_workers=self.args["num_workers"],
+        )
 
     def val_dataloader(self):
         """
         Loading validation data as batches
         """
-        return DataLoader(self.mnist_val, batch_size=64)
+        mnist_train = datasets.MNIST(
+            "dataset", download=True, train=True, transform=self.transform
+        )
+        mnist_train, mnist_val = random_split(mnist_train, [55000, 5000])
+
+        return DataLoader(
+            mnist_val,
+            batch_size=self.args["batch_size"],
+            num_workers=self.args["num_workers"],
+        )
 
     def test_dataloader(self):
         """
         Loading test data as batches
         """
-        return DataLoader(self.mnist_test, batch_size=64)
+        mnist_test = datasets.MNIST(
+            "dataset", download=True, train=False, transform=self.transform
+        )
+        return DataLoader(
+            mnist_test,
+            batch_size=self.args["batch_size"],
+            num_workers=self.args["num_workers"],
+        )
 
     def configure_optimizers(self):
         """
         Creates and returns Optimizer
         """
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
         return optimizer
 
 
@@ -152,9 +194,28 @@ if __name__ == "__main__":
     if not mlflow.active_run():
         try_mlflow_log(mlflow.start_run)
 
-    model = LightningMNISTClassifier()
-    trainer = pl.Trainer(max_epochs=5)
-    autolog()
+    parser = ArgumentParser(description="PyTorch Lightning Mnist Example")
+
+    # Add trainer specific arguments
+    parser.add_argument(
+        "--max_epochs", type=int, default=5, help="number of epochs to run (default: 5)"
+    )
+    parser.add_argument(
+        "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
+    )
+    parser.add_argument(
+        "--distributed_backend",
+        type=str,
+        default=None,
+        help="Distributed Backend - (default: None)",
+    )
+    parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
+
+    args = parser.parse_args()
+    dict_args = vars(args)
+    model = LightningMNISTClassifier(**dict_args)
+    trainer = pl.Trainer.from_argparse_args(args)
+    autolog(every_n_iter=2)
     trainer.fit(model)
     trainer.test(model)
 
