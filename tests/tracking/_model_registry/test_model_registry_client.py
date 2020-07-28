@@ -185,11 +185,12 @@ def test_create_model_version(mock_store):
     }
     tags = [ModelVersionTag(key, value) for key, value in tags_dict.items()]
     mock_store.create_model_version.return_value = ModelVersion(name=name, version=version,
-                                                                creation_timestamp=123, tags=tags)
+                                                                creation_timestamp=123, tags=tags,
+                                                                run_link=None)
     result = newModelRegistryClient().create_model_version(name, "uri:/for/source",
                                                            "run123", tags_dict)
     mock_store.create_model_version.assert_called_once_with(name, "uri:/for/source",
-                                                            "run123", tags)
+                                                            "run123", tags, None)
     assert result.name == name
     assert result.version == version
     assert result.tags == tags_dict
