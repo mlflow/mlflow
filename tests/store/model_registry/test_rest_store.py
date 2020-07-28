@@ -239,8 +239,7 @@ class TestRestStore(unittest.TestCase):
         self.store.set_model_version_tag(name=name, version="1", tag=tag)
         self._verify_requests(mock_http, "model-versions/set-tag", "POST",
                               SetModelVersionTag(name=name, version="1",
-                                                 key=tag.key, value=tag.value),
-                              self.generate_creds)
+                                                 key=tag.key, value=tag.value), self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_model_version_tag(self, mock_http):
