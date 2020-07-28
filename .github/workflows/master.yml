@@ -230,7 +230,7 @@ jobs:
           pip install -e .
       - name: Run tests
         run: |
-          pytest --verbose --ignore-flavors --ignore=tests/projects tests
+          pytest --verbose --ignore-flavors
 
   docs:
     runs-on: ubuntu-latest
