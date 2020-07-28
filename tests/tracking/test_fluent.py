@@ -22,7 +22,7 @@ from mlflow.tracking.fluent import (_EXPERIMENT_ID_ENV_VAR,
                                     SEARCH_MAX_RESULTS_PANDAS,
                                     _get_experiment_id,
                                     _get_experiment_id_from_env,
-                                    _get_paginated_runs, search_runs,
+                                    _get_paginated_runs, search_runs, list_run_infos,
                                     set_experiment, start_run, get_run)
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
@@ -500,6 +500,21 @@ def test_get_paginated_runs_lt_maxresults_onepage():
             assert len(paginated_runs) == 5
 
 
+def test_list_run_infos_lt_maxresults_onepage():
+    """
+    Number of runs is less than max_results and fits on one page,
+    so we only need to fetch one page.
+    """
+    run_infos = [create_run().info for _ in range(5)]
+    tokenized_runs = PagedList(run_infos, "")
+    max_results = 50
+    with mock.patch("mlflow.tracking.fluent.SEARCH_MAX_RESULTS_DEFAULT", 10):
+        with mock.patch.object(MlflowClient, "list_run_infos", return_value=tokenized_runs):
+            paginated_runs_infos = list_run_infos("", ViewType.ACTIVE_ONLY, max_results, None)
+            MlflowClient.list_run_infos.assert_called_once()
+            assert len(paginated_runs_infos) == 5
+
+
 def test_get_paginated_runs_lt_maxresults_multipage():
     """
     Number of runs is less than max_results, but multiple pages are necessary to get all runs
@@ -516,6 +531,23 @@ def test_get_paginated_runs_lt_maxresults_multipage():
             assert len(paginated_runs) == TOTAL_RUNS
 
 
+def test_get_paginated_run_infos_lt_maxresults_multipage():
+    """
+    Number of runs is less than max_results, but multiple pages are necessary to get all runs
+    """
+    tokenized_run_infos = PagedList([create_run().info for _ in range(10)], "token")
+    no_token_run_infos = PagedList([create_run().info], "")
+    max_results = 50
+    with mock.patch("mlflow.tracking.fluent.SEARCH_MAX_RESULTS_DEFAULT", 10):
+        with mock.patch.object(MlflowClient, "list_run_infos"):
+            MlflowClient.list_run_infos.side_effect = [tokenized_run_infos, tokenized_run_infos,
+                                                       no_token_run_infos]
+            TOTAL_RUNS = 21
+
+            paginated_run_infos = list_run_infos("", ViewType.ACTIVE_ONLY, max_results, None)
+            assert len(paginated_run_infos) == TOTAL_RUNS
+
+
 def test_get_paginated_runs_lt_maxresults_onepage_nonetoken():
     """
     Number of runs is less than max_results and fits on one page.
@@ -529,6 +561,21 @@ def test_get_paginated_runs_lt_maxresults_onepage_nonetoken():
             paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
             MlflowClient.search_runs.assert_called_once()
             assert len(paginated_runs) == 5
+
+
+def test_get_paginated_run_infos_lt_maxresults_onepage_nonetoken():
+    """
+    Number of runs is less than max_results and fits on one page.
+    The token passed back on the last page is None, not the emptystring
+    """
+    run_infos = [create_run().info for _ in range(5)]
+    tokenized_run_infos = PagedList(run_infos, None)
+    max_results = 50
+    with mock.patch("mlflow.tracking.fluent.SEARCH_MAX_RESULTS_DEFAULT", 10):
+        with mock.patch.object(MlflowClient, "list_run_infos", return_value=tokenized_run_infos):
+            paginated_run_infos = list_run_infos("", ViewType.ACTIVE_ONLY, max_results, None)
+            MlflowClient.list_run_infos.assert_called_once()
+            assert len(paginated_run_infos) == 5
 
 
 def test_get_paginated_runs_eq_maxresults_blanktoken():
@@ -551,6 +598,26 @@ def test_get_paginated_runs_eq_maxresults_blanktoken():
             assert len(paginated_runs) == 10
 
 
+def test_get_paginated_run_infos_eq_maxresults_blanktoken():
+    """
+    Runs returned are equal to max_results which are equal to a full number of pages.
+    The server might send a token back, or they might not (depending on if they know if
+    more runs exist). In this example, no token is sent back.
+    Expected behavior is to NOT query for more pages.
+    """
+    # runs returned equal to max_results, blank token
+    run_infos = [create_run().info for _ in range(10)]
+    tokenized_run_infos = PagedList(run_infos, "")
+    no_token_run_infos = PagedList([], "")
+    max_results = 10
+    with mock.patch("mlflow.tracking.fluent.SEARCH_MAX_RESULTS_DEFAULT", 10):
+        with mock.patch.object(MlflowClient, "list_run_infos"):
+            MlflowClient.search_runs.side_effect = [tokenized_run_infos, no_token_run_infos]
+            paginated_run_infos = list_run_infos("", ViewType.ACTIVE_ONLY, max_results, None)
+            MlflowClient.list_run_infos.assert_called_once()
+            assert len(paginated_run_infos) == 10
+
+
 def test_get_paginated_runs_eq_maxresults_token():
     """
     Runs returned are equal to max_results which are equal to a full number of pages.
@@ -568,6 +635,25 @@ def test_get_paginated_runs_eq_maxresults_token():
             paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
             MlflowClient.search_runs.assert_called_once()
             assert len(paginated_runs) == 10
+
+
+def test_get_paginated_run_infos_eq_maxresults_token():
+    """
+    Runs returned are equal to max_results which are equal to a full number of pages.
+    The server might send a token back, or they might not (depending on if they know if
+    more runs exist). In this example, a toke IS sent back.
+    Expected behavior is to NOT query for more pages.
+    """
+    run_infos = [create_run().info for _ in range(10)]
+    tokenized_run_infos = PagedList(run_infos, "abc")
+    blank_run_infos = PagedList([], "")
+    max_results = 10
+    with mock.patch("mlflow.tracking.fluent.SEARCH_MAX_RESULTS_DEFAULT", 10):
+        with mock.patch.object(MlflowClient, "list_run_infos"):
+            MlflowClient.list_run_infos.side_effect = [tokenized_run_infos, blank_run_infos]
+            paginated_run_infos = list_run_infos("", ViewType.ACTIVE_ONLY, max_results, None)
+            MlflowClient.list_run_infos.assert_called_once()
+            assert len(paginated_run_infos) == 10
 
 
 def test_get_paginated_runs_gt_maxresults_multipage():
@@ -590,6 +676,27 @@ def test_get_paginated_runs_gt_maxresults_multipage():
             assert len(paginated_runs) == 20
 
 
+def test_get_paginated_run_infos_gt_maxresults_multipage():
+    """
+    Number of runs that fit search criteria is greater than max_results. Multiple pages expected.
+    Expected to only get max_results number of results back.
+    """
+    # should ask for and return the correct number of max_results
+    full_page_run_infos = PagedList([create_run().info for _ in range(8)], "abc")
+    partial_page_infos = PagedList([create_run().info for _ in range(4)], "def")
+    max_results = 20
+    with mock.patch("mlflow.tracking.fluent.SEARCH_MAX_RESULTS_DEFAULT", 8):
+        with mock.patch.object(MlflowClient, "list_run_infos"):
+            MlflowClient.list_run_infos.side_effect = [full_page_run_infos, full_page_run_infos,
+                                                       partial_page_infos]
+            paginated_run_infos = list_run_infos("", ViewType.ACTIVE_ONLY, max_results, None)
+            calls = [mock.call("", ViewType.ACTIVE_ONLY, 8, None, None),
+                     mock.call("", ViewType.ACTIVE_ONLY, 8, None, "abc"),
+                     mock.call("", ViewType.ACTIVE_ONLY, 20 % 8, None, "abc")]
+            MlflowClient.list_run_infos.assert_has_calls(calls)
+            assert len(paginated_run_infos) == 20
+
+
 def test_get_paginated_runs_gt_maxresults_onepage():
     """"
     Number of runs that fit search criteria is greater than max_results. Only one page expected.
@@ -604,6 +711,22 @@ def test_get_paginated_runs_gt_maxresults_onepage():
             MlflowClient.search_runs.assert_called_once_with(
                 [123], "", ViewType.ACTIVE_ONLY, max_results, None, None)
             assert len(paginated_runs) == 10
+
+
+def test_get_paginated_run_infos_gt_maxresults_onepage():
+    """"
+    Number of runs that fit search criteria is greater than max_results. Only one page expected.
+    Expected to only get max_results number of results back.
+    """
+    run_infos = [create_run().info for _ in range(10)]
+    tokenized_run_infos = PagedList(run_infos, "abc")
+    max_results = 10
+    with mock.patch("mlflow.tracking.fluent.SEARCH_MAX_RESULTS_DEFAULT", 20):
+        with mock.patch.object(MlflowClient, "list_run_infos", return_value=tokenized_run_infos):
+            paginated_run_infos = list_run_infos("", ViewType.ACTIVE_ONLY, max_results, None)
+            MlflowClient.list_run_infos.assert_called_once_with(
+                "", ViewType.ACTIVE_ONLY, max_results, None, None)
+            assert len(paginated_run_infos) == 10
 
 
 def test_delete_tag():

@@ -521,12 +521,12 @@ def list_run_infos(experiment_id, run_view_type=ViewType.ACTIVE_ONLY,
     while(len(all_run_infos) < max_results):
         infos_to_get = max_results - len(all_run_infos)
         if infos_to_get < SEARCH_MAX_RESULTS_DEFAULT:
-            infos = MlflowClient.list_run_infos(experiment_id, run_view_type, infos_to_get,
-                                                order_by, next_page_token)
+            infos = MlflowClient().list_run_infos(experiment_id, run_view_type, infos_to_get,
+                                                  order_by, next_page_token)
         else:
-            infos = MlflowClient.list_run_infos(experiment_id, run_view_type,
-                                                SEARCH_MAX_RESULTS_DEFAULT, order_by,
-                                                next_page_token)
+            infos = MlflowClient().list_run_infos(experiment_id, run_view_type,
+                                                  SEARCH_MAX_RESULTS_DEFAULT, order_by,
+                                                  next_page_token)
         all_run_infos.extend(infos)
         if hasattr(infos, 'token') and infos.token != '' and infos.token is not None:
             next_page_token = infos.token
