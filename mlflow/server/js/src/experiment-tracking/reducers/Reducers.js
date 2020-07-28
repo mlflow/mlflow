@@ -124,7 +124,7 @@ export const paramsByRunUuid = (state = {}, action) => {
   };
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
-      const run = action.payload.run;
+      const { run } = action.payload;
       const runUuid = run.info.run_uuid;
       const params = run.data.params || [];
       const newState = { ...state };
@@ -133,7 +133,7 @@ export const paramsByRunUuid = (state = {}, action) => {
     }
     case fulfilled(SEARCH_RUNS_API):
     case fulfilled(LOAD_MORE_RUNS_API): {
-      const runs = action.payload.runs;
+      const { runs } = action.payload;
       const newState = { ...state };
       if (runs) {
         runs.forEach((rJson) => {
@@ -173,7 +173,7 @@ export const tagsByRunUuid = (state = {}, action) => {
     }
     case fulfilled(SEARCH_RUNS_API):
     case fulfilled(LOAD_MORE_RUNS_API): {
-      const runs = action.payload.runs;
+      const { runs } = action.payload;
       const newState = { ...state };
       if (runs) {
         runs.forEach((rJson) => {
@@ -189,7 +189,7 @@ export const tagsByRunUuid = (state = {}, action) => {
       return amendTagsByRunUuid(state, [tag], action.meta.runUuid);
     }
     case fulfilled(DELETE_TAG_API): {
-      const runUuid = action.meta.runUuid;
+      const { runUuid } = action.meta;
       const oldTags = state[runUuid] ? state[runUuid] : {};
       const newTags = _.omit(oldTags, action.meta.key);
       if (Object.keys(newTags).length === 0) {
@@ -270,7 +270,7 @@ export const artifactsByRunUuid = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(LIST_ARTIFACTS_API): {
       const queryPath = action.meta.path;
-      const runUuid = action.meta.runUuid;
+      const { runUuid } = action.meta;
       let artifactNode = state[runUuid] || new ArtifactNode(true);
       // Make deep copy.
       artifactNode = artifactNode.deepCopy();
