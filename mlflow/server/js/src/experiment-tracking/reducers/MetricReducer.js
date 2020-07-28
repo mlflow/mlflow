@@ -55,9 +55,8 @@ export const latestMetricsByRunUuid = (state = {}, action) => {
     }
     case fulfilled(GET_METRIC_HISTORY_API): {
       const newState = { ...state };
-      const runUuid = action.meta.runUuid;
-      const key = action.meta.key;
-      const metrics = action.payload.metrics;
+      const { runUuid, key } = action.meta.runUuid;
+      const { metrics } = action.payload;
       if (metrics && metrics.length > 0) {
         const lastMetric = Metric.fromJs(metrics[metrics.length - 1]);
         if (newState[runUuid]) {
@@ -76,7 +75,7 @@ export const latestMetricsByRunUuid = (state = {}, action) => {
 export const metricsByRunUuid = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(GET_METRIC_HISTORY_API): {
-      const runUuid = action.meta.runUuid;
+      const { runUuid } = action.meta;
       const metrics = action.payload.metrics || [];
       return {
         ...state,
@@ -92,7 +91,7 @@ export const metricsByKey = (state = {}, action, metrics) => {
   const newState = { ...state };
   switch (action.type) {
     case fulfilled(GET_METRIC_HISTORY_API): {
-      const key = action.meta.key;
+      const { key } = action.meta;
       newState[key] = metrics.map((m) => Metric.fromJs(m));
       return newState;
     }
