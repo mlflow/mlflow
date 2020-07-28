@@ -336,9 +336,12 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     this.handleColumnSizeRefit();
     this.handleLoadingOverlay();
 
-    window.addEventListener('resize', () => {
-      _.debounce(this.gridApi.sizeColumnsToFit, 100);
-    });
+    window.addEventListener(
+      'resize',
+      _.debounce(() => {
+        this.gridApi.sizeColumnsToFit();
+      }, 100),
+    );
   };
 
   // There is no way in ag-grid to declaratively specify row selections. Thus, we have to use grid
