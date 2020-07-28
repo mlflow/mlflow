@@ -19,7 +19,7 @@ conda create -q -n test-environment python=3.6
 source activate test-environment
 
 python --version
-# pip install --upgrade pip==19.3.1
+pip install --upgrade pip==19.3.1
 
 # Install Python test dependencies only if we're running Python tests
 if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
