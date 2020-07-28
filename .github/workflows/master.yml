@@ -40,7 +40,7 @@ jobs:
         WHEEL_NAME=scipy-1.2.1-cp36-cp36m-manylinux1_x86_64.whl
         for i in `seq 0 $MAX`
         do
-        pip install -q --no-cache --force-reinstall scipy==1.2.1
+          pip install -q --no-cache --force-reinstall scipy==1.2.1
           # pip hash $WHEEL_NAME | grep hash
           # find . -type f -name "*.whl" -delete
         done
