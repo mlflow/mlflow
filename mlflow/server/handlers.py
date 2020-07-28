@@ -633,10 +633,12 @@ def _delete_registered_model_tag():
 @catch_mlflow_exception
 def _create_model_version():
     request_message = _get_request_message(CreateModelVersion())
-    model_version = _get_model_registry_store().create_model_version(name=request_message.name,
-                                                                     source=request_message.source,
-                                                                     run_id=request_message.run_id,
-                                                                     tags=request_message.tags)
+    model_version = _get_model_registry_store().create_model_version(
+        name=request_message.name,
+        source=request_message.source,
+        run_id=request_message.run_id,
+        run_link=request_message.run_link,
+        tags=request_message.tags)
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
 

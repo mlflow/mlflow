@@ -806,9 +806,9 @@ def _filter_columns(run, columns_to_whitelist):
         return run
     run_data = run.data
     metrics = [Metric(name, value, 0, 0) for name, value in run_data.metrics.items()
-               if f'metrics.{name}' in columns_to_whitelist]
+               if 'metrics.{}'.format(name) in columns_to_whitelist]
     params = [Param(name, value) for name, value in run_data.params.items()
-              if f'params.{name}' in columns_to_whitelist]
+              if 'params.{}'.format(name) in columns_to_whitelist]
     tags = [RunTag(name, value) for name, value in run_data.tags.items()
-            if f'tags.{name}' not in columns_to_whitelist]
+            if 'tags.{}'.format(name) not in columns_to_whitelist]
     return Run(run_info=run.info, run_data=RunData(metrics=metrics, params=params, tags=tags))

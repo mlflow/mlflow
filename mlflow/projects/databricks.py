@@ -14,7 +14,7 @@ from mlflow import tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
-from mlflow.projects.utils import _MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG
+from mlflow.projects.utils import MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
@@ -256,7 +256,7 @@ def _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters):
     mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
                                             "--entry-point", entry_point]))
     if run_id:
-        mlflow_run_arr.extend(["-c", json.dumps({_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
+        mlflow_run_arr.extend(["-c", json.dumps({MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
     if parameters:
         for key, value in parameters.items():
             mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
@@ -270,7 +270,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     # Strip ".gz" and ".tar" file extensions from base filename of the tarfile
     tar_hash = posixpath.splitext(posixpath.splitext(posixpath.basename(dbfs_fuse_tar_uri))[0])[0]
     container_tar_path = posixpath.abspath(posixpath.join(DB_TARFILE_BASE,
-                                           posixpath.basename(dbfs_fuse_tar_uri)))
+                                                          posixpath.basename(dbfs_fuse_tar_uri)))
     project_dir = posixpath.join(DB_PROJECTS_BASE, tar_hash)
 
     mlflow_run_arr = _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters)

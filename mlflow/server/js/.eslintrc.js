@@ -149,7 +149,7 @@ module.exports = {
     'no-class-assign': 2,
     'no-cond-assign': 2,
     'no-confusing-arrow': 0,
-    'no-console': 0,
+    'no-console': [2, { allow: ['warn', 'error'] }],
     'no-const-assign': 2,
     'no-constant-condition': 2,
     'no-continue': 0,

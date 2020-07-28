@@ -167,10 +167,12 @@ class TestRestStore(unittest.TestCase):
         tags = [ModelVersionTag(key="key", value="value"),
                 ModelVersionTag(key="anotherKey", value="some other value")]
         run_id = uuid.uuid4().hex
-        self.store.create_model_version("model_1", "path/to/source", run_id, tags)
+        run_link = "localhost:5000/path/to/run"
+        self.store.create_model_version("model_1", "path/to/source", run_id, tags,
+                                        run_link=run_link)
         self._verify_requests(mock_http, "model-versions/create", "POST",
                               CreateModelVersion(name="model_1", source="path/to/source",
-                                                 run_id=run_id,
+                                                 run_id=run_id, run_link=run_link,
                                                  tags=[tag.to_proto() for tag in tags]),
                               self.generate_creds)
 
@@ -237,8 +239,7 @@ class TestRestStore(unittest.TestCase):
         self.store.set_model_version_tag(name=name, version="1", tag=tag)
         self._verify_requests(mock_http, "model-versions/set-tag", "POST",
                               SetModelVersionTag(name=name, version="1",
-                                                 key=tag.key, value=tag.value),
-                              self.generate_creds)
+                                                 key=tag.key, value=tag.value), self.generate_creds)
 
     @mock.patch('mlflow.utils.rest_utils.http_request')
     def test_delete_model_version_tag(self, mock_http):

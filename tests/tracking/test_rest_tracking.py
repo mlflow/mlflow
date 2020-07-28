@@ -407,7 +407,7 @@ def test_artifacts(mlflow_client, backend_store_uri):
 
     if "sqlite" in backend_store_uri:
         mlflow_client.update_artifacts_location(run_id, "new_location")
-        assert f"new_location/{run_id}" == mlflow_client.get_run(run_id).info.artifact_uri
+        assert "new_location/{}".format(run_id) == mlflow_client.get_run(run_id).info.artifact_uri
     elif "file_store_root" in backend_store_uri:
         with pytest.raises(MlflowException):
             mlflow_client.update_artifacts_location(run_id, "new_location")
