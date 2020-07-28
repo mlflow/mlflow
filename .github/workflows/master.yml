@@ -22,6 +22,7 @@ jobs:
         MAX=100
         for i in `seq 0 $MAX`
         do
+          echo $i
           pip install -q --no-cache --force-reinstall torch==1.4.0
           # pip hash torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl | grep hash
           # find . -type f -name "*.whl" -delete
@@ -40,6 +41,7 @@ jobs:
         WHEEL_NAME=scipy-1.2.1-cp36-cp36m-manylinux1_x86_64.whl
         for i in `seq 0 $MAX`
         do
+          echo $i
           pip install -q --no-cache --force-reinstall scipy==1.2.1
           # pip hash $WHEEL_NAME | grep hash
           # find . -type f -name "*.whl" -delete
