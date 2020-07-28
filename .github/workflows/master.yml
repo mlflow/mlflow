@@ -20,11 +20,11 @@ jobs:
         source activate test-env
 
         MAX=100
-        for i in `seq 2 $MAX`
+        for i in `seq 0 $MAX`
         do
-          pip download -q torch==1.4.0
-          pip hash torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl | grep hash
-          find . -type f -name "*.whl" -delete
+          pip install -q --no-cache --force-reinstall torch==1.4.0
+          # pip hash torch-1.4.0-cp36-cp36m-manylinux1_x86_64.whl | grep hash
+          # find . -type f -name "*.whl" -delete
         done
 
   hash-scipy:
@@ -36,13 +36,13 @@ jobs:
         conda create -n test-env python=3.6
         source activate test-env
 
-        MAX=300
+        MAX=100
         WHEEL_NAME=scipy-1.2.1-cp36-cp36m-manylinux1_x86_64.whl
-        for i in `seq 2 $MAX`
+        for i in `seq 0 $MAX`
         do
-          pip download -q scipy==1.2.1
-          pip hash $WHEEL_NAME | grep hash
-          find . -type f -name "*.whl" -delete
+        pip install -q --no-cache --force-reinstall scipy==1.2.1
+          # pip hash $WHEEL_NAME | grep hash
+          # find . -type f -name "*.whl" -delete
         done
 
   # lint:
