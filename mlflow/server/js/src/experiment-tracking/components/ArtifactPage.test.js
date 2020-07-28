@@ -52,7 +52,6 @@ describe('ArtifactPage', () => {
               1,
               Stages.PRODUCTION,
               ModelVersionStatus.READY,
-              [],
             ),
           },
         },

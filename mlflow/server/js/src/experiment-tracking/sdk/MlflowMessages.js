@@ -10,9 +10,8 @@
  */
 
 import Immutable from 'immutable';
-import { RecordUtils } from './RecordUtils';
-
-import { ModelBuilder } from './ModelBuilder';
+import { RecordUtils } from '../../common/sdk/RecordUtils';
+import { ModelBuilder } from '../../common/sdk/ModelBuilder';
 
 
 export const Metric = Immutable.Record({
