@@ -56,7 +56,7 @@ class CompareModelVersionsPage extends Component {
         } else {
           this.removeRunRequestId();
         }
-        const modelName = this.props.modelName;
+        const { modelName } = this.props;
         this.props.getModelVersionApi(modelName, modelVersion, this.versionRequestId);
       }
     }

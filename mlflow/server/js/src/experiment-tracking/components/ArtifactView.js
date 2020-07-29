@@ -137,7 +137,7 @@ export class ArtifactViewImpl extends Component {
   };
 
   getTreebeardData = (artifactNode) => {
-    const isRoot = artifactNode.isRoot;
+    const { isRoot } = artifactNode;
     if (isRoot) {
       if (artifactNode.children) {
         return Object.values(artifactNode.children).map((c) => this.getTreebeardData(c));
@@ -153,7 +153,7 @@ export class ArtifactViewImpl extends Component {
     let active;
 
     if (artifactNode.fileInfo) {
-      const path = artifactNode.fileInfo.path;
+      const { path } = artifactNode.fileInfo;
       id = path;
       name = getBasename(path);
     }

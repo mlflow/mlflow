@@ -67,8 +67,7 @@ export default class ExperimentViewUtil {
     const user = Utils.getUser(runInfo, tags);
     const queryParams = window.location && window.location.search ? window.location.search : '';
     const sourceType = Utils.renderSource(tags, queryParams);
-    const startTime = runInfo.start_time;
-    const status = runInfo.status;
+    const { status, start_time: startTime } = runInfo;
     const runName = Utils.getRunName(tags);
     const childLeftMargin = isParent ? {} : { paddingLeft: 16 };
     const columnProps = [
@@ -463,7 +462,7 @@ export default class ExperimentViewUtil {
     });
     const mergedRows = [];
     parentRows.forEach((r) => {
-      const runId = r.runId;
+      const { runId } = r;
       mergedRows.push(r);
       const childrenIdxs = parentIdToChildren[runId];
       if (childrenIdxs) {

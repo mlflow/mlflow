@@ -235,26 +235,3 @@ jobs:
       - name: Run tests
         run: |
           pytest --verbose --ignore-flavors --ignore=tests/projects tests
-
-  docs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Java
-        uses: actions/setup-java@v1
-        with:
-          java-version: 8
-      - name: Install dependencies
-        env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
-        run: |
-          source ./travis/install-common-deps.sh
-          pip install sphinx==2.2.1 sphinx-click==2.3.1
-      - name: Run tests
-        run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
-          cd docs
-          make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
-          make javadocs

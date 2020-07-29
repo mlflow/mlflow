@@ -5,7 +5,7 @@ import { css } from 'emotion';
 import { gray800 } from '../../common/styles/color';
 import { spacingMedium } from '../../common/styles/spacing';
 
-const Column = Table.Column;
+const { Column } = Table;
 
 export class SchemaTable extends React.PureComponent {
   static propTypes = {

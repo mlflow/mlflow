@@ -369,7 +369,7 @@ module.exports = {
     'complexity': ['error', 20],
     'no-multi-assign': 'off',
     'no-useless-return': 'off',
-    'prefer-destructuring': 'off',
+    'prefer-destructuring': 2,
     'no-restricted-globals': [
       2,
       'addEventListener',

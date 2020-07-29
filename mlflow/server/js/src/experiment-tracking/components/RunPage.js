@@ -78,8 +78,7 @@ export class RunPageImpl extends Component {
 
 const mapStateToProps = (state, ownProps) => {
   const { match } = ownProps;
-  const runUuid = match.params.runUuid;
-  const experimentId = match.params.experimentId;
+  const { runUuid, experimentId } = match.params;
   return {
     runUuid,
     experimentId,
