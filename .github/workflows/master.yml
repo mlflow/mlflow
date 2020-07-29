@@ -233,9 +233,11 @@ jobs:
     - name: Install dependencies
       run: |
         conda create -y -n test-environment python=3.7
-        conda activate test-environment
-        pip install . -r dev-requirements.txt -r travis/small-requirements.txt
+        call activate test-environment
+        pip install -r dev-requirements.txt
+        pip install -r travis/small-requirements.txt
+        pip install .
     - name: Run tests
       run: |
-        conda activate test-environment
+        call activate test-environment
         pytest --verbose --ignore-flavors --ignore=tests/projects tests
