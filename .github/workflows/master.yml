@@ -2,9 +2,9 @@ name: MLflow tests
 
 on:
   push:
-    branches: [master]
+    branches: [ master ]
   pull_request:
-    branches: [master]
+    branches: [ master ]
 
 env:
   CONDA_DIR: /usr/share/miniconda
@@ -13,127 +13,127 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Install dependencies
-        env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
-        run: |
-          source ./travis/install-common-deps.sh
-          pip install -r ./travis/lint-requirements.txt
-      - name: Run tests
-        run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
-          ./lint.sh
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      env:
+        INSTALL_LARGE_PYTHON_DEPS: true
+        INSTALL_SMALL_PYTHON_DEPS: true
+      run: |
+        source ./travis/install-common-deps.sh
+        pip install -r ./travis/lint-requirements.txt
+    - name: Run tests
+      run: |
+        export PATH="$CONDA_DIR/bin:$PATH"
+        source activate test-environment
+        ./lint.sh
   r:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: r-lib/actions/setup-r@v1
-      # This step dumps the current set of R dependencies and R version into files to be used
-      # as a cache key when caching/restoring R dependencies.
-      - name: Query dependencies
-        run: |
-          install.packages('remotes')
-          saveRDS(remotes::dev_package_deps("mlflow/R/mlflow", dependencies = TRUE), ".github/depends.Rds", version = 2)
-          writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
-        shell: Rscript {0}
+    - uses: actions/checkout@master
+    - uses: r-lib/actions/setup-r@v1
+    # This step dumps the current set of R dependencies and R version into files to be used
+    # as a cache key when caching/restoring R dependencies.
+    - name: Query dependencies
+      run: |
+        install.packages('remotes')
+        saveRDS(remotes::dev_package_deps("mlflow/R/mlflow", dependencies = TRUE), ".github/depends.Rds", version = 2)
+        writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
+      shell: Rscript {0}
 
-      - name: Cache R packages
-        if: runner.os != 'Windows'
-        uses: actions/cache@v2
-        with:
-          path: ${{ env.R_LIBS_USER }}
-          # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
-          # R dependencies
-          key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
-          restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get install -y libcurl4-openssl-dev
-      - name: Install dependencies
-        run: |
-          install.packages("devtools")
-          remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
-        shell: Rscript {0}
-      - name: Run tests
-        run: |
-          source ./travis/install-common-deps.sh
-          source activate test-environment
-          cd mlflow/R/mlflow
-          R CMD build .
-          export LINTR_COMMENT_BOT=false
-          cd tests
-          Rscript ../.travis.R
-      - name: Calculate code coverage
-        if: ${{ success() }}
-        run: |
-          export MLFLOW_HOME=$(pwd)
-          cd mlflow/R/mlflow/tests
-          Rscript -e 'covr::codecov()' || :
-        env:
-          COVR_RUNNING: true
-      - name: Show 00check.log on failure
-        if: ${{ failure() }}
-        run: |
-          LOG_FILE="${HOME}/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
-          [ -r "${LOG_FILE}" ] && cat "${LOG_FILE}"
-          cp "${LOG_FILE}" /tmp
-      - uses: actions/upload-artifact@v1
-        if: failure()
-        with:
-          name: 00check.log
-          path: /tmp/00check.log
+    - name: Cache R packages
+      if: runner.os != 'Windows'
+      uses: actions/cache@v2
+      with:
+        path: ${{ env.R_LIBS_USER }}
+        # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
+        # R dependencies
+        key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
+        restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
+    - name: Install system dependencies
+      run: |
+        sudo apt-get install -y libcurl4-openssl-dev
+    - name: Install dependencies
+      run: |
+        install.packages("devtools")
+        remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
+      shell: Rscript {0}
+    - name: Run tests
+      run: |
+        source ./travis/install-common-deps.sh
+        source activate test-environment
+        cd mlflow/R/mlflow
+        R CMD build .
+        export LINTR_COMMENT_BOT=false
+        cd tests
+        Rscript ../.travis.R
+    - name: Calculate code coverage
+      if: ${{ success() }}
+      run: |
+        export MLFLOW_HOME=$(pwd)
+        cd mlflow/R/mlflow/tests
+        Rscript -e 'covr::codecov()' || :
+      env:
+        COVR_RUNNING: true
+    - name: Show 00check.log on failure
+      if: ${{ failure() }}
+      run: |
+        LOG_FILE="${HOME}/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
+        [ -r "${LOG_FILE}" ] && cat "${LOG_FILE}"
+        cp "${LOG_FILE}" /tmp
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: 00check.log
+        path: /tmp/00check.log
   python-small:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Install dependencies
-        env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-        run: |
-          source ./travis/install-common-deps.sh
-      - name: Run tests
-        run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
-          ./travis/run-small-python-tests.sh
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      env:
+        INSTALL_LARGE_PYTHON_DEPS: true
+      run: |
+        source ./travis/install-common-deps.sh
+    - name: Run tests
+      run: |
+        export PATH="$CONDA_DIR/bin:$PATH"
+        source activate test-environment
+        ./travis/run-small-python-tests.sh
 
   python-large:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Install dependencies
-        env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-        run: |
-          source ./travis/install-common-deps.sh
-      - name: Run tests
-        run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
-          ./travis/run-large-python-tests.sh
-          ./travis/test-anaconda-compatibility.sh "anaconda3:2020.02"
-          ./travis/test-anaconda-compatibility.sh "anaconda3:2019.03"
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      env:
+        INSTALL_LARGE_PYTHON_DEPS: true
+      run: |
+        source ./travis/install-common-deps.sh
+    - name: Run tests
+      run: |
+        export PATH="$CONDA_DIR/bin:$PATH"
+        source activate test-environment
+        ./travis/run-large-python-tests.sh
+        ./travis/test-anaconda-compatibility.sh "anaconda3:2020.02"
+        ./travis/test-anaconda-compatibility.sh "anaconda3:2019.03"
 
   java:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Java
-        uses: actions/setup-java@v1
-        with:
-          java-version: 8
-      - name: Install dependencies
-        run: |
-          source ./travis/install-common-deps.sh
-      - name: Run tests
-        run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
-          cd mlflow/java
-          mvn clean package -q
+    - uses: actions/checkout@v2
+    - name: Set up Java
+      uses: actions/setup-java@v1
+      with:
+        java-version: 8
+    - name: Install dependencies
+      run: |
+        source ./travis/install-common-deps.sh
+    - name: Run tests
+      run: |
+        export PATH="$CONDA_DIR/bin:$PATH"
+        source activate test-environment
+        cd mlflow/java
+        mvn clean package -q
 
   js:
     runs-on: ubuntu-latest
@@ -141,32 +141,32 @@ jobs:
       run:
         working-directory: mlflow/server/js
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Node
-        uses: actions/setup-node@v1
-        with:
-          node-version: 10.x
-      - name: Install dependencies
-        run: |
-          npm i
-      - name: Run lint
-        run: |
-          npm run lint
-      - name: Run tests
-        run: |
-          npm run test
+    - uses: actions/checkout@v2
+    - name: Set up Node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10.x
+    - name: Install dependencies
+      run: |
+        npm i
+    - name: Run lint
+      run: |
+        npm run lint
+    - name: Run tests
+      run: |
+        npm run test
 
   protos:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Install dependencies
-        run: |
-          wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O $HOME/protoc.zip
-          sudo unzip $HOME/protoc.zip -d /usr
-      - name: Run tests
-        run: |
-          ./test-generate-protos.sh
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      run: |
+        wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O $HOME/protoc.zip
+        sudo unzip $HOME/protoc.zip -d /usr
+    - name: Run tests
+      run: |
+        ./test-generate-protos.sh
 
   flavors:
     runs-on: ubuntu-latest
@@ -219,23 +219,23 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: 3.7
-      - name: Add miniconda to PATH
-        run: |
-          echo "::add-path::C:\Miniconda"
-          echo "::add-path::C:\Miniconda\Scripts"
-      - name: Initialize conda
-        run: |
-          conda init powershell
-      - name: Install dependencies
-        run: |
-          conda create -y -n test-environment python=3.7
-          conda activate test-environment
-          pip install . -r dev-requirements.txt -r travis/small-requirements.txt
-      - name: Run tests
-        run: |
-          conda activate test-environment
-          pytest --verbose --ignore-flavors --ignore=tests/projects tests
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - name: Add miniconda to PATH
+      run: |
+        echo "::add-path::C:\Miniconda"
+        echo "::add-path::C:\Miniconda\Scripts"
+    - name: Initialize conda
+      run: |
+        conda init powershell
+    - name: Install dependencies
+      run: |
+        conda create -y -n test-environment python=3.7
+        conda activate test-environment
+        pip install . -r dev-requirements.txt -r travis/small-requirements.txt
+    - name: Run tests
+      run: |
+        conda activate test-environment
+        pytest --verbose --ignore-flavors --ignore=tests/projects tests
