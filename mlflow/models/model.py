@@ -24,9 +24,16 @@ class Model(object):
     new Model flavors.
     """
 
-    def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None,
-                 signature: ModelSignature=None, saved_input_example_info: Dict[str, Any]=None,
-                 **kwargs):
+    def __init__(
+        self,
+        artifact_path=None,
+        run_id=None,
+        utc_time_created=None,
+        flavors=None,
+        signature: ModelSignature = None,
+        saved_input_example_info: Dict[str, Any] = None,
+        **kwargs
+    ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:
             self.run_id = run_id
@@ -93,7 +100,7 @@ class Model(object):
 
     def save(self, path):
         """Write the model as a local YAML file."""
-        with open(path, 'w') as out:
+        with open(path, "w") as out:
             self.to_yaml(out)
 
     @classmethod
@@ -150,8 +157,7 @@ class Model(object):
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
-            flavor.save_model(path=local_path, mlflow_model=mlflow_model,
-                              **kwargs)
+            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -164,8 +170,11 @@ class Model(object):
                     "In addition to exporting model artifacts, MLflow clients 1.7.0 and above "
                     "attempt to record model metadata to the  tracking store. If logging to a "
                     "mlflow server via REST, consider  upgrading the server version to MLflow "
-                    "1.7.0 or above.", mlflow.get_artifact_uri())
+                    "1.7.0 or above.",
+                    mlflow.get_artifact_uri(),
+                )
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
-                mlflow.register_model("runs:/%s/%s" % (run_id, artifact_path),
-                                      registered_model_name)
+                mlflow.register_model(
+                    "runs:/%s/%s" % (run_id, artifact_path), registered_model_name
+                )

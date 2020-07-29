@@ -19,23 +19,23 @@ class FTPArtifactRepository(ArtifactRepository):
         self.uri = artifact_uri
         parsed = urllib.parse.urlparse(artifact_uri)
         self.config = {
-            'host': parsed.hostname,
-            'port': 21 if parsed.port is None else parsed.port,
-            'username': parsed.username,
-            'password': parsed.password
+            "host": parsed.hostname,
+            "port": 21 if parsed.port is None else parsed.port,
+            "username": parsed.username,
+            "password": parsed.password,
         }
         self.path = parsed.path
 
-        if self.config['host'] is None:
-            self.config['host'] = 'localhost'
+        if self.config["host"] is None:
+            self.config["host"] = "localhost"
 
         super(FTPArtifactRepository, self).__init__(artifact_uri)
 
     @contextmanager
     def get_ftp_client(self):
         ftp = FTP()
-        ftp.connect(self.config['host'], self.config['port'])
-        ftp.login(self.config['username'], self.config['password'])
+        ftp.connect(self.config["host"], self.config["port"])
+        ftp.login(self.config["username"], self.config["password"])
         yield ftp
         ftp.close()
 
@@ -59,30 +59,26 @@ class FTPArtifactRepository(ArtifactRepository):
 
     @staticmethod
     def _size(ftp, full_file_path):
-        ftp.voidcmd('TYPE I')
+        ftp.voidcmd("TYPE I")
         size = ftp.size(full_file_path)
-        ftp.voidcmd('TYPE A')
+        ftp.voidcmd("TYPE A")
         return size
 
     def log_artifact(self, local_file, artifact_path=None):
         with self.get_ftp_client() as ftp:
-            artifact_dir = posixpath.join(self.path, artifact_path) \
-                if artifact_path else self.path
+            artifact_dir = posixpath.join(self.path, artifact_path) if artifact_path else self.path
             self._mkdir(ftp, artifact_dir)
-            with open(local_file, 'rb') as f:
+            with open(local_file, "rb") as f:
                 ftp.cwd(artifact_dir)
-                ftp.storbinary('STOR ' + os.path.basename(local_file), f)
+                ftp.storbinary("STOR " + os.path.basename(local_file), f)
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        dest_path = posixpath.join(self.path, artifact_path) \
-            if artifact_path else self.path
+        dest_path = posixpath.join(self.path, artifact_path) if artifact_path else self.path
 
-        dest_path = posixpath.join(
-            dest_path, os.path.split(local_dir)[1])
+        dest_path = posixpath.join(dest_path, os.path.split(local_dir)[1])
         dest_path_re = os.path.split(local_dir)[1]
         if artifact_path:
-            dest_path_re = posixpath.join(
-                artifact_path, os.path.split(local_dir)[1])
+            dest_path_re = posixpath.join(artifact_path, os.path.split(local_dir)[1])
 
         local_dir = os.path.abspath(local_dir)
         for (root, _, filenames) in os.walk(local_dir):
@@ -114,8 +110,7 @@ class FTPArtifactRepository(ArtifactRepository):
             artifact_files = list(filter(lambda x: x != "." and x != "..", artifact_files))
             infos = []
             for file_name in artifact_files:
-                file_path = (file_name if path is None
-                             else posixpath.join(path, file_name))
+                file_path = file_name if path is None else posixpath.join(path, file_name)
                 full_file_path = posixpath.join(list_dir, file_name)
                 if self._is_dir(ftp, full_file_path):
                     infos.append(FileInfo(file_path, True, None))
@@ -125,11 +120,12 @@ class FTPArtifactRepository(ArtifactRepository):
         return infos
 
     def _download_file(self, remote_file_path, local_path):
-        remote_full_path = posixpath.join(self.path, remote_file_path) \
-            if remote_file_path else self.path
+        remote_full_path = (
+            posixpath.join(self.path, remote_file_path) if remote_file_path else self.path
+        )
         with self.get_ftp_client() as ftp:
-            with open(local_path, 'wb') as f:
-                ftp.retrbinary('RETR ' + remote_full_path, f.write)
+            with open(local_path, "wb") as f:
+                ftp.retrbinary("RETR " + remote_full_path, f.write)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException('Not implemented yet')
+        raise MlflowException("Not implemented yet")

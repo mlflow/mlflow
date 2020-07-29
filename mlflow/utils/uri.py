@@ -6,30 +6,32 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.validation import _validate_db_type_string
 
-_INVALID_DB_URI_MSG = "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for " \
-                      "format specifications."
+_INVALID_DB_URI_MSG = (
+    "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
+    "format specifications."
+)
 
 
 def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
     scheme = urllib.parse.urlparse(uri).scheme
-    return uri != 'databricks' and (scheme == '' or scheme == 'file')
+    return uri != "databricks" and (scheme == "" or scheme == "file")
 
 
 def is_http_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == 'http' or scheme == 'https'
+    return scheme == "http" or scheme == "https"
 
 
 def is_databricks_uri(uri):
     """Databricks URIs look like 'databricks' (default profile) or 'databricks://profile'"""
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == 'databricks' or uri == 'databricks'
+    return scheme == "databricks" or uri == "databricks"
 
 
 def construct_db_uri_from_profile(profile):
     if profile:
-        return 'databricks://' + profile
+        return "databricks://" + profile
 
 
 def get_db_info_from_uri(uri):
@@ -39,7 +41,7 @@ def get_db_info_from_uri(uri):
     """
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.scheme == "databricks":
-        parsed_path = parsed_uri.path.lstrip('/') or None
+        parsed_path = parsed_uri.path.lstrip("/") or None
         parsed_profile = parsed_uri.netloc
         return parsed_profile, parsed_path
     return None, None
@@ -51,12 +53,12 @@ def extract_db_type_from_uri(db_uri):
     supported. If a driver is specified, confirm it passes a plausible regex.
     """
     scheme = urllib.parse.urlparse(db_uri).scheme
-    scheme_plus_count = scheme.count('+')
+    scheme_plus_count = scheme.count("+")
 
     if scheme_plus_count == 0:
         db_type = scheme
     elif scheme_plus_count == 1:
-        db_type, _ = scheme.split('+')
+        db_type, _ = scheme.split("+")
     else:
         error_msg = "Invalid database URI: '%s'. %s" % (db_uri, _INVALID_DB_URI_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
@@ -152,11 +154,12 @@ def is_databricks_acled_artifacts_uri(artifact_uri):
 
 def construct_run_url(hostname, experiment_id, run_id, workspace_id=None):
     if not hostname or not experiment_id or not run_id:
-        raise MlflowException('Hostname, experiment ID, and run ID are all required to construct'
-                              'a run URL')
+        raise MlflowException(
+            "Hostname, experiment ID, and run ID are all required to construct" "a run URL"
+        )
     prefix = hostname
-    if workspace_id and workspace_id != '0':
+    if workspace_id and workspace_id != "0":
         prefix += "?o=" + workspace_id
-    return prefix + '#mlflow/experiments/{experiment_id}/runs/{run_id}'.format(
-        experiment_id=experiment_id,
-        run_id=run_id)
+    return prefix + "#mlflow/experiments/{experiment_id}/runs/{run_id}".format(
+        experiment_id=experiment_id, run_id=run_id
+    )

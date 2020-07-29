@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '7ac759974ad8'
-down_revision = 'df50e92ffc5e'
+revision = "7ac759974ad8"
+down_revision = "df50e92ffc5e"
 branch_labels = None
 depends_on = None
 
@@ -23,11 +23,13 @@ def upgrade():
     # We specify existing_type, existing_nullable, existing_server_default
     # because MySQL alter column statements require a full column description.
     with op.batch_alter_table("tags") as batch_op:
-        batch_op.alter_column("value",
-                              existing_type=sa.String(250),
-                              type_=sa.String(5000),
-                              existing_nullable=True,
-                              existing_server_default=None)
+        batch_op.alter_column(
+            "value",
+            existing_type=sa.String(250),
+            type_=sa.String(5000),
+            existing_nullable=True,
+            existing_server_default=None,
+        )
 
 
 def downgrade():

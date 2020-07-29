@@ -11,8 +11,14 @@ from six import iteritems
 from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
-from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
-    _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
+from mlflow.utils.validation import (
+    _validate_param_name,
+    _validate_tag_name,
+    _validate_run_id,
+    _validate_experiment_artifact_location,
+    _validate_experiment_name,
+    _validate_metric,
+)
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
@@ -85,7 +91,7 @@ class TrackingServiceClient(object):
             experiment_id=experiment_id,
             user_id=user_id,
             start_time=start_time or int(time.time() * 1000),
-            tags=[RunTag(key, value) for (key, value) in iteritems(tags)]
+            tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
         )
 
     def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
@@ -123,10 +129,7 @@ class TrackingServiceClient(object):
         """
         _validate_experiment_name(name)
         _validate_experiment_artifact_location(artifact_location)
-        return self.store.create_experiment(
-            name=name,
-            artifact_location=artifact_location,
-        )
+        return self.store.create_experiment(name=name, artifact_location=artifact_location,)
 
     def delete_experiment(self, experiment_id):
         """
@@ -235,8 +238,10 @@ class TrackingServiceClient(object):
 
     def _record_logged_model(self, run_id, mlflow_model):
         if not isinstance(mlflow_model, Model):
-            raise TypeError("Argument 'mlflow_model' should be of type mlflow.models.Model but was "
-                            "{}".format(type(mlflow_model)))
+            raise TypeError(
+                "Argument 'mlflow_model' should be of type mlflow.models.Model but was "
+                "{}".format(type(mlflow_model))
+            )
         self.store.record_logged_model(run_id, mlflow_model)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
@@ -250,8 +255,9 @@ class TrackingServiceClient(object):
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         if os.path.isdir(local_path):
             dir_name = os.path.basename(os.path.normpath(local_path))
-            path_name = os.path.join(artifact_path, dir_name) \
-                if artifact_path is not None else dir_name
+            path_name = (
+                os.path.join(artifact_path, dir_name) if artifact_path is not None else dir_name
+            )
             artifact_repo.log_artifacts(local_path, path_name)
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
@@ -308,8 +314,9 @@ class TrackingServiceClient(object):
         :param end_time: If not provided, defaults to the current time."""
         end_time = end_time if end_time else int(time.time() * 1000)
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
-        self.store.update_run_info(run_id, run_status=RunStatus.from_string(status),
-                                   end_time=end_time)
+        self.store.update_run_info(
+            run_id, run_status=RunStatus.from_string(status), end_time=end_time
+        )
 
     def delete_run(self, run_id):
         """
@@ -323,8 +330,15 @@ class TrackingServiceClient(object):
         """
         self.store.restore_run(run_id)
 
-    def search_runs(self, experiment_ids, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
+    def search_runs(
+        self,
+        experiment_ids,
+        filter_string="",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+    ):
         """
         Search experiments that fit the search criteria.
 
@@ -345,6 +359,11 @@ class TrackingServiceClient(object):
         """
         if isinstance(experiment_ids, int) or is_string_type(experiment_ids):
             experiment_ids = [experiment_ids]
-        return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
-                                      run_view_type=run_view_type, max_results=max_results,
-                                      order_by=order_by, page_token=page_token)
+        return self.store.search_runs(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            run_view_type=run_view_type,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )

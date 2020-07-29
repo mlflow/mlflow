@@ -37,9 +37,10 @@ def test_run_context_provider_registry_register_entrypoints():
     mock_get_group_all.assert_called_once_with("mlflow.run_context_provider")
 
 
-@pytest.mark.parametrize("exception",
-                         [AttributeError("test exception"), ImportError("test exception")])
-def test_run_context_provider_registry_register_entrypoints_handles_exception(exception):
+@pytest.mark.parametrize(
+    "exception", [AttributeError("test exception"), ImportError("test exception")]
+)
+def test_run_context_provider_registry_register_entrypoints_handles_exception(exception,):
     mock_entrypoint = mock.Mock()
     mock_entrypoint.load.side_effect = exception
 
@@ -64,13 +65,15 @@ def _currently_registered_run_context_provider_classes():
 
 def test_registry_instance_defaults():
     expected_classes = {
-        DefaultRunContext, GitRunContext, DatabricksNotebookRunContext, DatabricksJobRunContext,
+        DefaultRunContext,
+        GitRunContext,
+        DatabricksNotebookRunContext,
+        DatabricksJobRunContext,
     }
     assert expected_classes.issubset(_currently_registered_run_context_provider_classes())
 
 
 def test_registry_instance_loads_entrypoints():
-
     class MockRunContext(object):
         pass
 
@@ -95,6 +98,7 @@ def test_run_context_provider_registry_with_installed_plugin(tmp_wkdir):
     reload(mlflow.tracking.context.registry)
 
     from mlflow_test_plugin.run_context_provider import PluginRunContextProvider
+
     assert PluginRunContextProvider in _currently_registered_run_context_provider_classes()
 
     # The test plugin's context provider always returns False from in_context
@@ -108,7 +112,11 @@ def test_run_context_provider_registry_with_installed_plugin(tmp_wkdir):
 def mock_run_context_providers():
     base_provider = mock.Mock()
     base_provider.in_context.return_value = True
-    base_provider.tags.return_value = {"one": "one-val", "two": "two-val", "three": "three-val"}
+    base_provider.tags.return_value = {
+        "one": "one-val",
+        "two": "two-val",
+        "three": "three-val",
+    }
 
     skipped_provider = mock.Mock()
     skipped_provider.in_context.return_value = False
@@ -132,7 +140,7 @@ def test_resolve_tags(mock_run_context_providers):
         "two": "arg-override",
         "three": "three-val",
         "new": "new-val",
-        "arg": "arg-val"
+        "arg": "arg-val",
     }
 
 
@@ -141,5 +149,5 @@ def test_resolve_tags_no_arg(mock_run_context_providers):
         "one": "override",
         "two": "two-val",
         "three": "three-val",
-        "new": "new-val"
+        "new": "new-val",
     }

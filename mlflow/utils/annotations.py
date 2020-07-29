@@ -9,8 +9,10 @@ def experimental(func):
     :param func: A function to mark
     :returns Decorated function.
     """
-    notice = ".. Note:: Experimental: This method may change or " + \
-             "be removed in a future release without warning.\n"
+    notice = (
+        ".. Note:: Experimental: This method may change or "
+        + "be removed in a future release without warning.\n"
+    )
     func.__doc__ = notice + func.__doc__
     return func
 
@@ -28,8 +30,8 @@ def deprecated(alternative=None, since=None):
         notice = (
             ".. Warning:: ``{function_name}`` is deprecated{since_string}. This method will be"
             " removed in a near future release.".format(
-                function_name='.'.join([func.__module__, func.__name__]),
-                since_string=since_str)
+                function_name=".".join([func.__module__, func.__name__]), since_string=since_str,
+            )
         )
         if alternative is not None and alternative.strip():
             notice += " Use ``%s`` instead." % alternative
@@ -51,11 +53,13 @@ def keyword_only(func):
     """
     A decorator that forces keyword arguments in the wrapped method.
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         if len(args) > 0:
             raise TypeError("Method %s only takes keyword arguments." % func.__name__)
         return func(**kwargs)
+
     notice = ".. Note:: This method requires all argument be specified by keyword.\n"
     wrapper.__doc__ = notice + wrapper.__doc__
     return wrapper

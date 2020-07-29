@@ -15,6 +15,7 @@ class ModelsArtifactRepository(ArtifactRepository):
 
     def __init__(self, artifact_uri):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+
         uri = ModelsArtifactRepository.get_underlying_uri(artifact_uri)
         super(ModelsArtifactRepository, self).__init__(artifact_uri)
         # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
@@ -23,8 +24,10 @@ class ModelsArtifactRepository(ArtifactRepository):
 
     @staticmethod
     def _improper_model_uri_msg(uri):
-        return "Not a proper models:/ URI: %s. " % uri + \
-            "Models URIs must be of the form 'models:/<model_name>/<version or stage>'."
+        return (
+            "Not a proper models:/ URI: %s. " % uri
+            + "Models URIs must be of the form 'models:/<model_name>/<version or stage>'."
+        )
 
     @staticmethod
     def _parse_uri(uri):
@@ -37,7 +40,7 @@ class ModelsArtifactRepository(ArtifactRepository):
             raise MlflowException(ModelsArtifactRepository._improper_model_uri_msg(uri))
 
         path = parsed.path
-        if not path.startswith('/') or len(path) <= 1:
+        if not path.startswith("/") or len(path) <= 1:
             raise MlflowException(ModelsArtifactRepository._improper_model_uri_msg(uri))
         parts = path[1:].split("/")
 
@@ -58,13 +61,16 @@ class ModelsArtifactRepository(ArtifactRepository):
         # Note: to support a registry URI that is different from the tracking URI here,
         # we'll need to add setting of registry URIs via environment variables.
         from mlflow.tracking import MlflowClient
+
         client = MlflowClient()
         (name, version, stage) = ModelsArtifactRepository._parse_uri(uri)
         if stage is not None:
             latest = client.get_latest_versions(name, [stage])
             if len(latest) == 0:
-                raise MlflowException("No versions of model with name '{name}' and "
-                                      "stage '{stage}' found".format(name=name, stage=stage))
+                raise MlflowException(
+                    "No versions of model with name '{name}' and "
+                    "stage '{stage}' found".format(name=name, stage=stage)
+                )
             version = latest[0].version
         return client.get_model_version_download_uri(name, version)
 
@@ -79,7 +85,8 @@ class ModelsArtifactRepository(ArtifactRepository):
                               artifact
         """
         raise ValueError(
-            "log_artifact is not supported for models:/ URIs. Use register_model instead.")
+            "log_artifact is not supported for models:/ URIs. Use register_model instead."
+        )
 
     def log_artifacts(self, local_dir, artifact_path=None):
         """
@@ -91,7 +98,8 @@ class ModelsArtifactRepository(ArtifactRepository):
                               artifacts
         """
         raise ValueError(
-            "log_artifacts is not supported for models:/ URIs. Use register_model instead.")
+            "log_artifacts is not supported for models:/ URIs. Use register_model instead."
+        )
 
     def list_artifacts(self, path):
         """
@@ -133,4 +141,4 @@ class ModelsArtifactRepository(ArtifactRepository):
         self.repo._download_file(remote_file_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException('Not implemented yet')
+        raise MlflowException("Not implemented yet")

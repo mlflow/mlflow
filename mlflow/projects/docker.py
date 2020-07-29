@@ -30,18 +30,23 @@ def validate_docker_installation():
         docker_path = "docker"
         process.exec_cmd([docker_path, "--help"], throw_on_error=False)
     except EnvironmentError:
-        raise ExecutionException("Could not find Docker executable. "
-                                 "Ensure Docker is installed as per the instructions "
-                                 "at https://docs.docker.com/install/overview/.")
+        raise ExecutionException(
+            "Could not find Docker executable. "
+            "Ensure Docker is installed as per the instructions "
+            "at https://docs.docker.com/install/overview/."
+        )
 
 
 def validate_docker_env(project):
     if not project.name:
-        raise ExecutionException("Project name in MLProject must be specified when using docker "
-                                 "for image tagging.")
-    if not project.docker_env.get('image'):
-        raise ExecutionException("Project with docker environment must specify the docker image "
-                                 "to use via an 'image' field under the 'docker_env' field.")
+        raise ExecutionException(
+            "Project name in MLProject must be specified when using docker " "for image tagging."
+        )
+    if not project.docker_env.get("image"):
+        raise ExecutionException(
+            "Project with docker environment must specify the docker image "
+            "to use via an 'image' field under the 'docker_env' field."
+        )
 
 
 def build_docker_image(work_dir, repository_uri, base_image, run_id):
@@ -50,30 +55,30 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id):
     """
     image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
     dockerfile = (
-        "FROM {imagename}\n"
-        "COPY {build_context_path}/ {workdir}\n"
-        "WORKDIR {workdir}\n"
-    ).format(imagename=base_image,
-             build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
-             workdir=MLFLOW_DOCKER_WORKDIR_PATH)
+        "FROM {imagename}\n" "COPY {build_context_path}/ {workdir}\n" "WORKDIR {workdir}\n"
+    ).format(
+        imagename=base_image,
+        build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
+        workdir=MLFLOW_DOCKER_WORKDIR_PATH,
+    )
     build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
-    with open(build_ctx_path, 'rb') as docker_build_ctx:
+    with open(build_ctx_path, "rb") as docker_build_ctx:
         _logger.info("=== Building docker image %s ===", image_uri)
         client = docker.from_env()
         image, _ = client.images.build(
-            tag=image_uri, forcerm=True,
+            tag=image_uri,
+            forcerm=True,
             dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
-            fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
+            fileobj=docker_build_ctx,
+            custom_context=True,
+            encoding="gzip",
+        )
     try:
         os.remove(build_ctx_path)
     except Exception:  # pylint: disable=broad-except
         _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
-    tracking.MlflowClient().set_tag(run_id,
-                                    MLFLOW_DOCKER_IMAGE_URI,
-                                    image_uri)
-    tracking.MlflowClient().set_tag(run_id,
-                                    MLFLOW_DOCKER_IMAGE_ID,
-                                    image.id)
+    tracking.MlflowClient().set_tag(run_id, MLFLOW_DOCKER_IMAGE_URI, image_uri)
+    tracking.MlflowClient().set_tag(run_id, MLFLOW_DOCKER_IMAGE_ID, image.id)
     return image
 
 
@@ -106,7 +111,9 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
         _, result_path = tempfile.mkstemp()
         file_utils.make_tarfile(
             output_filename=result_path,
-            source_dir=dst_path, archive_name=_PROJECT_TAR_ARCHIVE_NAME)
+            source_dir=dst_path,
+            archive_name=_PROJECT_TAR_ARCHIVE_NAME,
+        )
     finally:
         shutil.rmtree(directory)
     return result_path

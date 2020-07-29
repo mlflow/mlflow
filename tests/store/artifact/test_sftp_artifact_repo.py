@@ -17,6 +17,7 @@ def sftp_mock():
 @pytest.mark.large
 def test_artifact_uri_factory():
     from paramiko.ssh_exception import SSHException
+
     with pytest.raises(SSHException):
         get_artifact_repository("sftp://user:pass@test_sftp:123/some/path")
 
@@ -32,7 +33,7 @@ def test_list_artifacts_empty(sftp_mock):
 @pytest.mark.large
 def test_list_artifacts(sftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
-    repo = SFTPArtifactRepository("sftp://test_sftp"+artifact_root_path, sftp_mock)
+    repo = SFTPArtifactRepository("sftp://test_sftp" + artifact_root_path, sftp_mock)
 
     # mocked file structure
     #  |- file
@@ -42,11 +43,13 @@ def test_list_artifacts(sftp_mock):
     file_path = "file"
     file_size = 678
     dir_path = "model"
-    sftp_mock.isdir = MagicMock(side_effect=lambda path: {
+    sftp_mock.isdir = MagicMock(
+        side_effect=lambda path: {
             artifact_root_path: True,
             os.path.join(artifact_root_path, file_path): False,
             os.path.join(artifact_root_path, dir_path): True,
-        }[path])
+        }[path]
+    )
     sftp_mock.listdir = MagicMock(return_value=[file_path, dir_path])
 
     file_stat = MagicMock()
@@ -70,26 +73,28 @@ def test_list_artifacts(sftp_mock):
 @pytest.mark.large
 def test_list_artifacts_with_subdir(sftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
-    repo = SFTPArtifactRepository("sftp://test_sftp"+artifact_root_path, sftp_mock)
+    repo = SFTPArtifactRepository("sftp://test_sftp" + artifact_root_path, sftp_mock)
 
     # mocked file structure
     #  |- model
     #     |- model.pb
     #     |- variables
-    dir_name = 'model'
+    dir_name = "model"
 
     # list artifacts at sub directory level
-    file_path = 'model.pb'
+    file_path = "model.pb"
     file_size = 345
-    subdir_name = 'variables'
+    subdir_name = "variables"
 
     sftp_mock.listdir = MagicMock(return_value=[file_path, subdir_name])
 
-    sftp_mock.isdir = MagicMock(side_effect=lambda path: {
+    sftp_mock.isdir = MagicMock(
+        side_effect=lambda path: {
             posixpath.join(artifact_root_path, dir_name): True,
             posixpath.join(artifact_root_path, dir_name, file_path): False,
             posixpath.join(artifact_root_path, dir_name, subdir_name): True,
-        }[path])
+        }[path]
+    )
 
     file_stat = MagicMock()
     file_stat.configure_mock(st_size=file_size)
@@ -98,7 +103,7 @@ def test_list_artifacts_with_subdir(sftp_mock):
     artifacts = repo.list_artifacts(path=dir_name)
 
     sftp_mock.listdir.assert_called_once_with(artifact_root_path + dir_name)
-    sftp_mock.stat.assert_called_once_with(artifact_root_path + dir_name + '/' + file_path)
+    sftp_mock.stat.assert_called_once_with(artifact_root_path + dir_name + "/" + file_path)
 
     assert len(artifacts) == 2
     assert artifacts[0].path == posixpath.join(dir_name, file_path)
@@ -112,7 +117,7 @@ def test_list_artifacts_with_subdir(sftp_mock):
 @pytest.mark.requires_ssh
 def test_log_artifact():
     for artifact_path in [None, "sub_dir", "very/nested/sub/dir"]:
-        file_content = 'A simple test artifact\nThe artifact is located in: ' + str(artifact_path)
+        file_content = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
         with NamedTemporaryFile(mode="w") as local, TempDir() as remote:
             local.write(file_content)
             local.flush()
@@ -123,18 +128,19 @@ def test_log_artifact():
 
             remote_file = posixpath.join(
                 remote.path(),
-                '.' if artifact_path is None else artifact_path,
-                os.path.basename(local.name))
+                "." if artifact_path is None else artifact_path,
+                os.path.basename(local.name),
+            )
             assert posixpath.isfile(remote_file)
 
-            with open(remote_file, 'r') as remote_content:
+            with open(remote_file, "r") as remote_content:
                 assert remote_content.read() == file_content
 
 
 @pytest.mark.requires_ssh
 def test_log_artifacts():
     for artifact_path in [None, "sub_dir", "very/nested/sub/dir"]:
-        file_content_1 = 'A simple test artifact\nThe artifact is located in: ' + str(artifact_path)
+        file_content_1 = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
         file_content_2 = os.urandom(300)
 
         file1 = "meta.yaml"
@@ -152,15 +158,15 @@ def test_log_artifacts():
             store.log_artifacts(local.path(), artifact_path)
 
             remote_dir = posixpath.join(
-                remote.path(),
-                '.' if artifact_path is None else artifact_path)
+                remote.path(), "." if artifact_path is None else artifact_path
+            )
             assert posixpath.isdir(remote_dir)
             assert posixpath.isdir(posixpath.join(remote_dir, directory))
             assert posixpath.isfile(posixpath.join(remote_dir, file1))
             assert posixpath.isfile(posixpath.join(remote_dir, directory, file2))
 
-            with open(posixpath.join(remote_dir, file1), 'r') as remote_content:
+            with open(posixpath.join(remote_dir, file1), "r") as remote_content:
                 assert remote_content.read() == file_content_1
 
-            with open(posixpath.join(remote_dir, directory, file2), 'rb') as remote_content:
+            with open(posixpath.join(remote_dir, directory, file2), "rb") as remote_content:
                 assert remote_content.read() == file_content_2

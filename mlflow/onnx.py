@@ -37,6 +37,7 @@ def get_default_conda_env():
     """
     import onnx
     import onnxruntime
+
     return _mlflow_conda_env(
         additional_conda_deps=None,
         additional_pip_deps=[
@@ -51,8 +52,14 @@ def get_default_conda_env():
 
 
 @experimental
-def save_model(onnx_model, path, conda_env=None, mlflow_model=None,
-               signature: ModelSignature = None, input_example: ModelInputExample = None):
+def save_model(
+    onnx_model,
+    path,
+    conda_env=None,
+    mlflow_model=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+):
     """
     Save an ONNX model to a path on the local file system.
 
@@ -103,8 +110,8 @@ def save_model(onnx_model, path, conda_env=None, mlflow_model=None,
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException(
-            message="Path '{}' already exists".format(path),
-            error_code=RESOURCE_ALREADY_EXISTS)
+            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS,
+        )
     os.makedirs(path)
     if mlflow_model is None:
         mlflow_model = Model()
@@ -127,8 +134,9 @@ def save_model(onnx_model, path, conda_env=None, mlflow_model=None,
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.onnx",
-                        data=model_data_subpath, env=conda_env_subpath)
+    pyfunc.add_to_model(
+        mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=conda_env_subpath,
+    )
     mlflow_model.add_flavor(FLAVOR_NAME, onnx_version=onnx.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -145,14 +153,11 @@ def _load_model(model_file):
 class _OnnxModelWrapper:
     def __init__(self, path):
         import onnxruntime
+
         self.rt = onnxruntime.InferenceSession(path)
         assert len(self.rt.get_inputs()) >= 1
-        self.inputs = [
-            (inp.name, inp.type) for inp in self.rt.get_inputs()
-        ]
-        self.output_names = [
-            outp.name for outp in self.rt.get_outputs()
-        ]
+        self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
+        self.output_names = [outp.name for outp in self.rt.get_outputs()]
 
     @staticmethod
     def _cast_float64_to_float32(dataframe, column_names):
@@ -185,16 +190,13 @@ class _OnnxModelWrapper:
         # https://github.com/mlflow/mlflow/issues/1286. Meanwhile, we explicitly cast the input to
         # 32-bit floats when needed. TODO: Remove explicit casting when issue #1286 is fixed.
         if len(self.inputs) > 1:
-            cols = [name for (name, type) in self.inputs if type == 'tensor(float)']
+            cols = [name for (name, type) in self.inputs if type == "tensor(float)"]
         else:
-            cols = dataframe.columns if self.inputs[0][1] == 'tensor(float)' else []
+            cols = dataframe.columns if self.inputs[0][1] == "tensor(float)" else []
 
         dataframe = _OnnxModelWrapper._cast_float64_to_float32(dataframe, cols)
         if len(self.inputs) > 1:
-            feed_dict = {
-                name: dataframe[name].values
-                for (name, _) in self.inputs
-            }
+            feed_dict = {name: dataframe[name].values for (name, _) in self.inputs}
         else:
             feed_dict = {self.inputs[0][0]: dataframe.values}
         predicted = self.rt.run(self.output_names, feed_dict)
@@ -204,8 +206,10 @@ class _OnnxModelWrapper:
             # https://github.com/mlflow/mlflow/issues/2499
             data = np.asarray(data)
             return data.reshape(-1)
-        response = pd.DataFrame.from_dict({c: format_output(p)
-                                           for (c, p) in zip(self.output_names, predicted)})
+
+        response = pd.DataFrame.from_dict(
+            {c: format_output(p) for (c, p) in zip(self.output_names, predicted)}
+        )
         return response
 
 
@@ -244,8 +248,14 @@ def load_model(model_uri):
 
 
 @experimental
-def log_model(onnx_model, artifact_path, conda_env=None, registered_model_name=None,
-              signature: ModelSignature=None, input_example: ModelInputExample=None):
+def log_model(
+    onnx_model,
+    artifact_path,
+    conda_env=None,
+    registered_model_name=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+):
     """
     Log an ONNX model as an MLflow artifact for the current run.
 
@@ -293,7 +303,12 @@ def log_model(onnx_model, artifact_path, conda_env=None, registered_model_name=N
 
 
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.onnx,
-              onnx_model=onnx_model, conda_env=conda_env,
-              registered_model_name=registered_model_name,
-              signature=signature, input_example=input_example)
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.onnx,
+        onnx_model=onnx_model,
+        conda_env=conda_env,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example,
+    )

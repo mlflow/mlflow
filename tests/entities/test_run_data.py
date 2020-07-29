@@ -7,14 +7,16 @@ from tests.helper_functions import random_str, random_int
 
 class TestRunData(unittest.TestCase):
     def _check_metrics(self, metric_objs, metrics_dict, expected_metrics):
-        self.assertEqual(set([m.key for m in metric_objs]),
-                         set([m.key for m in expected_metrics]))
-        self.assertEqual(set([m.value for m in metric_objs]),
-                         set([m.value for m in expected_metrics]))
-        self.assertEqual(set([m.timestamp for m in metric_objs]),
-                         set([m.timestamp for m in expected_metrics]))
-        self.assertEqual(set([m.step for m in metric_objs]),
-                         set([m.step for m in expected_metrics]))
+        self.assertEqual(set([m.key for m in metric_objs]), set([m.key for m in expected_metrics]))
+        self.assertEqual(
+            set([m.value for m in metric_objs]), set([m.value for m in expected_metrics]),
+        )
+        self.assertEqual(
+            set([m.timestamp for m in metric_objs]), set([m.timestamp for m in expected_metrics]),
+        )
+        self.assertEqual(
+            set([m.step for m in metric_objs]), set([m.step for m in expected_metrics])
+        )
         assert len(metrics_dict) == len(expected_metrics)
         assert metrics_dict == {m.key: m.value for m in expected_metrics}
 
@@ -32,10 +34,14 @@ class TestRunData(unittest.TestCase):
 
     @staticmethod
     def _create():
-        metrics = [Metric(key=random_str(10),
-                          value=random_int(0, 1000),
-                          timestamp=int(time.time()) + random_int(-1e4, 1e4),
-                          step=random_int())]
+        metrics = [
+            Metric(
+                key=random_str(10),
+                value=random_int(0, 1000),
+                timestamp=int(time.time()) + random_int(-1e4, 1e4),
+                step=random_int(),
+            )
+        ]
         params = [Param(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]  # noqa
         tags = [RunTag(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]  # noqa
         rd = RunData(metrics=metrics, params=params, tags=tags)
@@ -45,9 +51,11 @@ class TestRunData(unittest.TestCase):
         rd1, metrics, params, tags = self._create()
         self._check(rd1, metrics, params, tags)
 
-        as_dict = {"metrics": {m.key: m.value for m in metrics},
-                   "params": {p.key: p.value for p in params},
-                   "tags": {t.key: t.value for t in tags}}
+        as_dict = {
+            "metrics": {m.key: m.value for m in metrics},
+            "params": {p.key: p.value for p in params},
+            "tags": {t.key: t.value for t in tags},
+        }
         self.assertEqual(dict(rd1), as_dict)
         proto = rd1.to_proto()
         rd2 = RunData.from_proto(proto)

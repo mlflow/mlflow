@@ -3,8 +3,13 @@ import os
 import shutil
 
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, verify_artifact_path
-from mlflow.utils.file_utils import mkdir, list_all, get_file_info, local_file_uri_to_path, \
-    relative_path_to_artifact_path
+from mlflow.utils.file_utils import (
+    mkdir,
+    list_all,
+    get_file_info,
+    local_file_uri_to_path,
+    relative_path_to_artifact_path,
+)
 
 
 class LocalArtifactRepository(ArtifactRepository):
@@ -25,8 +30,9 @@ class LocalArtifactRepository(ArtifactRepository):
         if artifact_path:
             artifact_path = os.path.normpath(artifact_path)
 
-        artifact_dir = os.path.join(self.artifact_dir, artifact_path) if artifact_path else \
-            self.artifact_dir
+        artifact_dir = (
+            os.path.join(self.artifact_dir, artifact_path) if artifact_path else self.artifact_dir
+        )
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
         shutil.copyfile(local_file, os.path.join(artifact_dir, os.path.basename(local_file)))
@@ -44,8 +50,9 @@ class LocalArtifactRepository(ArtifactRepository):
         # Posix paths work fine on windows but just in case we normalize it here.
         if artifact_path:
             artifact_path = os.path.normpath(artifact_path)
-        artifact_dir = os.path.join(self.artifact_dir, artifact_path) if artifact_path else \
-            self.artifact_dir
+        artifact_dir = (
+            os.path.join(self.artifact_dir, artifact_path) if artifact_path else self.artifact_dir
+        )
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
         dir_util.copy_tree(src=local_dir, dst=artifact_dir, preserve_mode=0, preserve_times=0)
@@ -69,7 +76,7 @@ class LocalArtifactRepository(ArtifactRepository):
         # Posix paths work fine on windows but just in case we normalize it here.
         local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
         if not os.path.exists(local_artifact_path):
-            raise IOError('No such file or directory: \'{}\''.format(local_artifact_path))
+            raise IOError("No such file or directory: '{}'".format(local_artifact_path))
         return os.path.abspath(local_artifact_path)
 
     def list_artifacts(self, path=None):
@@ -80,10 +87,12 @@ class LocalArtifactRepository(ArtifactRepository):
         list_dir = os.path.join(self.artifact_dir, path) if path else self.artifact_dir
         if os.path.isdir(list_dir):
             artifact_files = list_all(list_dir, full_path=True)
-            infos = [get_file_info(f,
-                                   relative_path_to_artifact_path(
-                                       os.path.relpath(f, self.artifact_dir)))
-                     for f in artifact_files]
+            infos = [
+                get_file_info(
+                    f, relative_path_to_artifact_path(os.path.relpath(f, self.artifact_dir)),
+                )
+                for f in artifact_files
+            ]
             return sorted(infos, key=lambda f: f.path)
         else:
             return []
@@ -95,6 +104,7 @@ class LocalArtifactRepository(ArtifactRepository):
         shutil.copyfile(remote_file_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        artifact_path = os.path.join(self._artifact_dir, artifact_path) if artifact_path \
-            else self._artifact_dir
+        artifact_path = (
+            os.path.join(self._artifact_dir, artifact_path) if artifact_path else self._artifact_dir
+        )
         shutil.rmtree(local_file_uri_to_path(artifact_path))

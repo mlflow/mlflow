@@ -6,7 +6,14 @@ import pandas as pd
 import pytest
 import pyspark
 from py4j.protocol import Py4JJavaError
-from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
+from pyspark.sql.types import (
+    ArrayType,
+    DoubleType,
+    LongType,
+    StringType,
+    FloatType,
+    IntegerType,
+)
 
 import mlflow
 import mlflow.pyfunc
@@ -27,17 +34,20 @@ def score_model_as_udf(model_uri, pandas_df, result_type="double"):
     spark_df = spark.createDataFrame(pandas_df)
     pyfunc_udf = spark_udf(spark=spark, model_uri=model_uri, result_type=result_type)
     new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
-    return [x['prediction'] for x in new_df.collect()]
+    return [x["prediction"] for x in new_df.collect()]
 
 
 class ConstantPyfuncWrapper(object):
     @staticmethod
     def predict(model_input):
         m, _ = model_input.shape
-        prediction_df = pd.DataFrame(data={
-            str(i): np.array([prediction[i] for j in range(m)],
-                             dtype=types[i]) for i in range(len(prediction))},
-            columns=[str(i) for i in range(len(prediction))])
+        prediction_df = pd.DataFrame(
+            data={
+                str(i): np.array([prediction[i] for j in range(m)], dtype=types[i])
+                for i in range(len(prediction))
+            },
+            columns=[str(i) for i in range(len(prediction))],
+        )
         return prediction_df
 
 
@@ -57,10 +67,11 @@ def get_spark_session(conf):
     # compatibiliy-setting-for-pyarrow--0150-and-spark-23x-24x
     os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     conf.set(key="spark_session.python.worker.reuse", value=True)
-    return pyspark.sql.SparkSession.builder \
-        .config(conf=conf) \
-        .master("local-cluster[2, 1, 1024]") \
+    return (
+        pyspark.sql.SparkSession.builder.config(conf=conf)
+        .master("local-cluster[2, 1, 1024]")
         .getOrCreate()
+    )
 
 
 @pytest.fixture(scope="session")
@@ -77,9 +88,7 @@ def model_path(tmpdir):
 @pytest.mark.large
 def test_spark_udf(spark, model_path):
     mlflow.pyfunc.save_model(
-        path=model_path,
-        loader_module=__name__,
-        code_path=[os.path.dirname(tests.__file__)],
+        path=model_path, loader_module=__name__, code_path=[os.path.dirname(tests.__file__)],
     )
     reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
 
@@ -87,11 +96,13 @@ def test_spark_udf(spark, model_path):
     spark_df = spark.createDataFrame(pandas_df)
 
     # Test all supported return types
-    type_map = {"float": (FloatType(), np.number),
-                "int": (IntegerType(), np.int32),
-                "double": (DoubleType(), np.number),
-                "long": (LongType(), np.int),
-                "string": (StringType(), None)}
+    type_map = {
+        "float": (FloatType(), np.number),
+        "int": (IntegerType(), np.int32),
+        "double": (DoubleType(), np.number),
+        "long": (LongType(), np.int),
+        "string": (StringType(), None),
+    }
 
     for tname, tdef in type_map.items():
         spark_type, np_type = tdef
@@ -108,12 +119,12 @@ def test_spark_udf(spark, model_path):
             expected = [list(row[1]) if is_array else row[1][0] for row in expected.iterrows()]
             pyfunc_udf = spark_udf(spark, model_path, result_type=t)
             new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
-            actual = list(new_df.select("prediction").toPandas()['prediction'])
+            actual = list(new_df.select("prediction").toPandas()["prediction"])
             assert expected == actual
             if not is_array:
                 pyfunc_udf = spark_udf(spark, model_path, result_type=tname)
                 new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
-                actual = list(new_df.select("prediction").toPandas()['prediction'])
+                actual = list(new_df.select("prediction").toPandas()["prediction"])
                 assert expected == actual
 
 
@@ -123,26 +134,19 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
             return [model_input.columns] * len(model_input)
 
     signature = ModelSignature(
-        inputs=Schema([
-            ColSpec("long", "a"),
-            ColSpec("long", "b"),
-            ColSpec("long", "c"),
-        ]),
-        outputs=Schema([ColSpec("integer")])
+        inputs=Schema([ColSpec("long", "a"), ColSpec("long", "b"), ColSpec("long", "c"),]),
+        outputs=Schema([ColSpec("integer")]),
     )
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
-        udf = mlflow.pyfunc.spark_udf(spark, "runs:/{}/model".format(run.info.run_id),
-                                      result_type=ArrayType(StringType()))
-        data = spark.createDataFrame(pd.DataFrame(
-            columns=["a", "b", "c", "d"],
-            data={
-                "a": [1],
-                "b": [2],
-                "c": [3],
-                "d": [4]
-            }
-        ))
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()),
+        )
+        data = spark.createDataFrame(
+            pd.DataFrame(
+                columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]},
+            )
+        )
         with pytest.raises(Py4JJavaError):
             res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
 
@@ -155,9 +159,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
 @pytest.mark.large
 def test_model_cache(spark, model_path):
     mlflow.pyfunc.save_model(
-        path=model_path,
-        loader_module=__name__,
-        code_path=[os.path.dirname(tests.__file__)],
+        path=model_path, loader_module=__name__, code_path=[os.path.dirname(tests.__file__)],
     )
 
     archive_path = SparkModelCache.add_local_model(spark, model_path)
@@ -175,7 +177,7 @@ def test_model_cache(spark, model_path):
     # Request the model on all executors, and see how many times we got cache hits.
     def get_model(_):
         model = SparkModelCache.get_or_load(archive_path)
-        assert (isinstance(model, PyFuncModel))
+        assert isinstance(model, PyFuncModel)
         # NB: Can not use instanceof test as remote does not know about ConstantPyfuncWrapper class.
         assert type(model._model_impl).__name__ == constant_model_name
         return SparkModelCache._cache_hits
@@ -187,7 +189,7 @@ def test_model_cache(spark, model_path):
     results = spark.sparkContext.parallelize(range(0, 100), 30).map(get_model).collect()
 
     # TODO(tomas): Looks like spark does not reuse python workers with python==3.x
-    assert sys.version[0] == '3' or max(results) > 10
+    assert sys.version[0] == "3" or max(results) > 10
     # Running again should see no newly-loaded models.
     results2 = spark.sparkContext.parallelize(range(0, 100), 30).map(get_model).collect()
-    assert sys.version[0] == '3' or min(results2) > 0
+    assert sys.version[0] == "3" or min(results2) > 0

@@ -9,24 +9,30 @@ from mlflow.types.schema import Schema, ColSpec
 def test_model_signature():
     signature1 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
-        outputs=Schema([ColSpec(name=None, type=DataType.double),
-                        ColSpec(name=None, type=DataType.double)]))
+        outputs=Schema(
+            [ColSpec(name=None, type=DataType.double), ColSpec(name=None, type=DataType.double),]
+        ),
+    )
     signature2 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
-        outputs=Schema([ColSpec(name=None, type=DataType.double),
-                        ColSpec(name=None, type=DataType.double)]))
+        outputs=Schema(
+            [ColSpec(name=None, type=DataType.double), ColSpec(name=None, type=DataType.double),]
+        ),
+    )
     assert signature1 == signature2
     signature3 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
-        outputs=Schema([ColSpec(name=None, type=DataType.float),
-                        ColSpec(name=None, type=DataType.double)]))
+        outputs=Schema(
+            [ColSpec(name=None, type=DataType.float), ColSpec(name=None, type=DataType.double),]
+        ),
+    )
     assert signature3 != signature1
     as_json = json.dumps(signature1.to_dict())
     signature4 = ModelSignature.from_dict(json.loads(as_json))
     assert signature1 == signature4
     signature5 = ModelSignature(
-        inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
-        outputs=None)
+        inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]), outputs=None,
+    )
     as_json = json.dumps(signature5.to_dict())
     signature6 = ModelSignature.from_dict(json.loads(as_json))
     assert signature5 == signature6

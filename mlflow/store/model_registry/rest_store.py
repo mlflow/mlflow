@@ -1,13 +1,28 @@
 import logging
 
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
-from mlflow.protos.model_registry_pb2 import ModelRegistryService, CreateRegisteredModel, \
-    UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, \
-    GetLatestVersions, CreateModelVersion, UpdateModelVersion, \
-    DeleteModelVersion, GetModelVersionDownloadUri, SearchModelVersions, \
-    RenameRegisteredModel, GetRegisteredModel, GetModelVersion, TransitionModelVersionStage, \
-    SearchRegisteredModels, SetRegisteredModelTag, SetModelVersionTag, \
-    DeleteRegisteredModelTag, DeleteModelVersionTag
+from mlflow.protos.model_registry_pb2 import (
+    ModelRegistryService,
+    CreateRegisteredModel,
+    UpdateRegisteredModel,
+    DeleteRegisteredModel,
+    ListRegisteredModels,
+    GetLatestVersions,
+    CreateModelVersion,
+    UpdateModelVersion,
+    DeleteModelVersion,
+    GetModelVersionDownloadUri,
+    SearchModelVersions,
+    RenameRegisteredModel,
+    GetRegisteredModel,
+    GetModelVersion,
+    TransitionModelVersionStage,
+    SearchRegisteredModels,
+    SetRegisteredModelTag,
+    SetModelVersionTag,
+    DeleteRegisteredModelTag,
+    DeleteModelVersionTag,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
@@ -64,8 +79,7 @@ class RestStore(AbstractStore):
         :param description: New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        req_body = message_to_json(UpdateRegisteredModel(
-            name=name, description=description))
+        req_body = message_to_json(UpdateRegisteredModel(name=name, description=description))
         response_proto = self._call_endpoint(UpdateRegisteredModel, req_body)
         return RegisteredModel.from_proto(response_proto.registered_model)
 
@@ -77,8 +91,7 @@ class RestStore(AbstractStore):
         :param new_name: New proposed name.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        req_body = message_to_json(RenameRegisteredModel(
-            name=name, new_name=new_name))
+        req_body = message_to_json(RenameRegisteredModel(name=name, new_name=new_name))
         response_proto = self._call_endpoint(RenameRegisteredModel, req_body)
         return RegisteredModel.from_proto(response_proto.registered_model)
 
@@ -90,8 +103,7 @@ class RestStore(AbstractStore):
         :param name: Registered model name.
         :return: None
         """
-        req_body = message_to_json(DeleteRegisteredModel(
-            name=name))
+        req_body = message_to_json(DeleteRegisteredModel(name=name))
         self._call_endpoint(DeleteRegisteredModel, req_body)
 
     def list_registered_models(self, max_results, page_token):
@@ -105,17 +117,21 @@ class RestStore(AbstractStore):
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
         """
-        req_body = message_to_json(ListRegisteredModels(
-            page_token=page_token,
-            max_results=max_results))
+        req_body = message_to_json(
+            ListRegisteredModels(page_token=page_token, max_results=max_results)
+        )
         response_proto = self._call_endpoint(ListRegisteredModels, req_body)
         return PagedList(
-            [RegisteredModel.from_proto(registered_model)
-             for registered_model in response_proto.registered_models],
-            response_proto.next_page_token)
+            [
+                RegisteredModel.from_proto(registered_model)
+                for registered_model in response_proto.registered_models
+            ],
+            response_proto.next_page_token,
+        )
 
-    def search_registered_models(self, filter_string=None, max_results=None,
-                                 order_by=None, page_token=None):
+    def search_registered_models(
+        self, filter_string=None, max_results=None, order_by=None, page_token=None
+    ):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
@@ -129,13 +145,19 @@ class RestStore(AbstractStore):
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
         """
-        req_body = message_to_json(SearchRegisteredModels(filter=filter_string,
-                                                          max_results=max_results,
-                                                          order_by=order_by,
-                                                          page_token=page_token))
+        req_body = message_to_json(
+            SearchRegisteredModels(
+                filter=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
+        )
         response_proto = self._call_endpoint(SearchRegisteredModels, req_body)
-        registered_models = [RegisteredModel.from_proto(registered_model)
-                             for registered_model in response_proto.registered_models]
+        registered_models = [
+            RegisteredModel.from_proto(registered_model)
+            for registered_model in response_proto.registered_models
+        ]
         return PagedList(registered_models, response_proto.next_page_token)
 
     def get_registered_model(self, name):
@@ -161,8 +183,10 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(GetLatestVersions(name=name, stages=stages))
         response_proto = self._call_endpoint(GetLatestVersions, req_body)
-        return [ModelVersion.from_proto(model_version)
-                for model_version in response_proto.model_versions]
+        return [
+            ModelVersion.from_proto(model_version)
+            for model_version in response_proto.model_versions
+        ]
 
     def set_registered_model_tag(self, name, tag):
         """
@@ -202,14 +226,15 @@ class RestStore(AbstractStore):
                  created in the backend.
         """
         proto_tags = [tag.to_proto() for tag in tags or []]
-        req_body = message_to_json(CreateModelVersion(name=name, source=source,
-                                                      run_id=run_id, run_link=run_link,
-                                                      tags=proto_tags))
+        req_body = message_to_json(
+            CreateModelVersion(
+                name=name, source=source, run_id=run_id, run_link=run_link, tags=proto_tags,
+            )
+        )
         response_proto = self._call_endpoint(CreateModelVersion, req_body)
         return ModelVersion.from_proto(response_proto.model_version)
 
-    def transition_model_version_stage(self, name, version, stage,
-                                       archive_existing_versions):
+    def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
         Update model version stage.
 
@@ -222,10 +247,14 @@ class RestStore(AbstractStore):
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        req_body = message_to_json(TransitionModelVersionStage(
-            name=name, version=str(version),
-            stage=stage,
-            archive_existing_versions=archive_existing_versions))
+        req_body = message_to_json(
+            TransitionModelVersionStage(
+                name=name,
+                version=str(version),
+                stage=stage,
+                archive_existing_versions=archive_existing_versions,
+            )
+        )
         response_proto = self._call_endpoint(TransitionModelVersionStage, req_body)
         return ModelVersion.from_proto(response_proto.model_version)
 
@@ -238,8 +267,9 @@ class RestStore(AbstractStore):
         :param description: New model description.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        req_body = message_to_json(UpdateModelVersion(name=name, version=str(version),
-                                                      description=description))
+        req_body = message_to_json(
+            UpdateModelVersion(name=name, version=str(version), description=description)
+        )
         response_proto = self._call_endpoint(UpdateModelVersion, req_body)
         return ModelVersion.from_proto(response_proto.model_version)
 
@@ -292,8 +322,7 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(SearchModelVersions(filter=filter_string))
         response_proto = self._call_endpoint(SearchModelVersions, req_body)
-        model_versions = [ModelVersion.from_proto(mvd)
-                          for mvd in response_proto.model_versions]
+        model_versions = [ModelVersion.from_proto(mvd) for mvd in response_proto.model_versions]
         return PagedList(model_versions, response_proto.next_page_token)
 
     def set_model_version_tag(self, name, version, tag):
@@ -305,8 +334,9 @@ class RestStore(AbstractStore):
         :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
         :return: None
         """
-        req_body = message_to_json(SetModelVersionTag(name=name, version=version,
-                                                      key=tag.key, value=tag.value))
+        req_body = message_to_json(
+            SetModelVersionTag(name=name, version=version, key=tag.key, value=tag.value)
+        )
         self._call_endpoint(SetModelVersionTag, req_body)
 
     def delete_model_version_tag(self, name, version, key):

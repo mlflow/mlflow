@@ -32,15 +32,17 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 def h2o_iris_model():
     h2o.init()
     iris = datasets.load_iris()
-    data = h2o.H2OFrame({
-        'feature1': list(iris.data[:, 0]),
-        'feature2': list(iris.data[:, 1]),
-        'target': list(map(lambda i: "Flower %d" % i, iris.target))
-    })
-    train, test = data.split_frame(ratios=[.7])
+    data = h2o.H2OFrame(
+        {
+            "feature1": list(iris.data[:, 0]),
+            "feature2": list(iris.data[:, 1]),
+            "target": list(map(lambda i: "Flower %d" % i, iris.target)),
+        }
+    )
+    train, test = data.split_frame(ratios=[0.7])
 
     h2o_gbm = H2OGradientBoostingEstimator(ntrees=10, max_depth=6)
-    h2o_gbm.train(['feature1', 'feature2'], 'target', training_frame=train)
+    h2o_gbm.train(["feature1", "feature2"], "target", training_frame=train)
     return ModelWithData(model=h2o_gbm, inference_data=test)
 
 
@@ -52,10 +54,7 @@ def model_path(tmpdir):
 @pytest.fixture
 def h2o_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(
-        conda_env,
-        additional_conda_deps=["pytest"],
-        additional_pip_deps=["h2o"])
+    _mlflow_conda_env(conda_env, additional_conda_deps=["pytest"], additional_pip_deps=["h2o"])
     return conda_env
 
 
@@ -67,14 +66,16 @@ def test_model_save_load(h2o_iris_model, model_path):
     # Loading h2o model
     h2o_model_loaded = mlflow.h2o.load_model(model_path)
     assert all(
-        h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame() ==
-        h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
+        h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame()
+        == h2o_model.predict(h2o_iris_model.inference_data).as_data_frame()
+    )
 
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
     assert all(
-        pyfunc_loaded.predict(h2o_iris_model.inference_data.as_data_frame()) ==
-        h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
+        pyfunc_loaded.predict(h2o_iris_model.inference_data.as_data_frame())
+        == h2o_model.predict(h2o_iris_model.inference_data).as_data_frame()
+    )
 
 
 def test_signature_and_examples_are_saved_correctly(h2o_iris_model):
@@ -85,9 +86,7 @@ def test_signature_and_examples_are_saved_correctly(h2o_iris_model):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
-                mlflow.h2o.save_model(model, path=path,
-                                      signature=signature,
-                                      input_example=example)
+                mlflow.h2o.save_model(model, path=path, signature=signature, input_example=example)
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
                 if example is None:
@@ -110,14 +109,15 @@ def test_model_log(h2o_iris_model):
                     mlflow.start_run()
                 mlflow.h2o.log_model(h2o_model=h2o_model, artifact_path=artifact_path)
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id,
-                    artifact_path=artifact_path)
+                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                )
 
                 # Load model
                 h2o_model_loaded = mlflow.h2o.load_model(model_uri=model_uri)
                 assert all(
-                    h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame() ==
-                    h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
+                    h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame()
+                    == h2o_model.predict(h2o_iris_model.inference_data).as_data_frame()
+                )
             finally:
                 mlflow.end_run()
                 mlflow.set_tracking_uri(old_uri)
@@ -125,7 +125,8 @@ def test_model_log(h2o_iris_model):
 
 @pytest.mark.large
 def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_path(
-        h2o_iris_model, model_path):
+    h2o_iris_model, model_path
+):
     """
     This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.7.0
     can be loaded successfully. These models are missing the `data` flavor configuration key.
@@ -137,18 +138,20 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     model_conf = Model.load(model_conf_path)
     flavor_conf = model_conf.flavors.get(mlflow.h2o.FLAVOR_NAME, None)
     assert flavor_conf is not None
-    del flavor_conf['data']
+    del flavor_conf["data"]
     model_conf.save(model_conf_path)
 
     h2o_model_loaded = mlflow.h2o.load_model(model_path)
     assert all(
-        h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame() ==
-        h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
+        h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame()
+        == h2o_model.predict(h2o_iris_model.inference_data).as_data_frame()
+    )
 
 
 @pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
-        h2o_iris_model, model_path, h2o_custom_env):
+    h2o_iris_model, model_path, h2o_custom_env
+):
     mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=h2o_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -180,14 +183,18 @@ def test_model_save_accepts_conda_env_as_dict(h2o_iris_model, model_path):
 
 @pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
-        h2o_iris_model, h2o_custom_env):
+    h2o_iris_model, h2o_custom_env
+):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(h2o_model=h2o_iris_model.model,
-                             artifact_path=artifact_path,
-                             conda_env=h2o_custom_env)
-        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
+        mlflow.h2o.log_model(
+            h2o_model=h2o_iris_model.model, artifact_path=artifact_path, conda_env=h2o_custom_env,
+        )
+        model_path = _download_artifact_from_uri(
+            "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            )
+        )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -203,7 +210,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        h2o_iris_model, model_path):
+    h2o_iris_model, model_path
+):
     mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=None)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -216,12 +224,16 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 
 @pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        h2o_iris_model):
+    h2o_iris_model,
+):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.h2o.log_model(h2o_model=h2o_iris_model.model, artifact_path=artifact_path)
-        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
+        model_path = _download_artifact_from_uri(
+            "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            )
+        )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -240,12 +252,15 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(h2o_iris_model, m
         model_uri=model_path,
         data=h2o_iris_model.inference_data.as_data_frame(),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        flavor=mlflow.pyfunc.FLAVOR_NAME)
+        flavor=mlflow.pyfunc.FLAVOR_NAME,
+    )
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 
     pandas.testing.assert_frame_equal(
         deployed_model_preds["predict"].to_frame(),
-        reloaded_h2o_pyfunc.predict(
-            h2o_iris_model.inference_data.as_data_frame())["predict"].to_frame(),
+        reloaded_h2o_pyfunc.predict(h2o_iris_model.inference_data.as_data_frame())[
+            "predict"
+        ].to_frame(),
         check_dtype=False,
-        check_less_precise=6)
+        check_less_precise=6,
+    )

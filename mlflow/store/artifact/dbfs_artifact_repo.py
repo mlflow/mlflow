@@ -10,13 +10,17 @@ from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRep
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.tracking._tracking_service import utils
 from mlflow.utils.file_utils import relative_path_to_artifact_path
-from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
+from mlflow.utils.rest_utils import (
+    http_request,
+    http_request_safe,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.utils.string_utils import strip_prefix
 import mlflow.utils.databricks_utils
 from mlflow.utils.uri import is_databricks_acled_artifacts_uri, get_uri_scheme
 
-LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
-GET_STATUS_ENDPOINT = '/api/2.0/dbfs/get-status'
+LIST_API_ENDPOINT = "/api/2.0/dbfs/list"
+GET_STATUS_ENDPOINT = "/api/2.0/dbfs/get-status"
 DOWNLOAD_CHUNK_SIZE = 1024
 USE_FUSE_ENV_VAR = "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO"
 
@@ -34,8 +38,8 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         # NOTE: if we ever need to support databricks profiles different from that set for
         #  tracking, we could pass in the databricks profile name into this class.
         self.get_host_creds = _get_host_creds_from_default_store()
-        if not artifact_uri.startswith('dbfs:/'):
-            raise MlflowException('DbfsArtifactRepository URI must start with dbfs:/')
+        if not artifact_uri.startswith("dbfs:/"):
+            raise MlflowException("DbfsArtifactRepository URI must start with dbfs:/")
 
     def _databricks_api_request(self, endpoint, **kwargs):
         host_creds = self.get_host_creds()
@@ -44,11 +48,12 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     def _dbfs_list_api(self, json):
         host_creds = self.get_host_creds()
         return http_request(
-            host_creds=host_creds, endpoint=LIST_API_ENDPOINT, method='GET', json=json)
+            host_creds=host_creds, endpoint=LIST_API_ENDPOINT, method="GET", json=json
+        )
 
     def _dbfs_download(self, output_path, endpoint):
-        with open(output_path, 'wb') as f:
-            response = self._databricks_api_request(endpoint=endpoint, method='GET', stream=True)
+        with open(output_path, "wb") as f:
+            response = self._databricks_api_request(endpoint=endpoint, method="GET", stream=True)
             try:
                 for content in response.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
                     f.write(content)
@@ -59,21 +64,24 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         if artifact_path:
             dbfs_path = self._get_dbfs_path(artifact_path)
         else:
-            dbfs_path = self._get_dbfs_path('')
+            dbfs_path = self._get_dbfs_path("")
         return self._dbfs_is_dir(dbfs_path)
 
     def _dbfs_is_dir(self, dbfs_path):
         response = self._databricks_api_request(
-            endpoint=GET_STATUS_ENDPOINT, method='GET', json={'path': dbfs_path})
+            endpoint=GET_STATUS_ENDPOINT, method="GET", json={"path": dbfs_path}
+        )
         json_response = json.loads(response.text)
         try:
-            return json_response['is_dir']
+            return json_response["is_dir"]
         except KeyError:
-            raise MlflowException('DBFS path %s does not exist' % dbfs_path)
+            raise MlflowException("DBFS path %s does not exist" % dbfs_path)
 
     def _get_dbfs_path(self, artifact_path):
-        return '/%s/%s' % (strip_prefix(self.artifact_uri, 'dbfs:/'),
-                           strip_prefix(artifact_path, '/'))
+        return "/%s/%s" % (
+            strip_prefix(self.artifact_uri, "dbfs:/"),
+            strip_prefix(artifact_path, "/"),
+        )
 
     def _get_dbfs_endpoint(self, artifact_path):
         return "/dbfs%s" % self._get_dbfs_path(artifact_path)
@@ -81,8 +89,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     def log_artifact(self, local_file, artifact_path=None):
         basename = os.path.basename(local_file)
         if artifact_path:
-            http_endpoint = self._get_dbfs_endpoint(
-                posixpath.join(artifact_path, basename))
+            http_endpoint = self._get_dbfs_endpoint(posixpath.join(artifact_path, basename))
         else:
             http_endpoint = self._get_dbfs_endpoint(basename)
         if os.stat(local_file).st_size == 0:
@@ -90,14 +97,16 @@ class DbfsRestArtifactRepository(ArtifactRepository):
             # `requests.request`, potentially due to the bug described in
             # https://github.com/requests/requests/issues/4215
             self._databricks_api_request(
-                endpoint=http_endpoint, method='POST', data="", allow_redirects=False)
+                endpoint=http_endpoint, method="POST", data="", allow_redirects=False
+            )
         else:
-            with open(local_file, 'rb') as f:
+            with open(local_file, "rb") as f:
                 self._databricks_api_request(
-                    endpoint=http_endpoint, method='POST', data=f, allow_redirects=False)
+                    endpoint=http_endpoint, method="POST", data=f, allow_redirects=False
+                )
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        artifact_path = artifact_path or ''
+        artifact_path = artifact_path or ""
         for (dirpath, _, filenames) in os.walk(local_dir):
             artifact_subdir = artifact_path
             if dirpath != local_dir:
@@ -112,47 +121,51 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         if path:
             dbfs_path = self._get_dbfs_path(path)
         else:
-            dbfs_path = self._get_dbfs_path('')
-        dbfs_list_json = {'path': dbfs_path}
+            dbfs_path = self._get_dbfs_path("")
+        dbfs_list_json = {"path": dbfs_path}
         response = self._dbfs_list_api(dbfs_list_json)
         try:
             json_response = json.loads(response.text)
         except ValueError:
             raise MlflowException(
                 "API request to list files under DBFS path %s failed with status code %s. "
-                "Response body: %s" % (dbfs_path, response.status_code, response.text))
+                "Response body: %s" % (dbfs_path, response.status_code, response.text)
+            )
         # /api/2.0/dbfs/list will not have the 'files' key in the response for empty directories.
         infos = []
-        artifact_prefix = strip_prefix(self.artifact_uri, 'dbfs:')
-        if json_response.get('error_code', None) == RESOURCE_DOES_NOT_EXIST:
+        artifact_prefix = strip_prefix(self.artifact_uri, "dbfs:")
+        if json_response.get("error_code", None) == RESOURCE_DOES_NOT_EXIST:
             return []
-        dbfs_files = json_response.get('files', [])
+        dbfs_files = json_response.get("files", [])
         for dbfs_file in dbfs_files:
-            stripped_path = strip_prefix(dbfs_file['path'], artifact_prefix + '/')
+            stripped_path = strip_prefix(dbfs_file["path"], artifact_prefix + "/")
             # If `path` is a file, the DBFS list API returns a single list element with the
             # same name as `path`. The list_artifacts API expects us to return an empty list in this
             # case, so we do so here.
             if stripped_path == path:
                 return []
-            is_dir = dbfs_file['is_dir']
-            artifact_size = None if is_dir else dbfs_file['file_size']
+            is_dir = dbfs_file["is_dir"]
+            artifact_size = None if is_dir else dbfs_file["file_size"]
             infos.append(FileInfo(stripped_path, is_dir, artifact_size))
         return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
-        self._dbfs_download(output_path=local_path,
-                            endpoint=self._get_dbfs_endpoint(remote_file_path))
+        self._dbfs_download(
+            output_path=local_path, endpoint=self._get_dbfs_endpoint(remote_file_path)
+        )
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException('Not implemented yet')
+        raise MlflowException("Not implemented yet")
 
 
 def _get_host_creds_from_default_store():
     store = utils._get_store()
     if not isinstance(store, RestStore):
-        raise MlflowException('Failed to get credentials for DBFS; they are read from the ' +
-                              'Databricks CLI credentials or MLFLOW_TRACKING* environment ' +
-                              'variables.')
+        raise MlflowException(
+            "Failed to get credentials for DBFS; they are read from the "
+            + "Databricks CLI credentials or MLFLOW_TRACKING* environment "
+            + "variables."
+        )
     return store.get_host_creds
 
 
@@ -171,16 +184,20 @@ def dbfs_artifact_repo_factory(artifact_uri):
     :param artifact_uri: DBFS root artifact URI (string).
     :return: Subclass of ArtifactRepository capable of storing artifacts on DBFS.
     """
-    cleaned_artifact_uri = artifact_uri.rstrip('/')
+    cleaned_artifact_uri = artifact_uri.rstrip("/")
     uri_scheme = get_uri_scheme(artifact_uri)
-    if uri_scheme != 'dbfs':
-        raise MlflowException("DBFS URI must be of the form "
-                              "dbfs:/<path>, but received {uri}".format(uri=artifact_uri))
+    if uri_scheme != "dbfs":
+        raise MlflowException(
+            "DBFS URI must be of the form "
+            "dbfs:/<path>, but received {uri}".format(uri=artifact_uri)
+        )
     if is_databricks_acled_artifacts_uri(artifact_uri):
         return DatabricksArtifactRepository(cleaned_artifact_uri)
-    elif mlflow.utils.databricks_utils.is_dbfs_fuse_available() \
-            and os.environ.get(USE_FUSE_ENV_VAR, "").lower() != "false" \
-            and not artifact_uri.startswith("dbfs:/databricks/mlflow-registry"):
+    elif (
+        mlflow.utils.databricks_utils.is_dbfs_fuse_available()
+        and os.environ.get(USE_FUSE_ENV_VAR, "").lower() != "false"
+        and not artifact_uri.startswith("dbfs:/databricks/mlflow-registry")
+    ):
         # If the DBFS FUSE mount is available, write artifacts directly to /dbfs/... using
         # local filesystem APIs
         file_uri = "file:///dbfs/{}".format(strip_prefix(cleaned_artifact_uri, "dbfs:/"))

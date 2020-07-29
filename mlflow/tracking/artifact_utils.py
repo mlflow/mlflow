@@ -33,7 +33,8 @@ def get_artifact_uri(run_id, artifact_path=None):
     if not run_id:
         raise MlflowException(
             message="A run_id must be specified in order to obtain an artifact uri!",
-            error_code=INVALID_PARAMETER_VALUE)
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     store = _get_store()
     run = store.get_run(run_id)
@@ -71,4 +72,5 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
         root_uri = prefix + urllib.parse.urlunparse(parsed_uri)
 
     return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
-        artifact_path=artifact_path, dst_path=output_path)
+        artifact_path=artifact_path, dst_path=output_path
+    )

@@ -28,8 +28,14 @@ _logger = logging.getLogger(__name__)
 
 
 @keyword_only
-def log_model(spark_model, sample_input, artifact_path, registered_model_name=None,
-              signature: ModelSignature=None, input_example: ModelInputExample=None):
+def log_model(
+    spark_model,
+    sample_input,
+    artifact_path,
+    registered_model_name=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+):
     """
     Log a Spark MLLib model in MLeap format as an MLflow artifact
     for the current run. The logged model will have the MLeap flavor.
@@ -103,16 +109,26 @@ def log_model(spark_model, sample_input, artifact_path, registered_model_name=No
         # log the Spark MLlib model in MLeap format
         mlflow.mleap.log_model(spark_model=model, sample_input=test_df, artifact_path="mleap-model")
     """
-    return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap,
-                     spark_model=spark_model, sample_input=sample_input,
-                     registered_model_name=registered_model_name,
-                     signature=signature,
-                     input_example=input_example)
+    return Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.mleap,
+        spark_model=spark_model,
+        sample_input=sample_input,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example,
+    )
 
 
 @keyword_only
-def save_model(spark_model, sample_input, path, mlflow_model=Model(),
-               signature: ModelSignature = None, input_example: ModelInputExample = None):
+def save_model(
+    spark_model,
+    sample_input,
+    path,
+    mlflow_model=Model(),
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+):
     """
     Save a Spark MLlib PipelineModel in MLeap format at a local path.
     The saved model will have the MLeap flavor.
@@ -169,8 +185,9 @@ def save_model(spark_model, sample_input, path, mlflow_model=Model(),
 
 
     """
-    add_to_model(mlflow_model=mlflow_model, path=path, spark_model=spark_model,
-                 sample_input=sample_input)
+    add_to_model(
+        mlflow_model=mlflow_model, path=path, spark_model=spark_model, sample_input=sample_input,
+    )
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
@@ -197,13 +214,15 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     from py4j.protocol import Py4JError
 
     if not isinstance(spark_model, PipelineModel):
-        raise Exception("Not a PipelineModel."
-                        " MLeap can save only PipelineModels.")
+        raise Exception("Not a PipelineModel." " MLeap can save only PipelineModels.")
     if sample_input is None:
         raise Exception("A sample input must be specified in order to add the MLeap flavor.")
     if not isinstance(sample_input, DataFrame):
-        raise Exception("The sample input must be a PySpark dataframe of type `{df_type}`".format(
-            df_type=DataFrame.__module__))
+        raise Exception(
+            "The sample input must be a PySpark dataframe of type `{df_type}`".format(
+                df_type=DataFrame.__module__
+            )
+        )
 
     # MLeap's model serialization routine requires an absolute output path
     path = os.path.abspath(path)
@@ -212,32 +231,33 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     mleap_datapath_sub = os.path.join("mleap", "model")
     mleap_datapath_full = os.path.join(path, mleap_datapath_sub)
     if os.path.exists(mleap_path_full):
-        raise Exception("MLeap model data path already exists at: {path}".format(
-            path=mleap_path_full))
+        raise Exception(
+            "MLeap model data path already exists at: {path}".format(path=mleap_path_full)
+        )
     os.makedirs(mleap_path_full)
 
     dataset = spark_model.transform(sample_input)
     model_path = "file:{mp}".format(mp=mleap_datapath_full)
     try:
-        spark_model.serializeToBundle(path=model_path,
-                                      dataset=dataset)
+        spark_model.serializeToBundle(path=model_path, dataset=dataset)
     except Py4JError:
         _handle_py4j_error(
-                MLeapSerializationException,
-                "MLeap encountered an error while serializing the model. Ensure that the model is"
-                " compatible with MLeap (i.e does not contain any custom transformers).")
+            MLeapSerializationException,
+            "MLeap encountered an error while serializing the model. Ensure that the model is"
+            " compatible with MLeap (i.e does not contain any custom transformers).",
+        )
 
     try:
         mleap_version = mleap.version.__version__
         _logger.warning(
             "Detected old mleap version %s. Support for logging models in mleap format with "
             "mleap versions 0.15.0 and below is deprecated and will be removed in a future "
-            "MLflow release. Please upgrade to a newer mleap version.", mleap_version)
+            "MLflow release. Please upgrade to a newer mleap version.",
+            mleap_version,
+        )
     except AttributeError:
         mleap_version = mleap.version
-    mlflow_model.add_flavor(FLAVOR_NAME,
-                            mleap_version=mleap_version,
-                            model_data=mleap_datapath_sub)
+    mlflow_model.add_flavor(FLAVOR_NAME, mleap_version=mleap_version, model_data=mleap_datapath_sub)
 
 
 def _handle_py4j_error(reraised_error_type, reraised_error_text):

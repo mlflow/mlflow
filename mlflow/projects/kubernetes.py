@@ -22,28 +22,30 @@ def push_image_to_registry(image_tag):
     client = docker.from_env()
     _logger.info("=== Pushing docker image %s ===", image_tag)
     for line in client.images.push(repository=image_tag, stream=True, decode=True):
-        if 'error' in line and line['error']:
-            raise ExecutionException("Error while pushing to docker registry: "
-                                     "{error}".format(error=line['error']))
+        if "error" in line and line["error"]:
+            raise ExecutionException(
+                "Error while pushing to docker registry: " "{error}".format(error=line["error"])
+            )
     return client.images.get_registry_data(image_tag).id
 
 
-def _get_kubernetes_job_definition(project_name, image_tag, image_digest,
-                                   command, env_vars, job_template):
-    container_image = image_tag + '@' + image_digest
-    timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
+def _get_kubernetes_job_definition(
+    project_name, image_tag, image_digest, command, env_vars, job_template
+):
+    container_image = image_tag + "@" + image_digest
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
     job_name = "{}-{}".format(project_name, timestamp)
     _logger.info("=== Creating Job %s ===", job_name)
-    if os.environ.get('KUBE_MLFLOW_TRACKING_URI') is not None:
-        env_vars['MLFLOW_TRACKING_URI'] = os.environ['KUBE_MLFLOW_TRACKING_URI']
-    environment_variables = [{'name': k, 'value': v} for k, v in env_vars.items()]
-    job_template['metadata']['name'] = job_name
-    job_template['spec']['template']['spec']['containers'][0]['name'] = project_name
-    job_template['spec']['template']['spec']['containers'][0]['image'] = container_image
-    job_template['spec']['template']['spec']['containers'][0]['command'] = command
-    if 'env' not in job_template['spec']['template']['spec']['containers'][0].keys():
-        job_template['spec']['template']['spec']['containers'][0]['env'] = []
-    job_template['spec']['template']['spec']['containers'][0]['env'] += environment_variables
+    if os.environ.get("KUBE_MLFLOW_TRACKING_URI") is not None:
+        env_vars["MLFLOW_TRACKING_URI"] = os.environ["KUBE_MLFLOW_TRACKING_URI"]
+    environment_variables = [{"name": k, "value": v} for k, v in env_vars.items()]
+    job_template["metadata"]["name"] = job_name
+    job_template["spec"]["template"]["spec"]["containers"][0]["name"] = project_name
+    job_template["spec"]["template"]["spec"]["containers"][0]["image"] = container_image
+    job_template["spec"]["template"]["spec"]["containers"][0]["command"] = command
+    if "env" not in job_template["spec"]["template"]["spec"]["containers"][0].keys():
+        job_template["spec"]["template"]["spec"]["containers"][0]["env"] = []
+    job_template["spec"]["template"]["spec"]["containers"][0]["env"] += environment_variables
     return job_template
 
 
@@ -61,24 +63,28 @@ def _load_kube_context(context=None):
         kubernetes.config.load_kube_config(context=context)
     except (IOError, ConfigException) as e:
         _logger.debug('Error loading kube context "%s": %s', context, e)
-        _logger.info('No valid kube config found, using in-cluster configuration')
+        _logger.info("No valid kube config found, using in-cluster configuration")
         kubernetes.config.load_incluster_config()
 
 
-def run_kubernetes_job(project_name, active_run, image_tag, image_digest, command, env_vars,
-                       kube_context=None, job_template=None):
-    job_template = _get_kubernetes_job_definition(project_name,
-                                                  image_tag,
-                                                  image_digest,
-                                                  _get_run_command(command),
-                                                  env_vars,
-                                                  job_template)
-    job_name = job_template['metadata']['name']
-    job_namespace = job_template['metadata']['namespace']
+def run_kubernetes_job(
+    project_name,
+    active_run,
+    image_tag,
+    image_digest,
+    command,
+    env_vars,
+    kube_context=None,
+    job_template=None,
+):
+    job_template = _get_kubernetes_job_definition(
+        project_name, image_tag, image_digest, _get_run_command(command), env_vars, job_template,
+    )
+    job_name = job_template["metadata"]["name"]
+    job_namespace = job_template["metadata"]["namespace"]
     _load_kube_context(context=kube_context)
     api_instance = kubernetes.client.BatchV1Api()
-    api_instance.create_namespaced_job(namespace=job_namespace,
-                                       body=job_template, pretty=True)
+    api_instance.create_namespaced_job(namespace=job_namespace, body=job_template, pretty=True)
     return KubernetesSubmittedRun(active_run.info.run_id, job_name, job_namespace)
 
 
@@ -90,6 +96,7 @@ class KubernetesSubmittedRun(SubmittedRun):
     :param job_name: Kubernetes job name.
     :param job_namespace: Kubernetes job namespace.
     """
+
     # How often to poll run status when waiting on a run
     POLL_STATUS_INTERVAL = 5
 
@@ -113,9 +120,9 @@ class KubernetesSubmittedRun(SubmittedRun):
         return self._status == RunStatus.FINISHED
 
     def _update_status(self, kube_api=kubernetes.client.BatchV1Api()):
-        api_response = kube_api.read_namespaced_job_status(name=self._job_name,
-                                                           namespace=self._job_namespace,
-                                                           pretty=True)
+        api_response = kube_api.read_namespaced_job_status(
+            name=self._job_name, namespace=self._job_namespace, pretty=True
+        )
         status = api_response.status
         with self._status_lock:
             if RunStatus.is_terminated(self._status):
@@ -145,10 +152,12 @@ class KubernetesSubmittedRun(SubmittedRun):
             if not RunStatus.is_terminated(self._status):
                 _logger.info("Cancelling job.")
                 kube_api = kubernetes.client.BatchV1Api()
-                kube_api.delete_namespaced_job(name=self._job_name,
-                                               namespace=self._job_namespace,
-                                               body=kubernetes.client.V1DeleteOptions(),
-                                               pretty=True)
+                kube_api.delete_namespaced_job(
+                    name=self._job_name,
+                    namespace=self._job_namespace,
+                    body=kubernetes.client.V1DeleteOptions(),
+                    pretty=True,
+                )
                 self._status = RunStatus.KILLED
                 _logger.info("Job cancelled.")
             else:

@@ -79,9 +79,9 @@ class ModelRegistryClient(object):
         """
         self.store.delete_registered_model(name)
 
-    def list_registered_models(self,
-                               max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-                               page_token=None):
+    def list_registered_models(
+        self, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, page_token=None
+    ):
         """
         List of all registered models.
         :param max_results: Maximum number of registered models desired.
@@ -94,11 +94,13 @@ class ModelRegistryClient(object):
         """
         return self.store.list_registered_models(max_results, page_token)
 
-    def search_registered_models(self,
-                                 filter_string=None,
-                                 max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-                                 order_by=None,
-                                 page_token=None):
+    def search_registered_models(
+        self,
+        filter_string=None,
+        max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+    ):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
@@ -199,8 +201,11 @@ class ModelRegistryClient(object):
         if stage.strip() == "":
             raise MlflowException("The stage must not be an empty string.")
         return self.store.transition_model_version_stage(
-            name=name, version=version, stage=stage,
-            archive_existing_versions=archive_existing_versions)
+            name=name,
+            version=version,
+            stage=stage,
+            archive_existing_versions=archive_existing_versions,
+        )
 
     def get_model_version(self, name, version):
         """

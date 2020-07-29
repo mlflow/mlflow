@@ -29,8 +29,9 @@ def test_rest_exception_without_message():
 
 
 def test_rest_exception_error_code_and_no_message():
-    exc = RestException({"error_code": ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-                         "messages": "something important."})
+    exc = RestException(
+        {"error_code": ErrorCode.Name(RESOURCE_DOES_NOT_EXIST), "messages": "something important.",}
+    )
     assert "something important." in str(exc)
     assert "RESOURCE_DOES_NOT_EXIST" in str(exc)
     json.loads(exc.serialize_as_json())

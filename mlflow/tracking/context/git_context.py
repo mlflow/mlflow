@@ -14,7 +14,9 @@ def _get_git_commit(path):
     except ImportError as e:
         _logger.warning(
             "Failed to import Git (the Git executable is probably not on your PATH),"
-            " so Git SHA is not available. Error: %s", e)
+            " so Git SHA is not available. Error: %s",
+            e,
+        )
         return None
     try:
         if os.path.isfile(path):
@@ -22,7 +24,12 @@ def _get_git_commit(path):
         repo = git.Repo(path, search_parent_directories=True)
         commit = repo.head.commit.hexsha
         return commit
-    except (git.InvalidGitRepositoryError, git.GitCommandNotFound, ValueError, git.NoSuchPathError):
+    except (
+        git.InvalidGitRepositoryError,
+        git.GitCommandNotFound,
+        ValueError,
+        git.NoSuchPathError,
+    ):
         return None
 
 
@@ -34,7 +41,6 @@ def _get_source_version():
 
 
 class GitRunContext(RunContextProvider):
-
     def __init__(self):
         self._cache = {}
 
@@ -48,6 +54,4 @@ class GitRunContext(RunContextProvider):
         return self._source_version is not None
 
     def tags(self):
-        return {
-            MLFLOW_GIT_COMMIT: self._source_version
-        }
+        return {MLFLOW_GIT_COMMIT: self._source_version}

@@ -3,23 +3,42 @@ import time
 import logging
 import sqlalchemy
 
-from mlflow.entities.model_registry.model_version_stages import get_canonical_stage, \
-    DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS, STAGE_DELETED_INTERNAL, STAGE_ARCHIVED
+from mlflow.entities.model_registry.model_version_stages import (
+    get_canonical_stage,
+    DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS,
+    STAGE_DELETED_INTERNAL,
+    STAGE_ARCHIVED,
+)
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
-    INVALID_STATE, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
+    INVALID_STATE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 import mlflow.store.db.utils
-from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, \
-    SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD
+from mlflow.store.model_registry import (
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
+)
 from mlflow.store.db.base_sql_model import Base
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel, SqlModelVersion, SqlRegisteredModelTag, SqlModelVersionTag)
+    SqlRegisteredModel,
+    SqlModelVersion,
+    SqlRegisteredModelTag,
+    SqlModelVersionTag,
+)
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.utils.validation import _validate_registered_model_tag, _validate_model_version_tag, \
-    _validate_model_name, _validate_model_version, _validate_tag_name
+from mlflow.utils.validation import (
+    _validate_registered_model_tag,
+    _validate_model_version_tag,
+    _validate_model_name,
+    _validate_model_version,
+    _validate_tag_name,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -75,8 +94,9 @@ class SqlAlchemyStore(AbstractStore):
         SqlAlchemyStore._verify_registry_tables_exist(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(SessionMaker,
-                                                                                    self.db_type)
+        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
+            SessionMaker, self.db_type
+        )
         # TODO: verify schema here once we add logic to initialize the registry tables if they
         # don't exist (schema verification will fail in tests otherwise)
         # mlflow.store.db.utils._verify_schema(self.engine)
@@ -147,20 +167,23 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             try:
                 creation_time = now()
-                registered_model = SqlRegisteredModel(name=name, creation_time=creation_time,
-                                                      last_updated_time=creation_time)
+                registered_model = SqlRegisteredModel(
+                    name=name, creation_time=creation_time, last_updated_time=creation_time,
+                )
                 tags_dict = {}
                 for tag in tags or []:
                     tags_dict[tag.key] = tag.value
-                registered_model.registered_model_tags = [SqlRegisteredModelTag(key=key,
-                                                                                value=value)
-                                                          for key, value in tags_dict.items()]
+                registered_model.registered_model_tags = [
+                    SqlRegisteredModelTag(key=key, value=value) for key, value in tags_dict.items()
+                ]
                 self._save_to_db(session, registered_model)
                 session.flush()
                 return registered_model.to_mlflow_entity()
             except sqlalchemy.exc.IntegrityError as e:
-                raise MlflowException('Registered Model (name={}) already exists. '
-                                      'Error: {}'.format(name, str(e)), RESOURCE_ALREADY_EXISTS)
+                raise MlflowException(
+                    "Registered Model (name={}) already exists. " "Error: {}".format(name, str(e)),
+                    RESOURCE_ALREADY_EXISTS,
+                )
 
     @classmethod
     def _get_registered_model(cls, session, name, eager=False):
@@ -172,18 +195,23 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_model_name(name)
         query_options = cls._get_eager_registered_model_query_options() if eager else []
-        rms = session \
-            .query(SqlRegisteredModel) \
-            .options(*query_options) \
-            .filter(SqlRegisteredModel.name == name) \
+        rms = (
+            session.query(SqlRegisteredModel)
+            .options(*query_options)
+            .filter(SqlRegisteredModel.name == name)
             .all()
+        )
 
         if len(rms) == 0:
-            raise MlflowException('Registered Model with name={} not found'.format(name),
-                                  RESOURCE_DOES_NOT_EXIST)
+            raise MlflowException(
+                "Registered Model with name={} not found".format(name), RESOURCE_DOES_NOT_EXIST,
+            )
         if len(rms) > 1:
-            raise MlflowException('Expected only 1 registered model with name={}. '
-                                  'Found {}.'.format(name, len(rms)), INVALID_STATE)
+            raise MlflowException(
+                "Expected only 1 registered model with name={}. "
+                "Found {}.".format(name, len(rms)),
+                INVALID_STATE,
+            )
         return rms[0]
 
     def update_registered_model(self, name, description):
@@ -199,8 +227,7 @@ class SqlAlchemyStore(AbstractStore):
             updated_time = now()
             sql_registered_model.description = description
             sql_registered_model.last_updated_time = updated_time
-            self._save_to_db(session,
-                             [sql_registered_model])
+            self._save_to_db(session, [sql_registered_model])
             session.flush()
             return sql_registered_model.to_mlflow_entity()
 
@@ -222,13 +249,17 @@ class SqlAlchemyStore(AbstractStore):
                     sql_model_version.name = new_name
                     sql_model_version.last_updated_time = updated_time
                 sql_registered_model.last_updated_time = updated_time
-                self._save_to_db(session,
-                                 [sql_registered_model] + sql_registered_model.model_versions)
+                self._save_to_db(
+                    session, [sql_registered_model] + sql_registered_model.model_versions,
+                )
                 session.flush()
                 return sql_registered_model.to_mlflow_entity()
             except sqlalchemy.exc.IntegrityError as e:
-                raise MlflowException('Registered Model (name={}) already exists. '
-                                      'Error: {}'.format(new_name, str(e)), RESOURCE_ALREADY_EXISTS)
+                raise MlflowException(
+                    "Registered Model (name={}) already exists. "
+                    "Error: {}".format(new_name, str(e)),
+                    RESOURCE_ALREADY_EXISTS,
+                )
 
     def delete_registered_model(self, name):
         """
@@ -253,14 +284,15 @@ class SqlAlchemyStore(AbstractStore):
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
         """
-        return self.search_registered_models(max_results=max_results,
-                                             page_token=page_token)
+        return self.search_registered_models(max_results=max_results, page_token=page_token)
 
-    def search_registered_models(self,
-                                 filter_string=None,
-                                 max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-                                 order_by=None,
-                                 page_token=None):
+    def search_registered_models(
+        self,
+        filter_string=None,
+        max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+    ):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
@@ -275,11 +307,13 @@ class SqlAlchemyStore(AbstractStore):
                 obtained via the ``token`` attribute of the object.
         """
         if max_results > SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD:
-            raise MlflowException("Invalid value for request parameter max_results. "
-                                  "It must be at most {}, but got value {}"
-                                  .format(SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
-                                          max_results),
-                                  INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                "Invalid value for request parameter max_results. "
+                "It must be at most {}, but got value {}".format(
+                    SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD, max_results
+                ),
+                INVALID_PARAMETER_VALUE,
+            )
 
         parsed_filter = SearchUtils.parse_filter_for_registered_models(filter_string)
         parsed_orderby = self._parse_search_registered_models_order_by(order_by)
@@ -299,14 +333,15 @@ class SqlAlchemyStore(AbstractStore):
             conditions = []
         elif len(parsed_filter) == 1:
             filter_dict = parsed_filter[0]
-            comparator = filter_dict['comparator'].upper()
-            if comparator not in \
-                    SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS:
-                raise MlflowException('Search registered models filter expression only '
-                                      'supports the equality(=) comparator, case-sensitive'
-                                      'partial match (LIKE), and case-insensitive partial '
-                                      'match (ILIKE). Input filter string: %s' % filter_string,
-                                      error_code=INVALID_PARAMETER_VALUE)
+            comparator = filter_dict["comparator"].upper()
+            if comparator not in SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS:
+                raise MlflowException(
+                    "Search registered models filter expression only "
+                    "supports the equality(=) comparator, case-sensitive"
+                    "partial match (LIKE), and case-insensitive partial "
+                    "match (ILIKE). Input filter string: %s" % filter_string,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             if comparator == SearchUtils.LIKE_OPERATOR:
                 conditions = [SqlRegisteredModel.name.like(filter_dict["value"])]
             elif comparator == SearchUtils.ILIKE_OPERATOR:
@@ -314,18 +349,23 @@ class SqlAlchemyStore(AbstractStore):
             else:
                 conditions = [SqlRegisteredModel.name == filter_dict["value"]]
         else:
-            supported_ops = ''.join(['(' + op + ')' for op in
-                                     SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS])
+            supported_ops = "".join(
+                ["(" + op + ")" for op in SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS]
+            )
             sample_query = 'name {} "<model_name>"'.format(supported_ops)
-            raise MlflowException('Invalid filter string: {}'.format(filter_string) +
-                                  'Search registered models supports filter expressions like:' +
-                                  sample_query, error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                "Invalid filter string: {}".format(filter_string)
+                + "Search registered models supports filter expressions like:"
+                + sample_query,
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         with self.ManagedSessionMaker() as session:
-            query = session\
-                .query(SqlRegisteredModel)\
-                .filter(*conditions)\
-                .order_by(*parsed_orderby)\
+            query = (
+                session.query(SqlRegisteredModel)
+                .filter(*conditions)
+                .order_by(*parsed_orderby)
                 .limit(max_results_for_query)
+            )
             if page_token:
                 query = query.offset(offset)
             sql_registered_models = query.all()
@@ -341,18 +381,21 @@ class SqlAlchemyStore(AbstractStore):
         clauses = []
         if order_by_list:
             for order_by_clause in order_by_list:
-                attribute_token, ascending = \
-                    SearchUtils.parse_order_by_for_search_registered_models(order_by_clause)
+                (
+                    attribute_token,
+                    ascending,
+                ) = SearchUtils.parse_order_by_for_search_registered_models(order_by_clause)
                 if attribute_token == SqlRegisteredModel.name.key:
                     field = SqlRegisteredModel.name
                 elif attribute_token in SearchUtils.VALID_TIMESTAMP_ORDER_BY_KEYS:
                     field = SqlRegisteredModel.last_updated_time
                 else:
                     raise MlflowException(
-                        "Invalid order by key '{}' specified.".format(attribute_token) +
-                        "Valid keys are " +
-                        "'{}'".format(SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS),
-                        error_code=INVALID_PARAMETER_VALUE)
+                        "Invalid order by key '{}' specified.".format(attribute_token)
+                        + "Valid keys are "
+                        + "'{}'".format(SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS),
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 if ascending:
                     clauses.append(field.asc())
                 else:
@@ -386,23 +429,28 @@ class SqlAlchemyStore(AbstractStore):
             # Convert to RegisteredModel entity first and then extract latest_versions
             latest_versions = sql_registered_model.to_mlflow_entity().latest_versions
             if stages is None or len(stages) == 0:
-                expected_stages = set([get_canonical_stage(stage) for stage
-                                       in DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS])
+                expected_stages = set(
+                    [get_canonical_stage(stage) for stage in DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS]
+                )
             else:
                 expected_stages = set([get_canonical_stage(stage) for stage in stages])
             return [mv for mv in latest_versions if mv.current_stage in expected_stages]
 
     @classmethod
     def _get_registered_model_tag(cls, session, name, key):
-        tags = session.query(SqlRegisteredModelTag).filter(
-            SqlRegisteredModelTag.name == name,
-            SqlRegisteredModelTag.key == key
-        ).all()
+        tags = (
+            session.query(SqlRegisteredModelTag)
+            .filter(SqlRegisteredModelTag.name == name, SqlRegisteredModelTag.key == key)
+            .all()
+        )
         if len(tags) == 0:
             return None
         if len(tags) > 1:
-            raise MlflowException('Expected only 1 registered model tag with name={}, key={}. '
-                                  'Found {}.'.format(name, key, len(tags)), INVALID_STATE)
+            raise MlflowException(
+                "Expected only 1 registered model tag with name={}, key={}. "
+                "Found {}.".format(name, key, len(tags)),
+                INVALID_STATE,
+            )
         return tags[0]
 
     def set_registered_model_tag(self, name, tag):
@@ -418,11 +466,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             # check if registered model exists
             self._get_registered_model(session, name)
-            session.merge(SqlRegisteredModelTag(
-                name=name,
-                key=tag.key,
-                value=tag.value
-            ))
+            session.merge(SqlRegisteredModelTag(name=name, key=tag.key, value=tag.value))
 
     def delete_registered_model_tag(self, name, key):
         """
@@ -456,11 +500,13 @@ class SqlAlchemyStore(AbstractStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  created in the backend.
         """
+
         def next_version(sql_registered_model):
             if sql_registered_model.model_versions:
                 return max([mv.version for mv in sql_registered_model.model_versions]) + 1
             else:
                 return 1
+
         _validate_model_name(name)
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
@@ -471,26 +517,36 @@ class SqlAlchemyStore(AbstractStore):
                     sql_registered_model = self._get_registered_model(session, name)
                     sql_registered_model.last_updated_time = creation_time
                     version = next_version(sql_registered_model)
-                    model_version = SqlModelVersion(name=name,
-                                                    version=version,
-                                                    creation_time=creation_time,
-                                                    last_updated_time=creation_time,
-                                                    source=source, run_id=run_id, run_link=run_link)
+                    model_version = SqlModelVersion(
+                        name=name,
+                        version=version,
+                        creation_time=creation_time,
+                        last_updated_time=creation_time,
+                        source=source,
+                        run_id=run_id,
+                        run_link=run_link,
+                    )
                     tags_dict = {}
                     for tag in tags or []:
                         tags_dict[tag.key] = tag.value
-                    model_version.model_version_tags = [SqlModelVersionTag(key=key,
-                                                                           value=value)
-                                                        for key, value in tags_dict.items()]
+                    model_version.model_version_tags = [
+                        SqlModelVersionTag(key=key, value=value) for key, value in tags_dict.items()
+                    ]
                     self._save_to_db(session, [sql_registered_model, model_version])
                     session.flush()
                     return model_version.to_mlflow_entity()
                 except sqlalchemy.exc.IntegrityError:
                     more_retries = self.CREATE_MODEL_VERSION_RETRIES - attempt - 1
-                    _logger.info('Model Version creation error (name=%s) Retrying %s more time%s.',
-                                 name, str(more_retries), 's' if more_retries > 1 else '')
-        raise MlflowException('Model Version creation error (name={}). Giving up after '
-                              '{} attempts.'.format(name, self.CREATE_MODEL_VERSION_RETRIES))
+                    _logger.info(
+                        "Model Version creation error (name=%s) Retrying %s more time%s.",
+                        name,
+                        str(more_retries),
+                        "s" if more_retries > 1 else "",
+                    )
+        raise MlflowException(
+            "Model Version creation error (name={}). Giving up after "
+            "{} attempts.".format(name, self.CREATE_MODEL_VERSION_RETRIES)
+        )
 
     @classmethod
     def _get_model_version_from_db(cls, session, name, version, conditions, query_options=None):
@@ -499,12 +555,16 @@ class SqlAlchemyStore(AbstractStore):
         versions = session.query(SqlModelVersion).options(*query_options).filter(*conditions).all()
 
         if len(versions) == 0:
-            raise MlflowException('Model Version (name={}, version={}) '
-                                  'not found'.format(name, version), RESOURCE_DOES_NOT_EXIST)
+            raise MlflowException(
+                "Model Version (name={}, version={}) " "not found".format(name, version),
+                RESOURCE_DOES_NOT_EXIST,
+            )
         if len(versions) > 1:
-            raise MlflowException('Expected only 1 model version with (name={}, version={}). '
-                                  'Found {}.'.format(name, version, len(versions)),
-                                  INVALID_STATE)
+            raise MlflowException(
+                "Expected only 1 model version with (name={}, version={}). "
+                "Found {}.".format(name, version, len(versions)),
+                INVALID_STATE,
+            )
         return versions[0]
 
     @classmethod
@@ -521,7 +581,7 @@ class SqlAlchemyStore(AbstractStore):
         conditions = [
             SqlModelVersion.name == name,
             SqlModelVersion.version == version,
-            SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL
+            SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL,
         ]
         return cls._get_model_version_from_db(session, name, version, conditions, query_options)
 
@@ -558,8 +618,7 @@ class SqlAlchemyStore(AbstractStore):
             self._save_to_db(session, [sql_model_version])
             return sql_model_version.to_mlflow_entity()
 
-    def transition_model_version_stage(self, name, version, stage,
-                                       archive_existing_versions):
+    def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
         Update model version stage.
 
@@ -574,8 +633,10 @@ class SqlAlchemyStore(AbstractStore):
         """
         is_active_stage = get_canonical_stage(stage) in DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS
         if archive_existing_versions and not is_active_stage:
-            msg_tpl = ("Model version transition cannot archive existing model versions "
-                       "because '{}' is not an Active stage. Valid stages are {}")
+            msg_tpl = (
+                "Model version transition cannot archive existing model versions "
+                "because '{}' is not an Active stage. Valid stages are {}"
+            )
             raise MlflowException(msg_tpl.format(stage, DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS))
 
         with self.ManagedSessionMaker() as session:
@@ -593,9 +654,9 @@ class SqlAlchemyStore(AbstractStore):
                     mv.current_stage = STAGE_ARCHIVED
                     mv.last_updated_time = last_updated_time
 
-            sql_model_version = self._get_sql_model_version(session=session,
-                                                            name=name,
-                                                            version=version)
+            sql_model_version = self._get_sql_model_version(
+                session=session, name=name, version=version
+            )
             sql_model_version.current_stage = get_canonical_stage(stage)
             sql_model_version.last_updated_time = last_updated_time
             sql_registered_model = sql_model_version.registered_model
@@ -669,9 +730,11 @@ class SqlAlchemyStore(AbstractStore):
         elif len(parsed_filter) == 1:
             filter_dict = parsed_filter[0]
             if filter_dict["comparator"] != "=":
-                raise MlflowException('Model Registry search filter only supports equality(=) '
-                                      'comparator. Input filter string: %s' % filter_string,
-                                      error_code=INVALID_PARAMETER_VALUE)
+                raise MlflowException(
+                    "Model Registry search filter only supports equality(=) "
+                    "comparator. Input filter string: %s" % filter_string,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             if filter_dict["key"] == "name":
                 conditions = [SqlModelVersion.name == filter_dict["value"]]
             elif filter_dict["key"] == "source_path":
@@ -679,14 +742,17 @@ class SqlAlchemyStore(AbstractStore):
             elif filter_dict["key"] == "run_id":
                 conditions = [SqlModelVersion.run_id == filter_dict["value"]]
             else:
-                raise MlflowException('Invalid filter string: %s' % filter_string,
-                                      error_code=INVALID_PARAMETER_VALUE)
+                raise MlflowException(
+                    "Invalid filter string: %s" % filter_string, error_code=INVALID_PARAMETER_VALUE,
+                )
         else:
-            raise MlflowException('Model Registry expects filter to be one of '
-                                  '"name = \'<model_name>\'" or '
-                                  '"source_path = \'<source_path>\'" or "run_id = \'<run_id>\'.'
-                                  'Input filter string: %s. ' % filter_string,
-                                  error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                "Model Registry expects filter to be one of "
+                "\"name = '<model_name>'\" or "
+                "\"source_path = '<source_path>'\" or \"run_id = '<run_id>'."
+                "Input filter string: %s. " % filter_string,
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
         with self.ManagedSessionMaker() as session:
             conditions.append(SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
@@ -696,17 +762,23 @@ class SqlAlchemyStore(AbstractStore):
 
     @classmethod
     def _get_model_version_tag(cls, session, name, version, key):
-        tags = session.query(SqlModelVersionTag).filter(
-            SqlModelVersionTag.name == name,
-            SqlModelVersionTag.version == version,
-            SqlModelVersionTag.key == key
-        ).all()
+        tags = (
+            session.query(SqlModelVersionTag)
+            .filter(
+                SqlModelVersionTag.name == name,
+                SqlModelVersionTag.version == version,
+                SqlModelVersionTag.key == key,
+            )
+            .all()
+        )
         if len(tags) == 0:
             return None
         if len(tags) > 1:
-            raise MlflowException('Expected only 1 model version tag with name={}, version={}, '
-                                  'key={}. Found {}.'.format(name, version, key, len(tags)),
-                                  INVALID_STATE)
+            raise MlflowException(
+                "Expected only 1 model version tag with name={}, version={}, "
+                "key={}. Found {}.".format(name, version, key, len(tags)),
+                INVALID_STATE,
+            )
         return tags[0]
 
     def set_model_version_tag(self, name, version, tag):
@@ -724,12 +796,9 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             # check if model version exists
             self._get_sql_model_version(session, name, version)
-            session.merge(SqlModelVersionTag(
-                name=name,
-                version=version,
-                key=tag.key,
-                value=tag.value
-            ))
+            session.merge(
+                SqlModelVersionTag(name=name, version=version, key=tag.key, value=tag.value)
+            )
 
     def delete_model_version_tag(self, name, version, key):
         """
