@@ -226,8 +226,9 @@ jobs:
       - name: Add miniconda path to PATH
         run: |
           echo "::add-path::C:\Miniconda"
+          echo "::add-path::C:\Miniconda\Scripts"
       - run: conda --version
-      - name: Install dependecies
+      - name: Install dependencies
         run: |
           pip install -r dev-requirements.txt
           pip install -r travis/small-requirements.txt
