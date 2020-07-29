@@ -316,7 +316,7 @@ const mapStateToProps = (state, ownProps) => {
   const { modelName } = ownProps;
   const { version } = ownProps.modelVersion;
   const tags = getModelVersionTags(modelName, version, state);
-  return { ...ownProps, tags };
+  return { tags };
 };
 const mapDispatchToProps = { setModelVersionTagApi, deleteModelVersionTagApi };
 

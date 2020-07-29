@@ -339,7 +339,7 @@ export class ModelViewImpl extends React.Component {
 const mapStateToProps = (state, ownProps) => {
   const modelName = ownProps.model.name;
   const tags = getRegisteredModelTags(modelName, state);
-  return { ...ownProps, tags };
+  return { tags };
 };
 const mapDispatchToProps = { setRegisteredModelTagApi, deleteRegisteredModelTagApi };
 
