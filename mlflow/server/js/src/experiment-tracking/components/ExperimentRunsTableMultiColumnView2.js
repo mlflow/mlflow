@@ -413,7 +413,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   }
 
   componentWillUnmount() {
-    window.removeEventListener('resize', this.fitOnWindowResize);
+    window.removeEventListener('resize', this.fitColumnsOnWindowResize);
   }
 
   render() {
