@@ -223,16 +223,16 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: 3.7
-      - name: Add miniconda path to PATH
+      - name: Add miniconda to PATH
         run: |
           echo "::add-path::C:\Miniconda"
           echo "::add-path::C:\Miniconda\Scripts"
-      - run: conda --version
       - name: Install dependencies
-        run: |
-          pip install -r dev-requirements.txt
-          pip install -r travis/small-requirements.txt
-          pip install -e .
+        run:
+          conda create -n test-environment python=3.7
+          source activate test-environment
+          pip install -e . -r dev-requirements.txt -r travis/small-requirements.txt
       - name: Run tests
         run: |
+          conda activate test-environment
           pytest --verbose --ignore-flavors --ignore=tests/projects tests
