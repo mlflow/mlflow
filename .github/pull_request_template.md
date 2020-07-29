@@ -21,8 +21,7 @@ Components
 - [ ] `area/build`: Build and test infrastructure for MLflow
 - [ ] `area/docs`: MLflow documentation pages
 - [ ] `area/examples`: Example code
-- [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for
-Model Registry
+- [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry
 - [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
 - [ ] `area/projects`: MLproject format, project running backends
 - [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
