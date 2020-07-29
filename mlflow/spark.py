@@ -517,6 +517,10 @@ def _load_pyfunc(path):
 
     spark = pyspark.sql.SparkSession._instantiatedSession
     if spark is None:
+        # NB: If there is no existing Spark context, create a new local one.
+        # NB: We're disabling caching on the new context since we do not need it and we want to
+        # avoid overwriting cache of underlying Spark cluster when executed on a Spark Worker
+        # (e.g. as part of spark_udf).
         spark = pyspark.sql.SparkSession.builder\
             .config("spark.python.worker.reuse", True) \
             .config("spark.databricks.io.cache.enabled", False) \
