@@ -229,7 +229,7 @@ jobs:
           echo "::add-path::C:\Miniconda\Scripts"
       - name: Install dependencies
         run: |
-          conda create -n test-environment python=3.7
+          conda create -y -n test-environment python=3.7
           conda activate test-environment
           pip install . -r dev-requirements.txt -r travis/small-requirements.txt
       - name: Run tests
