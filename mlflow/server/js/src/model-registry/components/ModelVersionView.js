@@ -133,7 +133,7 @@ export class ModelVersionViewImpl extends React.Component {
 
   handleDeleteTag = ({ name }) => {
     const { modelName } = this.props;
-    const { version } = this.props.modelVersion.version;
+    const { version } = this.props.modelVersion;
     return this.props.deleteModelVersionTagApi(modelName, version, name).catch((ex) => {
       console.error(ex);
       message.error('Failed to delete tag. Error: ' + ex.getUserVisibleError());
