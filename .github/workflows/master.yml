@@ -223,6 +223,10 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: 3.7
+      - name: Add miniconda path to PATH
+        run: |
+          echo "::add-path::C:\Miniconda"
+      - run: conda --version
       - name: Install dependecies
         run: |
           pip install -r dev-requirements.txt
