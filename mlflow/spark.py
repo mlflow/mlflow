@@ -517,7 +517,9 @@ def _load_pyfunc(path):
 
     spark = pyspark.sql.SparkSession._instantiatedSession
     if spark is None:
-        spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
+        spark = pyspark.sql.SparkSession.builder\
+            .config("spark.python.worker.reuse", True) \
+            .config("spark.databricks.io.cache.enabled", False) \
             .master("local[1]").getOrCreate()
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
 
