@@ -230,7 +230,7 @@ jobs:
       - name: Install dependencies
         run: |
           conda create -n test-environment python=3.7
-          source activate test-environment
+          conda activate test-environment
           pip install . -r dev-requirements.txt -r travis/small-requirements.txt
       - name: Run tests
         run: |
