@@ -345,11 +345,29 @@ Autologging captures the following information:
 | Spark            | --      | --         | Single tag containing source path, version, format. The tag contains one line per datasource | --        |
 +------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
 
-**Note**: this feature is experimental - the API and format of the logged data are subject to change.
-Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely)
-to see race conditions when launching short-lived MLflow runs that result in datasource information
-not being logged.
+.. note::
+  - This feature is experimental - the API and format of the logged data are subject to change.
+  - Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely) to see race conditions when launching short-lived MLflow runs that result in datasource information not being logged.
 
+Fastai (experimental)
+---------------------
+
+Call :py:func:`mlflow.fastai.autolog` before your training code to enable automatic logging of metrics and parameters.
+See an example usage with `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_.
+
+Autologging captures the following information:
+
++-----------+------------------------+--------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                                       | Tags          | Artifacts                                                                                                                                                             |
++-----------+------------------------+--------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| fastai    | user-specified metrics | Logs optimizer data as parameters. For exmaple,  |  --           | Model checkpoints are logged to a ‘models’ directory; `MLflow Model`_ (fastai Learner model) on training end; Model summary text is logged                            |
+|           |                        | ``epochs``, ``lr``, ``opt_func``, etc            |               |                                                                                                                                                                       |
+|           |                        | Logs the parameters of the ``EarlyStopping`` and |               |                                                                                                                                                                       |
+|           |                        | ``OneCycleScheduler`` callbacks                  |               |                                                                                                                                                                       |
++-----------+------------------------+--------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+.. note::
+  This feature is experimental - the API and format of the logged data are subject to change.
 
 .. _organizing_runs_in_experiments:
 
