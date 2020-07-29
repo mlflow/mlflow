@@ -227,17 +227,17 @@ jobs:
       run: |
         echo "::add-path::C:\Miniconda"
         echo "::add-path::C:\Miniconda\Scripts"
-    - name: Initialize conda
+    - name: Run conda init
       run: |
         conda init powershell
     - name: Install dependencies
       run: |
         conda create -y -n test-environment python=3.7
-        call conda activate test-environment
+        conda activate test-environment
         pip install -r dev-requirements.txt
         pip install -r travis/small-requirements.txt
         pip install .
     - name: Run tests
       run: |
-        call activate test-environment
+        conda activate test-environment
         pytest --verbose --ignore-flavors --ignore=tests/projects tests
