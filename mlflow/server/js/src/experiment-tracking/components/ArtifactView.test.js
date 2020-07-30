@@ -268,7 +268,7 @@ describe('ArtifactView', () => {
 
     const modelVersionsBySource = {
       'test_root/dir2': [
-        mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY, []),
+        mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
       ],
     };
     const props = { ...minimalProps, modelVersionsBySource };
@@ -306,7 +306,7 @@ describe('ArtifactView', () => {
 
     const modelVersionsBySource = {
       'test_root/dir2': [
-        mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY, []),
+        mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
       ],
     };
     const props = { ...minimalProps, modelVersionsBySource };

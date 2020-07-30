@@ -177,6 +177,7 @@ export class EditableTable extends React.Component {
           size='middle'
           pagination={false}
           locale={{ emptyText: 'No tags found.' }}
+          scroll={{ y: 280 }}
         />
       </EditableContext.Provider>
     );
