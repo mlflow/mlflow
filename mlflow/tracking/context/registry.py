@@ -97,7 +97,7 @@ def resolve_tags(tags=None):
     return all_tags
 
 
-def execute_start_run_actions(self, run):
+def execute_start_run_actions(run):
     """
     Execute context-specific for all the registered contexts when a MLflow run is started
 
@@ -110,7 +110,7 @@ def execute_start_run_actions(self, run):
     )
 
 
-def execute_end_run_actions(self, run, status):
+def execute_end_run_actions(run, status):
     """
     Execute context-specific for all the registered contexts when a MLflow run is finished
 
@@ -123,7 +123,7 @@ def execute_end_run_actions(self, run, status):
     )
 
 
-def execute_create_experiment_actions(self, experiment_id):
+def execute_create_experiment_actions(experiment_id):
     """
     Execute context-specific actions for all the registered contexts
     when a MLflow experiment is created
@@ -136,7 +136,7 @@ def execute_create_experiment_actions(self, experiment_id):
     )
 
 
-def execute_delete_experiment_actions(self, experiment_id):
+def execute_delete_experiment_actions(experiment_id):
     """
     Execute context-specific actions for all the registered contexts
     when a MLflow experiment is deleted
