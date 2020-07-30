@@ -622,7 +622,8 @@ def get_model_version_artifact_handler():
     name = request_dict.get('name')
     version = request_dict.get('version')
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
-    filename = os.path.abspath(get_artifact_repository(artifact_uri).download_artifacts(request_dict['path']))
+    artifact_repository = get_artifact_repository(artifact_uri)
+    filename = os.path.abspath(artifact_repository.download_artifacts(request_dict['path']))
     extension = os.path.splitext(filename)[-1].replace(".", "")
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
