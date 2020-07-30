@@ -39,6 +39,25 @@ class RunContextProviderRegistry(object):
                     stacklevel=2
                 )
 
+    def _run(self, provider, func, default):
+        try:
+            return func(provider)
+        except NotImplementedError:
+            return default
+
+    def run(self, func, default=None):
+        return (
+            list(
+                map(
+                    lambda x: self._run(x, func, default),
+                    filter(
+                        lambda x: x.in_context(),
+                        self
+                    )
+                )
+            )
+        )
+
     def __iter__(self):
         return iter(self._registry)
 
@@ -67,12 +86,64 @@ def resolve_tags(tags=None):
     """
 
     all_tags = {}
-    for provider in _run_context_provider_registry:
-        if provider.in_context():
-            # TODO: Error out gracefully if provider's tags are not valid or have wrong types.
-            all_tags.update(provider.tags())
+
+    _run_context_provider_registry.run(
+        lambda  x: all_tags.update(x.tags()), {}
+    )
 
     if tags is not None:
         all_tags.update(tags)
 
     return all_tags
+
+
+def execute_start_run_actions(self, run):
+    """
+    Execute context-specific for all the registered contexts when a MLflow run is started
+
+    :param run: An instance of :py:class:`mlflow.entities.Run` of the run started
+    run that started
+    :return: None
+    """
+    _run_context_provider_registry.run(
+        lambda x: x.execute_start_run_actions(run)
+    )
+
+
+def execute_end_run_actions(self, run, status):
+    """
+    Execute context-specific for all the registered contexts when a MLflow run is finished
+
+    :param run: An instance of :py:class:`mlflow.entities.Run` of the run finished
+    :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
+    :return: None
+    """
+    _run_context_provider_registry.run(
+        lambda x: x.execute_end_run_actions(run)
+    )
+
+
+def execute_create_experiment_actions(self, experiment_id):
+    """
+    Execute context-specific actions for all the registered contexts
+    when a MLflow experiment is created
+
+    :param experiment_id: Experiment ID of the created experiments.
+    :return: None
+    """
+    _run_context_provider_registry.run(
+        lambda x: x.execute_create_experiment_actions(experiment_id)
+    )
+
+
+def execute_delete_experiment_actions(self, experiment_id):
+    """
+    Execute context-specific actions for all the registered contexts
+    when a MLflow experiment is deleted
+
+    :param experiment_id: Experiment ID of the deletd experiments.
+    :return: None
+    """
+    _run_context_provider_registry.run(
+        lambda x: x.execute_delete_experiment_actions(experiment_id)
+    )

@@ -151,6 +151,9 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         )
 
     _active_run_stack.append(ActiveRun(active_run_obj))
+
+    context_registry.execute_start_run_actions(active_run_obj)
+
     return _active_run_stack[-1]
 
 
@@ -162,6 +165,7 @@ def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
         env.unset_variable(_RUN_ID_ENV_VAR)
         run = _active_run_stack.pop()
         MlflowClient().set_terminated(run.info.run_id, status)
+        context_registry.execute_end_run_actions(run, status)
 
 
 atexit.register(end_run)
@@ -354,7 +358,9 @@ def create_experiment(name, artifact_location=None):
                               If not provided, the server picks an appropriate default.
     :return: Integer ID of the created experiment.
     """
-    return MlflowClient().create_experiment(name, artifact_location)
+    experiment_id = MlflowClient().create_experiment(name, artifact_location)
+    context_registry.execute_create_experiment_actions(experiment_id)
+    return experiment_id
 
 
 def delete_experiment(experiment_id):
@@ -364,6 +370,7 @@ def delete_experiment(experiment_id):
     :param experiment_id: The experiment ID returned from ``create_experiment``.
     """
     MlflowClient().delete_experiment(experiment_id)
+    context_registry.execute_delete_experiment_actions(experiment_id)
 
 
 def delete_run(run_id):

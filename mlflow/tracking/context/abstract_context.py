@@ -21,7 +21,7 @@ class RunContextProvider(object):
 
         :return: bool indicating if in this context
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def tags(self):
@@ -30,4 +30,46 @@ class RunContextProvider(object):
 
         :return: dict of tags
         """
-        pass
+        raise NotImplementedError
+
+    @abstractmethod
+    def execute_start_run_actions(self, run):
+        """
+        Execute context-specific actions when a MLflow run is started
+
+        :param run: An instance of :py:class:`mlflow.entities.Run` of the run started
+        run that started
+        :return: None
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def execute_end_run_actions(self, run, status):
+        """
+        Execute context-specific actions when a MLflow run is finished
+
+        :param run: An instance of :py:class:`mlflow.entities.Run` of the run finished
+        :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
+        :return: None
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def execute_create_experiment_actions(self, experiment_id):
+        """
+        Execute context-specific actions when a MLflow experiment is created
+
+        :param experiment_id: Experiment ID of the created experiments.
+        :return: None
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def execute_delete_experiment_actions(self, experiment_id):
+        """
+        Execute context-specific actions when a MLflow experiment is deleted
+
+        :param experiment_id: Experiment ID of the deletd experiments.
+        :return: None
+        """
+        raise NotImplementedError
