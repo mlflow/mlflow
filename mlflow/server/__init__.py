@@ -6,7 +6,8 @@ import textwrap
 from flask import Flask, send_from_directory, Response
 
 from mlflow.server import handlers
-from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, _add_static_prefix
+from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, \
+    _add_static_prefix, get_model_version_artifact_handler
 from mlflow.utils.process import exec_cmd
 
 # NB: These are intenrnal environment variables used for communication between
@@ -42,6 +43,12 @@ def health():
 @app.route(_add_static_prefix('/get-artifact'))
 def serve_artifacts():
     return get_artifact_handler()
+
+
+# Serve the "get-model-version-artifact" route.
+@app.route(_add_static_prefix('/get-model-version-artifact'))
+def serve_model_version_artifact():
+    return get_model_version_artifact_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for

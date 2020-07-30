@@ -616,6 +616,23 @@ def _create_model_version():
 
 
 @catch_mlflow_exception
+def get_model_version_artifact_handler():
+    query_string = request.query_string.decode('utf-8')
+    request_dict = parser.parse(query_string, normalized=True)
+    name = request_dict.get('name')
+    version = request_dict.get('version')
+    artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
+    filename = os.path.abspath(get_artifact_repository(artifact_uri).download_artifacts(request_dict['path']))
+    extension = os.path.splitext(filename)[-1].replace(".", "")
+    # Always send artifacts as attachments to prevent the browser from displaying them on our web
+    # server's domain, which might enable XSS.
+    if extension in _TEXT_EXTENSIONS:
+        return send_file(filename, mimetype='text/plain', as_attachment=True)
+    else:
+        return send_file(filename, as_attachment=True)
+
+
+@catch_mlflow_exception
 def _get_model_version():
     request_message = _get_request_message(GetModelVersion())
     model_version = _get_model_registry_store().get_model_version(

@@ -20,4 +20,11 @@ module.exports = function (app) {
       changeOrigin: true,
     }),
   );
+  app.use(
+    createProxyMiddleware('/get-model-version-artifact', {
+      target: proxyTarget,
+      ws: true,
+      changeOrigin: true,
+    }),
+  );
 };
