@@ -2,6 +2,8 @@ import ModelRegistryReducers, {
   getAllModelVersions,
   getModelVersion,
   getModelVersions,
+  getRegisteredModelTags,
+  getModelVersionTags,
 } from './reducers';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from './test-utils';
 import {
@@ -11,10 +13,20 @@ import {
   GET_REGISTERED_MODEL,
   LIST_REGISTERED_MODELS,
   SEARCH_MODEL_VERSIONS,
+  SET_REGISTERED_MODEL_TAG,
+  DELETE_REGISTERED_MODEL_TAG,
+  SET_MODEL_VERSION_TAG,
+  DELETE_MODEL_VERSION_TAG,
 } from './actions';
 import { fulfilled } from '../common/utils/ActionUtils';
+import { ModelVersionTag, RegisteredModelTag } from './sdk/ModelRegistryMessages';
 
-const { modelByName, modelVersionsByModel } = ModelRegistryReducers;
+const {
+  modelByName,
+  modelVersionsByModel,
+  tagsByRegisteredModel,
+  tagsByModelVersion,
+} = ModelRegistryReducers;
 
 describe('test modelByName', () => {
   test('initial state', () => {
@@ -452,5 +464,425 @@ describe('test getAllModelVersions', () => {
       },
     };
     expect(getAllModelVersions(state)).toEqual([versionA1, versionB1]);
+  });
+});
+
+describe('test tagsByRegisteredModel', () => {
+  test('GET_REGISTERED_MODEL does not update tagsByRegisteredModel if model tags is empty', () => {
+    const modelA = mockRegisteredModelDetailed('modelA');
+    const state = {};
+    const action = {
+      type: fulfilled(GET_REGISTERED_MODEL),
+      meta: { modelName: 'modelA' },
+      payload: {
+        registered_model: modelA,
+      },
+    };
+    expect(tagsByRegisteredModel(state, action)).toEqual({});
+  });
+
+  test('GET_REGISTERED_MODEL with tags correctly updates tagsByRegisteredModel', () => {
+    const modelA = mockRegisteredModelDetailed(
+      'modelA',
+      [],
+      [
+        {
+          key: 'special key',
+          value: 'not so special value',
+        },
+        {
+          key: 'another key',
+          value: 'some other value',
+        },
+      ],
+    );
+    const state = {};
+    const action = {
+      type: fulfilled(GET_REGISTERED_MODEL),
+      meta: { modelName: 'modelA' },
+      payload: {
+        registered_model: modelA,
+      },
+    };
+    expect(tagsByRegisteredModel(state, action)).toEqual({
+      modelA: {
+        'special key': RegisteredModelTag.fromJs({
+          key: 'special key',
+          value: 'not so special value',
+        }),
+        'another key': RegisteredModelTag.fromJs({
+          key: 'another key',
+          value: 'some other value',
+        }),
+      },
+    });
+  });
+
+  test('SET_REGISTERED_MODEL_TAG correctly updates tagsByRegisteredModel', () => {
+    const state = {};
+    const action = {
+      type: fulfilled(SET_REGISTERED_MODEL_TAG),
+      meta: { modelName: 'modelA', key: 'special key', value: 'not so special value' },
+      payload: {},
+    };
+    expect(tagsByRegisteredModel(state, action)).toEqual({
+      modelA: {
+        'special key': RegisteredModelTag.fromJs({
+          key: 'special key',
+          value: 'not so special value',
+        }),
+      },
+    });
+  });
+
+  test('SET_REGISTERED_MODEL_TAG with the same key overrides original value', () => {
+    const state = {
+      modelA: {
+        'special key': RegisteredModelTag.fromJs({
+          key: 'special key',
+          value: 'original value',
+        }),
+      },
+    };
+    const action = {
+      type: fulfilled(SET_REGISTERED_MODEL_TAG),
+      meta: { modelName: 'modelA', key: 'special key', value: 'not so special value' },
+      payload: {},
+    };
+    expect(tagsByRegisteredModel(state, action)).toEqual({
+      modelA: {
+        'special key': RegisteredModelTag.fromJs({
+          key: 'special key',
+          value: 'not so special value',
+        }),
+      },
+    });
+  });
+
+  test('DELETE_REGISTERED_MODEL_TAG correctly updates tagsByRegisteredModel', () => {
+    const state = {
+      modelA: {
+        'special key': RegisteredModelTag.fromJs({
+          key: 'special key',
+          value: 'not so special value',
+        }),
+        'another key': RegisteredModelTag.fromJs({
+          key: 'another key',
+          value: 'some other value',
+        }),
+      },
+    };
+    const action = {
+      type: fulfilled(DELETE_REGISTERED_MODEL_TAG),
+      meta: { modelName: 'modelA', key: 'another key' },
+      payload: {},
+    };
+    expect(tagsByRegisteredModel(state, action)).toEqual({
+      modelA: {
+        'special key': RegisteredModelTag.fromJs({
+          key: 'special key',
+          value: 'not so special value',
+        }),
+      },
+    });
+  });
+
+  test('DELETE_REGISTERED_MODEL_TAG deletes the model when it no longer have any tags', () => {
+    const state = {
+      modelA: {
+        'another key': RegisteredModelTag.fromJs({
+          key: 'another key',
+          value: 'some other value',
+        }),
+      },
+    };
+    const action = {
+      type: fulfilled(DELETE_REGISTERED_MODEL_TAG),
+      meta: { modelName: 'modelA', key: 'another key' },
+      payload: {},
+    };
+    expect(tagsByRegisteredModel(state, action)).toEqual({});
+  });
+});
+
+describe('test getRegisteredModelTags', () => {
+  test('test getRegisteredModelTags when model does not exist', () => {
+    const state = {
+      entities: {
+        tagsByRegisteredModel: {},
+      },
+    };
+    expect(getRegisteredModelTags('modelA', state)).toEqual({});
+  });
+
+  test('test getRegisteredModelTags when model exists', () => {
+    const state = {
+      entities: {
+        tagsByRegisteredModel: {
+          modelA: {
+            'special key': RegisteredModelTag.fromJs({
+              key: 'special key',
+              value: 'original value',
+            }),
+            'another key': RegisteredModelTag.fromJs({
+              key: 'another key',
+              value: 'some other value',
+            }),
+          },
+        },
+      },
+    };
+    expect(getRegisteredModelTags('modelA', state)).toEqual({
+      'special key': RegisteredModelTag.fromJs({
+        key: 'special key',
+        value: 'original value',
+      }),
+      'another key': RegisteredModelTag.fromJs({
+        key: 'another key',
+        value: 'some other value',
+      }),
+    });
+  });
+});
+
+describe('test tagsByModelVersion', () => {
+  test('GET_MODEL_VERSION does not update tagsByModelVersion if version tags is empty', () => {
+    const mv = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
+    const state = {};
+    const action = {
+      type: fulfilled(GET_MODEL_VERSION),
+      meta: { modelName: 'modelA', version: 1 },
+      payload: {
+        model_version: mv,
+      },
+    };
+    expect(tagsByModelVersion(state, action)).toEqual({});
+  });
+
+  test('GET_MODEL_VERSION with tags correctly updates tagsByModelVersion', () => {
+    const mv = mockModelVersionDetailed('modelA', 1, 'Production', 'READY', [
+      {
+        key: 'special key',
+        value: 'not so special value',
+      },
+      {
+        key: 'another key',
+        value: 'some other value',
+      },
+    ]);
+    const state = {};
+    const action = {
+      type: fulfilled(GET_MODEL_VERSION),
+      meta: { modelName: 'modelA', version: 1 },
+      payload: {
+        model_version: mv,
+      },
+    };
+    expect(tagsByModelVersion(state, action)).toEqual({
+      modelA: {
+        1: {
+          'special key': ModelVersionTag.fromJs({
+            key: 'special key',
+            value: 'not so special value',
+          }),
+          'another key': ModelVersionTag.fromJs({
+            key: 'another key',
+            value: 'some other value',
+          }),
+        },
+      },
+    });
+  });
+
+  test('SET_MODEL_VERSION_TAG correctly updates tagsByModelVersion', () => {
+    const state = {};
+    const action = {
+      type: fulfilled(SET_MODEL_VERSION_TAG),
+      meta: { modelName: 'modelA', version: 1, key: 'special key', value: 'not so special value' },
+      payload: {},
+    };
+    expect(tagsByModelVersion(state, action)).toEqual({
+      modelA: {
+        1: {
+          'special key': ModelVersionTag.fromJs({
+            key: 'special key',
+            value: 'not so special value',
+          }),
+        },
+      },
+    });
+  });
+
+  test('SET_MODEL_VERSION_TAG with the same key overrides original value', () => {
+    const state = {
+      modelA: {
+        1: {
+          'special key': ModelVersionTag.fromJs({
+            key: 'special key',
+            value: 'original value',
+          }),
+        },
+      },
+    };
+    const action = {
+      type: fulfilled(SET_MODEL_VERSION_TAG),
+      meta: { modelName: 'modelA', version: 1, key: 'special key', value: 'not so special value' },
+      payload: {},
+    };
+    expect(tagsByModelVersion(state, action)).toEqual({
+      modelA: {
+        1: {
+          'special key': ModelVersionTag.fromJs({
+            key: 'special key',
+            value: 'not so special value',
+          }),
+        },
+      },
+    });
+  });
+
+  test('DELETE_MODEL_VERSION_TAG correctly updates tagsByModelVersion', () => {
+    const state = {
+      modelA: {
+        1: {
+          'special key': ModelVersionTag.fromJs({
+            key: 'special key',
+            value: 'not so special value',
+          }),
+          'another key': ModelVersionTag.fromJs({
+            key: 'another key',
+            value: 'some other value',
+          }),
+        },
+      },
+    };
+    const action = {
+      type: fulfilled(DELETE_MODEL_VERSION_TAG),
+      meta: { modelName: 'modelA', version: 1, key: 'another key' },
+      payload: {},
+    };
+    expect(tagsByModelVersion(state, action)).toEqual({
+      modelA: {
+        1: {
+          'special key': ModelVersionTag.fromJs({
+            key: 'special key',
+            value: 'not so special value',
+          }),
+        },
+      },
+    });
+  });
+
+  test('DELETE_MODEL_VERSION_TAG deletes the model version when it no longer have any tags', () => {
+    const state = {
+      modelA: {
+        1: {
+          'another key': ModelVersionTag.fromJs({
+            key: 'another key',
+            value: 'some other value',
+          }),
+        },
+        2: {
+          'another key': ModelVersionTag.fromJs({
+            key: 'another key',
+            value: 'some other value',
+          }),
+        },
+      },
+    };
+    const action = {
+      type: fulfilled(DELETE_MODEL_VERSION_TAG),
+      meta: { modelName: 'modelA', version: 1, key: 'another key' },
+      payload: {},
+    };
+    expect(tagsByModelVersion(state, action)).toEqual({
+      modelA: {
+        2: {
+          'another key': ModelVersionTag.fromJs({
+            key: 'another key',
+            value: 'some other value',
+          }),
+        },
+      },
+    });
+  });
+
+  test('DELETE_MODEL_VERSION_TAG deletes the model when it no longer have any tags', () => {
+    const state = {
+      modelA: {
+        1: {
+          'another key': ModelVersionTag.fromJs({
+            key: 'another key',
+            value: 'some other value',
+          }),
+        },
+      },
+    };
+    const action = {
+      type: fulfilled(DELETE_MODEL_VERSION_TAG),
+      meta: { modelName: 'modelA', version: 1, key: 'another key' },
+      payload: {},
+    };
+    expect(tagsByModelVersion(state, action)).toEqual({});
+  });
+});
+
+describe('test getModelVersionTags', () => {
+  test('test getModelVersionTags when model does not exist', () => {
+    const state = {
+      entities: {
+        tagsByModelVersion: {},
+      },
+    };
+    expect(getModelVersionTags('modelA', 1, state)).toEqual({});
+  });
+
+  test('test getModelVersionTags when version does not exist', () => {
+    const state = {
+      entities: {
+        tagsByModelVersion: {
+          modelA: {
+            1: {
+              'another key': ModelVersionTag.fromJs({
+                key: 'another key',
+                value: 'some other value',
+              }),
+            },
+          },
+        },
+      },
+    };
+    expect(getModelVersionTags('modelA', 2, state)).toEqual({});
+  });
+
+  test('test getModelVersionTags when model exists', () => {
+    const state = {
+      entities: {
+        tagsByModelVersion: {
+          modelA: {
+            1: {
+              'special key': ModelVersionTag.fromJs({
+                key: 'special key',
+                value: 'original value',
+              }),
+              'another key': ModelVersionTag.fromJs({
+                key: 'another key',
+                value: 'some other value',
+              }),
+            },
+          },
+        },
+      },
+    };
+    expect(getModelVersionTags('modelA', 1, state)).toEqual({
+      'special key': ModelVersionTag.fromJs({
+        key: 'special key',
+        value: 'original value',
+      }),
+      'another key': ModelVersionTag.fromJs({
+        key: 'another key',
+        value: 'some other value',
+      }),
+    });
   });
 });
