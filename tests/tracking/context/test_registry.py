@@ -117,9 +117,12 @@ def mock_run_context_providers():
     override_provider.in_context.return_value = True
     override_provider.tags.return_value = {"one": "override", "new": "new-val"}
 
-    providers = [base_provider, skipped_provider, override_provider]
+    registry = RunContextProviderRegistry()
+    registry.register(base_provider)
+    registry.register(skipped_provider)
+    registry.register(override_provider)
 
-    with mock.patch("mlflow.tracking.context.registry._run_context_provider_registry", providers):
+    with mock.patch("mlflow.tracking.context.registry._run_context_provider_registry", registry):
         yield
 
     skipped_provider.tags.assert_not_called()
