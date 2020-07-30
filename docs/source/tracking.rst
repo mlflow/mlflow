@@ -357,14 +357,17 @@ See an example usage with `Fastai <https://github.com/mlflow/mlflow/tree/master/
 
 Autologging captures the following information:
 
-+-----------+------------------------+--------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Framework | Metrics                | Parameters                                       | Tags          | Artifacts                                                                                                                                                             |
-+-----------+------------------------+--------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| fastai    | user-specified metrics | Logs optimizer data as parameters. For exmaple,  |  --           | Model checkpoints are logged to a ‘models’ directory; `MLflow Model`_ (fastai Learner model) on training end; Model summary text is logged                            |
-|           |                        | ``epochs``, ``lr``, ``opt_func``, etc            |               |                                                                                                                                                                       |
-|           |                        | Logs the parameters of the ``EarlyStopping`` and |               |                                                                                                                                                                       |
-|           |                        | ``OneCycleScheduler`` callbacks                  |               |                                                                                                                                                                       |
-+-----------+------------------------+--------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+.. _EarlyStoppingCallback: https://docs.fast.ai/callbacks.html#EarlyStoppingCallback
+.. _OneCycleScheduler: https://docs.fast.ai/callbacks.html#OneCycleScheduler
+
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                                               | Tags          | Artifacts                                                                                                                                                             |
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| fastai    | user-specified metrics | Logs optimizer data as parameters. For exmaple,          |  --           | Model checkpoints are logged to a ‘models’ directory; `MLflow Model`_ (fastai Learner model) on training end; Model summary text is logged                            |
+|           |                        | ``epochs``, ``lr``, ``opt_func``, etc;                   |               |                                                                                                                                                                       |
+|           |                        | Logs the parameters of the `EarlyStoppingCallback`_ and  |               |                                                                                                                                                                       |
+|           |                        | `OneCycleScheduler`_ callbacks                           |               |                                                                                                                                                                       |
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. note::
   This feature is experimental - the API and format of the logged data are subject to change.
