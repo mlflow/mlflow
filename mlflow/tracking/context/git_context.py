@@ -51,3 +51,15 @@ class GitRunContext(RunContextProvider):
         return {
             MLFLOW_GIT_COMMIT: self._source_version
         }
+
+    def execute_start_run_actions(self, run):
+        pass
+
+    def execute_end_run_actions(self, run, status):
+        pass
+
+    def execute_create_experiment_actions(self, experiment_id):
+        pass
+
+    def execute_delete_experiment_actions(self, experiment_id):
+        pass

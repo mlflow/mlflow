@@ -119,7 +119,7 @@ def execute_end_run_actions(run, status):
     :return: None
     """
     _run_context_provider_registry.run(
-        lambda x: x.execute_end_run_actions(run)
+        lambda x: x.execute_end_run_actions(run, status)
     )
 
 

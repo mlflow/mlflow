@@ -228,3 +228,15 @@ class SparkAutologgingContext(RunContextProvider):
                 tags = {}
             _table_infos = []
             return tags
+
+    def execute_start_run_actions(self, run):
+        pass
+
+    def execute_end_run_actions(self, run, status):
+        pass
+
+    def execute_create_experiment_actions(self, experiment_id):
+        pass
+
+    def execute_delete_experiment_actions(self, experiment_id):
+        pass
