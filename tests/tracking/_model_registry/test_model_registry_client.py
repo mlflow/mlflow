@@ -7,8 +7,9 @@ import pytest
 import mock
 
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel, \
-    RegisteredModel
+    RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 
 
@@ -22,20 +23,26 @@ def newModelRegistryClient():
     return ModelRegistryClient("uri:/fake")
 
 
-def _model_version(name, version, stage, source="some:/source", run_id="run13579"):
+def _model_version(name, version, stage, source="some:/source", run_id="run13579", tags=None):
     return ModelVersion(name, version, "2345671890", "234567890",
-                        "some description", "UserID", stage, source, run_id)
+                        "some description", "UserID", stage, source, run_id, tags=tags)
 
 
 # Registered Model API
 def test_create_registered_model(mock_store):
-    mock_store.create_registered_model.return_value = RegisteredModel("Model 1")
-    result = newModelRegistryClient().create_registered_model("Model 1")
-    mock_store.create_registered_model.assert_called_once_with("Model 1")
+    tags_dict = {
+        "key": "value",
+        "another key": "some other value"
+    }
+    tags = [RegisteredModelTag(key, value) for key, value in tags_dict.items()]
+    mock_store.create_registered_model.return_value = RegisteredModel("Model 1", tags=tags)
+    result = newModelRegistryClient().create_registered_model("Model 1", tags_dict)
+    mock_store.create_registered_model.assert_called_once_with("Model 1", tags)
     assert result.name == "Model 1"
+    assert result.tags == tags_dict
 
 
-def test_update_and_rename_registered_model(mock_store):
+def test_update_registered_model(mock_store):
     name = "Model 1"
     new_description = "New Description"
     new_description_2 = "New Description 2"
@@ -46,13 +53,16 @@ def test_update_and_rename_registered_model(mock_store):
         name=name,
         description=new_description)
     mock_store.update_registered_model.assert_called_with(name=name, description=new_description)
-
     assert result.description == new_description
-    newModelRegistryClient().update_registered_model(
+
+    mock_store.update_registered_model.return_value = RegisteredModel(name,
+                                                                      description=new_description_2)
+    result = newModelRegistryClient().update_registered_model(
         name=name,
         description=new_description_2)
     mock_store.update_registered_model.assert_called_with(name=name,
                                                           description="New Description 2")
+    assert result.description == new_description_2
 
 
 def test_rename_registered_model(mock_store):
@@ -65,11 +75,12 @@ def test_rename_registered_model(mock_store):
     mock_store.rename_registered_model.assert_called_with(name=name, new_name=new_name)
     assert result.name == "New Name"
 
-    mock_store.update_registered_model.return_value = RegisteredModel("New Name 2")
-    newModelRegistryClient().rename_registered_model(
+    mock_store.rename_registered_model.return_value = RegisteredModel("New Name 2")
+    result = newModelRegistryClient().rename_registered_model(
         name=name,
         new_name="New Name 2")
     mock_store.rename_registered_model.assert_called_with(name=name, new_name="New Name 2")
+    assert result.name == "New Name 2"
 
 
 def test_update_registered_model_validation_errors_on_empty_new_name(mock_store):
@@ -83,27 +94,63 @@ def test_delete_registered_model(mock_store):
 
 
 def test_list_registered_models(mock_store):
-    mock_store.list_registered_models.return_value = [
+    mock_store.list_registered_models.return_value = PagedList([
         RegisteredModel("Model 1"),
         RegisteredModel("Model 2")
-    ]
+    ], "")
     result = newModelRegistryClient().list_registered_models()
     mock_store.list_registered_models.assert_called_once()
     assert len(result) == 2
 
 
+def test_search_registered_models(mock_store):
+    mock_store.search_registered_models.return_value = PagedList([
+        RegisteredModel("Model 1"),
+        RegisteredModel("Model 2")
+    ], "")
+    result = newModelRegistryClient().search_registered_models(filter_string="test filter")
+    mock_store.search_registered_models.assert_called_with("test filter", 100, None, None)
+    assert len(result) == 2
+    assert result.token == ""
+
+    result = newModelRegistryClient().search_registered_models(filter_string="another filter",
+                                                               max_results=12,
+                                                               order_by=["A", "B DESC"],
+                                                               page_token="next one")
+    mock_store.search_registered_models.assert_called_with("another filter", 12,
+                                                           ["A", "B DESC"], "next one")
+    assert len(result) == 2
+    assert result.token == ""
+
+    mock_store.search_registered_models.return_value = PagedList([
+        RegisteredModel("model A"),
+        RegisteredModel("Model zz"),
+        RegisteredModel("Model b")
+    ], "page 2 token")
+    result = newModelRegistryClient().search_registered_models(max_results=5)
+    mock_store.search_registered_models.assert_called_with(None, 5, None, None)
+    assert [rm.name for rm in result] == ["model A", "Model zz", "Model b"]
+    assert result.token == "page 2 token"
+
+
 def test_get_registered_model_details(mock_store):
     name = "Model 1"
+    tags = [
+        RegisteredModelTag("key", "value"),
+        RegisteredModelTag("another key", "some other value")
+    ]
     mock_store.get_registered_model.return_value = RegisteredModel(
         name, "1263283747835", "1283168374623874", "I am a model",
         [_model_version("Model 1", 3, "None"),
          _model_version("Model 1", 2, "Staging"),
-         _model_version("Model 1", 1, "Production")]
+         _model_version("Model 1", 1, "Production")],
+        tags=tags
     )
     result = newModelRegistryClient().get_registered_model(name)
     mock_store.get_registered_model.assert_called_once()
     assert result.name == name
     assert len(result.latest_versions) == 3
+    assert result.tags == {tag.key: tag.value for tag in tags}
 
 
 def test_get_latest_versions(mock_store):
@@ -117,18 +164,36 @@ def test_get_latest_versions(mock_store):
     assert len(result) == 3
 
 
+def test_set_registered_model_tag(mock_store):
+    newModelRegistryClient().set_registered_model_tag("Model 1", "key", "value")
+    mock_store.set_registered_model_tag.assert_called_once()
+
+
+def test_delete_registered_model_tag(mock_store):
+    newModelRegistryClient().delete_registered_model_tag("Model 1", "key")
+    mock_store.delete_registered_model_tag.assert_called_once()
+
 # Model Version API
 
 
 def test_create_model_version(mock_store):
     name = "Model 1"
     version = "1"
+    tags_dict = {
+        "key": "value",
+        "another key": "some other value"
+    }
+    tags = [ModelVersionTag(key, value) for key, value in tags_dict.items()]
     mock_store.create_model_version.return_value = ModelVersion(name=name, version=version,
-                                                                creation_timestamp=123)
-    result = newModelRegistryClient().create_model_version(name, "uri:/for/source", "run123")
-    mock_store.create_model_version.assert_called_once_with(name, "uri:/for/source", "run123")
+                                                                creation_timestamp=123, tags=tags,
+                                                                run_link=None)
+    result = newModelRegistryClient().create_model_version(name, "uri:/for/source",
+                                                           "run123", tags_dict)
+    mock_store.create_model_version.assert_called_once_with(name, "uri:/for/source",
+                                                            "run123", tags, None)
     assert result.name == name
     assert result.version == version
+    assert result.tags == tags_dict
 
 
 def test_update_model_version(mock_store):
@@ -166,11 +231,16 @@ def test_delete_model_version(mock_store):
 
 
 def test_get_model_version_details(mock_store):
+    tags = [
+        ModelVersionTag("key", "value"),
+        ModelVersionTag("another key", "some other value")
+    ]
     mock_store.get_model_version.return_value = _model_version("Model 1", "12",
-                                                               "Production")
+                                                               "Production", tags=tags)
     result = newModelRegistryClient().get_model_version("Model 1", "12")
     mock_store.get_model_version.assert_called_once()
     assert result.name == "Model 1"
+    assert result.tags == {tag.key: tag.value for tag in tags}
 
 
 def test_get_model_version_download_uri(mock_store):
@@ -197,3 +267,13 @@ def test_get_model_version_stages(mock_store):
     assert len(result) == 2
     assert "Stage A" in result
     assert "Stage B" in result
+
+
+def test_set_model_version_tag(mock_store):
+    newModelRegistryClient().set_model_version_tag("Model 1", "1", "key", "value")
+    mock_store.set_model_version_tag.assert_called_once()
+
+
+def test_delete_model_version_tag(mock_store):
+    newModelRegistryClient().delete_model_version_tag("Model 1", "1", "key")
+    mock_store.delete_model_version_tag.assert_called_once()

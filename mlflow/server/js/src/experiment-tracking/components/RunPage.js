@@ -15,7 +15,7 @@ export class RunPageImpl extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     experimentId: PropTypes.string.isRequired,
-    modelVersions: PropTypes.arrayOf(Object),
+    modelVersions: PropTypes.arrayOf(PropTypes.object),
     getRunApi: PropTypes.func.isRequired,
     getExperimentApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
@@ -77,8 +77,7 @@ export class RunPageImpl extends Component {
 
 const mapStateToProps = (state, ownProps) => {
   const { match } = ownProps;
-  const runUuid = match.params.runUuid;
-  const experimentId = match.params.experimentId;
+  const { runUuid, experimentId } = match.params;
   return {
     runUuid,
     experimentId,

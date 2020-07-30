@@ -85,7 +85,7 @@ export class ErrorWrapper {
   }
 
   getErrorCode() {
-    const responseText = this.xhr.responseText;
+    const { responseText } = this.xhr;
     if (responseText) {
       try {
         const parsed = JSON.parse(responseText);
@@ -102,7 +102,7 @@ export class ErrorWrapper {
   // Return the responseText if it is in the
   // { error_code: ..., message: ...} format. Otherwise return "INTERNAL_SERVER_ERROR".
   getUserVisibleError() {
-    const responseText = this.xhr.responseText;
+    const { responseText } = this.xhr;
     if (responseText) {
       try {
         const parsed = JSON.parse(responseText);
@@ -117,7 +117,7 @@ export class ErrorWrapper {
   }
 
   getMessageField() {
-    const responseText = this.xhr.responseText;
+    const { responseText } = this.xhr;
     if (responseText) {
       try {
         const parsed = JSON.parse(responseText);
@@ -129,6 +129,28 @@ export class ErrorWrapper {
       }
     }
     return 'INTERNAL_SERVER_ERROR';
+  }
+
+  // Does a best-effort at rendering an arbitrary HTTP error. If it's a DatabricksServiceException,
+  // will render the error code and message. If it's HTML, we'll strip the tags.
+  renderHttpError() {
+    const { responseText } = this.xhr;
+    if (responseText) {
+      try {
+        const parsed = JSON.parse(responseText);
+        if (parsed.error_code && parsed.message) {
+          return parsed.error_code + ': ' + parsed.message;
+        }
+      } catch (e) {
+        // Do our best to clean up and return the error: remove any tags, and reduce duplicate
+        // newlines.
+        let simplifiedText = responseText.replace(/<[^>]+>/gi, '');
+        simplifiedText = simplifiedText.replace(/\n\n+/gi, '\n');
+        simplifiedText = simplifiedText.trim();
+        return simplifiedText;
+      }
+    }
+    return 'Request Failed';
   }
 }
 

@@ -81,6 +81,142 @@ time_created
 run_id
     ID of the run that created the model, if the model was saved using :ref:`tracking`.
 
+signature
+  :ref:`model signature <model-signature>` in JSON format.
+
+input_example
+  reference to an artifact with :ref:`input example <input-example>`.
+
+
+.. _model-metadata:
+
+Model Signature And Input Example
+---------------------------------
+When working with ML models you often need to know some basic functional properties of the model
+at hand, such as "What inputs does it expect?" and "What output does it produce?". MLflow models can
+include the following additional metadata about model inputs and outputs that can be used by
+downstream tooling:
+
+* :ref:`Model Signature <model-signature>` - description of a model's inputs and outputs.
+* :ref:`Model Input Example <input-example>` - example of a valid model input.
+
+.. _model-signature:
+
+Model Signature
+^^^^^^^^^^^^^^^
+The Model signature defines the schema of a model's inputs and outputs. Model inputs and outputs are
+described as a sequence of (optionally) named columns with type specified as one of the
+:py:class:`MLflow data types <mlflow.types.DataType>`. The signature is stored
+in JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
+Model signatures are recognized and enforced by standard :ref:`MLflow model deployment tools
+<built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
+which deploys a model as a REST API, validates inputs based on the model's signature.
+
+The following example displays an MLmodel file excerpt containing the model signature for a
+classification model trained on the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_.
+The input has 4 named, numeric columns. The output is an unnamed integer specifying the predicted
+class:
+
+.. code-block:: yaml
+
+  signature:
+      inputs: '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width
+        (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
+        "petal width (cm)", "type": "double"}]'
+      outputs: '[{"type": "integer"}]'
+
+Signature Enforcement
+~~~~~~~~~~~~~~~~~~~~~
+When scoring a model that includes a signature, inputs are validated based on the signature's input
+schema. This input schema enforcement checks input column ordering and column types, raising an
+exception if the input is not compatible. This enforcement is applied in MLflow before calling the
+underlying model implementation. Note that this enforcement only applies when using :ref:`MLflow
+model deployment tools <built-in-deployment>` or when loading models as ``python_function``. In
+particular, it is not applied to models that are loaded in their native format (e.g. by calling
+:py:func:`mlflow.sklearn.load_model() <mlflow.sklearn.load_model>`).
+
+Column Ordering Enforcement
+"""""""""""""""""""""""""""
+The input columns are checked against the model signature. If there are any missing columns,
+MLflow will raise an exception. Extra columns that were not declared in the signature will be
+ignored. If the input schema in the signature defines column names, column matching is done by name
+and the columns are reordered to match the signature. If the input schema does not have column
+names, matching is done by position (i.e. MLflow will only check the number of columns).
+
+Column Type Enforcement
+"""""""""""""""""""""""
+The input column types are checked against the signature. MLflow will perform safe type conversions
+if necessary. Generally, only upcasts (e.g. integer -> long or float -> double) are considered to be
+safe. If the types cannot be made compatible, MLflow will raise an error.
+
+How To Log Models With Signatures
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To include a signature with your model, pass :py:class:`signature object
+<mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. The model signature object can be created
+by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with valid model inputs
+(e.g. the training dataset with target column omitted) and valid model outputs (e.g. model
+predictions generated on the training dataset). The following example demonstrates how to store
+a model signature for a simple classifier trained on the ``Iris dataset``:
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn import datasets
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+    import mlflow.sklearn
+    from mlflow.models.signature import infer_signature
+
+    iris = datasets.load_iris()
+    iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
+    clf = RandomForestClassifier(max_depth=7, random_state=0)
+    clf.fit(iris_train, iris.target)
+    signature = infer_signature(iris_train, clf.predict(iris_train))
+    mlflow.sklearn.log_model(clf, "iris_rf", signature=signature)
+
+The same signature can be created explicitly as follows:
+
+.. code-block:: python
+
+    from mlflow.models.signature import ModelSignature
+    from mlflow.types.schema import Schema, ColSpec
+
+    input_schema = Schema([
+      ColSpec("double", "sepal length (cm)"),
+      ColSpec("double", "sepal width (cm)"),
+      ColSpec("double", "petal length (cm)"),
+      ColSpec("double", "petal width (cm)"),
+    ])
+    output_schema = Schema([ColSpec("long")])
+    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+.. _input-example:
+
+Model Input Example
+^^^^^^^^^^^^^^^^^^^
+A model input example provides an instance of a valid model input. This may be a single record or a
+batch of records. Input examples are stored with the model as separate artifacts
+and are referenced in the the :ref:`MLmodel file <pyfunc-model-config>`.
+
+How To Log Model With Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To include an input example with your model, add it to the appropriate log_model call, e.g.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. An example can be passed in as
+a Pandas DataFrame, Numpy array, list or dictionary. The given example will be converted to a
+Pandas DataFrame and then serialized to json using the Pandas split-oriented format. Bytes are
+base64-encoded. The following example demonstrates how you can log an input example with your model:
+
+.. code-block:: python
+
+    input_example = {
+      "sepal length (cm)": 5.1,
+      "sepal width (cm)": 3.5,
+      "petal length (cm)": 1.4,
+      "petal width (cm)": 0.2
+    }
+    mlflow.sklearn.log_model(..., input_example=input_example)
+
 .. _model-api:
 
 Model API
@@ -115,37 +251,42 @@ flavors to benefit from all these tools:
 
 Python Function (``python_function``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``python_function`` model flavor serves as a default model interface for MLflow Python models.
+Any MLflow Python model is expected to be loadable as a ``python_function`` model. This enables
+other MLflow tools to work with any python model regardless of which persistence module or
+framework was used to produce the model. This interoperability is very powerful because it allows
+any Python model to be productionized in a variety of environments.
 
-The ``python_function`` model flavor defines a generic filesystem format for Python models and provides utilities
-for saving and loading models to and from this format. The format is self-contained in the sense
-that it includes all the information necessary to load and use a model. Dependencies
-are stored either directly with the model or referenced via Conda environment.
+In addition, the ``python_function`` model flavor defines a generic filesystem :ref:`model format
+<pyfunc-filesystem-format>` for Python models and provides utilities for saving and loading models
+to and from this format. The format is self-contained in the sense that it includes all the
+information necessary to load and use a model. Dependencies are stored either directly with the
+model or referenced via conda environment. This model format allows other tools to integrate
+their models with MLflow.
 
-Many MLflow Model persistence modules, such as :mod:`mlflow.sklearn`, :mod:`mlflow.keras`,
-and :mod:`mlflow.pytorch`, produce models with the ``python_function`` (``pyfunc``) flavor. This
-means that they adhere to the :ref:`python_function filesystem format <pyfunc-filesystem-format>`
-and can be interpreted as generic Python classes that implement the specified
-:ref:`inference API <pyfunc-inference-api>`. Therefore, any tool that operates on these ``pyfunc``
-classes can operate on any MLflow Model containing the ``pyfunc`` flavor, regardless of which
-persistence module or framework was used to produce the model. This interoperability is very
-powerful because it allows any Python model to be productionized in a variety of environments.
+How To Save Model As Python Function
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Most ``python_function`` models are saved as part of other model flavors - for example, all mlflow
+built-in flavors include the ``python_function`` flavor in the exported models. In addition, the
+:py:mod:`mlflow.pyfunc` module defines functions for creating ``python_function`` models explicitly.
+This module also includes utilities for creating custom Python models, which is a convenient way of
+adding custom python code to ML models. For more information, see the :ref:`custom Python models
+documentation <custom-python-models>`.
 
-The convention for ``python_function`` models is to have a ``predict`` method or function with the following
-signature:
 
-.. code-block:: py
+How To Load And Score Python Function Models
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+You can load ``python_function`` models in Python by calling the :py:func:`mlflow.pyfunc.load_model()`
+function. Note that the ``load_model`` function assumes that all dependencies are already available
+and *will not* check nor install any dependencies (
+see :ref:`model deployment section <built-in-deployment>` for tools to deploy models with
+automatic dependency management).
 
-    predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.Series | pandas.DataFrame]
+Once loaded, you can score the model by calling the :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>`
+method, which has the following signature::
 
-Other MLflow components expect ``python_function`` models to follow this convention.
+  predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.(Series | DataFrame)]
 
-The ``python_function`` :ref:`model format <pyfunc-filesystem-format>` is defined as a directory
-structure containing all required data, code, and configuration.
-
-The :py:mod:`mlflow.pyfunc` module defines functions for saving and loading MLflow Models with the
-``python_function`` flavor. This module also includes utilities for creating custom Python models.
-For more information, see the :ref:`custom Python models documentation <custom-python-models>`
-and the :mod:`mlflow.pyfunc` documentation.
 
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -425,10 +566,14 @@ evaluate test data.
 .. code-block:: py
 
     # Load training and test datasets
+    from sys import version_info
     import xgboost as xgb
     from sklearn import datasets
     from sklearn.model_selection import train_test_split
 
+    PYTHON_VERSION = "{major}.{minor}.{micro}".format(major=version_info.major,
+                                                      minor=version_info.minor,
+                                                      micro=version_info.micro)
     iris = datasets.load_iris()
     x = iris.data[:, 2:]
     y = iris.target
@@ -460,14 +605,20 @@ evaluate test data.
             input_matrix = xgb.DMatrix(model_input.values)
             return self.xgb_model.predict(input_matrix)
 
-    # Create a Conda environment for the new MLflow Model that contains the XGBoost library
-    # as a dependency, as well as the required CloudPickle library
+    # Create a Conda environment for the new MLflow Model that contains all necessary dependencies.
     import cloudpickle
     conda_env = {
         'channels': ['defaults'],
         'dependencies': [
-          'xgboost={}'.format(xgb.__version__),
-          'cloudpickle={}'.format(cloudpickle.__version__),
+          'python={}'.format(PYTHON_VERSION),
+          'pip',
+          {
+            'pip': [
+              'mlflow',
+              'xgboost=={}'.format(xgb.__version__),
+              'cloudpickle=={}'.format(cloudpickle.__version__),
+            ],
+          },
         ],
         'name': 'xgb_env'
     }
@@ -514,6 +665,8 @@ defines a :py:mod:`load_model() <mlflow.pytorch.load_model>` method.
 :py:mod:`mlflow.pytorch.load_model()` reads the ``MLmodel`` configuration from a specified
 model directory and uses the configuration attributes of the ``pytorch`` flavor to load
 and return a PyTorch model from its serialized representation.
+
+.. _built-in-deployment:
 
 Built-In Deployment Tools
 -------------------------
@@ -828,3 +981,48 @@ argument. The following values are supported:
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>, result_type=ArrayType(FloatType()))
     # The prediction column will contain all the numeric columns returned by the model as floats
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
+
+
+.. _deployment_plugin:
+
+Deployment to Custom Targets
+----------------------------
+In addition to the built-in deployment tools, MLflow provides a pluggable
+`mlflow.deployments Python API <python_api/mlflow.deployments.html#mlflow.deployments>`_ and
+`mlflow deployments CLI <cli.html#mlflow-deployments>`_ for deploying
+models to custom targets and environments. To deploy to a custom target, you must first install an
+appropriate third-party Python plugin. See the list of known community-maintained plugins
+`here <plugins.html#deployment-plugins>`_.
+
+
+.. Note::
+    APIs for deployment to custom targets are experimental, and may be altered in a future release.
+
+
+Commands
+^^^^^^^^
+The `mlflow deployments` CLI contains the following commands, which can also be invoked programmatically
+using the `mlflow.deployments Python API <python_api/mlflow.deployments.html#mlflow.deployments>`_:
+
+* `Create <cli.html#mlflow-deployments-create>`_: Deploy an MLflow model to a specified custom target
+* `Delete <cli.html#mlflow-deployments-delete>`_: Delete a deployment
+* `Update <cli.html#mlflow-deployments-update>`_: Update an existing deployment, for example to
+  deploy a new model version or change the deployment's configuration (e.g. increase replica count)
+* `List <cli.html#mlflow-deployments-list>`_: List IDs of all deployments
+* `Get <cli.html#mlflow-deployments-get>`_: Print a detailed description of a particular deployment
+* `Run Local <cli.html#mlflow-deployments-run-local>`_: Deploy the model locally for testing
+* `Help <cli.html#mlflow-deployments-help>`_: Show the help string for the specified target
+
+
+For more info, see:
+
+.. code-block:: bash
+
+    mlflow deployments --help
+    mlflow deployments create --help
+    mlflow deployments delete --help
+    mlflow deployments update --help
+    mlflow deployments list --help
+    mlflow deployments get --help
+    mlflow deployments run-local --help
+    mlflow deployments help --help

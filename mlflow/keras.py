@@ -19,6 +19,7 @@ import pandas as pd
 from distutils.version import LooseVersion
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
@@ -231,7 +232,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=None, custom_obje
                         data=data_subpath, env=_CONDA_ENV_SUBPATH)
 
     # save mlflow_model to path/MLmodel
-    mlflow_model.save(os.path.join(path, "MLmodel"))
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, keras_module=None,
@@ -453,30 +454,51 @@ def load_model(model_uri, **kwargs):
 
 @experimental
 def autolog():
+    # pylint: disable=E0611
     """
-    Enable automatic logging from Keras to MLflow.
-    Logs loss and any other metrics specified in the fit
-    function, and optimizer data as parameters. Model checkpoints
-    are logged as artifacts to a 'models' directory.
+    Enables automatic logging from Keras to MLflow. Autologging captures the following information:
 
-    EarlyStopping Integration with Keras Automatic Logging
+    **Metrics** and **Parameters**
+     - Training loss; validation loss; user-specified metrics
+     - Metrics associated with the ``EarlyStopping`` callbacks: ``stopped_epoch``,
+       ``restored_epoch``, ``restore_best_weight``, ``last_epoch``, etc
+     - ``fit()`` or ``fit_generator()`` parameters; optimizer name; learning rate; epsilon
+     - ``fit()`` or ``fit_generator()`` parameters associated with ``EarlyStopping``: ``min_delta``,
+       ``patience``, ``baseline``, ``restore_best_weights``, etc
+    **Artifacts**
+     - Model summary on training start
+     - `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model) on training end
 
-    MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()``/``fit_generator()``
-    call, and if the ``restore_best_weights`` parameter is set to be ``True``, then MLflow will
-    log the metrics associated with the restored model as a final, extra step. The epoch of the
-    restored model will also be logged as the metric ``restored_epoch``.
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        import mlflow.keras
+        # Build, compile, enable autologging, and train your model
+        keras_model = ...
+        keras_model.compile(optimizer="rmsprop", loss="mse", metrics=["accuracy"])
+        # autolog your metrics, parameters, and model
+        mlflow.keras.autolog()
+        results = keras_model.fit(
+            x_train, y_train, epochs=20, batch_size=128, validation_data=(x_val, y_val))
+
+    ``EarlyStopping Integration with Keras AutoLogging``
+
+    MLflow will detect if an ``EarlyStopping`` callback is used in a ``fit()`` or
+    ``fit_generator()`` call, and if the ``restore_best_weights`` parameter is set to be ``True``,
+    then MLflow will log the metrics associated with the restored model as a final, extra step.
+    The epoch of the restored model will also be logged as the metric ``restored_epoch``.
     This allows for easy comparison between the actual metrics of the restored model and
     the metrics of other models.
 
-    If ``restore_best_weights`` is set to be ``False``,
-    then MLflow will not log an additional step.
+    If ``restore_best_weights`` is set to be ``False``, then MLflow will not log an additional step.
 
     Regardless of ``restore_best_weights``, MLflow will also log ``stopped_epoch``,
     which indicates the epoch at which training stopped due to early stopping.
 
     If training does not end due to early stopping, then ``stopped_epoch`` will be logged as ``0``.
 
-    MLflow will also log the parameters of the EarlyStopping callback,
+    MLflow will also log the parameters of the ``EarlyStopping`` callback,
     excluding ``mode`` and ``verbose``.
     """
     import keras
@@ -520,6 +542,15 @@ def autolog():
 
         def on_train_end(self, logs=None):
             try_mlflow_log(log_model, self.model, artifact_path='model')
+
+        # As of Keras 2.4.0, Keras Callback implementations must define the following
+        # methods indicating whether or not the callback overrides functions for
+        # batch training/testing/inference
+        def _implements_train_batch_hooks(self): return False
+
+        def _implements_test_batch_hooks(self): return False
+
+        def _implements_predict_batch_hooks(self): return False
 
     def _early_stop_check(callbacks):
         if LooseVersion(keras.__version__) < LooseVersion('2.3.0'):

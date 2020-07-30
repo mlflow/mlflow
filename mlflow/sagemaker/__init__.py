@@ -15,6 +15,7 @@ import mlflow.version
 from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
@@ -126,22 +127,25 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     # x = ecr_client.get_authorization_token()['authorizationData'][0]
     # docker_login_cmd = "docker login -u AWS -p {token} {url}".format(token=x['authorizationToken']
     #                                                                ,url=x['proxyEndpoint'])
+
+    docker_login_cmd = "aws ecr get-login-password" \
+                       " | docker login  --username AWS " \
+                       " --password-stdin " \
+                       "{account}.dkr.ecr.{region}.amazonaws.com".format(
+                            account=account,
+                            region=region)
+
     os_command_separator = ";\n"
     if platform.system() == "Windows":
         os_command_separator = " && "
-        # In order to execute the outcome of aws ecr get-login
-        # in cmd, we need to save it in a temp file first
-        docker_login_cmd = "aws ecr get-login --no-include-email > docker_login_url_temp.cmd" \
-            "{os_command_separator} call docker_login_url_temp.cmd {os_command_separator}" \
-            "del docker_login_url_temp.cmd".format(os_command_separator=os_command_separator)
-    else:
-        docker_login_cmd = "$(aws ecr get-login --no-include-email)"
+
     docker_tag_cmd = "docker tag {image} {fullname}".format(
         image=image, fullname=fullname)
     docker_push_cmd = "docker push {}".format(fullname)
 
     cmd = os_command_separator.join(
         [docker_login_cmd, docker_tag_cmd, docker_push_cmd])
+
     _logger.info("Executing: %s", cmd)
     os.system(cmd)
 
@@ -278,12 +282,12 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                 error_code=INVALID_PARAMETER_VALUE)
 
     model_path = _download_artifact_from_uri(model_uri)
-    model_config_path = os.path.join(model_path, "MLmodel")
+    model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
     if not os.path.exists(model_config_path):
         raise MlflowException(
             message=(
-                "Failed to find MLmodel configuration within the specified model's"
-                " root directory."),
+                "Failed to find {} configuration within the specified model's"
+                " root directory.").format(MLMODEL_FILE_NAME),
             error_code=INVALID_PARAMETER_VALUE)
     model_config = Model.load(model_config_path)
 
@@ -459,7 +463,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
                    is thrown.
     """
     model_path = _download_artifact_from_uri(model_uri)
-    model_config_path = os.path.join(model_path, "MLmodel")
+    model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
     model_config = Model.load(model_config_path)
 
     if flavor is None:

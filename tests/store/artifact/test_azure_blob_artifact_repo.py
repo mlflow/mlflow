@@ -86,6 +86,17 @@ def test_list_artifacts_empty(mock_client):
     assert repo.list_artifacts() == []
 
 
+def test_list_artifacts_single_file(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    # Evaluate single file
+    blob_props = BlobProperties()
+    blob_props.name = posixpath.join(TEST_ROOT_PATH, "file")
+    mock_client.get_container_client().walk_blobs.return_value = MockBlobList(
+        [blob_props])
+    assert repo.list_artifacts("file") == []
+
+
 def test_list_artifacts(mock_client):
     repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
 

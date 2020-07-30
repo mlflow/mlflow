@@ -10,11 +10,17 @@ from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry.client import ModelRegistryClient
+from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.utils import experimental
+from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri, \
+    is_in_databricks_notebook, get_workspace_info_from_dbutils, \
+    get_workspace_info_from_databricks_secrets
+from mlflow.utils.uri import is_databricks_uri, construct_run_url
 
 _logger = logging.getLogger(__name__)
 
@@ -34,10 +40,11 @@ class MlflowClient(object):
                              `Where Runs Get Recorded <../tracking.html#where-runs-get-recorded>`_
                              for more info.
         :param registry_uri: Address of local or remote model registry server. If not provided,
-                             defaults to the service set by ``mlflow.tracking.set_tracking_uri``.
+                             defaults to the service set by ``mlflow.tracking.set_registry_uri``. If
+                             no such service was set, defaults to the tracking uri of the client.
         """
-        final_tracking_uri = tracking_uri or utils.get_tracking_uri()
-        self._registry_uri = registry_uri or final_tracking_uri
+        final_tracking_uri = utils._resolve_tracking_uri(tracking_uri)
+        self._registry_uri = registry_utils._resolve_registry_uri(registry_uri, tracking_uri)
         self._tracking_client = TrackingServiceClient(final_tracking_uri)
         # `MlflowClient` also references a `ModelRegistryClient` instance that is provided by the
         # `MlflowClient._get_registry_client()` method. This `ModelRegistryClient` is not explicitly
@@ -350,15 +357,17 @@ class MlflowClient(object):
     # Registered Model Methods
 
     @experimental
-    def create_registered_model(self, name):
+    def create_registered_model(self, name, tags=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
+        :param tags: A dictionary of key-value pairs that are converted into
+                     :py:class:`mlflow.entities.model_registry.RegisteredModelTag` objects.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
         """
-        return self._get_registry_client().create_registered_model(name)
+        return self._get_registry_client().create_registered_model(name, tags)
 
     @experimental
     def rename_registered_model(self, name, new_name):
@@ -373,35 +382,20 @@ class MlflowClient(object):
         self._get_registry_client().rename_registered_model(name, new_name)
 
     @experimental
-    def update_registered_model(self, name, new_name=None, description=None):
+    def update_registered_model(self, name, description=None):
         """
-        Updates metadata for RegisteredModel entity. Either ``new_name`` or ``description`` should
-        be non-None. Backend raises exception if a registered model with given name does not exist.
+        Updates metadata for RegisteredModel entity. Input field ``description`` should be non-None.
+        Backend raises exception if a registered model with given name does not exist.
 
         :param name: Name of the registered model to update.
-        :param new_name: (Deprecated) New proposed name for the registered model.
-                         This argument is deprecated. Use the
-                         :py:func:`rename_registered_model <MlflowClient.rename_registered_model>`
-                         method to rename registered models instead.
         :param description: (Optional) New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        if new_name is None and description is None:
+        if description is None:
             raise MlflowException("Attempting to update registered model with no new field values.")
 
-        if new_name is not None and new_name.strip() == "":
-            raise MlflowException("The new name must not be an empty string.")
-
-        res = None
-        if new_name is not None:
-            _logger.warning("The `new_name` argument in update_registered_model is deprecated."
-                            " Use the `rename_registered_model` method instead.")
-            res = self._get_registry_client().rename_registered_model(name=name, new_name=new_name)
-            name = new_name
-        if description is not None:
-            res = self._get_registry_client().update_registered_model(name=name,
-                                                                      description=description)
-        return res
+        return self._get_registry_client().update_registered_model(name=name,
+                                                                   description=description)
 
     @experimental
     def delete_registered_model(self, name):
@@ -414,13 +408,42 @@ class MlflowClient(object):
         self._get_registry_client().delete_registered_model(name)
 
     @experimental
-    def list_registered_models(self):
+    def list_registered_models(self,
+                               max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+                               page_token=None):
         """
-        List of all registered models.
+        List of all registered models
 
-        :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
+        :param max_results: Maximum number of registered models desired.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                           a ``list_registered_models`` call.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                 that can satisfy the search expressions. The pagination token for the next page
+                 can be obtained via the ``token`` attribute of the object.
         """
-        return self._get_registry_client().list_registered_models()
+        return self._get_registry_client().list_registered_models(max_results, page_token)
+
+    @experimental
+    def search_registered_models(self,
+                                 filter_string=None,
+                                 max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+                                 order_by=None,
+                                 page_token=None):
+        """
+        Search for registered models in backend that satisfy the filter criteria.
+
+        :param filter_string: Filter query string, defaults to searching all registered models.
+        :param max_results: Maximum number of registered models desired.
+        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                         matching search results.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``search_registered_models`` call.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
+        """
+        return self._get_registry_client().search_registered_models(filter_string, max_results,
+                                                                    order_by, page_token)
 
     @experimental
     def get_registered_model(self, name):
@@ -443,63 +466,111 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_latest_versions(name, stages)
 
+    @experimental
+    def set_registered_model_tag(self, name, key, value):
+        """
+        Set a tag for the registered model.
+
+        :param name: Registered model name.
+        :param key: Tag key to log.
+        :param value: Tag value log.
+        :return: None
+        """
+        self._get_registry_client().set_registered_model_tag(name, key, value)
+
+    @experimental
+    def delete_registered_model_tag(self, name, key):
+        """
+        Delete a tag associated with the registered model.
+
+        :param name: Registered model name.
+        :param key: Registered model tag key.
+        :return: None
+        """
+        self._get_registry_client().delete_registered_model_tag(name, key)
+
     # Model Version Methods
 
     @experimental
-    def create_model_version(self, name, source, run_id):
+    def create_model_version(self, name, source, run_id, tags=None, run_link=None):
         """
         Create a new model version from given source or run ID.
 
         :param name: Name ID for containing registered model.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model
+        :param tags: A dictionary of key-value pairs that are converted into
+                     :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
+        :param run_link: Link to the run from an MLflow tracking server that generated this model.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
-        return self._get_registry_client().create_model_version(name, source, run_id)
+        tracking_uri = self._tracking_client.tracking_uri
+        # for Databricks backends, we support automatically populating the run link field
+        if is_databricks_uri(tracking_uri) and tracking_uri != self._registry_uri and not run_link:
+            # if using the default Databricks tracking URI and in a notebook, we can automatically
+            # figure out the run-link.
+            if is_databricks_default_tracking_uri(tracking_uri) and is_in_databricks_notebook():
+                # use DBUtils to determine workspace information.
+                workspace_host, workspace_id = get_workspace_info_from_dbutils()
+            else:
+                # in this scenario, we're not able to automatically extract the workspace ID
+                # to proceed, and users will need to pass in a databricks profile with the scheme:
+                # databricks://scope/prefix and store the host and workspace-ID as a secret in the
+                # Databricks Secret Manager with scope=<scope> and key=<prefix>-workspaceid.
+                workspace_host, workspace_id = \
+                    get_workspace_info_from_databricks_secrets(tracking_uri)
+                if not workspace_id:
+                    print("No workspace ID specified; if your Databricks workspaces share the same"
+                          " host URL, you may want to specify the workspace ID (along with the host"
+                          " information in the secret manager) for run lineage tracking. For more"
+                          " details on how to specify this information in the secret manager,"
+                          " please refer to the model registry documentation.")
+            # retrieve experiment ID of the run for the URL
+            experiment_id = self.get_run(run_id).info.experiment_id
+            if workspace_host and run_id and experiment_id:
+                run_link = construct_run_url(workspace_host, experiment_id, run_id, workspace_id)
+        return self._get_registry_client().create_model_version(
+            name=name,
+            source=source,
+            run_id=run_id,
+            tags=tags,
+            run_link=run_link)
 
     @experimental
-    def update_model_version(self, name, version, stage=None, description=None):
+    def update_model_version(self, name, version, description=None):
         """
         Update metadata associated with a model version in backend.
 
         :param name: Name of the containing registered model.
         :param version: Version number of the model version.
-        :param stage: (Deprecated) New desired stage forthis model version. This field is deprecated
-                      as of mlflow 1.7. Use transition_model_version_stage instead to update stage.
         :param description: New description.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        if stage is None and description is None:
+        if description is None:
             raise MlflowException("Attempting to update model version with no new field values.")
-        if stage is not None and stage.strip() == "":
-            raise MlflowException("The stage must not be an empty string.")
 
-        res = None
-        if stage is not None:
-            _logger.warning("'stage' field in update_model_version is deprecated. "
-                            "Use transition_model_stage instead.")
-            res = self._get_registry_client().transition_model_version_stage(name=name,
-                                                                             version=version,
-                                                                             stage=stage)
-        if description is not None:
-            res = self._get_registry_client().update_model_version(name=name, version=version,
-                                                                   description=description)
-        return res
+        return self._get_registry_client().update_model_version(name=name, version=version,
+                                                                description=description)
 
     @experimental
-    def transition_model_version_stage(self, name, version, stage):
+    def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):
         """
         Update model version stage.
 
         :param name: Registered model name.
         :param version: Registered model version.
         :param stage: New desired stage for this model version.
+        :param archive_existing_versions: If this flag is set to ``True``, all existing model
+            versions in the stage will be automically moved to the "archived" stage. Only valid
+            when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        return self._get_registry_client().transition_model_version_stage(name, version, stage)
+        return self._get_registry_client().transition_model_version_stage(
+            name, version, stage, archive_existing_versions
+        )
 
     @experimental
     def delete_model_version(self, name, version):
@@ -549,3 +620,28 @@ class MlflowClient(object):
         :return: A list of valid stages.
         """
         return ALL_STAGES
+
+    @experimental
+    def set_model_version_tag(self, name, version, key, value):
+        """
+        Set a tag for the model version.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param key: Tag key to log.
+        :param value: Tag value to log.
+        :return: None
+        """
+        self._get_registry_client().set_model_version_tag(name, version, key, value)
+
+    @experimental
+    def delete_model_version_tag(self, name, version, key):
+        """
+        Delete a tag associated with the model version.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :param key: Tag key.
+        :return: None
+        """
+        self._get_registry_client().delete_model_version_tag(name, version, key)

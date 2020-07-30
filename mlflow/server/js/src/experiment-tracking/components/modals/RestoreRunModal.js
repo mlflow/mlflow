@@ -14,7 +14,7 @@ export class RestoreRunModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
-    selectedRunIds: PropTypes.arrayOf(String).isRequired,
+    selectedRunIds: PropTypes.arrayOf(PropTypes.string).isRequired,
     openErrorModal: PropTypes.func.isRequired,
     restoreRunApi: PropTypes.func.isRequired,
   };

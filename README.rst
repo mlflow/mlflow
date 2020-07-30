@@ -16,14 +16,17 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 * `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
-|docs| |travis| |pypi| |conda-forge| |cran| |maven| |license| |downloads|
+|docs| |labeling| |examples| |pypi| |conda-forge| |cran| |maven| |license| |downloads|
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg
     :target: https://mlflow.org/docs/latest/index.html
     :alt: Latest Docs
-.. |travis| image:: https://img.shields.io/travis/mlflow/mlflow.svg
-    :target: https://travis-ci.org/mlflow/mlflow
-    :alt: Build Status
+.. |labeling| image:: https://github.com/mlflow/mlflow/workflows/Labeling/badge.svg
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ALabeling
+    :alt: Labeling Action Status
+.. |examples| image:: https://github.com/mlflow/mlflow/workflows/Examples/badge.svg?event=schedule
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AExamples+event%3Aschedule
+    :alt: Examples Action Status
 .. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg
     :target: https://pypi.org/project/mlflow/
     :alt: Latest Python Release
@@ -63,7 +66,7 @@ or `Stack Overflow <https://stackoverflow.com/questions/tagged/mlflow>`_.
 To report a bug, file a documentation issue, or submit a feature request, please open a GitHub issue.
 
 For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
-or join us on `Slack <https://mlflow-users.slack.com/join/shared_invite/enQtMzkxMTAwNTcyODM5LTkzMDFhNzliNjExOGQ1ZGI1ZmFlMGE5YWE1OTI4ZGM1ZWZmYzc3NGNiZTM3YjgwOTdlODAzMjJhZTdiN2Y3MWY>`_.
+or join us on `Slack <https://mlflow-users.slack.com/join/shared_invite/zt-ezta6o05-DbAt0gOUiBt1AuGUCO5S0w#/>`_.
 
 Running a Sample App With the Tracking API
 ------------------------------------------

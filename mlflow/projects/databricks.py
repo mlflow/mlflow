@@ -14,13 +14,13 @@ from mlflow import tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
-from mlflow.projects.utils import _MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG
+from mlflow.projects.utils import MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
-from mlflow.utils.uri import get_db_profile_from_uri, is_databricks_uri, is_http_uri
+from mlflow.utils.uri import is_databricks_uri, is_http_uri
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -68,11 +68,11 @@ class DatabricksJobRunner(object):
     :param databricks_profile: Optional Databricks CLI profile to use to fetch hostname &
            authentication information when making Databricks API requests.
     """
-    def __init__(self, databricks_profile):
-        self.databricks_profile = databricks_profile
+    def __init__(self, databricks_profile_uri):
+        self.databricks_profile_uri = databricks_profile_uri
 
     def _databricks_api_request(self, endpoint, method, **kwargs):
-        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
+        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile_uri)
         return rest_utils.http_request_safe(
             host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
 
@@ -103,7 +103,7 @@ class DatabricksJobRunner(object):
         default Databricks CLI profile. The path is expected to be a relative path to the DBFS root
         directory, e.g. 'path/to/file'.
         """
-        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile)
+        host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile_uri)
         response = rest_utils.http_request(
             host_creds=host_creds, endpoint="/api/2.0/dbfs/get-status", method="GET",
             json={"path": "/%s" % dbfs_path})
@@ -256,7 +256,7 @@ def _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters):
     mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
                                             "--entry-point", entry_point]))
     if run_id:
-        mlflow_run_arr.extend(["-c", json.dumps({_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
+        mlflow_run_arr.extend(["-c", json.dumps({MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
     if parameters:
         for key, value in parameters.items():
             mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
@@ -270,7 +270,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     # Strip ".gz" and ".tar" file extensions from base filename of the tarfile
     tar_hash = posixpath.splitext(posixpath.splitext(posixpath.basename(dbfs_fuse_tar_uri))[0])[0]
     container_tar_path = posixpath.abspath(posixpath.join(DB_TARFILE_BASE,
-                                           posixpath.basename(dbfs_fuse_tar_uri)))
+                                                          posixpath.basename(dbfs_fuse_tar_uri)))
     project_dir = posixpath.join(DB_PROJECTS_BASE, tar_hash)
 
     mlflow_run_arr = _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters)
@@ -301,9 +301,8 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
-    profile = get_db_profile_from_uri(tracking.get_tracking_uri())
     run_id = remote_run.info.run_id
-    db_job_runner = DatabricksJobRunner(databricks_profile=profile)
+    db_job_runner = DatabricksJobRunner(databricks_profile_uri=tracking.get_tracking_uri())
     db_run_id = db_job_runner.run_databricks(
         uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id)
     submitted_run = DatabricksSubmittedRun(db_run_id, run_id, db_job_runner)
@@ -338,7 +337,8 @@ class DatabricksSubmittedRun(SubmittedRun):
         run_info = self._job_runner.jobs_runs_get(self._databricks_run_id)
         jobs_page_url = run_info["run_page_url"]
         _logger.info("=== Check the run's status at %s ===", jobs_page_url)
-        host_creds = databricks_utils.get_databricks_host_creds(self._job_runner.databricks_profile)
+        host_creds = databricks_utils.get_databricks_host_creds(
+            self._job_runner.databricks_profile_uri)
         tracking.MlflowClient().set_tag(self._mlflow_run_id,
                                         MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
         tracking.MlflowClient().set_tag(self._mlflow_run_id,

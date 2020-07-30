@@ -15,23 +15,23 @@ import Utils from '../../common/utils/Utils';
 import { Tabs } from 'antd';
 import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
 
-const TabPane = Tabs.TabPane;
+const { TabPane } = Tabs;
 
 export class CompareRunView extends Component {
   static propTypes = {
     experiment: PropTypes.instanceOf(Experiment).isRequired,
-    experimentId: PropTypes.number.isRequired,
-    runInfos: PropTypes.arrayOf(RunInfo).isRequired,
-    runUuids: PropTypes.arrayOf(String).isRequired,
-    metricLists: PropTypes.arrayOf(Array).isRequired,
-    paramLists: PropTypes.arrayOf(Array).isRequired,
+    experimentId: PropTypes.string.isRequired,
+    runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
+    runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
+    metricLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
+    paramLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // Array of user-specified run names. Elements may be falsy (e.g. empty string or undefined) if
     // a run was never given a name.
-    runNames: PropTypes.arrayOf(String).isRequired,
+    runNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     // Array of names to use when displaying runs. No element in this array should be falsy;
     // we expect this array to contain user-specified run names, or default display names
     // ("Run <uuid>") for runs without names.
-    runDisplayNames: PropTypes.arrayOf(String).isRequired,
+    runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
   };
 
   componentDidMount() {
@@ -40,7 +40,7 @@ export class CompareRunView extends Component {
   }
 
   render() {
-    const experiment = this.props.experiment;
+    const { experiment } = this.props;
     const experimentId = experiment.getExperimentId();
     const { runInfos, runNames } = this.props;
     return (

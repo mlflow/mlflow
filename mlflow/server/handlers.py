@@ -11,8 +11,11 @@ from google.protobuf import descriptor
 from querystring_parser import parser
 
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag
+from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.projects._project_spec import MLPROJECT_FILE_NAME
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
@@ -23,7 +26,8 @@ from mlflow.protos.model_registry_pb2 import ModelRegistryService, CreateRegiste
     UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModel, \
     GetLatestVersions, CreateModelVersion, UpdateModelVersion, DeleteModelVersion, \
     GetModelVersion, GetModelVersionDownloadUri, SearchModelVersions, RenameRegisteredModel, \
-    TransitionModelVersionStage
+    TransitionModelVersionStage, SearchRegisteredModels, SetRegisteredModelTag, \
+    DeleteRegisteredModelTag, SetModelVersionTag, DeleteModelVersionTag
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -163,7 +167,7 @@ def catch_mlflow_exception(func):
 
 
 _TEXT_EXTENSIONS = ['txt', 'log', 'yaml', 'yml', 'json', 'js', 'py',
-                    'csv', 'tsv', 'md', 'rst', 'MLmodel', 'MLproject']
+                    'csv', 'tsv', 'md', 'rst', MLMODEL_FILE_NAME, MLPROJECT_FILE_NAME]
 
 
 @catch_mlflow_exception
@@ -495,7 +499,7 @@ def _wrap_response(response_message):
 def _create_registered_model():
     request_message = _get_request_message(CreateRegisteredModel())
     registered_model = _get_model_registry_store().create_registered_model(
-        name=request_message.name)
+        name=request_message.name, tags=request_message.tags)
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
     return _wrap_response(response_message)
 
@@ -542,11 +546,30 @@ def _delete_registered_model():
 
 @catch_mlflow_exception
 def _list_registered_models():
-    _get_request_message(ListRegisteredModels())
-    registered_models = _get_model_registry_store().list_registered_models()
+    request_message = _get_request_message(ListRegisteredModels())
+    registered_models = _get_model_registry_store().list_registered_models(
+        request_message.max_results,
+        request_message.page_token)
     response_message = ListRegisteredModels.Response()
     response_message.registered_models.extend([e.to_proto()
                                                for e in registered_models])
+    if registered_models.token:
+        response_message.next_page_token = registered_models.token
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+def _search_registered_models():
+    request_message = _get_request_message(SearchRegisteredModels())
+    store = _get_model_registry_store()
+    registered_models = store.search_registered_models(filter_string=request_message.filter,
+                                                       max_results=request_message.max_results,
+                                                       order_by=request_message.order_by,
+                                                       page_token=request_message.page_token)
+    response_message = SearchRegisteredModels.Response()
+    response_message.registered_models.extend([e.to_proto() for e in registered_models])
+    if registered_models.token:
+        response_message.next_page_token = registered_models.token
     return _wrap_response(response_message)
 
 
@@ -561,11 +584,33 @@ def _get_latest_versions():
 
 
 @catch_mlflow_exception
+def _set_registered_model_tag():
+    request_message = _get_request_message(SetRegisteredModelTag())
+    tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
+    _get_model_registry_store().set_registered_model_tag(
+        name=request_message.name,
+        tag=tag)
+    return _wrap_response(SetRegisteredModelTag.Response())
+
+
+@catch_mlflow_exception
+def _delete_registered_model_tag():
+    request_message = _get_request_message(DeleteRegisteredModelTag())
+    _get_model_registry_store().delete_registered_model_tag(
+        name=request_message.name,
+        key=request_message.key)
+    return _wrap_response(DeleteRegisteredModelTag.Response())
+
+
+@catch_mlflow_exception
 def _create_model_version():
     request_message = _get_request_message(CreateModelVersion())
-    model_version = _get_model_registry_store().create_model_version(name=request_message.name,
-                                                                     source=request_message.source,
-                                                                     run_id=request_message.run_id)
+    model_version = _get_model_registry_store().create_model_version(
+        name=request_message.name,
+        source=request_message.source,
+        run_id=request_message.run_id,
+        run_link=request_message.run_link,
+        tags=request_message.tags)
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
 
@@ -587,8 +632,7 @@ def _update_model_version():
     if request_message.HasField("description"):
         new_description = request_message.description
     model_version = _get_model_registry_store().update_model_version(
-        name=request_message.name, version=request_message.version,
-        description=new_description)
+        name=request_message.name, version=request_message.version, description=new_description)
     return _wrap_response(UpdateModelVersion.Response(model_version=model_version.to_proto()))
 
 
@@ -628,6 +672,27 @@ def _search_model_versions():
     response_message = SearchModelVersions.Response()
     response_message.model_versions.extend([e.to_proto() for e in model_versions])
     return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+def _set_model_version_tag():
+    request_message = _get_request_message(SetModelVersionTag())
+    tag = ModelVersionTag(key=request_message.key, value=request_message.value)
+    _get_model_registry_store().set_model_version_tag(
+        name=request_message.name,
+        version=request_message.version,
+        tag=tag)
+    return _wrap_response(SetModelVersionTag.Response())
+
+
+@catch_mlflow_exception
+def _delete_model_version_tag():
+    request_message = _get_request_message(DeleteModelVersionTag())
+    _get_model_registry_store().delete_model_version_tag(
+        name=request_message.name,
+        version=request_message.version,
+        key=request_message.key)
+    return _wrap_response(DeleteModelVersionTag.Response())
 
 
 def _add_static_prefix(route):
@@ -704,6 +769,7 @@ HANDLERS = {
     UpdateRegisteredModel: _update_registered_model,
     RenameRegisteredModel: _rename_registered_model,
     ListRegisteredModels: _list_registered_models,
+    SearchRegisteredModels: _search_registered_models,
     GetLatestVersions: _get_latest_versions,
     CreateModelVersion: _create_model_version,
     GetModelVersion: _get_model_version,
@@ -712,4 +778,8 @@ HANDLERS = {
     TransitionModelVersionStage: _transition_stage,
     GetModelVersionDownloadUri: _get_model_version_download_uri,
     SearchModelVersions: _search_model_versions,
+    SetRegisteredModelTag: _set_registered_model_tag,
+    DeleteRegisteredModelTag: _delete_registered_model_tag,
+    SetModelVersionTag: _set_model_version_tag,
+    DeleteModelVersionTag: _delete_model_version_tag,
 }

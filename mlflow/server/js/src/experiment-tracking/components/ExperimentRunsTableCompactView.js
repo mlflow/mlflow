@@ -76,13 +76,13 @@ export class ExperimentRunsTableCompactView extends React.Component {
   }
 
   static propTypes = {
-    runInfos: PropTypes.arrayOf(RunInfo).isRequired,
+    runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     // List of list of params in all the visible runs
-    paramsList: PropTypes.arrayOf(Array).isRequired,
+    paramsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // List of list of metrics in all the visible runs
-    metricsList: PropTypes.arrayOf(Array).isRequired,
+    metricsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // List of tags dictionary in all the visible runs.
-    tagsList: PropTypes.arrayOf(Object).isRequired,
+    tagsList: PropTypes.arrayOf(PropTypes.object).isRequired,
     // Function which takes one parameter (runId)
     onCheckbox: PropTypes.func.isRequired,
     onCheckAll: PropTypes.func.isRequired,
@@ -93,8 +93,8 @@ export class ExperimentRunsTableCompactView extends React.Component {
     orderByAsc: PropTypes.bool.isRequired,
     runsSelected: PropTypes.object.isRequired,
     runsExpanded: PropTypes.object.isRequired,
-    paramKeyList: PropTypes.arrayOf(String).isRequired,
-    metricKeyList: PropTypes.arrayOf(String).isRequired,
+    paramKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
+    metricKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricRanges: PropTypes.object.isRequired,
     // Handler for adding a metric or parameter to the set of bagged columns. All bagged metrics
     // are displayed in a single column, while each unbagged metric has its own column. Similar
@@ -103,9 +103,9 @@ export class ExperimentRunsTableCompactView extends React.Component {
     // Handler for removing a metric or parameter from the set of bagged columns.
     onRemoveBagged: PropTypes.func.isRequired,
     // Array of keys corresponding to unbagged params
-    unbaggedParams: PropTypes.arrayOf(String).isRequired,
+    unbaggedParams: PropTypes.arrayOf(PropTypes.string).isRequired,
     // Array of keys corresponding to unbagged metrics
-    unbaggedMetrics: PropTypes.arrayOf(String).isRequired,
+    unbaggedMetrics: PropTypes.arrayOf(PropTypes.string).isRequired,
 
     nextPageToken: PropTypes.string,
     handleLoadMoreRuns: PropTypes.func.isRequired,
@@ -440,8 +440,8 @@ export class ExperimentRunsTableCompactView extends React.Component {
             const runMetadataWidth = runMetadataColWidths.reduce((a, b) => a + b);
             const tableMinWidth =
               BAGGED_COL_WIDTH * (showBaggedParams + showBaggedMetrics) +
-              UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length) +
-              runMetadataWidth;
+              runMetadataWidth +
+              UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length);
             const tableWidth = Math.max(width, tableMinWidth);
             // If we aren't showing bagged metrics or params (bagged metrics & params are the
             // only cols that use the CellMeasurer component), set the row height statically

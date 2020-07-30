@@ -4,7 +4,7 @@ import _ from 'lodash';
 import PropTypes from 'prop-types';
 import { X_AXIS_STEP, X_AXIS_RELATIVE, MAX_LINE_SMOOTHNESS } from './MetricsPlotControls';
 import { CHART_TYPE_BAR } from './MetricsPlotPanel';
-import Plot from '../../../node_modules/react-plotly.js/react-plotly';
+import Plot from 'react-plotly.js';
 
 const MAX_RUN_NAME_DISPLAY_LENGTH = 24;
 
@@ -37,11 +37,11 @@ const EMA = (mArray, smoothingWeight) => {
 
 export class MetricsPlotView extends React.Component {
   static propTypes = {
-    runUuids: PropTypes.arrayOf(String).isRequired,
-    runDisplayNames: PropTypes.arrayOf(String).isRequired,
-    metrics: PropTypes.arrayOf(Object).isRequired,
+    runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
+    runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
+    metrics: PropTypes.arrayOf(PropTypes.object).isRequired,
     xAxis: PropTypes.string.isRequired,
-    metricKeys: PropTypes.arrayOf(String).isRequired,
+    metricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     // Whether or not to show point markers on the line chart
     showPoint: PropTypes.bool.isRequired,
     chartType: PropTypes.string.isRequired,
@@ -52,7 +52,7 @@ export class MetricsPlotView extends React.Component {
     onClick: PropTypes.func.isRequired,
     onLegendClick: PropTypes.func.isRequired,
     onLegendDoubleClick: PropTypes.func.isRequired,
-    deselectedCurves: PropTypes.arrayOf(String).isRequired,
+    deselectedCurves: PropTypes.arrayOf(PropTypes.string).isRequired,
   };
 
   static getLineLegend = (metricKey, runDisplayName, isComparing) => {

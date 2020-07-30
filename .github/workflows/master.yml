@@ -6,15 +6,14 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  CONDA_DIR: /usr/share/miniconda
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.6
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.6
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
@@ -24,18 +23,72 @@ jobs:
         pip install -r ./travis/lint-requirements.txt
     - name: Run tests
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
+        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./lint.sh
+  r:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - uses: r-lib/actions/setup-r@v1
+    # This step dumps the current set of R dependencies and R version into files to be used
+    # as a cache key when caching/restoring R dependencies.
+    - name: Query dependencies
+      run: |
+        install.packages('remotes')
+        saveRDS(remotes::dev_package_deps("mlflow/R/mlflow", dependencies = TRUE), ".github/depends.Rds", version = 2)
+        writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
+      shell: Rscript {0}
 
+    - name: Cache R packages
+      if: runner.os != 'Windows'
+      uses: actions/cache@v2
+      with:
+        path: ${{ env.R_LIBS_USER }}
+        # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
+        # R dependencies
+        key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
+        restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
+    - name: Install system dependencies
+      run: |
+        sudo apt-get install -y libcurl4-openssl-dev
+    - name: Install dependencies
+      run: |
+        install.packages("devtools")
+        remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
+      shell: Rscript {0}
+    - name: Run tests
+      run: |
+        source ./travis/install-common-deps.sh
+        source activate test-environment
+        cd mlflow/R/mlflow
+        R CMD build .
+        export LINTR_COMMENT_BOT=false
+        cd tests
+        Rscript ../.travis.R
+    - name: Calculate code coverage
+      if: ${{ success() }}
+      run: |
+        export MLFLOW_HOME=$(pwd)
+        cd mlflow/R/mlflow/tests
+        Rscript -e 'covr::codecov()' || :
+      env:
+        COVR_RUNNING: true
+    - name: Show 00check.log on failure
+      if: ${{ failure() }}
+      run: |
+        LOG_FILE="${HOME}/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
+        [ -r "${LOG_FILE}" ] && cat "${LOG_FILE}"
+        cp "${LOG_FILE}" /tmp
+    - uses: actions/upload-artifact@v1
+      if: failure()
+      with:
+        name: 00check.log
+        path: /tmp/00check.log
   python-small:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.6
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.6
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
@@ -43,9 +96,26 @@ jobs:
         source ./travis/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
+        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./travis/run-small-python-tests.sh
+
+  python-large:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      env:
+        INSTALL_LARGE_PYTHON_DEPS: true
+      run: |
+        source ./travis/install-common-deps.sh
+    - name: Run tests
+      run: |
+        export PATH="$CONDA_DIR/bin:$PATH"
+        source activate test-environment
+        ./travis/run-large-python-tests.sh
+        ./travis/test-anaconda-compatibility.sh "anaconda3:2020.02"
+        ./travis/test-anaconda-compatibility.sh "anaconda3:2019.03"
 
   java:
     runs-on: ubuntu-latest
@@ -60,7 +130,7 @@ jobs:
         source ./travis/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
+        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         cd mlflow/java
         mvn clean package -q
@@ -102,10 +172,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python 3.6
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.6
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
@@ -114,7 +180,7 @@ jobs:
           source ./travis/install-common-deps.sh
       - name: Run tests
         run: |
-          export PATH="$HOME/miniconda/bin:$PATH"
+          export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
           ./travis/run-python-flavor-tests.sh;
 
@@ -122,10 +188,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python 3.6
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.6
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
@@ -134,7 +196,7 @@ jobs:
           source ./travis/install-common-deps.sh
       - name: Run tests
         run: |
-          export PATH="$HOME/miniconda/bin:$PATH"
+          export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
           ./travis/run-python-tf-tests.sh;
 
@@ -142,10 +204,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python 3.6
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.6
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
@@ -154,33 +212,22 @@ jobs:
           source ./travis/install-common-deps.sh
       - name: Run tests
         run: |
-          export PATH="$HOME/miniconda/bin:$PATH"
+          export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
           ./travis/run-python-sagemaker-tests.sh;
 
-  docs:
-    runs-on: ubuntu-latest
+  windows:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python 3.6
-        uses: actions/setup-python@v1
+      - uses: actions/setup-python@v2
         with:
-          python-version: 3.6
-      - name: Set up Java
-        uses: actions/setup-java@v1
-        with:
-          java-version: 8
-      - name: Install dependencies
-        env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
+          python-version: 3.7
+      - name: Install dependecies
         run: |
-          source ./travis/install-common-deps.sh
-          pip install sphinx==2.2.1 sphinx-click==2.3.1
+          pip install -r dev-requirements.txt
+          pip install -r travis/small-requirements.txt
+          pip install -e .
       - name: Run tests
         run: |
-          export PATH="$HOME/miniconda/bin:$PATH"
-          source activate test-environment
-          cd docs
-          make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
-          make javadocs
+          pytest --verbose --ignore-flavors --ignore=tests/projects tests

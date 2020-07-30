@@ -10,6 +10,7 @@ import mlflow.azureml.cli
 import mlflow.db
 import mlflow.experiments
 import mlflow.models.cli
+import mlflow.deployments.cli
 import mlflow.projects as projects
 import mlflow.runs
 import mlflow.sagemaker.cli
@@ -51,8 +52,9 @@ def cli():
                    "are not in the list of parameters for an entry point will be passed to the "
                    "corresponding entry point as command-line arguments in the form `--name value`")
 @click.option("--docker-args", "-A", metavar="NAME=VALUE", multiple=True,
-              help="A `docker run` flag or argument, of the form -A name=value. Where `name` "
-              "will then be propagated as `docker run --name value`.")
+              help="A `docker run` argument or flag, of the form -A name=value (e.g. -A gpus=all) "
+                   "or -A name (e.g. -A t). The argument will then be passed as "
+                   "`docker run --name value` or `docker run --name` respectively. ")
 @click.option("--experiment-name", envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
               help="Name of the experiment under which to launch the run. If not "
                    "specified, 'experiment-id' option will be used to launch run.")
@@ -102,7 +104,7 @@ def run(uri, entry_point, version, param_list, docker_args, experiment_name, exp
         sys.exit(1)
 
     param_dict = _user_args_to_dict(param_list)
-    args_dict = _user_args_to_dict(docker_args, flag_name='A')
+    args_dict = _user_args_to_dict(docker_args, argument_type='A')
 
     if backend_config is not None and os.path.splitext(backend_config)[-1] != ".json":
         try:
@@ -135,16 +137,21 @@ def run(uri, entry_point, version, param_list, docker_args, experiment_name, exp
         sys.exit(1)
 
 
-def _user_args_to_dict(user_list, flag_name='P'):
+def _user_args_to_dict(arguments, argument_type='P'):
     user_dict = {}
-    for s in user_list:
-        index = s.find("=")
-        if index == -1:
+    for arg in arguments:
+        split = arg.split('=')
+        # Docker arguments such as `t` don't require a value -> set to True if specified
+        if len(split) == 1 and argument_type == 'A':
+            name = split[0]
+            value = True
+        elif len(split) == 2:
+            name = split[0]
+            value = split[1]
+        else:
             eprint("Invalid format for -%s parameter: '%s'. "
-                   "Use -%s name=value." % (flag_name, s, flag_name))
+                   "Use -%s name=value." % (argument_type, arg, argument_type))
             sys.exit(1)
-        name = s[:index]
-        value = s[index + 1:]
         if name in user_dict:
             eprint("Repeated parameter: '%s'" % name)
             sys.exit(1)
@@ -334,6 +341,7 @@ def gc(backend_store_uri, run_ids):
 
 
 cli.add_command(mlflow.models.cli.commands)
+cli.add_command(mlflow.deployments.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)

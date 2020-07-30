@@ -6,6 +6,9 @@ import { ModelVersionStatus, Stages } from '../constants';
 import { BrowserRouter } from 'react-router-dom';
 import Utils from '../../common/utils/Utils';
 import { ModelRegistryDocUrl } from '../../common/constants';
+import { Table, Input } from 'antd';
+
+const { Search } = Input;
 
 const ANTD_TABLE_PLACEHOLDER_CLS = '.ant-table-placeholder';
 
@@ -17,6 +20,15 @@ describe('ModelListView', () => {
   beforeEach(() => {
     minimalProps = {
       models: [],
+      searchInput: '',
+      orderByKey: 'name',
+      orderByAsc: true,
+      currentPage: 1,
+      nextPageToken: null, // no next page
+      onSearch: jest.fn(),
+      onClickNext: jest.fn(),
+      onClickPrev: jest.fn(),
+      onClickSortableColumn: jest.fn(),
     };
   });
 
@@ -29,8 +41,7 @@ describe('ModelListView', () => {
     wrapper = mount(<ModelListView {...minimalProps} />);
     expect(wrapper.find(`a[href="${ModelRegistryDocUrl}"]`)).toHaveLength(1);
 
-    instance = wrapper.instance();
-    instance.setState({ nameFilter: 'xyz' });
+    wrapper.setProps({ searchInput: 'xyz' });
     expect(wrapper.find(ANTD_TABLE_PLACEHOLDER_CLS).text()).toBe('No models found.');
   });
 
@@ -70,70 +81,110 @@ describe('ModelListView', () => {
     expect(wrapper.find('td.latest-production').text()).toBe('_');
   });
 
-  test('should apply name based search correctly', () => {
-    const models = [
-      mockRegisteredModelDetailed('Model A', []),
-      mockRegisteredModelDetailed('Model B', []),
-    ];
-    const props = { ...minimalProps, models };
-    wrapper = mount(
-      <BrowserRouter>
-        <ModelListView {...props} />
-      </BrowserRouter>,
-    );
-    expect(wrapper.find('td.model-name').length).toBe(2);
-    expect(
-      wrapper
-        .find('td.model-name')
-        .first()
-        .text(),
-    ).toBe('Model A');
-    expect(
-      wrapper
-        .find('td.model-name')
-        .last()
-        .text(),
-    ).toBe('Model B');
+  test('the search input is called with prop searchInput value', () => {
+    wrapper = shallow(<ModelListView {...minimalProps} />);
+    expect(wrapper.find(Search).props().defaultValue).toBe('');
 
-    instance = wrapper.find(ModelListView).instance();
-    instance.setState({ nameFilter: 'a' }); // apply name search 'a'
-    wrapper.update(); // For some reason we need a force update to catch up here
-    expect(wrapper.find('td.model-name').length).toBe(1);
-    expect(wrapper.find('td.model-name').text()).toBe('Model A');
+    wrapper.setProps({ searchInput: 'xyz' });
+    expect(wrapper.find(Search).props().defaultValue).toBe('xyz');
   });
 
-  test('should by default sort by model name alphabetically and case insensitively', () => {
-    // Intentionally shuffled by model names
+  const findColumn = (table, index) =>
+    table.props().columns.find((elem) => elem.dataIndex === index);
+
+  test('orderByKey, orderByASC props are correctly passed to the table', () => {
     const models = [
-      mockRegisteredModelDetailed('Model B', []),
-      mockRegisteredModelDetailed('model c', []),
-      mockRegisteredModelDetailed('Model a', []),
+      mockRegisteredModelDetailed('Model B', [], [], 'CAN_EDIT', 3),
+      mockRegisteredModelDetailed('model c', [], [], 'CAN_EDIT', 1),
+      mockRegisteredModelDetailed('Model a', [], [], 'CAN_EDIT', 2),
     ];
-    const props = { ...minimalProps, models };
+    let props = {
+      ...minimalProps,
+      models,
+      orderByKey: 'name',
+      orderByAsc: true,
+    };
     wrapper = mount(
       <BrowserRouter>
         <ModelListView {...props} />
       </BrowserRouter>,
     );
+
+    let table = wrapper.find(Table);
+    // prop values look legit
+    expect(findColumn(table, 'name').sortOrder).toBe('ascend');
+    expect(findColumn(table, 'last_updated_timestamp').sortOrder).toBe(undefined);
+    // the table doesn't actually sort, though, and displays exactly what's given.
     expect(wrapper.find('td.model-name').length).toBe(3);
     expect(
       wrapper
         .find('td.model-name')
         .at(0)
         .text(),
-    ).toBe('Model a');
+    ).toBe('Model B');
     expect(
       wrapper
         .find('td.model-name')
         .at(1)
         .text(),
-    ).toBe('Model B');
+    ).toBe('model c');
     expect(
       wrapper
         .find('td.model-name')
         .at(2)
         .text(),
+    ).toBe('Model a');
+
+    props = {
+      ...minimalProps,
+      models,
+      orderByKey: 'timestamp',
+      orderByAsc: false,
+    };
+    wrapper = mount(
+      <BrowserRouter>
+        <ModelListView {...props} />
+      </BrowserRouter>,
+    );
+    table = wrapper.find(Table);
+    // prop values look legit
+    expect(findColumn(table, 'name').sortOrder).toBe(undefined);
+    expect(findColumn(table, 'last_updated_timestamp').sortOrder).toBe('descend');
+    // the table doesn't actually sort, though, and displays exactly what's given.
+    expect(wrapper.find('td.model-name').length).toBe(3);
+    expect(
+      wrapper
+        .find('td.model-name')
+        .at(0)
+        .text(),
+    ).toBe('Model B');
+    expect(
+      wrapper
+        .find('td.model-name')
+        .at(1)
+        .text(),
     ).toBe('model c');
+    expect(
+      wrapper
+        .find('td.model-name')
+        .at(2)
+        .text(),
+    ).toBe('Model a');
+  });
+
+  test('lastNavigationActionWasClickPrev is set properly on actions', () => {
+    wrapper = shallow(<ModelListView {...minimalProps} />);
+    instance = wrapper.instance();
+    expect(instance.state.lastNavigationActionWasClickPrev).toBe(false);
+
+    instance.handleClickPrev();
+    expect(instance.state.lastNavigationActionWasClickPrev).toBe(true);
+    instance.handleClickNext();
+    expect(instance.state.lastNavigationActionWasClickPrev).toBe(false);
+    instance.handleSearch('');
+    expect(instance.state.lastNavigationActionWasClickPrev).toBe(false);
+    instance.handleTableChange(null, null, { field: 'name', order: 'ascend' });
+    expect(instance.state.lastNavigationActionWasClickPrev).toBe(false);
   });
 
   test('Page title is set', () => {

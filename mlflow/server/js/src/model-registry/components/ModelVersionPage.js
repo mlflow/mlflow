@@ -27,7 +27,7 @@ export class ModelVersionPageImpl extends React.Component {
     match: PropTypes.object.isRequired,
     // connected props
     modelName: PropTypes.string.isRequired,
-    version: PropTypes.number.isRequired,
+    version: PropTypes.string.isRequired,
     modelVersion: PropTypes.object,
     runInfo: PropTypes.object,
     runDisplayName: PropTypes.string,
@@ -44,15 +44,11 @@ export class ModelVersionPageImpl extends React.Component {
   updateModelVersionRequestId = getUUID();
   transitionModelVersionStageRequestId = getUUID();
   getModelVersionDetailsRequestId = getUUID();
+  state = {
+    criticalInitialRequestIds: [this.initGetModelVersionDetailsRequestId],
+  };
 
-  criticalInitialRequestIds = [this.initGetModelVersionDetailsRequestId];
-
-  pollingRelatedRequestIds = [
-    this.listTransitionRequestId,
-    this.getActivitiesRequestId,
-    this.getModelVersionDetailsRequestId,
-    this.getRunRequestId,
-  ];
+  pollingRelatedRequestIds = [this.getModelVersionDetailsRequestId, this.getRunRequestId];
 
   hasPendingPollingRequest = () =>
     this.pollingRelatedRequestIds.every((requestId) => {
@@ -61,7 +57,8 @@ export class ModelVersionPageImpl extends React.Component {
     });
 
   loadData = (isInitialLoading) => {
-    return Promise.all([this.getModelVersionDetailAndRunInfo(isInitialLoading)]);
+    const promises = [this.getModelVersionDetailAndRunInfo(isInitialLoading)];
+    return Promise.all([promises]);
   };
 
   // We need to do this because currently the ModelVersionDetailed we got does not contain
@@ -78,13 +75,13 @@ export class ModelVersionPageImpl extends React.Component {
           : this.getModelVersionDetailsRequestId,
       )
       .then(({ value }) => {
-        if (value) {
+        if (value && !value[getProtoField('model_version')].run_link) {
           this.props.getRunApi(value[getProtoField('model_version')].run_id, this.getRunRequestId);
         }
       });
   }
 
-  handleStageTransitionDropdownSelect = (activity) => {
+  handleStageTransitionDropdownSelect = (activity, archiveExistingVersions) => {
     const { modelName, version } = this.props;
     const toStage = activity.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {
@@ -93,6 +90,7 @@ export class ModelVersionPageImpl extends React.Component {
           modelName,
           version.toString(),
           toStage,
+          archiveExistingVersions,
           this.transitionModelVersionStageRequestId,
         )
         .then(this.loadData)
@@ -138,11 +136,11 @@ export class ModelVersionPageImpl extends React.Component {
 
     return (
       <div className='App-content'>
-        <RequestStateWrapper requestIds={this.criticalInitialRequestIds}>
+        <RequestStateWrapper requestIds={this.state.criticalInitialRequestIds}>
           {(loading, hasError, requests) => {
             if (hasError) {
               clearInterval(this.pollIntervalId);
-              if (Utils.shouldRender404(requests, this.criticalInitialRequestIds)) {
+              if (Utils.shouldRender404(requests, this.state.criticalInitialRequestIds)) {
                 return (
                   <Error404View
                     resourceName={`Model ${modelName} v${version}`}
@@ -180,13 +178,16 @@ export class ModelVersionPageImpl extends React.Component {
 const mapStateToProps = (state, ownProps) => {
   const { modelName, version } = ownProps.match.params;
   const modelVersion = getModelVersion(state, modelName, version);
-  const runInfo = getRunInfo(modelVersion && modelVersion.run_id, state);
+  let runInfo = null;
+  if (modelVersion && !modelVersion.run_link) {
+    runInfo = getRunInfo(modelVersion && modelVersion.run_id, state);
+  }
   const tags = runInfo && getRunTags(runInfo.getRunUuid(), state);
   const runDisplayName = tags && Utils.getRunDisplayName(tags, runInfo.getRunUuid());
   const { apis } = state;
   return {
     modelName,
-    version: Number(version),
+    version,
     modelVersion,
     runInfo,
     runDisplayName,

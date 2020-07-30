@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 import subprocess
 
@@ -6,6 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
 from databricks_cli.configure import provider
 from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils.uri import get_db_info_from_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -52,6 +54,10 @@ def _get_property_from_spark_context(key):
             return task_context.getLocalProperty(key)
     except Exception:  # pylint: disable=broad-except
         return None
+
+
+def is_databricks_default_tracking_uri(tracking_uri):
+    return tracking_uri.lower().strip() == "databricks"
 
 
 def is_in_databricks_notebook():
@@ -137,22 +143,52 @@ def get_webapp_url():
     return _get_extra_context("api_url")
 
 
+def get_workspace_info_from_dbutils():
+    dbutils = _get_dbutils()
+    if dbutils:
+        context = json.loads(
+            dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson())
+        workspace_host = context['extraContext']['api_url']
+        workspace_id = context['tags']['orgId']
+        return workspace_host, workspace_id
+    return None, None
+
+
+def get_workspace_info_from_databricks_secrets(tracking_uri):
+    profile, key_prefix = get_db_info_from_uri(tracking_uri)
+    if key_prefix:
+        dbutils = _get_dbutils()
+        if dbutils:
+            workspace_id = dbutils.secrets.get(scope=profile, key=key_prefix + "-workspace-id")
+            workspace_host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
+            return workspace_host, workspace_id
+    return None, None
+
+
 def _fail_malformed_databricks_auth(profile):
     raise MlflowException("Got malformed Databricks CLI profile '%s'. Please make sure the "
                           "Databricks CLI is properly configured as described at "
                           "https://github.com/databricks/databricks-cli." % profile)
 
 
-def get_databricks_host_creds(profile=None):
+def get_databricks_host_creds(server_uri=None):
     """
     Reads in configuration necessary to make HTTP requests to a Databricks server. This
     uses the Databricks CLI's ConfigProvider interface to load the DatabricksConfig object.
-    This method will throw an exception if sufficient auth cannot be found.
+    If no Databricks CLI profile is found corresponding to the server URI, this function
+    will attempt to retrieve these credentials from the Databricks Secret Manager. For that to work,
+    the server URI will need to be of the following format: "databricks://profile/prefix". In the
+    Databricks Secret Manager, we will query for a secret in the scope "<profile>" for secrets with
+    keys of the form "<prefix>-host" and "<prefix>-token". Note that this prefix *cannot* be empty
+    if trying to authenticate with this method. If found, those host credentials will be used. This
+    method will throw an exception if sufficient auth cannot be found.
 
-    :param profile: Databricks CLI profile. If not provided, we will read the default profile.
+    :param server_uri: A URI that specifies the Databricks profile you want to use for making
+    requests.
     :return: :py:class:`mlflow.rest_utils.MlflowHostCreds` which includes the hostname and
         authentication information necessary to talk to the Databricks server.
     """
+    profile, path = get_db_info_from_uri(server_uri)
     if not hasattr(provider, 'get_config'):
         _logger.warning(
             "Support for databricks-cli<0.8.0 is deprecated and will be removed"
@@ -162,6 +198,20 @@ def get_databricks_host_creds(profile=None):
         config = provider.ProfileConfigProvider(profile).get_config()
     else:
         config = provider.get_config()
+    # if a path is specified, that implies a Databricks tracking URI of the form:
+    # databricks://profile-name/path-specifier
+    if (not config or not config.host) and path:
+        dbutils = _get_dbutils()
+        if dbutils:
+            # Prefix differentiates users and is provided as path information in the URI
+            key_prefix = path
+            host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
+            token = dbutils.secrets.get(scope=profile, key=key_prefix + "-token")
+            if host and token:
+                config = provider.DatabricksConfig.from_token(
+                    host=host,
+                    token=token,
+                    insecure=False)
     if not config or not config.host:
         _fail_malformed_databricks_auth(profile)
 

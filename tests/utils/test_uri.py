@@ -4,8 +4,9 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.uri import is_databricks_uri, is_http_uri, is_local_uri, \
-    extract_db_type_from_uri, get_db_profile_from_uri, get_uri_scheme, append_to_uri_path, \
-    extract_and_normalize_path, is_databricks_acled_artifacts_uri
+    extract_db_type_from_uri, get_uri_scheme, append_to_uri_path, \
+    extract_and_normalize_path, is_databricks_acled_artifacts_uri, \
+    get_db_info_from_uri, construct_run_url
 
 
 def test_extract_db_type_from_uri():
@@ -23,8 +24,39 @@ def test_extract_db_type_from_uri():
             extract_db_type_from_uri(unsupported_db)
 
 
-def test_get_db_profile_from_uri_casing():
-    assert get_db_profile_from_uri('databricks://aAbB') == 'aAbB'
+@pytest.mark.parametrize("server_uri, result", [
+    ('databricks://aAbB', ('aAbB', None)),
+    ('databricks://profile/prefix', ('profile', 'prefix')),
+    ('nondatabricks://profile/prefix', (None, None)),
+    ('databricks://profile', ('profile', None)),
+    ('databricks://profile/', ('profile', None)),
+    ('databricks://', ('', None)),
+    ('databricks://aAbB/', ('aAbB', None))
+])
+def test_get_db_info_from_uri(server_uri, result):
+    assert get_db_info_from_uri(server_uri) == result
+
+
+@pytest.mark.parametrize("hostname, experiment_id, run_id, workspace_id, result", [
+    ('https://www.databricks.com/', '19201', '2231', '12211',
+     'https://www.databricks.com/?o=12211#mlflow/experiments/19201/runs/2231'),
+    ('https://www.databricks.com/', '19201', '2231', None,
+     'https://www.databricks.com/#mlflow/experiments/19201/runs/2231'),
+    ('https://www.databricks.com/', '19201', '2231', '0',
+     'https://www.databricks.com/#mlflow/experiments/19201/runs/2231'),
+    ('https://www.databricks.com/', '19201', '2231', '0',
+     'https://www.databricks.com/#mlflow/experiments/19201/runs/2231')])
+def test_construct_run_url(hostname, experiment_id, run_id, workspace_id, result):
+    assert(construct_run_url(hostname, experiment_id, run_id, workspace_id) == result)
+
+
+@pytest.mark.parametrize("hostname, experiment_id, run_id, workspace_id", [
+    (None, '19201', '2231', '0'),
+    ('https://www.databricks.com/', None, '2231', '0'),
+    ('https://www.databricks.com/', '19201', None, '0')])
+def test_construct_run_url_errors(hostname, experiment_id, run_id, workspace_id):
+    with pytest.raises(MlflowException):
+        construct_run_url(hostname, experiment_id, run_id, workspace_id)
 
 
 def test_uri_types():

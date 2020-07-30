@@ -42,6 +42,27 @@ export class Services {
   }
 
   /**
+   * Search registered models
+   * @param data
+   * @param success
+   * @param error
+   * @returns {*|jQuery|*|*|*|*}
+   */
+  static searchRegisteredModels({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/search'), {
+      type: 'GET',
+      dataType: 'json',
+      converters: {
+        'text json': StrictJsonBigInt.parse,
+      },
+      data: data,
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
    * Update registered model
    * @param data
    * @param success
@@ -72,6 +93,44 @@ export class Services {
    */
   static deleteRegisteredModel({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/delete'), {
+      type: 'DELETE',
+      dataType: 'json',
+      contentType: 'application/json; charset=utf-8',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * Set registered model tag
+   * @param data
+   * @param success
+   * @param error
+   * @returns {*|jQuery|*|*}
+   */
+  static setRegisteredModelTag({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/set-tag'), {
+      type: 'POST',
+      dataType: 'json',
+      contentType: 'application/json; charset=utf-8',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * Delete registered model tag
+   * @param data
+   * @param success
+   * @param error
+   * @returns {*|jQuery|*|*}
+   */
+  static deleteRegisteredModelTag({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/delete-tag'), {
       type: 'DELETE',
       dataType: 'json',
       contentType: 'application/json; charset=utf-8',
@@ -212,6 +271,44 @@ export class Services {
       dataType: 'json',
       contentType: 'application/json; charset=utf-8',
       data: data,
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * Set model version tag
+   * @param data
+   * @param success
+   * @param error
+   * @returns {*|jQuery|*|*}
+   */
+  static setModelVersionTag({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/model-versions/set-tag'), {
+      type: 'POST',
+      dataType: 'json',
+      contentType: 'application/json; charset=utf-8',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
+  /**
+   * Delete model version tag
+   * @param data
+   * @param success
+   * @param error
+   * @returns {*|jQuery|*|*}
+   */
+  static deleteModelVersionTag({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/model-versions/delete-tag'), {
+      type: 'DELETE',
+      dataType: 'json',
+      contentType: 'application/json; charset=utf-8',
+      data: JSON.stringify(data),
       jsonp: false,
       success: success,
       error: error,

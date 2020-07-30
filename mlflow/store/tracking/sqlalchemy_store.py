@@ -9,7 +9,7 @@ import sqlalchemy.sql.expression as sql
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
-from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE
+from mlflow.store.db.db_types import MYSQL, MSSQL
 import mlflow.store.db.utils
 from mlflow.store.tracking.dbmodels.models import SqlExperiment, SqlRun, \
     SqlMetric, SqlParam, SqlTag, SqlExperimentTag, SqlLatestMetric
@@ -99,7 +99,8 @@ class SqlAlchemyStore(AbstractStore):
             mlflow.store.db.utils._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(SessionMaker)
+        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(SessionMaker,
+                                                                                    self.db_type)
         mlflow.store.db.utils._verify_schema(self.engine)
 
         if is_local_uri(default_artifact_root):
@@ -624,9 +625,6 @@ class SqlAlchemyStore(AbstractStore):
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
 
         with self.ManagedSessionMaker() as session:
-            if self.db_type == SQLITE:
-                session.execute("PRAGMA case_sensitive_like = true;")
-
             # Fetch the appropriate runs and eagerly load their summary metrics, params, and
             # tags. These run attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
@@ -777,7 +775,7 @@ def _get_orderby_clauses(order_by_list, session):
     if order_by_list:
         for order_by_clause in order_by_list:
             clause_id += 1
-            (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
+            (key_type, key, ascending) = SearchUtils.parse_order_by_for_search_runs(order_by_clause)
             if SearchUtils.is_attribute(key_type, '='):
                 order_value = getattr(SqlRun, SqlRun.get_attribute_name(key))
             else:

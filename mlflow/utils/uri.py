@@ -27,15 +27,22 @@ def is_databricks_uri(uri):
     return scheme == 'databricks' or uri == 'databricks'
 
 
-def get_db_profile_from_uri(uri):
+def construct_db_uri_from_profile(profile):
+    if profile:
+        return 'databricks://' + profile
+
+
+def get_db_info_from_uri(uri):
     """
     Get the Databricks profile specified by the tracking URI (if any), otherwise
     returns None.
     """
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.scheme == "databricks":
-        return parsed_uri.netloc
-    return None
+        parsed_path = parsed_uri.path.lstrip('/') or None
+        parsed_profile = parsed_uri.netloc
+        return parsed_profile, parsed_path
+    return None, None
 
 
 def extract_db_type_from_uri(db_uri):
@@ -141,3 +148,15 @@ def is_databricks_acled_artifacts_uri(artifact_uri):
     _ACLED_ARTIFACT_URI = "databricks/mlflow-tracking/"
     artifact_uri_path = extract_and_normalize_path(artifact_uri)
     return artifact_uri_path.startswith(_ACLED_ARTIFACT_URI)
+
+
+def construct_run_url(hostname, experiment_id, run_id, workspace_id=None):
+    if not hostname or not experiment_id or not run_id:
+        raise MlflowException('Hostname, experiment ID, and run ID are all required to construct'
+                              'a run URL')
+    prefix = hostname
+    if workspace_id and workspace_id != '0':
+        prefix += "?o=" + workspace_id
+    return prefix + '#mlflow/experiments/{experiment_id}/runs/{run_id}'.format(
+        experiment_id=experiment_id,
+        run_id=run_id)

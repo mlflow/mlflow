@@ -4,7 +4,7 @@ import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import { modelListPageRoute, getCompareModelVersionsPageRoute } from '../routes';
-import { Radio, Icon, Descriptions, Menu, Dropdown, Modal, Tooltip } from 'antd';
+import { Radio, Icon, Descriptions, Menu, Dropdown, Modal, Tooltip, message } from 'antd';
 import {
   ACTIVE_STAGES,
   REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT,
@@ -13,13 +13,17 @@ import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import { Button as BootstrapButton } from 'react-bootstrap';
 import { IconButton } from '../../common/components/IconButton';
+import EditableTagsTableView from '../../common/components/EditableTagsTableView';
+import { getRegisteredModelTags } from '../reducers';
+import { setRegisteredModelTagApi, deleteRegisteredModelTagApi } from '../actions';
+import { connect } from 'react-redux';
 
 export const StageFilters = {
   ALL: 'ALL',
   ACTIVE: 'ACTIVE',
 };
 
-export class ModelView extends React.Component {
+export class ModelViewImpl extends React.Component {
   constructor(props) {
     super(props);
     this.onCompare = this.onCompare.bind(this);
@@ -27,8 +31,8 @@ export class ModelView extends React.Component {
   static propTypes = {
     model: PropTypes.shape({
       name: PropTypes.string.isRequired,
-      creation_timestamp: PropTypes.number.isRequired,
-      last_updated_timestamp: PropTypes.number.isRequired,
+      creation_timestamp: PropTypes.string.isRequired,
+      last_updated_timestamp: PropTypes.string.isRequired,
     }),
     modelVersions: PropTypes.arrayOf(
       PropTypes.shape({
@@ -38,6 +42,9 @@ export class ModelView extends React.Component {
     handleEditDescription: PropTypes.func.isRequired,
     handleDelete: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
+    tags: PropTypes.object.isRequired,
+    setRegisteredModelTagApi: PropTypes.func.isRequired,
+    deleteRegisteredModelTagApi: PropTypes.func.isRequired,
   };
 
   state = {
@@ -46,6 +53,7 @@ export class ModelView extends React.Component {
     isDeleteModalVisible: false,
     isDeleteModalConfirmLoading: false,
     runsSelected: {},
+    isTagsRequestPending: false,
   };
 
   componentDidMount() {
@@ -84,7 +92,10 @@ export class ModelView extends React.Component {
       <Menu>
         {this.getActiveVersionsCount() > 0 ? (
           <Menu.Item disabled className='delete'>
-            <Tooltip title={REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}>
+            <Tooltip
+              placement='right'
+              title={REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT}
+            >
               Delete
             </Tooltip>
           </Menu.Item>
@@ -132,13 +143,58 @@ export class ModelView extends React.Component {
       });
   };
 
+  saveFormRef = (formRef) => {
+    this.formRef = formRef;
+  };
+
+  handleAddTag = (e) => {
+    e.preventDefault();
+    const { form } = this.formRef.props;
+    const { model } = this.props;
+    const modelName = model.name;
+    form.validateFields((err, values) => {
+      if (!err) {
+        this.setState({ isTagsRequestPending: true });
+        this.props
+          .setRegisteredModelTagApi(modelName, values.name, values.value)
+          .then(() => {
+            this.setState({ isTagsRequestPending: false });
+            form.resetFields();
+          })
+          .catch((ex) => {
+            this.setState({ isTagsRequestPending: false });
+            console.error(ex);
+            message.error('Failed to add tag. Error: ' + ex.getUserVisibleError());
+          });
+      }
+    });
+  };
+
+  handleSaveEdit = ({ name, value }) => {
+    const { model } = this.props;
+    const modelName = model.name;
+    return this.props.setRegisteredModelTagApi(modelName, name, value).catch((ex) => {
+      console.error(ex);
+      message.error('Failed to set tag. Error: ' + ex.getUserVisibleError());
+    });
+  };
+
+  handleDeleteTag = ({ name }) => {
+    const { model } = this.props;
+    const modelName = model.name;
+    return this.props.deleteRegisteredModelTagApi(modelName, name).catch((ex) => {
+      console.error(ex);
+      message.error('Failed to delete tag. Error: ' + ex.getUserVisibleError());
+    });
+  };
+
   onChange = (selectedRowKeys, selectedRows) => {
     const newState = Object.assign({}, this.state);
     newState.runsSelected = {};
     selectedRows.forEach((row) => {
       newState.runsSelected = {
         ...newState.runsSelected,
-        [row.run_id]: row.version,
+        [row.version]: row.run_id,
       };
     });
     this.setState(newState);
@@ -155,12 +211,13 @@ export class ModelView extends React.Component {
   }
 
   renderDetails = () => {
-    const { model, modelVersions } = this.props;
+    const { model, modelVersions, tags } = this.props;
     const {
       stageFilter,
       showDescriptionEditor,
       isDeleteModalVisible,
       isDeleteModalConfirmLoading,
+      isTagsRequestPending,
     } = this.state;
     const modelName = model.name;
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
@@ -191,6 +248,16 @@ export class ModelView extends React.Component {
             onSubmit={this.handleSubmitEditDescription}
             onCancel={this.handleCancelEditDescription}
             showEditor={showDescriptionEditor}
+          />
+        </CollapsibleSection>
+        <CollapsibleSection title='Tags'>
+          <EditableTagsTableView
+            wrappedComponentRef={this.saveFormRef}
+            handleAddTag={this.handleAddTag}
+            handleDeleteTag={this.handleDeleteTag}
+            handleSaveEdit={this.handleSaveEdit}
+            tags={tags}
+            isRequestPending={isTagsRequestPending}
           />
         </CollapsibleSection>
         <CollapsibleSection
@@ -268,3 +335,12 @@ export class ModelView extends React.Component {
     );
   }
 }
+
+const mapStateToProps = (state, ownProps) => {
+  const modelName = ownProps.model.name;
+  const tags = getRegisteredModelTags(modelName, state);
+  return { tags };
+};
+const mapDispatchToProps = { setRegisteredModelTagApi, deleteRegisteredModelTagApi };
+
+export const ModelView = connect(mapStateToProps, mapDispatchToProps)(ModelViewImpl);

@@ -91,7 +91,7 @@ def saved_tf_categorical_model(tmpdir):
     ])
     types = collections.OrderedDict((key, type(value[0]))
                                     for key, value in defaults.items())
-    df = pd.read_csv(path, names=types.keys(), dtype=types, na_values="?")
+    df = pd.read_csv(path, names=list(types.keys()), dtype=types, na_values="?")
     df = df.dropna()
 
     # Extract the label from the features dataframe

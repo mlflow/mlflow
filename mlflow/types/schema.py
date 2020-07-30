@@ -5,8 +5,6 @@ import numpy as np
 import pandas as pd
 from typing import Dict, Any, List, Union, Optional
 
-from pandas.core.dtypes.dtypes import PandasExtensionDtype
-
 from mlflow.exceptions import MlflowException
 
 
@@ -58,7 +56,7 @@ class DataType(Enum):
         """Get equivalent numpy data type. """
         return self._numpy_type
 
-    def to_pandas(self) -> Union[np.dtype, PandasExtensionDtype]:
+    def to_pandas(self) -> np.dtype:
         """Get equivalent pandas data type. """
         return self._pandas_type
 

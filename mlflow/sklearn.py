@@ -9,6 +9,7 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 import os
+import logging
 import pickle
 import yaml
 
@@ -16,6 +17,7 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
@@ -33,6 +35,8 @@ SUPPORTED_SERIALIZATION_FORMATS = [
     SERIALIZATION_FORMAT_PICKLE,
     SERIALIZATION_FORMAT_CLOUDPICKLE
 ]
+
+_logger = logging.getLogger(__name__)
 
 
 def get_default_conda_env(include_cloudpickle=False):
@@ -166,13 +170,13 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=None,
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn", data=model_data_subpath,
-                        env=conda_env_subpath)
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn",
+                        model_path=model_data_subpath, env=conda_env_subpath)
     mlflow_model.add_flavor(FLAVOR_NAME,
                             pickled_model=model_data_subpath,
                             sklearn_version=sklearn.__version__,
                             serialization_format=serialization_format)
-    mlflow_model.save(os.path.join(path, "MLmodel"))
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 def log_model(sk_model, artifact_path, conda_env=None,
@@ -261,14 +265,31 @@ def log_model(sk_model, artifact_path, conda_env=None,
                      input_example=input_example)
 
 
-def _load_model_from_local_file(path):
-    """Load a scikit-learn model saved as an MLflow artifact on the local file system."""
+def _load_model_from_local_file(path, serialization_format):
+    """Load a scikit-learn model saved as an MLflow artifact on the local file system.
+
+    :param path: Local filesystem path to the MLflow Model saved with the ``sklearn`` flavor
+    :param serialization_format: The format in which the model was serialized. This should be one of
+                                 the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
+                                 ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
+    """
     # TODO: we could validate the scikit-learn version here
+    if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
+        raise MlflowException(
+                message=(
+                    "Unrecognized serialization format: {serialization_format}. Please specify one"
+                    " of the following supported formats: {supported_formats}.".format(
+                        serialization_format=serialization_format,
+                        supported_formats=SUPPORTED_SERIALIZATION_FORMATS)),
+                error_code=INVALID_PARAMETER_VALUE)
     with open(path, "rb") as f:
-        # Models serialized with Cloudpickle can be deserialized using Pickle; in fact,
-        # Cloudpickle.load() is just a redefinition of pickle.load(). Therefore, we do
-        # not need to check the serialization format of the model before deserializing.
-        return pickle.load(f)
+        # Models serialized with Cloudpickle cannot necessarily be deserialized using Pickle;
+        # That's why we check the serialization format of the model before deserializing
+        if serialization_format == SERIALIZATION_FORMAT_PICKLE:
+            return pickle.load(f)
+        elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
+            import cloudpickle
+            return cloudpickle.load(f)
 
 
 def _load_pyfunc(path):
@@ -277,7 +298,38 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``sklearn`` flavor.
     """
-    return _load_model_from_local_file(path)
+    if os.path.isfile(path):
+        # Scikit-learn models saved in older versions of MLflow (<= 1.9.1) specify the ``data``
+        # field within the pyfunc flavor configuration. For these older models, the ``path``
+        # parameter of ``_load_pyfunc()`` refers directly to a serialized scikit-learn model
+        # object. In this case, we assume that the serialization format is ``pickle``, since
+        # the model loading procedure in older versions of MLflow used ``pickle.load()``.
+        serialization_format = SERIALIZATION_FORMAT_PICKLE
+    else:
+        # In contrast, scikit-learn models saved in versions of MLflow > 1.9.1 do not
+        # specify the ``data`` field within the pyfunc flavor configuration. For these newer
+        # models, the ``path`` parameter of ``load_pyfunc()`` refers to the top-level MLflow
+        # Model directory. In this case, we parse the model path from the MLmodel's pyfunc
+        # flavor configuration and attempt to fetch the serialization format from the
+        # scikit-learn flavor configuration
+        try:
+            sklearn_flavor_conf = _get_flavor_configuration(
+                model_path=path, flavor_name=FLAVOR_NAME)
+            serialization_format = sklearn_flavor_conf.get(
+                'serialization_format', SERIALIZATION_FORMAT_PICKLE)
+        except MlflowException:
+            _logger.warning(
+                "Could not find scikit-learn flavor configuration during model loading process."
+                " Assuming 'pickle' serialization format.")
+            serialization_format = SERIALIZATION_FORMAT_PICKLE
+
+        pyfunc_flavor_conf = _get_flavor_configuration(
+            model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
+        path = os.path.join(path, pyfunc_flavor_conf['model_path'])
+
+    return _load_model_from_local_file(
+        path=path,
+        serialization_format=serialization_format)
 
 
 def _save_model(sk_model, output_path, serialization_format):
@@ -333,4 +385,7 @@ def load_model(model_uri):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf['pickled_model'])
-    return _load_model_from_local_file(path=sklearn_model_artifacts_path)
+    serialization_format = flavor_conf.get('serialization_format', SERIALIZATION_FORMAT_PICKLE)
+    return _load_model_from_local_file(
+        path=sklearn_model_artifacts_path,
+        serialization_format=serialization_format)

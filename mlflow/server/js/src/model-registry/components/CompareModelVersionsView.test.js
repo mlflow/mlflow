@@ -18,9 +18,10 @@ describe('unconnected tests', () => {
   beforeEach(() => {
     minimumProps = {
       modelName: 'test',
-      runsToVersions: { '123': 'dummy_version' },
+      versionsToRuns: { dummy_version: '123', dummy_version2: 'somebadrunID' },
       runUuids: ['123'],
       runInfos: [],
+      runInfosValid: [],
       metricLists: [],
       paramLists: [],
       runNames: [],
@@ -40,9 +41,13 @@ describe('unconnected tests', () => {
           artifact_uri: './mlruns',
           lifecycle_stage: 'active',
         }),
+        RunInfo.fromJs({
+          run_uuid: 'somebadrunID',
+        }),
       ],
-      metricLists: [['test_metric', 0.0, '321', '42']],
-      paramLists: [['test_param', '0.0']],
+      runInfosValid: [true, false],
+      metricLists: [[{ key: 'test_metric', value: 0.0 }]],
+      paramLists: [[{ key: 'test_param', value: '0.0' }]],
     };
   });
 
@@ -56,11 +61,12 @@ describe('unconnected tests', () => {
 
     // Checking the breadcrumb renders correctly
     expect(
-      wrapper.containsAllMatchingElements(['Registered Models', 'test', 'Comparing 1 Versions']),
+      wrapper.containsAllMatchingElements(['Registered Models', 'test', 'Comparing 2 Versions']),
     ).toEqual(true);
 
     // Checking the model version shows up
     expect(wrapper.containsAllMatchingElements(['Model Version:', 'dummy_version'])).toEqual(true);
+    expect(wrapper.containsAllMatchingElements(['Model Version:', 'dummy_version2'])).toEqual(true);
   });
 });
 
@@ -74,15 +80,17 @@ describe('connected tests', () => {
   beforeEach(() => {
     minimumProps = {
       modelName: 'test',
-      runsToVersions: { '123': 'dummy_version' },
+      versionsToRuns: { dummy_version: '123' },
     };
 
     minimalStore = mockStore({
       entities: {
         runInfosByUuid: { '123': RunInfo.fromJs({ dummy_key: 'dummy_value' }) },
-        latestMetricsByRunUuid: { '123': 'dummy' },
-        paramsByRunUuid: { '123': 'dummy' },
-        tagsByRunUuid: { '123': 'dummy' },
+        latestMetricsByRunUuid: {
+          '123': [{ key: 'test_metric', value: 0.0 }],
+        },
+        paramsByRunUuid: { '123': [{ key: 'test_param', value: '0.0' }] },
+        tagsByRunUuid: { '123': [{ key: 'test_tag', value: 'test.user' }] },
       },
       apis: {},
     });
@@ -102,10 +110,10 @@ describe('connected tests', () => {
           }),
         },
         latestMetricsByRunUuid: {
-          '123': { key: 'test_metric', value: 0.0, timestamp: '321', step: '42' },
+          '123': [{ key: 'test_metric', value: 0.0, timestamp: '321', step: '42' }],
         },
-        paramsByRunUuid: { '123': { key: 'test_param', value: '0.0' } },
-        tagsByRunUuid: { '123': { key: 'test_tag', value: 'test.user' } },
+        paramsByRunUuid: { '123': [{ key: 'test_param', value: '0.0' }] },
+        tagsByRunUuid: { '123': [{ key: 'test_tag', value: 'test.user' }] },
       },
       apis: {},
     });
@@ -136,6 +144,30 @@ describe('connected tests', () => {
     // Checking the breadcrumb renders correctly
     expect(
       wrapper.containsAllMatchingElements(['Registered Models', 'test', 'Comparing 1 Versions']),
+    ).toEqual(true);
+
+    // Checking the model version shows up
+    expect(wrapper.containsAllMatchingElements(['Model Version:', 'dummy_version'])).toEqual(true);
+  });
+
+  test('validate that comparison works with null run IDs or invalid run IDs', () => {
+    const testProps = {
+      modelName: 'test',
+      versionsToRuns: { dummy_version: '123', dummy_version2: null, dummy_version3: 'cats' },
+    };
+    wrapper = mount(
+      <Provider store={commonStore}>
+        <BrowserRouter>
+          <ConnectedCompareModelVersionsView {...testProps} />
+        </BrowserRouter>
+      </Provider>,
+    );
+
+    expect(wrapper.find(ConnectedCompareModelVersionsView).length).toBe(1);
+
+    // Checking the breadcrumb renders correctly
+    expect(
+      wrapper.containsAllMatchingElements(['Registered Models', 'test', 'Comparing 3 Versions']),
     ).toEqual(true);
 
     // Checking the model version shows up

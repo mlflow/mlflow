@@ -13,7 +13,7 @@ export default class CompareRunUtil {
   }
 
   /**
-   * Get all keys present in the data in ParamLists or MetricLists
+   * Get all keys present in the data in ParamLists or MetricLists or Schema input and outputs lists
    */
   static getKeys(lists, numeric) {
     const keys = {};
