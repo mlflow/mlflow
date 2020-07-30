@@ -48,7 +48,6 @@ describe('ModelVersionPage', () => {
               '1',
               Stages.PRODUCTION,
               ModelVersionStatus.READY,
-              [],
             ),
           },
         },
