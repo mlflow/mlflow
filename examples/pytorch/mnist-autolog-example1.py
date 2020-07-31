@@ -210,8 +210,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
     model = LightningMNISTClassifier(**dict_args)
-    logger = MLFlowLogger(experiment_name="EXPERIMENT_NAME",
-                          tracking_uri="http://IP:PORT/")
-    trainer = pl.Trainer.from_argparse_args(args, logger=logger, callbacks=[__MLflowPLCallback()])
+    logger = MLFlowLogger(
+        experiment_name="EXPERIMENT_NAME", tracking_uri="http://IP:PORT/"
+    )
+    trainer = pl.Trainer.from_argparse_args(
+        args, logger=logger, callbacks=[__MLflowPLCallback()]
+    )
     trainer.fit(model)
     trainer.test()

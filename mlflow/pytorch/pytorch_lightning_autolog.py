@@ -33,8 +33,12 @@ class __MLflowPLCallback(pl.Callback):
             metrics = trainer.callback_metrics
 
             for key, value in metrics.items():
-                trainer.logger.experiment.log_metric(trainer.logger.run_id, key, float(value),
-                                                     step=pl_module.current_epoch)
+                trainer.logger.experiment.log_metric(
+                    trainer.logger.run_id,
+                    key,
+                    float(value),
+                    step=pl_module.current_epoch,
+                )
 
     def on_train_start(self, trainer, pl_module):
         """
@@ -67,7 +71,9 @@ class __MLflowPLCallback(pl.Callback):
             with open(summary_file, "w") as f:
                 f.write(summary)
 
-            trainer.logger.experiment.log_artifact(trainer.logger.run_id, local_path=summary_file)
+            trainer.logger.experiment.log_artifact(
+                trainer.logger.run_id, local_path=summary_file
+            )
         finally:
             shutil.rmtree(tempdir)
 
@@ -78,7 +84,9 @@ class __MLflowPLCallback(pl.Callback):
 
         model_file_name = "model.ckpt"
         trainer.save_checkpoint(model_file_name)
-        trainer.logger.experiment.log_artifact(trainer.logger.run_id, local_path=model_file_name, artifact_path="models")
+        trainer.logger.experiment.log_artifact(
+            trainer.logger.run_id, local_path=model_file_name, artifact_path="models"
+        )
 
     def on_test_end(self, trainer, pl_module):
         """
@@ -87,23 +95,33 @@ class __MLflowPLCallback(pl.Callback):
         metrics = trainer.callback_metrics
 
         for key, value in metrics.items():
-            trainer.logger.experiment.log_metric(trainer.logger.run_id, key, float(value))
+            trainer.logger.experiment.log_metric(
+                trainer.logger.run_id, key, float(value)
+            )
 
     def _log_early_stop_params(self, trainer, early_stop_obj):
         """
         Logs Early Stop parameters into mlflow
         """
         if hasattr(early_stop_obj, "monitor"):
-            trainer.logger.experiment.log_param(trainer.logger.run_id, "monitor", early_stop_obj.monitor)
+            trainer.logger.experiment.log_param(
+                trainer.logger.run_id, "monitor", early_stop_obj.monitor
+            )
         if hasattr(early_stop_obj, "mode"):
-            trainer.logger.experiment.log_param(trainer.logger.run_id, "mode", early_stop_obj.mode)
+            trainer.logger.experiment.log_param(
+                trainer.logger.run_id, "mode", early_stop_obj.mode
+            )
         if hasattr(early_stop_obj, "patience"):
-            trainer.logger.experiment.log_param(trainer.logger.run_id, "patience", float(early_stop_obj.patience))
+            trainer.logger.experiment.log_param(
+                trainer.logger.run_id, "patience", float(early_stop_obj.patience)
+            )
         if hasattr(early_stop_obj, "min_delta"):
             trainer.logger.experiment.log_param(
                 trainer.logger.run_id, "min_delta", float(early_stop_obj.min_delta)
             )
         if hasattr(early_stop_obj, "stopped_epoch"):
             trainer.logger.experiment.log_param(
-                trainer.logger.run_id, "stopped_epoch", float(early_stop_obj.stopped_epoch)
+                trainer.logger.run_id,
+                "stopped_epoch",
+                float(early_stop_obj.stopped_epoch),
             )
