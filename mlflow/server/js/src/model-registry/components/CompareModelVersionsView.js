@@ -42,10 +42,10 @@ export class CompareModelVersionsView extends Component {
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     modelName: PropTypes.string.isRequired,
     versionsToRuns: PropTypes.object.isRequired,
-    inputsListByName: PropTypes.arrayOf(Array).isRequired,
-    inputsListByIndex: PropTypes.arrayOf(Array).isRequired,
-    outputsListByName: PropTypes.arrayOf(Array).isRequired,
-    outputsListByIndex: PropTypes.arrayOf(Array).isRequired,
+    inputsListByName: PropTypes.arrayOf(PropTypes.array).isRequired,
+    inputsListByIndex: PropTypes.arrayOf(PropTypes.array).isRequired,
+    outputsListByName: PropTypes.arrayOf(PropTypes.array).isRequired,
+    outputsListByIndex: PropTypes.arrayOf(PropTypes.array).isRequired,
   };
 
   state = {
