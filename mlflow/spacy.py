@@ -6,7 +6,7 @@ spaCy (native) format
     This is the main flavor that can be loaded back into spaCy.
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference, this
-    flavor is created only if spaCy's model pipeline component has at least one 
+    flavor is created only if spaCy's model pipeline has at least one
     `TextCategorizer <https://spacy.io/api/textcategorizer>`_.
 """
 import logging
