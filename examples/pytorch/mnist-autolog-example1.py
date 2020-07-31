@@ -6,9 +6,12 @@
 #       and mlflow (using pip install mlflow).
 #
 import pytorch_lightning as pl
+import os
 import torch
 from argparse import ArgumentParser
 from mlflow.pytorch.pytorch_lightning_autolog import __MLflowPLCallback
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.logging import MLFlowLogger
 from sklearn.metrics import accuracy_score
 from torch.nn import functional as F
@@ -213,8 +216,24 @@ if __name__ == "__main__":
     logger = MLFlowLogger(
         experiment_name="EXPERIMENT_NAME", tracking_uri="http://IP:PORT/"
     )
+    early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
+
+    checkpoint_callback = ModelCheckpoint(
+        filepath=os.getcwd(),
+        save_top_k=1,
+        verbose=True,
+        monitor="val_loss",
+        mode="min",
+        prefix="",
+    )
+
     trainer = pl.Trainer.from_argparse_args(
-        args, logger=logger, callbacks=[__MLflowPLCallback()]
+        args,
+        logger=logger,
+        callbacks=[__MLflowPLCallback()],
+        early_stop_callback=early_stopping,
+        checkpoint_callback=checkpoint_callback,
+        train_percent_check=0.1,
     )
     trainer.fit(model)
     trainer.test()

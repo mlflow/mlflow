@@ -6,6 +6,7 @@ are logged as artifacts to a 'models' directory.
 MLflow will also log the parameters of the EarlyStopping callback
 """
 import logging
+import mlflow.pytorch
 import os
 import pytorch_lightning as pl
 import shutil
@@ -39,6 +40,8 @@ class __MLflowPLCallback(pl.Callback):
                     float(value),
                     step=pl_module.current_epoch,
                 )
+        if trainer.early_stop_callback:
+            self._early_stop_check(trainer=trainer)
 
     def on_train_start(self, trainer, pl_module):
         """
@@ -82,11 +85,24 @@ class __MLflowPLCallback(pl.Callback):
         Logs the model checkpoint into mlflow - models folder on the training end
         """
 
-        model_file_name = "model.ckpt"
-        trainer.save_checkpoint(model_file_name)
-        trainer.logger.experiment.log_artifact(
-            trainer.logger.run_id, local_path=model_file_name, artifact_path="models"
-        )
+        tempdir = tempfile.mkdtemp()
+        if os.path.exists(tempdir):
+            shutil.rmtree(tempdir)
+
+        try:
+            mlflow.pytorch.save_model(trainer.model, path=tempdir)
+            trainer.logger.experiment.log_artifact(
+                trainer.logger.run_id, local_path=tempdir, artifact_path="model"
+            )
+        finally:
+            shutil.rmtree(tempdir)
+
+        if trainer.checkpoint_callback.best_model_path:
+            trainer.logger.experiment.log_artifact(
+                trainer.logger.run_id,
+                local_path=trainer.checkpoint_callback.best_model_path,
+                artifact_path="restored_model_checkpoint",
+            )
 
     def on_test_end(self, trainer, pl_module):
         """
@@ -124,4 +140,35 @@ class __MLflowPLCallback(pl.Callback):
                 trainer.logger.run_id,
                 "stopped_epoch",
                 float(early_stop_obj.stopped_epoch),
+            )
+
+    def _early_stop_check(self, trainer):
+        """
+        Logs all early stopping metrics
+        """
+        if trainer.early_stop_callback.stopped_epoch != 0:
+
+            if hasattr(trainer.early_stop_callback, "stopped_epoch"):
+                trainer.logger.experiment.log_metric(
+                    trainer.logger.run_id,
+                    "Stopped_Epoch",
+                    trainer.early_stop_callback.stopped_epoch,
+                )
+            if hasattr(trainer.early_stop_callback, "best_score"):
+                trainer.logger.experiment.log_metric(
+                    trainer.logger.run_id,
+                    "Best_Score",
+                    float(trainer.early_stop_callback.best_score),
+                )
+            if hasattr(trainer.early_stop_callback, "wait_count"):
+                trainer.logger.experiment.log_metric(
+                    trainer.logger.run_id,
+                    "Wait_Count",
+                    trainer.early_stop_callback.wait_count,
+                )
+            restored_epoch = trainer.early_stop_callback.stopped_epoch - max(
+                1, trainer.early_stop_callback.patience
+            )
+            trainer.logger.experiment.log_metric(
+                trainer.logger.run_id, "Restored_Epoch", restored_epoch
             )
