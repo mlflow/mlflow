@@ -1,5 +1,5 @@
 # pylint: disable=redefined-outer-name
-import os
+import posixpath
 
 from mock import MagicMock
 import pytest
@@ -196,7 +196,7 @@ def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
     repo.log_artifacts(subd.strpath, artifact_path)
 
     arg_expected = (
-        '/some/path' if artifact_path is None else os.path.join('/some/path', artifact_path)
+        '/some/path' if artifact_path is None else posixpath.join('/some/path', artifact_path)
     )
     ftp_mock.mkd.assert_any_call(arg_expected)
     ftp_mock.cwd.assert_any_call(arg_expected)
