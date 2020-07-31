@@ -32,3 +32,9 @@ table > .ant-table-thead > tr > th {
 .editable-table .ant-table-tbody > tr:hover:not(.ant-table-expanded-row) > td {
   background-color: #f5f5f5;
 }
+
+.editable-table .ant-table-body {
+/* !important to override antd table inline style of overflowY: scroll */
+  overflow-y: auto !important;
+  overflow-x: hidden;
+}

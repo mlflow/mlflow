@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 import subprocess
 
@@ -53,6 +54,10 @@ def _get_property_from_spark_context(key):
             return task_context.getLocalProperty(key)
     except Exception:  # pylint: disable=broad-except
         return None
+
+
+def is_databricks_default_tracking_uri(tracking_uri):
+    return tracking_uri.lower().strip() == "databricks"
 
 
 def is_in_databricks_notebook():
@@ -136,6 +141,28 @@ def get_webapp_url():
     if url is not None:
         return url
     return _get_extra_context("api_url")
+
+
+def get_workspace_info_from_dbutils():
+    dbutils = _get_dbutils()
+    if dbutils:
+        context = json.loads(
+            dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson())
+        workspace_host = context['extraContext']['api_url']
+        workspace_id = context['tags']['orgId']
+        return workspace_host, workspace_id
+    return None, None
+
+
+def get_workspace_info_from_databricks_secrets(tracking_uri):
+    profile, key_prefix = get_db_info_from_uri(tracking_uri)
+    if key_prefix:
+        dbutils = _get_dbutils()
+        if dbutils:
+            workspace_id = dbutils.secrets.get(scope=profile, key=key_prefix + "-workspace-id")
+            workspace_host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
+            return workspace_host, workspace_id
+    return None, None
 
 
 def _fail_malformed_databricks_auth(profile):

@@ -5,7 +5,7 @@ Tutorials and Examples
 
 Below, you can find a number of tutorials and examples for various MLflow use cases.
 
-* :doc:`Train, Serve, and Score an Image-Classification Model <tutorial>`
+* :doc:`Train, Serve, and Score a Linear Regression Model <tutorial>`
 * `Hyperparameter Tuning <https://github.com/mlflow/mlflow/tree/master/examples/hyperparam>`_
 * `Orchestrating Multistep Workflows <https://github.com/mlflow/mlflow/tree/master/examples/multistep_workflow>`_
 * `Using the MLflow REST API Directly <https://github.com/mlflow/mlflow/tree/master/examples/rest_api>`_

@@ -75,7 +75,7 @@ export class ModelVersionPageImpl extends React.Component {
           : this.getModelVersionDetailsRequestId,
       )
       .then(({ value }) => {
-        if (value) {
+        if (value && !value[getProtoField('model_version')].run_link) {
           this.props.getRunApi(value[getProtoField('model_version')].run_id, this.getRunRequestId);
         }
       });
@@ -178,7 +178,10 @@ export class ModelVersionPageImpl extends React.Component {
 const mapStateToProps = (state, ownProps) => {
   const { modelName, version } = ownProps.match.params;
   const modelVersion = getModelVersion(state, modelName, version);
-  const runInfo = getRunInfo(modelVersion && modelVersion.run_id, state);
+  let runInfo = null;
+  if (modelVersion && !modelVersion.run_link) {
+    runInfo = getRunInfo(modelVersion && modelVersion.run_id, state);
+  }
   const tags = runInfo && getRunTags(runInfo.getRunUuid(), state);
   const runDisplayName = tags && Utils.getRunDisplayName(tags, runInfo.getRunUuid());
   const { apis } = state;
