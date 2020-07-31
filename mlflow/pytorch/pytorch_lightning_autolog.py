@@ -97,7 +97,7 @@ class __MLflowPLCallback(pl.Callback):
         finally:
             shutil.rmtree(tempdir)
 
-        if trainer.checkpoint_callback.best_model_path:
+        if trainer.early_stop_callback and trainer.checkpoint_callback.best_model_path:
             trainer.logger.experiment.log_artifact(
                 trainer.logger.run_id,
                 local_path=trainer.checkpoint_callback.best_model_path,
