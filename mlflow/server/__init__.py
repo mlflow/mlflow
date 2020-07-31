@@ -46,7 +46,7 @@ def serve_artifacts():
 
 
 # Serve the "get-model-version-artifact" route.
-@app.route(_add_static_prefix('/get-model-version-artifact'))
+@app.route(_add_static_prefix('/model-versions/get-artifact'))
 def serve_model_version_artifact():
     return get_model_version_artifact_handler()
 
