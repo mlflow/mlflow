@@ -22,7 +22,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
 from mlflow.utils.uri import extract_and_normalize_path, \
     get_databricks_profile_uri_from_artifact_uri, is_databricks_acled_artifacts_uri, \
-    remove_databricks_profile_info_from_artifact_uri
+    is_valid_dbfs_uri, remove_databricks_profile_info_from_artifact_uri
 
 _logger = logging.getLogger(__name__)
 _PATH_PREFIX = "/api/2.0"
@@ -47,20 +47,21 @@ class DatabricksArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        if not artifact_uri.startswith('dbfs:/'):
-            raise MlflowException(message='DatabricksArtifactRepository URI must start with dbfs:/',
+        if not is_valid_dbfs_uri(artifact_uri):
+            raise MlflowException(message="DBFS URI must be of the form dbfs:/<path> or " +
+                                  "dbfs://profile@databricks/<path>",
                                   error_code=INVALID_PARAMETER_VALUE)
         if not is_databricks_acled_artifacts_uri(artifact_uri):
             raise MlflowException(message=('Artifact URI incorrect. Expected path prefix to be'
                                            ' databricks/mlflow-tracking/path/to/artifact/..'),
                                   error_code=INVALID_PARAMETER_VALUE)
         # The dbfs:/ path ultimately used for artifact operations should not contain the
-        # Databricks profile info.
-        artifact_uri_no_db_profile = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
-        super(DatabricksArtifactRepository, self).__init__(artifact_uri_no_db_profile)
+        # Databricks profile info, so strip it before setting ``artifact_uri``.
+        super(DatabricksArtifactRepository, self).__init__(
+            remove_databricks_profile_info_from_artifact_uri(artifact_uri))
+
         self.databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri) \
             or mlflow.tracking.get_tracking_uri()
-
         self.run_id = self._extract_run_id(self.artifact_uri)
         # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
         # the path of `artifact_uri` relative to the MLflow Run's artifact root

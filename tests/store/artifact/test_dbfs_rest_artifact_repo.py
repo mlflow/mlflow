@@ -80,6 +80,8 @@ class TestDbfsArtifactRepository(object):
             assert repo.artifact_uri == 'dbfs:/test'
             with pytest.raises(MlflowException):
                 DbfsRestArtifactRepository('s3://test')
+            with pytest.raises(MlflowException):
+                DbfsRestArtifactRepository('dbfs://profile@notdatabricks/test/')
 
     def test_init_get_host_creds_with_databricks_profile_uri(self):
         databricks_host = 'https://something.databricks.com'

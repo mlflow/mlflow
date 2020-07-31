@@ -4,6 +4,7 @@ import posixpath
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
@@ -33,12 +34,15 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        if not artifact_uri.startswith('dbfs:/'):
-            raise MlflowException('DbfsArtifactRepository URI must start with dbfs:/')
+        if not is_valid_dbfs_uri(artifact_uri):
+            raise MlflowException(message="DBFS URI must be of the form dbfs:/<path> or " +
+                                          "dbfs://profile@databricks/<path>",
+                                  error_code=INVALID_PARAMETER_VALUE)
+
         # The dbfs:/ path ultimately used for artifact operations should not contain the
-        # Databricks profile info.
-        artifact_uri_no_db_profile = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
-        super(DbfsRestArtifactRepository, self).__init__(artifact_uri_no_db_profile)
+        # Databricks profile info, so strip it before setting ``artifact_uri``.
+        super(DbfsRestArtifactRepository, self).__init__(
+            remove_databricks_profile_info_from_artifact_uri(artifact_uri))
 
         databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri)
         if databricks_profile_uri:

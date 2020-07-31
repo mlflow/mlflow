@@ -93,14 +93,14 @@ def _upload_artifacts_to_databricks(source, run_id, source_host_uri=None,
     :return: The DBFS location in the target Databricks workspace the model files have been
         uploaded to.
     """
-    import uuid
+    from uuid import uuid1
     local_dir = tempfile.mkdtemp()
     try:
         source_with_profile = add_databricks_profile_info_to_artifact_uri(source, source_host_uri)
         _download_artifact_from_uri(source_with_profile, local_dir)
         dest_root = 'dbfs:/databricks/mlflow/tmp-external-source/'
         dest_repo = DbfsRestArtifactRepository(dest_root, target_databricks_profile_uri)
-        dest_dir = run_id if run_id else str(uuid.uuid1())
+        dest_dir = run_id if run_id else str(uuid1())
         dest_repo.log_artifacts(local_dir, artifact_path=dest_dir)
         return dest_root + dest_dir  # new source
     finally:

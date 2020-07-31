@@ -78,6 +78,9 @@ class TestDatabricksArtifactRepository(object):
                 DatabricksArtifactRepository('s3://test')
             with pytest.raises(MlflowException):
                 DatabricksArtifactRepository('dbfs:/databricks/mlflow/EXP/RUN/artifact')
+            with pytest.raises(MlflowException):
+                DatabricksArtifactRepository(
+                    'dbfs://scope:key@notdatabricks/databricks/mlflow-tracking/experiment/1/run/2')
 
     @pytest.mark.parametrize("artifact_uri, expected_uri, expected_db_uri", [
         ('dbfs:/databricks/mlflow-tracking/experiment/1/run/2',

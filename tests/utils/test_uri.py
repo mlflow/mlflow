@@ -369,6 +369,7 @@ def test_add_databricks_profile_info_to_artifact_uri_errors(artifact_uri, profil
     ('dbfs://profile@databricks/a/b', True),
     ('dbfs://scope:key@databricks/a/b', True),
     ('dbfs://profile@notdatabricks/a/b', False),
+    ('dbfs://scope:key@notdatabricks/a/b', False),
     ('dbfs://scope:key/a/b', False),
     ('dbfs://notdatabricks/a/b', False),
     ('s3:/path/a/b', False),
