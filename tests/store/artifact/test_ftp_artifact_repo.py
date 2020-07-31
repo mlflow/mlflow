@@ -1,6 +1,4 @@
 # pylint: disable=redefined-outer-name
-import posixpath
-
 from mock import MagicMock
 import pytest
 import posixpath
