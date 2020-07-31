@@ -16,6 +16,12 @@ import ParallelCoordinatesPlotPanel from '../../experiment-tracking/components/P
 import { modelListPageRoute, getModelPageRoute, getModelVersionPageRoute } from '../routes';
 import { css } from 'emotion';
 import _ from 'lodash';
+import {
+  getModelVersionSchemaInputsByIndex,
+  getModelVersionSchemaInputsByName,
+  getModelVersionSchemaOutputsByIndex,
+  getModelVersionSchemaOutputsByName,
+} from '../reducers';
 
 const { TabPane } = Tabs;
 
@@ -36,6 +42,10 @@ export class CompareModelVersionsView extends Component {
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     modelName: PropTypes.string.isRequired,
     versionsToRuns: PropTypes.object.isRequired,
+    inputsListByName: PropTypes.arrayOf(Array).isRequired,
+    inputsListByIndex: PropTypes.arrayOf(Array).isRequired,
+    outputsListByName: PropTypes.arrayOf(Array).isRequired,
+    outputsListByIndex: PropTypes.arrayOf(Array).isRequired,
   };
 
   state = {
@@ -43,11 +53,16 @@ export class CompareModelVersionsView extends Component {
     outputActive: true,
     paramsToggle: true,
     paramsActive: true,
+    schemaToggle: true,
+    compareByColumnNameToggle: false,
+    schemaActive: true,
     metricToggle: true,
     metricActive: true,
   };
 
   icons = {
+    plusIcon: <i className='far fa-plus-square' />,
+    minusIcon: <i className='far fa-minus-square' />,
     downIcon: <i className='fas fa-caret-down' />,
     rightIcon: <i className='fas fa-caret-right' />,
     chartIcon: <i className='fas fa-chart-line padding-left-text' />,
@@ -60,7 +75,15 @@ export class CompareModelVersionsView extends Component {
   };
 
   render() {
-    const { runInfos, runUuids, runDisplayNames } = this.props;
+    const {
+      inputsListByIndex,
+      inputsListByName,
+      outputsListByIndex,
+      outputsListByName,
+      runInfos,
+      runUuids,
+      runDisplayNames,
+    } = this.props;
 
     return (
       <div
@@ -75,6 +98,25 @@ export class CompareModelVersionsView extends Component {
             {this.renderModelVersionInfo()}
             {this.renderSectionHeader('paramsActive', 'paramsToggle', 'Parameters')}
             {this.renderParams()}
+            {this.renderSectionHeader(
+              'schemaActive',
+              'schemaToggle',
+              'Schema',
+              false,
+              <Switch
+                size='small'
+                className='toggle-switch'
+                style={{ marginLeft: 'auto' }}
+                onChange={() => this.onToggleClick('compareByColumnNameToggle')}
+              />,
+              <div className='padding-left-text padding-right-text black-text'>
+                <span>Ignore column ordering</span>
+              </div>,
+            )}
+            {this.renderSchemaSectionHeader('inputActive', 'Inputs')}
+            {this.renderSchema('inputActive', 'inputs', inputsListByIndex, inputsListByName)}
+            {this.renderSchemaSectionHeader('outputActive', 'Outputs')}
+            {this.renderSchema('outputActive', 'outputs', outputsListByIndex, outputsListByName)}
             {this.renderSectionHeader('metricActive', 'metricToggle', 'Metrics')}
             {this.renderMetrics()}
           </table>
@@ -249,6 +291,67 @@ export class CompareModelVersionsView extends Component {
     );
   }
 
+  renderSchemaSectionHeader(activeSection, sectionName) {
+    const { runInfos } = this.props;
+    const { schemaActive } = this.state;
+    const isActive = this.state[activeSection];
+    const { minusIcon, plusIcon } = this.icons;
+    return (
+      <tbody>
+        {
+          <tr className={`${schemaActive ? '' : 'hidden-row'}`}>
+            <th
+              scope='rowgroup'
+              className='schema-table-header block-content'
+              colSpan={runInfos.length + 1}
+            >
+              <button
+                className='schema-collapse-button'
+                onClick={() => this.onToggleClick(activeSection)}
+              >
+                {isActive ? minusIcon : plusIcon}
+                <strong className='black-text' style={{ paddingLeft: 4 }}>
+                  {sectionName}
+                </strong>
+              </button>
+            </th>
+          </tr>
+        }
+      </tbody>
+    );
+  }
+
+  renderSchema(activeSection, sectionName, listByIndex, listByName) {
+    const { schemaActive, compareByColumnNameToggle, schemaToggle } = this.state;
+    const isActive = this.state[activeSection];
+    const showSchemaSection = schemaActive && isActive;
+    const showListByIndex = !compareByColumnNameToggle && !_.isEmpty(listByIndex);
+    const showListByName = compareByColumnNameToggle && !_.isEmpty(listByName);
+    const listByIndexHeaderMap = (key, data) => `${sectionName} [${key}]`;
+    const listByNameHeaderMap = (key, data) => key;
+    const schemaFormatter = (value) => value;
+    return (
+      <tbody className='scrollable-table schema-scrollable-table'>
+        {this.renderDataRows(
+          listByIndex,
+          `Schema ${sectionName}`,
+          showSchemaSection && showListByIndex,
+          schemaToggle,
+          listByIndexHeaderMap,
+          schemaFormatter,
+        )}
+        {this.renderDataRows(
+          listByName,
+          `Schema ${sectionName}`,
+          showSchemaSection && showListByName,
+          schemaToggle,
+          listByNameHeaderMap,
+          schemaFormatter,
+        )}
+      </tbody>
+    );
+  }
+
   renderMetrics() {
     const { runInfos, metricLists } = this.props;
     const { metricActive, metricToggle } = this.state;
@@ -366,6 +469,10 @@ const mapStateToProps = (state, ownProps) => {
   const runDisplayNames = [];
   const runUuids = [];
   const { modelName, versionsToRuns } = ownProps;
+  const inputsListByName = [];
+  const inputsListByIndex = [];
+  const outputsListByName = [];
+  const outputsListByIndex = [];
   for (const modelVersion in versionsToRuns) {
     if (versionsToRuns && modelVersion in versionsToRuns) {
       const runUuid = versionsToRuns[modelVersion];
@@ -391,6 +498,18 @@ const mapStateToProps = (state, ownProps) => {
         paramLists.push([]);
         runNames.push('Invalid Run');
       }
+      inputsListByIndex.push(
+        Object.values(getModelVersionSchemaInputsByIndex(state, modelName, modelVersion)),
+      );
+      inputsListByName.push(
+        Object.values(getModelVersionSchemaInputsByName(state, modelName, modelVersion)),
+      );
+      outputsListByIndex.push(
+        Object.values(getModelVersionSchemaOutputsByIndex(state, modelName, modelVersion)),
+      );
+      outputsListByName.push(
+        Object.values(getModelVersionSchemaOutputsByName(state, modelName, modelVersion)),
+      );
     }
   }
 
@@ -403,6 +522,10 @@ const mapStateToProps = (state, ownProps) => {
     runDisplayNames,
     runUuids,
     modelName,
+    inputsListByName,
+    inputsListByIndex,
+    outputsListByName,
+    outputsListByIndex,
   };
 };
 
