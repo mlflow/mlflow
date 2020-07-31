@@ -87,9 +87,12 @@ def resolve_tags(tags=None):
 
     all_tags = {}
 
-    _run_context_provider_registry.run(
-        lambda x: all_tags.update(x.tags()), {}
+    context_tags_dicts = _run_context_provider_registry.run(
+        lambda x: x.tags(), {}
     )
+
+    for context_tags_dict in context_tags_dicts:
+        all_tags.update(context_tags_dict)
 
     if tags is not None:
         all_tags.update(tags)
