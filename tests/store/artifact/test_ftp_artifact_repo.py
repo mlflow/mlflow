@@ -195,12 +195,11 @@ def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
 
     repo.log_artifacts(subd.strpath, artifact_path)
 
-    if artifact_path is None:
-        ftp_mock.mkd.assert_any_call('/some/path')
-        ftp_mock.cwd.assert_any_call('/some/path')
-    else:
-        ftp_mock.mkd.assert_any_call(os.path.join('/some/path', artifact_path))
-        ftp_mock.cwd.assert_any_call(os.path.join('/some/path', artifact_path))
+    arg_expected = (
+        '/some/path' if artifact_path is None else os.path.join('/some/path', artifact_path)
+    )
+    ftp_mock.mkd.assert_any_call(arg_expected)
+    ftp_mock.cwd.assert_any_call(arg_expected)
 
     assert ftp_mock.storbinary.call_count == 3
     storbinary_call_args = sorted([ftp_mock.storbinary.call_args_list[i][0][0] for i in range(3)])
