@@ -1,4 +1,6 @@
 # pylint: disable=redefined-outer-name
+import os
+
 from mock import MagicMock
 import pytest
 import posixpath
@@ -62,6 +64,43 @@ def test_list_artifacts(ftp_mock):
     assert artifacts[0].is_dir is False
     assert artifacts[0].file_size == file_size
     assert artifacts[1].path == dir_path
+    assert artifacts[1].is_dir is True
+    assert artifacts[1].file_size is None
+
+
+def test_list_artifacts_with_absolute_path(ftp_mock):
+    artifact_root_path = "/experiment_id/run_id/"
+    repo = FTPArtifactRepository("ftp://test_ftp"+artifact_root_path)
+
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
+
+    # mocked file structure
+    #  |- file
+    #  |- model
+    #     |- model.pb
+
+    file_path = "/file"
+    file_name = os.path.basename(file_path)
+    dir_path = "/model"
+    dir_name = os.path.basename(dir_path)
+    file_size = 678
+    ftp_mock.cwd = MagicMock(side_effect=[None, ftplib.error_perm, None])
+    ftp_mock.nlst = MagicMock(return_value=[file_path, dir_path])
+
+    ftp_mock.size = MagicMock(return_value=file_size)
+
+    artifacts = repo.list_artifacts(path=None)
+
+    ftp_mock.nlst.assert_called_once_with(artifact_root_path)
+    ftp_mock.size.assert_called_once_with(artifact_root_path + file_name)
+
+    assert len(artifacts) == 2
+    assert artifacts[0].path == file_name
+    assert artifacts[0].is_dir is False
+    assert artifacts[0].file_size == file_size
+    assert artifacts[1].path == dir_name
     assert artifacts[1].is_dir is True
     assert artifacts[1].file_size is None
 
