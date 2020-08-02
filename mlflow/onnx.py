@@ -162,7 +162,7 @@ class _OnnxModelWrapper:
 
         self.rt = onnxruntime.InferenceSession(path)
         assert len(self.rt.get_inputs()) >= 1
-        self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
+        self.inputs = self.rt.get_inputs()
         self.output_names = [outp.name for outp in self.rt.get_outputs()]
 
     @staticmethod
@@ -170,15 +170,6 @@ class _OnnxModelWrapper:
         for input_name in column_names:
             if dataframe[input_name].values.dtype == np.float64:
                 dataframe[input_name] = dataframe[input_name].values.astype(np.float32)
-        return dataframe
-
-    @staticmethod
-    def _cast_(dataframe, inputs):
-        for (input_name, input_type) in inputs:
-            onnx_type = input_type.replace("tensor(", "").replace(")", "")
-            if onnx_type == "float":
-                onnx_type = "float32"
-            dataframe[input_name] = dataframe[input_name].values.astype(onnx_type)
         return dataframe
 
     @experimental
@@ -207,16 +198,25 @@ class _OnnxModelWrapper:
         number_inputs = len(self.inputs)
         number_columns = len(dataframe.columns)
         if number_inputs == number_columns:
-            dataframe = _OnnxModelWrapper._cast_(dataframe, self.inputs)
-            feed_dict = {name: dataframe[name].values for (name, type) in self.inputs}
+            column_data = {}
+            for inp in self.inputs:
+                values = np.stack(dataframe[inp.name].values)
+                expected_shape = [x or -1 for x in inp.shape]
+                values = values.reshape(expected_shape)
+                expected_type = inp.type.replace("tensor(", "").replace(")", "")
+                if expected_type == "float":
+                    expected_type = "float32"
+                values = values.astype(expected_type)
+                column_data[inp.name] = values
+            feed_dict = {inp.name: column_data[inp.name] for inp in self.inputs}
         elif number_inputs > 1 and number_inputs != number_columns:
             raise MlflowException(
                 "Invalid input to model: The number of columns in the dataframe is not equal to  the number of model inputs."
             )
         elif number_inputs == 1:
-            cols = dataframe.columns if self.inputs[0][1] == "tensor(float)" else []
+            cols = dataframe.columns if self.inputs[0].type == "tensor(float)" else []
             dataframe = _OnnxModelWrapper._cast_float64_to_float32(dataframe, cols)
-            feed_dict = {self.inputs[0][0]: dataframe.values}
+            feed_dict = {self.inputs[0].name: dataframe.values}
 
         predicted = self.rt.run(self.output_names, feed_dict)
 

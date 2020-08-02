@@ -177,18 +177,6 @@ def test_cast_float64_to_float32():
     assert df2["col1"].dtype == np.float32 and df2["col2"].dtype == np.bool
 
 
-@pytest.mark.large
-def test_cast_():
-    import mlflow.onnx
-
-    df = pd.DataFrame([[1, 2], [2.1, 3.2]], columns=["col1", "col2"])
-    df["col1"] = df["col1"].astype(np.int)
-    df["col2"] = df["col2"].astype(np.float64)
-    inputs = [("col1", "tensor(float)"), ("col2", "tensor(float)")]
-    df2 = mlflow.onnx._OnnxModelWrapper._cast_(df, inputs)
-    assert df2["col1"].dtype == np.float32 and df2["col2"].dtype == np.float32
-
-
 # TODO: Use the default conda environment once MLflow's Travis build supports the onnxruntime
 # library
 @pytest.mark.large
@@ -350,7 +338,6 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
         rtol=1e-05,
         atol=1e-05,
     )
-    print("shit")
     # with pytest.raises(RuntimeError):
     pyfunc_loaded.predict(data_multiple_inputs.astype("int32"))
 
