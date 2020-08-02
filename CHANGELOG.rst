@@ -1,5 +1,26 @@
 Changelog
 =========
+1.11..dev20200802 (2020-08-02)
+------------------------------
+MLflow 1.11..dev20200802 includes several major features and improvements:
+
+Features:
+
+- [UI] Add run-link and model-registry-tags features (#3187, @harupy)
+- [Multi-Workspace Registry] add client changes for populating registry lineage through run-link (#3164, @ankitmathur-db)
+- Update UI to support `archive-existing-versions` feature (#3134, @harupy)
+- [Multi-Workspace Registry] server-side changes for adding runlink to model version (#3128, @ankitmathur-db)
+
+Bug fixes and documentation updates:
+
+- [Issue #3170] PDF viewer doesn't render PDFs in MLflow 1.10 (#3172, @ankitmathur-db)
+- Fix order of parameters in AbstractBackend.run (#3115, @fhoering)
+- Fix order by parsing when name contains a space (#3118, @jdlesage)
+- Fix a bug for `_enforce_type` in pandas >= 1.0 (#3130, @harupy)
+- Added fastai autolog examle for FR-3126 (#3158, @dmatrix)
+
+Small bug fixes and doc updates (#3189, #3180, #3178, #3166, #3142, #2960, #3129, @harupy; #3133, @mlflow-automation; #3200, @zhidongqu-db; #3141, @AveshCSingh; #3020, @magnus-m; #3179, @smurching; #3124, @jdlesage; #3146, @ankitmathur-db; #3140, @andreakress)
+
 1.10.0 (2020-07-20)
 -------------------
 MLflow 1.10.0 includes several major features and improvements, in particular the release of
