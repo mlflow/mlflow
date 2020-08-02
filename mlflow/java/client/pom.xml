@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>1.9.2-SNAPSHOT</version>
+    <version>1.11-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
