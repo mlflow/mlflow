@@ -159,6 +159,17 @@ def _get_username(flask_request=request):
     return None
 
 
+def _send_artifact(artifact_repository, path):
+    filename = os.path.abspath(artifact_repository.download_artifacts(path))
+    extension = os.path.splitext(filename)[-1].replace(".", "")
+    # Always send artifacts as attachments to prevent the browser from displaying them on our web
+    # server's domain, which might enable XSS.
+    if extension in _TEXT_EXTENSIONS:
+        return send_file(filename, mimetype='text/plain', as_attachment=True)
+    else:
+        return send_file(filename, as_attachment=True)
+
+
 def catch_mlflow_exception(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -183,14 +194,7 @@ def get_artifact_handler():
     request_dict = parser.parse(query_string, normalized=True)
     run_id = request_dict.get('run_id') or request_dict.get('run_uuid')
     run = _get_tracking_store().get_run(run_id)
-    filename = os.path.abspath(_get_artifact_repo(run).download_artifacts(request_dict['path']))
-    extension = os.path.splitext(filename)[-1].replace(".", "")
-    # Always send artifacts as attachments to prevent the browser from displaying them on our web
-    # server's domain, which might enable XSS.
-    if extension in _TEXT_EXTENSIONS:
-        return send_file(filename, mimetype='text/plain', as_attachment=True)
-    else:
-        return send_file(filename, as_attachment=True)
+    return _send_artifact(_get_artifact_repo(run), request_dict['path'])
 
 
 def _not_implemented():
@@ -622,6 +626,16 @@ def _create_model_version():
         user_id=username)
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+def get_model_version_artifact_handler():
+    query_string = request.query_string.decode('utf-8')
+    request_dict = parser.parse(query_string, normalized=True)
+    name = request_dict.get('name')
+    version = request_dict.get('version')
+    artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
+    return _send_artifact(get_artifact_repository(artifact_uri), request_dict['path'])
 
 
 @catch_mlflow_exception
