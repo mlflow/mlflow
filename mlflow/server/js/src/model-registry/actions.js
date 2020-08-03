@@ -1,6 +1,8 @@
 import { Services } from './services';
 import { getUUID, wrapDeferred } from '../common/utils/ActionUtils';
+import { getArtifactContent } from '../common/utils/ArtifactUtils';
 import { REGISTERED_MODELS_PER_PAGE } from './constants';
+import YAML from 'yamljs';
 
 export const CREATE_REGISTERED_MODEL = 'CREATE_REGISTERED_MODEL';
 export const createRegisteredModelApi = (name, id = getUUID()) => ({
@@ -77,6 +79,38 @@ export const createModelVersionApi = (name, source, runId, id = getUUID()) => ({
   type: CREATE_MODEL_VERSION,
   payload: wrapDeferred(Services.createModelVersion, { name, source, run_id: runId }),
   meta: { id, name, runId },
+});
+
+export const GET_MODEL_VERSION_ARTIFACT = 'GET_MODEL_VERSION_ARTIFACT';
+export const getModelVersionArtifactApi = (modelName, version, id = getUUID()) => {
+  const baseUri = 'model-versions/get-artifact?path=MLmodel';
+  const uriEncodedModelName = `name=${encodeURIComponent(modelName)}`;
+  const uriEncodedModelVersion = `version=${encodeURIComponent(version)}`;
+  const artifactLocation = `${baseUri}&${uriEncodedModelName}&${uriEncodedModelVersion}`;
+  return {
+    type: GET_MODEL_VERSION_ARTIFACT,
+    payload: getArtifactContent(artifactLocation),
+    meta: { id, modelName, version },
+  };
+};
+
+// pass `null` to the `parseMlModelFile` API when we failed to fetch the
+// file from DBFS. This will ensure requestId is registered in redux `apis` state
+export const PARSE_MLMODEL_FILE = 'PARSE_MLMODEL_FILE';
+export const parseMlModelFile = (modelName, version, mlModelFile, id = getUUID()) => ({
+  type: PARSE_MLMODEL_FILE,
+  payload: mlModelFile ? Promise.resolve(YAML.parse(mlModelFile)) : Promise.reject(),
+  meta: { id, modelName, version },
+});
+
+export const GET_MODEL_VERSION_ACTIVITIES = 'GET_MODEL_VERSION_ACTIVITIES';
+export const getModelVersionActivitiesApi = (modelName, version, id = getUUID()) => ({
+  type: GET_MODEL_VERSION_ACTIVITIES,
+  payload: wrapDeferred(Services.getModelVersionActivities, {
+    name: modelName,
+    version: version,
+  }),
+  meta: { id, modelName, version },
 });
 
 export const SEARCH_MODEL_VERSIONS = 'SEARCH_MODEL_VERSIONS';

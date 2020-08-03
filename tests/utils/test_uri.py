@@ -3,10 +3,13 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.utils.uri import is_databricks_uri, is_http_uri, is_local_uri, \
-    extract_db_type_from_uri, get_uri_scheme, append_to_uri_path, \
-    extract_and_normalize_path, is_databricks_acled_artifacts_uri, \
-    get_db_info_from_uri, construct_run_url
+from mlflow.utils.uri import (
+    add_databricks_profile_info_to_artifact_uri, append_to_uri_path, construct_run_url,
+    extract_and_normalize_path, extract_db_type_from_uri,
+    get_databricks_profile_uri_from_artifact_uri, get_db_info_from_uri, get_uri_scheme,
+    is_databricks_acled_artifacts_uri, is_databricks_uri, is_http_uri,
+    is_local_uri, is_valid_dbfs_uri, remove_databricks_profile_info_from_artifact_uri,
+)
 
 
 def test_extract_db_type_from_uri():
@@ -26,12 +29,12 @@ def test_extract_db_type_from_uri():
 
 @pytest.mark.parametrize("server_uri, result", [
     ('databricks://aAbB', ('aAbB', None)),
+    ('databricks://aAbB/', ('aAbB', None)),
     ('databricks://profile/prefix', ('profile', 'prefix')),
     ('nondatabricks://profile/prefix', (None, None)),
     ('databricks://profile', ('profile', None)),
     ('databricks://profile/', ('profile', None)),
     ('databricks://', ('', None)),
-    ('databricks://aAbB/', ('aAbB', None))
 ])
 def test_get_db_info_from_uri(server_uri, result):
     assert get_db_info_from_uri(server_uri) == result
@@ -257,3 +260,121 @@ def test_is_databricks_acled_artifacts_uri():
         'dbfs:databricks///mlflow-tracking//EXP_ID//RUN_ID///artifacts//')
     assert not is_databricks_acled_artifacts_uri(
         'dbfs:/databricks/mlflow//EXP_ID//RUN_ID///artifacts//')
+
+
+@pytest.mark.parametrize("uri, result", [
+    # URIs with no databricks profile info -> return None
+    ('ftp://user:pass@realhost:port/path/to/nowhere', None),
+    ('dbfs:/path/to/nowhere', None),
+    ('dbfs://nondatabricks/path/to/nowhere', None),
+    ('dbfs://incorrect:netloc:format/path/to/nowhere', None),
+    # URIs with legit databricks profile info
+    ('dbfs://databricks', 'databricks'),
+    ('dbfs://databricks/', 'databricks'),
+    ('dbfs://databricks/path/to/nowhere', 'databricks'),
+    ('dbfs://databricks:port/path/to/nowhere', 'databricks'),
+    ('dbfs://@databricks/path/to/nowhere', 'databricks'),
+    ('dbfs://@databricks:port/path/to/nowhere', 'databricks'),
+    ('dbfs://profile@databricks/path/to/nowhere', 'databricks://profile'),
+    ('dbfs://profile@databricks:port/path/to/nowhere', 'databricks://profile'),
+    ('dbfs://scope:key_prefix@databricks/path/abc', 'databricks://scope/key_prefix'),
+    ('dbfs://scope:key_prefix@databricks:port/path/abc', 'databricks://scope/key_prefix'),
+    # Treats secret key prefixes with ":" to be valid
+    ('dbfs://incorrect:netloc:format@databricks/path/a', 'databricks://incorrect/netloc:format'),
+    # Doesn't care about the scheme of the artifact URI
+    ('runs://scope:key_prefix@databricks/path/abc', 'databricks://scope/key_prefix'),
+    ('models://scope:key_prefix@databricks/path/abc', 'databricks://scope/key_prefix'),
+    ('s3://scope:key_prefix@databricks/path/abc', 'databricks://scope/key_prefix')
+])
+def test_get_databricks_profile_uri_from_artifact_uri(uri, result):
+    assert get_databricks_profile_uri_from_artifact_uri(uri) == result
+
+
+@pytest.mark.parametrize("uri, result", [
+    # URIs with no databricks profile info should stay the same
+    ('ftp://user:pass@realhost:port/path/nowhere', 'ftp://user:pass@realhost:port/path/nowhere'),
+    ('dbfs:/path/to/nowhere', 'dbfs:/path/to/nowhere'),
+    ('dbfs://nondatabricks/path/to/nowhere', 'dbfs://nondatabricks/path/to/nowhere'),
+    ('dbfs://incorrect:netloc:format/path/', 'dbfs://incorrect:netloc:format/path/'),
+    # URIs with legit databricks profile info
+    ('dbfs://databricks', 'dbfs:'),
+    ('dbfs://databricks/', 'dbfs:/'),
+    ('dbfs://databricks/path/to/nowhere', 'dbfs:/path/to/nowhere'),
+    ('dbfs://databricks:port/path/to/nowhere', 'dbfs:/path/to/nowhere'),
+    ('dbfs://@databricks/path/to/nowhere', 'dbfs:/path/to/nowhere'),
+    ('dbfs://@databricks:port/path/to/nowhere', 'dbfs:/path/to/nowhere'),
+    ('dbfs://profile@databricks/path/to/nowhere', 'dbfs:/path/to/nowhere'),
+    ('dbfs://profile@databricks:port/path/to/nowhere', 'dbfs:/path/to/nowhere'),
+    ('dbfs://scope:key_prefix@databricks/path/abc', 'dbfs:/path/abc'),
+    ('dbfs://scope:key_prefix@databricks:port/path/abc', 'dbfs:/path/abc'),
+    # Treats secret key prefixes with ":" to be valid
+    ('dbfs://incorrect:netloc:format@databricks/path/to/nowhere', 'dbfs:/path/to/nowhere'),
+    # Doesn't care about the scheme of the artifact URI
+    ('runs://scope:key_prefix@databricks/path/abc', 'runs:/path/abc'),
+    ('models://scope:key_prefix@databricks/path/abc', 'models:/path/abc'),
+    ('s3://scope:key_prefix@databricks/path/abc', 's3:/path/abc')
+])
+def test_remove_databricks_profile_info_from_artifact_uri(uri, result):
+    assert remove_databricks_profile_info_from_artifact_uri(uri) == result
+
+
+@pytest.mark.parametrize("artifact_uri, profile_uri, result", [
+    # test various profile URIs
+    ('dbfs:/path/a/b', 'databricks', 'dbfs://databricks/path/a/b'),
+    ('dbfs:/path/a/b/', 'databricks', 'dbfs://databricks/path/a/b/'),
+    ('dbfs:/path/a/b/', 'databricks://', 'dbfs://@databricks/path/a/b/'),
+    ('dbfs:/path/a/b/', 'databricks://Profile', 'dbfs://Profile@databricks/path/a/b/'),
+    ('dbfs:/path/a/b/', 'databricks://profile/', 'dbfs://profile@databricks/path/a/b/'),
+    ('dbfs:/path/a/b/', 'databricks://scope/key', 'dbfs://scope:key@databricks/path/a/b/'),
+    ('dbfs:/path/a/b/', 'nondatabricks://profile', 'dbfs:/path/a/b/'),
+    # test various artifact schemes
+    ('runs:/path/a/b/', 'databricks://Profile', 'runs://Profile@databricks/path/a/b/'),
+    ('runs:/path/a/b/', 'nondatabricks://profile', 'runs:/path/a/b/'),
+    ('models:/path/a/b/', 'databricks://profile', 'models://profile@databricks/path/a/b/'),
+    ('models:/path/a/b/', 'nondatabricks://Profile', 'models:/path/a/b/'),
+    ('s3:/path/a/b/', 'databricks://Profile', 's3:/path/a/b/'),
+    ('s3:/path/a/b/', 'nondatabricks://profile', 's3:/path/a/b/'),
+    ('ftp:/path/a/b/', 'databricks://profile', 'ftp:/path/a/b/'),
+    ('ftp:/path/a/b/', 'nondatabricks://Profile', 'ftp:/path/a/b/'),
+    # test artifact URIs already with authority
+    ('ftp://user:pass@host:port/a/b', 'databricks://Profile', 'ftp://user:pass@host:port/a/b'),
+    ('ftp://user:pass@host:port/a/b', 'nothing://Profile', 'ftp://user:pass@host:port/a/b'),
+    ('dbfs://databricks', 'databricks://OtherProfile', 'dbfs://databricks'),
+    ('dbfs://databricks', 'nondatabricks://Profile', 'dbfs://databricks'),
+    ('dbfs://databricks/path/a/b', 'databricks://OtherProfile', 'dbfs://databricks/path/a/b'),
+    ('dbfs://databricks/path/a/b', 'nondatabricks://Profile', 'dbfs://databricks/path/a/b'),
+    ('dbfs://@databricks/path/a/b', 'databricks://OtherProfile', 'dbfs://@databricks/path/a/b'),
+    ('dbfs://@databricks/path/a/b', 'nondatabricks://Profile', 'dbfs://@databricks/path/a/b'),
+    ('dbfs://profile@databricks/pp', 'databricks://OtherProfile', 'dbfs://profile@databricks/pp'),
+    ('dbfs://profile@databricks/path', 'databricks://profile', 'dbfs://profile@databricks/path'),
+    ('dbfs://profile@databricks/path', 'nondatabricks://Profile', 'dbfs://profile@databricks/path')
+])
+def test_add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri, result):
+    assert add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri) == result
+
+
+@pytest.mark.parametrize("artifact_uri, profile_uri", [
+    ('dbfs:/path/a/b', 'databricks://not:legit:auth'),
+    ('dbfs:/path/a/b/', 'databricks://scope/key/'),
+])
+def test_add_databricks_profile_info_to_artifact_uri_errors(artifact_uri, profile_uri):
+    with pytest.raises(MlflowException):
+        add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri)
+
+
+@pytest.mark.parametrize("uri, result", [
+    ('dbfs:/path/a/b', True),
+    ('dbfs://databricks/a/b', True),
+    ('dbfs://@databricks/a/b', True),
+    ('dbfs://profile@databricks/a/b', True),
+    ('dbfs://scope:key@databricks/a/b', True),
+    ('dbfs://profile@notdatabricks/a/b', False),
+    ('dbfs://scope:key@notdatabricks/a/b', False),
+    ('dbfs://scope:key/a/b', False),
+    ('dbfs://notdatabricks/a/b', False),
+    ('s3:/path/a/b', False),
+    ('ftp://user:pass@host:port/path/a/b', False),
+    ('ftp://user:pass@databricks/path/a/b', False),
+])
+def test_is_valid_dbfs_uri(uri, result):
+    assert is_valid_dbfs_uri(uri) == result

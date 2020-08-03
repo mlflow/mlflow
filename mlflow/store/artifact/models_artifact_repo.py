@@ -2,6 +2,8 @@ from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, \
+    get_databricks_profile_uri_from_artifact_uri
 
 
 class ModelsArtifactRepository(ArtifactRepository):
@@ -15,8 +17,8 @@ class ModelsArtifactRepository(ArtifactRepository):
 
     def __init__(self, artifact_uri):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-        uri = ModelsArtifactRepository.get_underlying_uri(artifact_uri)
         super(ModelsArtifactRepository, self).__init__(artifact_uri)
+        uri = ModelsArtifactRepository.get_underlying_uri(artifact_uri)
         # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
         #  we don't get a download URI here, or fail during the download itself.
         self.repo = get_artifact_repository(uri)
@@ -58,7 +60,8 @@ class ModelsArtifactRepository(ArtifactRepository):
         # Note: to support a registry URI that is different from the tracking URI here,
         # we'll need to add setting of registry URIs via environment variables.
         from mlflow.tracking import MlflowClient
-        client = MlflowClient()
+        databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(uri)
+        client = MlflowClient(registry_uri=databricks_profile_uri)
         (name, version, stage) = ModelsArtifactRepository._parse_uri(uri)
         if stage is not None:
             latest = client.get_latest_versions(name, [stage])
@@ -66,7 +69,8 @@ class ModelsArtifactRepository(ArtifactRepository):
                 raise MlflowException("No versions of model with name '{name}' and "
                                       "stage '{stage}' found".format(name=name, stage=stage))
             version = latest[0].version
-        return client.get_model_version_download_uri(name, version)
+        download_uri = client.get_model_version_download_uri(name, version)
+        return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
         """
