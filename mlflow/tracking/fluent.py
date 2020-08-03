@@ -421,8 +421,11 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     """
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
-    runs = _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
-                               order_by)
+
+    pagination_lambda = lambda number_to_get, next_page_token: MlflowClient().search_runs(
+        experiment_ids, filter_string, run_view_type, number_to_get, order_by, next_page_token)
+    runs = _paginate(pagination_lambda, NUM_RUNS_PER_PAGE_PANDAS, max_results)
+
     info = {'run_id': [], 'experiment_id': [],
             'status': [], 'artifact_uri': [],
             'start_time': [], 'end_time': []}
@@ -483,26 +486,6 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     return pd.DataFrame(data)
 
 
-def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
-                        order_by):
-    all_runs = []
-    next_page_token = None
-    while(len(all_runs) < max_results):
-        runs_to_get = max_results-len(all_runs)
-        if runs_to_get < NUM_RUNS_PER_PAGE_PANDAS:
-            runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
-                                              runs_to_get, order_by, next_page_token)
-        else:
-            runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
-                                              NUM_RUNS_PER_PAGE_PANDAS, order_by, next_page_token)
-        all_runs.extend(runs)
-        if hasattr(runs, 'token') and runs.token != '' and runs.token is not None:
-            next_page_token = runs.token
-        else:
-            break
-    return all_runs
-
-
 def list_run_infos(experiment_id, run_view_type=ViewType.ACTIVE_ONLY,
                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None):
     """
@@ -516,23 +499,39 @@ def list_run_infos(experiment_id, run_view_type=ViewType.ACTIVE_ONLY,
     :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
         search expressions.
     """
-    all_run_infos = []
+    pagination_lambda = lambda number_to_get, next_page_token : MlflowClient().list_run_infos(
+        experiment_id, run_view_type, number_to_get, order_by, next_page_token)
+    return _paginate(pagination_lambda, SEARCH_MAX_RESULTS_DEFAULT, max_results)
+
+
+def _paginate(paginated_fn, max_results_per_page, max_results):
+    """
+    Intended to be a general use pagination utility.
+
+    :param paginated_fn:
+    :type paginated_fn: This function is expected to take in the number of results to retrieve
+        per page and a pagination token, and return a PagedList object
+    :param max_results_per_page:
+    :type max_results_per_page: The maximum number of results to retrieve per page
+    :param max_results:
+    :type max_results: The maximum number of results to retrieve overall
+    :return:
+    :rtype:
+    """
+    all_results = []
     next_page_token = None
-    while(len(all_run_infos) < max_results):
-        infos_to_get = max_results - len(all_run_infos)
-        if infos_to_get < SEARCH_MAX_RESULTS_DEFAULT:
-            infos = MlflowClient().list_run_infos(experiment_id, run_view_type, infos_to_get,
-                                                  order_by, next_page_token)
+    while(len(all_results) < max_results):
+        num_to_get = max_results - len(all_results)
+        if num_to_get < max_results_per_page:
+            page_results = paginated_fn(num_to_get, next_page_token)
         else:
-            infos = MlflowClient().list_run_infos(experiment_id, run_view_type,
-                                                  SEARCH_MAX_RESULTS_DEFAULT, order_by,
-                                                  next_page_token)
-        all_run_infos.extend(infos)
-        if hasattr(infos, 'token') and infos.token != '' and infos.token is not None:
-            next_page_token = infos.token
+            page_results = paginated_fn(max_results_per_page, next_page_token)
+        all_results.extend(page_results)
+        if hasattr(page_results, 'token') and page_results.token:
+            next_page_token = page_results.token
         else:
             break
-    return all_run_infos
+    return all_results
 
 
 def _get_or_start_run():
