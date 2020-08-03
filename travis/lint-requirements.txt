@@ -5,3 +5,4 @@ pylint==1.8.2
 rstcheck==3.2
 # Pin isort version to prevent pylint from raising an error
 isort<5.0.0
+yapf==0.26.0
