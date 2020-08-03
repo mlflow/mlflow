@@ -573,7 +573,7 @@ def test_paginate_eq_maxresults_token():
     """
     Runs returned are equal to max_results which are equal to a full number of pages.
     The server might send a token back, or they might not (depending on if they know if
-    more runs exist). In this example, a toke IS sent back.
+    more runs exist). In this example, a token IS sent back.
     Expected behavior is to NOT query for more pages.
     """
     runs = [create_run() for _ in range(10)]
