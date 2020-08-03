@@ -4,7 +4,12 @@ import qs from 'qs';
 import { connect } from 'react-redux';
 import { getRunApi } from '../../experiment-tracking/actions';
 import { getUUID } from '../../common/utils/ActionUtils';
-import { getRegisteredModelApi, getModelVersionApi } from '../actions';
+import {
+  getRegisteredModelApi,
+  getModelVersionApi,
+  getModelVersionArtifactApi,
+  parseMlModelFile,
+} from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import CompareModelVersionsView from './CompareModelVersionsView';
 import _ from 'lodash';
@@ -17,11 +22,14 @@ class CompareModelVersionsPage extends Component {
     getRunApi: PropTypes.func.isRequired,
     getRegisteredModelApi: PropTypes.func.isRequired,
     getModelVersionApi: PropTypes.func.isRequired,
+    getModelVersionArtifactApi: PropTypes.func.isRequired,
+    parseMlModelFile: PropTypes.func.isRequired,
   };
 
   registeredModelRequestId = getUUID();
   versionRequestId = getUUID();
   runRequestId = getUUID();
+  getMlModelFileRequestId = getUUID();
 
   state = {
     requestIds: [
@@ -29,6 +37,7 @@ class CompareModelVersionsPage extends Component {
       this.registeredModelRequestId,
       this.runRequestId,
       this.versionRequestId,
+      this.getMlModelFileRequestId,
     ],
   };
 
@@ -58,6 +67,24 @@ class CompareModelVersionsPage extends Component {
         }
         const { modelName } = this.props;
         this.props.getModelVersionApi(modelName, modelVersion, this.versionRequestId);
+        this.props
+          .getModelVersionArtifactApi(modelName, modelVersion)
+          .then((content) =>
+            this.props.parseMlModelFile(
+              modelName,
+              modelVersion,
+              content.value,
+              this.getMlModelFileRequestId,
+            ),
+          )
+          .catch(() => {
+            // Failure of this call chain should not block the page. Here we remove
+            // `getMlModelFileRequestId` from `requestIds` to unblock RequestStateWrapper
+            // from rendering its content
+            this.setState((prevState) => ({
+              requestIds: _.without(prevState.requestIds, this.getMlModelFileRequestId),
+            }));
+          });
       }
     }
   }
@@ -88,6 +115,8 @@ const mapDispatchToProps = {
   getRunApi,
   getRegisteredModelApi,
   getModelVersionApi,
+  getModelVersionArtifactApi,
+  parseMlModelFile,
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(CompareModelVersionsPage);
