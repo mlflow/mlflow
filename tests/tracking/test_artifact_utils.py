@@ -1,4 +1,7 @@
+import mock
 import os
+import pytest
+from requests.models import Response
 
 import mlflow
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -45,3 +48,17 @@ def test_download_artifact_from_absolute_uri_persists_data_to_specified_output_d
     with open(os.path.join(
             artifact_output_path, logged_artifact_subdir, artifact_file_name), "r") as f:
         assert f.read() == artifact_text
+
+
+@pytest.mark.parametrize("artifact_path", [
+    "http://some.file/path1",
+    "https://some.file/path2",
+])
+def test_download_http_file_artifact_is_called_if_scheme_is_http(artifact_path, tmpdir):
+    mock_response = Response()
+    mock_response.status_code = 200
+    mock_response._content = b'blah'
+    with mock.patch('requests.get') as request_mock:
+        request_mock.return_value = mock_response
+        _download_artifact_from_uri(artifact_path, tmpdir)
+        request_mock.assert_called_with(artifact_path)
