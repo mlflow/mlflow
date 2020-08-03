@@ -41,10 +41,15 @@ def gluon_random_data_run():
         model.add(Dense(10))
         model.initialize()
         model.hybridize()
-        trainer = Trainer(model.collect_params(), "adam",
-                          optimizer_params={"learning_rate": .001, "epsilon": 1e-07})
-        est = estimator.Estimator(net=model, loss=SoftmaxCrossEntropyLoss(),
-                                  metrics=Accuracy(), trainer=trainer)
+        trainer = Trainer(
+            model.collect_params(),
+            "adam",
+            optimizer_params={
+                "learning_rate": .001,
+                "epsilon": 1e-07
+            })
+        est = estimator.Estimator(
+            net=model, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -90,10 +95,13 @@ def test_autolog_ends_auto_created_run():
     model.initialize()
     model.hybridize()
 
-    trainer = Trainer(model.collect_params(), "adam",
-                      optimizer_params={"learning_rate": .001, "epsilon": 1e-07})
-    est = estimator.Estimator(net=model, loss=SoftmaxCrossEntropyLoss(),
-                              metrics=Accuracy(), trainer=trainer)
+    trainer = Trainer(
+        model.collect_params(), "adam", optimizer_params={
+            "learning_rate": .001,
+            "epsilon": 1e-07
+        })
+    est = estimator.Estimator(
+        net=model, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -116,10 +124,15 @@ def test_autolog_persists_manually_created_run():
         model.add(Dense(10))
         model.initialize()
         model.hybridize()
-        trainer = Trainer(model.collect_params(), "adam",
-                          optimizer_params={"learning_rate": .001, "epsilon": 1e-07})
-        est = estimator.Estimator(net=model, loss=SoftmaxCrossEntropyLoss(),
-                                  metrics=Accuracy(), trainer=trainer)
+        trainer = Trainer(
+            model.collect_params(),
+            "adam",
+            optimizer_params={
+                "learning_rate": .001,
+                "epsilon": 1e-07
+            })
+        est = estimator.Estimator(
+            net=model, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

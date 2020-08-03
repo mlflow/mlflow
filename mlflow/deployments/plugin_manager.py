@@ -83,8 +83,7 @@ class DeploymentPlugins(PluginManager):
             try:
                 plugin_obj = plugin_like.load()
             except (AttributeError, ImportError) as exc:
-                raise RuntimeError(
-                    'Failed to load the plugin "{}": {}'.format(item, str(exc)))
+                raise RuntimeError('Failed to load the plugin "{}": {}'.format(item, str(exc)))
             self.registry[item] = plugin_obj
         else:
             plugin_obj = plugin_like
@@ -100,11 +99,12 @@ class DeploymentPlugins(PluginManager):
                     not obj == BaseDeploymentClient:
                 deployment_classes.append(name)
         if len(expected) > 0:
-            raise MlflowException("Plugin registered for the target {} does not has all "
-                                  "the required interfaces. Raise an issue with the "
-                                  "plugin developers.\n"
-                                  "Missing interfaces: {}".format(item, expected),
-                                  error_code=INTERNAL_ERROR)
+            raise MlflowException(
+                "Plugin registered for the target {} does not has all "
+                "the required interfaces. Raise an issue with the "
+                "plugin developers.\n"
+                "Missing interfaces: {}".format(item, expected),
+                error_code=INTERNAL_ERROR)
         if len(deployment_classes) > 1:
             raise MlflowException("Plugin registered for the target {} has more than one "
                                   "child class of BaseDeploymentClient. Raise an issue with"

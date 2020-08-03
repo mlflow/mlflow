@@ -38,8 +38,13 @@ def get_default_conda_env():
         additional_conda_channels=None)
 
 
-def save_model(h2o_model, path, conda_env=None, mlflow_model=None, settings=None,
-               signature: ModelSignature = None, input_example: ModelInputExample = None):
+def save_model(h2o_model,
+               path,
+               conda_env=None,
+               mlflow_model=None,
+               settings=None,
+               signature: ModelSignature = None,
+               input_example: ModelInputExample = None):
     """
     Save an H2O model to a path on the local file system.
 
@@ -123,14 +128,18 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=None, settings=None
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.h2o",
-                        data=model_data_subpath, env=conda_env_subpath)
+    pyfunc.add_to_model(
+        mlflow_model, loader_module="mlflow.h2o", data=model_data_subpath, env=conda_env_subpath)
     mlflow_model.add_flavor(FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=None,
-              signature: ModelSignature=None, input_example: ModelInputExample=None,
+def log_model(h2o_model,
+              artifact_path,
+              conda_env=None,
+              registered_model_name=None,
+              signature: ModelSignature = None,
+              input_example: ModelInputExample = None,
               **kwargs):
     """
     Log an H2O model as an MLflow artifact for the current run.
@@ -181,11 +190,15 @@ def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=No
 
     :param kwargs: kwargs to pass to ``h2o.save_model`` method.
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,
-              registered_model_name=registered_model_name,
-              h2o_model=h2o_model, conda_env=conda_env,
-              signature=signature, input_example=input_example,
-              **kwargs)
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.h2o,
+        registered_model_name=registered_model_name,
+        h2o_model=h2o_model,
+        conda_env=conda_env,
+        signature=signature,
+        input_example=input_example,
+        **kwargs)
 
 
 def _load_model(path, init=False):

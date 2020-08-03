@@ -42,8 +42,7 @@ def _get_expected_table_info_row(path, data_format, version=None):
 
 
 @pytest.mark.large
-def test_autologging_of_datasources_with_different_formats(
-        spark_session, format_to_file_path):
+def test_autologging_of_datasources_with_different_formats(spark_session, format_to_file_path):
     mlflow.spark.autolog()
     for data_format, file_path in format_to_file_path.items():
         base_df = spark_session.read.format(data_format).option("header", "true").\
@@ -52,13 +51,12 @@ def test_autologging_of_datasources_with_different_formats(
         table_df0 = spark_session.table("temptable")
         table_df1 = spark_session.sql("SELECT number1, number2 from temptable LIMIT 5")
         dfs = [
-            base_df,
-            table_df0,
-            table_df1,
+            base_df, table_df0, table_df1,
             base_df.filter("number1 > 0"),
             base_df.select("number1"),
             base_df.limit(2),
-            base_df.filter("number1 > 0").select("number1").limit(2)]
+            base_df.filter("number1 > 0").select("number1").limit(2)
+        ]
 
         for df in dfs:
             with mlflow.start_run():
@@ -70,13 +68,14 @@ def test_autologging_of_datasources_with_different_formats(
 
 
 @pytest.mark.large
-def test_autologging_does_not_throw_on_api_failures(
-        spark_session, format_to_file_path, mlflow_client):
+def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_file_path,
+                                                    mlflow_client):
     # pylint: disable=unused-argument
     mlflow.spark.autolog()
 
     def failing_req_mock(*args, **kwargs):
         raise Exception("API request failed!")
+
     with mlflow.start_run():
         with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
             http_request_mock.side_effect = failing_req_mock
@@ -92,8 +91,7 @@ def test_autologging_does_not_throw_on_api_failures(
 
 
 @pytest.mark.large
-def test_autologging_dedups_multiple_reads_of_same_datasource(
-        spark_session, format_to_file_path):
+def test_autologging_dedups_multiple_reads_of_same_datasource(spark_session, format_to_file_path):
     mlflow.spark.autolog()
     data_format = list(format_to_file_path.keys())[0]
     file_path = format_to_file_path[data_format]
@@ -194,7 +192,6 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
 
 
 @pytest.mark.large
-def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(
-        spark_session):
+def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(spark_session):
     spark_session.stop()
     mlflow.spark.autolog()

@@ -13,7 +13,10 @@ from mlflow.projects import ExecutionException
 from mlflow.projects.backend.local import _get_docker_command
 from mlflow.store.tracking import file_store
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND, MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID,
+    MLFLOW_PROJECT_ENV,
+    MLFLOW_PROJECT_BACKEND,
+    MLFLOW_DOCKER_IMAGE_URI,
+    MLFLOW_DOCKER_IMAGE_ID,
 )
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
@@ -29,13 +32,13 @@ def _build_uri(base_uri, subdirectory):
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 @pytest.mark.large
-def test_docker_project_execution(
-        use_start_run,
-        tmpdir, docker_example_base_image):  # pylint: disable=unused-argument
+def test_docker_project_execution(use_start_run, tmpdir, docker_example_base_image):  # pylint: disable=unused-argument
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
-        TEST_DOCKER_PROJECT_DIR, experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
-        parameters=expected_params, entry_point="test_tracking")
+        TEST_DOCKER_PROJECT_DIR,
+        experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
+        parameters=expected_params,
+        entry_point="test_tracking")
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
@@ -65,16 +68,16 @@ def test_docker_project_execution(
     assert len(artifacts) == 1
 
 
-@pytest.mark.parametrize("tracking_uri, expected_command_segment", [
-    (None, "-e MLFLOW_TRACKING_URI=/mlflow/tmp/mlruns"),
-    ("http://some-tracking-uri", "-e MLFLOW_TRACKING_URI=http://some-tracking-uri"),
-    ("databricks://some-profile", "-e MLFLOW_TRACKING_URI=databricks ")
-])
+@pytest.mark.parametrize(
+    "tracking_uri, expected_command_segment",
+    [(None, "-e MLFLOW_TRACKING_URI=/mlflow/tmp/mlruns"),
+     ("http://some-tracking-uri", "-e MLFLOW_TRACKING_URI=http://some-tracking-uri"),
+     ("databricks://some-profile", "-e MLFLOW_TRACKING_URI=databricks ")])
 @mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
 @pytest.mark.large
-def test_docker_project_tracking_uri_propagation(
-        ProfileConfigProvider, tmpdir, tracking_uri,
-        expected_command_segment, docker_example_base_image):  # pylint: disable=unused-argument
+def test_docker_project_tracking_uri_propagation(ProfileConfigProvider, tmpdir, tracking_uri,
+                                                 expected_command_segment,
+                                                 docker_example_base_image):  # pylint: disable=unused-argument
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = \
         DatabricksConfig("host", "user", "pass", None, insecure=True)
@@ -129,14 +132,14 @@ def test_docker_invalid_project_backend_local():
         mlflow.projects.docker.validate_docker_env(project)
 
 
-@pytest.mark.parametrize("artifact_uri, host_artifact_uri, container_artifact_uri, should_mount", [
-    ("/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
-    ("s3://my_bucket", None, None, False),
-    ("file:///tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
-    ("./mlruns", os.path.abspath("./mlruns"), "/mlflow/projects/code/mlruns", True)
-])
-def test_docker_mount_local_artifact_uri(artifact_uri, host_artifact_uri,
-                                         container_artifact_uri, should_mount):
+@pytest.mark.parametrize(
+    "artifact_uri, host_artifact_uri, container_artifact_uri, should_mount",
+    [("/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
+     ("s3://my_bucket", None, None, False),
+     ("file:///tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
+     ("./mlruns", os.path.abspath("./mlruns"), "/mlflow/projects/code/mlruns", True)])
+def test_docker_mount_local_artifact_uri(artifact_uri, host_artifact_uri, container_artifact_uri,
+                                         should_mount):
     active_run = mock.MagicMock()
     run_info = mock.MagicMock()
     run_info.run_id = "fake_run_id"
@@ -161,32 +164,36 @@ def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
 
     cmds, envs = \
         mlflow.projects.docker.get_docker_tracking_cmd_and_envs("databricks://some-profile")
-    assert envs == {"DATABRICKS_HOST": "host",
-                    "DATABRICKS_USERNAME": "user",
-                    "DATABRICKS_PASSWORD": "pass",
-                    "DATABRICKS_INSECURE": "True",
-                    mlflow.tracking._TRACKING_URI_ENV_VAR: "databricks"}
+    assert envs == {
+        "DATABRICKS_HOST": "host",
+        "DATABRICKS_USERNAME": "user",
+        "DATABRICKS_PASSWORD": "pass",
+        "DATABRICKS_INSECURE": "True",
+        mlflow.tracking._TRACKING_URI_ENV_VAR: "databricks"
+    }
     assert cmds == []
 
 
-@pytest.mark.parametrize("volumes, environment, os_environ, expected", [
-    ([], ["VAR1"], {"VAR1": "value1"}, [("-e", "VAR1=value1")]),
-    ([], ["VAR1"], {}, ["should_crash", ("-e", "VAR1=value1")]),
-    ([], ["VAR1"], {"OTHER_VAR": "value1"}, ["should_crash", ("-e", "VAR1=value1")]),
-    (
-        [], ["VAR1", ["VAR2", "value2"]], {"VAR1": "value1"},
-        [("-e", "VAR1=value1"), ("-e", "VAR2=value2")]
-    ),
-    ([], [["VAR2", "value2"]], {"VAR1": "value1"}, [("-e", "VAR2=value2")]),
-    (
-        ["/path:/path"], ["VAR1"], {"VAR1": "value1"},
-        [("-e", "VAR1=value1"), ("-v", "/path:/path")]
-    ),
-    (
-        ["/path:/path"], [["VAR2", "value2"]], {"VAR1": "value1"},
-        [("-e", "VAR2=value2"), ("-v", "/path:/path")]
-    )
-])
+@pytest.mark.parametrize("volumes, environment, os_environ, expected",
+                         [([], ["VAR1"], {
+                             "VAR1": "value1"
+                         }, [("-e", "VAR1=value1")]),
+                          ([], ["VAR1"], {}, ["should_crash", ("-e", "VAR1=value1")]),
+                          ([], ["VAR1"], {
+                              "OTHER_VAR": "value1"
+                          }, ["should_crash", ("-e", "VAR1=value1")]),
+                          ([], ["VAR1", ["VAR2", "value2"]], {
+                              "VAR1": "value1"
+                          }, [("-e", "VAR1=value1"), ("-e", "VAR2=value2")]),
+                          ([], [["VAR2", "value2"]], {
+                              "VAR1": "value1"
+                          }, [("-e", "VAR2=value2")]),
+                          (["/path:/path"], ["VAR1"], {
+                              "VAR1": "value1"
+                          }, [("-e", "VAR1=value1"), ("-v", "/path:/path")]),
+                          (["/path:/path"], [["VAR2", "value2"]], {
+                              "VAR1": "value1"
+                          }, [("-e", "VAR2=value2"), ("-v", "/path:/path")])])
 def test_docker_user_specified_env_vars(volumes, environment, expected, os_environ):
     active_run = mock.MagicMock()
     run_info = mock.MagicMock()
@@ -210,9 +217,7 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
             assert docker_command[docker_command.index(expected) - 1] == exp_type
 
 
-@pytest.mark.parametrize("docker_args", [
-    {}, {"ARG": "VAL"}, {"ARG1": "VAL1", "ARG2": "VAL2"}
-])
+@pytest.mark.parametrize("docker_args", [{}, {"ARG": "VAL"}, {"ARG1": "VAL1", "ARG2": "VAL2"}])
 def test_docker_run_args(docker_args):
     active_run = mock.MagicMock()
     run_info = mock.MagicMock()

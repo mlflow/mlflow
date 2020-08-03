@@ -35,8 +35,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
             account_url = "https://{account}.blob.core.windows.net".format(account=account)
             self.client = BlobServiceClient(
-                account_url=account_url,
-                credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY"))
+                account_url=account_url, credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY"))
         else:
             raise Exception("You need to set one of AZURE_STORAGE_CONNECTION_STRING or "
                             "AZURE_STORAGE_ACCESS_KEY to access Azure storage.")
@@ -63,8 +62,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         container_client = self.client.get_container_client(container)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        dest_path = posixpath.join(
-                dest_path, os.path.basename(local_file))
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         with open(local_file, "rb") as file:
             container_client.upload_blob(dest_path, file)
 
@@ -101,7 +99,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                     "The name of the listed Azure blob does not begin with the specified"
                     " artifact path. Artifact path: {artifact_path}. Blob name:"
                     " {blob_name}".format(artifact_path=artifact_path, blob_name=r.name))
-            if isinstance(r, BlobPrefix):   # This is a prefix for items in a subdirectory
+            if isinstance(r, BlobPrefix):  # This is a prefix for items in a subdirectory
                 subdir = posixpath.relpath(path=r.name, start=artifact_path)
                 if subdir.endswith("/"):
                     subdir = subdir[:-1]
@@ -111,7 +109,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                 infos.append(FileInfo(file_name, False, r.size))
         # The list_artifacts API expects us to return an empty list if the
         # the path references a single file.
-        rel_path = dest_path[len(artifact_path)+1:]
+        rel_path = dest_path[len(artifact_path) + 1:]
         if (len(infos) == 1) and not infos[0].is_dir and (infos[0].path == rel_path):
             return []
         return sorted(infos, key=lambda f: f.path)

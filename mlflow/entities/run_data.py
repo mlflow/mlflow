@@ -10,6 +10,7 @@ class RunData(_MLflowObject):
     """
     Run data (metrics and parameters).
     """
+
     def __init__(self, metrics=None, params=None, tags=None):
         """
         Construct a new :py:class:`mlflow.entities.RunData` instance.

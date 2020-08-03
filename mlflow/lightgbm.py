@@ -39,7 +39,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
-
 FLAVOR_NAME = "lightgbm"
 
 _logger = logging.getLogger(__name__)
@@ -61,8 +60,12 @@ def get_default_conda_env():
         additional_conda_channels=None)
 
 
-def save_model(lgb_model, path, conda_env=None, mlflow_model=None,
-               signature: ModelSignature = None, input_example: ModelInputExample = None):
+def save_model(lgb_model,
+               path,
+               conda_env=None,
+               mlflow_model=None,
+               signature: ModelSignature = None,
+               input_example: ModelInputExample = None):
     """
     Save a LightGBM model to a path on the local file system.
 
@@ -136,14 +139,21 @@ def save_model(lgb_model, path, conda_env=None, mlflow_model=None,
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.lightgbm",
-                        data=model_data_subpath, env=conda_env_subpath)
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.lightgbm",
+        data=model_data_subpath,
+        env=conda_env_subpath)
     mlflow_model.add_flavor(FLAVOR_NAME, lgb_version=lgb.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-def log_model(lgb_model, artifact_path, conda_env=None, registered_model_name=None,
-              signature: ModelSignature=None, input_example: ModelInputExample=None,
+def log_model(lgb_model,
+              artifact_path,
+              conda_env=None,
+              registered_model_name=None,
+              signature: ModelSignature = None,
+              input_example: ModelInputExample = None,
               **kwargs):
     """
     Log a LightGBM model as an MLflow artifact for the current run.
@@ -194,11 +204,15 @@ def log_model(lgb_model, artifact_path, conda_env=None, registered_model_name=No
 
     :param kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.lightgbm,
-              registered_model_name=registered_model_name,
-              lgb_model=lgb_model, conda_env=conda_env,
-              signature=signature, input_example=input_example,
-              **kwargs)
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.lightgbm,
+        registered_model_name=registered_model_name,
+        lgb_model=lgb_model,
+        conda_env=conda_env,
+        signature=signature,
+        input_example=input_example,
+        **kwargs)
 
 
 def _load_model(path):
@@ -264,11 +278,11 @@ def autolog():
 
     @gorilla.patch(lightgbm)
     def train(*args, **kwargs):
-
         def record_eval_results(eval_results):
             """
             Create a callback function that records evaluation results.
             """
+
             def callback(env):
                 res = {}
                 for data_name, eval_name, value, _ in env.evaluation_result_list:
@@ -276,6 +290,7 @@ def autolog():
                     res[key] = value
 
                 eval_results.append(res)
+
             return callback
 
         def log_feature_importance_plot(features, importance, importance_type):
@@ -326,8 +341,10 @@ def autolog():
         params = args[0] if len(args) > 0 else kwargs['params']
         try_mlflow_log(mlflow.log_params, params)
 
-        unlogged_params = ['params', 'train_set', 'valid_sets', 'valid_names', 'fobj', 'feval',
-                           'init_model', 'evals_result', 'learning_rates', 'callbacks']
+        unlogged_params = [
+            'params', 'train_set', 'valid_sets', 'valid_names', 'fobj', 'feval', 'init_model',
+            'evals_result', 'learning_rates', 'callbacks'
+        ]
 
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
@@ -365,8 +382,8 @@ def autolog():
             # best_iteration is set even if training does not stop early.
             try_mlflow_log(mlflow.log_metric, 'best_iteration', model.best_iteration)
             # iteration starts from 1 in LightGBM.
-            try_mlflow_log(mlflow.log_metrics, eval_results[model.best_iteration - 1],
-                           step=extra_step)
+            try_mlflow_log(
+                mlflow.log_metrics, eval_results[model.best_iteration - 1], step=extra_step)
 
         # logging feature importance as artifacts.
         for imp_type in ['split', 'gain']:

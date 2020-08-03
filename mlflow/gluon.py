@@ -90,8 +90,12 @@ def _load_pyfunc(path):
 
 
 @experimental
-def save_model(gluon_model, path, mlflow_model=None, conda_env=None,
-               signature: ModelSignature = None, input_example: ModelInputExample = None):
+def save_model(gluon_model,
+               path,
+               mlflow_model=None,
+               conda_env=None,
+               signature: ModelSignature = None,
+               input_example: ModelInputExample = None):
     """
     Save a Gluon model to a path on the local file system.
 
@@ -201,8 +205,12 @@ def get_default_conda_env():
 
 
 @experimental
-def log_model(gluon_model, artifact_path, conda_env=None, registered_model_name=None,
-              signature: ModelSignature=None, input_example: ModelInputExample=None):
+def log_model(gluon_model,
+              artifact_path,
+              conda_env=None,
+              registered_model_name=None,
+              signature: ModelSignature = None,
+              input_example: ModelInputExample = None):
     """
     Log a Gluon model as an MLflow artifact for the current run.
 
@@ -273,9 +281,14 @@ def log_model(gluon_model, artifact_path, conda_env=None, registered_model_name=
             est.fit(train_data=train_data, epochs=100, val_data=validation_data)
             mlflow.gluon.log_model(net, "model")
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.gluon, gluon_model=gluon_model,
-              conda_env=conda_env, registered_model_name=registered_model_name,
-              signature=signature, input_example=input_example)
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.gluon,
+        gluon_model=gluon_model,
+        conda_env=conda_env,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example)
 
 
 @experimental
@@ -311,11 +324,9 @@ def autolog():
             try_mlflow_log(mlflow.log_param, "optimizer_name",
                            type(estimator.trainer.optimizer).__name__)
             if hasattr(estimator.trainer.optimizer, "lr"):
-                try_mlflow_log(mlflow.log_param, "learning_rate",
-                               estimator.trainer.optimizer.lr)
+                try_mlflow_log(mlflow.log_param, "learning_rate", estimator.trainer.optimizer.lr)
             if hasattr(estimator.trainer.optimizer, "epsilon"):
-                try_mlflow_log(mlflow.log_param, "epsilon",
-                               estimator.trainer.optimizer.epsilon)
+                try_mlflow_log(mlflow.log_param, "epsilon", estimator.trainer.optimizer.epsilon)
 
         def train_end(self, estimator, *args, **kwargs):
             if isinstance(estimator.net, HybridSequential):

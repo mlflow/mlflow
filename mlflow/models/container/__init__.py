@@ -24,15 +24,11 @@ from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
 
-
 DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "MLFLOW_DEPLOYMENT_FLAVOR_NAME"
 
 DEFAULT_SAGEMAKER_SERVER_PORT = 8080
 
-SUPPORTED_FLAVORS = [
-    pyfunc.FLAVOR_NAME,
-    mleap.FLAVOR_NAME
-]
+SUPPORTED_FLAVORS = [pyfunc.FLAVOR_NAME, mleap.FLAVOR_NAME]
 
 DISABLE_NGINX = "DISABLE_NGINX"
 
@@ -48,8 +44,8 @@ def _init(cmd):
     elif cmd == 'train':
         _train()
     else:
-        raise Exception("Unrecognized command {cmd}, full args = {args}".format(cmd=cmd,
-                                                                                args=str(sys.argv)))
+        raise Exception("Unrecognized command {cmd}, full args = {args}".format(
+            cmd=cmd, args=str(sys.argv)))
 
 
 def _serve():
@@ -110,8 +106,8 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False):
         raise Exception("Failed to install serving dependencies into the model environment.")
     if has_env and install_mlflow:
         install_mlflow_cmd = [
-            "pip install /opt/mlflow/." if _container_includes_mlflow_source()
-            else "pip install mlflow=={}".format(MLFLOW_VERSION)
+            "pip install /opt/mlflow/." if _container_includes_mlflow_source() else
+            "pip install mlflow=={}".format(MLFLOW_VERSION)
         ]
         if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd)]).wait() != 0:
             raise Exception("Failed to install mlflow into the model environment.")
@@ -155,8 +151,10 @@ def _serve_pyfunc(model):
 
 
 def _serve_mleap():
-    serve_cmd = ["java", "-cp", "\"/opt/java/jars/*\"", "org.mlflow.sagemaker.ScoringServer",
-                 MODEL_PATH, str(DEFAULT_SAGEMAKER_SERVER_PORT)]
+    serve_cmd = [
+        "java", "-cp", "\"/opt/java/jars/*\"", "org.mlflow.sagemaker.ScoringServer", MODEL_PATH,
+        str(DEFAULT_SAGEMAKER_SERVER_PORT)
+    ]
     # Invoke `Popen` with a single string command in the shell to support wildcard usage
     # with the mlflow jar version.
     serve_cmd = " ".join(serve_cmd)

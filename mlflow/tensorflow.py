@@ -42,7 +42,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 from mlflow.entities import Metric
 
-
 FLAVOR_NAME = "tensorflow"
 
 _logger = logging.getLogger(__name__)
@@ -73,9 +72,14 @@ def get_default_conda_env():
 
 
 @keyword_only
-def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,
-              conda_env=None, signature: ModelSignature=None,
-              input_example: ModelInputExample=None, registered_model_name=None):
+def log_model(tf_saved_model_dir,
+              tf_meta_graph_tags,
+              tf_signature_def_key,
+              artifact_path,
+              conda_env=None,
+              signature: ModelSignature = None,
+              input_example: ModelInputExample = None,
+              registered_model_name=None):
     """
     Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
     for the current run. This method operates on TensorFlow variables and graphs that have been
@@ -143,18 +147,27 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
     """
-    return Model.log(artifact_path=artifact_path, flavor=mlflow.tensorflow,
-                     tf_saved_model_dir=tf_saved_model_dir, tf_meta_graph_tags=tf_meta_graph_tags,
-                     tf_signature_def_key=tf_signature_def_key, conda_env=conda_env,
-                     registered_model_name=registered_model_name,
-                     signature=signature,
-                     input_example=input_example)
+    return Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.tensorflow,
+        tf_saved_model_dir=tf_saved_model_dir,
+        tf_meta_graph_tags=tf_meta_graph_tags,
+        tf_signature_def_key=tf_signature_def_key,
+        conda_env=conda_env,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example)
 
 
 @keyword_only
-def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, path,
-               mlflow_model=None, conda_env=None,
-               signature: ModelSignature = None, input_example: ModelInputExample = None):
+def save_model(tf_saved_model_dir,
+               tf_meta_graph_tags,
+               tf_signature_def_key,
+               path,
+               mlflow_model=None,
+               conda_env=None,
+               signature: ModelSignature = None,
+               input_example: ModelInputExample = None):
     """
     Save a *serialized* collection of TensorFlow graphs and variables as an MLflow model
     to a local path. This method operates on TensorFlow variables and graphs that have been
@@ -213,9 +226,10 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
     _logger.info(
         "Validating the specified TensorFlow model by attempting to load it in a new TensorFlow"
         " graph...")
-    _validate_saved_model(tf_saved_model_dir=tf_saved_model_dir,
-                          tf_meta_graph_tags=tf_meta_graph_tags,
-                          tf_signature_def_key=tf_signature_def_key)
+    _validate_saved_model(
+        tf_saved_model_dir=tf_saved_model_dir,
+        tf_meta_graph_tags=tf_meta_graph_tags,
+        tf_signature_def_key=tf_signature_def_key)
     _logger.info("Validation succeeded!")
 
     if os.path.exists(path):
@@ -240,9 +254,11 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    mlflow_model.add_flavor(FLAVOR_NAME, saved_model_dir=model_dir_subpath,
-                            meta_graph_tags=tf_meta_graph_tags,
-                            signature_def_key=tf_signature_def_key)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        saved_model_dir=model_dir_subpath,
+        meta_graph_tags=tf_meta_graph_tags,
+        signature_def_key=tf_signature_def_key)
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -256,14 +272,16 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
         validation_tf_graph = tensorflow.Graph()
         validation_tf_sess = tensorflow.Session(graph=validation_tf_graph)
         with validation_tf_graph.as_default():
-            _load_tensorflow_saved_model(tf_saved_model_dir=tf_saved_model_dir,
-                                         tf_sess=validation_tf_sess,
-                                         tf_meta_graph_tags=tf_meta_graph_tags,
-                                         tf_signature_def_key=tf_signature_def_key)
+            _load_tensorflow_saved_model(
+                tf_saved_model_dir=tf_saved_model_dir,
+                tf_sess=validation_tf_sess,
+                tf_meta_graph_tags=tf_meta_graph_tags,
+                tf_signature_def_key=tf_signature_def_key)
     else:
-        _load_tensorflow_saved_model(tf_saved_model_dir=tf_saved_model_dir,
-                                     tf_meta_graph_tags=tf_meta_graph_tags,
-                                     tf_signature_def_key=tf_signature_def_key)
+        _load_tensorflow_saved_model(
+            tf_saved_model_dir=tf_saved_model_dir,
+            tf_meta_graph_tags=tf_meta_graph_tags,
+            tf_signature_def_key=tf_signature_def_key)
 
 
 def load_model(model_uri, tf_sess=None):
@@ -325,19 +343,23 @@ def load_model(model_uri, tf_sess=None):
 
     else:
         if tf_sess:
-            warnings.warn("A TensorFlow session was passed into load_model, but the " +
-                          "currently used version is TF 2.0 where sessions are deprecated. " +
-                          "The tf_sess argument will be ignored.", FutureWarning)
+            warnings.warn(
+                "A TensorFlow session was passed into load_model, but the " +
+                "currently used version is TF 2.0 where sessions are deprecated. " +
+                "The tf_sess argument will be ignored.", FutureWarning)
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key =\
         _get_and_parse_flavor_configuration(model_path=local_model_path)
-    return _load_tensorflow_saved_model(tf_saved_model_dir=tf_saved_model_dir,
-                                        tf_meta_graph_tags=tf_meta_graph_tags,
-                                        tf_signature_def_key=tf_signature_def_key,
-                                        tf_sess=tf_sess)
+    return _load_tensorflow_saved_model(
+        tf_saved_model_dir=tf_saved_model_dir,
+        tf_meta_graph_tags=tf_meta_graph_tags,
+        tf_signature_def_key=tf_signature_def_key,
+        tf_sess=tf_sess)
 
 
-def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key,
+def _load_tensorflow_saved_model(tf_saved_model_dir,
+                                 tf_meta_graph_tags,
+                                 tf_signature_def_key,
                                  tf_sess=None):
     """
     Load a specified TensorFlow model consisting of a TensorFlow metagraph and signature definition
@@ -365,18 +387,16 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_sign
     """
     if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
         loaded = tensorflow.saved_model.loader.load(
-            sess=tf_sess,
-            tags=tf_meta_graph_tags,
-            export_dir=tf_saved_model_dir)
+            sess=tf_sess, tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir)
         loaded_sig = loaded.signature_def
     else:
         loaded = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
-                tags=tf_meta_graph_tags,
-                export_dir=tf_saved_model_dir)
+            tags=tf_meta_graph_tags,
+            export_dir=tf_saved_model_dir)
         loaded_sig = loaded.signatures
     if tf_signature_def_key not in loaded_sig:
-        raise MlflowException("Could not find signature def key %s. Available keys are: %s"
-                              % (tf_signature_def_key, list(loaded_sig.keys())))
+        raise MlflowException("Could not find signature def key %s. Available keys are: %s" %
+                              (tf_signature_def_key, list(loaded_sig.keys())))
     return loaded_sig[tf_signature_def_key]
 
 
@@ -415,14 +435,16 @@ def _load_pyfunc(path):
         tf_sess = tensorflow.Session(graph=tf_graph)
         with tf_graph.as_default():
             signature_def = _load_tensorflow_saved_model(
-                tf_saved_model_dir=tf_saved_model_dir, tf_sess=tf_sess,
-                tf_meta_graph_tags=tf_meta_graph_tags, tf_signature_def_key=tf_signature_def_key)
+                tf_saved_model_dir=tf_saved_model_dir,
+                tf_sess=tf_sess,
+                tf_meta_graph_tags=tf_meta_graph_tags,
+                tf_signature_def_key=tf_signature_def_key)
 
         return _TFWrapper(tf_sess=tf_sess, tf_graph=tf_graph, signature_def=signature_def)
     else:
         loaded_model = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
-                                                   export_dir=tf_saved_model_dir,
-                                                   tags=tf_meta_graph_tags)
+            export_dir=tf_saved_model_dir,
+            tags=tf_meta_graph_tags)
         return _TF2Wrapper(infer=loaded_model.signatures[tf_signature_def_key])
 
 
@@ -431,6 +453,7 @@ class _TFWrapper(object):
     Wrapper class that exposes a TensorFlow model for inference via a ``predict`` function such that
     ``predict(data: pandas.DataFrame) -> pandas.DataFrame``. For TensorFlow versions < 2.0.0.
     """
+
     def __init__(self, tf_sess, tf_graph, signature_def):
         """
         :param tf_sess: The TensorFlow session used to evaluate the model.
@@ -461,8 +484,7 @@ class _TFWrapper(object):
                 for tensor_column_name in self.input_tensor_mapping.keys()
             }
             raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
-            pred_dict = {column_name: values.ravel() for
-                         column_name, values in raw_preds.items()}
+            pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
             return pandas.DataFrame(data=pred_dict)
 
 
@@ -471,6 +493,7 @@ class _TF2Wrapper(object):
     Wrapper class that exposes a TensorFlow model for inference via a ``predict`` function such that
     ``predict(data: pandas.DataFrame) -> pandas.DataFrame``. For TensorFlow versions >= 2.0.0.
     """
+
     def __init__(self, infer):
         """
         :param infer: Tensorflow function returned by a saved model that is used for inference.
@@ -489,9 +512,7 @@ class _TF2Wrapper(object):
                 val = val.values
             feed_dict[df_col_name] = tensorflow.constant(val)
         raw_preds = self.infer(**feed_dict)
-        pred_dict = {
-            col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()
-        }
+        pred_dict = {col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()}
         for col in pred_dict.keys():
             if all(len(element) == 1 for element in pred_dict[col]):
                 pred_dict[col] = pred_dict[col].ravel()
@@ -506,6 +527,7 @@ class __MLflowTfKerasCallback(Callback):
         Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
         Records model structural information as params after training finishes.
     """
+
     def __init__(self):
         pass
 
@@ -564,6 +586,7 @@ class __MLflowTfKeras2Callback(Callback):
         Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
         Records model structural information as params when training starts.
     """
+
     def __init__(self):
         pass
 
@@ -591,7 +614,7 @@ class __MLflowTfKeras2Callback(Callback):
             shutil.rmtree(tempdir)
 
     def on_epoch_end(self, epoch, logs=None):
-        if (epoch-1) % _LOG_EVERY_N_STEPS == 0:
+        if (epoch - 1) % _LOG_EVERY_N_STEPS == 0:
             try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
@@ -651,11 +674,14 @@ def _log_event(event):
         summary = event.summary
         for v in summary.value:
             if v.HasField('simple_value'):
-                if (event.step-1) % _LOG_EVERY_N_STEPS == 0:
-                    _thread_pool.submit(_add_to_queue, key=v.tag,
-                                        value=v.simple_value, step=event.step,
-                                        time=int(time.time() * 1000),
-                                        run_id=mlflow.active_run().info.run_id)
+                if (event.step - 1) % _LOG_EVERY_N_STEPS == 0:
+                    _thread_pool.submit(
+                        _add_to_queue,
+                        key=v.tag,
+                        value=v.simple_value,
+                        step=event.step,
+                        time=int(time.time() * 1000),
+                        run_id=mlflow.active_run().info.run_id)
 
 
 def _get_tensorboard_callback(lst):
@@ -809,10 +835,12 @@ def autolog(every_n_iter=100):
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_saved_model')
         serialized = original(self, *args, **kwargs)
-        try_mlflow_log(log_model, tf_saved_model_dir=serialized.decode('utf-8'),
-                       tf_meta_graph_tags=[tag_constants.SERVING],
-                       tf_signature_def_key='predict',
-                       artifact_path='model')
+        try_mlflow_log(
+            log_model,
+            tf_saved_model_dir=serialized.decode('utf-8'),
+            tf_meta_graph_tags=[tag_constants.SERVING],
+            tf_signature_def_key='predict',
+            artifact_path='model')
         if (mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID)\
                 or auto_end:
             try_mlflow_log(mlflow.end_run)
@@ -832,10 +860,12 @@ def autolog(every_n_iter=100):
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_savedmodel')
         serialized = original(self, *args, **kwargs)
-        try_mlflow_log(log_model, tf_saved_model_dir=serialized.decode('utf-8'),
-                       tf_meta_graph_tags=[tag_constants.SERVING],
-                       tf_signature_def_key='predict',
-                       artifact_path='model')
+        try_mlflow_log(
+            log_model,
+            tf_saved_model_dir=serialized.decode('utf-8'),
+            tf_meta_graph_tags=[tag_constants.SERVING],
+            tf_signature_def_key='predict',
+            artifact_path='model')
         if (mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID)\
                 or auto_end:
             try_mlflow_log(mlflow.end_run)
@@ -850,11 +880,13 @@ def autolog(every_n_iter=100):
     def _log_early_stop_callback_params(callback):
         if callback:
             try:
-                earlystopping_params = {'monitor': callback.monitor,
-                                        'min_delta': callback.min_delta,
-                                        'patience': callback.patience,
-                                        'baseline': callback.baseline,
-                                        'restore_best_weights': callback.restore_best_weights}
+                earlystopping_params = {
+                    'monitor': callback.monitor,
+                    'min_delta': callback.min_delta,
+                    'patience': callback.patience,
+                    'baseline': callback.baseline,
+                    'restore_best_weights': callback.restore_best_weights
+                }
                 try_mlflow_log(mlflow.log_params, earlystopping_params)
             except Exception:  # pylint: disable=W0703
                 return
@@ -876,8 +908,10 @@ def autolog(every_n_iter=100):
             if stopped_epoch != 0 and restore_best_weights:
                 restored_epoch = stopped_epoch - max(1, patience)
                 try_mlflow_log(mlflow.log_metric, 'restored_epoch', restored_epoch)
-                restored_metrics = {key: history.history[key][restored_epoch]
-                                    for key in history.history.keys()}
+                restored_metrics = {
+                    key: history.history[key][restored_epoch]
+                    for key in history.history.keys()
+                }
                 # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
                 if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
                     if 'loss' in restored_metrics:
@@ -973,12 +1007,18 @@ def autolog(every_n_iter=100):
         gorilla.Patch(tensorflow.estimator.Estimator, 'train', train, settings=settings),
         gorilla.Patch(tensorflow.keras.Model, 'fit', fit, settings=settings),
         gorilla.Patch(tensorflow.keras.Model, 'fit_generator', fit_generator, settings=settings),
-        gorilla.Patch(tensorflow.estimator.Estimator, 'export_saved_model',
-                      export_saved_model, settings=settings),
-        gorilla.Patch(tensorflow.estimator.Estimator, 'export_savedmodel',
-                      export_savedmodel, settings=settings),
+        gorilla.Patch(
+            tensorflow.estimator.Estimator,
+            'export_saved_model',
+            export_saved_model,
+            settings=settings),
+        gorilla.Patch(
+            tensorflow.estimator.Estimator,
+            'export_savedmodel',
+            export_savedmodel,
+            settings=settings),
         gorilla.Patch(FileWriter, 'add_summary', add_summary, settings=settings),
-        ]
+    ]
 
     for x in patches:
         gorilla.apply(x)

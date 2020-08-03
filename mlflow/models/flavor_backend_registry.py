@@ -10,11 +10,7 @@ import mlflow.pyfunc as pyfunc
 from mlflow.pyfunc.backend import PyFuncBackend
 from mlflow.rfunc.backend import RFuncBackend
 
-
-_flavor_backends = {
-    pyfunc.FLAVOR_NAME: PyFuncBackend,
-    "crate": RFuncBackend
-}
+_flavor_backends = {pyfunc.FLAVOR_NAME: PyFuncBackend, "crate": RFuncBackend}
 
 
 def get_flavor_backend(model, build_docker=True, **kwargs):

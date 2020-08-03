@@ -3,7 +3,6 @@ import os
 import re
 import tempfile
 
-
 from distutils import dir_util
 from six.moves import urllib
 
@@ -17,11 +16,17 @@ from mlflow.tracking.context.git_context import _get_git_commit
 from mlflow.tracking import fluent
 from mlflow.tracking.context.default_context import _get_user
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL,
-    MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME,
-    MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID,
+    MLFLOW_USER,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_GIT_COMMIT,
+    MLFLOW_GIT_REPO_URL,
+    MLFLOW_GIT_BRANCH,
+    LEGACY_MLFLOW_GIT_REPO_URL,
+    LEGACY_MLFLOW_GIT_BRANCH_NAME,
+    MLFLOW_PROJECT_ENTRY_POINT,
+    MLFLOW_PARENT_RUN_ID,
 )
-
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -34,7 +39,6 @@ PROJECT_USE_CONDA = "USE_CONDA"
 PROJECT_SYNCHRONOUS = "SYNCHRONOUS"
 PROJECT_DOCKER_ARGS = "DOCKER_ARGS"
 PROJECT_STORAGE_DIR = "STORAGE_DIR"
-
 
 _logger = logging.getLogger(__name__)
 
@@ -135,8 +139,8 @@ def _fetch_project(uri, version=None):
         if _is_file_uri(parsed_uri):
             parsed_file_uri = urllib.parse.urlparse(urllib.parse.unquote(parsed_uri))
             parsed_uri = os.path.join(parsed_file_uri.netloc, parsed_file_uri.path)
-        _unzip_repo(zip_file=(
-            parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
+        _unzip_repo(
+            zip_file=(parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
             dst_dir=dst_dir)
     elif _is_local_uri(uri):
         if version is not None:
@@ -250,8 +254,9 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
     entry_point_obj = project.get_entry_point(entry_point)
     final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
-    params_list = [Param(key, value) for key, value in
-                   list(final_params.items()) + list(extra_params.items())]
+    params_list = [
+        Param(key, value) for key, value in list(final_params.items()) + list(extra_params.items())
+    ]
     tracking.MlflowClient().log_batch(active_run.info.run_id, params=params_list)
     return active_run
 
@@ -268,8 +273,7 @@ def get_entry_point_command(project, entry_point, parameters, storage_dir):
     storage_dir_for_run = _get_storage_dir(storage_dir)
     _logger.info(
         "=== Created directory %s for downloading remote URIs passed to arguments of"
-        " type 'path' ===",
-        storage_dir_for_run)
+        " type 'path' ===", storage_dir_for_run)
     commands = []
     commands.append(
         project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))

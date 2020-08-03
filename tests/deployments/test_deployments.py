@@ -4,7 +4,6 @@ from mlflow import deployments
 from mlflow.deployments.plugin_manager import DeploymentPlugins
 from mlflow.exceptions import MlflowException
 
-
 f_model_uri = 'fake_model_uri'
 f_deployment_id = 'fake_deployment_name'
 f_flavor = 'fake_flavor'

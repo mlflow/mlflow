@@ -32,7 +32,9 @@ def pandas_df_with_all_types():
         "long": np.array([1, 2, 3], np.int64),
         "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
         "double": [math.pi, 2 * math.pi, 3 * math.pi],
-        "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
+        "binary": [bytearray([1, 2, 3]),
+                   bytearray([4, 5, 6]),
+                   bytearray([7, 8, 9])],
     })
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
     return pdf
@@ -174,8 +176,7 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
 
 
 @pytest.mark.large
-def test_scoring_server_successfully_evaluates_correct_split_to_numpy(
-        sklearn_model, model_path):
+def test_scoring_server_successfully_evaluates_correct_split_to_numpy(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
@@ -202,9 +203,11 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unsupporte
 @pytest.mark.large
 def test_parse_json_input_records_oriented():
     size = 20
-    data = {"col_m": [random_int(0, 1000) for _ in range(size)],
-            "col_z": [random_str(4) for _ in range(size)],
-            "col_a": [random_int() for _ in range(size)]}
+    data = {
+        "col_m": [random_int(0, 1000) for _ in range(size)],
+        "col_z": [random_str(4) for _ in range(size)],
+        "col_a": [random_int() for _ in range(size)]
+    }
     p1 = pd.DataFrame.from_dict(data)
     p2 = pyfunc_scoring_server.parse_json_input(p1.to_json(orient="records"), orient="records")
     # "records" orient may shuffle column ordering. Hence comparing each column Series
@@ -215,9 +218,11 @@ def test_parse_json_input_records_oriented():
 @pytest.mark.large
 def test_parse_json_input_split_oriented():
     size = 200
-    data = {"col_m": [random_int(0, 1000) for _ in range(size)],
-            "col_z": [random_str(4) for _ in range(size)],
-            "col_a": [random_int() for _ in range(size)]}
+    data = {
+        "col_m": [random_int(0, 1000) for _ in range(size)],
+        "col_z": [random_str(4) for _ in range(size)],
+        "col_a": [random_int() for _ in range(size)]
+    }
     p1 = pd.DataFrame.from_dict(data)
     p2 = pyfunc_scoring_server.parse_json_input(p1.to_json(orient="split"), orient="split")
     assert all(p1 == p2)
@@ -230,12 +235,10 @@ def test_parse_json_input_split_oriented_to_numpy_array():
                         ("col_z", [random_str(4) for _ in range(size)]),
                         ("col_a", [random_int() for _ in range(size)])])
     p0 = pd.DataFrame.from_dict(data)
-    np_array = np.array([[a, b, c] for a, b, c in
-                         zip(data['col_m'], data['col_z'], data['col_a'])],
+    np_array = np.array([[a, b, c] for a, b, c in zip(data['col_m'], data['col_z'], data['col_a'])],
                         dtype=object)
     p1 = pd.DataFrame(np_array).infer_objects()
-    p2 = pyfunc_scoring_server.parse_split_oriented_json_input_to_numpy(
-        p0.to_json(orient="split"))
+    p2 = pyfunc_scoring_server.parse_split_oriented_json_input_to_numpy(p0.to_json(orient="split"))
     np.testing.assert_array_equal(p1, p2)
 
 
@@ -274,11 +277,9 @@ def test_parse_with_schema(pandas_df_with_all_types):
     schema = Schema([ColSpec(c, c) for c in pandas_df_with_all_types.columns])
     df = _shuffle_pdf(pandas_df_with_all_types)
     json_str = json.dumps(df.to_dict(orient="split"), cls=NumpyEncoder)
-    df = pyfunc_scoring_server.parse_json_input(json_str,
-                                                orient="split", schema=schema)
+    df = pyfunc_scoring_server.parse_json_input(json_str, orient="split", schema=schema)
     json_str = json.dumps(df.to_dict(orient="records"), cls=NumpyEncoder)
-    df = pyfunc_scoring_server.parse_json_input(json_str,
-                                                orient="records", schema=schema)
+    df = pyfunc_scoring_server.parse_json_input(json_str, orient="records", schema=schema)
     assert schema == infer_signature(df[schema.column_names()]).inputs
 
     # The current behavior with pandas json parse with type hints is weird. In some cases, the
@@ -292,11 +293,14 @@ def test_parse_with_schema(pandas_df_with_all_types):
         [9007199254740994.0, 3.3,                3, "some arbitrary string"]
       ]
     }"""
-    schema = Schema([ColSpec("integer", "bad_integer"), ColSpec("float", "bad_float"),
-                     ColSpec("float", "good_float"), ColSpec("string", "bad_string"),
-                     ColSpec("boolean", "bad_boolean")])
-    df = pyfunc_scoring_server.parse_json_input(bad_df,
-                                                orient="split", schema=schema)
+    schema = Schema([
+        ColSpec("integer", "bad_integer"),
+        ColSpec("float", "bad_float"),
+        ColSpec("float", "good_float"),
+        ColSpec("string", "bad_string"),
+        ColSpec("boolean", "bad_boolean")
+    ])
+    df = pyfunc_scoring_server.parse_json_input(bad_df, orient="split", schema=schema)
     # Unfortunately, the current behavior of pandas parse is to force numbers to int32 even if
     # they don't fit:
     assert df["bad_integer"].dtype == np.int32
@@ -324,8 +328,8 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
     df = _shuffle_pdf(pandas_df_with_all_types)
     with TempDir(chdr=True):
         with mlflow.start_run() as run:
-            mlflow.pyfunc.log_model("model", python_model=TestModel(),
-                                    signature=ModelSignature(schema))
+            mlflow.pyfunc.log_model(
+                "model", python_model=TestModel(), signature=ModelSignature(schema))
         response = pyfunc_serve_and_score_model(
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(df.to_dict(orient="split"), cls=NumpyEncoder),

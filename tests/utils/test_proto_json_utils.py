@@ -46,19 +46,32 @@ def test_parse_legacy_experiment():
 
 
 def test_back_compat():
-    in_json = {"experiment_id": 123,
-               "name": "name",
-               "unknown": "field",
-               "experiment_ids": [1, 2, 3, 4, 5],
-               "things": {"experiment_id": 4,
-                          "more_things": {"experiment_id": 7, "experiment_ids": [2, 3, 4, 5]}}}
+    in_json = {
+        "experiment_id": 123,
+        "name": "name",
+        "unknown": "field",
+        "experiment_ids": [1, 2, 3, 4, 5],
+        "things": {
+            "experiment_id": 4,
+            "more_things": {
+                "experiment_id": 7,
+                "experiment_ids": [2, 3, 4, 5]
+            }
+        }
+    }
 
     _stringify_all_experiment_ids(in_json)
-    exp_json = {"experiment_id": "123",
-                "name": "name",
-                "unknown": "field",
-                "experiment_ids": ["1", "2", "3", "4", "5"],
-                "things": {"experiment_id": "4",
-                           "more_things": {"experiment_id": "7",
-                                           "experiment_ids": ["2", "3", "4", "5"]}}}
+    exp_json = {
+        "experiment_id": "123",
+        "name": "name",
+        "unknown": "field",
+        "experiment_ids": ["1", "2", "3", "4", "5"],
+        "things": {
+            "experiment_id": "4",
+            "more_things": {
+                "experiment_id": "7",
+                "experiment_ids": ["2", "3", "4", "5"]
+            }
+        }
+    }
     assert exp_json == in_json

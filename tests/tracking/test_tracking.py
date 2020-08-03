@@ -32,8 +32,7 @@ def test_create_experiment():
     with pytest.raises(Exception):
         mlflow.create_experiment("")
 
-    exp_id = mlflow.create_experiment(
-        "Some random experiment name %d" % random.randint(1, 1e6))
+    exp_id = mlflow.create_experiment("Some random experiment name %d" % random.randint(1, 1e6))
     assert exp_id is not None
 
 
@@ -109,6 +108,7 @@ def test_list_experiments():
         result = set([(exp.experiment_id, exp.lifecycle_stage)
                       for exp in client.list_experiments(view_type=view_type_arg)])
         assert result == set([(exp_id, stage) for exp_id, stage in ids_to_lifecycle_stage.items()])
+
     experiment_id = mlflow.create_experiment("exp_1")
     assert experiment_id == '1'
     client = tracking.MlflowClient()
@@ -123,10 +123,10 @@ def test_list_experiments():
 
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_set_experiment_with_zero_id(reset_mock):
-    reset_mock(MlflowClient, "get_experiment_by_name",
-               mock.Mock(return_value=attrdict.AttrDict(
-                   experiment_id=0,
-                   lifecycle_stage=LifecycleStage.ACTIVE)))
+    reset_mock(
+        MlflowClient, "get_experiment_by_name",
+        mock.Mock(
+            return_value=attrdict.AttrDict(experiment_id=0, lifecycle_stage=LifecycleStage.ACTIVE)))
     reset_mock(MlflowClient, "create_experiment", mock.Mock())
 
     mlflow.set_experiment("my_exp")
@@ -191,15 +191,17 @@ def test_log_batch():
 
     t = int(time.time())
     sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[0])
-    metrics = [Metric(key=key, value=value, timestamp=t, step=i)
-               for i, (key, value) in enumerate(sorted_expected_metrics)]
+    metrics = [
+        Metric(key=key, value=value, timestamp=t, step=i)
+        for i, (key, value) in enumerate(sorted_expected_metrics)
+    ]
     params = [Param(key=key, value=value) for key, value in expected_params.items()]
     tags = [RunTag(key=key, value=value) for key, value in exact_expected_tags.items()]
 
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        mlflow.tracking.MlflowClient().log_batch(run_id=run_id, metrics=metrics, params=params,
-                                                 tags=tags)
+        mlflow.tracking.MlflowClient().log_batch(
+            run_id=run_id, metrics=metrics, params=params, tags=tags)
     client = tracking.MlflowClient()
     finished_run = client.get_run(run_id)
     # Validate metrics
@@ -401,7 +403,10 @@ def test_log_batch_validates_entity_names_and_values():
         for kwarg, bad_values in bad_kwargs.items():
             for bad_kwarg_value in bad_values:
                 final_kwargs = {
-                    "run_id":  active_run.info.run_id, "metrics": [], "params": [], "tags": [],
+                    "run_id": active_run.info.run_id,
+                    "metrics": [],
+                    "params": [],
+                    "tags": [],
                 }
                 final_kwargs[kwarg] = bad_kwarg_value
                 with pytest.raises(MlflowException) as e:
@@ -577,8 +582,8 @@ def test_get_artifact_uri_uses_currently_active_run_id():
         "/dirname/rootpa#th?/{run_id}/artifacts/{path}",
     ),
 ])
-def test_get_artifact_uri_appends_to_uri_path_component_correctly(
-        artifact_location, expected_uri_format):
+def test_get_artifact_uri_appends_to_uri_path_component_correctly(artifact_location,
+                                                                  expected_uri_format):
     client = MlflowClient()
     client.create_experiment("get-artifact-uri-test", artifact_location=artifact_location)
     mlflow.set_experiment("get-artifact-uri-test")

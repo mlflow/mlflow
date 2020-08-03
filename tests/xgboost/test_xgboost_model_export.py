@@ -37,8 +37,9 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "in
 @pytest.fixture(scope="session")
 def xgb_model():
     iris = datasets.load_iris()
-    X = pd.DataFrame(iris.data[:, :2],  # we only take the first two features.
-                     columns=iris.feature_names[:2])
+    X = pd.DataFrame(
+        iris.data[:, :2],  # we only take the first two features.
+        columns=iris.feature_names[:2])
     y = iris.target
     dtrain = xgb.DMatrix(X, y)
     model = xgb.train({'objective': 'multi:softprob', 'num_class': 3}, dtrain)
@@ -53,9 +54,7 @@ def model_path(tmpdir):
 @pytest.fixture
 def xgb_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(
-        conda_env,
-        additional_pip_deps=["xgboost", "pytest"])
+    _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost", "pytest"])
     return conda_env
 
 
@@ -83,10 +82,8 @@ def test_signature_and_examples_are_saved_correctly(xgb_model):
         for example in (None, xgb_model.inference_dataframe.head(3)):
             with TempDir() as tmp:
                 path = tmp.path("model")
-                mlflow.xgboost.save_model(xgb_model=model,
-                                          path=path,
-                                          signature=signature,
-                                          input_example=example)
+                mlflow.xgboost.save_model(
+                    xgb_model=model, path=path, signature=signature, input_example=example)
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
                 if example is None:
@@ -127,12 +124,9 @@ def test_model_log(xgb_model, model_path):
                 _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
 
                 mlflow.xgboost.log_model(
-                    xgb_model=model,
-                    artifact_path=artifact_path,
-                    conda_env=conda_env)
+                    xgb_model=model, artifact_path=artifact_path, conda_env=conda_env)
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id,
-                    artifact_path=artifact_path)
+                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path)
 
                 reloaded_model = mlflow.xgboost.load_model(model_uri=model_uri)
                 np.testing.assert_array_almost_equal(
@@ -157,10 +151,13 @@ def test_log_model_calls_register_model(xgb_model):
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
-        mlflow.xgboost.log_model(xgb_model=xgb_model.model, artifact_path=artifact_path,
-                                 conda_env=conda_env, registered_model_name="AdsModel1")
-        model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
-                                                            artifact_path=artifact_path)
+        mlflow.xgboost.log_model(
+            xgb_model=xgb_model.model,
+            artifact_path=artifact_path,
+            conda_env=conda_env,
+            registered_model_name="AdsModel1")
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path)
         mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
 
 
@@ -170,16 +167,15 @@ def test_log_model_no_registered_model_name(xgb_model):
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
-        mlflow.xgboost.log_model(xgb_model=xgb_model.model, artifact_path=artifact_path,
-                                 conda_env=conda_env)
+        mlflow.xgboost.log_model(
+            xgb_model=xgb_model.model, artifact_path=artifact_path, conda_env=conda_env)
         mlflow.register_model.assert_not_called()
 
 
 @pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         xgb_model, model_path, xgb_custom_env):
-    mlflow.xgboost.save_model(
-        xgb_model=xgb_model.model, path=model_path, conda_env=xgb_custom_env)
+    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path, conda_env=xgb_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -197,8 +193,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 def test_model_save_accepts_conda_env_as_dict(xgb_model, model_path):
     conda_env = dict(mlflow.xgboost.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
-    mlflow.xgboost.save_model(
-        xgb_model=xgb_model.model, path=model_path, conda_env=conda_env)
+    mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -214,12 +209,10 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         xgb_model, xgb_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model=xgb_model.model,
-                                 artifact_path=artifact_path,
-                                 conda_env=xgb_custom_env)
+        mlflow.xgboost.log_model(
+            xgb_model=xgb_model.model, artifact_path=artifact_path, conda_env=xgb_custom_env)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id,
-            artifact_path=artifact_path)
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path)
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -252,11 +245,10 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         xgb_model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model=xgb_model.model, artifact_path=artifact_path,
-                                 conda_env=None)
+        mlflow.xgboost.log_model(
+            xgb_model=xgb_model.model, artifact_path=artifact_path, conda_env=None)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id,
-            artifact_path=artifact_path)
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path)
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)

@@ -141,8 +141,10 @@ def _get_git_url_if_present(uri):
     try:
         from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
     except ImportError as e:
-        print("Notice: failed to import Git (the git executable is probably not on your PATH),"
-              " so Git SHA is not available. Error: %s" % e, file=sys.stderr)
+        print(
+            "Notice: failed to import Git (the git executable is probably not on your PATH),"
+            " so Git SHA is not available. Error: %s" % e,
+            file=sys.stderr)
         return uri
     try:
         # Check whether this is part of a git repo

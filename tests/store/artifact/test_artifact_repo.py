@@ -8,7 +8,6 @@ from mlflow.utils.file_utils import TempDir
 
 
 class ArtifactRepositoryImpl(ArtifactRepository):
-
     def log_artifact(self, local_file, artifact_path=None):
         raise NotImplementedError()
 

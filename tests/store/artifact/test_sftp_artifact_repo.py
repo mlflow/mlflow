@@ -32,7 +32,7 @@ def test_list_artifacts_empty(sftp_mock):
 @pytest.mark.large
 def test_list_artifacts(sftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
-    repo = SFTPArtifactRepository("sftp://test_sftp"+artifact_root_path, sftp_mock)
+    repo = SFTPArtifactRepository("sftp://test_sftp" + artifact_root_path, sftp_mock)
 
     # mocked file structure
     #  |- file
@@ -42,7 +42,8 @@ def test_list_artifacts(sftp_mock):
     file_path = "file"
     file_size = 678
     dir_path = "model"
-    sftp_mock.isdir = MagicMock(side_effect=lambda path: {
+    sftp_mock.isdir = MagicMock(
+        side_effect=lambda path: {
             artifact_root_path: True,
             os.path.join(artifact_root_path, file_path): False,
             os.path.join(artifact_root_path, dir_path): True,
@@ -70,7 +71,7 @@ def test_list_artifacts(sftp_mock):
 @pytest.mark.large
 def test_list_artifacts_with_subdir(sftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
-    repo = SFTPArtifactRepository("sftp://test_sftp"+artifact_root_path, sftp_mock)
+    repo = SFTPArtifactRepository("sftp://test_sftp" + artifact_root_path, sftp_mock)
 
     # mocked file structure
     #  |- model
@@ -85,7 +86,8 @@ def test_list_artifacts_with_subdir(sftp_mock):
 
     sftp_mock.listdir = MagicMock(return_value=[file_path, subdir_name])
 
-    sftp_mock.isdir = MagicMock(side_effect=lambda path: {
+    sftp_mock.isdir = MagicMock(
+        side_effect=lambda path: {
             posixpath.join(artifact_root_path, dir_name): True,
             posixpath.join(artifact_root_path, dir_name, file_path): False,
             posixpath.join(artifact_root_path, dir_name, subdir_name): True,
@@ -121,10 +123,9 @@ def test_log_artifact():
             store = SFTPArtifactRepository(sftp_path)
             store.log_artifact(local.name, artifact_path)
 
-            remote_file = posixpath.join(
-                remote.path(),
-                '.' if artifact_path is None else artifact_path,
-                os.path.basename(local.name))
+            remote_file = posixpath.join(remote.path(),
+                                         '.' if artifact_path is None else artifact_path,
+                                         os.path.basename(local.name))
             assert posixpath.isfile(remote_file)
 
             with open(remote_file, 'r') as remote_content:
@@ -151,9 +152,8 @@ def test_log_artifacts():
             store = SFTPArtifactRepository(sftp_path)
             store.log_artifacts(local.path(), artifact_path)
 
-            remote_dir = posixpath.join(
-                remote.path(),
-                '.' if artifact_path is None else artifact_path)
+            remote_dir = posixpath.join(remote.path(),
+                                        '.' if artifact_path is None else artifact_path)
             assert posixpath.isdir(remote_dir)
             assert posixpath.isdir(posixpath.join(remote_dir, directory))
             assert posixpath.isfile(posixpath.join(remote_dir, file1))

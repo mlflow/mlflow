@@ -65,10 +65,10 @@ def _init_server(backend_uri, root_artifact_uri):
             tempfile.mkdtemp(dir=local_file_uri_to_path(root_artifact_uri))),
     }
     with mock.patch.dict(os.environ, env):
-        cmd = ["python",
-               "-c",
-               'from mlflow.server import app; app.run("{hostname}", {port})'.format(
-                   hostname=LOCALHOST, port=server_port)]
+        cmd = [
+            "python", "-c", 'from mlflow.server import app; app.run("{hostname}", {port})'.format(
+                hostname=LOCALHOST, port=server_port)
+        ]
         process = Popen(cmd)
 
     _await_server_up_or_die(server_port)

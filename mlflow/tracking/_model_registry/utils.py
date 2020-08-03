@@ -9,7 +9,6 @@ from mlflow.tracking._tracking_service.utils import _TRACKING_USERNAME_ENV_VAR, 
 from mlflow.utils import rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
-
 # NOTE: in contrast to tracking, we do not support the following ways to specify
 # the model registry URI:
 #  - via environment variables like MLFLOW_TRACKING_URI, MLFLOW_TRACKING_USERNAME, ...
@@ -80,6 +79,7 @@ def _get_rest_store(store_uri, **_):
             token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
             ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == 'true',
         )
+
     return RestStore(get_default_host_creds)
 
 

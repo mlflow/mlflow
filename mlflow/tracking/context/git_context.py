@@ -34,7 +34,6 @@ def _get_source_version():
 
 
 class GitRunContext(RunContextProvider):
-
     def __init__(self):
         self._cache = {}
 
@@ -48,6 +47,4 @@ class GitRunContext(RunContextProvider):
         return self._source_version is not None
 
     def tags(self):
-        return {
-            MLFLOW_GIT_COMMIT: self._source_version
-        }
+        return {MLFLOW_GIT_COMMIT: self._source_version}

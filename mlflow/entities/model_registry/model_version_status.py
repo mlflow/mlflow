@@ -6,8 +6,10 @@ class ModelVersionStatus(object):
     PENDING_REGISTRATION = ProtoModelVersionStatus.Value('PENDING_REGISTRATION')
     FAILED_REGISTRATION = ProtoModelVersionStatus.Value('FAILED_REGISTRATION')
     READY = ProtoModelVersionStatus.Value('READY')
-    _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k)
-                         for k in ProtoModelVersionStatus.keys()}
+    _STRING_TO_STATUS = {
+        k: ProtoModelVersionStatus.Value(k)
+        for k in ProtoModelVersionStatus.keys()
+    }
     _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
 
     @staticmethod
@@ -21,9 +23,9 @@ class ModelVersionStatus(object):
     @staticmethod
     def to_string(status):
         if status not in ModelVersionStatus._STATUS_TO_STRING:
-            raise Exception("Could not get string corresponding to model version status %s. Valid "
-                            "statuses: %s" % (status,
-                                              list(ModelVersionStatus._STATUS_TO_STRING.keys())))
+            raise Exception(
+                "Could not get string corresponding to model version status %s. Valid "
+                "statuses: %s" % (status, list(ModelVersionStatus._STATUS_TO_STRING.keys())))
         return ModelVersionStatus._STATUS_TO_STRING[status]
 
     @staticmethod

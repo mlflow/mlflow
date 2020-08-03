@@ -34,10 +34,8 @@ class RunContextProviderRegistry(object):
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
                     'Failure attempting to register context provider "{}": {}'.format(
-                        entrypoint.name, str(exc)
-                    ),
-                    stacklevel=2
-                )
+                        entrypoint.name, str(exc)),
+                    stacklevel=2)
 
     def __iter__(self):
         return iter(self._registry)

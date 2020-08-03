@@ -31,10 +31,7 @@ FLAVOR_NAME = "sklearn"
 SERIALIZATION_FORMAT_PICKLE = "pickle"
 SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
 
-SUPPORTED_SERIALIZATION_FORMATS = [
-    SERIALIZATION_FORMAT_PICKLE,
-    SERIALIZATION_FORMAT_CLOUDPICKLE
-]
+SUPPORTED_SERIALIZATION_FORMATS = [SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FORMAT_CLOUDPICKLE]
 
 _logger = logging.getLogger(__name__)
 
@@ -54,13 +51,16 @@ def get_default_conda_env(include_cloudpickle=False):
             "scikit-learn={}".format(sklearn.__version__),
         ],
         additional_pip_deps=pip_deps,
-        additional_conda_channels=None
-    )
+        additional_conda_channels=None)
 
 
-def save_model(sk_model, path, conda_env=None, mlflow_model=None,
+def save_model(sk_model,
+               path,
+               conda_env=None,
+               mlflow_model=None,
                serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
-               signature: ModelSignature = None, input_example: ModelInputExample = None):
+               signature: ModelSignature = None,
+               input_example: ModelInputExample = None):
     """
     Save a scikit-learn model to a path on the local file system.
 
@@ -138,16 +138,15 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=None,
     import sklearn
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
-                message=(
-                    "Unrecognized serialization format: {serialization_format}. Please specify one"
-                    " of the following supported formats: {supported_formats}.".format(
-                        serialization_format=serialization_format,
-                        supported_formats=SUPPORTED_SERIALIZATION_FORMATS)),
-                error_code=INVALID_PARAMETER_VALUE)
+            message=("Unrecognized serialization format: {serialization_format}. Please specify one"
+                     " of the following supported formats: {supported_formats}.".format(
+                         serialization_format=serialization_format,
+                         supported_formats=SUPPORTED_SERIALIZATION_FORMATS)),
+            error_code=INVALID_PARAMETER_VALUE)
 
     if os.path.exists(path):
-        raise MlflowException(message="Path '{}' already exists".format(path),
-                              error_code=RESOURCE_ALREADY_EXISTS)
+        raise MlflowException(
+            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS)
     os.makedirs(path)
     if mlflow_model is None:
         mlflow_model = Model()
@@ -157,8 +156,10 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=None,
         _save_example(mlflow_model, input_example, path)
 
     model_data_subpath = "model.pkl"
-    _save_model(sk_model=sk_model, output_path=os.path.join(path, model_data_subpath),
-                serialization_format=serialization_format)
+    _save_model(
+        sk_model=sk_model,
+        output_path=os.path.join(path, model_data_subpath),
+        serialization_format=serialization_format)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -170,18 +171,26 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=None,
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.sklearn",
-                        model_path=model_data_subpath, env=conda_env_subpath)
-    mlflow_model.add_flavor(FLAVOR_NAME,
-                            pickled_model=model_data_subpath,
-                            sklearn_version=sklearn.__version__,
-                            serialization_format=serialization_format)
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.sklearn",
+        model_path=model_data_subpath,
+        env=conda_env_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        pickled_model=model_data_subpath,
+        sklearn_version=sklearn.__version__,
+        serialization_format=serialization_format)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-def log_model(sk_model, artifact_path, conda_env=None,
-              serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE, registered_model_name=None,
-              signature: ModelSignature=None, input_example: ModelInputExample=None):
+def log_model(sk_model,
+              artifact_path,
+              conda_env=None,
+              serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+              registered_model_name=None,
+              signature: ModelSignature = None,
+              input_example: ModelInputExample = None):
     """
     Log a scikit-learn model as an MLflow artifact for the current run.
 
@@ -255,14 +264,15 @@ def log_model(sk_model, artifact_path, conda_env=None,
         # log model
         mlflow.sklearn.log_model(sk_model, "sk_models")
     """
-    return Model.log(artifact_path=artifact_path,
-                     flavor=mlflow.sklearn,
-                     sk_model=sk_model,
-                     conda_env=conda_env,
-                     serialization_format=serialization_format,
-                     registered_model_name=registered_model_name,
-                     signature=signature,
-                     input_example=input_example)
+    return Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.sklearn,
+        sk_model=sk_model,
+        conda_env=conda_env,
+        serialization_format=serialization_format,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example)
 
 
 def _load_model_from_local_file(path, serialization_format):
@@ -276,12 +286,11 @@ def _load_model_from_local_file(path, serialization_format):
     # TODO: we could validate the scikit-learn version here
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
-                message=(
-                    "Unrecognized serialization format: {serialization_format}. Please specify one"
-                    " of the following supported formats: {supported_formats}.".format(
-                        serialization_format=serialization_format,
-                        supported_formats=SUPPORTED_SERIALIZATION_FORMATS)),
-                error_code=INVALID_PARAMETER_VALUE)
+            message=("Unrecognized serialization format: {serialization_format}. Please specify one"
+                     " of the following supported formats: {supported_formats}.".format(
+                         serialization_format=serialization_format,
+                         supported_formats=SUPPORTED_SERIALIZATION_FORMATS)),
+            error_code=INVALID_PARAMETER_VALUE)
     with open(path, "rb") as f:
         # Models serialized with Cloudpickle cannot necessarily be deserialized using Pickle;
         # That's why we check the serialization format of the model before deserializing
@@ -315,8 +324,8 @@ def _load_pyfunc(path):
         try:
             sklearn_flavor_conf = _get_flavor_configuration(
                 model_path=path, flavor_name=FLAVOR_NAME)
-            serialization_format = sklearn_flavor_conf.get(
-                'serialization_format', SERIALIZATION_FORMAT_PICKLE)
+            serialization_format = sklearn_flavor_conf.get('serialization_format',
+                                                           SERIALIZATION_FORMAT_PICKLE)
         except MlflowException:
             _logger.warning(
                 "Could not find scikit-learn flavor configuration during model loading process."
@@ -327,9 +336,7 @@ def _load_pyfunc(path):
             model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
         path = os.path.join(path, pyfunc_flavor_conf['model_path'])
 
-    return _load_model_from_local_file(
-        path=path,
-        serialization_format=serialization_format)
+    return _load_model_from_local_file(path=path, serialization_format=serialization_format)
 
 
 def _save_model(sk_model, output_path, serialization_format):
@@ -348,9 +355,9 @@ def _save_model(sk_model, output_path, serialization_format):
             cloudpickle.dump(sk_model, out)
         else:
             raise MlflowException(
-                    message="Unrecognized serialization format: {serialization_format}".format(
-                        serialization_format=serialization_format),
-                    error_code=INTERNAL_ERROR)
+                message="Unrecognized serialization format: {serialization_format}".format(
+                    serialization_format=serialization_format),
+                error_code=INTERNAL_ERROR)
 
 
 def load_model(model_uri):
@@ -387,5 +394,4 @@ def load_model(model_uri):
     sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf['pickled_model'])
     serialization_format = flavor_conf.get('serialization_format', SERIALIZATION_FORMAT_PICKLE)
     return _load_model_from_local_file(
-        path=sklearn_model_artifacts_path,
-        serialization_format=serialization_format)
+        path=sklearn_model_artifacts_path, serialization_format=serialization_format)

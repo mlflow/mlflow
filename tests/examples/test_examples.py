@@ -1,4 +1,3 @@
-
 import os
 import os.path
 import re
@@ -64,18 +63,19 @@ def test_mlflow_run_example(directory, params, tmpdir):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("directory, command", [
-    ('docker', ['docker', 'build', '-t', 'mlflow-docker-example', '-f', 'Dockerfile', '.']),
-    ('gluon', ['python', 'train.py']),
-    ('keras', ['python', 'train.py']),
-    ('lightgbm', ['python', 'train.py', '--learning-rate', '0.2', '--colsample-bytree', '0.8',
-                  '--subsample', '0.9']),
-    ('quickstart', ['python', 'mlflow_tracking.py']),
-    ('remote_store', ['python', 'remote_server.py']),
-    ('xgboost', ['python', 'train.py', '--learning-rate', '0.2', '--colsample-bytree', '0.8',
-                 '--subsample', '0.9'])
-])
+@pytest.mark.parametrize(
+    "directory, command",
+    [('docker', ['docker', 'build', '-t', 'mlflow-docker-example', '-f', 'Dockerfile', '.']),
+     ('gluon', ['python', 'train.py']), ('keras', ['python', 'train.py']),
+     ('lightgbm', [
+         'python', 'train.py', '--learning-rate', '0.2', '--colsample-bytree', '0.8', '--subsample',
+         '0.9'
+     ]), ('quickstart', ['python', 'mlflow_tracking.py']),
+     ('remote_store', ['python', 'remote_server.py']),
+     ('xgboost', [
+         'python', 'train.py', '--learning-rate', '0.2', '--colsample-bytree', '0.8', '--subsample',
+         '0.9'
+     ])])
 def test_command_example(directory, command):
     cwd_dir = os.path.join(EXAMPLES_DIR, directory)
-    process.exec_cmd(command,
-                     cwd=cwd_dir)
+    process.exec_cmd(command, cwd=cwd_dir)

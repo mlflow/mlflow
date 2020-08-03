@@ -17,12 +17,17 @@ depends_on = None
 
 
 def upgrade():
-    op.create_table(SqlExperimentTag.__tablename__,
+    op.create_table(
+        SqlExperimentTag.__tablename__,
         sa.Column('key', sa.String(length=250), primary_key=True, nullable=False),
         sa.Column('value', sa.String(length=5000)),
-        sa.Column('experiment_id', sa.Integer(), sa.ForeignKey('experiments.experiment_id'), primary_key=True, nullable=False),
-        sa.PrimaryKeyConstraint('key', 'experiment_id', name='experiment_tag_pk')
-    )
+        sa.Column(
+            'experiment_id',
+            sa.Integer(),
+            sa.ForeignKey('experiments.experiment_id'),
+            primary_key=True,
+            nullable=False),
+        sa.PrimaryKeyConstraint('key', 'experiment_id', name='experiment_tag_pk'))
 
 
 def downgrade():

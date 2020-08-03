@@ -7,9 +7,4 @@ MYSQL = 'mysql'
 SQLITE = 'sqlite'
 MSSQL = 'mssql'
 
-DATABASE_ENGINES = [
-    POSTGRES,
-    MYSQL,
-    SQLITE,
-    MSSQL
-]
+DATABASE_ENGINES = [POSTGRES, MYSQL, SQLITE, MSSQL]

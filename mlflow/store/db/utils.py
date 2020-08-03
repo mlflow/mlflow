@@ -14,7 +14,6 @@ from mlflow.store.db.db_types import SQLITE
 
 _logger = logging.getLogger(__name__)
 
-
 MLFLOW_SQLALCHEMYSTORE_POOL_SIZE = "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE"
 MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW"
 
@@ -38,9 +37,9 @@ def _get_latest_schema_revision():
     script = ScriptDirectory.from_config(config)
     heads = script.get_heads()
     if len(heads) != 1:
-        raise MlflowException("Migration script directory was in unexpected state. Got %s head "
-                              "database versions but expected only 1. Found versions: %s"
-                              % (len(heads), heads))
+        raise MlflowException(
+            "Migration script directory was in unexpected state. Got %s head "
+            "database versions but expected only 1. Found versions: %s" % (len(heads), heads))
     return heads[0]
 
 
@@ -188,5 +187,4 @@ def create_sqlalchemy_engine(db_uri):
         pool_kwargs['max_overflow'] = int(pool_max_overflow)
     if pool_kwargs:
         _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
-    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True,
-                                    **pool_kwargs)
+    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)

@@ -23,8 +23,7 @@ def _get_flavor_configuration(model_path, flavor_name):
     if not os.path.exists(model_configuration_path):
         raise MlflowException(
             "Could not find an \"{model_file}\" configuration file at \"{model_path}\"".format(
-                model_file=MLMODEL_FILE_NAME, model_path=model_path),
-            RESOURCE_DOES_NOT_EXIST)
+                model_file=MLMODEL_FILE_NAME, model_path=model_path), RESOURCE_DOES_NOT_EXIST)
 
     model_conf = Model.load(model_configuration_path)
     if flavor_name not in model_conf.flavors:
@@ -52,8 +51,7 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
     except Exception as ex:
         raise MlflowException(
             "Failed to download an \"{model_file}\" model file from \"{model_uri}\": {ex}".format(
-                model_file=MLMODEL_FILE_NAME, model_uri=model_uri, ex=ex),
-            RESOURCE_DOES_NOT_EXIST)
+                model_file=MLMODEL_FILE_NAME, model_uri=model_uri, ex=ex), RESOURCE_DOES_NOT_EXIST)
     model_conf = Model.load(ml_model_file)
     if flavor_name not in model_conf.flavors:
         raise MlflowException(

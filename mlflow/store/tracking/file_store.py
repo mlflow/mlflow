@@ -21,9 +21,9 @@ from mlflow.utils.validation import _validate_metric_name, _validate_param_name,
     _validate_batch_log_limits, _validate_batch_log_data
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
-                                     read_yaml, find, read_file_lines, read_file,
-                                     write_to, append_to, make_containing_dirs, mv, get_parent_dir,
-                                     list_all, local_file_uri_to_path, path_to_local_file_uri)
+                                     read_yaml, find, read_file_lines, read_file, write_to,
+                                     append_to, make_containing_dirs, mv, get_parent_dir, list_all,
+                                     local_file_uri_to_path, path_to_local_file_uri)
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
@@ -103,9 +103,10 @@ class FileStore(AbstractStore):
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
-            self._create_experiment_with_id(name=Experiment.DEFAULT_EXPERIMENT_NAME,
-                                            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
-                                            artifact_uri=None)
+            self._create_experiment_with_id(
+                name=Experiment.DEFAULT_EXPERIMENT_NAME,
+                experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+                artifact_uri=None)
         # Create trash folder if needed
         if not exists(self.trash_folder):
             mkdir(self.trash_folder)
@@ -138,42 +139,39 @@ class FileStore(AbstractStore):
         _validate_run_id(run_uuid)
         if not self._has_experiment(experiment_id):
             return None
-        return os.path.join(self._get_experiment_path(experiment_id, assert_exists=True),
-                            run_uuid)
+        return os.path.join(self._get_experiment_path(experiment_id, assert_exists=True), run_uuid)
 
     def _get_metric_path(self, experiment_id, run_uuid, metric_key):
         _validate_run_id(run_uuid)
         _validate_metric_name(metric_key)
-        return os.path.join(self._get_run_dir(experiment_id, run_uuid),
-                            FileStore.METRICS_FOLDER_NAME,
-                            metric_key)
+        return os.path.join(
+            self._get_run_dir(experiment_id, run_uuid), FileStore.METRICS_FOLDER_NAME, metric_key)
 
     def _get_param_path(self, experiment_id, run_uuid, param_name):
         _validate_run_id(run_uuid)
         _validate_param_name(param_name)
-        return os.path.join(self._get_run_dir(experiment_id, run_uuid),
-                            FileStore.PARAMS_FOLDER_NAME,
-                            param_name)
+        return os.path.join(
+            self._get_run_dir(experiment_id, run_uuid), FileStore.PARAMS_FOLDER_NAME, param_name)
 
     def _get_experiment_tag_path(self, experiment_id, tag_name):
         _validate_experiment_id(experiment_id)
         _validate_param_name(tag_name)
         if not self._has_experiment(experiment_id):
             return None
-        return os.path.join(self._get_experiment_path(experiment_id, assert_exists=True),
-                            FileStore.TAGS_FOLDER_NAME, tag_name)
+        return os.path.join(
+            self._get_experiment_path(experiment_id, assert_exists=True),
+            FileStore.TAGS_FOLDER_NAME, tag_name)
 
     def _get_tag_path(self, experiment_id, run_uuid, tag_name):
         _validate_run_id(run_uuid)
         _validate_tag_name(tag_name)
-        return os.path.join(self._get_run_dir(experiment_id, run_uuid), FileStore.TAGS_FOLDER_NAME,
-                            tag_name)
+        return os.path.join(
+            self._get_run_dir(experiment_id, run_uuid), FileStore.TAGS_FOLDER_NAME, tag_name)
 
     def _get_artifact_dir(self, experiment_id, run_uuid):
         _validate_run_id(run_uuid)
         return append_to_uri_path(
-            self.get_experiment(experiment_id).artifact_location,
-            run_uuid,
+            self.get_experiment(experiment_id).artifact_location, run_uuid,
             FileStore.ARTIFACTS_FOLDER_NAME)
 
     def _get_active_experiments(self, full_path=False):
@@ -199,13 +197,16 @@ class FileStore(AbstractStore):
                     experiments.append(experiment)
             except MissingConfigException as rnfe:
                 # Trap malformed experiments and log warnings.
-                logging.warning("Malformed experiment '%s'. Detailed error %s",
-                                str(exp_id), str(rnfe), exc_info=True)
+                logging.warning(
+                    "Malformed experiment '%s'. Detailed error %s",
+                    str(exp_id),
+                    str(rnfe),
+                    exc_info=True)
         return experiments
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
-        artifact_uri = artifact_uri or append_to_uri_path(
-            self.artifact_root_uri, str(experiment_id))
+        artifact_uri = artifact_uri or append_to_uri_path(self.artifact_root_uri,
+                                                          str(experiment_id))
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
@@ -240,8 +241,7 @@ class FileStore(AbstractStore):
         # Get all existing experiments and find the one with largest numerical ID.
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [
-            int(e.experiment_id)
-            for e in self.list_experiments(ViewType.ALL)
+            int(e.experiment_id) for e in self.list_experiments(ViewType.ALL)
             if e.experiment_id.isdigit()
         ]
         experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
@@ -265,9 +265,12 @@ class FileStore(AbstractStore):
         meta['tags'] = self.get_all_experiment_tags(experiment_id)
         experiment = _read_persisted_experiment_dict(meta)
         if experiment_id != experiment.experiment_id:
-            logging.warning("Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data. "
-                            "Experiment will be ignored.",
-                            experiment_id, experiment.experiment_id, exc_info=True)
+            logging.warning(
+                "Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data. "
+                "Experiment will be ignored.",
+                experiment_id,
+                experiment.experiment_id,
+                exc_info=True)
             return None
         return experiment
 
@@ -339,8 +342,8 @@ class FileStore(AbstractStore):
 
     def _get_deleted_runs(self):
         experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
-        deleted_runs = self.search_runs(experiment_ids=experiment_ids, filter_string='',
-                                        run_view_type=ViewType.DELETED_ONLY)
+        deleted_runs = self.search_runs(
+            experiment_ids=experiment_ids, filter_string='', run_view_type=ViewType.DELETED_ONLY)
         return [deleted_run.info.run_uuid for deleted_run in deleted_runs]
 
     def restore_run(self, run_id):
@@ -389,20 +392,23 @@ class FileStore(AbstractStore):
         if experiment is None:
             raise MlflowException(
                 "Could not create run under experiment with ID %s - no such experiment "
-                "exists." % experiment_id,
-                databricks_pb2.RESOURCE_DOES_NOT_EXIST)
+                "exists." % experiment_id, databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
                 "Could not create run under non-active experiment with ID "
-                "%s." % experiment_id,
-                databricks_pb2.INVALID_STATE)
+                "%s." % experiment_id, databricks_pb2.INVALID_STATE)
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
-        run_info = RunInfo(run_uuid=run_uuid, run_id=run_uuid, experiment_id=experiment_id,
-                           artifact_uri=artifact_uri, user_id=user_id,
-                           status=RunStatus.to_string(RunStatus.RUNNING),
-                           start_time=start_time, end_time=None,
-                           lifecycle_stage=LifecycleStage.ACTIVE)
+        run_info = RunInfo(
+            run_uuid=run_uuid,
+            run_id=run_uuid,
+            experiment_id=experiment_id,
+            artifact_uri=artifact_uri,
+            user_id=user_id,
+            status=RunStatus.to_string(RunStatus.RUNNING),
+            start_time=start_time,
+            end_time=None,
+            lifecycle_stage=LifecycleStage.ACTIVE)
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         mkdir(run_dir)
@@ -490,8 +496,10 @@ class FileStore(AbstractStore):
     @staticmethod
     def _get_metric_from_file(parent_path, metric_name):
         _validate_metric_name(metric_name)
-        metric_objs = [FileStore._get_metric_from_line(metric_name, line)
-                       for line in read_file_lines(parent_path, metric_name)]
+        metric_objs = [
+            FileStore._get_metric_from_line(metric_name, line)
+            for line in read_file_lines(parent_path, metric_name)
+        ]
         if len(metric_objs) == 0:
             raise ValueError("Metric '%s' is malformed. No data found." % metric_name)
         # Python performs element-wise comparison of equal-length tuples, ordering them
@@ -516,9 +524,10 @@ class FileStore(AbstractStore):
     def _get_metric_from_line(metric_name, metric_line):
         metric_parts = metric_line.strip().split(" ")
         if len(metric_parts) != 2 and len(metric_parts) != 3:
-            raise MlflowException("Metric '%s' is malformed; persisted metric data contained %s "
-                                  "fields. Expected 2 or 3 fields." %
-                                  (metric_name, len(metric_parts)), databricks_pb2.INTERNAL_ERROR)
+            raise MlflowException(
+                "Metric '%s' is malformed; persisted metric data contained %s "
+                "fields. Expected 2 or 3 fields." % (metric_name, len(metric_parts)),
+                databricks_pb2.INTERNAL_ERROR)
         ts = int(metric_parts[0])
         val = float(metric_parts[1])
         step = int(metric_parts[2]) if len(metric_parts) == 3 else 0
@@ -536,8 +545,10 @@ class FileStore(AbstractStore):
             run_id = run_info.run_id
             raise MlflowException("Metric '%s' not found under run '%s'" % (metric_key, run_id),
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
-        return [FileStore._get_metric_from_line(metric_key, line)
-                for line in read_file_lines(parent_path, metric_key)]
+        return [
+            FileStore._get_metric_from_line(metric_key, line)
+            for line in read_file_lines(parent_path, metric_key)
+        ]
 
     @staticmethod
     def _get_param_from_file(parent_path, param_name):
@@ -593,39 +604,43 @@ class FileStore(AbstractStore):
         if not self._has_experiment(experiment_id):
             return []
         experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
-        run_dirs = list_all(experiment_dir,
-                            filter_func=lambda x:
-                            all([os.path.basename(os.path.normpath(x)) != reservedFolderName
-                                 for reservedFolderName in
-                                 FileStore.RESERVED_EXPERIMENT_FOLDERS]) and os.path.isdir(x),
-                            full_path=True)
+        run_dirs = list_all(
+            experiment_dir,
+            filter_func=lambda x: all([
+                os.path.basename(os.path.normpath(x)) != reservedFolderName
+                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+            ]) and os.path.isdir(x),
+            full_path=True)
         run_infos = []
         for r_dir in run_dirs:
             try:
                 # trap and warn known issues, will raise unexpected exceptions to caller
                 run_info = self._get_run_info_from_dir(r_dir)
                 if run_info.experiment_id != experiment_id:
-                    logging.warning("Wrong experiment ID (%s) recorded for run '%s'. "
-                                    "It should be %s. Run will be ignored.",
-                                    str(run_info.experiment_id), str(run_info.run_id),
-                                    str(experiment_id), exc_info=True)
+                    logging.warning(
+                        "Wrong experiment ID (%s) recorded for run '%s'. "
+                        "It should be %s. Run will be ignored.",
+                        str(run_info.experiment_id),
+                        str(run_info.run_id),
+                        str(experiment_id),
+                        exc_info=True)
                     continue
                 if LifecycleStage.matches_view_type(view_type, run_info.lifecycle_stage):
                     run_infos.append(run_info)
             except MissingConfigException as rnfe:
                 # trap malformed run exception and log warning
                 r_id = os.path.basename(r_dir)
-                logging.warning("Malformed run '%s'. Detailed error %s", r_id, str(rnfe),
-                                exc_info=True)
+                logging.warning(
+                    "Malformed run '%s'. Detailed error %s", r_id, str(rnfe), exc_info=True)
         return run_infos
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
-            raise MlflowException("Invalid value for request parameter max_results. It must be at "
-                                  "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
-                                                                     max_results),
-                                  databricks_pb2.INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                "Invalid value for request parameter max_results. It must be at "
+                "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD, max_results),
+                databricks_pb2.INVALID_PARAMETER_VALUE)
         runs = []
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)
@@ -667,8 +682,10 @@ class FileStore(AbstractStore):
         writeable_param_value = self._writeable_value(param.value)
         if os.path.exists(param_path):
             self._validate_new_param_value(
-                param_path=param_path, param_key=param.key,
-                run_id=run_info.run_id, new_value=writeable_param_value)
+                param_path=param_path,
+                param_key=param.key,
+                run_id=run_info.run_id,
+                new_value=writeable_param_value)
         make_containing_dirs(param_path)
         write_to(param_path, writeable_param_value)
 
@@ -699,10 +716,10 @@ class FileStore(AbstractStore):
         _validate_tag_name(tag.key)
         experiment = self.get_experiment(experiment_id)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-            raise MlflowException("The experiment {} must be in the 'active'"
-                                  "lifecycle_stage to set tags"
-                                  .format(experiment.experiment_id),
-                                  error_code=databricks_pb2.INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                "The experiment {} must be in the 'active'"
+                "lifecycle_stage to set tags".format(experiment.experiment_id),
+                error_code=databricks_pb2.INVALID_PARAMETER_VALUE)
         tag_path = self._get_experiment_tag_path(experiment_id, tag.key)
         make_containing_dirs(tag_path)
         write_to(tag_path, self._writeable_value(tag.value))
@@ -731,8 +748,9 @@ class FileStore(AbstractStore):
         check_run_is_active(run_info)
         tag_path = self._get_tag_path(run_info.experiment_id, run_id, key)
         if not exists(tag_path):
-            raise MlflowException("No tag with name: {} in run with id {}".format(key, run_id),
-                                  error_code=RESOURCE_DOES_NOT_EXIST)
+            raise MlflowException(
+                "No tag with name: {} in run with id {}".format(key, run_id),
+                error_code=RESOURCE_DOES_NOT_EXIST)
         os.remove(tag_path)
 
     def _overwrite_run_info(self, run_info):
@@ -758,8 +776,9 @@ class FileStore(AbstractStore):
 
     def record_logged_model(self, run_id, mlflow_model):
         if not isinstance(mlflow_model, Model):
-            raise TypeError("Argument 'mlflow_model' should be mlflow.models.Model, got '{}'"
-                            .format(type(mlflow_model)))
+            raise TypeError(
+                "Argument 'mlflow_model' should be mlflow.models.Model, got '{}'".format(
+                    type(mlflow_model)))
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)

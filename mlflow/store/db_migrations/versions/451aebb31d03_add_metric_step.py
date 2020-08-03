@@ -8,7 +8,6 @@ Create Date: 2019-04-22 15:29:24.921354
 from alembic import op
 import sqlalchemy as sa
 
-
 # revision identifiers, used by Alembic.
 revision = '451aebb31d03'
 down_revision = None
@@ -24,8 +23,7 @@ def upgrade():
     with op.batch_alter_table("metrics") as batch_op:
         batch_op.drop_constraint(constraint_name='metric_pk', type_="primary")
         batch_op.create_primary_key(
-            constraint_name='metric_pk',
-            columns=['key', 'timestamp', 'step', 'run_uuid', 'value'])
+            constraint_name='metric_pk', columns=['key', 'timestamp', 'step', 'run_uuid', 'value'])
 
 
 def downgrade():

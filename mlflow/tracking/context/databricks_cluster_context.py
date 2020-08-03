@@ -1,8 +1,6 @@
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.utils import databricks_utils
-from mlflow.utils.mlflow_tags import (
-    MLFLOW_DATABRICKS_CLUSTER_ID
-)
+from mlflow.utils.mlflow_tags import (MLFLOW_DATABRICKS_CLUSTER_ID)
 
 
 class DatabricksClusterRunContext(RunContextProvider):

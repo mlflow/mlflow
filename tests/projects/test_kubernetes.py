@@ -14,11 +14,15 @@ def test_run_command_creation():  # pylint: disable=unused-argument
     """
     Tests command creation.
     """
-    command = ['python train.py --alpha 0.5 --l1-ratio 0.1', '--comment \'foo bar\'',
-               '--comment-bis "bar foo"']
+    command = [
+        'python train.py --alpha 0.5 --l1-ratio 0.1', '--comment \'foo bar\'',
+        '--comment-bis "bar foo"'
+    ]
     command = kb._get_run_command(command)
-    assert ['python', 'train.py', '--alpha', '0.5', '--l1-ratio', '0.1', '--comment',
-            "'foo bar'", '--comment-bis', "'bar foo'"] == command
+    assert [
+        'python', 'train.py', '--alpha', '0.5', '--l1-ratio', '0.1', '--comment', "'foo bar'",
+        '--comment-bis', "'bar foo'"
+    ] == command
 
 
 def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
@@ -46,11 +50,13 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     image_digest = "5e74a5a"
     command = ['mlflow', 'run', '.', '--no-conda', '-P', 'alpha=0.5']
     env_vars = {'RUN_ID': '1'}
-    job_definition = kb._get_kubernetes_job_definition(project_name=project_name,
-                                                       image_tag=image_tag,
-                                                       image_digest=image_digest,
-                                                       command=command, env_vars=env_vars,
-                                                       job_template=custom_template)
+    job_definition = kb._get_kubernetes_job_definition(
+        project_name=project_name,
+        image_tag=image_tag,
+        image_digest=image_digest,
+        command=command,
+        env_vars=env_vars,
+        job_template=custom_template)
     container_spec = job_definition['spec']['template']['spec']['containers'][0]
     assert container_spec['name'] == project_name
     assert container_spec['image'] == image_tag + '@' + image_digest
@@ -86,11 +92,15 @@ def test_run_kubernetes_job():
                                   "      restartPolicy: Never\n")
     with mock.patch("kubernetes.config.load_kube_config") as kube_config_mock:
         with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
-            submitted_run_obj = kb.run_kubernetes_job(project_name=project_name,
-                                                      active_run=active_run, image_tag=image_tag,
-                                                      image_digest=image_digest, command=command,
-                                                      env_vars=env_vars, job_template=job_template,
-                                                      kube_context=kube_context)
+            submitted_run_obj = kb.run_kubernetes_job(
+                project_name=project_name,
+                active_run=active_run,
+                image_tag=image_tag,
+                image_digest=image_digest,
+                command=command,
+                env_vars=env_vars,
+                job_template=job_template,
+                kube_context=kube_context)
 
             assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
             assert submitted_run_obj._job_name.startswith(project_name)
@@ -126,14 +136,15 @@ def test_run_kubernetes_job_current_kubecontext():
     with mock.patch("kubernetes.config.load_kube_config") as kube_config_mock:
         with mock.patch("kubernetes.config.load_incluster_config") as incluster_kube_config_mock:
             with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
-                submitted_run_obj = kb.run_kubernetes_job(project_name=project_name,
-                                                          active_run=active_run,
-                                                          image_tag=image_tag,
-                                                          image_digest=image_digest,
-                                                          command=command,
-                                                          env_vars=env_vars,
-                                                          job_template=job_template,
-                                                          kube_context=kube_context)
+                submitted_run_obj = kb.run_kubernetes_job(
+                    project_name=project_name,
+                    active_run=active_run,
+                    image_tag=image_tag,
+                    image_digest=image_digest,
+                    command=command,
+                    env_vars=env_vars,
+                    job_template=job_template,
+                    kube_context=kube_context)
 
                 assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
                 assert submitted_run_obj._job_name.startswith(project_name)
@@ -169,14 +180,15 @@ def test_run_kubernetes_job_in_cluster():
         kube_config_mock.side_effect = ConfigException()
         with mock.patch("kubernetes.config.load_incluster_config") as incluster_kube_config_mock:
             with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
-                submitted_run_obj = kb.run_kubernetes_job(project_name=project_name,
-                                                          active_run=active_run,
-                                                          image_tag=image_tag,
-                                                          image_digest=image_digest,
-                                                          command=command,
-                                                          env_vars=env_vars,
-                                                          job_template=job_template,
-                                                          kube_context=kube_context)
+                submitted_run_obj = kb.run_kubernetes_job(
+                    project_name=project_name,
+                    active_run=active_run,
+                    image_tag=image_tag,
+                    image_digest=image_digest,
+                    command=command,
+                    env_vars=env_vars,
+                    job_template=job_template,
+                    kube_context=kube_context)
 
                 assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
                 assert submitted_run_obj._job_name.startswith(project_name)
@@ -222,12 +234,13 @@ def test_submitted_run_get_status_failed():
     job_name = 'job-name'
     job_namespace = 'job-namespace'
     condition = kubernetes.client.models.V1JobCondition(type="Failed", status="True")
-    job_status = kubernetes.client.models.V1JobStatus(active=1,
-                                                      completion_time=None,
-                                                      conditions=[condition],
-                                                      failed=1,
-                                                      start_time=1,
-                                                      succeeded=None)
+    job_status = kubernetes.client.models.V1JobStatus(
+        active=1,
+        completion_time=None,
+        conditions=[condition],
+        failed=1,
+        start_time=1,
+        succeeded=None)
     job = kubernetes.client.models.V1Job(status=job_status)
     with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
         kube_api_mock.return_value = job
@@ -245,12 +258,13 @@ def test_submitted_run_get_status_succeeded():
     job_name = 'job-name'
     job_namespace = 'job-namespace'
     condition = kubernetes.client.models.V1JobCondition(type="Complete", status="True")
-    job_status = kubernetes.client.models.V1JobStatus(active=None,
-                                                      completion_time=None,
-                                                      conditions=[condition],
-                                                      failed=None,
-                                                      start_time=None,
-                                                      succeeded=1)
+    job_status = kubernetes.client.models.V1JobStatus(
+        active=None,
+        completion_time=None,
+        conditions=[condition],
+        failed=None,
+        start_time=None,
+        succeeded=1)
     job = kubernetes.client.models.V1Job(status=job_status)
     with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
         kube_api_mock.return_value = job
@@ -267,12 +281,8 @@ def test_submitted_run_get_status_running():
     mlflow_run_id = 1
     job_name = 'job-name'
     job_namespace = 'job-namespace'
-    job_status = kubernetes.client.models.V1JobStatus(active=1,
-                                                      completion_time=None,
-                                                      conditions=None,
-                                                      failed=1,
-                                                      start_time=1,
-                                                      succeeded=1)
+    job_status = kubernetes.client.models.V1JobStatus(
+        active=1, completion_time=None, conditions=None, failed=1, start_time=1, succeeded=1)
     job = kubernetes.client.models.V1Job(status=job_status)
     with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
         kube_api_mock.return_value = job
@@ -292,9 +302,11 @@ def test_state_transitions():
     submitted_run = kb.KubernetesSubmittedRun(mlflow_run_id, job_name, job_namespace)
 
     with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
+
         def set_return_value(**kwargs):
             job_status = kubernetes.client.models.V1JobStatus(**kwargs)
             kube_api_mock.return_value = kubernetes.client.models.V1Job(status=job_status)
+
         set_return_value()
         assert RunStatus.SCHEDULED == submitted_run.get_status()
         set_return_value(start_time=1)
@@ -310,6 +322,6 @@ def test_state_transitions():
         set_return_value(start_time=1, failed=1, succeeded=1, completion_time=2)
         assert RunStatus.RUNNING == submitted_run.get_status()
         condition = kubernetes.client.models.V1JobCondition(type="Complete", status="True")
-        set_return_value(conditions=[condition], failed=1, start_time=1, completion_time=2,
-                         succeeded=1)
+        set_return_value(
+            conditions=[condition], failed=1, start_time=1, completion_time=2, succeeded=1)
         assert RunStatus.FINISHED == submitted_run.get_status()

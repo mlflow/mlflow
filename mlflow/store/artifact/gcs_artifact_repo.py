@@ -48,8 +48,7 @@ class GCSArtifactRepository(ArtifactRepository):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        dest_path = posixpath.join(
-            dest_path, os.path.basename(local_file))
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
 
         gcs_bucket = self._get_bucket(bucket)
         blob = gcs_bucket.blob(dest_path)

@@ -18,17 +18,6 @@ from mlflow.entities.source_type import SourceType
 from mlflow.entities.view_type import ViewType
 
 __all__ = [
-    "Experiment",
-    "FileInfo",
-    "Metric",
-    "Param",
-    "Run",
-    "RunData",
-    "RunInfo",
-    "RunStatus",
-    "RunTag",
-    "ExperimentTag",
-    "SourceType",
-    "ViewType",
-    "LifecycleStage"
+    "Experiment", "FileInfo", "Metric", "Param", "Run", "RunData", "RunInfo", "RunStatus", "RunTag",
+    "ExperimentTag", "SourceType", "ViewType", "LifecycleStage"
 ]

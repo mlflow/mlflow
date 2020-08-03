@@ -14,8 +14,8 @@ from mlflow.types.utils import _infer_schema
 
 try:
     import pyspark.sql.dataframe
-    MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray],
-                                   pyspark.sql.dataframe.DataFrame]
+    MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray], pyspark.sql.
+                                   dataframe.DataFrame]
 except ImportError:
     MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
 
@@ -83,7 +83,8 @@ class ModelSignature(object):
                "  {}\n".format(repr(self.inputs), repr(self.outputs))
 
 
-def infer_signature(model_input: Any, model_output: MlflowInferableDataset=None) -> ModelSignature:
+def infer_signature(model_input: Any,
+                    model_output: MlflowInferableDataset = None) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input) and model predictions (output).
 

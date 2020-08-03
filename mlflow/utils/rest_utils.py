@@ -16,13 +16,15 @@ RESOURCE_DOES_NOT_EXIST = 'RESOURCE_DOES_NOT_EXIST'
 
 _logger = logging.getLogger(__name__)
 
-_DEFAULT_HEADERS = {
-    'User-Agent': 'mlflow-python-client/%s' % __version__
-}
+_DEFAULT_HEADERS = {'User-Agent': 'mlflow-python-client/%s' % __version__}
 
 
-def http_request(host_creds, endpoint, retries=3, retry_interval=3,
-                 max_rate_limit_interval=60, **kwargs):
+def http_request(host_creds,
+                 endpoint,
+                 retries=3,
+                 retry_interval=3,
+                 max_rate_limit_interval=60,
+                 **kwargs):
     """
     Makes an HTTP request with the specified method to the specified hostname/endpoint. Ratelimit
     error code (429) will be retried with an exponential back off (1, 2, 4, ... seconds) for at most
@@ -62,29 +64,27 @@ def http_request(host_creds, endpoint, retries=3, retry_interval=3,
             _logger.warning(
                 "API request to {path} returned status code 429 (Rate limit exceeded). "
                 "Retrying in %d seconds. "
-                "Will continue to retry 429s for up to %d seconds.",
-                sleep, time_left)
+                "Will continue to retry 429s for up to %d seconds.", sleep, time_left)
             time.sleep(sleep)
             time_left -= sleep
             response = requests.request(**kwargs)
-            sleep = min(time_left, sleep*2)  # sleep for 1, 2, 4, ... seconds;
+            sleep = min(time_left, sleep * 2)  # sleep for 1, 2, 4, ... seconds;
         return response
 
     cleaned_hostname = strip_suffix(hostname, '/')
     url = "%s%s" % (cleaned_hostname, endpoint)
     for i in range(retries):
-        response = request_with_ratelimit_retries(max_rate_limit_interval,
-                                                  url=url, headers=headers, verify=verify, **kwargs)
+        response = request_with_ratelimit_retries(
+            max_rate_limit_interval, url=url, headers=headers, verify=verify, **kwargs)
         if response.status_code >= 200 and response.status_code < 500:
             return response
         else:
             _logger.error(
                 "API request to %s failed with code %s != 200, retrying up to %s more times. "
-                "API response body: %s",
-                url, response.status_code, retries - i - 1, response.text)
+                "API response body: %s", url, response.status_code, retries - i - 1, response.text)
             time.sleep(retry_interval)
-    raise MlflowException("API request to %s failed to return code 200 after %s tries" %
-                          (url, retries))
+    raise MlflowException(
+        "API request to %s failed to return code 200 after %s tries" % (url, retries))
 
 
 def _can_parse_as_json(string):
@@ -169,8 +169,15 @@ class MlflowHostCreds(object):
         function (see https://requests.readthedocs.io/en/master/api/).
         If this is set ``ignore_tls_verification`` must be false.
     """
-    def __init__(self, host, username=None, password=None, token=None,
-                 ignore_tls_verification=False, client_cert_path=None, server_cert_path=None):
+
+    def __init__(self,
+                 host,
+                 username=None,
+                 password=None,
+                 token=None,
+                 ignore_tls_verification=False,
+                 client_cert_path=None,
+                 server_cert_path=None):
         if not host:
             raise MlflowException(
                 message="host is a required parameter for MlflowHostCreds",

@@ -10,9 +10,8 @@ import time
 from alembic import op
 from sqlalchemy import column, CheckConstraint
 from sqlalchemy.orm import relationship, backref
-from sqlalchemy import (
-    Column, String, Float, ForeignKey, Integer, CheckConstraint,
-    BigInteger, PrimaryKeyConstraint)
+from sqlalchemy import (Column, String, Float, ForeignKey, Integer, CheckConstraint, BigInteger,
+                        PrimaryKeyConstraint)
 from sqlalchemy.ext.declarative import declarative_base
 
 # revision identifiers, used by Alembic.
@@ -26,7 +25,6 @@ depends_on = None
 # modifications to substitute constants from MLflow with hard-coded values (e.g. replacing
 # SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK").
 Base = declarative_base()
-
 
 SourceTypes = [
     "NOTEBOOK",
@@ -70,12 +68,9 @@ class SqlExperiment(Base):
                                     Can be either ``active`` (default) or ``deleted``.
     """
 
-    __table_args__ = (
-        CheckConstraint(
-            lifecycle_stage.in_(["active", "deleted"]),
-            name='lifecycle_stage'),
-        PrimaryKeyConstraint('experiment_id', name='experiment_pk')
-    )
+    __table_args__ = (CheckConstraint(
+        lifecycle_stage.in_(["active", "deleted"]), name='lifecycle_stage'),
+                      PrimaryKeyConstraint('experiment_id', name='experiment_pk'))
 
     def __repr__(self):
         return '<SqlExperiment ({}, {})>'.format(self.experiment_id, self.name)
@@ -147,13 +142,11 @@ class SqlRun(Base):
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlExperiment`.
     """
 
-    __table_args__ = (
-        CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
-        CheckConstraint(status.in_(RunStatusTypes), name='status'),
-        CheckConstraint(lifecycle_stage.in_(["active", "deleted"]),
-                        name='lifecycle_stage'),
-        PrimaryKeyConstraint('run_uuid', name='run_pk')
-    )
+    __table_args__ = (CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
+                      CheckConstraint(status.in_(RunStatusTypes), name='status'),
+                      CheckConstraint(
+                          lifecycle_stage.in_(["active", "deleted"]), name='lifecycle_stage'),
+                      PrimaryKeyConstraint('run_uuid', name='run_pk'))
 
 
 def upgrade():
@@ -171,8 +164,7 @@ def upgrade():
             batch_op.drop_constraint(constraint_name='lifecycle_stage', type_="check")
         batch_op.create_check_constraint(
             constraint_name="experiments_lifecycle_stage",
-            condition=column('lifecycle_stage').in_(["active", "deleted"])
-        )
+            condition=column('lifecycle_stage').in_(["active", "deleted"]))
     with op.batch_alter_table("runs", copy_from=SqlRun.__table__) as batch_op:
         # We skip running drop_constraint for mysql, because it creates an invalid statement
         # in alembic<=1.0.10
@@ -180,8 +172,7 @@ def upgrade():
             batch_op.drop_constraint(constraint_name='lifecycle_stage', type_="check")
         batch_op.create_check_constraint(
             constraint_name="runs_lifecycle_stage",
-            condition=column('lifecycle_stage').in_(["active", "deleted"])
-        )
+            condition=column('lifecycle_stage').in_(["active", "deleted"]))
 
 
 def downgrade():

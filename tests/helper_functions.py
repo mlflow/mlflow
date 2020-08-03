@@ -43,9 +43,11 @@ def random_file(ext):
     return "temp_test_%d.%s" % (random_int(), ext)
 
 
-def score_model_in_sagemaker_docker_container(
-        model_uri, data, content_type, flavor=mlflow.pyfunc.FLAVOR_NAME,
-        activity_polling_timeout_seconds=500):
+def score_model_in_sagemaker_docker_container(model_uri,
+                                              data,
+                                              content_type,
+                                              flavor=mlflow.pyfunc.FLAVOR_NAME,
+                                              activity_polling_timeout_seconds=500):
     """
     :param model_uri: URI to the model to be served.
     :param data: The data to send to the docker container for testing. This is either a
@@ -102,16 +104,22 @@ def pyfunc_serve_from_docker_image_with_env_override(image_name,
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    scoring_cmd = ['docker', 'run', "-e", "GUNICORN_CMD_ARGS=%s" % gunicorn_opts,
-                   "-p", "%s:8080" % host_port, image_name]
+    scoring_cmd = [
+        'docker', 'run', "-e",
+        "GUNICORN_CMD_ARGS=%s" % gunicorn_opts, "-p",
+        "%s:8080" % host_port, image_name
+    ]
     if extra_args is not None:
         scoring_cmd += extra_args
     return _start_scoring_proc(cmd=scoring_cmd, env=env)
 
 
-def pyfunc_serve_and_score_model(
-        model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None,
-        stdout=sys.stdout):
+def pyfunc_serve_and_score_model(model_uri,
+                                 data,
+                                 content_type,
+                                 activity_polling_timeout_seconds=500,
+                                 extra_args=None,
+                                 stdout=sys.stdout):
     """
     :param model_uri: URI to the model to be served.
     :param data: The data to send to the pyfunc server for testing. This is either a
@@ -130,13 +138,14 @@ def pyfunc_serve_and_score_model(
     env.update(MLFLOW_TRACKING_URI=mlflow.get_tracking_uri())
     env.update(MLFLOW_HOME=_get_mlflow_home())
     port = get_safe_port()
-    scoring_cmd = ['mlflow', 'models', 'serve', '-m', model_uri, "-p", str(port),
-                   "--install-mlflow"]
+    scoring_cmd = [
+        'mlflow', 'models', 'serve', '-m', model_uri, "-p",
+        str(port), "--install-mlflow"
+    ]
     if extra_args is not None:
         scoring_cmd += extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds)
+    return _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds)
 
 
 def _get_mlflow_home():
@@ -149,15 +158,16 @@ def _get_mlflow_home():
 
 
 def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
-    proc = Popen(cmd,
-                 stdout=stdout,
-                 stderr=stderr,
-                 universal_newlines=True,
-                 env=env,
-                 # Assign the scoring process to a process group. All child processes of the
-                 # scoring process will be assigned to this group as well. This allows child
-                 # processes of the scoring process to be terminated successfully
-                 preexec_fn=os.setsid)
+    proc = Popen(
+        cmd,
+        stdout=stdout,
+        stderr=stderr,
+        universal_newlines=True,
+        env=env,
+        # Assign the scoring process to a process group. All child processes of the
+        # scoring process will be assigned to this group as well. This allows child
+        # processes of the scoring process to be terminated successfully
+        preexec_fn=os.setsid)
     return proc
 
 
@@ -203,9 +213,10 @@ class RestEndpoint:
             else:
                 raise Exception(
                     "Unexpected content type for Pandas dataframe input %s" % content_type)
-        response = requests.post(url='http://localhost:%d/invocations' % self._port,
-                                 data=data,
-                                 headers={"Content-Type": content_type})
+        response = requests.post(
+            url='http://localhost:%d/invocations' % self._port,
+            data=data,
+            headers={"Content-Type": content_type})
         return response
 
 

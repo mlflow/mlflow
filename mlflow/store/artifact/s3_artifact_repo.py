@@ -13,6 +13,7 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 class S3ArtifactRepository(ArtifactRepository):
     """Stores artifacts on Amazon S3."""
+
     @staticmethod
     def parse_s3_uri(uri):
         """Parse an S3 URI, returning (bucket, path)"""
@@ -40,9 +41,8 @@ class S3ArtifactRepository(ArtifactRepository):
         # NOTE: If you need to specify this env variable, please file an issue at
         # https://github.com/mlflow/mlflow/issues so we know your use-case!
         signature_version = os.environ.get('MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION', 's3v4')
-        return boto3.client('s3',
-                            config=Config(signature_version=signature_version),
-                            endpoint_url=s3_endpoint_url)
+        return boto3.client(
+            's3', config=Config(signature_version=signature_version), endpoint_url=s3_endpoint_url)
 
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = dict()
@@ -54,23 +54,15 @@ class S3ArtifactRepository(ArtifactRepository):
         environ_extra_args = self.get_s3_file_upload_extra_args()
         if environ_extra_args is not None:
             extra_args.update(environ_extra_args)
-        s3_client.upload_file(
-            Filename=local_file,
-            Bucket=bucket,
-            Key=key,
-            ExtraArgs=extra_args)
+        s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        dest_path = posixpath.join(
-            dest_path, os.path.basename(local_file))
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         self._upload_file(
-            s3_client=self._get_s3_client(),
-            local_file=local_file,
-            bucket=bucket,
-            key=dest_path)
+            s3_client=self._get_s3_client(), local_file=local_file, bucket=bucket, key=dest_path)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
@@ -107,8 +99,7 @@ class S3ArtifactRepository(ArtifactRepository):
                 subdir_path = obj.get("Prefix")
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=subdir_path, artifact_path=artifact_path)
-                subdir_rel_path = posixpath.relpath(
-                    path=subdir_path, start=artifact_path)
+                subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
                 if subdir_rel_path.endswith("/"):
                     subdir_rel_path = subdir_rel_path[:-1]
                 infos.append(FileInfo(subdir_rel_path, True, None))

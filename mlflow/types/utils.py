@@ -55,23 +55,25 @@ def _infer_schema(data: Any) -> Schema:
     elif isinstance(data, pd.Series):
         return Schema([ColSpec(type=_infer_numpy_array(data.values))])
     elif isinstance(data, pd.DataFrame):
-        return Schema([ColSpec(type=_infer_numpy_array(data[col].values), name=col)
-                       for col in data.columns])
+        return Schema(
+            [ColSpec(type=_infer_numpy_array(data[col].values), name=col) for col in data.columns])
     elif isinstance(data, np.ndarray):
         if len(data.shape) > 2:
             raise TensorsNotSupportedException("Attempting to infer schema from numpy array with "
                                                "shape {}".format(data.shape))
         if data.dtype == np.object:
             data = pd.DataFrame(data).infer_objects()
-            return Schema([ColSpec(type=_infer_numpy_array(data[col].values))
-                           for col in data.columns])
+            return Schema(
+                [ColSpec(type=_infer_numpy_array(data[col].values)) for col in data.columns])
         if len(data.shape) == 1:
             return Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))])
         elif len(data.shape) == 2:
             return Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))] * data.shape[1])
     elif _is_spark_df(data):
-        return Schema([ColSpec(type=_infer_spark_type(field.dataType), name=field.name)
-                       for field in data.schema.fields])
+        return Schema([
+            ColSpec(type=_infer_spark_type(field.dataType), name=field.name)
+            for field in data.schema.fields
+        ])
     raise TypeError("Expected one of (pandas.DataFrame, numpy array, "
                     "dictionary of (name -> numpy.ndarray), pyspark.sql.DataFrame) "
                     "but got '{}'".format(type(data)))
@@ -100,8 +102,7 @@ def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
     elif dtype.kind == "O":
         raise Exception("Can not infer np.object without looking at the values, call "
                         "_map_numpy_array instead.")
-    raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(
-        dtype, dtype.kind))
+    raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(dtype, dtype.kind))
 
 
 def _infer_numpy_array(col: np.ndarray) -> DataType:

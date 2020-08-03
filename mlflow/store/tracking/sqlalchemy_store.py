@@ -99,8 +99,8 @@ class SqlAlchemyStore(AbstractStore):
             mlflow.store.db.utils._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(SessionMaker,
-                                                                                    self.db_type)
+        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
+            SessionMaker, self.db_type)
         mlflow.store.db.utils._verify_schema(self.engine)
 
         if is_local_uri(default_artifact_root):
@@ -156,8 +156,8 @@ class SqlAlchemyStore(AbstractStore):
 
         try:
             self._set_zero_value_insertion_for_autoincrement_column(session)
-            session.execute("INSERT INTO {} ({}) VALUES ({});".format(
-                table, ", ".join(columns), values))
+            session.execute("INSERT INTO {} ({}) VALUES ({});".format(table, ", ".join(columns),
+                                                                      values))
         finally:
             self._unset_zero_value_insertion_for_autoincrement_column(session)
 
@@ -194,22 +194,27 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             try:
                 experiment = SqlExperiment(
-                    name=name, lifecycle_stage=LifecycleStage.ACTIVE,
-                    artifact_location=artifact_location
-                )
+                    name=name,
+                    lifecycle_stage=LifecycleStage.ACTIVE,
+                    artifact_location=artifact_location)
                 session.add(experiment)
                 if not artifact_location:
                     # this requires a double write. The first one to generate an autoincrement-ed ID
                     eid = session.query(SqlExperiment).filter_by(name=name).first().experiment_id
                     experiment.artifact_location = self._get_artifact_location(eid)
             except sqlalchemy.exc.IntegrityError as e:
-                raise MlflowException('Experiment(name={}) already exists. '
-                                      'Error: {}'.format(name, str(e)), RESOURCE_ALREADY_EXISTS)
+                raise MlflowException(
+                    'Experiment(name={}) already exists. '
+                    'Error: {}'.format(name, str(e)), RESOURCE_ALREADY_EXISTS)
 
             session.flush()
             return str(experiment.experiment_id)
 
-    def _list_experiments(self, session, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY,
+    def _list_experiments(self,
+                          session,
+                          ids=None,
+                          names=None,
+                          view_type=ViewType.ACTIVE_ONLY,
                           eager=False):
         """
         :param eager: If ``True``, eagerly loads each experiments's tags. If ``False``, these tags
@@ -233,8 +238,10 @@ class SqlAlchemyStore(AbstractStore):
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         with self.ManagedSessionMaker() as session:
-            return [exp.to_mlflow_entity() for exp in
-                    self._list_experiments(session=session, view_type=view_type, eager=True)]
+            return [
+                exp.to_mlflow_entity()
+                for exp in self._list_experiments(session=session, view_type=view_type, eager=True)
+            ]
 
     def _get_experiment(self, session, experiment_id, view_type, eager=False):
         """
@@ -323,13 +330,20 @@ class SqlAlchemyStore(AbstractStore):
             run_id = uuid.uuid4().hex
             artifact_location = append_to_uri_path(experiment.artifact_location, run_id,
                                                    SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
-            run = SqlRun(name="", artifact_uri=artifact_location, run_uuid=run_id,
-                         experiment_id=experiment_id,
-                         source_type=SourceType.to_string(SourceType.UNKNOWN),
-                         source_name="", entry_point_name="",
-                         user_id=user_id, status=RunStatus.to_string(RunStatus.RUNNING),
-                         start_time=start_time, end_time=None,
-                         source_version="", lifecycle_stage=LifecycleStage.ACTIVE)
+            run = SqlRun(
+                name="",
+                artifact_uri=artifact_location,
+                run_uuid=run_id,
+                experiment_id=experiment_id,
+                source_type=SourceType.to_string(SourceType.UNKNOWN),
+                source_name="",
+                entry_point_name="",
+                user_id=user_id,
+                status=RunStatus.to_string(RunStatus.RUNNING),
+                start_time=start_time,
+                end_time=None,
+                source_version="",
+                lifecycle_stage=LifecycleStage.ACTIVE)
 
             tags_dict = {}
             for tag in tags:
@@ -356,9 +370,9 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException('Run with id={} not found'.format(run_uuid),
                                   RESOURCE_DOES_NOT_EXIST)
         if len(runs) > 1:
-            raise MlflowException('Expected only 1 run with id={}. Found {}.'.format(run_uuid,
-                                                                                     len(runs)),
-                                  INVALID_STATE)
+            raise MlflowException(
+                'Expected only 1 run with id={}. Found {}.'.format(run_uuid, len(runs)),
+                INVALID_STATE)
 
         return runs[0]
 
@@ -380,22 +394,22 @@ class SqlAlchemyStore(AbstractStore):
 
     def _check_run_is_active(self, run):
         if run.lifecycle_stage != LifecycleStage.ACTIVE:
-            raise MlflowException("The run {} must be in the 'active' state. Current state is {}."
-                                  .format(run.run_uuid, run.lifecycle_stage),
-                                  INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                "The run {} must be in the 'active' state. Current state is {}.".format(
+                    run.run_uuid, run.lifecycle_stage), INVALID_PARAMETER_VALUE)
 
     def _check_experiment_is_active(self, experiment):
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-            raise MlflowException("The experiment {} must be in the 'active' state. "
-                                  "Current state is {}."
-                                  .format(experiment.experiment_id, experiment.lifecycle_stage),
-                                  INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                "The experiment {} must be in the 'active' state. "
+                "Current state is {}.".format(experiment.experiment_id, experiment.lifecycle_stage),
+                INVALID_PARAMETER_VALUE)
 
     def _check_run_is_deleted(self, run):
         if run.lifecycle_stage != LifecycleStage.DELETED:
-            raise MlflowException("The run {} must be in the 'deleted' state. Current state is {}."
-                                  .format(run.run_uuid, run.lifecycle_stage),
-                                  INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                "The run {} must be in the 'deleted' state. Current state is {}.".format(
+                    run.run_uuid, run.lifecycle_stage), INVALID_PARAMETER_VALUE)
 
     def update_run_info(self, run_id, run_status, end_time):
         with self.ManagedSessionMaker() as session:
@@ -409,7 +423,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return run.info
 
-    def _try_get_run_tag(self,  session, run_id, tagKey, eager=False):
+    def _try_get_run_tag(self, session, run_id, tagKey, eager=False):
         query_options = self._get_eager_run_query_options() if eager else []
         tags = session \
             .query(SqlTag) \
@@ -472,8 +486,14 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
             logged_metric, just_created = self._get_or_create(
-                model=SqlMetric, run_uuid=run_id, key=metric.key, value=value,
-                timestamp=metric.timestamp, step=metric.step, session=session, is_nan=is_nan)
+                model=SqlMetric,
+                run_uuid=run_id,
+                key=metric.key,
+                value=value,
+                timestamp=metric.timestamp,
+                step=metric.step,
+                session=session,
+                is_nan=is_nan)
             # Conditionally update the ``latest_metrics`` table if the logged metric  was not
             # already present in the ``metrics`` table. If the logged metric was already present,
             # we assume that the ``latest_metrics`` table already accounts for its presence
@@ -503,9 +523,12 @@ class SqlAlchemyStore(AbstractStore):
         if latest_metric is None or _compare_metrics(logged_metric, latest_metric):
             session.merge(
                 SqlLatestMetric(
-                    run_uuid=logged_metric.run_uuid, key=logged_metric.key,
-                    value=logged_metric.value, timestamp=logged_metric.timestamp,
-                    step=logged_metric.step, is_nan=logged_metric.is_nan))
+                    run_uuid=logged_metric.run_uuid,
+                    key=logged_metric.key,
+                    value=logged_metric.value,
+                    timestamp=logged_metric.timestamp,
+                    step=logged_metric.step,
+                    is_nan=logged_metric.is_nan))
 
     def get_metric_history(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
@@ -521,8 +544,12 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 # This will check for various integrity checks for params table.
                 # ToDo: Consider prior checks for null, type, param name validations, ... etc.
-                self._get_or_create(model=SqlParam, session=session, run_uuid=run_id,
-                                    key=param.key, value=param.value)
+                self._get_or_create(
+                    model=SqlParam,
+                    session=session,
+                    run_uuid=run_id,
+                    key=param.key,
+                    value=param.value)
                 # Explicitly commit the session in order to catch potential integrity errors
                 # while maintaining the current managed session scope ("commit" checks that
                 # a transaction satisfies uniqueness constraints and throws integrity errors
@@ -547,8 +574,8 @@ class SqlAlchemyStore(AbstractStore):
                     raise MlflowException(
                         "Changing param values is not allowed. Param with key='{}' was already"
                         " logged with value='{}' for run ID='{}'. Attempted logging new value"
-                        " '{}'.".format(
-                            param.key, old_value, run_id, param.value), INVALID_PARAMETER_VALUE)
+                        " '{}'.".format(param.key, old_value, run_id, param.value),
+                        INVALID_PARAMETER_VALUE)
                 else:
                     raise
 
@@ -561,13 +588,11 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_experiment_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
-            experiment = self._get_experiment(session,
-                                              experiment_id,
+            experiment = self._get_experiment(session, experiment_id,
                                               ViewType.ALL).to_mlflow_entity()
             self._check_experiment_is_active(experiment)
-            session.merge(SqlExperimentTag(experiment_id=experiment_id,
-                                           key=tag.key,
-                                           value=tag.value))
+            session.merge(
+                SqlExperimentTag(experiment_id=experiment_id, key=tag.key, value=tag.value))
 
     def set_tag(self, run_id, tag):
         """
@@ -607,7 +632,6 @@ class SqlAlchemyStore(AbstractStore):
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
-
         def compute_next_token(current_size):
             next_token = None
             if max_results == current_size:
@@ -617,10 +641,10 @@ class SqlAlchemyStore(AbstractStore):
             return next_token
 
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
-            raise MlflowException("Invalid value for request parameter max_results. It must be at "
-                                  "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
-                                                                     max_results),
-                                  INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                "Invalid value for request parameter max_results. It must be at "
+                "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD, max_results),
+                INVALID_PARAMETER_VALUE)
 
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
 
@@ -677,8 +701,9 @@ class SqlAlchemyStore(AbstractStore):
 
     def record_logged_model(self, run_id, mlflow_model):
         if not isinstance(mlflow_model, Model):
-            raise TypeError("Argument 'mlflow_model' should be mlflow.models.Model, got '{}'"
-                            .format(type(mlflow_model)))
+            raise TypeError(
+                "Argument 'mlflow_model' should be mlflow.models.Model, got '{}'".format(
+                    type(mlflow_model)))
         model_dict = mlflow_model.to_dict()
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
@@ -728,25 +753,16 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
     elif SearchUtils.is_attribute(key_type, comparator):
         return None
     else:
-        raise MlflowException("Invalid search expression type '%s'" % key_type,
-                              error_code=INVALID_PARAMETER_VALUE)
+        raise MlflowException(
+            "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE)
 
     if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
         op = SearchUtils.get_sql_filter_ops(entity.value, comparator)
-        return (
-            session
-            .query(entity)
-            .filter(entity.key == key_name, op(value))
-            .subquery()
-        )
+        return (session.query(entity).filter(entity.key == key_name, op(value)).subquery())
     elif comparator in SearchUtils.filter_ops:
         op = SearchUtils.filter_ops.get(comparator)
-        return (
-            session
-            .query(entity)
-            .filter(entity.key == key_name, op(entity.value, value))
-            .subquery()
-        )
+        return (session.query(entity).filter(entity.key == key_name, op(entity.value,
+                                                                        value)).subquery())
     else:
         return None
 
@@ -786,8 +802,9 @@ def _get_orderby_clauses(order_by_list, session):
                 elif SearchUtils.is_param(key_type, '='):
                     entity = SqlParam
                 else:
-                    raise MlflowException("Invalid identifier type '%s'" % key_type,
-                                          error_code=INVALID_PARAMETER_VALUE)
+                    raise MlflowException(
+                        "Invalid identifier type '%s'" % key_type,
+                        error_code=INVALID_PARAMETER_VALUE)
 
                 # build a subquery first because we will join it in the main request so that the
                 # metric we want to sort on is available when we apply the sorting clause
@@ -805,13 +822,12 @@ def _get_orderby_clauses(order_by_list, session):
             # same main query, the CASE WHEN columns need to have unique names to
             # avoid ambiguity
             if SearchUtils.is_metric(key_type, '='):
-                clauses.append(sql.case([
-                    (subquery.c.is_nan.is_(True), 1),
-                    (order_value.is_(None), 1)
-                ], else_=0).label('clause_%s' % clause_id))
+                clauses.append(
+                    sql.case([(subquery.c.is_nan.is_(True), 1), (order_value.is_(None), 1)],
+                             else_=0).label('clause_%s' % clause_id))
             else:  # other entities do not have an 'is_nan' field
-                clauses.append(sql.case([(order_value.is_(None), 1)], else_=0)
-                               .label('clause_%s' % clause_id))
+                clauses.append(
+                    sql.case([(order_value.is_(None), 1)], else_=0).label('clause_%s' % clause_id))
 
             if ascending:
                 clauses.append(order_value)

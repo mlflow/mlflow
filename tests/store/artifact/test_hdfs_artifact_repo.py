@@ -24,10 +24,8 @@ def test_log_artifact(hdfs_system_mock):
 
         repo.log_artifact(local_file, 'more_path/some')
 
-        hdfs_system_mock.assert_called_once_with(extra_conf=None,
-                                                 host='hdfs://host_name',
-                                                 kerb_ticket=None, port=8020,
-                                                 user=None)
+        hdfs_system_mock.assert_called_once_with(
+            extra_conf=None, host='hdfs://host_name', kerb_ticket=None, port=8020, user=None)
 
         open_mock = hdfs_system_mock.return_value.open
         open_mock.assert_called_once_with('/hdfs/path/more_path/some/sample_file', 'wb')
@@ -47,10 +45,8 @@ def test_log_artifact_viewfs(hdfs_system_mock):
 
         repo.log_artifact(local_file, 'more_path/some')
 
-        hdfs_system_mock.assert_called_once_with(extra_conf=None,
-                                                 host="viewfs://host_name",
-                                                 kerb_ticket=None, port=0,
-                                                 user=None)
+        hdfs_system_mock.assert_called_once_with(
+            extra_conf=None, host="viewfs://host_name", kerb_ticket=None, port=0, user=None)
 
         open_mock = hdfs_system_mock.return_value.open
         open_mock.assert_called_once_with('/mypath/more_path/some/sample_file', 'wb')
@@ -74,10 +70,12 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
 
         repo.log_artifact(tmp_local_file.name, 'test_hdfs/some/path')
 
-        hdfs_system_mock.assert_called_once_with(extra_conf=None,
-                                                 host='default',
-                                                 kerb_ticket='/tmp/krb5cc_22222222', port=0,
-                                                 user='some_kerberos_user')
+        hdfs_system_mock.assert_called_once_with(
+            extra_conf=None,
+            host='default',
+            kerb_ticket='/tmp/krb5cc_22222222',
+            port=0,
+            user='some_kerberos_user')
 
         # TODO: refactor this magic ...
         write_mock = hdfs_system_mock.return_value.open.return_value.__enter__.return_value.write
@@ -88,8 +86,7 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
 def test_log_artifact_with_invalid_local_dir(_):
     repo = HdfsArtifactRepository('hdfs://host_name:8020/maybe/path')
 
-    with pytest.raises(Exception,
-                       match="No such file or directory: '/not/existing/local/path'"):
+    with pytest.raises(Exception, match="No such file or directory: '/not/existing/local/path'"):
         repo.log_artifact('/not/existing/local/path', 'test_hdfs/some/path')
 
 
@@ -110,19 +107,24 @@ def test_log_artifacts(hdfs_system_mock):
 
         repo.log_artifacts(root_dir._path)
 
-        hdfs_system_mock.assert_called_once_with(extra_conf=None,
-                                                 host='default',
-                                                 kerb_ticket='/tmp/krb5cc_22222222', port=0,
-                                                 user='some_kerberos_user')
+        hdfs_system_mock.assert_called_once_with(
+            extra_conf=None,
+            host='default',
+            kerb_ticket='/tmp/krb5cc_22222222',
+            port=0,
+            user='some_kerberos_user')
 
         open_mock = hdfs_system_mock.return_value.open
-        open_mock.assert_has_calls(calls=[call('/some_path/maybe/path/file_one.txt', 'wb'),
-                                          call('/some_path/maybe/path/subdir/file_two.txt', 'wb')],
-                                   any_order=True)
+        open_mock.assert_has_calls(
+            calls=[
+                call('/some_path/maybe/path/file_one.txt', 'wb'),
+                call('/some_path/maybe/path/subdir/file_two.txt', 'wb')
+            ],
+            any_order=True)
         write_mock = open_mock.return_value.__enter__.return_value.write
-        write_mock.assert_has_calls(calls=[call(b'PyArrow Works once'),
-                                           call(b'PyArrow Works two')],
-                                    any_order=True)
+        write_mock.assert_has_calls(
+            calls=[call(b'PyArrow Works once'),
+                   call(b'PyArrow Works two')], any_order=True)
 
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
@@ -132,10 +134,10 @@ def test_list_artifacts_root(hdfs_system_mock):
     expected = [FileInfo('model', True, 0)]
 
     hdfs_system_mock.return_value.ls.return_value = [{
-            'kind': 'directory',
-            'name': 'hdfs://host/some/path/model',
-            'size': 0,
-            }]
+        'kind': 'directory',
+        'name': 'hdfs://host/some/path/model',
+        'size': 0,
+    }]
 
     actual = repo.list_artifacts()
 
@@ -146,25 +148,25 @@ def test_list_artifacts_root(hdfs_system_mock):
 def test_list_artifacts_nested(hdfs_system_mock):
     repo = HdfsArtifactRepository('hdfs:://host/some/path')
 
-    expected = [FileInfo('model/conda.yaml', False, 33),
-                FileInfo('model/model.pkl', False, 33),
-                FileInfo('model/MLmodel', False, 33)]
+    expected = [
+        FileInfo('model/conda.yaml', False, 33),
+        FileInfo('model/model.pkl', False, 33),
+        FileInfo('model/MLmodel', False, 33)
+    ]
 
     hdfs_system_mock.return_value.ls.return_value = [{
-            'kind': 'file',
-            'name': 'hdfs://host/some/path/model/conda.yaml',
-            'size': 33,
-            },
-            {
-            'kind': 'file',
-            'name': 'hdfs://host/some/path/model/model.pkl',
-            'size': 33,
-            },
-            {
-            'kind': 'file',
-            'name': 'hdfs://host/some/path/model/MLmodel',
-            'size': 33,
-            }]
+        'kind': 'file',
+        'name': 'hdfs://host/some/path/model/conda.yaml',
+        'size': 33,
+    }, {
+        'kind': 'file',
+        'name': 'hdfs://host/some/path/model/model.pkl',
+        'size': 33,
+    }, {
+        'kind': 'file',
+        'name': 'hdfs://host/some/path/model/MLmodel',
+        'size': 33,
+    }]
 
     actual = repo.list_artifacts('model')
 
@@ -208,8 +210,7 @@ def test_download_artifacts():
     hdfs.open = mock_open(read_data=expected_data)
 
     with TempDir() as tmp_dir:
-        _download_hdfs_file(hdfs, artifact_path,
-                            os.path.join(tmp_dir.path(), artifact_path))
+        _download_hdfs_file(hdfs, artifact_path, os.path.join(tmp_dir.path(), artifact_path))
         with open(os.path.join(tmp_dir.path(), artifact_path), "rb") as fd:
             assert expected_data == fd.read()
 

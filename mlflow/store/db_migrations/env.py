@@ -1,4 +1,3 @@
-
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -43,8 +42,7 @@ def run_migrations_offline():
     url = config.get_main_option("sqlalchemy.url")
     # Try https://stackoverflow.com/questions/30378233/sqlite-lack-of-alter-support-alembic-migration-failing-because-of-this-solutio
     context.configure(
-        url=url, target_metadata=target_metadata, literal_binds=True, render_as_batch=True
-    )
+        url=url, target_metadata=target_metadata, literal_binds=True, render_as_batch=True)
 
     with context.begin_transaction():
         context.run_migrations()
@@ -72,8 +70,7 @@ def run_migrations_online():
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata, render_as_batch=True
-        )
+            connection=connection, target_metadata=target_metadata, render_as_batch=True)
 
         with context.begin_transaction():
             context.run_migrations()

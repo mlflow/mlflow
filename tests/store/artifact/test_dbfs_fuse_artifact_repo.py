@@ -67,9 +67,8 @@ class TestDbfsFuseArtifactRepository(object):
     def test_log_artifact(self, dbfs_fuse_artifact_repo, test_file, artifact_path, artifact_dir):
         dbfs_fuse_artifact_repo.log_artifact(test_file.strpath, artifact_path)
         print(os.listdir(artifact_dir))
-        expected_file_path = os.path.join(
-            artifact_dir,
-            artifact_path if artifact_path else '', os.path.basename(test_file.strpath))
+        expected_file_path = os.path.join(artifact_dir, artifact_path if artifact_path else '',
+                                          os.path.basename(test_file.strpath))
         with open(expected_file_path, 'rb') as handle:
             data = handle.read()
         assert data == TEST_FILE_1_CONTENT
@@ -81,12 +80,14 @@ class TestDbfsFuseArtifactRepository(object):
             data = handle.read()
         assert data == "".encode("utf-8")
 
-    @pytest.mark.parametrize("artifact_path", [
-        None,
-        '',  # should behave like '/' and exclude base name of logged_dir
-        'abc',
-        # We should add '.',
-    ])
+    @pytest.mark.parametrize(
+        "artifact_path",
+        [
+            None,
+            '',  # should behave like '/' and exclude base name of logged_dir
+            'abc',
+            # We should add '.',
+        ])
     def test_log_artifacts(self, dbfs_fuse_artifact_repo, test_dir, artifact_path, artifact_dir):
         dbfs_fuse_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
         artifact_dst_path = os.path.join(artifact_dir, artifact_path if artifact_path else '')

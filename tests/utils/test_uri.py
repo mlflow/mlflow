@@ -24,36 +24,36 @@ def test_extract_db_type_from_uri():
             extract_db_type_from_uri(unsupported_db)
 
 
-@pytest.mark.parametrize("server_uri, result", [
-    ('databricks://aAbB', ('aAbB', None)),
-    ('databricks://profile/prefix', ('profile', 'prefix')),
-    ('nondatabricks://profile/prefix', (None, None)),
-    ('databricks://profile', ('profile', None)),
-    ('databricks://profile/', ('profile', None)),
-    ('databricks://', ('', None)),
-    ('databricks://aAbB/', ('aAbB', None))
-])
+@pytest.mark.parametrize("server_uri, result", [('databricks://aAbB', ('aAbB', None)),
+                                                ('databricks://profile/prefix',
+                                                 ('profile', 'prefix')),
+                                                ('nondatabricks://profile/prefix', (None, None)),
+                                                ('databricks://profile', ('profile', None)),
+                                                ('databricks://profile/', ('profile', None)),
+                                                ('databricks://', ('', None)),
+                                                ('databricks://aAbB/', ('aAbB', None))])
 def test_get_db_info_from_uri(server_uri, result):
     assert get_db_info_from_uri(server_uri) == result
 
 
-@pytest.mark.parametrize("hostname, experiment_id, run_id, workspace_id, result", [
-    ('https://www.databricks.com/', '19201', '2231', '12211',
-     'https://www.databricks.com/?o=12211#mlflow/experiments/19201/runs/2231'),
-    ('https://www.databricks.com/', '19201', '2231', None,
-     'https://www.databricks.com/#mlflow/experiments/19201/runs/2231'),
-    ('https://www.databricks.com/', '19201', '2231', '0',
-     'https://www.databricks.com/#mlflow/experiments/19201/runs/2231'),
-    ('https://www.databricks.com/', '19201', '2231', '0',
-     'https://www.databricks.com/#mlflow/experiments/19201/runs/2231')])
+@pytest.mark.parametrize(
+    "hostname, experiment_id, run_id, workspace_id, result",
+    [('https://www.databricks.com/', '19201', '2231', '12211',
+      'https://www.databricks.com/?o=12211#mlflow/experiments/19201/runs/2231'),
+     ('https://www.databricks.com/', '19201', '2231', None,
+      'https://www.databricks.com/#mlflow/experiments/19201/runs/2231'),
+     ('https://www.databricks.com/', '19201', '2231', '0',
+      'https://www.databricks.com/#mlflow/experiments/19201/runs/2231'),
+     ('https://www.databricks.com/', '19201', '2231', '0',
+      'https://www.databricks.com/#mlflow/experiments/19201/runs/2231')])
 def test_construct_run_url(hostname, experiment_id, run_id, workspace_id, result):
-    assert(construct_run_url(hostname, experiment_id, run_id, workspace_id) == result)
+    assert (construct_run_url(hostname, experiment_id, run_id, workspace_id) == result)
 
 
-@pytest.mark.parametrize("hostname, experiment_id, run_id, workspace_id", [
-    (None, '19201', '2231', '0'),
-    ('https://www.databricks.com/', None, '2231', '0'),
-    ('https://www.databricks.com/', '19201', None, '0')])
+@pytest.mark.parametrize("hostname, experiment_id, run_id, workspace_id",
+                         [(None, '19201', '2231', '0'),
+                          ('https://www.databricks.com/', None, '2231', '0'),
+                          ('https://www.databricks.com/', '19201', None, '0')])
 def test_construct_run_url_errors(hostname, experiment_id, run_id, workspace_id):
     with pytest.raises(MlflowException):
         construct_run_url(hostname, experiment_id, run_id, workspace_id)
@@ -132,8 +132,25 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
     POSIX paths containing these characters.
     """
     for special_char in [
-        ".", "-", "+", ":", "?", "@", "&", "$", "%", "/", "[", "]", "(", ")", "*", "'", ",",
+            ".",
+            "-",
+            "+",
+            ":",
+            "?",
+            "@",
+            "&",
+            "$",
+            "%",
+            "/",
+            "[",
+            "]",
+            "(",
+            ")",
+            "*",
+            "'",
+            ",",
     ]:
+
         def char_case(*case_args):
             return tuple([item.format(c=special_char) for item in case_args])
 
@@ -172,57 +189,31 @@ def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
         ("dbscheme+dbdriver:/#somefrag", "subpath", "dbscheme+dbdriver:/subpath#somefrag"),
         ("dbscheme+dbdriver://#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
         ("dbscheme+dbdriver:///#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
-        (
-         "dbscheme+dbdriver://root:password?creds=mycreds",
-         "subpath",
-         "dbscheme+dbdriver://root:password/subpath?creds=mycreds"
-        ),
-        (
-         "dbscheme+dbdriver://root:password/path/?creds=mycreds",
-         "/subpath/anotherpath",
-         "dbscheme+dbdriver://root:password/path/subpath/anotherpath?creds=mycreds"
-        ),
-        (
-         "dbscheme+dbdriver://root:password///path/?creds=mycreds",
-         "subpath/anotherpath",
-         "dbscheme+dbdriver://root:password///path/subpath/anotherpath?creds=mycreds"
-        ),
-        (
-         "dbscheme+dbdriver://root:password///path/?creds=mycreds",
-         "/subpath",
-         "dbscheme+dbdriver://root:password///path/subpath?creds=mycreds"
-        ),
-        (
-         "dbscheme+dbdriver://root:password#myfragment",
-         "/subpath",
-         "dbscheme+dbdriver://root:password/subpath#myfragment"
-        ),
-        (
-         "dbscheme+dbdriver://root:password//path/#myfragmentwith$pecial@",
-         "subpath/anotherpath",
-         "dbscheme+dbdriver://root:password//path/subpath/anotherpath#myfragmentwith$pecial@"
-        ),
-        (
-         "dbscheme+dbdriver://root:password@myhostname?creds=mycreds#myfragmentwith$pecial@",
+        ("dbscheme+dbdriver://root:password?creds=mycreds", "subpath",
+         "dbscheme+dbdriver://root:password/subpath?creds=mycreds"),
+        ("dbscheme+dbdriver://root:password/path/?creds=mycreds", "/subpath/anotherpath",
+         "dbscheme+dbdriver://root:password/path/subpath/anotherpath?creds=mycreds"),
+        ("dbscheme+dbdriver://root:password///path/?creds=mycreds", "subpath/anotherpath",
+         "dbscheme+dbdriver://root:password///path/subpath/anotherpath?creds=mycreds"),
+        ("dbscheme+dbdriver://root:password///path/?creds=mycreds", "/subpath",
+         "dbscheme+dbdriver://root:password///path/subpath?creds=mycreds"),
+        ("dbscheme+dbdriver://root:password#myfragment", "/subpath",
+         "dbscheme+dbdriver://root:password/subpath#myfragment"),
+        ("dbscheme+dbdriver://root:password//path/#myfragmentwith$pecial@", "subpath/anotherpath",
+         "dbscheme+dbdriver://root:password//path/subpath/anotherpath#myfragmentwith$pecial@"),
+        ("dbscheme+dbdriver://root:password@myhostname?creds=mycreds#myfragmentwith$pecial@",
          "subpath",
          "dbscheme+dbdriver://root:password@myhostname/subpath?creds=mycreds#myfragmentwith$pecial@"
-        ),
-        (
-         "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
+         ),
+        ("dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
          "subpath/dir",
-         "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*"
-        ),
-        (
-         "dbscheme-dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
+         "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*"),
+        ("dbscheme-dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
          "subpath/dir",
-         "dbscheme-dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*"
-        ),
-        (
-         "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds,param=value#*frag@*",
-         "subpath/dir",
-         "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?"
-         "creds=mycreds,param=value#*frag@*"
-        ),
+         "dbscheme-dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*"),
+        ("dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds,param=value#*frag@*",
+         "subpath/dir", "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?"
+         "creds=mycreds,param=value#*frag@*"),
     ])
 
 

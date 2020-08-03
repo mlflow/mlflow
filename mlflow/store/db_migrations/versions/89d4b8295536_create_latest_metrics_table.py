@@ -10,9 +10,8 @@ import logging
 
 from alembic import op
 from sqlalchemy import orm, func, distinct, and_
-from sqlalchemy import (
-    Column, String, ForeignKey, Float,
-    BigInteger, PrimaryKeyConstraint, Boolean)
+from sqlalchemy import (Column, String, ForeignKey, Float, BigInteger, PrimaryKeyConstraint,
+                        Boolean)
 from mlflow.store.tracking.dbmodels.models import SqlMetric, SqlLatestMetric
 
 _logger = logging.getLogger(__name__)
@@ -47,8 +46,7 @@ def _describe_migration_if_necessary(session):
         " {issues_link}.".format(
             readme_link=(
                 "https://github.com/mlflow/mlflow/blob/master/mlflow/store/db_migrations/README.md"
-                "#89d4b8295536_create_latest_metrics_table"
-            ),
+                "#89d4b8295536_create_latest_metrics_table"),
             issues_link="https://github.com/mlflow/mlflow/issues"))
 
     num_metric_keys = session \
@@ -59,7 +57,8 @@ def _describe_migration_if_necessary(session):
     _logger.info(
         "This tracking database has {num_metric_entries} total metric entries for {num_metric_keys}"
         " unique metrics across {num_runs} runs.".format(
-            num_metric_entries=num_metric_entries, num_metric_keys=num_metric_keys,
+            num_metric_entries=num_metric_entries,
+            num_metric_keys=num_metric_keys,
             num_runs=num_runs_containing_metrics))
 
 
@@ -98,31 +97,24 @@ def upgrade():
     _describe_migration_if_necessary(session)
     all_latest_metrics = _get_latest_metrics_for_runs(session=session)
 
-    op.create_table(SqlLatestMetric.__tablename__,
-        Column('key', String(length=250)),
+    op.create_table(
+        SqlLatestMetric.__tablename__, Column('key', String(length=250)),
         Column('value', Float(precision=53), nullable=False),
         Column('timestamp', BigInteger, default=lambda: int(time.time())),
         Column('step', BigInteger, default=0, nullable=False),
         Column('is_nan', Boolean, default=False, nullable=False),
         Column('run_uuid', String(length=32), ForeignKey('runs.run_uuid'), nullable=False),
-        PrimaryKeyConstraint('key', 'run_uuid', name='latest_metric_pk')
-    )
+        PrimaryKeyConstraint('key', 'run_uuid', name='latest_metric_pk'))
 
-    session.add_all(
-        [
-            SqlLatestMetric(
-                run_uuid=run_uuid,
-                key=key,
-                step=step,
-                timestamp=timestamp,
-                value=value,
-                is_nan=is_nan)
-            for run_uuid, key, step, timestamp, value, is_nan in all_latest_metrics
-        ]
-    )
+    session.add_all([
+        SqlLatestMetric(
+            run_uuid=run_uuid, key=key, step=step, timestamp=timestamp, value=value, is_nan=is_nan)
+        for run_uuid, key, step, timestamp, value, is_nan in all_latest_metrics
+    ])
     session.commit()
 
     _logger.info("Migration complete!")
+
 
 def downgrade():
     op.drop_table(SqlLatestMetric.__tablename__)

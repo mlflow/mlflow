@@ -39,11 +39,9 @@ def test_project_get_unspecified_entry_point():
         project.get_entry_point("my_program.scala")
 
 
-@pytest.mark.parametrize("mlproject, conda_env_path, conda_env_contents, mlproject_path", [
-    (None, None, "", None),
-    ("key: value", "conda.yaml", "hi", "MLproject"),
-    ("conda_env: some-env.yaml", "some-env.yaml", "hi", "mlproject")
-])
+@pytest.mark.parametrize("mlproject, conda_env_path, conda_env_contents, mlproject_path",
+                         [(None, None, "", None), ("key: value", "conda.yaml", "hi", "MLproject"),
+                          ("conda_env: some-env.yaml", "some-env.yaml", "hi", "mlproject")])
 def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents, mlproject_path):
     """
     Test that we can load a project with various combinations of an MLproject / conda.yaml file
@@ -67,7 +65,8 @@ def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents, mlp
 
 
 def test_load_docker_project(tmpdir):
-    tmpdir.join("MLproject").write(textwrap.dedent("""
+    tmpdir.join("MLproject").write(
+        textwrap.dedent("""
     docker_env:
         image: some-image
     """))

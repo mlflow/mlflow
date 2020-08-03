@@ -52,10 +52,7 @@ def model_path(tmpdir):
 @pytest.fixture
 def h2o_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(
-        conda_env,
-        additional_conda_deps=["pytest"],
-        additional_pip_deps=["h2o"])
+    _mlflow_conda_env(conda_env, additional_conda_deps=["pytest"], additional_pip_deps=["h2o"])
     return conda_env
 
 
@@ -73,8 +70,8 @@ def test_model_save_load(h2o_iris_model, model_path):
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
     assert all(
-        pyfunc_loaded.predict(h2o_iris_model.inference_data.as_data_frame()) ==
-        h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
+        pyfunc_loaded.predict(h2o_iris_model.inference_data.as_data_frame()) == h2o_model.predict(
+            h2o_iris_model.inference_data).as_data_frame())
 
 
 def test_signature_and_examples_are_saved_correctly(h2o_iris_model):
@@ -85,9 +82,7 @@ def test_signature_and_examples_are_saved_correctly(h2o_iris_model):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
-                mlflow.h2o.save_model(model, path=path,
-                                      signature=signature,
-                                      input_example=example)
+                mlflow.h2o.save_model(model, path=path, signature=signature, input_example=example)
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
                 if example is None:
@@ -110,8 +105,7 @@ def test_model_log(h2o_iris_model):
                     mlflow.start_run()
                 mlflow.h2o.log_model(h2o_model=h2o_model, artifact_path=artifact_path)
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id,
-                    artifact_path=artifact_path)
+                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path)
 
                 # Load model
                 h2o_model_loaded = mlflow.h2o.load_model(model_uri=model_uri)
@@ -183,9 +177,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         h2o_iris_model, h2o_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.h2o.log_model(h2o_model=h2o_iris_model.model,
-                             artifact_path=artifact_path,
-                             conda_env=h2o_custom_env)
+        mlflow.h2o.log_model(
+            h2o_model=h2o_iris_model.model, artifact_path=artifact_path, conda_env=h2o_custom_env)
         model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
 

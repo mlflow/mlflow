@@ -34,13 +34,14 @@ def manual_run(request):
 def create_model():
     model = keras.Sequential()
 
-    model.add(layers.Dense(64, activation='relu', input_shape=(32,)))
+    model.add(layers.Dense(64, activation='relu', input_shape=(32, )))
     model.add(layers.Dense(64, activation='relu'))
     model.add(layers.Dense(10, activation='softmax'))
 
-    model.compile(optimizer=keras.optimizers.Adam(lr=0.001, epsilon=1e-07),
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
+    model.compile(
+        optimizer=keras.optimizers.Adam(lr=0.001, epsilon=1e-07),
+        loss='categorical_crossentropy',
+        metrics=['accuracy'])
     return model
 
 
@@ -55,9 +56,11 @@ def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_l
     model = create_model()
 
     if fit_variant == 'fit_generator':
+
         def generator():
             while True:
                 yield data, labels
+
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
     else:
         model.fit(data, labels, epochs=10)
@@ -67,8 +70,8 @@ def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_l
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_keras_autolog_persists_manually_created_run(random_train_data,
-                                                     random_one_hot_labels, fit_variant):
+def test_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels,
+                                                     fit_variant):
     mlflow.keras.autolog()
 
     with mlflow.start_run() as run:
@@ -78,9 +81,11 @@ def test_keras_autolog_persists_manually_created_run(random_train_data,
         model = create_model()
 
         if fit_variant == 'fit_generator':
+
             def generator():
                 while True:
                     yield data, labels
+
             model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
         else:
             model.fit(data, labels, epochs=10)
@@ -100,9 +105,11 @@ def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels,
     model = create_model()
 
     if fit_variant == 'fit_generator':
+
         def generator():
             while True:
                 yield data, labels
+
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
     else:
         model.fit(data, labels, epochs=10, steps_per_epoch=1)
@@ -158,9 +165,8 @@ def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, rando
 
 
 @pytest.fixture
-def keras_random_data_run_with_callback(random_train_data, fit_variant,
-                                        random_one_hot_labels, manual_run,
-                                        callback, restore_weights, patience):
+def keras_random_data_run_with_callback(random_train_data, fit_variant, random_one_hot_labels,
+                                        manual_run, callback, restore_weights, patience):
     mlflow.keras.autolog()
 
     data = random_train_data
@@ -169,9 +175,11 @@ def keras_random_data_run_with_callback(random_train_data, fit_variant,
     model = create_model()
     if callback == 'early':
         # min_delta is set as such to guarantee early stopping
-        callback = keras.callbacks.callbacks.EarlyStopping(monitor='loss', patience=patience,
-                                                           min_delta=99999999,
-                                                           restore_best_weights=restore_weights)
+        callback = keras.callbacks.callbacks.EarlyStopping(
+            monitor='loss',
+            patience=patience,
+            min_delta=99999999,
+            restore_best_weights=restore_weights)
     else:
         if fit_variant == 'fit_generator':
             count_mode = 'steps'
@@ -180,11 +188,13 @@ def keras_random_data_run_with_callback(random_train_data, fit_variant,
         callback = keras.callbacks.callbacks.ProgbarLogger(count_mode=count_mode)
 
     if fit_variant == 'fit_generator':
+
         def generator():
             while True:
                 yield data, labels
-        history = model.fit_generator(generator(), epochs=10, callbacks=[callback],
-                                      steps_per_epoch=1, shuffle=False)
+
+        history = model.fit_generator(
+            generator(), epochs=10, callbacks=[callback], steps_per_epoch=1, shuffle=False)
     else:
         history = model.fit(data, labels, epochs=10, callbacks=[callback])
 

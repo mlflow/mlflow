@@ -9,11 +9,9 @@ def parse_target_uri(target_uri):
         if parsed.path:
             # uri = 'target_name' (without :/<path>)
             return parsed.path
-        raise MlflowException(
-            "Not a proper deployment URI: %s. " % target_uri +
-            "Deployment URIs must be of the form 'target' or 'target:/suffix'")
+        raise MlflowException("Not a proper deployment URI: %s. " % target_uri +
+                              "Deployment URIs must be of the form 'target' or 'target:/suffix'")
     if parsed.netloc:  # Handle e.g. target_name://suffix, where 'suffix' gets parsed as netloc
-        raise MlflowException(
-            "Not a proper deployment URI: %s. " % target_uri +
-            "Deployment URIs must be of the form 'target:/suffix'")
+        raise MlflowException("Not a proper deployment URI: %s. " % target_uri +
+                              "Deployment URIs must be of the form 'target:/suffix'")
     return parsed.scheme

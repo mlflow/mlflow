@@ -19,15 +19,14 @@ def host_creds_mock():
 
 
 @mock.patch('mlflow.utils.databricks_utils.is_dbfs_fuse_available')
-def test_dbfs_artifact_repo_delegates_to_correct_repo(
-        is_dbfs_fuse_available, host_creds_mock):  # pylint: disable=unused-argument
+def test_dbfs_artifact_repo_delegates_to_correct_repo(is_dbfs_fuse_available, host_creds_mock):  # pylint: disable=unused-argument
     # fuse available
     is_dbfs_fuse_available.return_value = True
     artifact_uri = "dbfs:/databricks/my/absolute/dbfs/path"
     repo = get_artifact_repository(artifact_uri)
     assert isinstance(repo, LocalArtifactRepository)
-    assert repo.artifact_dir == os.path.join(
-        os.path.sep, "dbfs", "databricks", "my", "absolute", "dbfs", "path")
+    assert repo.artifact_dir == os.path.join(os.path.sep, "dbfs", "databricks", "my", "absolute",
+                                             "dbfs", "path")
     # fuse available but a model repository DBFS location
     repo = get_artifact_repository("dbfs:/databricks/mlflow-registry/version12345/models")
     assert isinstance(repo, DbfsRestArtifactRepository)

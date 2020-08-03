@@ -34,10 +34,9 @@ def iris_data():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = pd.Series(iris.target, name='label')
-    return (TabularList.from_df(pd.concat([X, y], axis=1), cont_names=list(X.columns))
-            .split_by_rand_pct(valid_pct=0.1, seed=42)
-            .label_from_df(cols='label')
-            .databunch())
+    return (TabularList.from_df(pd.concat([X, y], axis=1),
+                                cont_names=list(X.columns)).split_by_rand_pct(
+                                    valid_pct=0.1, seed=42).label_from_df(cols='label').databunch())
 
 
 def fastai_model(data, **kwargs):
@@ -201,8 +200,8 @@ def test_fastai_autolog_early_stop_logs(fastai_random_data_run_with_callback, pa
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_one_cycle'])
 @pytest.mark.parametrize('callback', ['early'])
 @pytest.mark.parametrize('patience', [11])
-def test_fastai_autolog_early_stop_no_stop_does_not_log(
-        fastai_random_data_run_with_callback, patience):
+def test_fastai_autolog_early_stop_no_stop_does_not_log(fastai_random_data_run_with_callback,
+                                                        patience):
     model, run, = fastai_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params

@@ -19,7 +19,8 @@ def pandas_df_with_all_types():
         "long": np.array([1, 2, 3], np.int64),
         "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
         "double": [math.pi, 2 * math.pi, 3 * math.pi],
-        "binary": [bytes([1, 2, 3]), bytes([4, 5, 6]), bytes([7, 8, 9])],
+        "binary": [bytes([1, 2, 3]), bytes([4, 5, 6]),
+                   bytes([7, 8, 9])],
         "string": ["a", "b", 'c'],
     })
 
@@ -37,13 +38,15 @@ def test_input_examples(pandas_df_with_all_types):
         parsed_df = _dataframe_from_json(tmp.path(filename), schema=sig.inputs)
         assert (pandas_df_with_all_types == parsed_df).all().all()
         # the frame read without schema should match except for the binary values
-        assert (parsed_df.drop(columns=["binary"]) == _dataframe_from_json(tmp.path(filename))
-                .drop(columns=["binary"])).all().all()
+        assert (parsed_df.drop(columns=["binary"]) == _dataframe_from_json(
+            tmp.path(filename)).drop(columns=["binary"])).all().all()
 
     # pass the input as dictionary instead
     with TempDir() as tmp:
-        d = {name: pandas_df_with_all_types[name].values
-             for name in pandas_df_with_all_types.columns}
+        d = {
+            name: pandas_df_with_all_types[name].values
+            for name in pandas_df_with_all_types.columns
+        }
         example = _Example(d)
         example.save(tmp.path())
         filename = example.info["artifact_path"]
@@ -58,7 +61,7 @@ def test_input_examples(pandas_df_with_all_types):
         filename = example.info["artifact_path"]
         with open(tmp.path(filename), "r") as f:
             data = json.load(f)
-            assert set(data.keys()) == set(("data",))
+            assert set(data.keys()) == set(("data", ))
         parsed_ary = _dataframe_from_json(tmp.path(filename), schema=sig.inputs).values
         assert (pandas_df_with_all_types.values == parsed_ary).all().all()
 

@@ -6,7 +6,6 @@ import os
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
 
-
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
 MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
@@ -81,17 +80,18 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
                                  "user-guide/install/index.html. "
                                  "You can also configure MLflow to look for a specific "
                                  "Conda executable by setting the {1} environment variable "
-                                 "to the path of the Conda executable"
-                                 .format(conda_path, MLFLOW_CONDA_HOME))
+                                 "to the path of the Conda executable".format(
+                                     conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if project_env_name not in env_names:
         _logger.info('=== Creating conda environment %s ===', project_env_name)
         if conda_env_path:
-            process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
-                              conda_env_path], stream_output=True)
-        else:
             process.exec_cmd(
-                [conda_path, "create", "-n", project_env_name, "python"], stream_output=True)
+                [conda_path, "env", "create", "-n", project_env_name, "--file", conda_env_path],
+                stream_output=True)
+        else:
+            process.exec_cmd([conda_path, "create", "-n", project_env_name, "python"],
+                             stream_output=True)
     return project_env_name

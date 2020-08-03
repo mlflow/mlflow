@@ -54,7 +54,7 @@ def test_list_artifacts(gcs_mock):
 
     dir_mock = mock.Mock()
     dir_name = "model"
-    dir_mock.configure_mock(prefixes=(artifact_root_path + dir_name + "/",))
+    dir_mock.configure_mock(prefixes=(artifact_root_path + dir_name + "/", ))
 
     mock_results = mock.MagicMock()
     mock_results.configure_mock(pages=[dir_mock])
@@ -92,7 +92,7 @@ def test_list_artifacts_with_subdir(gcs_mock):
 
     subdir_mock = mock.Mock()
     subdir_name = dir_name + "/" + 'variables'
-    subdir_mock.configure_mock(prefixes=(artifact_root_path + subdir_name + "/",))
+    subdir_mock.configure_mock(prefixes=(artifact_root_path + subdir_name + "/", ))
 
     mock_results = mock.MagicMock()
     mock_results.configure_mock(pages=[subdir_mock])

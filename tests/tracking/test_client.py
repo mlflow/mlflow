@@ -38,11 +38,7 @@ def test_client_create_run(mock_store, mock_time):
     MlflowClient().create_run(experiment_id)
 
     mock_store.create_run.assert_called_once_with(
-        experiment_id=experiment_id,
-        user_id="unknown",
-        start_time=int(mock_time * 1000),
-        tags=[]
-    )
+        experiment_id=experiment_id, user_id="unknown", start_time=int(mock_time * 1000), tags=[])
 
 
 def test_client_create_run_overrides(mock_store):
@@ -73,88 +69,95 @@ def test_client_create_run_overrides(mock_store):
         experiment_id=experiment_id,
         user_id=user,
         start_time=start_time,
-        tags=[RunTag(key, value) for key, value in tags.items()]
-    )
+        tags=[RunTag(key, value) for key, value in tags.items()])
 
 
 def test_client_search_runs_defaults(mock_store):
     MlflowClient().search_runs([1, 2, 3])
-    mock_store.search_runs.assert_called_once_with(experiment_ids=[1, 2, 3],
-                                                   filter_string="",
-                                                   run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
-                                                   order_by=None,
-                                                   page_token=None)
+    mock_store.search_runs.assert_called_once_with(
+        experiment_ids=[1, 2, 3],
+        filter_string="",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None)
 
 
 def test_client_search_runs_filter(mock_store):
     MlflowClient().search_runs(["a", "b", "c"], "my filter")
-    mock_store.search_runs.assert_called_once_with(experiment_ids=["a", "b", "c"],
-                                                   filter_string="my filter",
-                                                   run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
-                                                   order_by=None,
-                                                   page_token=None)
+    mock_store.search_runs.assert_called_once_with(
+        experiment_ids=["a", "b", "c"],
+        filter_string="my filter",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None)
 
 
 def test_client_search_runs_view_type(mock_store):
     MlflowClient().search_runs(["a", "b", "c"], "my filter", ViewType.DELETED_ONLY)
-    mock_store.search_runs.assert_called_once_with(experiment_ids=["a", "b", "c"],
-                                                   filter_string="my filter",
-                                                   run_view_type=ViewType.DELETED_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
-                                                   order_by=None,
-                                                   page_token=None)
+    mock_store.search_runs.assert_called_once_with(
+        experiment_ids=["a", "b", "c"],
+        filter_string="my filter",
+        run_view_type=ViewType.DELETED_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None)
 
 
 def test_client_search_runs_max_results(mock_store):
     MlflowClient().search_runs([5], "my filter", ViewType.ALL, 2876)
-    mock_store.search_runs.assert_called_once_with(experiment_ids=[5],
-                                                   filter_string="my filter",
-                                                   run_view_type=ViewType.ALL,
-                                                   max_results=2876,
-                                                   order_by=None,
-                                                   page_token=None)
+    mock_store.search_runs.assert_called_once_with(
+        experiment_ids=[5],
+        filter_string="my filter",
+        run_view_type=ViewType.ALL,
+        max_results=2876,
+        order_by=None,
+        page_token=None)
 
 
 def test_client_search_runs_int_experiment_id(mock_store):
     MlflowClient().search_runs(123)
-    mock_store.search_runs.assert_called_once_with(experiment_ids=[123],
-                                                   filter_string="",
-                                                   run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
-                                                   order_by=None,
-                                                   page_token=None)
+    mock_store.search_runs.assert_called_once_with(
+        experiment_ids=[123],
+        filter_string="",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None)
 
 
 def test_client_search_runs_string_experiment_id(mock_store):
     MlflowClient().search_runs("abc")
-    mock_store.search_runs.assert_called_once_with(experiment_ids=["abc"],
-                                                   filter_string="",
-                                                   run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
-                                                   order_by=None,
-                                                   page_token=None)
+    mock_store.search_runs.assert_called_once_with(
+        experiment_ids=["abc"],
+        filter_string="",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None)
 
 
 def test_client_search_runs_order_by(mock_store):
     MlflowClient().search_runs([5], order_by=["a", "b"])
-    mock_store.search_runs.assert_called_once_with(experiment_ids=[5],
-                                                   filter_string="",
-                                                   run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
-                                                   order_by=["a", "b"],
-                                                   page_token=None)
+    mock_store.search_runs.assert_called_once_with(
+        experiment_ids=[5],
+        filter_string="",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=["a", "b"],
+        page_token=None)
 
 
 def test_client_search_runs_page_token(mock_store):
     MlflowClient().search_runs([5], page_token="blah")
-    mock_store.search_runs.assert_called_once_with(experiment_ids=[5],
-                                                   filter_string="",
-                                                   run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
-                                                   order_by=None,
-                                                   page_token="blah")
+    mock_store.search_runs.assert_called_once_with(
+        experiment_ids=[5],
+        filter_string="",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token="blah")
 
 
 def test_client_registry_operations_raise_exception_with_unsupported_registry_store():
@@ -214,10 +217,8 @@ def test_transition_model_version_stage(mock_registry_store):
     stage = "Production"
     expected_result = ModelVersion(name, version, creation_timestamp=123, current_stage=stage)
     mock_registry_store.transition_model_version_stage.return_value = expected_result
-    actual_result = (
-        MlflowClient(registry_uri="sqlite:///somedb.db")
-        .transition_model_version_stage(name, version, stage)
-    )
+    actual_result = (MlflowClient(
+        registry_uri="sqlite:///somedb.db").transition_model_version_stage(name, version, stage))
     mock_registry_store.transition_model_version_stage.assert_called_once_with(
         name=name, version=version, stage=stage, archive_existing_versions=False)
     assert expected_result == actual_result
@@ -261,12 +262,12 @@ def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_stor
     mock_registry_store.create_model_version.return_value = \
         ModelVersion('name', 1, 0, 1, source='source', run_id=run_id)
     model_version = client.create_model_version('name', 'source', 'runid')
-    assert(model_version.name == 'name')
-    assert(model_version.source == 'source')
-    assert(model_version.run_id == 'runid')
+    assert (model_version.name == 'name')
+    assert (model_version.source == 'source')
+    assert (model_version.run_id == 'runid')
     # verify that the store was not provided a run link
-    mock_registry_store.create_model_version.assert_called_once_with(
-        "name", 'source', 'runid', [], None)
+    mock_registry_store.create_model_version.assert_called_once_with("name", 'source', 'runid', [],
+                                                                     None)
 
 
 def test_create_model_version_explicitly_set_run_link(mock_registry_store):
@@ -283,7 +284,7 @@ def test_create_model_version_explicitly_set_run_link(mock_registry_store):
                    return_value=(hostname, workspace_id)):
         client = MlflowClient(tracking_uri='databricks', registry_uri='otherplace')
         model_version = client.create_model_version('name', 'source', 'runid', run_link=run_link)
-        assert(model_version.run_link == run_link)
+        assert (model_version.run_link == run_link)
         # verify that the store was provided with the explicitly passed in run link
         mock_registry_store.create_model_version.assert_called_once_with(
             "name", 'source', 'runid', [], run_link)
@@ -296,8 +297,8 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
     run_id = 'runid'
     workspace_url = construct_run_url(hostname, experiment_id, run_id, workspace_id)
     get_run_mock = mock.MagicMock()
-    get_run_mock.return_value = Run(RunInfo(run_id, experiment_id, 'userid', 'status', 0, 1, None),
-                                    None)
+    get_run_mock.return_value = Run(
+        RunInfo(run_id, experiment_id, 'userid', 'status', 0, 1, None), None)
     with mock.patch('mlflow.tracking.client.is_in_databricks_notebook',
                     return_value=True), \
         mock.patch('mlflow.tracking.client.get_workspace_info_from_dbutils',
@@ -307,7 +308,7 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
         mock_registry_store.create_model_version.return_value = \
             ModelVersion('name', 1, 0, 1, source='source', run_id=run_id, run_link=workspace_url)
         model_version = client.create_model_version('name', 'source', 'runid')
-        assert(model_version.run_link == workspace_url)
+        assert (model_version.run_link == workspace_url)
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
             "name", 'source', 'runid', [], workspace_url)
@@ -320,8 +321,8 @@ def test_create_model_version_run_link_with_configured_profile(mock_registry_sto
     run_id = 'runid'
     workspace_url = construct_run_url(hostname, experiment_id, run_id, workspace_id)
     get_run_mock = mock.MagicMock()
-    get_run_mock.return_value = Run(RunInfo(run_id, experiment_id, 'userid', 'status', 0, 1, None),
-                                    None)
+    get_run_mock.return_value = Run(
+        RunInfo(run_id, experiment_id, 'userid', 'status', 0, 1, None), None)
     with mock.patch('mlflow.tracking.client.is_in_databricks_notebook', return_value=False), mock\
             .patch('mlflow.tracking.client.get_workspace_info_from_databricks_secrets',
                    return_value=(hostname, workspace_id)):
@@ -330,7 +331,7 @@ def test_create_model_version_run_link_with_configured_profile(mock_registry_sto
         mock_registry_store.create_model_version.return_value = \
             ModelVersion('name', 1, 0, 1, source='source', run_id=run_id, run_link=workspace_url)
         model_version = client.create_model_version('name', 'source', 'runid')
-        assert(model_version.run_link == workspace_url)
+        assert (model_version.run_link == workspace_url)
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
             "name", 'source', 'runid', [], workspace_url)

@@ -22,6 +22,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--conda-env-name",
-        help="Name of the conda environment this script should expect to be run from", type=str)
+        help="Name of the conda environment this script should expect to be run from",
+        type=str)
     args = parser.parse_args()
     main(args.conda_env_name)

@@ -81,8 +81,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     def log_artifact(self, local_file, artifact_path=None):
         basename = os.path.basename(local_file)
         if artifact_path:
-            http_endpoint = self._get_dbfs_endpoint(
-                posixpath.join(artifact_path, basename))
+            http_endpoint = self._get_dbfs_endpoint(posixpath.join(artifact_path, basename))
         else:
             http_endpoint = self._get_dbfs_endpoint(basename)
         if os.stat(local_file).st_size == 0:
@@ -140,8 +139,8 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
-        self._dbfs_download(output_path=local_path,
-                            endpoint=self._get_dbfs_endpoint(remote_file_path))
+        self._dbfs_download(
+            output_path=local_path, endpoint=self._get_dbfs_endpoint(remote_file_path))
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException('Not implemented yet')

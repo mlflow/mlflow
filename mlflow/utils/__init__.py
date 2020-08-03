@@ -2,9 +2,8 @@ from sys import version_info
 
 from mlflow.utils.annotations import deprecated, experimental, keyword_only
 
-PYTHON_VERSION = "{major}.{minor}.{micro}".format(major=version_info.major,
-                                                  minor=version_info.minor,
-                                                  micro=version_info.micro)
+PYTHON_VERSION = "{major}.{minor}.{micro}".format(
+    major=version_info.major, minor=version_info.minor, micro=version_info.micro)
 
 
 def get_major_minor_py_version(py_version):
@@ -23,8 +22,7 @@ def get_unique_resource_id(max_length=None):
     import uuid
     import base64
     if max_length is not None and max_length <= 0:
-        raise ValueError(
-            "The specified maximum length for the unique resource id must be positive!")
+        raise ValueError("The specified maximum length for the unique resource id must be positive!")
 
     uuid_bytes = uuid.uuid4().bytes
     # Use base64 encoding to shorten the UUID length. Note that the replacement of the

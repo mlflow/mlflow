@@ -44,10 +44,8 @@ class ArtifactRepositoryRegistry:
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
                     'Failure attempting to register artifact repository for scheme "{}": {}'.format(
-                        entrypoint.name, str(exc)
-                    ),
-                    stacklevel=2
-                )
+                        entrypoint.name, str(exc)),
+                    stacklevel=2)
 
     def get_artifact_repository(self, artifact_uri):
         """Get an artifact repository from the registry based on the scheme of artifact_uri
@@ -62,12 +60,9 @@ class ArtifactRepositoryRegistry:
         scheme = get_uri_scheme(artifact_uri)
         repository = self._registry.get(scheme)
         if repository is None:
-            raise MlflowException(
-                "Could not find a registered artifact repository for: {}. "
-                "Currently registered schemes are: {}".format(
-                    artifact_uri, list(self._registry.keys())
-                )
-            )
+            raise MlflowException("Could not find a registered artifact repository for: {}. "
+                                  "Currently registered schemes are: {}".format(
+                                      artifact_uri, list(self._registry.keys())))
         return repository(artifact_uri)
 
 

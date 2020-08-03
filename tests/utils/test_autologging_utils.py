@@ -3,32 +3,53 @@ import pytest
 from mlflow.utils.autologging_utils import get_unspecified_default_args, \
     log_fn_args_as_params
 
-
 # Example function signature we are testing on
 # def fn(arg1, default1=1, default2=2):
 #     pass
 
-
-two_default_test_args = [(['arg1', 'default1'], {'default2': 42},
-                         ['arg1', 'default1', 'default2'], [1, 2], {}),
-                         (['arg1', 'default1', 'default2'], {},
-                         ['arg1', 'default1', 'default2'], [1, 2], {}),
-                         (['arg1'], {'default1': 42, 'default2': 42},
-                         ['arg1', 'default1', 'default2'], [1, 2], {}),
-                         ([], {'arg1': 42, 'default1': 42, 'default2': 42},
-                         ['arg1', 'default1', 'default2'], [1, 2], {}),
-                         (['user_arg'], {'default1': 42},
-                         ['arg1', 'default1', 'default2'], [1, 2], {'default2': 2}),
-                         (['user_arg'], {'default2': 42},
-                         ['arg1', 'default1', 'default2'], [1, 2], {'default1': 1}),
-                         ([], {'arg1': 42, 'default1': 42},
-                         ['arg1', 'default1', 'default2'], [1, 2], {'default2': 2}),
-                         (['arg1', 'default1'], {},
-                         ['arg1', 'default1', 'default2'], [1, 2], {'default2': 2}),
-                         (['arg1'], {},
-                         ['arg1', 'default1', 'default2'], [1, 2], {'default1': 1, 'default2': 2}),
-                         ([], {'arg1': 42},
-                         ['arg1', 'default1', 'default2'], [1, 2], {'default1': 1, 'default2': 2})]
+two_default_test_args = [(['arg1', 'default1'], {
+    'default2': 42
+}, ['arg1', 'default1', 'default2'], [1, 2], {}),
+                         (['arg1', 'default1', 'default2'], {}, ['arg1', 'default1', 'default2'],
+                          [1, 2], {}),
+                         (['arg1'], {
+                             'default1': 42,
+                             'default2': 42
+                         }, ['arg1', 'default1', 'default2'], [1, 2], {}),
+                         ([], {
+                             'arg1': 42,
+                             'default1': 42,
+                             'default2': 42
+                         }, ['arg1', 'default1', 'default2'], [1, 2], {}),
+                         (['user_arg'], {
+                             'default1': 42
+                         }, ['arg1', 'default1', 'default2'], [1, 2], {
+                             'default2': 2
+                         }),
+                         (['user_arg'], {
+                             'default2': 42
+                         }, ['arg1', 'default1', 'default2'], [1, 2], {
+                             'default1': 1
+                         }),
+                         ([], {
+                             'arg1': 42,
+                             'default1': 42
+                         }, ['arg1', 'default1', 'default2'], [1, 2], {
+                             'default2': 2
+                         }),
+                         (['arg1', 'default1'], {}, ['arg1', 'default1', 'default2'], [1, 2], {
+                             'default2': 2
+                         }),
+                         (['arg1'], {}, ['arg1', 'default1', 'default2'], [1, 2], {
+                             'default1': 1,
+                             'default2': 2
+                         }),
+                         ([], {
+                             'arg1': 42
+                         }, ['arg1', 'default1', 'default2'], [1, 2], {
+                             'default1': 1,
+                             'default2': 2
+                         })]
 
 
 @pytest.mark.large
@@ -37,8 +58,8 @@ two_default_test_args = [(['arg1', 'default1'], {'default2': 42},
 def test_get_two_unspecified_default_args(user_args, user_kwargs, all_param_names,
                                           all_default_values, expected):
 
-    default_dict = get_unspecified_default_args(user_args, user_kwargs,
-                                                all_param_names, all_default_values)
+    default_dict = get_unspecified_default_args(user_args, user_kwargs, all_param_names,
+                                                all_default_values)
 
     assert default_dict == expected
 
@@ -47,12 +68,17 @@ def test_get_two_unspecified_default_args(user_args, user_kwargs, all_param_name
 # def fn_default_default(default1=1, default2=2, default3=3):
 #     pass
 
-
-three_default_test_args = [([], {}, ['default1', 'default2', 'default3'], [1, 2, 3],
-                            {'default1': 1, 'default2': 2, 'default3': 3}),
-                           ([], {'default2': 42},
-                            ['default1', 'default2', 'default3'], [1, 2, 3],
-                            {'default1': 1, 'default3': 3})]
+three_default_test_args = [([], {}, ['default1', 'default2', 'default3'], [1, 2, 3], {
+    'default1': 1,
+    'default2': 2,
+    'default3': 3
+}),
+                           ([], {
+                               'default2': 42
+                           }, ['default1', 'default2', 'default3'], [1, 2, 3], {
+                               'default1': 1,
+                               'default3': 3
+                           })]
 
 
 @pytest.mark.large
@@ -61,8 +87,8 @@ three_default_test_args = [([], {}, ['default1', 'default2', 'default3'], [1, 2,
 def test_get_three_unspecified_default_args(user_args, user_kwargs, all_param_names,
                                             all_default_values, expected):
 
-    default_dict = get_unspecified_default_args(user_args, user_kwargs,
-                                                all_param_names, all_default_values)
+    default_dict = get_unspecified_default_args(user_args, user_kwargs, all_param_names,
+                                                all_default_values)
 
     assert default_dict == expected
 
@@ -78,13 +104,23 @@ def dummy_fn(arg1, arg2='value2', arg3='value3'):  # pylint: disable=W0613
     pass
 
 
-log_test_args = [([], {'arg1': 'value_x', 'arg2': 'value_y'}, ['value_x', 'value_y', 'value3']),
-                 (['value_x'], {'arg2': 'value_y'}, ['value_x', 'value_y', 'value3']),
-                 (['value_x'], {'arg3': 'value_z'}, ['value_x', 'value2', 'value_z']),
+log_test_args = [([], {
+    'arg1': 'value_x',
+    'arg2': 'value_y'
+}, ['value_x', 'value_y', 'value3']),
+                 (['value_x'], {
+                     'arg2': 'value_y'
+                 }, ['value_x', 'value_y', 'value3']),
+                 (['value_x'], {
+                     'arg3': 'value_z'
+                 }, ['value_x', 'value2', 'value_z']),
                  (['value_x', 'value_y'], {}, ['value_x', 'value_y', 'value3']),
                  (['value_x', 'value_y', 'value_z'], {}, ['value_x', 'value_y', 'value_z']),
-                 ([], {'arg1': 'value_x', 'arg2': 'value_y', 'arg3': 'value_z'},
-                  ['value_x', 'value_y', 'value_z'])]
+                 ([], {
+                     'arg1': 'value_x',
+                     'arg2': 'value_y',
+                     'arg3': 'value_z'
+                 }, ['value_x', 'value_y', 'value_z'])]
 
 
 @pytest.mark.large

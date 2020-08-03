@@ -18,7 +18,6 @@ down_revision = '451aebb31d03'
 branch_labels = None
 depends_on = None
 
-
 Base = declarative_base()
 
 
@@ -28,9 +27,7 @@ class SqlRun(Base):
     user_id = Column(String(256), nullable=True, default=None)
     experiment_id = Column(Integer)
 
-    __table_args__ = (
-        PrimaryKeyConstraint('experiment_id', name='experiment_pk'),
-    )
+    __table_args__ = (PrimaryKeyConstraint('experiment_id', name='experiment_pk'), )
 
 
 class SqlTag(Base):
@@ -40,9 +37,7 @@ class SqlTag(Base):
     run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
     run = relationship('SqlRun', backref=backref('tags', cascade='all'))
 
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'run_uuid', name='tag_pk'),
-    )
+    __table_args__ = (PrimaryKeyConstraint('key', 'run_uuid', name='tag_pk'), )
 
 
 def upgrade():

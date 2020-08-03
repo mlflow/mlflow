@@ -158,5 +158,4 @@ def construct_run_url(hostname, experiment_id, run_id, workspace_id=None):
     if workspace_id and workspace_id != '0':
         prefix += "?o=" + workspace_id
     return prefix + '#mlflow/experiments/{experiment_id}/runs/{run_id}'.format(
-        experiment_id=experiment_id,
-        run_id=run_id)
+        experiment_id=experiment_id, run_id=run_id)

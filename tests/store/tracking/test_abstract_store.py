@@ -6,7 +6,6 @@ from mlflow.entities import ViewType
 
 
 class AbstractStoreTestImpl(AbstractStore):
-
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         raise NotImplementedError()
 
@@ -78,9 +77,7 @@ def test_log_metric():
     with mock.patch.object(AbstractStoreTestImpl, "log_batch"):
         store = AbstractStoreTestImpl()
         store.log_metric(run_id, metric)
-        store.log_batch.assert_called_once_with(
-            run_id, metrics=[metric], params=[], tags=[]
-        )
+        store.log_batch.assert_called_once_with(run_id, metrics=[metric], params=[], tags=[])
 
 
 def test_log_param():
@@ -90,9 +87,7 @@ def test_log_param():
     with mock.patch.object(AbstractStoreTestImpl, "log_batch"):
         store = AbstractStoreTestImpl()
         store.log_param(run_id, param)
-        store.log_batch.assert_called_once_with(
-            run_id, metrics=[], params=[param], tags=[]
-        )
+        store.log_batch.assert_called_once_with(run_id, metrics=[], params=[param], tags=[])
 
 
 def test_set_tag():
@@ -102,9 +97,7 @@ def test_set_tag():
     with mock.patch.object(AbstractStoreTestImpl, "log_batch"):
         store = AbstractStoreTestImpl()
         store.set_tag(run_id, tag)
-        store.log_batch.assert_called_once_with(
-            run_id, metrics=[], params=[], tags=[tag]
-        )
+        store.log_batch.assert_called_once_with(run_id, metrics=[], params=[], tags=[tag])
 
 
 def test_list_run_infos():

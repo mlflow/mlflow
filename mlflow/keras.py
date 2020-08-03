@@ -30,7 +30,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
-
 FLAVOR_NAME = "keras"
 # File name to which custom objects cloudpickle is saved - used during save and load
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
@@ -76,9 +75,14 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
         additional_conda_channels=None)
 
 
-def save_model(keras_model, path, conda_env=None, mlflow_model=None, custom_objects=None,
+def save_model(keras_model,
+               path,
+               conda_env=None,
+               mlflow_model=None,
+               custom_objects=None,
                keras_module=None,
-               signature: ModelSignature = None, input_example: ModelInputExample = None,
+               signature: ModelSignature = None,
+               input_example: ModelInputExample = None,
                **kwargs):
     """
     Save a Keras model to a path on the local file system.
@@ -146,6 +150,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=None, custom_obje
         mlflow.keras.save_model(keras_model, keras_model_path)
     """
     if keras_module is None:
+
         def _is_plain_keras(model):
             try:
                 # NB: Network is the first parent with save method
@@ -212,15 +217,16 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=None, custom_obje
         keras_model.save(model_path, **kwargs)
 
     # update flavor info to mlflow_model
-    mlflow_model.add_flavor(FLAVOR_NAME,
-                            keras_module=keras_module.__name__,
-                            keras_version=keras_module.__version__,
-                            data=data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        keras_module=keras_module.__name__,
+        keras_version=keras_module.__version__,
+        data=data_subpath)
 
     # save conda.yaml info to path/conda.yml
     if conda_env is None:
-        conda_env = get_default_conda_env(include_cloudpickle=custom_objects is not None,
-                                          keras_module=keras_module)
+        conda_env = get_default_conda_env(
+            include_cloudpickle=custom_objects is not None, keras_module=keras_module)
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
@@ -228,16 +234,22 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=None, custom_obje
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # append loader_module, data and env data to mlflow_model
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.keras",
-                        data=data_subpath, env=_CONDA_ENV_SUBPATH)
+    pyfunc.add_to_model(
+        mlflow_model, loader_module="mlflow.keras", data=data_subpath, env=_CONDA_ENV_SUBPATH)
 
     # save mlflow_model to path/MLmodel
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, keras_module=None,
-              registered_model_name=None, signature: ModelSignature=None,
-              input_example: ModelInputExample=None, **kwargs):
+def log_model(keras_model,
+              artifact_path,
+              conda_env=None,
+              custom_objects=None,
+              keras_module=None,
+              registered_model_name=None,
+              signature: ModelSignature = None,
+              input_example: ModelInputExample = None,
+              **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
@@ -309,11 +321,17 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
         with mlflow.start_run() as run:
             mlflow.keras.log_model(keras_model, "models")
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
-              keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects,
-              keras_module=keras_module, registered_model_name=registered_model_name,
-              signature=signature, input_example=input_example,
-              **kwargs)
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.keras,
+        keras_model=keras_model,
+        conda_env=conda_env,
+        custom_objects=custom_objects,
+        keras_module=keras_module,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example,
+        **kwargs)
 
 
 def _save_custom_objects(path, custom_objects):
@@ -446,9 +464,8 @@ def load_model(model_uri, **kwargs):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
-    keras_model_artifacts_path = os.path.join(
-        local_model_path,
-        flavor_conf.get("data", _MODEL_SAVE_PATH))
+    keras_model_artifacts_path = os.path.join(local_model_path,
+                                              flavor_conf.get("data", _MODEL_SAVE_PATH))
     return _load_model(model_path=keras_model_artifacts_path, keras_module=keras_module, **kwargs)
 
 
@@ -509,6 +526,7 @@ def autolog():
         Records available logs after each epoch.
         Records model structural information as params when training begins
         """
+
         def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
             try_mlflow_log(mlflow.log_param, 'num_layers', len(self.model.layers))
             try_mlflow_log(mlflow.log_param, 'optimizer_name', type(self.model.optimizer).__name__)
@@ -546,11 +564,14 @@ def autolog():
         # As of Keras 2.4.0, Keras Callback implementations must define the following
         # methods indicating whether or not the callback overrides functions for
         # batch training/testing/inference
-        def _implements_train_batch_hooks(self): return False
+        def _implements_train_batch_hooks(self):
+            return False
 
-        def _implements_test_batch_hooks(self): return False
+        def _implements_test_batch_hooks(self):
+            return False
 
-        def _implements_predict_batch_hooks(self): return False
+        def _implements_predict_batch_hooks(self):
+            return False
 
     def _early_stop_check(callbacks):
         if LooseVersion(keras.__version__) < LooseVersion('2.3.0'):
@@ -565,11 +586,13 @@ def autolog():
     def _log_early_stop_callback_params(callback):
         if callback:
             try:
-                earlystopping_params = {'monitor': callback.monitor,
-                                        'min_delta': callback.min_delta,
-                                        'patience': callback.patience,
-                                        'baseline': callback.baseline,
-                                        'restore_best_weights': callback.restore_best_weights}
+                earlystopping_params = {
+                    'monitor': callback.monitor,
+                    'min_delta': callback.min_delta,
+                    'patience': callback.patience,
+                    'baseline': callback.baseline,
+                    'restore_best_weights': callback.restore_best_weights
+                }
                 try_mlflow_log(mlflow.log_params, earlystopping_params)
             except Exception:  # pylint: disable=W0703
                 return
@@ -591,8 +614,10 @@ def autolog():
             if stopped_epoch != 0 and restore_best_weights:
                 restored_epoch = stopped_epoch - max(1, patience)
                 try_mlflow_log(mlflow.log_metric, 'restored_epoch', restored_epoch)
-                restored_metrics = {key: history.history[key][restored_epoch]
-                                    for key in history.history.keys()}
+                restored_metrics = {
+                    key: history.history[key][restored_epoch]
+                    for key in history.history.keys()
+                }
                 # Checking that a metric history exists
                 metric_key = next(iter(history.history), None)
                 if metric_key is not None:

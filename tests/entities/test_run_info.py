@@ -30,9 +30,16 @@ class TestRunInfo(unittest.TestCase):
         end_time = start_time + random_int(1, 10)
         lifecycle_stage = LifecycleStage.ACTIVE
         artifact_uri = random_str(random_int(10, 40))
-        ri = RunInfo(run_uuid=run_id, run_id=run_id, experiment_id=experiment_id, user_id=user_id,
-                     status=status, start_time=start_time, end_time=end_time,
-                     lifecycle_stage=lifecycle_stage, artifact_uri=artifact_uri)
+        ri = RunInfo(
+            run_uuid=run_id,
+            run_id=run_id,
+            experiment_id=experiment_id,
+            user_id=user_id,
+            status=status,
+            start_time=start_time,
+            end_time=end_time,
+            lifecycle_stage=lifecycle_stage,
+            artifact_uri=artifact_uri)
         return (ri, run_id, experiment_id, user_id, status, start_time, end_time, lifecycle_stage,
                 artifact_uri)
 
@@ -69,5 +76,5 @@ class TestRunInfo(unittest.TestCase):
                     lifecycle_stage, artifact_uri)
 
     def test_searchable_attributes(self):
-        self.assertSequenceEqual(set(["status", "artifact_uri"]),
-                                 set(RunInfo.get_searchable_attributes()))
+        self.assertSequenceEqual(
+            set(["status", "artifact_uri"]), set(RunInfo.get_searchable_attributes()))

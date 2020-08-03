@@ -22,9 +22,11 @@ _logger = logging.getLogger(__name__)
 def test_run_local_params():
     excitement_arg = 2
     name = "friend"
-    invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "greeter", "-P",
-                                "greeting=hi", "-P", "name=%s" % name,
-                                "-P", "excitement=%s" % excitement_arg])
+    invoke_cli_runner(cli.run, [
+        TEST_PROJECT_DIR, "-e", "greeter", "-P", "greeting=hi", "-P",
+        "name=%s" % name, "-P",
+        "excitement=%s" % excitement_arg
+    ])
 
 
 @pytest.mark.large
@@ -33,26 +35,28 @@ def test_run_local_params():
     'test-experiment',
 ])
 def test_run_local_experiment_specification(experiment_name):
-    invoke_cli_runner(
-        cli.run,
-        [
-            TEST_PROJECT_DIR,
-            "-e", "greeter",
-            "-P", "name=test",
-            "--experiment-name", experiment_name,
-        ])
+    invoke_cli_runner(cli.run, [
+        TEST_PROJECT_DIR,
+        "-e",
+        "greeter",
+        "-P",
+        "name=test",
+        "--experiment-name",
+        experiment_name,
+    ])
 
     client = MlflowClient()
     experiment_id = client.get_experiment_by_name(experiment_name).experiment_id
 
-    invoke_cli_runner(
-        cli.run,
-        [
-            TEST_PROJECT_DIR,
-            "-e", "greeter",
-            "-P", "name=test",
-            "--experiment-id", experiment_id,
-        ])
+    invoke_cli_runner(cli.run, [
+        TEST_PROJECT_DIR,
+        "-e",
+        "greeter",
+        "-P",
+        "name=test",
+        "--experiment-id",
+        experiment_id,
+    ])
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -74,16 +78,20 @@ def test_run_local_conda_env():
         _logger.error(
             "Unable to remove conda environment %s. The environment may not have been present, "
             "continuing with running the test.", expected_env_name)
-    invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "check_conda_env", "-P",
-                                "conda_env_name=%s" % expected_env_name])
+    invoke_cli_runner(
+        cli.run,
+        [TEST_PROJECT_DIR, "-e", "check_conda_env", "-P",
+         "conda_env_name=%s" % expected_env_name])
 
 
 @pytest.mark.large
 def test_run_local_no_spec():
     # Run an example project that doesn't contain an MLproject file
     expected_env_name = "mlflow-%s" % hashlib.sha1("".encode("utf-8")).hexdigest()
-    invoke_cli_runner(cli.run, [TEST_NO_SPEC_PROJECT_DIR, "-e", "check_conda_env.py", "-P",
-                                "conda-env-name=%s" % expected_env_name])
+    invoke_cli_runner(cli.run, [
+        TEST_NO_SPEC_PROJECT_DIR, "-e", "check_conda_env.py", "-P",
+        "conda-env-name=%s" % expected_env_name
+    ])
 
 
 @pytest.mark.large
@@ -120,15 +128,19 @@ def test_run_databricks_cluster_spec(tmpdir):
     with mock.patch("mlflow.projects._run") as run_mock:
         for cluster_spec_arg in [json.dumps(cluster_spec), cluster_spec_path]:
             invoke_cli_runner(
-                cli.run, [TEST_PROJECT_DIR, "-b", "databricks", "--backend-config",
-                          cluster_spec_arg, "-e", "greeter", "-P", "name=hi"],
+                cli.run, [
+                    TEST_PROJECT_DIR, "-b", "databricks", "--backend-config", cluster_spec_arg,
+                    "-e", "greeter", "-P", "name=hi"
+                ],
                 env={'MLFLOW_TRACKING_URI': 'databricks://profile'})
             assert run_mock.call_count == 1
             _, run_kwargs = run_mock.call_args_list[0]
             assert run_kwargs["backend_config"] == cluster_spec
             run_mock.reset_mock()
         res = CliRunner().invoke(
-            cli.run, [TEST_PROJECT_DIR, "-m", "databricks", "--cluster-spec",
-                      json.dumps(cluster_spec) + "JUNK", "-e", "greeter", "-P", "name=hi"],
+            cli.run, [
+                TEST_PROJECT_DIR, "-m", "databricks", "--cluster-spec",
+                json.dumps(cluster_spec) + "JUNK", "-e", "greeter", "-P", "name=hi"
+            ],
             env={'MLFLOW_TRACKING_URI': 'databricks://profile'})
         assert res.exit_code != 0

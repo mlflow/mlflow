@@ -131,13 +131,14 @@ def mock_runs_get_result(succeeded):
 
 def run_databricks_project(cluster_spec, **kwargs):
     return mlflow.projects.run(
-        uri=TEST_PROJECT_DIR, backend="databricks", backend_config=cluster_spec,
-        parameters={"alpha": "0.4"}, **kwargs)
+        uri=TEST_PROJECT_DIR,
+        backend="databricks",
+        backend_config=cluster_spec,
+        parameters={"alpha": "0.4"},
+        **kwargs)
 
 
-def test_upload_project_to_dbfs(
-        dbfs_root_mock, tmpdir, dbfs_path_exists_mock,
-        upload_to_dbfs_mock):  # pylint: disable=unused-argument
+def test_upload_project_to_dbfs(dbfs_root_mock, tmpdir, dbfs_path_exists_mock, upload_to_dbfs_mock):  # pylint: disable=unused-argument
     # Upload project to a mock directory
     dbfs_path_exists_mock.return_value = False
     runner = DatabricksJobRunner(databricks_profile_uri=construct_db_uri_from_profile("DEFAULT"))
@@ -147,7 +148,8 @@ def test_upload_project_to_dbfs(
     local_tar_path = os.path.join(dbfs_root_mock, dbfs_uri.split("/dbfs/")[1])
     expected_tar_path = str(tmpdir.join("expected.tar.gz"))
     file_utils.make_tarfile(
-        output_filename=expected_tar_path, source_dir=TEST_PROJECT_DIR,
+        output_filename=expected_tar_path,
+        source_dir=TEST_PROJECT_DIR,
         archive_name=databricks.DB_TARFILE_ARCHIVE_NAME)
     # Extract the tarred project, verify its contents
     assert filecmp.cmp(local_tar_path, expected_tar_path, shallow=False)
@@ -189,8 +191,11 @@ def test_dbfs_path_exists_error_response_handling(response_mock):
 
 
 def test_run_databricks_validations(
-        tmpdir, cluster_spec_mock,  # pylint: disable=unused-argument
-        tracking_uri_mock, dbfs_mocks, set_tag_mock):  # pylint: disable=unused-argument
+        tmpdir,
+        cluster_spec_mock,  # pylint: disable=unused-argument
+        tracking_uri_mock,
+        dbfs_mocks,
+        set_tag_mock):  # pylint: disable=unused-argument
     """
     Tests that running on Databricks fails before making any API requests if validations fail.
     """
@@ -204,20 +209,22 @@ def test_run_databricks_validations(
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         mlflow_service = mlflow.tracking.MlflowClient()
-        assert (len(mlflow_service.list_run_infos(experiment_id=FileStore.DEFAULT_EXPERIMENT_ID))
-                == 0)
+        assert (len(
+            mlflow_service.list_run_infos(experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)) == 0)
         tracking_uri_mock.return_value = "http://"
         # Test misspecified parameters
         with pytest.raises(ExecutionException):
             mlflow.projects.run(
-                TEST_PROJECT_DIR, backend="databricks", entry_point="greeter",
+                TEST_PROJECT_DIR,
+                backend="databricks",
+                entry_point="greeter",
                 backend_config=cluster_spec_mock)
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         # Test bad cluster spec
         with pytest.raises(ExecutionException):
-            mlflow.projects.run(TEST_PROJECT_DIR, backend="databricks", synchronous=True,
-                                backend_config=None)
+            mlflow.projects.run(
+                TEST_PROJECT_DIR, backend="databricks", synchronous=True, backend_config=None)
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         # Test that validations pass with good tracking URIs
@@ -225,8 +232,8 @@ def test_run_databricks_validations(
         databricks.before_run_validations("databricks", cluster_spec_mock)
 
 
-@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
-                         "dbfs_mocks", "databricks_cluster_mlflow_run_cmd_mock")
+@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock", "dbfs_mocks",
+                         "databricks_cluster_mlflow_run_cmd_mock")
 def test_run_databricks(runs_submit_mock, runs_get_mock, cluster_spec_mock, set_tag_mock,
                         databricks_cluster_mlflow_run_cmd_mock):
     """Test running on Databricks with mocks."""
@@ -251,10 +258,9 @@ def test_run_databricks(runs_submit_mock, runs_get_mock, cluster_spec_mock, set_
             validate_exit_status(submitted_run.get_status(), expect_status)
 
 
-@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
-                         "dbfs_mocks", "cluster_spec_mock", "set_tag_mock")
-def test_run_databricks_cluster_spec_json(
-        runs_submit_mock, runs_get_mock):
+@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock", "dbfs_mocks",
+                         "cluster_spec_mock", "set_tag_mock")
+def test_run_databricks_cluster_spec_json(runs_submit_mock, runs_get_mock):
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
         cluster_spec = {
@@ -270,10 +276,9 @@ def test_run_databricks_cluster_spec_json(
         assert req_body["new_cluster"] == cluster_spec
 
 
-@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
-                         "dbfs_mocks", "cluster_spec_mock", "set_tag_mock")
-def test_run_databricks_extended_cluster_spec_json(
-        runs_submit_mock, runs_get_mock):
+@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock", "dbfs_mocks",
+                         "cluster_spec_mock", "set_tag_mock")
+def test_run_databricks_extended_cluster_spec_json(runs_submit_mock, runs_get_mock):
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
         new_cluster_spec = {
@@ -283,10 +288,7 @@ def test_run_databricks_extended_cluster_spec_json(
         }
         extra_library = {"pypi": {"package": "tensorflow"}}
 
-        cluster_spec = {
-            "new_cluster": new_cluster_spec,
-            "libraries": [extra_library]
-        }
+        cluster_spec = {"new_cluster": new_cluster_spec, "libraries": [extra_library]}
 
         # Run project synchronously, verify that it succeeds (doesn't throw)
         run_databricks_project(cluster_spec=cluster_spec, synchronous=True)
@@ -298,10 +300,10 @@ def test_run_databricks_extended_cluster_spec_json(
         assert extra_library in req_body["libraries"]
 
 
-@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock",
-                         "dbfs_mocks", "cluster_spec_mock", "set_tag_mock")
-def test_run_databricks_extended_cluster_spec_json_without_libraries(
-        runs_submit_mock, runs_get_mock):
+@pytest.mark.usefixtures("before_run_validations_mock", "runs_cancel_mock", "dbfs_mocks",
+                         "cluster_spec_mock", "set_tag_mock")
+def test_run_databricks_extended_cluster_spec_json_without_libraries(runs_submit_mock,
+                                                                     runs_get_mock):
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         runs_get_mock.return_value = mock_runs_get_result(succeeded=True)
         new_cluster_spec = {
@@ -335,8 +337,12 @@ def test_run_databricks_throws_exception_when_spec_uses_existing_cluster():
 
 def test_run_databricks_cancel(
         before_run_validations_mock,  # pylint: disable=unused-argument
-        runs_submit_mock, dbfs_mocks, set_tag_mock,  # pylint: disable=unused-argument
-        runs_cancel_mock, runs_get_mock, cluster_spec_mock):
+        runs_submit_mock,
+        dbfs_mocks,
+        set_tag_mock,  # pylint: disable=unused-argument
+        runs_cancel_mock,
+        runs_get_mock,
+        cluster_spec_mock):
     # Test that MLflow properly handles Databricks run cancellation. We mock the result of
     # the runs-get API to indicate run failure so that cancel() exits instead of blocking while
     # waiting for run status.
@@ -385,7 +391,9 @@ def test_databricks_http_request_integration(get_config, request):
             'url': 'host/clusters/list',
             'headers': headers,
             'verify': True,
-            'json': {'a': 'b'}
+            'json': {
+                'a': 'b'
+            }
         }
         http_response = mock.MagicMock()
         http_response.status_code = 200

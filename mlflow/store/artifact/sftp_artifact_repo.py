@@ -62,9 +62,7 @@ class SFTPArtifactRepository(ArtifactRepository):
         artifact_dir = posixpath.join(self.path, artifact_path) \
             if artifact_path else self.path
         self.sftp.makedirs(artifact_dir)
-        self.sftp.put(local_file,
-                      posixpath.join(
-                          artifact_dir, os.path.basename(local_file)))
+        self.sftp.put(local_file, posixpath.join(artifact_dir, os.path.basename(local_file)))
 
     def log_artifacts(self, local_dir, artifact_path=None):
         artifact_dir = posixpath.join(self.path, artifact_path) \

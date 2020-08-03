@@ -30,7 +30,8 @@ def rand_str(max_len=40):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--large", help="If true, will also generate larger datasets for testing UI performance.",
+        "--large",
+        help="If true, will also generate larger datasets for testing UI performance.",
         action="store_true")
     args = parser.parse_args()
     client = MlflowClient()
@@ -68,9 +69,7 @@ if __name__ == '__main__':
         parameters = {
             'this is a pretty long parameter name': 'NA10921-test_file_2018-08-10.txt',
         }
-        metrics = {
-            'grower': [i ** 1.2 for i in range(10)]
-        }
+        metrics = {'grower': [i**1.2 for i in range(10)]}
         log_params(parameters)
         log_metrics(metrics)
 

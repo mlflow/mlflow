@@ -27,49 +27,70 @@ def commands():
 @click.option("--execution-role-arn", "-e", default=None, help="SageMaker execution role")
 @click.option("--bucket", "-b", default=None, help="S3 bucket to store model artifacts")
 @click.option("--image-url", "-i", default=None, help="ECR URL for the Docker image")
-@click.option("--region-name", default="us-west-2",
-              help="Name of the AWS region in which to deploy the application")
-@click.option("--mode", default=mlflow.sagemaker.DEPLOYMENT_MODE_CREATE,
-              help="The mode in which to deploy the application."
-                   " Must be one of the following: {mds}".format(
-                     mds=", ".join(mlflow.sagemaker.DEPLOYMENT_MODES)))
-@click.option("--archive", "-ar", is_flag=True,
-              help=("If specified, any SageMaker resources that become inactive (i.e as the"
-                    " result of an update in {mode_replace} mode) are preserved."
-                    " These resources may include unused SageMaker models and endpoint"
-                    " configurations that were associated with a prior version of the application"
-                    " endpoint. Otherwise, if `--archive` is unspecified, these resources are"
-                    " deleted. `--archive` must be specified when deploying asynchronously with"
-                    " `--async`.".format(
-                      mode_replace=mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE)))
-@click.option("--instance-type", "-t", default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_TYPE,
-              help="The type of SageMaker ML instance on which to deploy the model. For a list of"
-                   " supported instance types, see"
-                   " https://aws.amazon.com/sagemaker/pricing/instance-types/.")
-@click.option("--instance-count", "-c", default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_COUNT,
-              help="The number of SageMaker ML instances on which to deploy the model")
-@click.option("--vpc-config", "-v",
-              help="Path to a file containing a JSON-formatted VPC configuration. This"
-                   " configuration will be used when creating the new SageMaker model associated"
-                   " with this application. For more information, see"
-                   " https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html")
-@click.option("--flavor", "-f", default=None,
-              help=("The name of the flavor to use for deployment. Must be one of the following:"
-                    " {supported_flavors}. If unspecified, a flavor will be automatically selected"
-                    " from the model's available flavors.".format(
-                      supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
-@click.option("--async", "asynchronous", is_flag=True,
-              help=("If specified, this command will return immediately after starting the"
-                    " deployment process. It will not wait for the deployment process to complete."
-                    " The caller is responsible for monitoring the deployment process via native"
-                    " SageMaker APIs or the AWS console."))
-@click.option("--timeout", default=1200,
-              help=("If the command is executed synchronously, the deployment process will return"
-                    " after the specified number of seconds if no definitive result (success or"
-                    " failure) is achieved. Once the function returns, the caller is responsible"
-                    " for monitoring the health and status of the pending deployment via"
-                    " native SageMaker APIs or the AWS console. If the command is executed"
-                    " asynchronously using the `--async` flag, this value is ignored."))
+@click.option(
+    "--region-name",
+    default="us-west-2",
+    help="Name of the AWS region in which to deploy the application")
+@click.option(
+    "--mode",
+    default=mlflow.sagemaker.DEPLOYMENT_MODE_CREATE,
+    help="The mode in which to deploy the application."
+    " Must be one of the following: {mds}".format(mds=", ".join(mlflow.sagemaker.DEPLOYMENT_MODES)))
+@click.option(
+    "--archive",
+    "-ar",
+    is_flag=True,
+    help=("If specified, any SageMaker resources that become inactive (i.e as the"
+          " result of an update in {mode_replace} mode) are preserved."
+          " These resources may include unused SageMaker models and endpoint"
+          " configurations that were associated with a prior version of the application"
+          " endpoint. Otherwise, if `--archive` is unspecified, these resources are"
+          " deleted. `--archive` must be specified when deploying asynchronously with"
+          " `--async`.".format(mode_replace=mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE)))
+@click.option(
+    "--instance-type",
+    "-t",
+    default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_TYPE,
+    help="The type of SageMaker ML instance on which to deploy the model. For a list of"
+    " supported instance types, see"
+    " https://aws.amazon.com/sagemaker/pricing/instance-types/.")
+@click.option(
+    "--instance-count",
+    "-c",
+    default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_COUNT,
+    help="The number of SageMaker ML instances on which to deploy the model")
+@click.option(
+    "--vpc-config",
+    "-v",
+    help="Path to a file containing a JSON-formatted VPC configuration. This"
+    " configuration will be used when creating the new SageMaker model associated"
+    " with this application. For more information, see"
+    " https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html")
+@click.option(
+    "--flavor",
+    "-f",
+    default=None,
+    help=("The name of the flavor to use for deployment. Must be one of the following:"
+          " {supported_flavors}. If unspecified, a flavor will be automatically selected"
+          " from the model's available flavors.".format(
+              supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
+@click.option(
+    "--async",
+    "asynchronous",
+    is_flag=True,
+    help=("If specified, this command will return immediately after starting the"
+          " deployment process. It will not wait for the deployment process to complete."
+          " The caller is responsible for monitoring the deployment process via native"
+          " SageMaker APIs or the AWS console."))
+@click.option(
+    "--timeout",
+    default=1200,
+    help=("If the command is executed synchronously, the deployment process will return"
+          " after the specified number of seconds if no definitive result (success or"
+          " failure) is achieved. Once the function returns, the caller is responsible"
+          " for monitoring the health and status of the pending deployment via"
+          " native SageMaker APIs or the AWS console. If the command is executed"
+          " asynchronously using the `--async` flag, this value is ignored."))
 def deploy(app_name, model_uri, execution_role_arn, bucket, image_url, region_name, mode, archive,
            instance_type, instance_count, vpc_config, flavor, asynchronous, timeout):
     """
@@ -88,36 +109,56 @@ def deploy(app_name, model_uri, execution_role_arn, bucket, image_url, region_na
         with open(vpc_config, "r") as f:
             vpc_config = json.load(f)
 
-    mlflow.sagemaker.deploy(app_name=app_name, model_uri=model_uri,
-                            execution_role_arn=execution_role_arn, bucket=bucket,
-                            image_url=image_url, region_name=region_name, mode=mode,
-                            archive=archive, instance_type=instance_type,
-                            instance_count=instance_count, vpc_config=vpc_config, flavor=flavor,
-                            synchronous=(not asynchronous), timeout_seconds=timeout)
+    mlflow.sagemaker.deploy(
+        app_name=app_name,
+        model_uri=model_uri,
+        execution_role_arn=execution_role_arn,
+        bucket=bucket,
+        image_url=image_url,
+        region_name=region_name,
+        mode=mode,
+        archive=archive,
+        instance_type=instance_type,
+        instance_count=instance_count,
+        vpc_config=vpc_config,
+        flavor=flavor,
+        synchronous=(not asynchronous),
+        timeout_seconds=timeout)
 
 
 @commands.command("delete")
 @click.option("--app-name", "-a", help="Application name", required=True)
-@click.option("--region-name", "-r", default="us-west-2",
-              help="Name of the AWS region in which to deploy the application.")
-@click.option("--archive", "-ar", is_flag=True,
-              help=("If specified, resources associated with the application are preserved."
-                    " These resources may include unused SageMaker models and endpoint"
-                    " configurations that were previously associated with the application endpoint."
-                    " Otherwise, if `--archive` is unspecified, these resources are deleted."
-                    " `--archive` must be specified when deleting asynchronously with `--async`."))
-@click.option("--async", "asynchronous", is_flag=True,
-              help=("If specified, this command will return immediately after starting the"
-                    " deletion process. It will not wait for the deletion process to complete."
-                    " The caller is responsible for monitoring the deletion process via native"
-                    " SageMaker APIs or the AWS console."))
-@click.option("--timeout", default=1200,
-              help=("If the command is executed synchronously, the deployment process will return"
-                    " after the specified number of seconds if no definitive result (success or"
-                    " failure) is achieved. Once the function returns, the caller is responsible"
-                    " for monitoring the health and status of the pending deployment via"
-                    " native SageMaker APIs or the AWS console. If the command is executed"
-                    " asynchronously using the `--async` flag, this value is ignored."))
+@click.option(
+    "--region-name",
+    "-r",
+    default="us-west-2",
+    help="Name of the AWS region in which to deploy the application.")
+@click.option(
+    "--archive",
+    "-ar",
+    is_flag=True,
+    help=("If specified, resources associated with the application are preserved."
+          " These resources may include unused SageMaker models and endpoint"
+          " configurations that were previously associated with the application endpoint."
+          " Otherwise, if `--archive` is unspecified, these resources are deleted."
+          " `--archive` must be specified when deleting asynchronously with `--async`."))
+@click.option(
+    "--async",
+    "asynchronous",
+    is_flag=True,
+    help=("If specified, this command will return immediately after starting the"
+          " deletion process. It will not wait for the deletion process to complete."
+          " The caller is responsible for monitoring the deletion process via native"
+          " SageMaker APIs or the AWS console."))
+@click.option(
+    "--timeout",
+    default=1200,
+    help=("If the command is executed synchronously, the deployment process will return"
+          " after the specified number of seconds if no definitive result (success or"
+          " failure) is achieved. Once the function returns, the caller is responsible"
+          " for monitoring the health and status of the pending deployment via"
+          " native SageMaker APIs or the AWS console. If the command is executed"
+          " asynchronously using the `--async` flag, this value is ignored."))
 def delete(app_name, region_name, archive, asynchronous, timeout):
     """
     Delete the specified application. Unless ``--archive`` is specified, all SageMaker resources
@@ -128,7 +169,10 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
     elapses.
     """
     mlflow.sagemaker.delete(
-        app_name=app_name, region_name=region_name, archive=archive, synchronous=(not asynchronous),
+        app_name=app_name,
+        region_name=region_name,
+        archive=archive,
+        synchronous=(not asynchronous),
         timeout_seconds=timeout)
 
 
@@ -136,11 +180,14 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
 @cli_args.MODEL_URI
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 @click.option("--image", "-i", default=IMAGE, help="Docker image name")
-@click.option("--flavor", "-f", default=None,
-              help=("The name of the flavor to use for local serving. Must be one of the following:"
-                    " {supported_flavors}. If unspecified, a flavor will be automatically selected"
-                    " from the model's available flavors.".format(
-                      supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
+@click.option(
+    "--flavor",
+    "-f",
+    default=None,
+    help=("The name of the flavor to use for local serving. Must be one of the following:"
+          " {supported_flavors}. If unspecified, a flavor will be automatically selected"
+          " from the model's available flavors.".format(
+              supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
 def run_local(model_uri, port, image, flavor):
     """
     Serve model locally running in a Sagemaker-compatible Docker container.
@@ -180,7 +227,6 @@ def build_and_push_container(build, push, container, mlflow_home):
             container,
             mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None,
             entrypoint=sagemaker_image_entrypoint,
-            custom_setup_steps_hook=setup_container
-        )
+            custom_setup_steps_hook=setup_container)
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)

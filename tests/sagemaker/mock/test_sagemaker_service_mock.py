@@ -16,8 +16,7 @@ def create_sagemaker_model(sagemaker_client, model_name):
         ModelName=model_name,
         PrimaryContainer={
             'Image': '012345678910.dkr.ecr.us-west-2.amazonaws.com/sample-container',
-        }
-    )
+        })
 
 
 def create_endpoint_config(sagemaker_client, endpoint_config_name, model_name):
@@ -38,8 +37,7 @@ def create_endpoint_config(sagemaker_client, endpoint_config_name, model_name):
 @mock_sagemaker
 def test_created_model_is_listed_by_list_models_function(sagemaker_client):
     model_name = "sample-model"
-    create_sagemaker_model(
-            sagemaker_client=sagemaker_client, model_name=model_name)
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
 
     models_response = sagemaker_client.list_models()
     assert "Models" in models_response
@@ -52,7 +50,7 @@ def test_created_model_is_listed_by_list_models_function(sagemaker_client):
 def test_create_model_returns_arn_containing_model_name(sagemaker_client):
     model_name = "sample-model"
     model_create_response = create_sagemaker_model(
-            sagemaker_client=sagemaker_client, model_name=model_name)
+        sagemaker_client=sagemaker_client, model_name=model_name)
     assert "ModelArn" in model_create_response
     assert model_name in model_create_response["ModelArn"]
 
@@ -134,31 +132,29 @@ def test_created_endpoint_config_is_listed_by_list_endpoints_function(sagemaker_
 
     endpoint_config_name = "sample-config"
     create_endpoint_config(
-            sagemaker_client=sagemaker_client,
-            endpoint_config_name=endpoint_config_name,
-            model_name=model_name)
+        sagemaker_client=sagemaker_client,
+        endpoint_config_name=endpoint_config_name,
+        model_name=model_name)
 
     endpoint_configs_response = sagemaker_client.list_endpoint_configs()
     assert "EndpointConfigs" in endpoint_configs_response
     endpoint_configs = endpoint_configs_response["EndpointConfigs"]
-    assert all([
-        "EndpointConfigName" in endpoint_config for endpoint_config in endpoint_configs])
+    assert all(["EndpointConfigName" in endpoint_config for endpoint_config in endpoint_configs])
     assert endpoint_config_name in [
         endpoint_config["EndpointConfigName"] for endpoint_config in endpoint_configs
     ]
 
 
 @mock_sagemaker
-def test_create_endpoint_config_returns_arn_containing_config_name(
-        sagemaker_client):
+def test_create_endpoint_config_returns_arn_containing_config_name(sagemaker_client):
     model_name = "sample-model"
     create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
 
     endpoint_config_name = "sample-config"
     create_config_response = create_endpoint_config(
-            sagemaker_client=sagemaker_client,
-            endpoint_config_name=endpoint_config_name,
-            model_name=model_name)
+        sagemaker_client=sagemaker_client,
+        endpoint_config_name=endpoint_config_name,
+        model_name=model_name)
 
     assert "EndpointConfigArn" in create_config_response
     assert endpoint_config_name in create_config_response["EndpointConfigArn"]
@@ -171,15 +167,15 @@ def test_creating_endpoint_config_with_name_already_in_use_raises_exception(sage
 
     endpoint_config_name = "sample-config"
     create_endpoint_config(
-            sagemaker_client=sagemaker_client,
-            endpoint_config_name=endpoint_config_name,
-            model_name=model_name)
+        sagemaker_client=sagemaker_client,
+        endpoint_config_name=endpoint_config_name,
+        model_name=model_name)
 
     with pytest.raises(ValueError):
         create_endpoint_config(
-                sagemaker_client=sagemaker_client,
-                endpoint_config_name=endpoint_config_name,
-                model_name=model_name)
+            sagemaker_client=sagemaker_client,
+            endpoint_config_name=endpoint_config_name,
+            model_name=model_name)
 
 
 @mock_sagemaker
@@ -193,14 +189,14 @@ def test_all_endpoint_configs_are_listed_after_creating_many_configs(sagemaker_c
         endpoint_config_names.append(endpoint_config_name)
 
         create_endpoint_config(
-                sagemaker_client=sagemaker_client,
-                endpoint_config_name=endpoint_config_name,
-                model_name=model_name)
+            sagemaker_client=sagemaker_client,
+            endpoint_config_name=endpoint_config_name,
+            model_name=model_name)
 
     listed_endpoint_configs = sagemaker_client.list_endpoint_configs()["EndpointConfigs"]
     listed_endpoint_config_names = [
-            endpoint_config["EndpointConfigName"]
-            for endpoint_config in listed_endpoint_configs]
+        endpoint_config["EndpointConfigName"] for endpoint_config in listed_endpoint_configs
+    ]
     for endpoint_config_name in endpoint_config_names:
         assert endpoint_config_name in listed_endpoint_config_names
 
@@ -226,7 +222,7 @@ def test_describe_endpoint_config_response_contains_expected_attributes(sagemake
     )
 
     describe_endpoint_config_response = sagemaker_client.describe_endpoint_config(
-            EndpointConfigName=endpoint_config_name)
+        EndpointConfigName=endpoint_config_name)
     assert "CreationTime" in describe_endpoint_config_response
     assert "EndpointConfigArn" in describe_endpoint_config_response
     assert "EndpointConfigName" in describe_endpoint_config_response
@@ -248,15 +244,15 @@ def test_endpoint_config_is_no_longer_listed_after_deletion(sagemaker_client):
 
     endpoint_config_name = "sample-config"
     create_endpoint_config(
-            sagemaker_client=sagemaker_client,
-            endpoint_config_name=endpoint_config_name,
-            model_name=model_name)
+        sagemaker_client=sagemaker_client,
+        endpoint_config_name=endpoint_config_name,
+        model_name=model_name)
 
     sagemaker_client.delete_endpoint_config(EndpointConfigName=endpoint_config_name)
 
     listed_endpoint_configs = sagemaker_client.list_endpoint_configs()["EndpointConfigs"]
     listed_endpoint_config_names = [
-            endpoint_config["EndpointConfigName"] for endpoint_config in listed_endpoint_configs
+        endpoint_config["EndpointConfigName"] for endpoint_config in listed_endpoint_configs
     ]
     assert endpoint_config_name not in listed_endpoint_config_names
 
@@ -268,9 +264,9 @@ def test_created_endpoint_is_listed_by_list_endpoints_function(sagemaker_client)
 
     endpoint_config_name = "sample-config"
     create_endpoint_config(
-            sagemaker_client=sagemaker_client,
-            endpoint_config_name=endpoint_config_name,
-            model_name=model_name)
+        sagemaker_client=sagemaker_client,
+        endpoint_config_name=endpoint_config_name,
+        model_name=model_name)
 
     endpoint_name = "sample-endpoint"
 
@@ -293,16 +289,15 @@ def test_created_endpoint_is_listed_by_list_endpoints_function(sagemaker_client)
 
 
 @mock_sagemaker
-def test_create_endpoint_returns_arn_containing_endpoint_name(
-        sagemaker_client):
+def test_create_endpoint_returns_arn_containing_endpoint_name(sagemaker_client):
     model_name = "sample-model"
     create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
 
     endpoint_config_name = "sample-config"
     create_endpoint_config(
-            sagemaker_client=sagemaker_client,
-            endpoint_config_name=endpoint_config_name,
-            model_name=model_name)
+        sagemaker_client=sagemaker_client,
+        endpoint_config_name=endpoint_config_name,
+        model_name=model_name)
 
     endpoint_name = "sample-endpoint"
 
@@ -328,9 +323,9 @@ def test_creating_endpoint_with_name_already_in_use_raises_exception(sagemaker_c
 
     endpoint_config_name = "sample-config"
     create_endpoint_config(
-            sagemaker_client=sagemaker_client,
-            endpoint_config_name=endpoint_config_name,
-            model_name=model_name)
+        sagemaker_client=sagemaker_client,
+        endpoint_config_name=endpoint_config_name,
+        model_name=model_name)
 
     endpoint_name = "sample-endpoint"
 
@@ -365,9 +360,9 @@ def test_all_endpoint_are_listed_after_creating_many_endpoints(sagemaker_client)
 
     endpoint_config_name = "sample-config"
     create_endpoint_config(
-            sagemaker_client=sagemaker_client,
-            endpoint_config_name=endpoint_config_name,
-            model_name=model_name)
+        sagemaker_client=sagemaker_client,
+        endpoint_config_name=endpoint_config_name,
+        model_name=model_name)
 
     endpoint_names = []
 
@@ -439,9 +434,9 @@ def test_endpoint_is_no_longer_listed_after_deletion(sagemaker_client):
 
     endpoint_config_name = "sample-config"
     create_endpoint_config(
-            sagemaker_client=sagemaker_client,
-            endpoint_config_name=endpoint_config_name,
-            model_name=model_name)
+        sagemaker_client=sagemaker_client,
+        endpoint_config_name=endpoint_config_name,
+        model_name=model_name)
 
     endpoint_name = "sample-endpoint"
     sagemaker_client.create_endpoint(
@@ -463,15 +458,15 @@ def test_update_endpoint_modifies_config_correctly(sagemaker_client):
 
     first_endpoint_config_name = "sample-config-1"
     create_endpoint_config(
-            sagemaker_client=sagemaker_client,
-            endpoint_config_name=first_endpoint_config_name,
-            model_name=model_name)
+        sagemaker_client=sagemaker_client,
+        endpoint_config_name=first_endpoint_config_name,
+        model_name=model_name)
 
     second_endpoint_config_name = "sample-config-2"
     create_endpoint_config(
-            sagemaker_client=sagemaker_client,
-            endpoint_config_name=second_endpoint_config_name,
-            model_name=model_name)
+        sagemaker_client=sagemaker_client,
+        endpoint_config_name=second_endpoint_config_name,
+        model_name=model_name)
 
     endpoint_name = "sample-endpoint"
     sagemaker_client.create_endpoint(
@@ -480,14 +475,14 @@ def test_update_endpoint_modifies_config_correctly(sagemaker_client):
     )
 
     first_describe_endpoint_response = sagemaker_client.describe_endpoint(
-            EndpointName=endpoint_name)
+        EndpointName=endpoint_name)
     assert first_describe_endpoint_response["EndpointConfigName"] == first_endpoint_config_name
 
     sagemaker_client.update_endpoint(
-            EndpointName=endpoint_name, EndpointConfigName=second_endpoint_config_name)
+        EndpointName=endpoint_name, EndpointConfigName=second_endpoint_config_name)
 
     second_describe_endpoint_response = sagemaker_client.describe_endpoint(
-            EndpointName=endpoint_name)
+        EndpointName=endpoint_name)
     assert second_describe_endpoint_response["EndpointConfigName"] == second_endpoint_config_name
 
 
@@ -498,9 +493,9 @@ def test_update_endpoint_with_nonexistent_config_throws_exception(sagemaker_clie
 
     endpoint_config_name = "sample-config"
     create_endpoint_config(
-            sagemaker_client=sagemaker_client,
-            endpoint_config_name=endpoint_config_name,
-            model_name=model_name)
+        sagemaker_client=sagemaker_client,
+        endpoint_config_name=endpoint_config_name,
+        model_name=model_name)
 
     endpoint_name = "sample-endpoint"
     sagemaker_client.create_endpoint(
@@ -510,4 +505,4 @@ def test_update_endpoint_with_nonexistent_config_throws_exception(sagemaker_clie
 
     with pytest.raises(ValueError):
         sagemaker_client.update_endpoint(
-                EndpointName=endpoint_name, EndpointConfigName="nonexistent-config")
+            EndpointName=endpoint_name, EndpointConfigName="nonexistent-config")

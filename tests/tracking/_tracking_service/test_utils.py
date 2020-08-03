@@ -42,9 +42,7 @@ def test_get_store_file_store_from_arg(tmp_wkdir):
 
 @pytest.mark.parametrize("uri", ["other/path", "file:other/path"])
 def test_get_store_file_store_from_env(tmp_wkdir, uri):
-    env = {
-        _TRACKING_URI_ENV_VAR: uri
-    }
+    env = {_TRACKING_URI_ENV_VAR: uri}
     with mock.patch.dict(os.environ, env):
         store = _get_store()
         assert isinstance(store, FileStore)
@@ -52,9 +50,7 @@ def test_get_store_file_store_from_env(tmp_wkdir, uri):
 
 
 def test_get_store_basic_rest_store():
-    env = {
-        _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050"
-    }
+    env = {_TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050"}
     with mock.patch.dict(os.environ, env):
         store = _get_store()
         assert isinstance(store, RestStore)
@@ -123,9 +119,7 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
 
     uri = "{}://hostname/database".format(db_type)
-    env = {
-        _TRACKING_URI_ENV_VAR: uri
-    }
+    env = {_TRACKING_URI_ENV_VAR: uri}
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine,\
             mock.patch("mlflow.store.db.utils._verify_schema"), \
             mock.patch("mlflow.store.db.utils._initialize_tables"):
@@ -141,9 +135,7 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
 def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
     uri = "{}://hostname/database".format(db_type)
-    env = {
-        _TRACKING_URI_ENV_VAR: uri
-    }
+    env = {_TRACKING_URI_ENV_VAR: uri}
     artifact_uri = "file:artifact/path"
 
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, \
@@ -188,29 +180,18 @@ def test_standard_store_registry_with_mocked_entrypoint():
     mock_entrypoint = mock.Mock()
     mock_entrypoint.name = "mock-scheme"
 
-    with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
-    ):
+    with mock.patch("entrypoints.get_group_all", return_value=[mock_entrypoint]):
         # Entrypoints are registered at import time, so we need to reload the
         # module to register the entrypoint given by the mocked
         # extrypoints.get_group_all
         reload(mlflow.tracking._tracking_service.utils)
 
         expected_standard_registry = {
-            '',
-            'file',
-            'http',
-            'https',
-            'postgresql',
-            'mysql',
-            'sqlite',
-            'mssql',
-            'databricks',
+            '', 'file', 'http', 'https', 'postgresql', 'mysql', 'sqlite', 'mssql', 'databricks',
             'mock-scheme'
         }
         assert expected_standard_registry.issubset(
-            mlflow.tracking._tracking_service.utils._tracking_store_registry._registry.keys()
-        )
+            mlflow.tracking._tracking_service.utils._tracking_store_registry._registry.keys())
 
 
 @pytest.mark.large
@@ -251,8 +232,7 @@ def test_plugin_registration_via_entrypoints():
     mock_entrypoint.name = "mock-scheme"
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
-    ) as mock_get_group_all:
+            "entrypoints.get_group_all", return_value=[mock_entrypoint]) as mock_get_group_all:
 
         tracking_store = TrackingStoreRegistry()
         tracking_store.register_entrypoints()
@@ -271,8 +251,7 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
     mock_entrypoint.name = "mock-scheme"
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
-    ) as mock_get_group_all:
+            "entrypoints.get_group_all", return_value=[mock_entrypoint]) as mock_get_group_all:
 
         tracking_store = TrackingStoreRegistry()
 

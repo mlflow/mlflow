@@ -35,7 +35,6 @@ MLFLOW_DATABRICKS_JOB_ID = "mlflow.databricks.jobID"
 MLFLOW_DATABRICKS_JOB_RUN_ID = "mlflow.databricks.jobRunID"
 MLFLOW_DATABRICKS_JOB_TYPE = "mlflow.databricks.jobType"
 
-
 MLFLOW_PROJECT_BACKEND = "mlflow.project.backend"
 
 # The following legacy tags are deprecated and will be removed by MLflow 1.0.

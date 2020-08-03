@@ -10,7 +10,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 
-
 TEST_ROOT_PATH = "some/path"
 TEST_BLOB_CONTAINER_ROOT = "wasbs://container@account.blob.core.windows.net/"
 TEST_URI = os.path.join(TEST_BLOB_CONTAINER_ROOT, TEST_ROOT_PATH)
@@ -92,8 +91,7 @@ def test_list_artifacts_single_file(mock_client):
     # Evaluate single file
     blob_props = BlobProperties()
     blob_props.name = posixpath.join(TEST_ROOT_PATH, "file")
-    mock_client.get_container_client().walk_blobs.return_value = MockBlobList(
-        [blob_props])
+    mock_client.get_container_client().walk_blobs.return_value = MockBlobList([blob_props])
     assert repo.list_artifacts("file") == []
 
 
@@ -154,8 +152,9 @@ def test_log_artifacts(mock_client, tmpdir):
     # Ensure that the order of the calls do not matter
     for call in call_list:
         arg1, arg2 = call[0]
-        assert arg1 in [posixpath.join(TEST_ROOT_PATH, x)
-                        for x in ["a.txt", "subdir/b.txt", "subdir/c.txt"]]
+        assert arg1 in [
+            posixpath.join(TEST_ROOT_PATH, x) for x in ["a.txt", "subdir/b.txt", "subdir/c.txt"]
+        ]
         # arg2 should be a filebuffer
         if arg1.endswith("/a.txt"):
             assert arg2.name == os.path.normpath(parentd.strpath + "/a.txt")

@@ -79,8 +79,9 @@ def is_in_databricks_job():
 def is_dbfs_fuse_available():
     with open(os.devnull, 'w') as devnull_stderr, open(os.devnull, 'w') as devnull_stdout:
         try:
-            return subprocess.call(
-                ["mountpoint", "/dbfs"], stderr=devnull_stderr, stdout=devnull_stdout) == 0
+            return subprocess.call(["mountpoint", "/dbfs"],
+                                   stderr=devnull_stderr,
+                                   stdout=devnull_stdout) == 0
         except Exception:  # pylint: disable=broad-except
             return False
 
@@ -190,9 +191,8 @@ def get_databricks_host_creds(server_uri=None):
     """
     profile, path = get_db_info_from_uri(server_uri)
     if not hasattr(provider, 'get_config'):
-        _logger.warning(
-            "Support for databricks-cli<0.8.0 is deprecated and will be removed"
-            " in a future version.")
+        _logger.warning("Support for databricks-cli<0.8.0 is deprecated and will be removed"
+                        " in a future version.")
         config = provider.get_config_for_profile(profile)
     elif profile:
         config = provider.ProfileConfigProvider(profile).get_config()
@@ -209,17 +209,18 @@ def get_databricks_host_creds(server_uri=None):
             token = dbutils.secrets.get(scope=profile, key=key_prefix + "-token")
             if host and token:
                 config = provider.DatabricksConfig.from_token(
-                    host=host,
-                    token=token,
-                    insecure=False)
+                    host=host, token=token, insecure=False)
     if not config or not config.host:
         _fail_malformed_databricks_auth(profile)
 
     insecure = hasattr(config, 'insecure') and config.insecure
 
     if config.username is not None and config.password is not None:
-        return MlflowHostCreds(config.host, username=config.username, password=config.password,
-                               ignore_tls_verification=insecure)
+        return MlflowHostCreds(
+            config.host,
+            username=config.username,
+            password=config.password,
+            ignore_tls_verification=insecure)
     elif config.token:
         return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
     _fail_malformed_databricks_auth(profile)

@@ -51,17 +51,14 @@ CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; format=pandas-split"
 CONTENT_TYPE_JSON_SPLIT_NUMPY = "application/json-numpy-split"
 
 CONTENT_TYPES = [
-    CONTENT_TYPE_CSV,
-    CONTENT_TYPE_JSON,
-    CONTENT_TYPE_JSON_RECORDS_ORIENTED,
-    CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-    CONTENT_TYPE_JSON_SPLIT_NUMPY
+    CONTENT_TYPE_CSV, CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+    CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_JSON_SPLIT_NUMPY
 ]
 
 _logger = logging.getLogger(__name__)
 
 
-def parse_json_input(json_input, orient="split", schema: Schema=None):
+def parse_json_input(json_input, orient="split", schema: Schema = None):
     """
     :param json_input: A JSON-formatted string representation of a Pandas DataFrame, or a stream
                        containing such a string representation.
@@ -74,11 +71,10 @@ def parse_json_input(json_input, orient="split", schema: Schema=None):
         return _dataframe_from_json(json_input, pandas_orient=orient, schema=schema)
     except Exception:
         _handle_serving_error(
-            error_message=(
-                "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
-                " a valid JSON-formatted Pandas DataFrame with the `{orient}` orient"
-                " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
-                " method.".format(orient=orient)),
+            error_message=("Failed to parse input as a Pandas DataFrame. Ensure that the input is"
+                           " a valid JSON-formatted Pandas DataFrame with the `{orient}` orient"
+                           " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
+                           " method.".format(orient=orient)),
             error_code=MALFORMED_REQUEST)
 
 
@@ -92,10 +88,9 @@ def parse_csv_input(csv_input):
         return pd.read_csv(csv_input)
     except Exception:
         _handle_serving_error(
-            error_message=(
-                "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
-                " a valid CSV-formatted Pandas DataFrame produced using the"
-                " `pandas.DataFrame.to_csv()` method."),
+            error_message=("Failed to parse input as a Pandas DataFrame. Ensure that the input is"
+                           " a valid CSV-formatted Pandas DataFrame produced using the"
+                           " `pandas.DataFrame.to_csv()` method."),
             error_code=MALFORMED_REQUEST)
 
 
@@ -107,17 +102,16 @@ def parse_split_oriented_json_input_to_numpy(json_input):
     # pylint: disable=broad-except
     try:
         json_input_list = json.loads(json_input, object_pairs_hook=OrderedDict)
-        return pd.DataFrame(index=json_input_list['index'],
-                            data=np.array(json_input_list['data'], dtype=object),
-                            columns=json_input_list['columns']).infer_objects()
+        return pd.DataFrame(
+            index=json_input_list['index'],
+            data=np.array(json_input_list['data'], dtype=object),
+            columns=json_input_list['columns']).infer_objects()
     except Exception:
         _handle_serving_error(
-            error_message=(
-                "Failed to parse input as a Numpy. Ensure that the input is"
-                " a valid JSON-formatted Pandas DataFrame with the split orient"
-                " produced using the `pandas.DataFrame.to_json(..., orient='split')`"
-                " method."
-            ),
+            error_message=("Failed to parse input as a Numpy. Ensure that the input is"
+                           " a valid JSON-formatted Pandas DataFrame with the split orient"
+                           " produced using the `pandas.DataFrame.to_json(..., orient='split')`"
+                           " method."),
             error_code=MALFORMED_REQUEST)
 
 
@@ -148,7 +142,6 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
 
 
 def init(model: PyFuncModel):
-
     """
     Initialize the server. Loads pyfunc model from the path.
     """
@@ -179,19 +172,21 @@ def init(model: PyFuncModel):
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
-            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="split", schema=input_schema)
+            data = parse_json_input(
+                json_input=flask.request.data.decode('utf-8'), orient="split", schema=input_schema)
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
-            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="records", schema=input_schema)
+            data = parse_json_input(
+                json_input=flask.request.data.decode('utf-8'),
+                orient="records",
+                schema=input_schema)
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
             data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
         else:
             return flask.Response(
                 response=("This predictor only supports the following content types,"
                           " {supported_content_types}. Got '{received_content_type}'.".format(
-                            supported_content_types=CONTENT_TYPES,
-                            received_content_type=flask.request.content_type)),
+                              supported_content_types=CONTENT_TYPES,
+                              received_content_type=flask.request.content_type)),
                 status=415,
                 mimetype='text/plain')
 
@@ -201,9 +196,7 @@ def init(model: PyFuncModel):
             raw_predictions = model.predict(data)
         except MlflowException as e:
             _handle_serving_error(
-                error_message=e.message,
-                error_code=BAD_REQUEST,
-                include_traceback=False)
+                error_message=e.message, error_code=BAD_REQUEST, include_traceback=False)
         except Exception:
             _handle_serving_error(
                 error_message=(

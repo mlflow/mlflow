@@ -206,8 +206,13 @@ class AbstractStore:
         """
         pass
 
-    def search_runs(self, experiment_ids, filter_string, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
+    def search_runs(self,
+                    experiment_ids,
+                    filter_string,
+                    run_view_type,
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                    order_by=None,
+                    page_token=None):
         """
         Return runs that match the given list of search expressions within the experiments.
 

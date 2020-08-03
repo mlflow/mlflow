@@ -27,13 +27,11 @@ from mlflow.utils.file_utils import TempDir
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
-pytestmark = pytest.mark.skipif(
-        (sys.version_info < (3, 0)),
-        reason="Tests require Python 3 to run!")
+pytestmark = pytest.mark.skipif((sys.version_info < (3, 0)),
+                                reason="Tests require Python 3 to run!")
 
 
 class AzureMLMocks:
-
     def __init__(self):
         self.mocks = {
             "register_model": mock.patch("azureml.core.model.Model.register"),
@@ -80,8 +78,8 @@ def sklearn_model(sklearn_data):
 @pytest.fixture(scope="module")
 def keras_data():
     iris = datasets.load_iris()
-    data = pd.DataFrame(data=np.c_[iris['data'], iris['target']],
-                        columns=iris['feature_names'] + ['target'])
+    data = pd.DataFrame(
+        data=np.c_[iris['data'], iris['target']], columns=iris['feature_names'] + ['target'])
     y = data['target']
     x = data.drop('target', axis=1)
     return x, y
@@ -105,8 +103,7 @@ def model_path(tmpdir):
 
 @pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
-def test_deploy_with_absolute_model_path_calls_expected_azure_routines(
-        sklearn_model, model_path):
+def test_deploy_with_absolute_model_path_calls_expected_azure_routines(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     with AzureMLMocks() as aml_mocks:
         workspace = get_azure_workspace()
@@ -118,8 +115,7 @@ def test_deploy_with_absolute_model_path_calls_expected_azure_routines(
 
 @pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
-def test_deploy_with_relative_model_path_calls_expected_azure_routines(
-        sklearn_model):
+def test_deploy_with_relative_model_path_calls_expected_azure_routines(sklearn_model):
     with TempDir(chdr=True):
         model_path = "model"
         mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
@@ -151,8 +147,8 @@ def test_deploy_with_runs_uri_calls_expected_azure_routines(sklearn_model):
 
 @pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
-def test_deploy_with_remote_uri_calls_expected_azure_routines(
-        sklearn_model, model_path, mock_s3_bucket):
+def test_deploy_with_remote_uri_calls_expected_azure_routines(sklearn_model, model_path,
+                                                              mock_s3_bucket):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     artifact_path = "model"
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
@@ -192,15 +188,16 @@ def test_asynchronous_deploy_does_not_await_azure_service_creation(sklearn_model
 
 @pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
-def test_deploy_registers_model_and_creates_service_with_specified_names(
-        sklearn_model, model_path):
+def test_deploy_registers_model_and_creates_service_with_specified_names(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     with AzureMLMocks() as aml_mocks:
         workspace = get_azure_workspace()
         model_name = "MODEL_NAME_1"
         service_name = "service_name_1"
         mlflow.azureml.deploy(
-            model_uri=model_path, workspace=workspace, model_name=model_name,
+            model_uri=model_path,
+            workspace=workspace,
+            model_name=model_name,
             service_name=service_name)
 
         register_model_call_args = aml_mocks["register_model"].call_args_list
@@ -252,18 +249,20 @@ def test_deploy_passes_model_conda_environment_to_azure_service_creation_routine
         with open(sklearn_conda_env_path, "w") as f:
             f.write(sklearn_conda_env_text)
 
-        mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path,
-                                  conda_env=sklearn_conda_env_path)
+        mlflow.sklearn.save_model(
+            sk_model=sklearn_model, path=model_path, conda_env=sklearn_conda_env_path)
 
         # Mock the TempDir.__exit__ function to ensure that the enclosing temporary
         # directory is not deleted
         with AzureMLMocks() as aml_mocks,\
                 mock.patch("mlflow.utils.file_utils.TempDir.path") as tmpdir_path_mock,\
                 mock.patch("mlflow.utils.file_utils.TempDir.__exit__"):
+
             def get_mock_path(subpath):
                 # Our current working directory is a temporary directory. Therefore, it is safe to
                 # directly return the specified subpath.
                 return subpath
+
             tmpdir_path_mock.side_effect = get_mock_path
 
             workspace = get_azure_workspace()
@@ -280,8 +279,7 @@ def test_deploy_passes_model_conda_environment_to_azure_service_creation_routine
 
 @pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
-def test_deploy_throws_exception_if_model_does_not_contain_pyfunc_flavor(
-        sklearn_model, model_path):
+def test_deploy_throws_exception_if_model_does_not_contain_pyfunc_flavor(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
     model_config_path = os.path.join(model_path, "MLmodel")
     model_config = Model.load(model_config_path)
@@ -325,7 +323,7 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
     with TempDir() as tmp:
         execution_script_path = tmp.path("dest")
         mlflow.azureml._create_execution_script(
-                output_path=execution_script_path, azure_model=model_mock)
+            output_path=execution_script_path, azure_model=model_mock)
 
         with open(execution_script_path, "r") as f:
             execution_script = f.read()
@@ -369,7 +367,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
     with TempDir() as tmp:
         execution_script_path = tmp.path("dest")
         mlflow.azureml._create_execution_script(
-                output_path=execution_script_path, azure_model=model_mock)
+            output_path=execution_script_path, azure_model=model_mock)
 
         with open(execution_script_path, "r") as f:
             execution_script = f.read()
@@ -412,7 +410,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
     with TempDir() as tmp:
         execution_script_path = tmp.path("dest")
         mlflow.azureml._create_execution_script(
-                output_path=execution_script_path, azure_model=model_mock)
+            output_path=execution_script_path, azure_model=model_mock)
 
         with open(execution_script_path, "r") as f:
             execution_script = f.read()
@@ -439,7 +437,4 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         output_raw = run(pd.DataFrame(data=keras_data[0]).to_json(orient="split"))
         output_df = pd.DataFrame(output_raw)
         pandas.testing.assert_frame_equal(
-            output_df,
-            pyfunc_outputs,
-            check_dtype=False,
-            check_less_precise=False)
+            output_df, pyfunc_outputs, check_dtype=False, check_less_precise=False)

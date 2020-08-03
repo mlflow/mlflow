@@ -86,8 +86,7 @@ def test_download_artifacts_from_uri():
     run_uri = "runs:/{run_id}/test".format(run_id=run.info.run_id)
     actual_uri = posixpath.join(run.info.artifact_uri, "test")
     for uri in (run_uri, actual_uri):
-        p = Popen(command + [uri], stdout=PIPE,
-                  stderr=STDOUT)
+        p = Popen(command + [uri], stdout=PIPE, stderr=STDOUT)
         output = p.stdout.readlines()
         downloaded_file_path = output[-1].strip()
         downloaded_file = os.listdir(downloaded_file_path)[0]

@@ -35,7 +35,6 @@ DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
 # Base directory within DBFS for storing code for project runs for experiments
 DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -68,6 +67,7 @@ class DatabricksJobRunner(object):
     :param databricks_profile: Optional Databricks CLI profile to use to fetch hostname &
            authentication information when making Databricks API requests.
     """
+
     def __init__(self, databricks_profile_uri):
         self.databricks_profile_uri = databricks_profile_uri
 
@@ -105,7 +105,9 @@ class DatabricksJobRunner(object):
         """
         host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile_uri)
         response = rest_utils.http_request(
-            host_creds=host_creds, endpoint="/api/2.0/dbfs/get-status", method="GET",
+            host_creds=host_creds,
+            endpoint="/api/2.0/dbfs/get-status",
+            method="GET",
             json={"path": "/%s" % dbfs_path})
         try:
             json_response_obj = json.loads(response.text)
@@ -137,8 +139,11 @@ class DatabricksJobRunner(object):
             return None if os.path.basename(x.name) == "mlruns" else x
 
         try:
-            file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME,
-                                    custom_filter=custom_filter)
+            file_utils.make_tarfile(
+                temp_tar_filename,
+                project_dir,
+                DB_TARFILE_ARCHIVE_NAME,
+                custom_filter=custom_filter)
             with open(temp_tar_filename, "rb") as tarred_project:
                 tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
             # TODO: Get subdirectory for experiment from the tracking server
@@ -253,8 +258,8 @@ def _get_tracking_uri_for_run():
 
 
 def _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters):
-    mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
-                                            "--entry-point", entry_point]))
+    mlflow_run_arr = list(
+        map(shlex_quote, ["mlflow", "run", project_dir, "--entry-point", entry_point]))
     if run_id:
         mlflow_run_arr.extend(["-c", json.dumps({MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
     if parameters:
@@ -269,8 +274,8 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     """
     # Strip ".gz" and ".tar" file extensions from base filename of the tarfile
     tar_hash = posixpath.splitext(posixpath.splitext(posixpath.basename(dbfs_fuse_tar_uri))[0])[0]
-    container_tar_path = posixpath.abspath(posixpath.join(DB_TARFILE_BASE,
-                                                          posixpath.basename(dbfs_fuse_tar_uri)))
+    container_tar_path = posixpath.abspath(
+        posixpath.join(DB_TARFILE_BASE, posixpath.basename(dbfs_fuse_tar_uri)))
     project_dir = posixpath.join(DB_PROJECTS_BASE, tar_hash)
 
     mlflow_run_arr = _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters)
@@ -289,10 +294,14 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     # Atomically move the extracted project into the desired directory
     mv -T {tarfile_archive_name} {work_dir} &&
     {mlflow_run}
-    """.format(tarfile_base=DB_TARFILE_BASE, projects_base=DB_PROJECTS_BASE,
-               dbfs_fuse_tar_path=dbfs_fuse_tar_uri, container_tar_path=container_tar_path,
-               tarfile_archive_name=DB_TARFILE_ARCHIVE_NAME, work_dir=project_dir,
-               mlflow_run=mlflow_run_cmd))
+    """.format(
+        tarfile_base=DB_TARFILE_BASE,
+        projects_base=DB_PROJECTS_BASE,
+        dbfs_fuse_tar_path=dbfs_fuse_tar_uri,
+        container_tar_path=container_tar_path,
+        tarfile_archive_name=DB_TARFILE_ARCHIVE_NAME,
+        work_dir=project_dir,
+        mlflow_run=mlflow_run_cmd))
     return ["bash", "-c", shell_command]
 
 
@@ -303,8 +312,8 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     """
     run_id = remote_run.info.run_id
     db_job_runner = DatabricksJobRunner(databricks_profile_uri=tracking.get_tracking_uri())
-    db_run_id = db_job_runner.run_databricks(
-        uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id)
+    db_run_id = db_job_runner.run_databricks(uri, entry_point, work_dir, parameters, experiment_id,
+                                             cluster_spec, run_id)
     submitted_run = DatabricksSubmittedRun(db_run_id, run_id, db_job_runner)
     submitted_run._print_description_and_log_tags()
     return submitted_run
@@ -332,25 +341,24 @@ class DatabricksSubmittedRun(SubmittedRun):
     def _print_description_and_log_tags(self):
         _logger.info(
             "=== Launched MLflow run as Databricks job run with ID %s."
-            " Getting run status page URL... ===",
-            self._databricks_run_id)
+            " Getting run status page URL... ===", self._databricks_run_id)
         run_info = self._job_runner.jobs_runs_get(self._databricks_run_id)
         jobs_page_url = run_info["run_page_url"]
         _logger.info("=== Check the run's status at %s ===", jobs_page_url)
         host_creds = databricks_utils.get_databricks_host_creds(
             self._job_runner.databricks_profile_uri)
-        tracking.MlflowClient().set_tag(self._mlflow_run_id,
-                                        MLFLOW_DATABRICKS_RUN_URL, jobs_page_url)
-        tracking.MlflowClient().set_tag(self._mlflow_run_id,
-                                        MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, self._databricks_run_id)
-        tracking.MlflowClient().set_tag(self._mlflow_run_id,
-                                        MLFLOW_DATABRICKS_WEBAPP_URL, host_creds.host)
+        tracking.MlflowClient().set_tag(self._mlflow_run_id, MLFLOW_DATABRICKS_RUN_URL,
+                                        jobs_page_url)
+        tracking.MlflowClient().set_tag(self._mlflow_run_id, MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID,
+                                        self._databricks_run_id)
+        tracking.MlflowClient().set_tag(self._mlflow_run_id, MLFLOW_DATABRICKS_WEBAPP_URL,
+                                        host_creds.host)
         job_id = run_info.get('job_id')
         # In some releases of Databricks we do not return the job ID. We start including it in DB
         # releases 2.80 and above.
         if job_id is not None:
-            tracking.MlflowClient().set_tag(self._mlflow_run_id,
-                                            MLFLOW_DATABRICKS_SHELL_JOB_ID, job_id)
+            tracking.MlflowClient().set_tag(self._mlflow_run_id, MLFLOW_DATABRICKS_SHELL_JOB_ID,
+                                            job_id)
 
     @property
     def run_id(self):

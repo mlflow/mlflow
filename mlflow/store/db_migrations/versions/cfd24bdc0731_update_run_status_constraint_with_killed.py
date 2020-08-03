@@ -32,8 +32,9 @@ new_run_statuses = [
 # within the migration's `upgrade()` routine.
 check_constraint_table_args = [
     CheckConstraint(SqlRun.source_type.in_(SourceTypes), name='source_type'),
-    CheckConstraint(SqlRun.lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
-                    name='runs_lifecycle_stage'),
+    CheckConstraint(
+        SqlRun.lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
+        name='runs_lifecycle_stage'),
 ]
 
 
@@ -43,9 +44,8 @@ def upgrade():
         # `native_enum=False` to create a check constraint rather than a
         # database-backend-dependent enum (see https://docs.sqlalchemy.org/en/13/core/
         # type_basics.html#sqlalchemy.types.Enum.params.native_enum)
-        batch_op.alter_column("status",
-                              type_=Enum(*new_run_statuses, create_constraint=True,
-                                         native_enum=False))
+        batch_op.alter_column(
+            "status", type_=Enum(*new_run_statuses, create_constraint=True, native_enum=False))
 
 
 def downgrade():

@@ -7,7 +7,6 @@ from mlflow.tracking.context.default_context import DefaultRunContext
 
 # pylint: disable=unused-argument
 
-
 MOCK_SCRIPT_NAME = "/path/to/script.py"
 
 

@@ -21,12 +21,14 @@ def commands():
 
 @commands.command()
 @click.option("--experiment-name", "-n", type=click.STRING, required=True)
-@click.option("--artifact-location", "-l",
-              help="Base location for runs to store artifact results. Artifacts will be stored "
-                   "at $artifact_location/$run_id/artifacts. See "
-                   "https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded for "
-                   "more info on the properties of artifact location. "
-                   "If no location is provided, the tracking server will pick a default.")
+@click.option(
+    "--artifact-location",
+    "-l",
+    help="Base location for runs to store artifact results. Artifacts will be stored "
+    "at $artifact_location/$run_id/artifacts. See "
+    "https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded for "
+    "more info on the properties of artifact location. "
+    "If no location is provided, the tracking server will pick a default.")
 def create(experiment_name, artifact_location):
     """
     Create an experiment.
@@ -44,9 +46,12 @@ def create(experiment_name, artifact_location):
 
 
 @commands.command("list")
-@click.option("--view", "-v", default="active_only",
-              help="Select view type for list experiments. Valid view types are "
-                   "'active_only' (default), 'deleted_only', and 'all'.")
+@click.option(
+    "--view",
+    "-v",
+    default="active_only",
+    help="Select view type for list experiments. Valid view types are "
+    "'active_only' (default), 'deleted_only', and 'all'.")
 def list_experiments(view):
     """
     List all experiments in the configured tracking server.
@@ -54,8 +59,10 @@ def list_experiments(view):
     store = _get_store()
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
     experiments = store.list_experiments(view_type)
-    table = [[exp.experiment_id, exp.name, exp.artifact_location if is_uri(exp.artifact_location)
-              else os.path.abspath(exp.artifact_location)] for exp in experiments]
+    table = [[
+        exp.experiment_id, exp.name, exp.artifact_location
+        if is_uri(exp.artifact_location) else os.path.abspath(exp.artifact_location)
+    ] for exp in experiments]
     print(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
 
 
@@ -119,8 +126,7 @@ def generate_csv_with_runs(experiment_id, filename):
     runs = fluent.search_runs(experiment_ids=experiment_id)
     if filename:
         runs.to_csv(filename, index=False)
-        print(
-            "Experiment with ID %s has been exported as a CSV to file: %s." %
-            (experiment_id, filename))
+        print("Experiment with ID %s has been exported as a CSV to file: %s." % (experiment_id,
+                                                                                 filename))
     else:
         print(runs.to_csv(index=False))

@@ -79,8 +79,11 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def search_registered_models(self, filter_string=None, max_results=None,
-                                 order_by=None, page_token=None):
+    def search_registered_models(self,
+                                 filter_string=None,
+                                 max_results=None,
+                                 order_by=None,
+                                 page_token=None):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
@@ -172,8 +175,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def transition_model_version_stage(self, name, version, stage,
-                                       archive_existing_versions):
+    def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
         Update model version stage.
 

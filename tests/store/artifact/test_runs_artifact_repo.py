@@ -20,12 +20,14 @@ def test_parse_runs_uri_valid_input(uri, expected_run_id, expected_artifact_path
     assert artifact_path == expected_artifact_path
 
 
-@pytest.mark.parametrize("uri", [
-    'notruns:/1234abcdf1394asdfwer33/',  # wrong scheme
-    'runs:/',                            # no run id
-    'runs:1234abcdf1394asdfwer33/',      # missing slash
-    'runs://1234abcdf1394asdfwer33/',    # hostnames are not yet supported
-])
+@pytest.mark.parametrize(
+    "uri",
+    [
+        'notruns:/1234abcdf1394asdfwer33/',  # wrong scheme
+        'runs:/',  # no run id
+        'runs:1234abcdf1394asdfwer33/',  # missing slash
+        'runs://1234abcdf1394asdfwer33/',  # hostnames are not yet supported
+    ])
 def test_parse_runs_uri_invalid_input(uri):
     with pytest.raises(MlflowException):
         RunsArtifactRepository.parse_runs_uri(uri)

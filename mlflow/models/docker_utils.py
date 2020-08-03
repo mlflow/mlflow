@@ -50,17 +50,15 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
     directory
     """
     if mlflow_home:
-        mlflow_dir = _copy_project(
-            src_path=mlflow_home, dst_path=dockerfile_context_dir)
-        return (
-            "COPY {mlflow_dir} /opt/mlflow\n"
-            "RUN pip install /opt/mlflow\n"
-            "RUN cd /opt/mlflow/mlflow/java/scoring && "
-            "mvn --batch-mode package -DskipTests && "
-            "mkdir -p /opt/java/jars && "
-            "mv /opt/mlflow/mlflow/java/scoring/target/"
-            "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
-        ).format(mlflow_dir=mlflow_dir)
+        mlflow_dir = _copy_project(src_path=mlflow_home, dst_path=dockerfile_context_dir)
+        return ("COPY {mlflow_dir} /opt/mlflow\n"
+                "RUN pip install /opt/mlflow\n"
+                "RUN cd /opt/mlflow/mlflow/java/scoring && "
+                "mvn --batch-mode package -DskipTests && "
+                "mkdir -p /opt/java/jars && "
+                "mv /opt/mlflow/mlflow/java/scoring/target/"
+                "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n").format(
+                    mlflow_dir=mlflow_dir)
     else:
         return (
             "RUN pip install mlflow=={version}\n"
@@ -74,8 +72,8 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
             " -DoutputDirectory=/opt/java/jars\n"
             "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
             "RUN cd /opt/java && mvn "
-            "--batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
-        ).format(version=mlflow.version.VERSION)
+            "--batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n").format(
+                version=mlflow.version.VERSION)
 
 
 def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_hook=None):
@@ -98,9 +96,11 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
         install_mlflow = _get_mlflow_install_step(cwd, mlflow_home)
         custom_setup_steps = custom_setup_steps_hook(cwd) if custom_setup_steps_hook else ""
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
-            f.write(_DOCKERFILE_TEMPLATE.format(
-                install_mlflow=install_mlflow, custom_setup_steps=custom_setup_steps,
-                entrypoint=entrypoint))
+            f.write(
+                _DOCKERFILE_TEMPLATE.format(
+                    install_mlflow=install_mlflow,
+                    custom_setup_steps=custom_setup_steps,
+                    entrypoint=entrypoint))
         _logger.info("Building docker image with name %s", image_name)
         os.system('find {cwd}/'.format(cwd=cwd))
         proc = Popen(["docker", "build", "-t", image_name, "-f", "Dockerfile", "."],

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """Export and import of generic R models.
 
 This module defines generic filesystem format for R models and provides utilities

@@ -94,6 +94,7 @@ class TestDbfsArtifactRepository(object):
                 endpoints.append(kwargs['endpoint'])
                 data.append(kwargs['data'].read())
                 return Mock(status_code=200)
+
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             assert endpoints == [expected_endpoint]
@@ -101,19 +102,23 @@ class TestDbfsArtifactRepository(object):
 
     def test_log_artifact_empty_file(self, dbfs_artifact_repo, test_dir):
         with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
+
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 assert kwargs['endpoint'] == "/dbfs/test/empty-file"
                 assert kwargs['data'] == ""
                 return Mock(status_code=200)
+
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifact(os.path.join(test_dir.strpath, "empty-file"))
 
     def test_log_artifact_empty_artifact_path(self, dbfs_artifact_repo, test_file):
         with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
+
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 assert kwargs['endpoint'] == "/dbfs/test/test.txt"
                 assert kwargs['data'].read() == TEST_FILE_1_CONTENT
                 return Mock(status_code=200)
+
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifact(test_file.strpath, '')
 
@@ -123,11 +128,13 @@ class TestDbfsArtifactRepository(object):
             with pytest.raises(MlflowException):
                 dbfs_artifact_repo.log_artifact(test_file.strpath)
 
-    @pytest.mark.parametrize("artifact_path", [
-        None,
-        '',  # should behave like '/' and exclude base name of logged_dir
-        # We should add '.',
-    ])
+    @pytest.mark.parametrize(
+        "artifact_path",
+        [
+            None,
+            '',  # should behave like '/' and exclude base name of logged_dir
+            # We should add '.',
+        ])
     def test_log_artifacts(self, dbfs_artifact_repo, test_dir, artifact_path):
         with mock.patch('mlflow.utils.rest_utils.http_request') as http_request_mock:
             endpoints = []
@@ -140,6 +147,7 @@ class TestDbfsArtifactRepository(object):
                 else:
                     data.append(kwargs['data'].read())
                 return Mock(status_code=200)
+
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
             assert set(endpoints) == {
@@ -161,8 +169,8 @@ class TestDbfsArtifactRepository(object):
 
     @pytest.mark.parametrize("artifact_path,expected_endpoints", [
         ('a', {'/dbfs/test/a/subdir/test.txt', '/dbfs/test/a/test.txt', '/dbfs/test/a/empty-file'}),
-        ('a/', {'/dbfs/test/a/subdir/test.txt', '/dbfs/test/a/test.txt',
-                '/dbfs/test/a/empty-file'}),
+        ('a/', {'/dbfs/test/a/subdir/test.txt', '/dbfs/test/a/test.txt', '/dbfs/test/a/empty-file'
+                }),
         ('/', {'/dbfs/test/subdir/test.txt', '/dbfs/test/test.txt', '/dbfs/test/empty-file'}),
     ])
     def test_log_artifacts_with_artifact_path(self, dbfs_artifact_repo, test_dir, artifact_path,
@@ -173,6 +181,7 @@ class TestDbfsArtifactRepository(object):
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 endpoints.append(kwargs['endpoint'])
                 return Mock(status_code=200)
+
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
             assert set(endpoints) == expected_endpoints
@@ -205,7 +214,7 @@ class TestDbfsArtifactRepository(object):
             list_mock.side_effect = [
                 Mock(text=json.dumps(LIST_ARTIFACTS_RESPONSE)),
                 Mock(text='{}'),  # this call is for listing `/dir`.
-                Mock(text='{}')   # this call is for listing `/dir/a.txt`.
+                Mock(text='{}')  # this call is for listing `/dir/a.txt`.
             ]
             dbfs_artifact_repo.download_artifacts('/')
             assert list_mock.call_count == 2

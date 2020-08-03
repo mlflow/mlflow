@@ -33,7 +33,7 @@ def test_list_artifacts_empty(ftp_mock):
 
 def test_list_artifacts(ftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
-    repo = FTPArtifactRepository("ftp://test_ftp"+artifact_root_path)
+    repo = FTPArtifactRepository("ftp://test_ftp" + artifact_root_path)
 
     repo.get_ftp_client = MagicMock()
     call_mock = MagicMock(return_value=ftp_mock)
@@ -68,7 +68,7 @@ def test_list_artifacts(ftp_mock):
 
 def test_list_artifacts_with_subdir(ftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
-    repo = FTPArtifactRepository("sftp://test_sftp"+artifact_root_path)
+    repo = FTPArtifactRepository("sftp://test_sftp" + artifact_root_path)
 
     repo.get_ftp_client = MagicMock()
     call_mock = MagicMock(return_value=ftp_mock)
@@ -146,14 +146,8 @@ def test_log_artifact_multiple_calls(ftp_mock, tmpdir):
     fpath2 = d + '/test2.txt'
     fpath2 = fpath2.strpath
 
-    ftp_mock.cwd = MagicMock(side_effect=[
-        ftplib.error_perm,
-        None,
-        ftplib.error_perm,
-        None,
-        None,
-        None
-    ])
+    ftp_mock.cwd = MagicMock(
+        side_effect=[ftplib.error_perm, None, ftplib.error_perm, None, None, None])
 
     repo.log_artifact(fpath1)
     ftp_mock.mkd.assert_called_once_with('/some/path')
@@ -249,15 +243,14 @@ def test_download_artifacts(ftp_mock):
     }
 
     is_dir_call_args = [
-        dir_path, model_file_path_full, empty_dir_path, subdir_path_full,
-        model_file_path_full,
-        subdir_path_full, subfile_path_full,
-        subfile_path_full
+        dir_path, model_file_path_full, empty_dir_path, subdir_path_full, model_file_path_full,
+        subdir_path_full, subfile_path_full, subfile_path_full
     ]
 
     def cwd_side_effect(call_arg):
         if not is_dir_mapping[call_arg]:
             raise ftplib.error_perm
+
     ftp_mock.cwd = MagicMock(side_effect=cwd_side_effect)
 
     def nlst_side_effect(call_arg):

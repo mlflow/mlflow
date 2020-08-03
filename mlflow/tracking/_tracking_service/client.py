@@ -85,8 +85,7 @@ class TrackingServiceClient(object):
             experiment_id=experiment_id,
             user_id=user_id,
             start_time=start_time or int(time.time() * 1000),
-            tags=[RunTag(key, value) for (key, value) in iteritems(tags)]
-        )
+            tags=[RunTag(key, value) for (key, value) in iteritems(tags)])
 
     def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
         """:return: List of :py:class:`mlflow.entities.RunInfo`"""
@@ -308,8 +307,8 @@ class TrackingServiceClient(object):
         :param end_time: If not provided, defaults to the current time."""
         end_time = end_time if end_time else int(time.time() * 1000)
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
-        self.store.update_run_info(run_id, run_status=RunStatus.from_string(status),
-                                   end_time=end_time)
+        self.store.update_run_info(
+            run_id, run_status=RunStatus.from_string(status), end_time=end_time)
 
     def delete_run(self, run_id):
         """
@@ -323,8 +322,13 @@ class TrackingServiceClient(object):
         """
         self.store.restore_run(run_id)
 
-    def search_runs(self, experiment_ids, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
+    def search_runs(self,
+                    experiment_ids,
+                    filter_string="",
+                    run_view_type=ViewType.ACTIVE_ONLY,
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                    order_by=None,
+                    page_token=None):
         """
         Search experiments that fit the search criteria.
 
@@ -345,6 +349,10 @@ class TrackingServiceClient(object):
         """
         if isinstance(experiment_ids, int) or is_string_type(experiment_ids):
             experiment_ids = [experiment_ids]
-        return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
-                                      run_view_type=run_view_type, max_results=max_results,
-                                      order_by=order_by, page_token=page_token)
+        return self.store.search_runs(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            run_view_type=run_view_type,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token)

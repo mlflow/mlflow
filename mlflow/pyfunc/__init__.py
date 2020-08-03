@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 """
 The ``python_function`` model flavor serves as a default model interface for MLflow Python models.
 Any MLflow Python model is expected to be loadable as a ``python_function`` model.
@@ -302,10 +301,8 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         try:
             return values.astype(t.to_pandas(), errors="raise")
         except ValueError:
-            raise MlflowException(
-                "Failed to convert column {0} from type {1} to {2}.".format(
-                  name, values.dtype, t)
-            )
+            raise MlflowException("Failed to convert column {0} from type {1} to {2}.".format(
+                name, values.dtype, t))
 
     if values.dtype in (t.to_pandas(), t.to_numpy()):
         # The types are already compatible => conversion is not necessary.
@@ -327,9 +324,8 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         # double -> float) are not allowed. While supported by pandas and numpy,
         # these conversions alter the values significantly.
         raise MlflowException("Incompatible input types for column {0}. "
-                              "Can not safely convert {1} to {2}.".format(name,
-                                                                          values.dtype,
-                                                                          numpy_type))
+                              "Can not safely convert {1} to {2}.".format(
+                                  name, values.dtype, numpy_type))
 
 
 def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
@@ -369,8 +365,8 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
             message = ("Model input is missing input columns. The model signature declares "
                        "{0} input columns but the provided input only has "
                        "{1} columns. Note: the columns were not named in the signature so we can "
-                       "only verify their count.").format(len(input_schema.columns),
-                                                          len(pdf.columns))
+                       "only verify their count.").format(
+                           len(input_schema.columns), len(pdf.columns))
             raise MlflowException(message)
         col_names = pdf.columns[:len(input_schema.columns)]
     col_types = input_schema.column_types()
@@ -514,8 +510,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
         _logger.warning(
             "The version of Python that the model was saved in, `Python %s`, differs"
             " from the version of Python that is currently running, `Python %s`,"
-            " and may be incompatible",
-            model_py_version, PYTHON_VERSION)
+            " and may be incompatible", model_py_version, PYTHON_VERSION)
 
 
 def spark_udf(spark, model_uri, result_type="double"):
@@ -605,7 +600,7 @@ def spark_udf(spark, model_uri, result_type="double"):
     if not any([isinstance(elem_type, x) for x in supported_types]):
         raise MlflowException(
             message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-                    "of the following types types: {}".format(str(elem_type), str(supported_types)),
+            "of the following types types: {}".format(str(elem_type), str(supported_types)),
             error_code=INVALID_PARAMETER_VALUE)
 
     with TempDir() as local_tmpdir:
@@ -655,16 +650,16 @@ def spark_udf(spark, model_uri, result_type="double"):
             result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, np.int, np.long])
 
         elif type(elem_type) == FloatType:
-            result = result.select_dtypes(include=(np.number,)).astype(np.float32)
+            result = result.select_dtypes(include=(np.number, )).astype(np.float32)
 
         elif type(elem_type) == DoubleType:
-            result = result.select_dtypes(include=(np.number,)).astype(np.float64)
+            result = result.select_dtypes(include=(np.number, )).astype(np.float64)
 
         if len(result.columns) == 0:
             raise MlflowException(
                 message="The the model did not produce any values compatible with the requested "
-                        "type '{}'. Consider requesting udf with StringType or "
-                        "Arraytype(StringType).".format(str(elem_type)),
+                "type '{}'. Consider requesting udf with StringType or "
+                "Arraytype(StringType).".format(str(elem_type)),
                 error_code=INVALID_PARAMETER_VALUE)
 
         if type(elem_type) == StringType:
@@ -678,9 +673,16 @@ def spark_udf(spark, model_uri, result_type="double"):
     return pandas_udf(predict, result_type)
 
 
-def save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-               mlflow_model=None, python_model=None, artifacts=None,
-               signature: ModelSignature = None, input_example: ModelInputExample = None,
+def save_model(path,
+               loader_module=None,
+               data_path=None,
+               code_path=None,
+               conda_env=None,
+               mlflow_model=None,
+               python_model=None,
+               artifacts=None,
+               signature: ModelSignature = None,
+               input_example: ModelInputExample = None,
                **kwargs):
     """
     save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
@@ -810,14 +812,11 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     elif (loader_module is None) and (python_model is None):
         msg = "Either `loader_module` or `python_model` must be specified. A `loader_module` " \
               "should be a python module. A `python_model` should be a subclass of PythonModel"
-        raise MlflowException(
-            message=msg,
-            error_code=INVALID_PARAMETER_VALUE)
+        raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
 
     if os.path.exists(path):
         raise MlflowException(
-            message="Path '{}' already exists".format(path),
-            error_code=RESOURCE_ALREADY_EXISTS)
+            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS)
     os.makedirs(path)
     if mlflow_model is None:
         mlflow_model = Model()
@@ -828,17 +827,32 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
-            path=path, loader_module=loader_module, data_path=data_path,
-            code_paths=code_path, conda_env=conda_env, mlflow_model=mlflow_model)
+            path=path,
+            loader_module=loader_module,
+            data_path=data_path,
+            code_paths=code_path,
+            conda_env=conda_env,
+            mlflow_model=mlflow_model)
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
-            path=path, python_model=python_model, artifacts=artifacts, conda_env=conda_env,
-            code_paths=code_path, mlflow_model=mlflow_model)
+            path=path,
+            python_model=python_model,
+            artifacts=artifacts,
+            conda_env=conda_env,
+            code_paths=code_path,
+            mlflow_model=mlflow_model)
 
 
-def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-              python_model=None, artifacts=None, registered_model_name=None,
-              signature: ModelSignature=None, input_example: ModelInputExample=None):
+def log_model(artifact_path,
+              loader_module=None,
+              data_path=None,
+              code_path=None,
+              conda_env=None,
+              python_model=None,
+              artifacts=None,
+              registered_model_name=None,
+              signature: ModelSignature = None,
+              input_example: ModelInputExample = None):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
     artifact for the current run.
@@ -935,21 +949,25 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
     """
-    return Model.log(artifact_path=artifact_path,
-                     flavor=mlflow.pyfunc,
-                     loader_module=loader_module,
-                     data_path=data_path,
-                     code_path=code_path,
-                     python_model=python_model,
-                     artifacts=artifacts,
-                     conda_env=conda_env,
-                     registered_model_name=registered_model_name,
-                     signature=signature,
-                     input_example=input_example)
+    return Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.pyfunc,
+        loader_module=loader_module,
+        data_path=data_path,
+        code_path=code_path,
+        python_model=python_model,
+        artifacts=artifacts,
+        conda_env=conda_env,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example)
 
 
-def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=None,
-                                                 code_paths=None, conda_env=None,
+def _save_model_with_loader_module_and_data_path(path,
+                                                 loader_module,
+                                                 data_path=None,
+                                                 code_paths=None,
+                                                 conda_env=None,
                                                  mlflow_model=Model()):
     """
     Export model as a generic Python function model.

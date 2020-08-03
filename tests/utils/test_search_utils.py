@@ -8,81 +8,168 @@ from mlflow.utils.search_utils import SearchUtils
 
 
 @pytest.mark.parametrize("filter_string, parsed_filter", [
-    ("metric.acc >= 0.94", [{'comparator': '>=', 'key': 'acc', 'type': 'metric', 'value': '0.94'}]),
-    ("metric.acc>=100", [{'comparator': '>=', 'key': 'acc', 'type': 'metric', 'value': '100'}]),
-    ("params.m!='tf'", [{'comparator': '!=', 'key': 'm', 'type': 'parameter', 'value': 'tf'}]),
-    ('params."m"!="tf"', [{'comparator': '!=', 'key': 'm', 'type': 'parameter', 'value': 'tf'}]),
-    ('metric."legit name" >= 0.243', [{'comparator': '>=',
-                                       'key': 'legit name',
-                                       'type': 'metric',
-                                       'value': '0.243'}]),
-    ("metrics.XYZ = 3", [{'comparator': '=', 'key': 'XYZ', 'type': 'metric', 'value': '3'}]),
-    ('params."cat dog" = "pets"', [{'comparator': '=',
-                                    'key': 'cat dog',
-                                    'type': 'parameter',
-                                    'value': 'pets'}]),
-    ('metrics."X-Y-Z" = 3', [{'comparator': '=', 'key': 'X-Y-Z', 'type': 'metric', 'value': '3'}]),
-    ('metrics."X//Y#$$@&Z" = 3', [{'comparator': '=',
-                                   'key': 'X//Y#$$@&Z',
-                                   'type': 'metric',
-                                   'value': '3'}]),
-    ("params.model = 'LinearRegression'", [{'comparator': '=',
-                                            'key': 'model',
-                                            'type': 'parameter',
-                                            'value': "LinearRegression"}]),
-    ("metrics.rmse < 1 and params.model_class = 'LR'", [
-        {'comparator': '<', 'key': 'rmse', 'type': 'metric', 'value': '1'},
-        {'comparator': '=', 'key': 'model_class', 'type': 'parameter', 'value': "LR"}
-    ]),
+    ("metric.acc >= 0.94", [{
+        'comparator': '>=',
+        'key': 'acc',
+        'type': 'metric',
+        'value': '0.94'
+    }]),
+    ("metric.acc>=100", [{
+        'comparator': '>=',
+        'key': 'acc',
+        'type': 'metric',
+        'value': '100'
+    }]),
+    ("params.m!='tf'", [{
+        'comparator': '!=',
+        'key': 'm',
+        'type': 'parameter',
+        'value': 'tf'
+    }]),
+    ('params."m"!="tf"', [{
+        'comparator': '!=',
+        'key': 'm',
+        'type': 'parameter',
+        'value': 'tf'
+    }]),
+    ('metric."legit name" >= 0.243', [{
+        'comparator': '>=',
+        'key': 'legit name',
+        'type': 'metric',
+        'value': '0.243'
+    }]),
+    ("metrics.XYZ = 3", [{
+        'comparator': '=',
+        'key': 'XYZ',
+        'type': 'metric',
+        'value': '3'
+    }]),
+    ('params."cat dog" = "pets"', [{
+        'comparator': '=',
+        'key': 'cat dog',
+        'type': 'parameter',
+        'value': 'pets'
+    }]),
+    ('metrics."X-Y-Z" = 3', [{
+        'comparator': '=',
+        'key': 'X-Y-Z',
+        'type': 'metric',
+        'value': '3'
+    }]),
+    ('metrics."X//Y#$$@&Z" = 3', [{
+        'comparator': '=',
+        'key': 'X//Y#$$@&Z',
+        'type': 'metric',
+        'value': '3'
+    }]),
+    ("params.model = 'LinearRegression'", [{
+        'comparator': '=',
+        'key': 'model',
+        'type': 'parameter',
+        'value': "LinearRegression"
+    }]),
+    ("metrics.rmse < 1 and params.model_class = 'LR'", [{
+        'comparator': '<',
+        'key': 'rmse',
+        'type': 'metric',
+        'value': '1'
+    }, {
+        'comparator': '=',
+        'key': 'model_class',
+        'type': 'parameter',
+        'value': "LR"
+    }]),
     ('', []),
-    ("`metric`.a >= 0.1", [{'comparator': '>=', 'key': 'a', 'type': 'metric', 'value': '0.1'}]),
-    ("`params`.model >= 'LR'", [{'comparator': '>=',
-                                 'key': 'model',
-                                 'type': 'parameter',
-                                 'value': "LR"}]),
-    ("tags.version = 'commit-hash'", [{'comparator': '=',
-                                       'key': 'version',
-                                       'type': 'tag',
-                                       'value': "commit-hash"}]),
-    ("`tags`.source_name = 'a notebook'", [{'comparator': '=',
-                                            'key': 'source_name',
-                                            'type': 'tag',
-                                            'value': "a notebook"}]),
-    ('metrics."accuracy.2.0" > 5', [{'comparator': '>',
-                                     'key': 'accuracy.2.0',
-                                     'type': 'metric',
-                                     'value': '5'}]),
-    ('metrics.`spacey name` > 5', [{'comparator': '>',
-                                    'key': 'spacey name',
-                                    'type': 'metric',
-                                    'value': '5'}]),
-    ('params."p.a.r.a.m" != "a"', [{'comparator': '!=',
-                                    'key': 'p.a.r.a.m',
-                                    'type': 'parameter',
-                                    'value': 'a'}]),
-    ('tags."t.a.g" = "a"', [{'comparator': '=',
-                             'key': 't.a.g',
-                             'type': 'tag',
-                             'value': 'a'}]),
-    ("attribute.artifact_uri = '1/23/4'", [{'type': 'attribute',
-                                            'comparator': '=',
-                                            'key': 'artifact_uri',
-                                            'value': '1/23/4'}]),
-    ("run.status = 'RUNNING'", [{'type': 'attribute',
-                                 'comparator': '=',
-                                 'key': 'status',
-                                 'value': 'RUNNING'}]),
+    ("`metric`.a >= 0.1", [{
+        'comparator': '>=',
+        'key': 'a',
+        'type': 'metric',
+        'value': '0.1'
+    }]),
+    ("`params`.model >= 'LR'", [{
+        'comparator': '>=',
+        'key': 'model',
+        'type': 'parameter',
+        'value': "LR"
+    }]),
+    ("tags.version = 'commit-hash'", [{
+        'comparator': '=',
+        'key': 'version',
+        'type': 'tag',
+        'value': "commit-hash"
+    }]),
+    ("`tags`.source_name = 'a notebook'", [{
+        'comparator': '=',
+        'key': 'source_name',
+        'type': 'tag',
+        'value': "a notebook"
+    }]),
+    ('metrics."accuracy.2.0" > 5', [{
+        'comparator': '>',
+        'key': 'accuracy.2.0',
+        'type': 'metric',
+        'value': '5'
+    }]),
+    ('metrics.`spacey name` > 5', [{
+        'comparator': '>',
+        'key': 'spacey name',
+        'type': 'metric',
+        'value': '5'
+    }]),
+    ('params."p.a.r.a.m" != "a"', [{
+        'comparator': '!=',
+        'key': 'p.a.r.a.m',
+        'type': 'parameter',
+        'value': 'a'
+    }]),
+    ('tags."t.a.g" = "a"', [{
+        'comparator': '=',
+        'key': 't.a.g',
+        'type': 'tag',
+        'value': 'a'
+    }]),
+    ("attribute.artifact_uri = '1/23/4'", [{
+        'type': 'attribute',
+        'comparator': '=',
+        'key': 'artifact_uri',
+        'value': '1/23/4'
+    }]),
+    ("run.status = 'RUNNING'", [{
+        'type': 'attribute',
+        'comparator': '=',
+        'key': 'status',
+        'value': 'RUNNING'
+    }]),
 ])
 def test_filter(filter_string, parsed_filter):
     assert SearchUtils.parse_search_filter(filter_string) == parsed_filter
 
 
 @pytest.mark.parametrize("filter_string, parsed_filter", [
-    ("params.m = 'LR'", [{'type': 'parameter', 'comparator': '=', 'key': 'm', 'value': 'LR'}]),
-    ("params.m = \"LR\"", [{'type': 'parameter', 'comparator': '=', 'key': 'm', 'value': 'LR'}]),
-    ('params.m = "LR"', [{'type': 'parameter', 'comparator': '=', 'key': 'm', 'value': 'LR'}]),
-    ('params.m = "L\'Hosp"', [{'type': 'parameter', 'comparator': '=',
-                               'key': 'm', 'value': "L'Hosp"}]),
+    ("params.m = 'LR'", [{
+        'type': 'parameter',
+        'comparator': '=',
+        'key': 'm',
+        'value': 'LR'
+    }]),
+    ("params.m = \"LR\"", [{
+        'type': 'parameter',
+        'comparator': '=',
+        'key': 'm',
+        'value': 'LR'
+    }]),
+    ('params.m = "LR"', [{
+        'type': 'parameter',
+        'comparator': '=',
+        'key': 'm',
+        'value': 'LR'
+    }]),
+    ('params.m = "L\'Hosp"', [{
+        'type': 'parameter',
+        'comparator': '=',
+        'key': 'm',
+        'value': "L'Hosp"
+    }]),
 ])
 def test_correct_quote_trimming(filter_string, parsed_filter):
     assert SearchUtils.parse_search_filter(filter_string) == parsed_filter
@@ -176,12 +263,17 @@ def test_invalid_clauses(filter_string, error_message):
     ("attributes", [">", "<", ">=", "<=", "~"], "status", "'my-tag-value'"),
 ])
 def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
-    run = Run(run_info=RunInfo(
-        run_uuid="hi", run_id="hi", experiment_id=0,
-        user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
-        start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
-        run_data=RunData(metrics=[], params=[], tags=[])
-    )
+    run = Run(
+        run_info=RunInfo(
+            run_uuid="hi",
+            run_id="hi",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE),
+        run_data=RunData(metrics=[], params=[], tags=[]))
     for bad_comparator in bad_comparators:
         bad_filter = "{entity_type}.{key} {comparator} {value}".format(
             entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value)
@@ -205,25 +297,38 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
 def test_correct_filtering(filter_string, matching_runs):
     runs = [
         Run(run_info=RunInfo(
-            run_uuid="hi", run_id="hi", experiment_id=0,
-            user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
-            start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_uuid="hi",
+            run_id="hi",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE),
             run_data=RunData(
-                metrics=[Metric("key1", 121, 1, 0)],
-                params=[Param("my_param", "A")],
-                tags=[])),
+                metrics=[Metric("key1", 121, 1, 0)], params=[Param("my_param", "A")], tags=[])),
         Run(run_info=RunInfo(
-            run_uuid="hi2", run_id="hi2", experiment_id=0,
-            user_id="user-id", status=RunStatus.to_string(RunStatus.FINISHED),
-            start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_uuid="hi2",
+            run_id="hi2",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FINISHED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE),
             run_data=RunData(
                 metrics=[Metric("key1", 123, 1, 0)],
                 params=[Param("my_param", "A")],
                 tags=[RunTag("tag1", "C")])),
         Run(run_info=RunInfo(
-            run_uuid="hi3", run_id="hi3", experiment_id=1,
-            user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
-            start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_uuid="hi3",
+            run_id="hi3",
+            experiment_id=1,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE),
             run_data=RunData(
                 metrics=[Metric("key1", 125, 1, 0)],
                 params=[Param("my_param", "B")],
@@ -252,25 +357,38 @@ def test_correct_filtering(filter_string, matching_runs):
 def test_correct_sorting(order_bys, matching_runs):
     runs = [
         Run(run_info=RunInfo(
-            run_uuid="9", run_id="9", experiment_id=0,
-            user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
-            start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_uuid="9",
+            run_id="9",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE),
             run_data=RunData(
-                metrics=[Metric("key1", 121, 1, 0)],
-                params=[Param("my_param", "A")],
-                tags=[])),
+                metrics=[Metric("key1", 121, 1, 0)], params=[Param("my_param", "A")], tags=[])),
         Run(run_info=RunInfo(
-            run_uuid="8", run_id="8", experiment_id=0,
-            user_id="user-id", status=RunStatus.to_string(RunStatus.FINISHED),
-            start_time=1, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_uuid="8",
+            run_id="8",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FINISHED),
+            start_time=1,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE),
             run_data=RunData(
                 metrics=[Metric("key1", 123, 1, 0)],
                 params=[Param("my_param", "A")],
                 tags=[RunTag("tag1", "C")])),
         Run(run_info=RunInfo(
-            run_uuid="7", run_id="7", experiment_id=1,
-            user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
-            start_time=1, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_uuid="7",
+            run_id="7",
+            experiment_id=1,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=1,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE),
             run_data=RunData(
                 metrics=[Metric("key1", 125, 1, 0)],
                 params=[Param("my_param", "B")],
@@ -289,19 +407,19 @@ def test_correct_sorting(order_bys, matching_runs):
 def test_order_by_metric_with_nans_and_infs():
     metric_vals_str = ["nan", "inf", "-inf", "-1000", "0", "1000"]
     runs = [
-        Run(run_info=RunInfo(run_id=x, run_uuid=x, experiment_id=0, user_id="user",
-                             status=RunStatus.to_string(RunStatus.FINISHED),
-                             start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
-            run_data=RunData(
-                metrics=[Metric("x", float(x), 1, 0)])
-            ) for x in metric_vals_str
+        Run(run_info=RunInfo(
+            run_id=x,
+            run_uuid=x,
+            experiment_id=0,
+            user_id="user",
+            status=RunStatus.to_string(RunStatus.FINISHED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE),
+            run_data=RunData(metrics=[Metric("x", float(x), 1, 0)])) for x in metric_vals_str
     ]
-    sorted_runs_asc = [
-        x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x asc"])
-    ]
-    sorted_runs_desc = [
-        x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x desc"])
-    ]
+    sorted_runs_asc = [x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x asc"])]
+    sorted_runs_desc = [x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x desc"])]
     # asc
     assert ["-inf", "-1000", "0", "1000", "inf", "nan"] == sorted_runs_asc
     # desc
@@ -341,16 +459,15 @@ def test_space_order_by_search_runs(order_by, ascending_expected):
     assert ascending == ascending_expected
 
 
-@pytest.mark.parametrize("order_by, error_message", [
-    ("creation_timestamp DESC", "Invalid order by key"),
-    ('last_updated_timestamp DESC blah', "Invalid order_by clause"),
-    ('', "Invalid order_by clause"),
-    ('timestamp somerandomstuff ASC', "Invalid order_by clause"),
-    ('timestamp somerandomstuff', "Invalid order_by clause"),
-    ('timestamp decs', "Invalid order_by clause"),
-    ('timestamp ACS', "Invalid order_by clause"),
-    ('name aCs', "Invalid ordering key")
-])
+@pytest.mark.parametrize("order_by, error_message",
+                         [("creation_timestamp DESC", "Invalid order by key"),
+                          ('last_updated_timestamp DESC blah', "Invalid order_by clause"),
+                          ('', "Invalid order_by clause"),
+                          ('timestamp somerandomstuff ASC', "Invalid order_by clause"),
+                          ('timestamp somerandomstuff', "Invalid order_by clause"),
+                          ('timestamp decs', "Invalid order_by clause"),
+                          ('timestamp ACS', "Invalid order_by clause"),
+                          ('name aCs', "Invalid ordering key")])
 def test_invalid_order_by_search_registered_models(order_by, error_message):
     with pytest.raises(MlflowException) as e:
         SearchUtils.parse_order_by_for_search_registered_models(order_by)
@@ -358,34 +475,71 @@ def test_invalid_order_by_search_registered_models(order_by, error_message):
 
 
 @pytest.mark.parametrize("page_token, max_results, matching_runs, expected_next_page_token", [
-    (None, 1, [0], {"offset": 1}),
-    (None, 2, [0, 1], {"offset": 2}),
+    (None, 1, [0], {
+        "offset": 1
+    }),
+    (None, 2, [0, 1], {
+        "offset": 2
+    }),
     (None, 3, [0, 1, 2], None),
     (None, 5, [0, 1, 2], None),
-    ({"offset": 1}, 1, [1], {"offset": 2}),
-    ({"offset": 1}, 2, [1, 2], None),
-    ({"offset": 1}, 3, [1, 2], None),
-    ({"offset": 2}, 1, [2], None),
-    ({"offset": 2}, 2, [2], None),
-    ({"offset": 2}, 0, [], {"offset": 2}),
-    ({"offset": 3}, 1, [], None),
+    ({
+        "offset": 1
+    }, 1, [1], {
+        "offset": 2
+    }),
+    ({
+        "offset": 1
+    }, 2, [1, 2], None),
+    ({
+        "offset": 1
+    }, 3, [1, 2], None),
+    ({
+        "offset": 2
+    }, 1, [2], None),
+    ({
+        "offset": 2
+    }, 2, [2], None),
+    ({
+        "offset": 2
+    }, 0, [], {
+        "offset": 2
+    }),
+    ({
+        "offset": 3
+    }, 1, [], None),
 ])
 def test_pagination(page_token, max_results, matching_runs, expected_next_page_token):
     runs = [
         Run(run_info=RunInfo(
-            run_uuid="0", run_id="0", experiment_id=0,
-            user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
-            start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_uuid="0",
+            run_id="0",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE),
             run_data=RunData([], [], [])),
         Run(run_info=RunInfo(
-            run_uuid="1", run_id="1", experiment_id=0,
-            user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
-            start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_uuid="1",
+            run_id="1",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE),
             run_data=RunData([], [], [])),
         Run(run_info=RunInfo(
-            run_uuid="2", run_id="2", experiment_id=0,
-            user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
-            start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_uuid="2",
+            run_id="2",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE),
             run_data=RunData([], [], []))
     ]
     encoded_page_token = None
@@ -409,8 +563,12 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
 
 @pytest.mark.parametrize("page_token, error_message", [
     (base64.b64encode(json.dumps({}).encode("utf-8")), "Invalid page token"),
-    (base64.b64encode(json.dumps({"offset": "a"}).encode("utf-8")), "Invalid page token"),
-    (base64.b64encode(json.dumps({"offsoot": 7}).encode("utf-8")), "Invalid page token"),
+    (base64.b64encode(json.dumps({
+        "offset": "a"
+    }).encode("utf-8")), "Invalid page token"),
+    (base64.b64encode(json.dumps({
+        "offsoot": 7
+    }).encode("utf-8")), "Invalid page token"),
     (base64.b64encode("not json".encode("utf-8")), "Invalid page token"),
     ("not base64", "Invalid page token"),
 ])

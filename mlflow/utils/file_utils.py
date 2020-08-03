@@ -141,10 +141,12 @@ def write_yaml(root, file_name, data, overwrite=False):
 
     try:
         with codecs.open(yaml_file_name, mode='w', encoding=ENCODING) as yaml_file:
-            yaml.dump(data, yaml_file,
-                      default_flow_style=False,
-                      allow_unicode=True,
-                      Dumper=YamlSafeDumper)
+            yaml.dump(
+                data,
+                yaml_file,
+                default_flow_style=False,
+                allow_unicode=True,
+                Dumper=YamlSafeDumper)
     except Exception as e:
         raise e
 
@@ -321,10 +323,10 @@ def _copy_project(src_path, dst_path=""):
 
     mlflow_dir = "mlflow-project"
     # check if we have project root
-    assert os.path.isfile(os.path.join(src_path, "setup.py")), "file not found " + str(
-        os.path.abspath(os.path.join(src_path, "setup.py")))
-    shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir),
-                    ignore=_docker_ignore(src_path))
+    assert os.path.isfile(os.path.join(
+        src_path,
+        "setup.py")), "file not found " + str(os.path.abspath(os.path.join(src_path, "setup.py")))
+    shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir), ignore=_docker_ignore(src_path))
     return mlflow_dir
 
 

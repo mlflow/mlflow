@@ -62,8 +62,8 @@ def test_download_artifacts(local_artifact_repo, dst_path):
         with open(artifact_src_path, "w") as f:
             f.write(artifact_text)
         local_artifact_repo.log_artifacts(local_dir.path())
-        result = local_artifact_repo.download_artifacts(artifact_path=artifact_rel_path,
-                                                        dst_path=dst_path)
+        result = local_artifact_repo.download_artifacts(
+            artifact_path=artifact_rel_path, dst_path=dst_path)
         assert open(result).read() == artifact_text
         result = local_artifact_repo.download_artifacts(artifact_path="", dst_path=dst_path)
         empty_dir_dst_path = os.path.join(result, empty_dir_path)
@@ -102,8 +102,7 @@ def test_download_artifacts_returns_absolute_paths(local_artifact_repo):
             if dst_dir is not None:
                 os.makedirs(dst_dir)
             dst_path = local_artifact_repo.download_artifacts(
-                artifact_path=artifact_rel_path,
-                dst_path=dst_dir)
+                artifact_path=artifact_rel_path, dst_path=dst_dir)
             if dst_dir is not None:
                 # If dst_dir isn't none, assert we're actually downloading to dst_dir.
                 assert dst_path.startswith(os.path.abspath(dst_dir))

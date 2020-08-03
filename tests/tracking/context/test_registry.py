@@ -27,8 +27,7 @@ def test_run_context_provider_registry_register_entrypoints():
     mock_entrypoint.load.return_value = provider_class
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
-    ) as mock_get_group_all:
+            "entrypoints.get_group_all", return_value=[mock_entrypoint]) as mock_get_group_all:
         registry = RunContextProviderRegistry()
         registry.register_entrypoints()
 
@@ -38,14 +37,14 @@ def test_run_context_provider_registry_register_entrypoints():
 
 
 @pytest.mark.parametrize("exception",
-                         [AttributeError("test exception"), ImportError("test exception")])
+                         [AttributeError("test exception"),
+                          ImportError("test exception")])
 def test_run_context_provider_registry_register_entrypoints_handles_exception(exception):
     mock_entrypoint = mock.Mock()
     mock_entrypoint.load.side_effect = exception
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
-    ) as mock_get_group_all:
+            "entrypoints.get_group_all", return_value=[mock_entrypoint]) as mock_get_group_all:
         registry = RunContextProviderRegistry()
         # Check that the raised warning contains the message from the original exception
         with pytest.warns(UserWarning, match="test exception"):
@@ -64,13 +63,15 @@ def _currently_registered_run_context_provider_classes():
 
 def test_registry_instance_defaults():
     expected_classes = {
-        DefaultRunContext, GitRunContext, DatabricksNotebookRunContext, DatabricksJobRunContext,
+        DefaultRunContext,
+        GitRunContext,
+        DatabricksNotebookRunContext,
+        DatabricksJobRunContext,
     }
     assert expected_classes.issubset(_currently_registered_run_context_provider_classes())
 
 
 def test_registry_instance_loads_entrypoints():
-
     class MockRunContext(object):
         pass
 
@@ -78,8 +79,7 @@ def test_registry_instance_loads_entrypoints():
     mock_entrypoint.load.return_value = MockRunContext
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
-    ) as mock_get_group_all:
+            "entrypoints.get_group_all", return_value=[mock_entrypoint]) as mock_get_group_all:
         # Entrypoints are registered at import time, so we need to reload the module to register th
         # entrypoint given by the mocked extrypoints.get_group_all
         reload(mlflow.tracking.context.registry)

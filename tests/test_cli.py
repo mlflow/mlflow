@@ -51,9 +51,10 @@ def test_tracking_uri_validation_failure(command):
     handlers._tracking_store = None
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
         # SQLAlchemy expects postgresql:// not postgres://
-        CliRunner().invoke(command,
-                           ["--backend-store-uri", "postgres://user:pwd@host:5432/mydb",
-                            "--default-artifact-root", "./mlruns"])
+        CliRunner().invoke(command, [
+            "--backend-store-uri", "postgres://user:pwd@host:5432/mydb", "--default-artifact-root",
+            "./mlruns"
+        ])
         run_server_mock.assert_not_called()
 
 
@@ -66,9 +67,10 @@ def test_tracking_uri_validation_sql_driver_uris(command):
             "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore") as tracking_store_mock, \
         mock.patch(
             "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore") as registry_store_mock:
-        CliRunner().invoke(command,
-                           ["--backend-store-uri", "mysql+pymysql://user:pwd@host:5432/mydb",
-                            "--default-artifact-root", "./mlruns"])
+        CliRunner().invoke(command, [
+            "--backend-store-uri", "mysql+pymysql://user:pwd@host:5432/mydb",
+            "--default-artifact-root", "./mlruns"
+        ])
         tracking_store_mock.assert_called_once_with("mysql+pymysql://user:pwd@host:5432/mydb",
                                                     "./mlruns")
         registry_store_mock.assert_called_once_with("mysql+pymysql://user:pwd@host:5432/mydb")
@@ -94,19 +96,21 @@ def test_mlflow_run():
         mock_projects.run.assert_called_once()
 
     with mock.patch("mlflow.cli.projects") as mock_projects:
-        result = CliRunner().invoke(run, ["--experiment-id", "51",
-                                          "--experiment-name", "name blah", "uri"])
+        result = CliRunner().invoke(
+            run, ["--experiment-id", "51", "--experiment-name", "name blah", "uri"])
         mock_projects.run.assert_not_called()
         assert "Specify only one of 'experiment-name' or 'experiment-id' options." in result.output
 
 
 def test_csv_generation():
     with mock.patch('mlflow.experiments.fluent.search_runs') as mock_search_runs:
-        mock_search_runs.return_value = pd.DataFrame({
-            "run_id": np.array(["all_set", "with_none", "with_nan"]),
-            "experiment_id": np.array([1, 1, 1]),
-            "param_optimizer": np.array(["Adam", None, "Adam"]),
-            "avg_loss": np.array([42.0, None, np.nan], dtype=np.float32)},
+        mock_search_runs.return_value = pd.DataFrame(
+            {
+                "run_id": np.array(["all_set", "with_none", "with_nan"]),
+                "experiment_id": np.array([1, 1, 1]),
+                "param_optimizer": np.array(["Adam", None, "Adam"]),
+                "avg_loss": np.array([42.0, None, np.nan], dtype=np.float32)
+            },
             columns=["run_id", "experiment_id", "param_optimizer", "avg_loss"])
         expected_csv = textwrap.dedent("""\
         run_id,experiment_id,param_optimizer,avg_loss
@@ -118,8 +122,7 @@ def test_csv_generation():
         try:
             result_filename = os.path.join(tempdir, "result.csv")
             CliRunner().invoke(experiments.generate_csv_with_runs,
-                               ["--experiment-id", "1",
-                                "--filename", result_filename])
+                               ["--experiment-id", "1", "--filename", result_filename])
             with open(result_filename, 'r') as fd:
                 assert expected_csv == fd.read()
         finally:
@@ -186,8 +189,8 @@ def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
     store = file_store[0]
     run = _create_run_in_store(store)
     store.delete_run(run.info.run_uuid)
-    subprocess.check_output(["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids",
-                             run.info.run_uuid])
+    subprocess.check_output(
+        ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid])
     runs = store.search_runs(experiment_ids=['0'], filter_string='', run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException):
@@ -198,7 +201,7 @@ def test_mlflow_gc_not_deleted_run(file_store):
     store = file_store[0]
     run = _create_run_in_store(store)
     with pytest.raises(subprocess.CalledProcessError):
-        subprocess.check_output(["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids",
-                                 run.info.run_uuid])
+        subprocess.check_output(
+            ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid])
     runs = store.search_runs(experiment_ids=['0'], filter_string='', run_view_type=ViewType.ALL)
     assert len(runs) == 1

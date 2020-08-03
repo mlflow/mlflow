@@ -129,8 +129,8 @@ def _get_request_message(request_message, flask_request=request):
         # atomic value. Since protobuf requires that the values of repeated fields are lists,
         # deserialization will fail unless we do the fix below.
         for field in request_message.DESCRIPTOR.fields:
-            if (field.label == descriptor.FieldDescriptor.LABEL_REPEATED
-                    and field.name in request_dict):
+            if (field.label == descriptor.FieldDescriptor.LABEL_REPEATED and
+                    field.name in request_dict):
                 if not isinstance(request_dict[field.name], list):
                     request_dict[field.name] = [request_dict[field.name]]
         parse_dict(request_dict, request_message)
@@ -177,8 +177,10 @@ def catch_mlflow_exception(func):
     return wrapper
 
 
-_TEXT_EXTENSIONS = ['txt', 'log', 'yaml', 'yml', 'json', 'js', 'py',
-                    'csv', 'tsv', 'md', 'rst', MLMODEL_FILE_NAME, MLPROJECT_FILE_NAME]
+_TEXT_EXTENSIONS = [
+    'txt', 'log', 'yaml', 'yml', 'json', 'js', 'py', 'csv', 'tsv', 'md', 'rst', MLMODEL_FILE_NAME,
+    MLPROJECT_FILE_NAME
+]
 
 
 @catch_mlflow_exception
@@ -431,8 +433,7 @@ def _get_metric_history():
     request_message = _get_request_message(GetMetricHistory())
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
-    metric_entites = _get_tracking_store().get_metric_history(run_id,
-                                                              request_message.metric_key)
+    metric_entites = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
     response_message.metrics.extend([m.to_proto() for m in metric_entites])
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -462,8 +463,8 @@ def _log_batch():
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
     tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
-    _get_tracking_store().log_batch(run_id=request_message.run_id, metrics=metrics,
-                                    params=params, tags=tags)
+    _get_tracking_store().log_batch(
+        run_id=request_message.run_id, metrics=metrics, params=params, tags=tags)
     response_message = LogBatch.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -476,17 +477,19 @@ def _log_model():
     try:
         model = json.loads(request_message.model_json)
     except:  # NB: can not be more specific here due to python2 compatibility
-        raise MlflowException("Malformed model info. \n {} \n is not a valid JSON.".format(
-            request_message.model_json),
+        raise MlflowException(
+            "Malformed model info. \n {} \n is not a valid JSON.".format(
+                request_message.model_json),
             error_code=INVALID_PARAMETER_VALUE)
 
-    missing_fields = set(("artifact_path", "flavors", "utc_time_created", "run_id")) - set(
-        model.keys())
+    missing_fields = set(
+        ("artifact_path", "flavors", "utc_time_created", "run_id")) - set(model.keys())
     if missing_fields:
-        raise MlflowException("Model json is missing mandatory fields: {}".format(missing_fields),
-                              error_code=INVALID_PARAMETER_VALUE)
-    _get_tracking_store().record_logged_model(run_id=request_message.run_id,
-                                              mlflow_model=Model.from_dict(model))
+        raise MlflowException(
+            "Model json is missing mandatory fields: {}".format(missing_fields),
+            error_code=INVALID_PARAMETER_VALUE)
+    _get_tracking_store().record_logged_model(
+        run_id=request_message.run_id, mlflow_model=Model.from_dict(model))
     response_message = LogModel.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -511,10 +514,8 @@ def _create_registered_model():
 @catch_mlflow_exception
 def _get_registered_model():
     request_message = _get_request_message(GetRegisteredModel())
-    registered_model = _get_model_registry_store().get_registered_model(
-        name=request_message.name)
-    response_message = GetRegisteredModel.Response(
-        registered_model=registered_model.to_proto())
+    registered_model = _get_model_registry_store().get_registered_model(name=request_message.name)
+    response_message = GetRegisteredModel.Response(registered_model=registered_model.to_proto())
     return _wrap_response(response_message)
 
 
@@ -543,8 +544,7 @@ def _rename_registered_model():
 @catch_mlflow_exception
 def _delete_registered_model():
     request_message = _get_request_message(DeleteRegisteredModel())
-    _get_model_registry_store().delete_registered_model(
-        name=request_message.name)
+    _get_model_registry_store().delete_registered_model(name=request_message.name)
     return _wrap_response(DeleteRegisteredModel.Response())
 
 
@@ -552,11 +552,9 @@ def _delete_registered_model():
 def _list_registered_models():
     request_message = _get_request_message(ListRegisteredModels())
     registered_models = _get_model_registry_store().list_registered_models(
-        request_message.max_results,
-        request_message.page_token)
+        request_message.max_results, request_message.page_token)
     response_message = ListRegisteredModels.Response()
-    response_message.registered_models.extend([e.to_proto()
-                                               for e in registered_models])
+    response_message.registered_models.extend([e.to_proto() for e in registered_models])
     if registered_models.token:
         response_message.next_page_token = registered_models.token
     return _wrap_response(response_message)
@@ -566,10 +564,11 @@ def _list_registered_models():
 def _search_registered_models():
     request_message = _get_request_message(SearchRegisteredModels())
     store = _get_model_registry_store()
-    registered_models = store.search_registered_models(filter_string=request_message.filter,
-                                                       max_results=request_message.max_results,
-                                                       order_by=request_message.order_by,
-                                                       page_token=request_message.page_token)
+    registered_models = store.search_registered_models(
+        filter_string=request_message.filter,
+        max_results=request_message.max_results,
+        order_by=request_message.order_by,
+        page_token=request_message.page_token)
     response_message = SearchRegisteredModels.Response()
     response_message.registered_models.extend([e.to_proto() for e in registered_models])
     if registered_models.token:
@@ -591,9 +590,7 @@ def _get_latest_versions():
 def _set_registered_model_tag():
     request_message = _get_request_message(SetRegisteredModelTag())
     tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
-    _get_model_registry_store().set_registered_model_tag(
-        name=request_message.name,
-        tag=tag)
+    _get_model_registry_store().set_registered_model_tag(name=request_message.name, tag=tag)
     return _wrap_response(SetRegisteredModelTag.Response())
 
 
@@ -601,8 +598,7 @@ def _set_registered_model_tag():
 def _delete_registered_model_tag():
     request_message = _get_request_message(DeleteRegisteredModelTag())
     _get_model_registry_store().delete_registered_model_tag(
-        name=request_message.name,
-        key=request_message.key)
+        name=request_message.name, key=request_message.key)
     return _wrap_response(DeleteRegisteredModelTag.Response())
 
 
@@ -654,11 +650,12 @@ def _update_model_version():
 def _transition_stage():
     request_message = _get_request_message(TransitionModelVersionStage())
     model_version = _get_model_registry_store().transition_model_version_stage(
-        name=request_message.name, version=request_message.version,
+        name=request_message.name,
+        version=request_message.version,
         stage=request_message.stage,
         archive_existing_versions=request_message.archive_existing_versions)
-    return _wrap_response(TransitionModelVersionStage.Response(
-        model_version=model_version.to_proto()))
+    return _wrap_response(
+        TransitionModelVersionStage.Response(model_version=model_version.to_proto()))
 
 
 @catch_mlflow_exception
@@ -681,8 +678,7 @@ def _get_model_version_download_uri():
 @catch_mlflow_exception
 def _search_model_versions():
     request_message = _get_request_message(SearchModelVersions())
-    model_versions = _get_model_registry_store().search_model_versions(
-        request_message.filter)
+    model_versions = _get_model_registry_store().search_model_versions(request_message.filter)
     response_message = SearchModelVersions.Response()
     response_message.model_versions.extend([e.to_proto() for e in model_versions])
     return _wrap_response(response_message)
@@ -693,9 +689,7 @@ def _set_model_version_tag():
     request_message = _get_request_message(SetModelVersionTag())
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
     _get_model_registry_store().set_model_version_tag(
-        name=request_message.name,
-        version=request_message.version,
-        tag=tag)
+        name=request_message.name, version=request_message.version, tag=tag)
     return _wrap_response(SetModelVersionTag.Response())
 
 
@@ -703,9 +697,7 @@ def _set_model_version_tag():
 def _delete_model_version_tag():
     request_message = _get_request_message(DeleteModelVersionTag())
     _get_model_registry_store().delete_model_version_tag(
-        name=request_message.name,
-        version=request_message.version,
-        key=request_message.key)
+        name=request_message.name, version=request_message.version, key=request_message.key)
     return _wrap_response(DeleteModelVersionTag.Response())
 
 

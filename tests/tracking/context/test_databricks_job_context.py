@@ -2,8 +2,12 @@ import mock
 
 from mlflow.entities import SourceType
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_DATABRICKS_JOB_ID, MLFLOW_DATABRICKS_JOB_RUN_ID,
-    MLFLOW_DATABRICKS_JOB_TYPE, MLFLOW_DATABRICKS_WEBAPP_URL,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_DATABRICKS_JOB_ID,
+    MLFLOW_DATABRICKS_JOB_RUN_ID,
+    MLFLOW_DATABRICKS_JOB_TYPE,
+    MLFLOW_DATABRICKS_WEBAPP_URL,
 )
 from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
 
@@ -33,14 +37,10 @@ def test_databricks_job_run_context_tags():
 
 
 def test_databricks_job_run_context_tags_nones():
-    patch_job_id = mock.patch("mlflow.utils.databricks_utils.get_job_id",
-                              return_value=None)
-    patch_job_run_id = mock.patch("mlflow.utils.databricks_utils.get_job_run_id",
-                                  return_value=None)
-    patch_job_type = mock.patch("mlflow.utils.databricks_utils.get_job_type",
-                                return_value=None)
-    patch_webapp_url = mock.patch("mlflow.utils.databricks_utils.get_webapp_url",
-                                  return_value=None)
+    patch_job_id = mock.patch("mlflow.utils.databricks_utils.get_job_id", return_value=None)
+    patch_job_run_id = mock.patch("mlflow.utils.databricks_utils.get_job_run_id", return_value=None)
+    patch_job_type = mock.patch("mlflow.utils.databricks_utils.get_job_type", return_value=None)
+    patch_webapp_url = mock.patch("mlflow.utils.databricks_utils.get_webapp_url", return_value=None)
 
     with patch_job_id, patch_job_run_id, patch_job_type, patch_webapp_url:
         assert DatabricksJobRunContext().tags() == {

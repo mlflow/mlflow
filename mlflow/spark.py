@@ -41,7 +41,6 @@ from mlflow.utils.uri import is_local_uri, append_to_uri_path
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
 from mlflow.utils import experimental
 
-
 FLAVOR_NAME = "spark"
 
 # Default temporary directory on DFS. Used to write / read from Spark ML models.
@@ -78,9 +77,14 @@ def get_default_conda_env():
         additional_conda_channels=None)
 
 
-def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
-              sample_input=None, registered_model_name=None,
-              signature: ModelSignature=None, input_example: ModelInputExample=None):
+def log_model(spark_model,
+              artifact_path,
+              conda_env=None,
+              dfs_tmpdir=None,
+              sample_input=None,
+              registered_model_name=None,
+              signature: ModelSignature = None,
+              input_example: ModelInputExample = None):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
     MLlib persistence format and produces an MLflow Model with the Spark flavor.
@@ -172,28 +176,45 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     # be incorrect on multi-node clusters - to avoid such issues we just use the Model.log() path
     # here.
     if is_local_uri(run_root_artifact_uri):
-        return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
-                         conda_env=conda_env, dfs_tmpdir=dfs_tmpdir, sample_input=sample_input,
-                         registered_model_name=registered_model_name,
-                         signature=signature, input_example=input_example)
+        return Model.log(
+            artifact_path=artifact_path,
+            flavor=mlflow.spark,
+            spark_model=spark_model,
+            conda_env=conda_env,
+            dfs_tmpdir=dfs_tmpdir,
+            sample_input=sample_input,
+            registered_model_name=registered_model_name,
+            signature=signature,
+            input_example=input_example)
     # If Spark cannot write directly to the artifact repo, defer to Model.log() to persist the
     # model
     model_dir = os.path.join(run_root_artifact_uri, artifact_path)
     try:
         spark_model.save(os.path.join(model_dir, _SPARK_MODEL_PATH_SUB))
     except Py4JJavaError:
-        return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
-                         conda_env=conda_env, dfs_tmpdir=dfs_tmpdir, sample_input=sample_input,
-                         registered_model_name=registered_model_name,
-                         signature=signature, input_example=input_example)
+        return Model.log(
+            artifact_path=artifact_path,
+            flavor=mlflow.spark,
+            spark_model=spark_model,
+            conda_env=conda_env,
+            dfs_tmpdir=dfs_tmpdir,
+            sample_input=sample_input,
+            registered_model_name=registered_model_name,
+            signature=signature,
+            input_example=input_example)
 
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
     with TempDir() as tmp:
         tmp_model_metadata_dir = tmp.path()
         _save_model_metadata(
-            tmp_model_metadata_dir, spark_model, mlflow_model, sample_input, conda_env,
-            signature=signature, input_example=input_example)
+            tmp_model_metadata_dir,
+            spark_model,
+            mlflow_model,
+            sample_input,
+            conda_env,
+            signature=signature,
+            input_example=input_example)
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         if registered_model_name is not None:
             mlflow.register_model("runs:/%s/%s" % (run_id, artifact_path), registered_model_name)
@@ -308,8 +329,13 @@ class _HadoopFileSystem:
         cls._fs().delete(cls._remote_path(path), True)
 
 
-def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda_env,
-                         signature=None, input_example=None):
+def _save_model_metadata(dst_dir,
+                         spark_model,
+                         mlflow_model,
+                         sample_input,
+                         conda_env,
+                         signature=None,
+                         input_example=None):
     """
     Saves model metadata into the passed-in directory. The persisted metadata assumes that a
     model can be loaded from a relative path to the metadata file (currently hard-coded to
@@ -318,8 +344,11 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
     import pyspark
 
     if sample_input is not None:
-        mleap.add_to_model(mlflow_model=mlflow_model, path=dst_dir, spark_model=spark_model,
-                           sample_input=sample_input)
+        mleap.add_to_model(
+            mlflow_model=mlflow_model,
+            path=dst_dir,
+            spark_model=spark_model,
+            sample_input=sample_input)
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
@@ -333,10 +362,13 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
     with open(os.path.join(dst_dir, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    mlflow_model.add_flavor(FLAVOR_NAME, pyspark_version=pyspark.__version__,
-                            model_data=_SPARK_MODEL_PATH_SUB)
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spark", data=_SPARK_MODEL_PATH_SUB,
-                        env=conda_env_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, pyspark_version=pyspark.__version__, model_data=_SPARK_MODEL_PATH_SUB)
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.spark",
+        data=_SPARK_MODEL_PATH_SUB,
+        env=conda_env_subpath)
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
 
 
@@ -348,13 +380,17 @@ def _validate_model(spark_model):
             or not isinstance(spark_model, MLWritable):
         raise MlflowException(
             "Cannot serialize this model. MLflow can only save descendants of pyspark.Model"
-            "that implement MLWritable and MLReadable.",
-            INVALID_PARAMETER_VALUE)
+            "that implement MLWritable and MLReadable.", INVALID_PARAMETER_VALUE)
 
 
-def save_model(spark_model, path, mlflow_model=None, conda_env=None,
-               dfs_tmpdir=None, sample_input=None,
-               signature: ModelSignature=None, input_example: ModelInputExample=None):
+def save_model(spark_model,
+               path,
+               mlflow_model=None,
+               conda_env=None,
+               dfs_tmpdir=None,
+               sample_input=None,
+               signature: ModelSignature = None,
+               input_example: ModelInputExample = None):
     """
     Save a Spark MLlib Model to a local path.
 
@@ -438,9 +474,13 @@ def save_model(spark_model, path, mlflow_model=None, conda_env=None,
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
     _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     _save_model_metadata(
-        dst_dir=path, spark_model=spark_model, mlflow_model=mlflow_model,
-        sample_input=sample_input, conda_env=conda_env,
-        signature=signature, input_example=input_example)
+        dst_dir=path,
+        spark_model=spark_model,
+        mlflow_model=mlflow_model,
+        sample_input=sample_input,
+        conda_env=conda_env,
+        signature=signature,
+        input_example=input_example)
 
 
 def _load_model(model_uri, dfs_tmpdir=None):
@@ -545,8 +585,10 @@ class _PyFuncModelWrapper(object):
         :return: List with model predictions.
         """
         spark_df = self.spark.createDataFrame(pandas_df)
-        return [x.prediction for x in
-                self.spark_model.transform(spark_df).select("prediction").collect()]
+        return [
+            x.prediction
+            for x in self.spark_model.transform(spark_df).select("prediction").collect()
+        ]
 
 
 @experimental

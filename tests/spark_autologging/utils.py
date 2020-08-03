@@ -13,8 +13,10 @@ def _get_mlflow_spark_jar_path():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     pardir = os.path.pardir
     jar_dir = os.path.join(current_dir, pardir, pardir, "mlflow", "java", "spark", "target")
-    jar_filenames = [fname for fname in os.listdir(jar_dir) if ".jar" in fname
-                     and "sources" not in fname and "javadoc" not in fname]
+    jar_filenames = [
+        fname for fname in os.listdir(jar_dir)
+        if ".jar" in fname and "sources" not in fname and "javadoc" not in fname
+    ]
     res = os.path.abspath(os.path.join(jar_dir, jar_filenames[0]))
     return res
 
@@ -67,11 +69,7 @@ def file_path(format_to_file_path):
 
 @pytest.fixture(scope="module")
 def format_to_file_path(spark_session):
-    rows = [
-        Row(8, 32, "bat"),
-        Row(64, 40, "mouse"),
-        Row(-27, 55, "horse")
-    ]
+    rows = [Row(8, 32, "bat"), Row(64, 40, "mouse"), Row(-27, 55, "horse")]
     schema = StructType([
         StructField("number2", IntegerType()),
         StructField("number1", IntegerType()),

@@ -28,8 +28,8 @@ def push_image_to_registry(image_tag):
     return client.images.get_registry_data(image_tag).id
 
 
-def _get_kubernetes_job_definition(project_name, image_tag, image_digest,
-                                   command, env_vars, job_template):
+def _get_kubernetes_job_definition(project_name, image_tag, image_digest, command, env_vars,
+                                   job_template):
     container_image = image_tag + '@' + image_digest
     timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
     job_name = "{}-{}".format(project_name, timestamp)
@@ -65,20 +65,21 @@ def _load_kube_context(context=None):
         kubernetes.config.load_incluster_config()
 
 
-def run_kubernetes_job(project_name, active_run, image_tag, image_digest, command, env_vars,
-                       kube_context=None, job_template=None):
-    job_template = _get_kubernetes_job_definition(project_name,
-                                                  image_tag,
-                                                  image_digest,
-                                                  _get_run_command(command),
-                                                  env_vars,
-                                                  job_template)
+def run_kubernetes_job(project_name,
+                       active_run,
+                       image_tag,
+                       image_digest,
+                       command,
+                       env_vars,
+                       kube_context=None,
+                       job_template=None):
+    job_template = _get_kubernetes_job_definition(project_name, image_tag, image_digest,
+                                                  _get_run_command(command), env_vars, job_template)
     job_name = job_template['metadata']['name']
     job_namespace = job_template['metadata']['namespace']
     _load_kube_context(context=kube_context)
     api_instance = kubernetes.client.BatchV1Api()
-    api_instance.create_namespaced_job(namespace=job_namespace,
-                                       body=job_template, pretty=True)
+    api_instance.create_namespaced_job(namespace=job_namespace, body=job_template, pretty=True)
     return KubernetesSubmittedRun(active_run.info.run_id, job_name, job_namespace)
 
 
@@ -113,9 +114,8 @@ class KubernetesSubmittedRun(SubmittedRun):
         return self._status == RunStatus.FINISHED
 
     def _update_status(self, kube_api=kubernetes.client.BatchV1Api()):
-        api_response = kube_api.read_namespaced_job_status(name=self._job_name,
-                                                           namespace=self._job_namespace,
-                                                           pretty=True)
+        api_response = kube_api.read_namespaced_job_status(
+            name=self._job_name, namespace=self._job_namespace, pretty=True)
         status = api_response.status
         with self._status_lock:
             if RunStatus.is_terminated(self._status):
@@ -145,10 +145,11 @@ class KubernetesSubmittedRun(SubmittedRun):
             if not RunStatus.is_terminated(self._status):
                 _logger.info("Cancelling job.")
                 kube_api = kubernetes.client.BatchV1Api()
-                kube_api.delete_namespaced_job(name=self._job_name,
-                                               namespace=self._job_namespace,
-                                               body=kubernetes.client.V1DeleteOptions(),
-                                               pretty=True)
+                kube_api.delete_namespaced_job(
+                    name=self._job_name,
+                    namespace=self._job_namespace,
+                    body=kubernetes.client.V1DeleteOptions(),
+                    pretty=True)
                 self._status = RunStatus.KILLED
                 _logger.info("Job cancelled.")
             else:

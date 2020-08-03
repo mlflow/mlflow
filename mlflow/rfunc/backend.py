@@ -25,11 +25,9 @@ class RFuncBackend(FlavorBackend):
         model_path = _download_artifact_from_uri(model_uri)
         str_cmd = "mlflow:::mlflow_rfunc_predict(model_path = '{0}', input_path = {1}, " \
                   "output_path = {2}, content_type = {3}, json_format = {4})"
-        command = str_cmd.format(shlex_quote(model_path),
-                                 _str_optional(input_path),
-                                 _str_optional(output_path),
-                                 _str_optional(content_type),
-                                 _str_optional(json_format))
+        command = str_cmd.format(
+            shlex_quote(model_path), _str_optional(input_path), _str_optional(output_path),
+            _str_optional(content_type), _str_optional(json_format))
         _execute(command)
 
     def serve(self, model_uri, port, host):
@@ -42,7 +40,8 @@ class RFuncBackend(FlavorBackend):
         _execute(command)
 
     def can_score_model(self):
-        process = subprocess.Popen(["Rscript", "--version"], close_fds=True,
+        process = subprocess.Popen(["Rscript", "--version"],
+                                   close_fds=True,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
         _, stderr = process.communicate()
@@ -59,7 +58,9 @@ class RFuncBackend(FlavorBackend):
 def _execute(command):
     env = os.environ.copy()
     import sys
-    process = subprocess.Popen(["Rscript", "-e", command], env=env, close_fds=False,
+    process = subprocess.Popen(["Rscript", "-e", command],
+                               env=env,
+                               close_fds=False,
                                stdin=sys.stdin,
                                stdout=sys.stdout,
                                stderr=sys.stderr)

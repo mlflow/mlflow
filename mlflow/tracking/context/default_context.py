@@ -9,7 +9,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_NAME,
 )
 
-
 _DEFAULT_USER = "unknown"
 
 

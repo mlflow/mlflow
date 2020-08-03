@@ -13,9 +13,19 @@ class ModelVersion(_ModelRegistryEntity):
     MLflow entity for Model Version.
     """
 
-    def __init__(self, name, version, creation_timestamp,
-                 last_updated_timestamp=None, description=None, user_id=None, current_stage=None,
-                 source=None, run_id=None, status=None, status_message=None, tags=None,
+    def __init__(self,
+                 name,
+                 version,
+                 creation_timestamp,
+                 last_updated_timestamp=None,
+                 description=None,
+                 user_id=None,
+                 current_stage=None,
+                 source=None,
+                 run_id=None,
+                 status=None,
+                 status_message=None,
+                 tags=None,
                  run_link=None):
         super(ModelVersion, self).__init__()
         self._name = name
@@ -111,18 +121,19 @@ class ModelVersion(_ModelRegistryEntity):
     def from_proto(cls, proto):
         # input: mlflow.protos.model_registry_pb2.ModelVersion
         # returns: ModelVersion entity
-        model_version = cls(proto.name,
-                            proto.version,
-                            proto.creation_timestamp,
-                            proto.last_updated_timestamp,
-                            proto.description,
-                            proto.user_id,
-                            proto.current_stage,
-                            proto.source,
-                            proto.run_id,
-                            ModelVersionStatus.to_string(proto.status),
-                            proto.status_message,
-                            run_link=proto.run_link)
+        model_version = cls(
+            proto.name,
+            proto.version,
+            proto.creation_timestamp,
+            proto.last_updated_timestamp,
+            proto.description,
+            proto.user_id,
+            proto.current_stage,
+            proto.source,
+            proto.run_id,
+            ModelVersionStatus.to_string(proto.status),
+            proto.status_message,
+            run_link=proto.run_link)
         for tag in proto.tags:
             model_version._add_tag(ModelVersionTag.from_proto(tag))
         return model_version
@@ -152,6 +163,6 @@ class ModelVersion(_ModelRegistryEntity):
             model_version.status = ModelVersionStatus.from_string(self.status)
         if self.status_message:
             model_version.status_message = self.status_message
-        model_version.tags.extend([ProtoModelVersionTag(key=key, value=value)
-                                   for key, value in self._tags.items()])
+        model_version.tags.extend(
+            [ProtoModelVersionTag(key=key, value=value) for key, value in self._tags.items()])
         return model_version

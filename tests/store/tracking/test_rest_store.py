@@ -37,7 +37,9 @@ class TestRestStore(object):
             kwargs = dict((k, v) for k, v in six.iteritems(kwargs) if v is not None)
             assert kwargs == {
                 'method': 'GET',
-                'params': {'view_type': 'ACTIVE_ONLY'},
+                'params': {
+                    'view_type': 'ACTIVE_ONLY'
+                },
                 'url': 'https://hello/api/2.0/mlflow/experiments/list',
                 'headers': _DEFAULT_HEADERS,
                 'verify': True,
@@ -98,9 +100,11 @@ class TestRestStore(object):
         assert experiments[0].name == 'My experiment'
 
     def _args(self, host_creds, endpoint, method, json_body):
-        res = {'host_creds': host_creds,
-               'endpoint': "/api/2.0/mlflow/%s" % endpoint,
-               'method': method}
+        res = {
+            'host_creds': host_creds,
+            'endpoint': "/api/2.0/mlflow/%s" % endpoint,
+            'method': method
+        }
         if method == "GET":
             res["params"] = json.loads(json_body)
         else:
@@ -124,12 +128,10 @@ class TestRestStore(object):
         source_name = "rest test"
 
         source_name_patch = mock.patch(
-            "mlflow.tracking.context.default_context._get_source_name", return_value=source_name
-        )
+            "mlflow.tracking.context.default_context._get_source_name", return_value=source_name)
         source_type_patch = mock.patch(
             "mlflow.tracking.context.default_context._get_source_type",
-            return_value=SourceType.LOCAL
-        )
+            return_value=SourceType.LOCAL)
         with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http, \
                 mock.patch('mlflow.tracking._tracking_service.utils._get_store',
                            return_value=store), \
@@ -138,14 +140,16 @@ class TestRestStore(object):
                 mock.patch('time.time', return_value=13579), \
                 source_name_patch, source_type_patch:
             with mlflow.start_run(experiment_id="43"):
-                cr_body = message_to_json(CreateRun(experiment_id="43",
-                                                    user_id=user_name, start_time=13579000,
-                                                    tags=[ProtoRunTag(key='mlflow.source.name',
-                                                                      value=source_name),
-                                                          ProtoRunTag(key='mlflow.source.type',
-                                                                      value='LOCAL'),
-                                                          ProtoRunTag(key='mlflow.user',
-                                                                      value=user_name)]))
+                cr_body = message_to_json(
+                    CreateRun(
+                        experiment_id="43",
+                        user_id=user_name,
+                        start_time=13579000,
+                        tags=[
+                            ProtoRunTag(key='mlflow.source.name', value=source_name),
+                            ProtoRunTag(key='mlflow.source.type', value='LOCAL'),
+                            ProtoRunTag(key='mlflow.user', value=user_name)
+                        ]))
                 expected_kwargs = self._args(creds, "runs/create", "POST", cr_body)
 
                 assert mock_http.call_count == 1
@@ -155,98 +159,95 @@ class TestRestStore(object):
                 # Tag order is inconsistent on Python 2 and 3, but the order does not matter
                 expected_tags = expected_kwargs['json'].pop('tags')
                 actual_tags = actual_kwargs['json'].pop('tags')
-                assert (
-                    sorted(expected_tags, key=lambda t: t['key']) ==
-                    sorted(actual_tags, key=lambda t: t['key'])
-                )
+                assert (sorted(expected_tags, key=lambda t: t['key']) == sorted(
+                    actual_tags, key=lambda t: t['key']))
                 assert expected_kwargs == actual_kwargs
 
         with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.log_param("some_uuid", Param("k1", "v1"))
-            body = message_to_json(LogParam(
-                run_uuid="some_uuid", run_id="some_uuid", key="k1", value="v1"))
-            self._verify_requests(mock_http, creds,
-                                  "runs/log-parameter", "POST", body)
+            body = message_to_json(
+                LogParam(run_uuid="some_uuid", run_id="some_uuid", key="k1", value="v1"))
+            self._verify_requests(mock_http, creds, "runs/log-parameter", "POST", body)
 
         with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
-            store.set_experiment_tag("some_id", ExperimentTag("t1", "abcd"*1000))
-            body = message_to_json(SetExperimentTag(
-                experiment_id="some_id",
-                key="t1",
-                value="abcd"*1000))
-            self._verify_requests(mock_http, creds,
-                                  "experiments/set-experiment-tag", "POST", body)
+            store.set_experiment_tag("some_id", ExperimentTag("t1", "abcd" * 1000))
+            body = message_to_json(
+                SetExperimentTag(experiment_id="some_id", key="t1", value="abcd" * 1000))
+            self._verify_requests(mock_http, creds, "experiments/set-experiment-tag", "POST", body)
 
         with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
-            store.set_tag("some_uuid", RunTag("t1", "abcd"*1000))
-            body = message_to_json(SetTag(
-                run_uuid="some_uuid", run_id="some_uuid", key="t1", value="abcd"*1000))
-            self._verify_requests(mock_http, creds,
-                                  "runs/set-tag", "POST", body)
+            store.set_tag("some_uuid", RunTag("t1", "abcd" * 1000))
+            body = message_to_json(
+                SetTag(run_uuid="some_uuid", run_id="some_uuid", key="t1", value="abcd" * 1000))
+            self._verify_requests(mock_http, creds, "runs/set-tag", "POST", body)
 
         with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.delete_tag("some_uuid", "t1")
             body = message_to_json(DeleteTag(run_id="some_uuid", key="t1"))
-            self._verify_requests(mock_http, creds,
-                                  "runs/delete-tag", "POST", body)
+            self._verify_requests(mock_http, creds, "runs/delete-tag", "POST", body)
 
         with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.log_metric("u2", Metric("m1", 0.87, 12345, 3))
-            body = message_to_json(LogMetric(
-                run_uuid="u2", run_id="u2", key="m1", value=0.87, timestamp=12345, step=3))
-            self._verify_requests(mock_http, creds,
-                                  "runs/log-metric", "POST", body)
+            body = message_to_json(
+                LogMetric(
+                    run_uuid="u2", run_id="u2", key="m1", value=0.87, timestamp=12345, step=3))
+            self._verify_requests(mock_http, creds, "runs/log-metric", "POST", body)
 
         with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
-            metrics = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, -1),
-                       Metric("m3", 0.58, 12345, 2)]
+            metrics = [
+                Metric("m1", 0.87, 12345, 0),
+                Metric("m2", 0.49, 12345, -1),
+                Metric("m3", 0.58, 12345, 2)
+            ]
             params = [Param("p1", "p1val"), Param("p2", "p2val")]
             tags = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
             store.log_batch(run_id="u2", metrics=metrics, params=params, tags=tags)
             metric_protos = [metric.to_proto() for metric in metrics]
             param_protos = [param.to_proto() for param in params]
             tag_protos = [tag.to_proto() for tag in tags]
-            body = message_to_json(LogBatch(run_id="u2", metrics=metric_protos,
-                                            params=param_protos, tags=tag_protos))
-            self._verify_requests(mock_http, creds,
-                                  "runs/log-batch", "POST", body)
+            body = message_to_json(
+                LogBatch(run_id="u2", metrics=metric_protos, params=param_protos, tags=tag_protos))
+            self._verify_requests(mock_http, creds, "runs/log-batch", "POST", body)
 
         with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.delete_run("u25")
-            self._verify_requests(mock_http, creds,
-                                  "runs/delete", "POST",
+            self._verify_requests(mock_http, creds, "runs/delete", "POST",
                                   message_to_json(DeleteRun(run_id="u25")))
 
         with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.restore_run("u76")
-            self._verify_requests(mock_http, creds,
-                                  "runs/restore", "POST",
+            self._verify_requests(mock_http, creds, "runs/restore", "POST",
                                   message_to_json(RestoreRun(run_id="u76")))
 
         with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.delete_experiment("0")
-            self._verify_requests(mock_http, creds,
-                                  "experiments/delete", "POST",
+            self._verify_requests(mock_http, creds, "experiments/delete", "POST",
                                   message_to_json(DeleteExperiment(experiment_id="0")))
 
         with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.restore_experiment("0")
-            self._verify_requests(mock_http, creds,
-                                  "experiments/restore", "POST",
+            self._verify_requests(mock_http, creds, "experiments/restore", "POST",
                                   message_to_json(RestoreExperiment(experiment_id="0")))
 
         with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             response = mock.MagicMock
             response.text = '{"runs": ["1a", "2b", "3c"], "next_page_token": "67890fghij"}'
             mock_http.return_value = response
-            result = store.search_runs(["0", "1"], "params.p1 = 'a'", ViewType.ACTIVE_ONLY,
-                                       max_results=10, order_by=["a"], page_token="12345abcde")
+            result = store.search_runs(["0", "1"],
+                                       "params.p1 = 'a'",
+                                       ViewType.ACTIVE_ONLY,
+                                       max_results=10,
+                                       order_by=["a"],
+                                       page_token="12345abcde")
 
-            expected_message = SearchRuns(experiment_ids=["0", "1"], filter="params.p1 = 'a'",
-                                          run_view_type=ViewType.to_proto(ViewType.ACTIVE_ONLY),
-                                          max_results=10, order_by=["a"], page_token="12345abcde")
-            self._verify_requests(mock_http, creds,
-                                  "runs/search", "POST",
+            expected_message = SearchRuns(
+                experiment_ids=["0", "1"],
+                filter="params.p1 = 'a'",
+                run_view_type=ViewType.to_proto(ViewType.ACTIVE_ONLY),
+                max_results=10,
+                order_by=["a"],
+                page_token="12345abcde")
+            self._verify_requests(mock_http, creds, "runs/search", "POST",
                                   message_to_json(expected_message))
             assert result.token == "67890fghij"
 
@@ -254,10 +255,8 @@ class TestRestStore(object):
             run_id = "run_id"
             m = Model(artifact_path="model/path", run_id="run_id", flavors={"tf": "flavor body"})
             result = store.record_logged_model("run_id", m)
-            expected_message = LogModel(run_id=run_id,
-                                        model_json=m.to_json())
-            self._verify_requests(mock_http, creds,
-                                  "runs/log-model", "POST",
+            expected_message = LogModel(run_id=run_id, model_json=m.to_json())
+            self._verify_requests(mock_http, creds, "runs/log-model", "POST",
                                   message_to_json(expected_message))
 
     @pytest.mark.parametrize("store_class", [RestStore, DatabricksRestStore])
@@ -268,15 +267,16 @@ class TestRestStore(object):
             response = mock.MagicMock
             response.status_code = 200
             experiment = Experiment(
-                experiment_id="123", name="abc", artifact_location="/abc",
+                experiment_id="123",
+                name="abc",
+                artifact_location="/abc",
                 lifecycle_stage=LifecycleStage.ACTIVE)
-            response.text = json.dumps({
-                "experiment": json.loads(message_to_json(experiment.to_proto()))})
+            response.text = json.dumps(
+                {"experiment": json.loads(message_to_json(experiment.to_proto()))})
             mock_http.return_value = response
             result = store.get_experiment_by_name("abc")
             expected_message0 = GetExperimentByName(experiment_name="abc")
-            self._verify_requests(mock_http, creds,
-                                  "experiments/get-by-name", "GET",
+            self._verify_requests(mock_http, creds, "experiments/get-by-name", "GET",
                                   message_to_json(expected_message0))
             assert result.experiment_id == experiment.experiment_id
             assert result.name == experiment.name
@@ -291,8 +291,7 @@ class TestRestStore(object):
             mock_http.return_value = nonexistent_exp_response
             assert store.get_experiment_by_name("nonexistent-experiment") is None
             expected_message1 = GetExperimentByName(experiment_name="nonexistent-experiment")
-            self._verify_requests(mock_http, creds,
-                                  "experiments/get-by-name", "GET",
+            self._verify_requests(mock_http, creds, "experiments/get-by-name", "GET",
                                   message_to_json(expected_message1))
             assert mock_http.call_count == 1
 
@@ -300,8 +299,8 @@ class TestRestStore(object):
             # ListExperiments but not GetExperimentByName
             mock_http.reset_mock()
             list_exp_response = mock.MagicMock
-            list_exp_response.text = json.dumps({
-                "experiments": [json.loads(message_to_json(experiment.to_proto()))]})
+            list_exp_response.text = json.dumps(
+                {"experiments": [json.loads(message_to_json(experiment.to_proto()))]})
             list_exp_response.status_code = 200
 
             def response_fn(*args, **kwargs):
@@ -315,11 +314,9 @@ class TestRestStore(object):
             mock_http.side_effect = response_fn
             result = store.get_experiment_by_name("abc")
             expected_message2 = ListExperiments(view_type=ViewType.ALL)
-            self._verify_requests(mock_http, creds,
-                                  "experiments/get-by-name", "GET",
+            self._verify_requests(mock_http, creds, "experiments/get-by-name", "GET",
                                   message_to_json(expected_message0))
-            self._verify_requests(mock_http, creds,
-                                  "experiments/list", "GET",
+            self._verify_requests(mock_http, creds, "experiments/list", "GET",
                                   message_to_json(expected_message2))
             assert result.experiment_id == experiment.experiment_id
             assert result.name == experiment.name
@@ -351,14 +348,14 @@ class TestRestStore(object):
             def rate_limit_response_fn(*args, **kwargs):
                 # pylint: disable=unused-argument
                 raise MlflowException("Some internal error!", INTERNAL_ERROR)
+
             mock_http.side_effect = rate_limit_response_fn
             with pytest.raises(MlflowException) as exc_info:
                 store.get_experiment_by_name("abc")
             assert exc_info.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
             assert exc_info.value.message == "Some internal error!"
             expected_message0 = GetExperimentByName(experiment_name="abc")
-            self._verify_requests(mock_http, creds,
-                                  "experiments/get-by-name", "GET",
+            self._verify_requests(mock_http, creds, "experiments/get-by-name", "GET",
                                   message_to_json(expected_message0))
             assert mock_http.call_count == 1
 

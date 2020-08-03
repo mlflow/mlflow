@@ -47,10 +47,9 @@ def set_experiment(experiment_name):
         print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
         exp_id = client.create_experiment(experiment_name)
     elif experiment.lifecycle_stage == LifecycleStage.DELETED:
-        raise MlflowException(
-            "Cannot set a deleted experiment '%s' as the active experiment."
-            " You can restore the experiment, or permanently delete the "
-            " experiment to create a new one." % experiment.name)
+        raise MlflowException("Cannot set a deleted experiment '%s' as the active experiment."
+                              " You can restore the experiment, or permanently delete the "
+                              " experiment to create a new one." % experiment.name)
     global _active_experiment_id
     _active_experiment_id = exp_id
 
@@ -103,10 +102,10 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     # back compat for int experiment_id
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
     if len(_active_run_stack) > 0 and not nested:
-        raise Exception(("Run with UUID {} is already active. To start a new run, first end the " +
-                         "current run with mlflow.end_run(). To start a nested " +
-                         "run, call start_run with nested=True").format(
-            _active_run_stack[0].info.run_id))
+        raise Exception(
+            ("Run with UUID {} is already active. To start a new run, first end the " +
+             "current run with mlflow.end_run(). To start a nested " +
+             "run, call start_run with nested=True").format(_active_run_stack[0].info.run_id))
     if run_id:
         existing_run_id = run_id
     elif _RUN_ID_ENV_VAR in os.environ:
@@ -145,10 +144,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
 
         tags = context_registry.resolve_tags(user_specified_tags)
 
-        active_run_obj = MlflowClient().create_run(
-            experiment_id=exp_id_for_run,
-            tags=tags
-        )
+        active_run_obj = MlflowClient().create_run(experiment_id=exp_id_for_run, tags=tags)
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
@@ -394,12 +390,15 @@ def get_artifact_uri(artifact_path=None):
              is not provided and the currently active run uses an S3-backed store, this may be a
              URI of the form ``s3://<bucket_name>/path/to/artifact/root``.
     """
-    return artifact_utils.get_artifact_uri(run_id=_get_or_start_run().info.run_id,
-                                           artifact_path=artifact_path)
+    return artifact_utils.get_artifact_uri(
+        run_id=_get_or_start_run().info.run_id, artifact_path=artifact_path)
 
 
-def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
-                max_results=SEARCH_MAX_RESULTS_PANDAS, order_by=None):
+def search_runs(experiment_ids=None,
+                filter_string="",
+                run_view_type=ViewType.ACTIVE_ONLY,
+                max_results=SEARCH_MAX_RESULTS_PANDAS,
+                order_by=None):
     """
     Get a pandas DataFrame of runs that fit the search criteria.
 
@@ -420,11 +419,15 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     """
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
-    runs = _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
-                               order_by)
-    info = {'run_id': [], 'experiment_id': [],
-            'status': [], 'artifact_uri': [],
-            'start_time': [], 'end_time': []}
+    runs = _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results, order_by)
+    info = {
+        'run_id': [],
+        'experiment_id': [],
+        'status': [],
+        'artifact_uri': [],
+        'start_time': [],
+        'end_time': []
+    }
     params, metrics, tags = ({}, {}, {})
     PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
     for i, run in enumerate(runs):
@@ -444,7 +447,7 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
                 params[key].append(PARAM_NULL)
         new_params = set(run.data.params.keys()) - param_keys
         for p in new_params:
-            params[p] = [PARAM_NULL]*i  # Fill in null values for all previous runs
+            params[p] = [PARAM_NULL] * i  # Fill in null values for all previous runs
             params[p].append(run.data.params[p])
 
         # Metrics
@@ -456,7 +459,7 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
                 metrics[key].append(METRIC_NULL)
         new_metrics = set(run.data.metrics.keys()) - metric_keys
         for m in new_metrics:
-            metrics[m] = [METRIC_NULL]*i
+            metrics[m] = [METRIC_NULL] * i
             metrics[m].append(run.data.metrics[m])
 
         # Tags
@@ -468,7 +471,7 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
                 tags[key].append(TAG_NULL)
         new_tags = set(run.data.tags.keys()) - tag_keys
         for t in new_tags:
-            tags[t] = [TAG_NULL]*i
+            tags[t] = [TAG_NULL] * i
             tags[t].append(run.data.tags[t])
 
     data = {}
@@ -482,12 +485,11 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     return pd.DataFrame(data)
 
 
-def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
-                        order_by):
+def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results, order_by):
     all_runs = []
     next_page_token = None
-    while(len(all_runs) < max_results):
-        runs_to_get = max_results-len(all_runs)
+    while (len(all_runs) < max_results):
+        runs_to_get = max_results - len(all_runs)
         if runs_to_get < NUM_RUNS_PER_PAGE_PANDAS:
             runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
                                               runs_to_get, order_by, next_page_token)
@@ -520,6 +522,5 @@ def _get_experiment_id():
     # TODO: Replace with None for 1.0, leaving for 0.9.1 release backcompat with existing servers
     deprecated_default_exp_id = "0"
 
-    return (_active_experiment_id or
-            _get_experiment_id_from_env() or
+    return (_active_experiment_id or _get_experiment_id_from_env() or
             (is_in_databricks_notebook() and get_notebook_id())) or deprecated_default_exp_id

@@ -35,7 +35,6 @@ from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 from fastai.tabular import TabularList
 from fastai.basic_data import DatasetType
 
-
 FLAVOR_NAME = "fastai"
 
 
@@ -54,12 +53,16 @@ def get_default_conda_env(include_cloudpickle=False):
             "fastai={}".format(fastai.__version__),
         ],
         additional_pip_deps=pip_deps,
-        additional_conda_channels=None
-    )
+        additional_conda_channels=None)
 
 
-def save_model(fastai_learner, path, conda_env=None, mlflow_model=None,
-               signature: ModelSignature = None, input_example: ModelInputExample = None, **kwargs):
+def save_model(fastai_learner,
+               path,
+               conda_env=None,
+               mlflow_model=None,
+               signature: ModelSignature = None,
+               input_example: ModelInputExample = None,
+               **kwargs):
     """
     Save a fastai Learner to a path on the local file system.
 
@@ -135,14 +138,18 @@ def save_model(fastai_learner, path, conda_env=None, mlflow_model=None,
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.fastai",
-                        data=model_data_subpath, env=conda_env_subpath)
+    pyfunc.add_to_model(
+        mlflow_model, loader_module="mlflow.fastai", data=model_data_subpath, env=conda_env_subpath)
     mlflow_model.add_flavor(FLAVOR_NAME, fastai_version=fastai.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-def log_model(fastai_learner, artifact_path, conda_env=None, registered_model_name=None,
-              signature: ModelSignature = None, input_example: ModelInputExample = None,
+def log_model(fastai_learner,
+              artifact_path,
+              conda_env=None,
+              registered_model_name=None,
+              signature: ModelSignature = None,
+              input_example: ModelInputExample = None,
               **kwargs):
     """
     Log a fastai model as an MLflow artifact for the current run.
@@ -191,12 +198,15 @@ def log_model(fastai_learner, artifact_path, conda_env=None, registered_model_na
 
     :param kwargs: kwargs to pass to `fastai.Learner.export`_ method.
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.fastai,
-              registered_model_name=registered_model_name,
-              fastai_learner=fastai_learner, conda_env=conda_env,
-              signature=signature,
-              input_example=input_example,
-              **kwargs)
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.fastai,
+        registered_model_name=registered_model_name,
+        fastai_learner=fastai_learner,
+        conda_env=conda_env,
+        signature=signature,
+        input_example=input_example,
+        **kwargs)
 
 
 def _load_model(path):
@@ -270,7 +280,11 @@ def autolog():
         Callback for auto-logging metrics and parameters.
         Records model structural information as params when training begins
         """
-        def __init__(self, learner, ):
+
+        def __init__(
+                self,
+                learner,
+        ):
             super().__init__(learner)
             self.learner = learner
             self.opt = self.learn.opt
@@ -327,10 +341,12 @@ def autolog():
     def _log_early_stop_callback_params(callback):
         if callback:
             try:
-                earlystopping_params = {'early_stop_monitor': callback.monitor,
-                                        'early_stop_min_delta': callback.min_delta,
-                                        'early_stop_patience': callback.patience,
-                                        'early_stop_mode': callback.mode}
+                earlystopping_params = {
+                    'early_stop_monitor': callback.monitor,
+                    'early_stop_min_delta': callback.min_delta,
+                    'early_stop_patience': callback.patience,
+                    'early_stop_mode': callback.mode
+                }
                 try_mlflow_log(mlflow.log_params, earlystopping_params)
             except Exception:  # pylint: disable=W0703
                 return

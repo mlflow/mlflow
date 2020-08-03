@@ -11,7 +11,6 @@ from mlflow.tracking import artifact_utils
 from mlflow.utils.file_utils import get_local_path_or_none
 from mlflow.utils.string_utils import is_string_type
 
-
 MLPROJECT_FILE_NAME = "mlproject"
 DEFAULT_CONDA_FILE_NAME = "conda.yaml"
 
@@ -42,15 +41,14 @@ def load_project(directory):
             raise ExecutionException("Project configuration (MLproject file) was invalid: Docker "
                                      "environment specified but no image attribute found.")
         if docker_env.get("volumes"):
-            if not (isinstance(docker_env["volumes"], list)
-                    and all([isinstance(i, str) for i in docker_env["volumes"]])):
+            if not (isinstance(docker_env["volumes"], list) and
+                    all([isinstance(i, str) for i in docker_env["volumes"]])):
                 raise ExecutionException("Project configuration (MLproject file) was invalid: "
                                          "Docker volumes must be a list of strings, "
                                          """e.g.: '["/path1/:/path1", "/path2/:/path2"])""")
         if docker_env.get("environment"):
-            if not (isinstance(docker_env["environment"], list)
-                    and all([isinstance(i, list) or isinstance(i, str)
-                             for i in docker_env["environment"]])):
+            if not (isinstance(docker_env["environment"], list) and all(
+                [isinstance(i, list) or isinstance(i, str) for i in docker_env["environment"]])):
                 raise ExecutionException(
                     "Project configuration (MLproject file) was invalid: "
                     "environment must be a list containing either strings (to copy environment "
@@ -61,8 +59,7 @@ def load_project(directory):
     # Validate config if conda_env parameter is present
     conda_path = yaml_obj.get("conda_env")
     if conda_path and docker_env:
-        raise ExecutionException("Project cannot contain both a docker and "
-                                 "conda environment.")
+        raise ExecutionException("Project cannot contain both a docker and " "conda environment.")
 
     # Parse entry points
     entry_points = {}
@@ -76,20 +73,28 @@ def load_project(directory):
         if not os.path.exists(conda_env_path):
             raise ExecutionException("Project specified conda environment file %s, but no such "
                                      "file was found." % conda_env_path)
-        return Project(conda_env_path=conda_env_path, entry_points=entry_points,
-                       docker_env=docker_env, name=project_name,)
+        return Project(
+            conda_env_path=conda_env_path,
+            entry_points=entry_points,
+            docker_env=docker_env,
+            name=project_name,
+        )
 
     default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
     if os.path.exists(default_conda_path):
-        return Project(conda_env_path=default_conda_path, entry_points=entry_points,
-                       docker_env=docker_env, name=project_name)
+        return Project(
+            conda_env_path=default_conda_path,
+            entry_points=entry_points,
+            docker_env=docker_env,
+            name=project_name)
 
-    return Project(conda_env_path=None, entry_points=entry_points,
-                   docker_env=docker_env, name=project_name)
+    return Project(
+        conda_env_path=None, entry_points=entry_points, docker_env=docker_env, name=project_name)
 
 
 class Project(object):
     """A project specification loaded from an MLproject file in the passed-in directory."""
+
     def __init__(self, conda_env_path, entry_points, docker_env, name):
         self.conda_env_path = conda_env_path
         self._entry_points = entry_points
@@ -117,6 +122,7 @@ class Project(object):
 
 class EntryPoint(object):
     """An entry point in an MLproject specification."""
+
     def __init__(self, name, parameters, command):
         self.name = name
         self.parameters = {k: Parameter(k, v) for (k, v) in parameters.items()}
@@ -128,9 +134,8 @@ class EntryPoint(object):
             if (name not in user_parameters and self.parameters[name].default is None):
                 missing_params.append(name)
         if missing_params:
-            raise ExecutionException(
-                "No value given for missing parameters: %s" %
-                ", ".join(["'%s'" % name for name in missing_params]))
+            raise ExecutionException("No value given for missing parameters: %s" % ", ".join(
+                ["'%s'" % name for name in missing_params]))
 
     def compute_parameters(self, user_parameters, storage_dir):
         """
@@ -178,6 +183,7 @@ class EntryPoint(object):
 
 class Parameter(object):
     """A parameter in an MLproject entry point."""
+
     def __init__(self, name, yaml_obj):
         self.name = name
         if is_string_type(yaml_obj):
@@ -203,8 +209,8 @@ class Parameter(object):
         target_sub_dir = 'param_{}'.format(key_position)
         download_dir = os.path.join(storage_dir, target_sub_dir)
         os.mkdir(download_dir)
-        return artifact_utils._download_artifact_from_uri(artifact_uri=user_param_value,
-                                                          output_path=download_dir)
+        return artifact_utils._download_artifact_from_uri(
+            artifact_uri=user_param_value, output_path=download_dir)
 
     def compute_value(self, param_value, storage_dir, key_position):
         if storage_dir and self.type == "path":

@@ -21,7 +21,6 @@ REL_STATIC_DIR = "js/build"
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
 
-
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
 
@@ -97,8 +96,15 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers):
     return ["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"]
 
 
-def _run_server(file_store_path, default_artifact_root, host, port, static_prefix=None,
-                workers=None, gunicorn_opts=None, waitress_opts=None, expose_prometheus=None):
+def _run_server(file_store_path,
+                default_artifact_root,
+                host,
+                port,
+                static_prefix=None,
+                workers=None,
+                gunicorn_opts=None,
+                waitress_opts=None,
+                expose_prometheus=None):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
     :param static_prefix: If set, the index.html asset will be served from the path static_prefix.

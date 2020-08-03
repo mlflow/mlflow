@@ -18,8 +18,9 @@ depends_on = None
 def upgrade():
     with op.batch_alter_table("metrics") as batch_op:
         batch_op.alter_column("value", type_=sa.types.Float(precision=53), nullable=False)
-        batch_op.add_column(sa.Column('is_nan', sa.Boolean(create_constraint=False), nullable=False,
-                                      server_default='0'))
+        batch_op.add_column(
+            sa.Column(
+                'is_nan', sa.Boolean(create_constraint=False), nullable=False, server_default='0'))
         batch_op.drop_constraint(constraint_name='metric_pk', type_="primary")
         batch_op.create_primary_key(
             constraint_name='metric_pk',

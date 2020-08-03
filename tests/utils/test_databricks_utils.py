@@ -118,17 +118,14 @@ def test_get_workspace_info_from_dbutils_when_no_dbutils_available():
         assert workspace_id is None
 
 
-@pytest.mark.parametrize("tracking_uri, result", [
-    ('databricks', True),
-    ('databricks://profile/prefix', False),
-    ('nondatabricks', False),
-    ('databricks\t\r', True),
-    ('databricks\n', True),
-    ('databricks://', False),
-    ('databricks://aAbB', False)
-])
+@pytest.mark.parametrize("tracking_uri, result", [('databricks', True),
+                                                  ('databricks://profile/prefix', False),
+                                                  ('nondatabricks', False),
+                                                  ('databricks\t\r', True), ('databricks\n', True),
+                                                  ('databricks://', False),
+                                                  ('databricks://aAbB', False)])
 def test_is_databricks_default_tracking_uri(tracking_uri, result):
-    assert(is_databricks_default_tracking_uri(tracking_uri) == result)
+    assert (is_databricks_default_tracking_uri(tracking_uri) == result)
 
 
 @mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')

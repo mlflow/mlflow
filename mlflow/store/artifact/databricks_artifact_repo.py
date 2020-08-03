@@ -47,12 +47,14 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri):
         super(DatabricksArtifactRepository, self).__init__(artifact_uri)
         if not artifact_uri.startswith('dbfs:/'):
-            raise MlflowException(message='DatabricksArtifactRepository URI must start with dbfs:/',
-                                  error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                message='DatabricksArtifactRepository URI must start with dbfs:/',
+                error_code=INVALID_PARAMETER_VALUE)
         if not is_databricks_acled_artifacts_uri(artifact_uri):
-            raise MlflowException(message=('Artifact URI incorrect. Expected path prefix to be'
-                                           ' databricks/mlflow-tracking/path/to/artifact/..'),
-                                  error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                message=('Artifact URI incorrect. Expected path prefix to be'
+                         ' databricks/mlflow-tracking/path/to/artifact/..'),
+                error_code=INVALID_PARAMETER_VALUE)
         self.run_id = self._extract_run_id(self.artifact_uri)
 
         # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
@@ -63,8 +65,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         run_artifact_root_uri = self._get_run_artifact_root(self.run_id)
         run_artifact_root_path = extract_and_normalize_path(run_artifact_root_uri)
         run_relative_root_path = posixpath.relpath(
-            path=artifact_repo_root_path, start=run_artifact_root_path
-        )
+            path=artifact_repo_root_path, start=run_artifact_root_path)
         # If the paths are equal, then use empty string over "./" for ListArtifact compatibility.
         self.run_relative_artifact_repo_root_path = \
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
@@ -93,24 +94,21 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def _get_run_artifact_root(self, run_id):
         json_body = message_to_json(GetRun(run_id=run_id))
-        run_response = self._call_endpoint(MlflowService,
-                                           GetRun, json_body)
+        run_response = self._call_endpoint(MlflowService, GetRun, json_body)
         return run_response.run.info.artifact_uri
 
     def _get_write_credentials(self, run_id, path=None):
         json_body = message_to_json(GetCredentialsForWrite(run_id=run_id, path=path))
-        return self._call_endpoint(DatabricksMlflowArtifactsService,
-                                   GetCredentialsForWrite, json_body)
+        return self._call_endpoint(DatabricksMlflowArtifactsService, GetCredentialsForWrite,
+                                   json_body)
 
     def _get_read_credentials(self, run_id, path=None):
         json_body = message_to_json(GetCredentialsForRead(run_id=run_id, path=path))
-        return self._call_endpoint(DatabricksMlflowArtifactsService,
-                                   GetCredentialsForRead, json_body)
+        return self._call_endpoint(DatabricksMlflowArtifactsService, GetCredentialsForRead,
+                                   json_body)
 
     def _extract_headers_from_credentials(self, headers):
-        return {
-            header.name: header.value for header in headers
-        }
+        return {header.name: header.value for header in headers}
 
     def _azure_upload_file(self, credentials, local_file, artifact_path):
         """
@@ -127,8 +125,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            service = BlobClient.from_blob_url(blob_url=credentials.signed_uri, credential=None,
-                                               headers=headers)
+            service = BlobClient.from_blob_url(
+                blob_url=credentials.signed_uri, credential=None, headers=headers)
             uploading_block_list = list()
             for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
                 block_id = base64.b64encode(uuid.uuid4().hex.encode())
@@ -176,8 +174,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         elif cloud_credentials.credentials.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
             self._aws_upload_file(cloud_credentials.credentials, local_file)
         else:
-            raise MlflowException(message='Cloud provider not supported.',
-                                  error_code=INTERNAL_ERROR)
+            raise MlflowException(
+                message='Cloud provider not supported.', error_code=INTERNAL_ERROR)
 
     def _download_from_cloud(self, cloud_credential, local_file_path):
         """
@@ -192,10 +190,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
         allowing content retrieval to be made via `iter_content`.
         In addition, since the connection is kept open, refreshing credentials is not required.
         """
-        if cloud_credential.type not in [ArtifactCredentialType.AZURE_SAS_URI,
-                                         ArtifactCredentialType.AWS_PRESIGNED_URL]:
-            raise MlflowException(message='Cloud provider not supported.',
-                                  error_code=INTERNAL_ERROR)
+        if cloud_credential.type not in [
+                ArtifactCredentialType.AZURE_SAS_URI, ArtifactCredentialType.AWS_PRESIGNED_URL
+        ]:
+            raise MlflowException(
+                message='Cloud provider not supported.', error_code=INTERNAL_ERROR)
         try:
             signed_read_uri = cloud_credential.signed_uri
             with requests.get(signed_read_uri, stream=True) as response:
@@ -213,8 +212,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         artifact_path = artifact_path or ""
         artifact_path = posixpath.join(artifact_path, basename)
         if len(artifact_path) > 0:
-            run_relative_artifact_path = posixpath.join(
-                self.run_relative_artifact_repo_root_path, artifact_path)
+            run_relative_artifact_path = posixpath.join(self.run_relative_artifact_repo_root_path,
+                                                        artifact_path)
         else:
             run_relative_artifact_path = self.run_relative_artifact_repo_root_path
         write_credentials = self._get_write_credentials(self.run_id, run_relative_artifact_path)
@@ -234,8 +233,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def list_artifacts(self, path=None):
         if path:
-            run_relative_path = posixpath.join(
-                self.run_relative_artifact_repo_root_path, path)
+            run_relative_path = posixpath.join(self.run_relative_artifact_repo_root_path, path)
         else:
             run_relative_path = self.run_relative_artifact_repo_root_path
         infos = []
@@ -243,8 +241,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         while True:
             if page_token:
                 json_body = message_to_json(
-                    ListArtifacts(run_id=self.run_id, path=run_relative_path,
-                                  page_token=page_token))
+                    ListArtifacts(
+                        run_id=self.run_id, path=run_relative_path, page_token=page_token))
             else:
                 json_body = message_to_json(
                     ListArtifacts(run_id=self.run_id, path=run_relative_path))
@@ -267,8 +265,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return infos
 
     def _download_file(self, remote_file_path, local_path):
-        run_relative_remote_file_path = posixpath.join(
-            self.run_relative_artifact_repo_root_path, remote_file_path)
+        run_relative_remote_file_path = posixpath.join(self.run_relative_artifact_repo_root_path,
+                                                       remote_file_path)
         read_credentials = self._get_read_credentials(self.run_id, run_relative_remote_file_path)
         self._download_from_cloud(read_credentials.credentials, local_path)
 

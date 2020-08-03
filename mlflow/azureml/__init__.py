@@ -24,13 +24,18 @@ from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.version import VERSION as mlflow_version
 from pathlib import Path
 
-
 _logger = logging.getLogger(__name__)
 
 
 @experimental
-def build_image(model_uri, workspace, image_name=None, model_name=None,
-                mlflow_home=None, description=None, tags=None, synchronous=True):
+def build_image(model_uri,
+                workspace,
+                image_name=None,
+                model_name=None,
+                mlflow_home=None,
+                description=None,
+                tags=None,
+                synchronous=True):
     """
     Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
     The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
@@ -139,8 +144,8 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
                      " trained in Python 2: https://github.com/mlflow/mlflow/issues/668"),
             error_code=INVALID_PARAMETER_VALUE)
 
-    tags = _build_tags(model_uri=model_uri, model_python_version=model_python_version,
-                       user_tags=tags)
+    tags = _build_tags(
+        model_uri=model_uri, model_python_version=model_python_version, user_tags=tags)
 
     if image_name is None:
         image_name = _get_mlflow_azure_resource_name()
@@ -153,9 +158,12 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
             model_directory_path,
             _copy_file_or_tree(src=absolute_model_path, dst=model_directory_path))
 
-        registered_model = AzureModel.register(workspace=workspace, model_path=tmp_model_path,
-                                               model_name=model_name, tags=tags,
-                                               description=description)
+        registered_model = AzureModel.register(
+            workspace=workspace,
+            model_path=tmp_model_path,
+            model_name=model_name,
+            tags=tags,
+            description=description)
         _logger.info("Registered an Azure Model with name: `%s` and version: `%s`",
                      registered_model.name, registered_model.version)
 
@@ -177,8 +185,7 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
         if mlflow_home is not None:
             _logger.info(
                 "Copying the specified mlflow_home directory: `%s` to a temporary location for"
-                " container creation",
-                mlflow_home)
+                " container creation", mlflow_home)
             mlflow_home = os.path.join(tmp.path(),
                                        _copy_project(src_path=mlflow_home, dst_path=tmp.path()))
             image_file_dependencies = [mlflow_home]
@@ -200,10 +207,11 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
             description=description,
             tags=tags,
         )
-        image = ContainerImage.create(workspace=workspace,
-                                      name=image_name,
-                                      image_config=image_configuration,
-                                      models=[registered_model])
+        image = ContainerImage.create(
+            workspace=workspace,
+            name=image_name,
+            image_config=image_configuration,
+            models=[registered_model])
         _logger.info("Building an Azure Container Image with name: `%s` and version: `%s`",
                      image.name, image.version)
         if synchronous:
@@ -212,8 +220,14 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
 
 
 @experimental
-def deploy(model_uri, workspace, deployment_config=None, service_name=None, model_name=None,
-           tags=None, mlflow_home=None, synchronous=True):
+def deploy(model_uri,
+           workspace,
+           deployment_config=None,
+           service_name=None,
+           model_name=None,
+           tags=None,
+           mlflow_home=None,
+           synchronous=True):
     """
     Register an MLflow model with Azure ML and deploy a websevice to Azure Container Instances (ACI)
     or Azure Kubernetes Service (AKS).
@@ -323,8 +337,11 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
                      " trained in Python 2: https://github.com/mlflow/mlflow/issues/668"),
             error_code=INVALID_PARAMETER_VALUE)
 
-    tags = _build_tags(model_uri=model_uri, model_python_version=model_python_version,
-                       user_tags=tags, run_id=run_id_tag)
+    tags = _build_tags(
+        model_uri=model_uri,
+        model_python_version=model_python_version,
+        user_tags=tags,
+        run_id=run_id_tag)
 
     if service_name is None:
         service_name = _get_mlflow_azure_name(run_id)
@@ -337,8 +354,8 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
             model_directory_path,
             _copy_file_or_tree(src=absolute_model_path, dst=model_directory_path))
 
-        registered_model = AzureModel.register(workspace=workspace, model_path=tmp_model_path,
-                                               model_name=model_name, tags=tags)
+        registered_model = AzureModel.register(
+            workspace=workspace, model_path=tmp_model_path, model_name=model_name, tags=tags)
 
         _logger.info("Registered an Azure Model with name: `%s` and version: `%s`",
                      registered_model.name, registered_model.version)
@@ -363,9 +380,7 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
             _logger.info("Bulding temporary MLFlow wheel in %s", path)
             wheel = _create_mlflow_wheel(mlflow_home, path)
             whl_url = AzureEnvironment.add_private_pip_wheel(
-                workspace=workspace,
-                file_path=wheel,
-                exist_ok=True)
+                workspace=workspace, file_path=wheel, exist_ok=True)
             environment.python.conda_dependencies.add_pip_package(whl_url)
         else:
             environment.python.conda_dependencies.add_pip_package(
@@ -376,8 +391,8 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
         environment.python.conda_dependencies.add_pip_package(
             "azureml-defaults=={}".format(AZUREML_VERSION))
 
-        inference_config = InferenceConfig(entry_script=execution_script_path,
-                                           environment=environment)
+        inference_config = InferenceConfig(
+            entry_script=execution_script_path, environment=environment)
 
         if deployment_config is not None:
             if deployment_config.tags is not None:
@@ -392,10 +407,8 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
             name=service_name,
             models=[registered_model],
             inference_config=inference_config,
-            deployment_config=deployment_config
-        )
-        _logger.info("Deploying an Azure Webservice with name: `%s`",
-                     webservice.name)
+            deployment_config=deployment_config)
+        _logger.info("Deploying an Azure Webservice with name: `%s`", webservice.name)
         if synchronous:
             webservice.wait_for_deployment(show_output=True)
         return webservice, registered_model
@@ -532,15 +545,16 @@ def _create_mlflow_wheel(mlflow_dir, out_dir):
     unresolved.mkdir(parents=True, exist_ok=True)
     out_path = unresolved.resolve()
     subprocess.run([sys.executable, "setup.py", "bdist_wheel", "-d", out_path],
-                   cwd=mlflow_dir, check=True)
+                   cwd=mlflow_dir,
+                   check=True)
     files = list(out_path.glob("./*.whl"))
     if len(files) < 1:
         raise MlflowException("Error creating MLFlow Wheel - couldn't"
                               " find it in dir {} - found {}".format(out_path, files))
     if len(files) > 1:
-        raise MlflowException(
-            "Error creating MLFlow Wheel - couldn't"
-            " find it in dir {} - found several wheels {}".format(out_path, files))
+        raise MlflowException("Error creating MLFlow Wheel - couldn't"
+                              " find it in dir {} - found several wheels {}".format(
+                                  out_path, files))
     return files[0]
 
 

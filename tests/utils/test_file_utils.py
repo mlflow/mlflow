@@ -20,8 +20,14 @@ def test_yaml_read_and_write(tmpdir):
     temp_dir = str(tmpdir)
     yaml_file = random_file("yaml")
     long_value = long(1) if six.PY2 else 1  # pylint: disable=undefined-variable
-    data = {"a": random_int(), "B": random_int(), "text_value": u"中文",
-            "long_value": long_value, "int_value": 32, "text_value_2": u"hi"}
+    data = {
+        "a": random_int(),
+        "B": random_int(),
+        "text_value": u"中文",
+        "long_value": long_value,
+        "int_value": 32,
+        "text_value_2": u"hi"
+    }
     file_utils.write_yaml(temp_dir, yaml_file, data)
     read_data = file_utils.read_yaml(temp_dir, yaml_file)
     assert data == read_data
@@ -87,8 +93,7 @@ def test_make_tarfile(tmpdir):
     os.makedirs(extract_dir)
     with tarfile.open(tarfile0, 'r:gz') as handle:
         handle.extractall(path=extract_dir)
-    dir_comparison = filecmp.dircmp(os.path.join(extract_dir, "some-archive"),
-                                    TEST_PROJECT_DIR)
+    dir_comparison = filecmp.dircmp(os.path.join(extract_dir, "some-archive"), TEST_PROJECT_DIR)
     assert len(dir_comparison.left_only) == 0
     assert len(dir_comparison.right_only) == 0
     assert len(dir_comparison.diff_files) == 0

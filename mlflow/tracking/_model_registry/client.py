@@ -199,7 +199,9 @@ class ModelRegistryClient(object):
         if stage.strip() == "":
             raise MlflowException("The stage must not be an empty string.")
         return self.store.transition_model_version_stage(
-            name=name, version=version, stage=stage,
+            name=name,
+            version=version,
+            stage=stage,
             archive_existing_versions=archive_existing_versions)
 
     def get_model_version(self, name, version):

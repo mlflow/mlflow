@@ -28,12 +28,11 @@ def test_databricks_notebook_run_context_tags():
 
 
 def test_databricks_notebook_run_context_tags_nones():
-    patch_notebook_id = mock.patch("mlflow.utils.databricks_utils.get_notebook_id",
-                                   return_value=None)
-    patch_notebook_path = mock.patch("mlflow.utils.databricks_utils.get_notebook_path",
-                                     return_value=None)
-    patch_webapp_url = mock.patch("mlflow.utils.databricks_utils.get_webapp_url",
-                                  return_value=None)
+    patch_notebook_id = mock.patch(
+        "mlflow.utils.databricks_utils.get_notebook_id", return_value=None)
+    patch_notebook_path = mock.patch(
+        "mlflow.utils.databricks_utils.get_notebook_path", return_value=None)
+    patch_webapp_url = mock.patch("mlflow.utils.databricks_utils.get_webapp_url", return_value=None)
 
     with patch_notebook_id, patch_notebook_path, patch_webapp_url:
         assert DatabricksNotebookRunContext().tags() == {

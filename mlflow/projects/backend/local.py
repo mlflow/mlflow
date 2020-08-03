@@ -7,19 +7,15 @@ import sys
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.projects.docker import (
-    validate_docker_env, validate_docker_installation, build_docker_image,
-    get_docker_tracking_cmd_and_envs
-)
+from mlflow.projects.docker import (validate_docker_env, validate_docker_installation,
+                                    build_docker_image, get_docker_tracking_cmd_and_envs)
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects.backend.abstract_backend import AbstractBackend
-from mlflow.projects.utils import (
-    fetch_and_validate_project, get_or_create_run, load_project,
-    get_run_env_vars, get_databricks_env_vars, get_entry_point_command,
-    MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG, MLFLOW_DOCKER_WORKDIR_PATH,
-    PROJECT_USE_CONDA, PROJECT_SYNCHRONOUS, PROJECT_DOCKER_ARGS,
-    PROJECT_STORAGE_DIR
-)
+from mlflow.projects.utils import (fetch_and_validate_project, get_or_create_run, load_project,
+                                   get_run_env_vars, get_databricks_env_vars,
+                                   get_entry_point_command, MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
+                                   MLFLOW_DOCKER_WORKDIR_PATH, PROJECT_USE_CONDA,
+                                   PROJECT_SYNCHRONOUS, PROJECT_DOCKER_ARGS, PROJECT_STORAGE_DIR)
 from mlflow.utils.conda import get_conda_command, get_or_create_conda_env
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -30,13 +26,12 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
 
-
 _logger = logging.getLogger(__name__)
 
 
 class LocalBackend(AbstractBackend):
-    def run(self, project_uri, entry_point, params,
-            version, backend_config, tracking_uri, experiment_id):
+    def run(self, project_uri, entry_point, params, version, backend_config, tracking_uri,
+            experiment_id):
         work_dir = fetch_and_validate_project(project_uri, version, entry_point, params)
         project = load_project(work_dir)
         if MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG in backend_config:
@@ -54,18 +49,20 @@ class LocalBackend(AbstractBackend):
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
-            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV,
-                                            "docker")
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
             validate_docker_env(project)
             validate_docker_installation()
-            image = build_docker_image(work_dir=work_dir,
-                                       repository_uri=project.name,
-                                       base_image=project.docker_env.get('image'),
-                                       run_id=active_run.info.run_id)
-            command_args += _get_docker_command(image=image, active_run=active_run,
-                                                docker_args=docker_args,
-                                                volumes=project.docker_env.get("volumes"),
-                                                user_env_vars=project.docker_env.get("environment"))
+            image = build_docker_image(
+                work_dir=work_dir,
+                repository_uri=project.name,
+                base_image=project.docker_env.get('image'),
+                run_id=active_run.info.run_id)
+            command_args += _get_docker_command(
+                image=image,
+                active_run=active_run,
+                docker_args=docker_args,
+                volumes=project.docker_env.get("volumes"),
+                user_env_vars=project.docker_env.get("environment"))
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
         elif use_conda:
@@ -79,34 +76,40 @@ class LocalBackend(AbstractBackend):
         if synchronous:
             command_args += get_entry_point_command(project, entry_point, params, storage_dir)
             command_str = command_separator.join(command_args)
-            return _run_entry_point(command_str, work_dir, experiment_id,
-                                    run_id=active_run.info.run_id)
+            return _run_entry_point(
+                command_str, work_dir, experiment_id, run_id=active_run.info.run_id)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
-            work_dir=work_dir, entry_point=entry_point, parameters=params,
+            work_dir=work_dir,
+            entry_point=entry_point,
+            parameters=params,
             experiment_id=experiment_id,
-            use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
+            use_conda=use_conda,
+            storage_dir=storage_dir,
+            run_id=active_run.info.run_id)
 
 
-def _invoke_mlflow_run_subprocess(
-        work_dir, entry_point, parameters, experiment_id, use_conda, storage_dir, run_id):
+def _invoke_mlflow_run_subprocess(work_dir, entry_point, parameters, experiment_id, use_conda,
+                                  storage_dir, run_id):
     """
     Run an MLflow project asynchronously by invoking ``mlflow run`` in a subprocess, returning
     a SubmittedRun that can be used to query run status.
     """
     _logger.info("=== Asynchronously launching MLflow run with ID %s ===", run_id)
     mlflow_run_arr = _build_mlflow_run_cmd(
-        uri=work_dir, entry_point=entry_point, storage_dir=storage_dir, use_conda=use_conda,
-        run_id=run_id, parameters=parameters)
+        uri=work_dir,
+        entry_point=entry_point,
+        storage_dir=storage_dir,
+        use_conda=use_conda,
+        run_id=run_id,
+        parameters=parameters)
     env_vars = get_run_env_vars(run_id, experiment_id)
     env_vars.update(get_databricks_env_vars(mlflow.get_tracking_uri()))
-    mlflow_run_subprocess = _run_mlflow_run_cmd(
-        mlflow_run_arr, env_vars)
+    mlflow_run_subprocess = _run_mlflow_run_cmd(mlflow_run_arr, env_vars)
     return LocalSubmittedRun(run_id, mlflow_run_subprocess)
 
 
-def _build_mlflow_run_cmd(
-        uri, entry_point, storage_dir, use_conda, run_id, parameters):
+def _build_mlflow_run_cmd(uri, entry_point, storage_dir, use_conda, run_id, parameters):
     """
     Build and return an array containing an ``mlflow run`` command that can be invoked to locally
     run the project at the specified URI.
@@ -132,7 +135,9 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
     # best-effort cleanup of all its descendant processes if needed
     if sys.platform == "win32":
         return subprocess.Popen(
-            mlflow_run_arr, env=final_env, universal_newlines=True,
+            mlflow_run_arr,
+            env=final_env,
+            universal_newlines=True,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
     else:
         return subprocess.Popen(
@@ -180,8 +185,8 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
                 else:
                     cmd += ['--' + name, value]
 
-    env_vars = get_run_env_vars(run_id=active_run.info.run_id,
-                                experiment_id=active_run.info.experiment_id)
+    env_vars = get_run_env_vars(
+        run_id=active_run.info.run_id, experiment_id=active_run.info.experiment_id)
     tracking_uri = tracking.get_tracking_uri()
     tracking_cmds, tracking_envs = get_docker_tracking_cmd_and_envs(tracking_uri)
     artifact_cmds, artifact_envs = \

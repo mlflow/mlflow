@@ -329,8 +329,13 @@ class MlflowClient(object):
         """
         self._tracking_client.restore_run(run_id)
 
-    def search_runs(self, experiment_ids, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
+    def search_runs(self,
+                    experiment_ids,
+                    filter_string="",
+                    run_view_type=ViewType.ACTIVE_ONLY,
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                    order_by=None,
+                    page_token=None):
         """
         Search experiments that fit the search criteria.
 
@@ -394,8 +399,8 @@ class MlflowClient(object):
         if description is None:
             raise MlflowException("Attempting to update registered model with no new field values.")
 
-        return self._get_registry_client().update_registered_model(name=name,
-                                                                   description=description)
+        return self._get_registry_client().update_registered_model(
+            name=name, description=description)
 
     @experimental
     def delete_registered_model(self, name):
@@ -531,11 +536,7 @@ class MlflowClient(object):
             if workspace_host and run_id and experiment_id:
                 run_link = construct_run_url(workspace_host, experiment_id, run_id, workspace_id)
         return self._get_registry_client().create_model_version(
-            name=name,
-            source=source,
-            run_id=run_id,
-            tags=tags,
-            run_link=run_link)
+            name=name, source=source, run_id=run_id, tags=tags, run_link=run_link)
 
     @experimental
     def update_model_version(self, name, version, description=None):
@@ -551,8 +552,8 @@ class MlflowClient(object):
         if description is None:
             raise MlflowException("Attempting to update model version with no new field values.")
 
-        return self._get_registry_client().update_model_version(name=name, version=version,
-                                                                description=description)
+        return self._get_registry_client().update_model_version(
+            name=name, version=version, description=description)
 
     @experimental
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):
@@ -569,8 +570,7 @@ class MlflowClient(object):
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         return self._get_registry_client().transition_model_version_stage(
-            name, version, stage, archive_existing_versions
-        )
+            name, version, stage, archive_existing_versions)
 
     @experimental
     def delete_model_version(self, name, version):

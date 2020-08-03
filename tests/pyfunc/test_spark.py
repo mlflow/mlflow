@@ -34,9 +34,11 @@ class ConstantPyfuncWrapper(object):
     @staticmethod
     def predict(model_input):
         m, _ = model_input.shape
-        prediction_df = pd.DataFrame(data={
-            str(i): np.array([prediction[i] for j in range(m)],
-                             dtype=types[i]) for i in range(len(prediction))},
+        prediction_df = pd.DataFrame(
+            data={
+                str(i): np.array([prediction[i] for j in range(m)], dtype=types[i])
+                for i in range(len(prediction))
+            },
             columns=[str(i) for i in range(len(prediction))])
         return prediction_df
 
@@ -87,11 +89,13 @@ def test_spark_udf(spark, model_path):
     spark_df = spark.createDataFrame(pandas_df)
 
     # Test all supported return types
-    type_map = {"float": (FloatType(), np.number),
-                "int": (IntegerType(), np.int32),
-                "double": (DoubleType(), np.number),
-                "long": (LongType(), np.int),
-                "string": (StringType(), None)}
+    type_map = {
+        "float": (FloatType(), np.number),
+        "int": (IntegerType(), np.int32),
+        "double": (DoubleType(), np.number),
+        "long": (LongType(), np.int),
+        "string": (StringType(), None)
+    }
 
     for tname, tdef in type_map.items():
         spark_type, np_type = tdef
@@ -128,21 +132,19 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
             ColSpec("long", "b"),
             ColSpec("long", "c"),
         ]),
-        outputs=Schema([ColSpec("integer")])
-    )
+        outputs=Schema([ColSpec("integer")]))
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
-        udf = mlflow.pyfunc.spark_udf(spark, "runs:/{}/model".format(run.info.run_id),
-                                      result_type=ArrayType(StringType()))
-        data = spark.createDataFrame(pd.DataFrame(
-            columns=["a", "b", "c", "d"],
-            data={
-                "a": [1],
-                "b": [2],
-                "c": [3],
-                "d": [4]
-            }
-        ))
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()))
+        data = spark.createDataFrame(
+            pd.DataFrame(
+                columns=["a", "b", "c", "d"], data={
+                    "a": [1],
+                    "b": [2],
+                    "c": [3],
+                    "d": [4]
+                }))
         with pytest.raises(Py4JJavaError):
             res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
 

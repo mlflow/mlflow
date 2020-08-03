@@ -20,8 +20,7 @@ class HdfsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        self.scheme, self.host, self.port, self.path = _resolve_connection_params(
-            artifact_uri)
+        self.scheme, self.host, self.port, self.path = _resolve_connection_params(artifact_uri)
         super(HdfsArtifactRepository, self).__init__(artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -175,11 +174,12 @@ def hdfs_system(scheme, host, port):
     else:
         host = 'default'
 
-    connected = pa.hdfs.connect(host=host,
-                                port=port or 0,
-                                user=kerberos_user,
-                                kerb_ticket=kerb_ticket,
-                                extra_conf=extra_conf)
+    connected = pa.hdfs.connect(
+        host=host,
+        port=port or 0,
+        user=kerberos_user,
+        kerb_ticket=kerb_ticket,
+        extra_conf=extra_conf)
     yield connected
     connected.close()
 
@@ -227,6 +227,7 @@ def _download_hdfs_file(hdfs, remote_file_path, local_file_path):
 
 def _parse_extra_conf(extra_conf):
     if extra_conf:
+
         def as_pair(config):
             key, val = config.split('=')
             return key, val

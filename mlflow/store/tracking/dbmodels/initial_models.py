@@ -10,13 +10,11 @@
 # database schema matched the schema in this file.
 import time
 from sqlalchemy.orm import relationship, backref
-from sqlalchemy import (
-    Column, String, Float, ForeignKey, Integer, CheckConstraint,
-    BigInteger, PrimaryKeyConstraint)
+from sqlalchemy import (Column, String, Float, ForeignKey, Integer, CheckConstraint, BigInteger,
+                        PrimaryKeyConstraint)
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
-
 
 SourceTypes = [
     "NOTEBOOK",
@@ -60,12 +58,9 @@ class SqlExperiment(Base):
                                     Can be either ``active`` (default) or ``deleted``.
     """
 
-    __table_args__ = (
-        CheckConstraint(
-            lifecycle_stage.in_(["active", "deleted"]),
-            name='experiments_lifecycle_stage'),
-        PrimaryKeyConstraint('experiment_id', name='experiment_pk')
-    )
+    __table_args__ = (CheckConstraint(
+        lifecycle_stage.in_(["active", "deleted"]), name='experiments_lifecycle_stage'),
+                      PrimaryKeyConstraint('experiment_id', name='experiment_pk'))
 
     def __repr__(self):
         return '<SqlExperiment ({}, {})>'.format(self.experiment_id, self.name)
@@ -137,13 +132,11 @@ class SqlRun(Base):
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlExperiment`.
     """
 
-    __table_args__ = (
-        CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
-        CheckConstraint(status.in_(RunStatusTypes), name='status'),
-        CheckConstraint(lifecycle_stage.in_(["active", "deleted"]),
-                        name='runs_lifecycle_stage'),
-        PrimaryKeyConstraint('run_uuid', name='run_pk')
-    )
+    __table_args__ = (CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
+                      CheckConstraint(status.in_(RunStatusTypes), name='status'),
+                      CheckConstraint(
+                          lifecycle_stage.in_(["active", "deleted"]), name='runs_lifecycle_stage'),
+                      PrimaryKeyConstraint('run_uuid', name='run_pk'))
 
 
 class SqlTag(Base):
@@ -169,9 +162,7 @@ class SqlTag(Base):
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
 
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'run_uuid', name='tag_pk'),
-    )
+    __table_args__ = (PrimaryKeyConstraint('key', 'run_uuid', name='tag_pk'), )
 
     def __repr__(self):
         return '<SqlRunTag({}, {})>'.format(self.key, self.value)
@@ -203,9 +194,7 @@ class SqlMetric(Base):
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
 
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'timestamp', 'run_uuid', name='metric_pk'),
-    )
+    __table_args__ = (PrimaryKeyConstraint('key', 'timestamp', 'run_uuid', name='metric_pk'), )
 
     def __repr__(self):
         return '<SqlMetric({}, {}, {})>'.format(self.key, self.value, self.timestamp)
@@ -232,9 +221,7 @@ class SqlParam(Base):
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
 
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'run_uuid', name='param_pk'),
-    )
+    __table_args__ = (PrimaryKeyConstraint('key', 'run_uuid', name='param_pk'), )
 
     def __repr__(self):
         return '<SqlParam({}, {})>'.format(self.key, self.value)

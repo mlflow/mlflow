@@ -76,7 +76,6 @@ def test_docker_local_artifact_cmd_and_envs():
 
 
 def test_docker_unknown_uri_artifact_cmd_and_envs():
-    cmd, envs = _get_docker_artifact_storage_cmd_and_envs(
-        "file-plugin://some_path")
+    cmd, envs = _get_docker_artifact_storage_cmd_and_envs("file-plugin://some_path")
     assert cmd == []
     assert envs == {}

@@ -14,7 +14,6 @@ from mlflow.utils.file_utils import TempDir
 
 _logger = logging.getLogger(__name__)
 
-
 MLMODEL_FILE_NAME = "MLmodel"
 
 
@@ -24,8 +23,13 @@ class Model(object):
     new Model flavors.
     """
 
-    def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None,
-                 signature: ModelSignature=None, saved_input_example_info: Dict[str, Any]=None,
+    def __init__(self,
+                 artifact_path=None,
+                 run_id=None,
+                 utc_time_created=None,
+                 flavors=None,
+                 signature: ModelSignature = None,
+                 saved_input_example_info: Dict[str, Any] = None,
                  **kwargs):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:
@@ -150,8 +154,7 @@ class Model(object):
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
-            flavor.save_model(path=local_path, mlflow_model=mlflow_model,
-                              **kwargs)
+            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)

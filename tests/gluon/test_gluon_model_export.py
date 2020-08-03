@@ -37,9 +37,7 @@ def model_path(tmpdir):
 @pytest.fixture
 def gluon_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(
-        conda_env,
-        additional_conda_deps=["mxnet", "pytest"])
+    _mlflow_conda_env(conda_env, additional_conda_deps=["mxnet", "pytest"])
     return conda_env
 
 
@@ -55,18 +53,21 @@ def model_data():
 @pytest.fixture(scope="module")
 def gluon_model(model_data):
     train_data, train_label, _ = model_data
-    train_data_loader = DataLoader(list(zip(train_data, train_label)),
-                                   batch_size=128, last_batch="discard")
+    train_data_loader = DataLoader(
+        list(zip(train_data, train_label)), batch_size=128, last_batch="discard")
     model = HybridSequential()
     model.add(Dense(128, activation="relu"))
     model.add(Dense(64, activation="relu"))
     model.add(Dense(10))
     model.initialize()
     model.hybridize()
-    trainer = Trainer(model.collect_params(), "adam",
-                      optimizer_params={"learning_rate": .001, "epsilon": 1e-07})
-    est = estimator.Estimator(net=model, loss=SoftmaxCrossEntropyLoss(),
-                              metrics=Accuracy(), trainer=trainer)
+    trainer = Trainer(
+        model.collect_params(), "adam", optimizer_params={
+            "learning_rate": .001,
+            "epsilon": 1e-07
+        })
+    est = estimator.Estimator(
+        net=model, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         est.fit(train_data_loader, epochs=3)
@@ -87,9 +88,7 @@ def test_model_save_load(gluon_model, model_data, model_path):
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     test_pyfunc_data = pd.DataFrame(test_data.asnumpy())
     pyfunc_preds = pyfunc_loaded.predict(test_pyfunc_data)
-    assert all(
-        np.argmax(pyfunc_preds.values, axis=1)
-        == expected.asnumpy())
+    assert all(np.argmax(pyfunc_preds.values, axis=1) == expected.asnumpy())
 
 
 @pytest.mark.large
@@ -101,9 +100,8 @@ def test_signature_and_examples_are_saved_correctly(gluon_model, model_data):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
-                mlflow.gluon.save_model(model, path=path,
-                                        signature=signature,
-                                        input_example=example)
+                mlflow.gluon.save_model(
+                    model, path=path, signature=signature, input_example=example)
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
                 if example is None:
@@ -131,9 +129,7 @@ def test_model_log_load(gluon_model, model_data, model_path):
     pyfunc_loaded = mlflow.pyfunc.load_model(model_uri)
     test_pyfunc_data = pd.DataFrame(test_data.asnumpy())
     pyfunc_preds = pyfunc_loaded.predict(test_pyfunc_data)
-    assert all(
-        np.argmax(pyfunc_preds.values, axis=1)
-        == expected.asnumpy())
+    assert all(np.argmax(pyfunc_preds.values, axis=1) == expected.asnumpy())
 
 
 @pytest.mark.large
@@ -207,6 +203,4 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     response_values = \
         pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
-    assert all(
-        np.argmax(response_values, axis=1)
-        == expected.asnumpy())
+    assert all(np.argmax(response_values, axis=1) == expected.asnumpy())

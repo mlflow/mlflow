@@ -21,11 +21,9 @@ class DatabricksJobRunContext(RunContextProvider):
         job_type = databricks_utils.get_job_type()
         webapp_url = databricks_utils.get_webapp_url()
         tags = {
-            MLFLOW_SOURCE_NAME: (
-                "jobs/{job_id}/run/{job_run_id}".format(
-                    job_id=job_id, job_run_id=job_run_id)
-                if job_id is not None and job_run_id is not None else None
-            ),
+            MLFLOW_SOURCE_NAME: ("jobs/{job_id}/run/{job_run_id}".format(
+                job_id=job_id, job_run_id=job_run_id)
+                                 if job_id is not None and job_run_id is not None else None),
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.JOB)
         }
         if job_id is not None:

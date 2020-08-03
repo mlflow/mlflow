@@ -46,13 +46,12 @@ def manual_run(request):
 def create_tf_keras_model():
     model = tf.keras.Sequential()
 
-    model.add(layers.Dense(64, activation='relu', input_shape=(32,)))
+    model.add(layers.Dense(64, activation='relu', input_shape=(32, )))
     model.add(layers.Dense(64, activation='relu'))
     model.add(layers.Dense(10, activation='softmax'))
 
-    model.compile(optimizer=tf.keras.optimizers.Adam(),
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(), loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
 
@@ -68,9 +67,11 @@ def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_ho
     model = create_tf_keras_model()
 
     if fit_variant == 'fit_generator':
+
         def generator():
             while True:
                 yield data, labels
+
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
     else:
         model.fit(data, labels, epochs=10)
@@ -90,9 +91,11 @@ def test_tf_keras_autolog_persists_manually_created_run(random_train_data, rando
         model = create_tf_keras_model()
 
         if fit_variant == 'fit_generator':
+
             def generator():
                 while True:
                     yield data, labels
+
             model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
         else:
             model.fit(data, labels, epochs=10)
@@ -111,9 +114,11 @@ def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_ru
     model = create_tf_keras_model()
 
     if fit_variant == 'fit_generator':
+
         def generator():
             while True:
                 yield data, labels
+
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
     else:
         model.fit(data, labels, epochs=10, steps_per_epoch=1)
@@ -165,8 +170,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
     artifacts = map(lambda x: x.path, artifacts)
     assert 'model' in artifacts
     assert 'tensorboard_logs' in artifacts
-    model = mlflow.keras.load_model("runs:/" + tf_keras_random_data_run.info.run_id +
-                                    "/model")
+    model = mlflow.keras.load_model("runs:/" + tf_keras_random_data_run.info.run_id + "/model")
     model.predict(random_train_data)
 
 
@@ -181,9 +185,11 @@ def tf_keras_random_data_run_with_callback(random_train_data, random_one_hot_lab
     model = create_tf_keras_model()
     if callback == 'early':
         # min_delta is set as such to guarantee early stopping
-        callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=patience,
-                                                    min_delta=99999999,
-                                                    restore_best_weights=restore_weights)
+        callback = tf.keras.callbacks.EarlyStopping(
+            monitor='loss',
+            patience=patience,
+            min_delta=99999999,
+            restore_best_weights=restore_weights)
     else:
         callback = tf.keras.callbacks.ProgbarLogger(count_mode='samples')
 
@@ -313,9 +319,11 @@ def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_call
     model = create_tf_keras_model()
 
     if fit_variant == 'fit_generator':
+
         def generator():
             while True:
                 yield data, labels
+
         model.fit_generator(
             generator(), epochs=10, steps_per_epoch=1, callbacks=[tensorboard_callback])
     else:
@@ -343,9 +351,11 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         model = create_tf_keras_model()
 
         if fit_variant == 'fit_generator':
+
             def generator():
                 while True:
                     yield data, labels
+
             model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
         else:
             model.fit(data, labels, epochs=10)
@@ -357,10 +367,12 @@ def create_tf_estimator_model(dir, export):
     CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
     SPECIES = ['Setosa', 'Versicolor', 'Virginica']
 
-    train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
-                        names=CSV_COLUMN_NAMES, header=0)
-    test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
-                       names=CSV_COLUMN_NAMES, header=0)
+    train = pd.read_csv(
+        os.path.join(os.path.dirname(__file__), "iris_training.csv"),
+        names=CSV_COLUMN_NAMES,
+        header=0)
+    test = pd.read_csv(
+        os.path.join(os.path.dirname(__file__), "iris_test.csv"), names=CSV_COLUMN_NAMES, header=0)
 
     train_y = train.pop('Species')
     test_y = test.pop('Species')
@@ -392,9 +404,7 @@ def create_tf_estimator_model(dir, export):
         # The model must choose between 3 classes.
         n_classes=3,
         model_dir=dir)
-    classifier.train(
-        input_fn=lambda: input_fn(train, train_y, training=True),
-        steps=500)
+    classifier.train(input_fn=lambda: input_fn(train, train_y, training=True), steps=500)
     if export:
         classifier.export_saved_model(dir, receiver_fn)
 
@@ -434,7 +444,7 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
     assert 'steps' in tf_estimator_random_data_run.data.params
     client = mlflow.tracking.MlflowClient()
     metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, 'loss')
-    assert all((x.step-1) % 100 == 0 for x in metrics)
+    assert all((x.step - 1) % 100 == 0 for x in metrics)
 
 
 @pytest.mark.large
