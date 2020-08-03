@@ -247,6 +247,8 @@ class TrackingServiceClient(object):
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
+        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
+        #   for DBFS artifact repositories to use the correct tracking URI.
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         if os.path.isdir(local_path):
             dir_name = os.path.basename(os.path.normpath(local_path))

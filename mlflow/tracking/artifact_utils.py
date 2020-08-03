@@ -1,6 +1,7 @@
 """
 Utilities for dealing with artifacts in the context of a Run.
 """
+import pathlib
 import posixpath
 import shutil
 import tempfile
@@ -93,15 +94,18 @@ def _upload_artifacts_to_databricks(source, run_id, source_host_uri=None,
     :return: The DBFS location in the target Databricks workspace the model files have been
         uploaded to.
     """
-    from uuid import uuid1
+    from uuid import uuid4
     local_dir = tempfile.mkdtemp()
     try:
         source_with_profile = add_databricks_profile_info_to_artifact_uri(source, source_host_uri)
         _download_artifact_from_uri(source_with_profile, local_dir)
         dest_root = 'dbfs:/databricks/mlflow/tmp-external-source/'
-        dest_repo = DbfsRestArtifactRepository(dest_root, target_databricks_profile_uri)
-        dest_dir = run_id if run_id else str(uuid1())
-        dest_repo.log_artifacts(local_dir, artifact_path=dest_dir)
-        return dest_root + dest_dir  # new source
+        dest_root_with_profile = add_databricks_profile_info_to_artifact_uri(
+            dest_root, target_databricks_profile_uri)
+        dest_repo = DbfsRestArtifactRepository(dest_root_with_profile)
+        dest_artifact_path = run_id if run_id else uuid4().hex
+        dest_repo.log_artifacts(local_dir, artifact_path=dest_artifact_path)
+        dirname = pathlib.PurePath(source).name  # innermost directory name
+        return posixpath.join(dest_root, dest_artifact_path, dirname)  # new source
     finally:
         shutil.rmtree(local_dir)
