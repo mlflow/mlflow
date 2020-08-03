@@ -8,8 +8,8 @@ from mock import Mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.dbfs_artifact_repo import _get_host_creds_from_default_store
-from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
+from mlflow.store.artifact.dbfs_artifact_repo import _get_host_creds_from_default_store, \
+    DbfsRestArtifactRepository
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -80,6 +80,24 @@ class TestDbfsArtifactRepository(object):
             assert repo.artifact_uri == 'dbfs:/test'
             with pytest.raises(MlflowException):
                 DbfsRestArtifactRepository('s3://test')
+            with pytest.raises(MlflowException):
+                DbfsRestArtifactRepository('dbfs://profile@notdatabricks/test/')
+
+    def test_init_get_host_creds_with_databricks_profile_uri(self):
+        databricks_host = 'https://something.databricks.com'
+        default_host = 'http://host'
+        with mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + '._get_host_creds_from_default_store',
+                        return_value=lambda: MlflowHostCreds(default_host)), \
+                mock.patch(DBFS_ARTIFACT_REPOSITORY_PACKAGE + '.get_databricks_host_creds',
+                           return_value=MlflowHostCreds(databricks_host)):
+            repo = DbfsRestArtifactRepository('dbfs://profile@databricks/test/')
+            assert repo.artifact_uri == 'dbfs:/test/'
+            creds = repo.get_host_creds()
+            assert creds.host == databricks_host
+            # no databricks_profile_uri given
+            repo = DbfsRestArtifactRepository('dbfs:/test/')
+            creds = repo.get_host_creds()
+            assert creds.host == default_host
 
     @pytest.mark.parametrize("artifact_path,expected_endpoint", [
         (None, '/dbfs/test/test.txt'),
