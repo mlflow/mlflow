@@ -80,5 +80,3 @@ def test_upload_artifacts_to_databricks_no_run_id():
             'dbfs://registry@databricks/databricks/mlflow/tmp-external-source/')
         assert new_source == 'dbfs:/databricks/mlflow/tmp-external-source/' \
             '4f746cdcc0374da2808917e81bb53323/sourcedir'
-
-
