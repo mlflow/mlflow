@@ -5,7 +5,7 @@ contributing to MLflow.
 
 .. contents:: **Table of Contents**
   :local:
-  :depth: 3
+  :depth: 4
 
 Governance
 ##########
@@ -35,14 +35,15 @@ and will typically be labeled during triage with ``needs design``.
 
 After you have agreed upon an implementation strategy for your feature or patch with an MLflow
 committer, the next step is to introduce your changes (see `developing changes
-<https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#developing-and-testing-changes-to-mlflow>`_)
+<https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#developing-and-testing-changes-for-mlflow>`_)
 as a pull request against the MLflow Repository or as a standalone MLflow Plugin. MLflow committers
 actively review pull requests and are also happy to provide implementation guidance for Plugins.
 
 Once your pull request against the MLflow Repository has been merged, your corresponding changes
 will be automatically included in the next MLflow release. Every change is listed in the MLflow
 release notes and `Changelog <https://github.com/mlflow/mlflow/blob/master/CHANGELOG.rst>`_.
-Congratulations, you have just contributed to MLflow! We appreciate your contribution!
+
+Congratulations, you have just contributed to MLflow. We appreciate your contribution!
 
 Contribution guidelines
 #######################
@@ -90,11 +91,9 @@ Before implementing changes to the MLflow code base, consider whether your featu
 MLflow Plugin. MLflow Plugins are a great choice for the following types of changes:
 
 1. Supporting a new storage platform for MLflow artifacts
-2. Introducing a new implementation of the MLflow Tracking backend (`Abstract Store
-   <https://github.com/mlflow/mlflow/blob/cdc6a651d5af0f29bd448d2c87a198cf5d32792b/mlflow/store/tracking/abstract_store.py>`_)
+2. Introducing a new implementation of the MLflow Tracking backend (`Abstract Store <https://github.com/mlflow/mlflow/blob/cdc6a651d5af0f29bd448d2c87a198cf5d32792b/mlflow/store/tracking/abstract_store.py>`_)
    for a particular platform
-3. Introducing a new implementation of the Model Registry backend (`Abstract Store
-   <https://github.com/mlflow/mlflow/blob/cdc6a651d5af0f29bd448d2c87a198cf5d32792b/mlflow/store/model_registry/abstract_store.py>`_)
+3. Introducing a new implementation of the Model Registry backend (`Abstract Store <https://github.com/mlflow/mlflow/blob/cdc6a651d5af0f29bd448d2c87a198cf5d32792b/mlflow/store/model_registry/abstract_store.py>`_)
    for a particular platform
 4. Automatically capturing and recording information about MLflow Runs created in specific environments
 
@@ -109,14 +108,14 @@ a new pull request against the `corresponding docs section of the MLflow code ba
 
 For more information about Plugins, see https://mlflow.org/docs/latest/plugins.html.
 
-Developing and testing changes to MLflow
-########################################
+Developing and testing changes for MLflow
+#########################################
 The majority of the MLflow codebase is developed in Python. This includes the CLI, Tracking Server,
 Artifact Repositories (e.g., S3 or Azure Blob Storage backends), and of course the Python fluent,
 tracking, and model APIs.
 
-Prerequisites
-~~~~~~~~~~~~~
+General prerequisites and dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 First, ensure that your name and email are
 `configured in git <https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup>`_ so that
 you can `sign your work`_ when committing code changes and opening pull requests:
@@ -149,22 +148,15 @@ You may need to run ``conda install cmake`` for the test requirements to properl
 
 Ensure `Docker <https://www.docker.com/>`_ is installed.
 
+JavaScript and UI
+~~~~~~~~~~~~~~~~~
+
 ``npm`` is required to run the Javascript dev server and the tracking UI.
 You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 `install npm <https://www.npmjs.com/get-npm>`_ if needed.
 
-If contributing to MLflow's R APIs, install `R <https://cloud.r-project.org/>`_. For changes to R
-documentation, also install `pandoc <https://pandoc.org/installing.html>`_ 2.2.1 or above,
-verifying the version of your installation via ``pandoc --version``. If using Mac OSX, note that
-the homebrew installation of pandoc may be out of date - you can find newer pandoc versions at
-https://github.com/jgm/pandoc/releases.
-
-If contributing to MLflow's Java APIs or modifying Java documentation,
-install `Java <https://www.java.com/>`_ and `Apache Maven <https://maven.apache.org/download.cgi>`_.
-
-
 Install Node Modules
-~~~~~~~~~~~~~~~~~~~~
+++++++++++++++++++++
 Before running the Javascript dev server or building a distributable wheel, install Javascript
 dependencies via:
 
@@ -177,30 +169,40 @@ dependencies via:
 If modifying dependencies in ``mlflow/server/js/package.json``, run ``npm update`` within
 ``mlflow/server/js`` to install the updated dependencies.
 
+Launching the Development UI
++++++++++++++++++++++++++++++
+We recommend `Running the Javascript Dev Server`_ - otherwise, the tracking frontend will request
+files in the ``mlflow/server/js/build`` directory, which is not checked into Git.
+Alternatively, you can generate the necessary files in ``mlflow/server/js/build`` as described in
+`Building a Distributable Artifact`_.
 
-Java
-~~~~
-Certain MLflow modules are implemented in Java, under the ``mlflow/java/`` directory.
-These are the Java Tracking API client (``mlflow/java/client``) and the Model Scoring Server
-for Java-based models like MLeap (``mlflow/java/scoring``).
 
-Other Java functionality (like artifact storage) depends on the Python package, so first install
-the Python package in a conda environment as described above.
-`Install <https://www.oracle.com/technetwork/java/javase/downloads/index.html>`_
-the Java 8 JDK (or above), and `download <https://maven.apache.org/download.cgi>`_
-and `install <https://maven.apache.org/install.html>`_ Maven. You can then build and run tests via:
+Running the Javascript Dev Server
++++++++++++++++++++++++++++++++++
+`Install Node Modules`_, then run the following:
+
+In one shell:
 
 .. code-block:: bash
 
-  cd mlflow/java
-  mvn compile test
+   mlflow ui
 
-If opening a PR that makes API changes, please regenerate API documentation as described in
-`Writing Docs`_ and commit the updated docs to your PR branch.
+In another shell:
 
+.. code-block:: bash
+
+   cd mlflow/server/js
+   npm start
+
+The MLflow Tracking UI will show runs logged in ``./mlruns`` at `<http://localhost:3000>`_.
 
 R
 ~
+If contributing to MLflow's R APIs, install `R <https://cloud.r-project.org/>`_. For changes to R
+documentation, also install `pandoc <https://pandoc.org/installing.html>`_ 2.2.1 or above,
+verifying the version of your installation via ``pandoc --version``. If using Mac OSX, note that
+the homebrew installation of pandoc may be out of date - you can find newer pandoc versions at
+https://github.com/jgm/pandoc/releases.
 
 The ``mlflow/R/mlflow`` directory contains R wrappers for the Projects, Tracking and Models
 components. These wrappers depend on the Python package, so first install
@@ -211,7 +213,6 @@ the Python package in a conda environment:
   # Note that we don't pass the -e flag to pip, as the R tests attempt to run the MLflow UI
   # via the CLI, which will not work if we run against the development tracking server
   pip install .
-
 
 `Install R <https://cloud.r-project.org/>`_, then run the following to install dependencies for
 building MLflow locally:
@@ -256,8 +257,57 @@ When developing, you can make Python changes available in R by running (from mlf
 Please also follow the recommendations from the
 `Advanced R - Style Guide <http://adv-r.had.co.nz/Style.html>`_ regarding naming and styling.
 
+Java
+~~~~
+
+If contributing to MLflow's Java APIs or modifying Java documentation,
+install `Java <https://www.java.com/>`_ and `Apache Maven <https://maven.apache.org/download.cgi>`_.
+
+Certain MLflow modules are implemented in Java, under the ``mlflow/java/`` directory.
+These are the Java Tracking API client (``mlflow/java/client``) and the Model Scoring Server
+for Java-based models like MLeap (``mlflow/java/scoring``).
+
+Other Java functionality (like artifact storage) depends on the Python package, so first install
+the Python package in a conda environment as described above.
+`Install <https://www.oracle.com/technetwork/java/javase/downloads/index.html>`_
+the Java 8 JDK (or above), and `download <https://maven.apache.org/download.cgi>`_
+and `install <https://maven.apache.org/install.html>`_ Maven. You can then build and run tests via:
+
+.. code-block:: bash
+
+  cd mlflow/java
+  mvn compile test
+
+If opening a PR that makes API changes, please regenerate API documentation as described in
+`Writing Docs`_ and commit the updated docs to your PR branch.
+
 Python
 ~~~~~~
+
+Majority of contributions to MLflow are in Python, and we use ``pytest`` to run all Python contributed code. Install ``pytest``:
+
+.. code-block:: bash
+
+    pip install pytest
+
+
+Writing Python Tests
+++++++++++++++++++++
+If your PR includes code that isn't currently covered by our tests (e.g. adding a new flavor, adding
+autolog support to a flavor, etc.), you should write tests that cover your new code. MLflow currently
+uses ``pytest==3.2.1`` for testing. Your tests should be added to the relevant file under ``tests``, or
+if there is no appropriate file, in a new file prefixed with ``test_`` so that ``pytest`` includes that
+file for testing.
+
+If your tests require usage of a tracking URI, the
+`pytest fixture <https://docs.pytest.org/en/3.2.1/fixture.html>`_
+`tracking_uri_mock <https://github.com/mlflow/mlflow/blob/master/tests/conftest.py#L74>`_ is automatically set up
+for every tests. It sets up a mock tracking URI that will set itself up before your test runs and tear itself down after.
+If you want to deactivate the mock for your test, mark the test with `@pytest.mark.notrackingurimock` operator.
+
+Running Python Tests
+++++++++++++++++++++
+
 Verify that the unit tests & linter pass before submitting a pull request by running:
 
 .. code-block:: bash
@@ -310,22 +360,13 @@ it is currently not possible to retrigger individual tests.
 If opening a PR that changes or adds new APIs, please update or add Python documentation as
 described in `Writing Docs`_ and commit the docs to your PR branch.
 
-Writing Python Tests
-~~~~~~~~~~~~~~~~~~~~
-If your PR includes code that isn't currently covered by our tests (e.g. adding a new flavor, adding
-autolog support to a flavor, etc.), you should write tests that cover your new code. MLflow currently
-uses ``pytest==3.2.1`` for testing. Your tests should be added to the relevant file under ``tests``, or
-if there is no appropriate file, in a new file prefixed with ``test_`` so that ``pytest`` includes that
-file for testing.
+Python Client
++++++++++++++
 
-If your tests require usage of a tracking URI, the
-`pytest fixture <https://docs.pytest.org/en/3.2.1/fixture.html>`_
-`tracking_uri_mock <https://github.com/mlflow/mlflow/blob/master/tests/conftest.py#L74>`_ is automatically set up
-for every tests. It sets up a mock tracking URI that will set itself up before your test runs and tear itself down after.
-If you want to deactivate the mock for your test, mark the test with `@pytest.mark.notrackingurimock` operator.
+For the client, if you are adding new model flavors, follow the instructions below.
 
-Adding New Model Flavor Support
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Python Model Flavors
+--------------------
 
 If you are adding new framework flavor support, you'll need to modify ``pytest`` and Travis configurations so tests for your code can run properly. Generally, the files you'll have to edit are:
 
@@ -338,11 +379,15 @@ If you are adding new framework flavor support, you'll need to modify ``pytest``
 
 4. ``travis/large-requirements.txt``: add your framework and version to the list of requirements
 
-You can see an example flavor PR `here <https://github.com/mlflow/mlflow/pull/2136/files>`_.
+You can see an example of a `flavor PR <https://github.com/mlflow/mlflow/pull/2136/files>`_.
 
+Python Server
++++++++++++++
+
+For the Python server, you can contribute in these two areas described below.
 
 Building Protobuf Files
-~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------
 To build protobuf files, simply run ``generate-protos.sh``. The required ``protoc`` version is ``3.6.0``.
 You can find the URL of a system-appropriate installation of ``protoc`` at
 https://github.com/protocolbuffers/protobuf/releases/tag/v3.6.0, e.g.
@@ -364,7 +409,7 @@ Verify that .proto files and autogenerated code are in sync by running ``./test-
 
 
 Database Schema Changes
-~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------
 MLflow's Tracking component supports storing experiment and run data in a SQL backend. To
 make changes to the tracking database schema, run the following from your
 checkout of MLflow:
@@ -380,37 +425,43 @@ checkout of MLflow:
       Generating ~/mlflow/mlflow/store/db_migrations/versions/b446d3984cfa_add_new_field_to_db.py
 
 
-These commands generate a new migration script (e.g. at
-``~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py``) that you should then edit to add
-migration logic.
+These commands generate a new migration script (e.g., at ``~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py``)
+that you should then edit to add migration logic.
+
+Writing MLflow Examples
++++++++++++++++++++++++
+The ``mlflow/examples`` directory has a collection of quickstart tutorials and various simple examples that depict MLflow tracking,
+project, model flavors, model registry, and serving use cases. Written in `PEP8 Python coding style <https://www.python.org/dev/peps/pep-0008/>`_, these
+examples provide developers sample code, as a quick way to learn MLflow Python APIs.
+
+To ease your contributions’ review process, keep examples short yet demonstrative, add documentation, peruse through
+some ``mlflow/examples`` as templates for your contribution, and follow the recommended steps below.
 
 
-Launching the Development UI
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-We recommend `Running the Javascript Dev Server`_ - otherwise, the tracking frontend will request
-files in the ``mlflow/server/js/build`` directory, which is not checked into Git.
-Alternatively, you can generate the necessary files in ``mlflow/server/js/build`` as described in
-`Building a Distributable Artifact`_.
+If you are contributing by adding new model flavor, follow these steps:
 
+1. Follow instructions in `Python Model Flavors`_
+2. Create a corresponding directory in ``mlflow/examples/new-model-flavor``
+3. Implement your Python training ``new-model-flavor`` code in this directory
+4. Convert this directory’s content into an MLflow Project executable
+5. Add ``README.md``, ``MLproject``, and ``conda.yaml`` files and your code
+6. Read instructions in the ``mlflow/test/examples/README.md`` and add a ``pytest`` entry in the ``test/examples/test_examples.py``
+7. Add a short description in the ``mlflow/examples/README.md`` file
 
-Running the Javascript Dev Server
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-`Install Node Modules`_, then run the following:
+If you are contributing to the quickstart directory, follow these steps:
 
-In one shell:
+1. Create a descriptive Python program file with --help options
+2. Add a short description in the ``mlflow/examples/README.md`` file
+3. Read instructions in the ``mlflow/test/examples/README.md``, and add a ``pytest`` entry in the ``test/examples/test_examples.py``
 
-.. code-block:: bash
+If you are contributing to demonstrate a general MLflow functionality that is neither a quickstart nor a new model flavor, follow these steps:
 
-   mlflow ui
+1. Create a directory with meaningful name in ``mlflow/examples/new-program-name`` and implement your Python code
+2. Create ``mlflow/examples/new-program-name/README.md`` with instructions how to use it
+3. Read instructions in the ``mlflow/test/examples/README.md``, and add a ``pytest`` entry in the ``test/examples/test_examples.py``
+4. Add a short description in the ``mlflow/examples/README.md`` file
 
-In another shell:
-
-.. code-block:: bash
-
-   cd mlflow/server/js
-   npm start
-
-The MLflow Tracking UI will show runs logged in ``./mlruns`` at `<http://localhost:3000>`_.
+Finally, before filing a pull request, verify all Python tests pass.
 
 Building a Distributable Artifact
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -433,7 +484,7 @@ Build a pip-installable wheel in ``dist/``:
 
 Writing Docs
 ~~~~~~~~~~~~
-First, install dependencies for building docs as described in `Prerequisites`_.
+First, install dependencies for building docs as described in `General prerequisites and dependencies`_.
 
 To generate a live preview of Python & other rst documentation, run the following snippet. Note
 that R & Java API docs must be regenerated separately after each change and are not live-updated;
