@@ -810,6 +810,20 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(self._search_registered_models("name ILIKE '{}%'".format(prefix + 'RM4A')),
                          ([names[4]], None))
 
+    def test_parse_search_registered_models_order_by_does_not_duplicate_name_field(self):
+        parsed_order_by = SqlAlchemyStore._parse_search_registered_models_order_by(['name'])
+        assert [str(x) for x in parsed_order_by] == ['registered_models.name ASC']
+
+        parsed_order_by = SqlAlchemyStore._parse_search_registered_models_order_by(['name DESC'])
+        assert [str(x) for x in parsed_order_by] == ['registered_models.name DESC']
+
+        parsed_order_by = SqlAlchemyStore._parse_search_registered_models_order_by(['name ASC'])
+        assert [str(x) for x in parsed_order_by] == ['registered_models.name ASC']
+
+        parsed_order_by = SqlAlchemyStore._parse_search_registered_models_order_by(['timestamp'])
+        assert [str(x) for x in parsed_order_by] == ['registered_models.last_updated_time ASC',
+                                                     'registered_models.name ASC']
+
     def test_search_registered_model_pagination(self):
         rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
 
