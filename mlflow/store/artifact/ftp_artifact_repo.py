@@ -112,6 +112,8 @@ class FTPArtifactRepository(ArtifactRepository):
                 return []
             artifact_files = ftp.nlst(list_dir)
             artifact_files = list(filter(lambda x: x != "." and x != "..", artifact_files))
+            # This is to make sure artifact_files is a list of the file names, because
+            # ftp.nlst may return them with an absolute path.
             artifact_files = list(map(lambda x: os.path.basename(x), artifact_files))
             infos = []
             for file_name in artifact_files:
