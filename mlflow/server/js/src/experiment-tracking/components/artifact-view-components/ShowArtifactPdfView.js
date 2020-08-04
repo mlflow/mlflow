@@ -4,7 +4,7 @@ import './ShowArtifactImageView.css';
 import { getSrc } from './ShowArtifactPage';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { Pagination, Spin } from 'antd';
-import { getArtifactBytesContent } from './ShowArtifactUtils';
+import { getArtifactBytesContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactPdfView.css';
 
 // See: https://github.com/wojtekmaj/react-pdf/blob/master/README.md#enable-pdfjs-worker for how

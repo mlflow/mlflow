@@ -2,8 +2,15 @@
 .experiment-name {
   display: inline-block;
 }
+
 .header-container {
   display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.header-container h1 {
+  margin-bottom: 0;
 }
 
 .separator {
@@ -29,6 +36,7 @@
   margin-bottom: 8px;
   margin-right: 12px;
 }
+
 .metadata-header {
   font-size: 14px;
   color: #888;
