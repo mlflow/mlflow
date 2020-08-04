@@ -339,12 +339,14 @@ class SqlAlchemyStore(AbstractStore):
         of order_bys. Registered models are naturally ordered first by name ascending.
         """
         clauses = []
+        contains_name = False
         if order_by_list:
             for order_by_clause in order_by_list:
                 attribute_token, ascending = \
                     SearchUtils.parse_order_by_for_search_registered_models(order_by_clause)
                 if attribute_token == SqlRegisteredModel.name.key:
                     field = SqlRegisteredModel.name
+                    contains_name = True
                 elif attribute_token in SearchUtils.VALID_TIMESTAMP_ORDER_BY_KEYS:
                     field = SqlRegisteredModel.last_updated_time
                 else:
@@ -358,7 +360,8 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     clauses.append(field.desc())
 
-        clauses.append(SqlRegisteredModel.name.asc())
+        if not contains_name:
+            clauses.append(SqlRegisteredModel.name.asc())
         return clauses
 
     def get_registered_model(self, name):
