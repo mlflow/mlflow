@@ -1,5 +1,6 @@
 import mock
 
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.entities import ViewType
@@ -114,7 +115,8 @@ def test_list_run_infos():
     runs = [mock.Mock(info=info) for info in run_infos]
     token = "adfoiweroh12334kj129318934u"
 
-    with mock.patch.object(AbstractStoreTestImpl, "search_runs", return_value=(runs, token)):
+    with mock.patch.object(AbstractStoreTestImpl, "search_runs",
+                           return_value=PagedList(runs, token)):
         store = AbstractStoreTestImpl()
         result = store.list_run_infos(experiment_id, view_type)
         for i in range(len(result)):
@@ -126,7 +128,8 @@ def test_list_run_infos():
     run_infos = [mock.Mock()]
     runs = [mock.Mock(info=info) for info in run_infos]
 
-    with mock.patch.object(AbstractStoreTestImpl, "search_runs", return_value=(runs, None)):
+    with mock.patch.object(AbstractStoreTestImpl, "search_runs",
+                           return_value=PagedList(runs, None)):
         store = AbstractStoreTestImpl()
         result = store.list_run_infos(experiment_id, view_type, page_token=token)
         for i in range(len(result)):
