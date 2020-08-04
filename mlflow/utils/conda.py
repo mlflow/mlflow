@@ -29,7 +29,7 @@ def get_conda_command(conda_env_name):
         if os.name != "nt":
             return ["source %s %s 1>&2" % (activate_path, conda_env_name)]
         else:
-            return ["conda activate %s" % (conda_env_name)]
+            return ["conda.bat activate %s" % (conda_env_name)]
     return activate_conda_env
 
 
@@ -45,7 +45,7 @@ def get_conda_bin_executable(executable_name):
     """
     conda_home = os.environ.get(MLFLOW_CONDA_HOME)
     if conda_home:
-        return os.path.join(conda_home, "bin/%s" % executable_name)
+        return os.path.join(conda_home, "bin", executable_name)
     # Use CONDA_EXE as per https://github.com/conda/conda/issues/7126
     if "CONDA_EXE" in os.environ:
         conda_bin_dir = os.path.dirname(os.environ["CONDA_EXE"])

@@ -116,7 +116,7 @@ def test_run_local_git_repo(local_git_repo,
     if version is not None:
         uri = local_git_repo_uri + "#" + TEST_PROJECT_NAME
     else:
-        uri = os.path.join("%s/" % local_git_repo, TEST_PROJECT_NAME)
+        uri = os.path.join(local_git_repo, TEST_PROJECT_NAME)
     if version == "git-commit":
         version = _get_version_local_git_repo(local_git_repo)
     submitted_run = mlflow.projects.run(
@@ -154,9 +154,9 @@ def test_run_local_git_repo(local_git_repo,
 
     if version == "master":
         assert tags[MLFLOW_GIT_BRANCH] == "master"
-        assert tags[MLFLOW_GIT_REPO_URL] == local_git_repo_uri
+        assert tags[MLFLOW_GIT_REPO_URL] == local_git_repo_uri.replace('\\', '/') # Git bash on Windows uses /
         assert tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] == "master"
-        assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri
+        assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri.replace('\\', '/')
 
 
 def test_invalid_version_local_git_repo(local_git_repo_uri):
@@ -249,9 +249,9 @@ def test_run_async():
 @pytest.mark.parametrize(
     "mock_env,expected_conda,expected_activate",
     [
-        ({"CONDA_EXE": "/abc/conda"}, "/abc/conda", "/abc/activate"),
-        ({mlflow.utils.conda.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
-         "/some/dir/bin/activate")
+        ({"CONDA_EXE": os.path.join("/abc", "conda")}, os.path.join("/abc","conda"), os.path.join("/abc","activate")),
+        ({mlflow.utils.conda.MLFLOW_CONDA_HOME: os.path.join("/some","dir")}, os.path.join("/some","dir", "bin", "conda"),
+         os.path.join("/some", "dir", "bin", "activate"))
     ]
 )
 def test_conda_path(mock_env, expected_conda, expected_activate):

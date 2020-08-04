@@ -49,7 +49,12 @@ def docker_example_base_image():
         mlflow_dir = _copy_project(
             src_path=mlflow_home, dst_path=cwd)
         import shutil
-        shutil.copy(os.path.join(TEST_DOCKER_PROJECT_DIR, "Dockerfile"), tmp.path("Dockerfile"))
+        if os.name == "nt":
+            dockerfile = os.path.join(TEST_DOCKER_PROJECT_DIR, "windows", "Dockerfile")
+        else:
+            dockerfile = os.path.join(TEST_DOCKER_PROJECT_DIR, "Dockerfile")
+        # dockerfile = os.path.join(TEST_DOCKER_PROJECT_DIR, "Dockerfile")
+        shutil.copy(dockerfile, tmp.path("Dockerfile"))
         with open(tmp.path("Dockerfile"), "a") as f:
             f.write(("COPY {mlflow_dir} /opt/mlflow\n"
                      "RUN pip install -U -e /opt/mlflow\n").format(

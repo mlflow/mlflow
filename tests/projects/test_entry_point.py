@@ -67,13 +67,13 @@ def test_path_parameter():
             params, _ = entry_point.compute_parameters(
                 user_parameters={"path": local_path},
                 storage_dir=dst_dir)
-            assert params["path"] == os.path.abspath(local_path)
+            assert params["path"] == shlex_quote(os.path.abspath(local_path))
             assert download_uri_mock.call_count == 0
 
             params, _ = entry_point.compute_parameters(
                 user_parameters={"path": path_to_local_file_uri(local_path)},
                 storage_dir=dst_dir)
-            assert params["path"] == os.path.abspath(local_path)
+            assert params["path"] == shlex_quote(os.path.abspath(local_path))
             assert download_uri_mock.call_count == 0
 
         # Verify that we raise an exception when passing a non-existent local file to a
@@ -81,7 +81,7 @@ def test_path_parameter():
         with TempDir() as tmp, pytest.raises(ExecutionException):
             dst_dir = tmp.path()
             entry_point.compute_parameters(
-                user_parameters={"path": os.path.join(dst_dir, "some/nonexistent/file")},
+                user_parameters={"path": os.path.join(dst_dir, 'some', 'nonexistent', 'file')},
                 storage_dir=dst_dir)
         # Verify that we do call `download_uri` when passing a URI to a parameter of type "path"
         for i, prefix in enumerate(["dbfs:/", "s3://", "gs://"]):
@@ -93,7 +93,7 @@ def test_path_parameter():
                 params, _ = entry_point.compute_parameters(
                     user_parameters={"path": os.path.join(prefix, file_to_download)},
                     storage_dir=dst_dir)
-                assert params["path"] == download_path
+                assert params["path"] == shlex_quote(download_path)
                 assert download_uri_mock.call_count == i + 1
 
 
@@ -194,7 +194,7 @@ def test_path_params():
         user_3 = {"alpha": 0.001}
         final_3, extra_3 = entry_point.compute_parameters(user_3, dest_path)
         assert (final_3 == {"constants": "s3://path.test/b1",
-                            "data": download_path})
+                            "data": shlex_quote(download_path)})
         assert (extra_3 == {"alpha": "0.001"})
         assert download_uri_mock.call_count == 1
 
@@ -206,6 +206,6 @@ def test_path_params():
         user_4 = {"data": "s3://another.example.test/data_stash/images.tgz"}
         final_4, extra_4 = entry_point.compute_parameters(user_4, dest_path)
         assert (final_4 == {"constants": "s3://path.test/b1",
-                            "data": download_path})
+                            "data": shlex_quote(download_path)})
         assert (extra_4 == {})
         assert download_uri_mock.call_count == 1

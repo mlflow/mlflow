@@ -68,7 +68,10 @@ def parse_gs_uri(uri):
 
 def is_uri(string):
     parsed_uri = urllib.parse.urlparse(string)
-    return len(parsed_uri.scheme) > 0
+    if os.name == 'nt':
+        return not re.match('^[a-zA-Z]:\\\\.*', string)
+    else:
+        return len(parsed_uri.scheme) > 0
 
 
 @deprecated(alternative="mlflow.tracking.MlflowClient.download_artifacts", since="1.9")
