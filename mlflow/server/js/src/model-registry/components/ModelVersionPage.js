@@ -16,7 +16,7 @@ import { ActivityTypes, MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } fr
 import Utils from '../../common/utils/Utils';
 import { getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
 import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
-import { Error404View } from '../../common/components/Error404View';
+import { ErrorView } from '../../common/components/ErrorView';
 import { Spinner } from '../../common/components/Spinner';
 import { getModelPageRoute, modelListPageRoute } from '../routes';
 import { getProtoField } from '../utils';
@@ -187,8 +187,9 @@ export class ModelVersionPageImpl extends React.Component {
               clearInterval(this.pollIntervalId);
               if (Utils.shouldRender404(requests, this.state.criticalInitialRequestIds)) {
                 return (
-                  <Error404View
-                    resourceName={`Model ${modelName} v${version}`}
+                  <ErrorView
+                    statusCode={404}
+                    subMessage={`Model ${modelName} v${version} does not exist`}
                     fallbackHomePageReactRoute={modelListPageRoute}
                   />
                 );
