@@ -9,7 +9,7 @@ import pytorch_lightning as pl
 import os
 import torch
 from argparse import ArgumentParser
-from mlflow.pytorch.pytorch_lightning_autolog import __MLflowPLCallback
+from mlflow.pytorch.pytorch_autolog import __MLflowPLCallback
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateLogger
