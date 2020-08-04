@@ -9,9 +9,10 @@ import pytorch_lightning as pl
 import os
 import torch
 from argparse import ArgumentParser
-from mlflow.pytorch.pytorch_lightning_autolog import __MLflowPLCallback
+from mlflow.pytorch.pytorch_autolog import __MLflowPLCallback
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import LearningRateLogger
 from pytorch_lightning.logging import MLFlowLogger
 from sklearn.metrics import accuracy_score
 from torch.nn import functional as F
@@ -188,8 +189,32 @@ class LightningMNISTClassifier(pl.LightningModule):
         """
         Creates and returns Optimizer
         """
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
-        return optimizer
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
+        self.scheduler = {
+            "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer,
+                mode="min",
+                factor=0.2,
+                patience=2,
+                min_lr=1e-6,
+                verbose=True,
+            )
+        }
+        return [self.optimizer], [self.scheduler]
+
+    def optimizer_step(
+        self,
+        epoch,
+        batch_idx,
+        optimizer,
+        optimizer_idx,
+        second_order_closure=None,
+        on_tpu=False,
+        using_lbfgs=False,
+        using_native_amp=False,
+    ):
+        self.optimizer.step()
+        self.optimizer.zero_grad()
 
 
 if __name__ == "__main__":
@@ -213,7 +238,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
     model = LightningMNISTClassifier(**dict_args)
-    logger = MLFlowLogger(
+    mlflow_logger = MLFlowLogger(
         experiment_name="EXPERIMENT_NAME", tracking_uri="http://IP:PORT/"
     )
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
@@ -226,11 +251,12 @@ if __name__ == "__main__":
         mode="min",
         prefix="",
     )
+    lr_logger = LearningRateLogger()
 
     trainer = pl.Trainer.from_argparse_args(
         args,
-        logger=logger,
-        callbacks=[__MLflowPLCallback()],
+        logger=mlflow_logger,
+        callbacks=[__MLflowPLCallback(), lr_logger],
         early_stop_callback=early_stopping,
         checkpoint_callback=checkpoint_callback,
         train_percent_check=0.1,
