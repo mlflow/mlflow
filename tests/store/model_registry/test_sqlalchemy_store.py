@@ -820,8 +820,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual([str(x) for x in parsed], ['registered_models.name DESC'])
 
         # test that an exception is thrown when order_by contains duplicate fields
-        with self.assertRaisesRegex(MlflowException, 'order_by contains duplicate fields:'):
-            SqlAlchemyStore._parse_search_registered_models_order_by(['name', 'name'])
+        order_bys = [
+            ['name', 'name'],
+            ['last_updated_timestamp', 'last_updated_timestamp'],
+            ['timestamp', 'timestamp'],
+            ['timestamp', 'last_updated_timestamp'],
+            ['last_updated_timestamp ASC', 'last_updated_timestamp DESC'],
+            ['last_updated_timestamp', 'last_updated_timestamp DESC'],
+            ['last_updated_timestamp DESC', 'last_updated_timestamp'],
+        ]
+        for order_by in order_bys:
+            with self.assertRaisesRegex(MlflowException, 'order_by contains duplicate fields:'):
+                SqlAlchemyStore._parse_search_registered_models_order_by(order_by)
 
     def test_search_registered_model_pagination(self):
         rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
