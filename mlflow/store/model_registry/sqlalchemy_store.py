@@ -354,7 +354,7 @@ class SqlAlchemyStore(AbstractStore):
                         "Valid keys are " +
                         "'{}'".format(SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS),
                         error_code=INVALID_PARAMETER_VALUE)
-                if attribute_token in seen:
+                if attribute_token in observed_order_by_clauses:
                     raise MlflowException(
                         'order_by contains duplicate fields: {}'.format(order_by_list)
                     )
