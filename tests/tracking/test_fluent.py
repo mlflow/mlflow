@@ -486,8 +486,7 @@ class _LambdaValidator(object):
 
 def test_search_runs_no_arguments():
     """
-    When no experiment ID is specified, it should try to get the implicit one or
-    create a new experiment
+    When no experiment ID is specified, it should try to get the implicit one.
     """
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch("mlflow.tracking.fluent._get_experiment_id",
@@ -500,6 +499,7 @@ def test_search_runs_no_arguments():
             mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS,
             mlflow.tracking.fluent.SEARCH_MAX_RESULTS_PANDAS
         )
+        mlflow.tracking.fluent._get_experiment_id.assert_called_once()
 
 
 def test_paginate_lt_maxresults_onepage():

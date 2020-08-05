@@ -515,8 +515,9 @@ def _paginate(paginated_fn, max_results_per_page, max_results):
     :type max_results_per_page: The maximum number of results to retrieve per page
     :param max_results:
     :type max_results: The maximum number of results to retrieve overall
-    :return:
-    :rtype:
+    :return: Returns a list of entities, as determined by the paginated_fn parameter, with no more
+        entities than specified by max_results
+    :rtype: list[object]
     """
     all_results = []
     next_page_token = None
