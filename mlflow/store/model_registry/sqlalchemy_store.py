@@ -339,7 +339,7 @@ class SqlAlchemyStore(AbstractStore):
         of order_bys. Registered models are naturally ordered first by name ascending.
         """
         clauses = []
-        seen = set()
+        observed_order_by_clauses = set()
         if order_by_list:
             for order_by_clause in order_by_list:
                 attribute_token, ascending = \
@@ -358,13 +358,13 @@ class SqlAlchemyStore(AbstractStore):
                     raise MlflowException(
                         'order_by contains duplicate fields: {}'.format(order_by_list)
                     )
-                seen.add(attribute_token)
+                observed_order_by_clauses.add(attribute_token)
                 if ascending:
                     clauses.append(field.asc())
                 else:
                     clauses.append(field.desc())
 
-        if SqlRegisteredModel.name.key not in seen:
+        if SqlRegisteredModel.name.key not in observed_order_by_clauses:
             clauses.append(SqlRegisteredModel.name.asc())
         return clauses
 
