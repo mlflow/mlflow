@@ -147,8 +147,11 @@ def test_docker_mount_local_artifact_uri(artifact_uri, host_artifact_uri,
     image.tags = ["image:tag"]
 
     docker_command = _get_docker_command(image, active_run)
-
-    docker_volume_expected = "-v {}:{}".format(host_artifact_uri, container_artifact_uri)
+    if os.name == 'nt':
+        drive = os.getcwd()[0].upper()
+        docker_volume_expected = "-v {}:{}:{}".format(drive, host_artifact_uri, container_artifact_uri)
+    else:
+        docker_volume_expected = "-v {}:{}".format(host_artifact_uri, container_artifact_uri)
     assert (docker_volume_expected in " ".join(docker_command)) == should_mount
 
 
