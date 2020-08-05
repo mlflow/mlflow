@@ -33,6 +33,10 @@ def is_file(name):
     return os.path.isfile(name)
 
 
+def is_valid_windows_path(name):
+    re.match(r'^[a-zA-Z]:\\.*', name)
+
+
 def exists(name):
     return os.path.exists(name)
 
@@ -393,7 +397,7 @@ def get_local_path_or_none(path_or_uri):
     None otherwise.
     """
     parsed_uri = urllib.parse.urlparse(path_or_uri)
-    if (os.name == 'nt' and re.match('^[a-zA-Z]:\\\\.*', path_or_uri)) or len(parsed_uri.scheme) == 0 or parsed_uri.scheme == "file" and len(parsed_uri.netloc) == 0:
+    if (os.name == 'nt' and is_valid_windows_path(path_or_uri)) or len(parsed_uri.scheme) == 0 or parsed_uri.scheme == "file" and len(parsed_uri.netloc) == 0:
         return local_file_uri_to_path(path_or_uri)
     else:
         return None

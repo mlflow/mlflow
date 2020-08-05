@@ -5,6 +5,7 @@ from six.moves import urllib
 
 from mlflow.utils import process
 from mlflow.utils import deprecated
+from mlflow.utils.file_utils import is_valid_windows_path
 
 DBFS_PREFIX = "dbfs:/"
 S3_PREFIX = "s3://"
@@ -69,7 +70,7 @@ def parse_gs_uri(uri):
 def is_uri(string):
     parsed_uri = urllib.parse.urlparse(string)
     if os.name == 'nt':
-        return not re.match('^[a-zA-Z]:\\\\.*', string)
+        return not is_valid_windows_path(string)
     else:
         return len(parsed_uri.scheme) > 0
 
