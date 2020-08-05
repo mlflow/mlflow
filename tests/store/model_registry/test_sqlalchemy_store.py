@@ -827,7 +827,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             ['timestamp', 'last_updated_timestamp'],
             ['last_updated_timestamp ASC', 'last_updated_timestamp DESC'],
             ['last_updated_timestamp', 'last_updated_timestamp DESC'],
-            ['last_updated_timestamp DESC', 'last_updated_timestamp'],
         ]
         for order_by in order_bys:
             with self.assertRaisesRegex(MlflowException, 'order_by contains duplicate fields:'):
