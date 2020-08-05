@@ -542,7 +542,7 @@ class MlflowClient(object):
         else:
             # in this scenario, we're not able to automatically extract the workspace ID
             # to proceed, and users will need to pass in a databricks profile with the scheme:
-            # databricks://scope/prefix and store the host and workspace-ID as a secret in the
+            # databricks://scope:prefix and store the host and workspace-ID as a secret in the
             # Databricks Secret Manager with scope=<scope> and key=<prefix>-workspaceid.
             workspace_host, workspace_id = \
                 get_workspace_info_from_databricks_secrets(tracking_uri)

@@ -177,7 +177,7 @@ def get_databricks_host_creds(server_uri=None):
     uses the Databricks CLI's ConfigProvider interface to load the DatabricksConfig object.
     If no Databricks CLI profile is found corresponding to the server URI, this function
     will attempt to retrieve these credentials from the Databricks Secret Manager. For that to work,
-    the server URI will need to be of the following format: "databricks://profile/prefix". In the
+    the server URI will need to be of the following format: "databricks://profile:prefix". In the
     Databricks Secret Manager, we will query for a secret in the scope "<profile>" for secrets with
     keys of the form "<prefix>-host" and "<prefix>-token". Note that this prefix *cannot* be empty
     if trying to authenticate with this method. If found, those host credentials will be used. This

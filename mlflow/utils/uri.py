@@ -42,9 +42,15 @@ def get_db_info_from_uri(uri):
     """
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.scheme == "databricks":
-        parsed_path = parsed_uri.path.lstrip('/') or None
-        parsed_profile = parsed_uri.netloc
-        return parsed_profile, parsed_path
+        profile_tokens = parsed_uri.netloc.split(':')
+        parsed_profile = profile_tokens[0]
+        if len(profile_tokens) == 1:
+            parsed_key_prefix = None
+        elif len(profile_tokens) == 2:
+            parsed_key_prefix = profile_tokens[1]
+        else:
+            parsed_key_prefix = ':'.join(profile_tokens[1:])
+        return parsed_profile, parsed_key_prefix
     return None, None
 
 
@@ -59,8 +65,7 @@ def get_databricks_profile_uri_from_artifact_uri(uri):
         return None
     if not parsed.username:  # no profile or scope:key
         return 'databricks'  # the default tracking/registry URI
-    # TODO: we may change the delimiter to ":" from "/" for key_prefix
-    key_prefix = '/' + parsed.password if parsed.password else ''
+    key_prefix = ':' + parsed.password if parsed.password else ''
     return 'databricks://' + parsed.username + key_prefix
 
 
@@ -93,12 +98,15 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
             netloc = 'databricks'
         else:
             (profile, key_prefix) = get_db_info_from_uri(databricks_profile_uri)
-            if ':' in profile:
-                raise MlflowException("Unsupported Databricks profile name: %s." % profile +
-                                      " Profile names cannot contain ':'.")
-            if key_prefix and '/' in key_prefix:
-                raise MlflowException("Unsupported Databricks profile key prefix: %s."
-                                      % key_prefix + " Key prefixes cannot contain '/'.")
+            # Both profile and key_prefix should not contain special chars for URIs, like '/'
+            # and ':'.
+            for c in ['/', ':']:
+                if c in profile:
+                    raise MlflowException("Unsupported Databricks profile name: %s." % profile +
+                                          " Profile names cannot contain '%s'." % c)
+                if key_prefix and c in key_prefix:
+                    raise MlflowException("Unsupported Databricks profile key prefix: %s."
+                                          % key_prefix + " Key prefixes cannot contain '%s'." % c)
             prefix = ":" + key_prefix if key_prefix else ""
             netloc = profile + prefix + "@databricks"
         new_parsed = artifact_uri_parsed._replace(netloc=netloc)
