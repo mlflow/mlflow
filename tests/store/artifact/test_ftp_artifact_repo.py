@@ -176,7 +176,8 @@ def test_log_artifact_multiple_calls(ftp_mock, tmpdir):
     assert ftp_mock.storbinary.call_args_list[0][0][0] == 'STOR test2.txt'
 
 
-def test_log_artifacts(ftp_mock, tmpdir):
+@pytest.mark.parametrize("artifact_path", [None, 'dir', 'dir1/dir2'])
+def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
     repo = FTPArtifactRepository("ftp://test_ftp/some/path")
 
     repo.get_ftp_client = MagicMock()
@@ -190,10 +191,14 @@ def test_log_artifacts(ftp_mock, tmpdir):
 
     ftp_mock.cwd = MagicMock(side_effect=[ftplib.error_perm, None, None, None, None, None])
 
-    repo.log_artifacts(subd.strpath)
+    repo.log_artifacts(subd.strpath, artifact_path)
 
-    ftp_mock.mkd.assert_any_call('/some/path/subdir')
-    ftp_mock.cwd.assert_any_call('/some/path/subdir')
+    arg_expected = (
+        '/some/path' if artifact_path is None else posixpath.join('/some/path', artifact_path)
+    )
+    ftp_mock.mkd.assert_any_call(arg_expected)
+    ftp_mock.cwd.assert_any_call(arg_expected)
+
     assert ftp_mock.storbinary.call_count == 3
     storbinary_call_args = sorted([ftp_mock.storbinary.call_args_list[i][0][0] for i in range(3)])
     assert storbinary_call_args == ['STOR a.txt', 'STOR b.txt', 'STOR c.txt']
