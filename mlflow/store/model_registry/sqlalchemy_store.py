@@ -339,14 +339,13 @@ class SqlAlchemyStore(AbstractStore):
         of order_bys. Registered models are naturally ordered first by name ascending.
         """
         clauses = []
-        contains_name = False
+        seen = set()
         if order_by_list:
             for order_by_clause in order_by_list:
                 attribute_token, ascending = \
                     SearchUtils.parse_order_by_for_search_registered_models(order_by_clause)
                 if attribute_token == SqlRegisteredModel.name.key:
                     field = SqlRegisteredModel.name
-                    contains_name = True
                 elif attribute_token in SearchUtils.VALID_TIMESTAMP_ORDER_BY_KEYS:
                     field = SqlRegisteredModel.last_updated_time
                 else:
@@ -355,12 +354,17 @@ class SqlAlchemyStore(AbstractStore):
                         "Valid keys are " +
                         "'{}'".format(SearchUtils.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS),
                         error_code=INVALID_PARAMETER_VALUE)
+                if attribute_token in seen:
+                    raise MlflowException(
+                        'order_by contains duplicate fields: {}'.format(order_by_list)
+                    )
+                seen.add(attribute_token)
                 if ascending:
                     clauses.append(field.asc())
                 else:
                     clauses.append(field.desc())
 
-        if not contains_name:
+        if SqlRegisteredModel.name.key not in seen:
             clauses.append(SqlRegisteredModel.name.asc())
         return clauses
 
