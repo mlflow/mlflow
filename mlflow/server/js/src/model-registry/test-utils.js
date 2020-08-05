@@ -1,13 +1,21 @@
-export const mockRegisteredModelDetailed = (name, latestVersions = []) => {
+export const mockRegisteredModelDetailed = (name, latestVersions = [], tags = []) => {
   return {
     creation_timestamp: '1571344731467',
     last_updated_timestamp: '1573581360069',
     latest_versions: latestVersions,
     name,
+    tags,
   };
 };
 
-export const mockModelVersionDetailed = (name, version, stage, status) => {
+export const mockModelVersionDetailed = (
+  name,
+  version,
+  stage,
+  status,
+  tags = [],
+  run_link = undefined,
+) => {
   return {
     name,
     // Use version-based timestamp to make creation_timestamp differ across model versions
@@ -19,8 +27,10 @@ export const mockModelVersionDetailed = (name, version, stage, status) => {
     description: '',
     source: 'path/to/model',
     run_id: 'b99a0fc567ae4d32994392c800c0b6ce',
+    run_link: run_link,
     status,
     version,
+    tags,
   };
 };
 

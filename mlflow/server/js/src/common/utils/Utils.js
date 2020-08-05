@@ -243,6 +243,16 @@ class Utils {
     return urlObj.toString();
   }
 
+  static getNotebookId(tags) {
+    const notebookIdTag = 'mlflow.databricks.notebookID';
+    return tags && tags[notebookIdTag] && tags[notebookIdTag].value;
+  }
+
+  static getNotebookRevisionId(tags) {
+    const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
+    return tags && tags[revisionIdTag] && tags[revisionIdTag].value;
+  }
+
   /**
    * Renders the source name and entry point into an HTML element. Used for display.
    * @param tags Object containing tag key value pairs.
@@ -263,10 +273,8 @@ class Utils {
       }
       return res;
     } else if (sourceType === 'NOTEBOOK') {
-      const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
-      const notebookIdTag = 'mlflow.databricks.notebookID';
-      const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
-      const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
+      const revisionId = Utils.getNotebookRevisionId(tags);
+      const notebookId = Utils.getNotebookId(tags);
       if (notebookId) {
         let url = Utils.setQueryParams(window.location.origin, queryParams);
         url += `#notebook/${notebookId}`;

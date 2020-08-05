@@ -4,7 +4,7 @@ import { getSrc } from './ShowArtifactPage';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { coy as style } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { getLanguage } from '../../../common/utils/FileUtils';
-import { getArtifactContent } from './ShowArtifactUtils';
+import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactTextView.css';
 
 class ShowArtifactTextView extends Component {
