@@ -130,7 +130,7 @@ def test_docker_invalid_project_backend_local():
 
 
 @pytest.mark.parametrize("artifact_uri, host_artifact_uri, container_artifact_uri, should_mount", [
-    ("/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
+    (os.path.sep + os.path.join("tmp", "mlruns", "artifacts"), os.path.sep + os.path.join("tmp", "mlruns", "artifacts"), os.path.sep + os.path.join("tmp", "mlruns", "artifacts"), True),
     ("s3://my_bucket", None, None, False),
     ("file:///tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
     ("./mlruns", os.path.abspath("./mlruns"), "/mlflow/projects/code/mlruns", True)
