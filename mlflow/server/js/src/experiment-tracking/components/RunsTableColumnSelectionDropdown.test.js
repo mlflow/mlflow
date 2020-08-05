@@ -16,11 +16,11 @@ describe('RunsTableColumnSelectionDropdown', () => {
       metricKeyList: [],
       visibleTagKeyList: [],
       onCheck: jest.fn(),
-      categorizedUncheckedKeys: {
-        [ColumnTypes.ATTRIBUTES]: [],
-        [ColumnTypes.PARAMS]: [],
-        [ColumnTypes.METRICS]: [],
-        [ColumnTypes.TAGS]: [],
+      categorizedCheckedKeys: {
+        [ColumnTypes.ATTRIBUTES]: ['Start Time', 'User', 'Run Name', 'Source', 'Version'],
+        [ColumnTypes.PARAMS]: ['p1', 'p2'],
+        [ColumnTypes.METRICS]: ['m1', 'm2'],
+        [ColumnTypes.TAGS]: ['t1', 't2'],
       },
     };
 
@@ -98,7 +98,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
   test('should not check keys marked as unchecked', () => {
     const props = {
       ...commonProps,
-      categorizedUncheckedKeys: {
+      categorizedCheckedKeys: {
         [ColumnTypes.ATTRIBUTES]: ['User', 'Run Name', 'Source', 'Version'],
         [ColumnTypes.PARAMS]: ['p1'],
         [ColumnTypes.METRICS]: ['m1'],
@@ -110,10 +110,13 @@ describe('RunsTableColumnSelectionDropdown', () => {
     instance.setState({ menuVisible: true });
     wrapper.update();
     expect(wrapper.find(SearchTree).prop('checkedKeys')).toEqual([
-      'attributes-Start Time',
-      'params-p2',
-      'metrics-m2',
-      'tags-t2',
+      'attributes-User',
+      'attributes-Run Name',
+      'attributes-Source',
+      'attributes-Version',
+      'params-p1',
+      'metrics-m1',
+      'tags-t1',
     ]);
   });
 });

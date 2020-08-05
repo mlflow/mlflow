@@ -29,7 +29,7 @@ describe('ExperimentRunsTableCompactView', () => {
       unbaggedMetrics: [],
       handleLoadMoreRuns: () => {},
       loadingMore: false,
-      categorizedUncheckedKeys: {},
+      categorizedCheckedKeys: {},
     };
     wrapper = shallow(<ExperimentRunsTableCompactView {...minimalProps} />);
   });

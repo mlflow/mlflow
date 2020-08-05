@@ -81,6 +81,8 @@ class Routes {
   }
 
   static compareRunPageRoute = '/compare-runs';
+
+  static authRoute = '/oauth';
 }
 
 export default Routes;

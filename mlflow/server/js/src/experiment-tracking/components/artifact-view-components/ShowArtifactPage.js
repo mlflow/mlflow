@@ -59,7 +59,7 @@ class ShowArtifactPage extends Component {
 }
 
 export const getSrc = (path, runUuid) => {
-  const basePath = 'get-artifact';
+  const basePath = '/get-artifact';
   return `${basePath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`;
 };
 

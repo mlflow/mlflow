@@ -15,7 +15,6 @@
  *    local storage.
  */
 import Immutable from 'immutable';
-import { ColumnTypes } from '../constants';
 
 /**
  * This class wraps attributes of the ExperimentPage component's state that should be
@@ -34,6 +33,8 @@ export const ExperimentPagePersistedState = Immutable.Record(
     orderByKey: null,
     // Whether the order imposed by orderByKey should be ascending or descending.
     orderByAsc: false,
+    // Columns to whitelist
+    columnsToWhitelist: null,
   },
   'ExperimentPagePersistedState',
 );
@@ -56,13 +57,6 @@ export const ExperimentViewPersistedState = Immutable.Record(
     // columns that have already been split out)
     unbaggedMetrics: [],
     unbaggedParams: [],
-    // Unchecked keys in the columns dropdown
-    categorizedUncheckedKeys: {
-      [ColumnTypes.ATTRIBUTES]: [],
-      [ColumnTypes.PARAMS]: [],
-      [ColumnTypes.METRICS]: [],
-      [ColumnTypes.TAGS]: [],
-    },
   },
   'ExperimentViewPersistedState',
 );
