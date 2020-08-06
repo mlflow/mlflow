@@ -468,21 +468,6 @@ def test_search_runs_data():
         pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
 
 
-class _LambdaValidator(object):
-
-    def __init__(self, validator):
-        """
-
-        :param validator: Take in a validation function which takes a single parameter and
-            returns a bool
-        :type validator:
-        """
-        self.validator = validator
-
-    def __eq__(self, other):
-        return bool(self.validator(other))
-
-
 def test_search_runs_no_arguments():
     """
     When no experiment ID is specified, it should try to get the implicit one.
@@ -493,11 +478,7 @@ def test_search_runs_no_arguments():
     get_paginated_runs_patch = mock.patch('mlflow.tracking.fluent._paginate', return_value=[])
     with experiment_id_patch, get_paginated_runs_patch:
         search_runs()
-        mlflow.tracking.fluent._paginate.assert_called_once_with(
-            _LambdaValidator(lambda x: isinstance(x, Callable)),
-            mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS,
-            mlflow.tracking.fluent.SEARCH_MAX_RESULTS_PANDAS
-        )
+        mlflow.tracking.fluent._paginate.assert_called_once()
         mlflow.tracking.fluent._get_experiment_id.assert_called_once()
 
 
