@@ -67,10 +67,14 @@ def parse_gs_uri(uri):
     return parsed.netloc, path
 
 
+def is_uri_windows(string):
+    return re.match(".*://.*]") is not None
+
+
 def is_uri(string):
     parsed_uri = urllib.parse.urlparse(string)
     if os.name == 'nt':
-        return not is_valid_windows_path(string)
+        return is_uri_windows(string)
     else:
         return len(parsed_uri.scheme) > 0
 
