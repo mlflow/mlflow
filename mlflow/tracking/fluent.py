@@ -422,9 +422,13 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
 
-    pagination_lambda = lambda number_to_get, next_page_token: MlflowClient().search_runs(
-        experiment_ids, filter_string, run_view_type, number_to_get, order_by, next_page_token)
-    runs = _paginate(pagination_lambda, NUM_RUNS_PER_PAGE_PANDAS, max_results)
+    # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
+    # full thing is a mess
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
+                                          number_to_get, order_by, next_page_token)
+
+    runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)
 
     info = {'run_id': [], 'experiment_id': [],
             'status': [], 'artifact_uri': [],
@@ -499,9 +503,13 @@ def list_run_infos(experiment_id, run_view_type=ViewType.ACTIVE_ONLY,
     :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
         search expressions.
     """
-    pagination_lambda = lambda number_to_get, next_page_token : MlflowClient().list_run_infos(
-        experiment_id, run_view_type, number_to_get, order_by, next_page_token)
-    return _paginate(pagination_lambda, SEARCH_MAX_RESULTS_DEFAULT, max_results)
+    # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
+    # full thing is a mess
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().list_run_infos(experiment_id, run_view_type, number_to_get,
+                                             order_by, next_page_token)
+
+    return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
 
 
 def _paginate(paginated_fn, max_results_per_page, max_results):
