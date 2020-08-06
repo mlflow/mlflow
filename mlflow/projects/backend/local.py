@@ -230,7 +230,7 @@ def _get_local_artifact_cmd_and_envs(artifact_repo):
 def _get_s3_artifact_cmd_and_envs(artifact_repo):
     # pylint: disable=unused-argument
     if platform.system() == "Windows":
-        aws_path = ntpath.expanduser(os.path.join("~"), ".aws")
+        aws_path = ntpath.expanduser(os.path.join("~", ".aws"))
     else:
         aws_path = posixpath.expanduser("~/.aws")
 
