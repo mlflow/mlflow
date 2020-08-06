@@ -399,7 +399,9 @@ def get_local_path_or_none(path_or_uri):
     None otherwise.
     """
     parsed_uri = urllib.parse.urlparse(path_or_uri)
-    if (os.name == 'nt' and is_valid_windows_path(path_or_uri)) or len(parsed_uri.scheme) == 0 or parsed_uri.scheme == "file" and len(parsed_uri.netloc) == 0:
+    if (os.name == 'nt' and is_valid_windows_path(path_or_uri)) or \
+            len(parsed_uri.scheme) == 0 or parsed_uri.scheme == "file" and \
+            len(parsed_uri.netloc) == 0:
         return local_file_uri_to_path(path_or_uri)
     else:
         return None

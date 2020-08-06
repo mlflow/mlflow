@@ -154,7 +154,8 @@ def test_run_local_git_repo(local_git_repo,
 
     if version == "master":
         assert tags[MLFLOW_GIT_BRANCH] == "master"
-        assert tags[MLFLOW_GIT_REPO_URL] == local_git_repo_uri.replace('\\', '/') # Git bash on Windows uses /
+        # Git bash on Windows uses /
+        assert tags[MLFLOW_GIT_REPO_URL] == local_git_repo_uri.replace('\\', '/')
         assert tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] == "master"
         assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri.replace('\\', '/')
 
@@ -249,8 +250,10 @@ def test_run_async():
 @pytest.mark.parametrize(
     "mock_env,expected_conda,expected_activate",
     [
-        ({"CONDA_EXE": os.path.join("/abc", "conda")}, os.path.join("/abc","conda"), os.path.join("/abc","activate")),
-        ({mlflow.utils.conda.MLFLOW_CONDA_HOME: os.path.join("/some","dir")}, os.path.join("/some","dir", "bin", "conda"),
+        ({"CONDA_EXE": os.path.join("/abc", "conda")}, os.path.join("/abc", "conda"),
+         os.path.join("/abc", "activate")),
+        ({mlflow.utils.conda.MLFLOW_CONDA_HOME: os.path.join("/some", "dir")},
+         os.path.join("/some", "dir", "bin", "conda"),
          os.path.join("/some", "dir", "bin", "activate"))
     ]
 )

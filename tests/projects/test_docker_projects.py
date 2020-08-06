@@ -131,10 +131,15 @@ def test_docker_invalid_project_backend_local():
 
 
 @pytest.mark.parametrize("artifact_uri, host_artifact_uri, container_artifact_uri, should_mount", [
-    (os.path.sep + os.path.join("tmp", "mlruns", "artifacts"), os.path.sep + os.path.join("tmp", "mlruns", "artifacts"), os.path.sep + os.path.join("tmp", "mlruns", "artifacts"), True),
+    (os.path.join(os.path.sep, "tmp", "mlruns", "artifacts"),
+     os.path.join(os.path.sep, "tmp", "mlruns", "artifacts"),
+     os.path.join(os.path.sep, "tmp", "mlruns", "artifacts"), True),
     ("s3://my_bucket", None, None, False),
-    ("file://" + os.path.sep + os.path.join("tmp", "mlruns", "artifacts"), os.path.sep + os.path.join("tmp", "mlruns", "artifacts"), os.path.sep + os.path.join("tmp", "mlruns", "artifacts"), True),
-    ("./mlruns", os.path.abspath("./mlruns"), os.path.sep + os.path.join("mlflow", "projects", "code", "mlruns"), True)
+    ("file://" + os.path.join(os.path.sep, "tmp", "mlruns", "artifacts"),
+     os.path.join(os.path.sep, "tmp", "mlruns", "artifacts"),
+     os.path.join(os.path.sep, "tmp", "mlruns", "artifacts"), True),
+    ("./mlruns", os.path.abspath("./mlruns"),
+     os.path.join(os.path.sep, "mlflow", "projects", "code", "mlruns"), True)
 ])
 def test_docker_mount_local_artifact_uri(artifact_uri, host_artifact_uri,
                                          container_artifact_uri, should_mount):
@@ -148,9 +153,11 @@ def test_docker_mount_local_artifact_uri(artifact_uri, host_artifact_uri,
     image.tags = ["image:tag"]
 
     docker_command = _get_docker_command(image, active_run)
-    if os.name == 'nt' and (host_artifact_uri is not None) and (not is_valid_windows_path(host_artifact_uri)):
+    if os.name == 'nt' and (host_artifact_uri is not None) and \
+            (not is_valid_windows_path(host_artifact_uri)):
         drive = os.getcwd()[0]
-        docker_volume_expected = "-v {}:{}:{}".format(drive, host_artifact_uri, container_artifact_uri)
+        docker_volume_expected = "-v {}:{}:{}".format(drive, host_artifact_uri,
+                                                      container_artifact_uri)
     else:
         docker_volume_expected = "-v {}:{}".format(host_artifact_uri, container_artifact_uri)
     assert (docker_volume_expected in " ".join(docker_command)) == should_mount
