@@ -153,7 +153,6 @@ def test_docker_mount_local_artifact_uri(artifact_uri, host_artifact_uri,
         docker_volume_expected = "-v {}:{}:{}".format(drive, host_artifact_uri, container_artifact_uri)
     else:
         docker_volume_expected = "-v {}:{}".format(host_artifact_uri, container_artifact_uri)
-    raise Exception(" ".join(docker_command))
     assert (docker_volume_expected in " ".join(docker_command)) == should_mount
 
 
