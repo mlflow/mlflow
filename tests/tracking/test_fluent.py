@@ -14,16 +14,15 @@ import mlflow
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
 from mlflow.entities import (LifecycleStage, Metric, Param, Run, RunData,
-                             RunInfo, RunStatus, RunTag, SourceType, ViewType)
+                             RunInfo, RunStatus, RunTag, SourceType)
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import (_EXPERIMENT_ID_ENV_VAR,
                                     _EXPERIMENT_NAME_ENV_VAR, _RUN_ID_ENV_VAR,
-                                    SEARCH_MAX_RESULTS_PANDAS,
                                     _get_experiment_id,
                                     _get_experiment_id_from_env,
-                                    _paginate, search_runs, list_run_infos,
+                                    _paginate, search_runs,
                                     set_experiment, start_run, get_run)
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
