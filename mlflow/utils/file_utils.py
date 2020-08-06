@@ -389,7 +389,7 @@ def local_file_uri_to_path(uri):
     No-op if the uri does not have the expected scheme.
     """
     path = urllib.parse.urlparse(uri).path if uri.startswith("file:") else uri
-    if (os.name == 'nt'):
+    if os.name == 'nt' and not path:
         path = urllib.parse.urlparse(uri).netloc if uri.startswith("file:") else uri
     return urllib.request.url2pathname(path)
 
