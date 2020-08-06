@@ -31,9 +31,9 @@ class __MLflowPLCallback(pl.Callback):
         Log loss and other metrics values after each epoch
         """
         if (pl_module.current_epoch - 1) % self.every_n_iter == 0:
-            metrics = trainer.callback_metrics
+            self.metrics = trainer.callback_metrics
 
-            for key, value in metrics.items():
+            for key, value in self.metrics.items():
                 trainer.logger.experiment.log_metric(
                     trainer.logger.run_id,
                     key,
@@ -111,9 +111,10 @@ class __MLflowPLCallback(pl.Callback):
         metrics = trainer.callback_metrics
 
         for key, value in metrics.items():
-            trainer.logger.experiment.log_metric(
-                trainer.logger.run_id, key, float(value)
-            )
+            if key not in self.metrics:
+                trainer.logger.experiment.log_metric(
+                    trainer.logger.run_id, key, float(value)
+                )
 
     def _log_early_stop_params(self, trainer, early_stop_obj):
         """

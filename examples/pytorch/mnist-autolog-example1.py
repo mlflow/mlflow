@@ -111,15 +111,14 @@ class LightningMNISTClassifier(pl.LightningModule):
         x, y = val_batch
         logits = self.forward(x)
         loss = self.cross_entropy_loss(logits, y)
-        return {"val_loss": loss}
+        return {"val_step_loss": loss}
 
     def validation_epoch_end(self, outputs):
         """
         Computes average validation accuracy
         """
-        avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
-        tensorboard_logs = {"val_loss": avg_loss}
-        return {"avg_val_loss": avg_loss, "log": tensorboard_logs}
+        avg_loss = torch.stack([x["val_step_loss"] for x in outputs]).mean()
+        return {"val_loss": avg_loss}
 
     def test_step(self, test_batch, batch_idx):
         """
