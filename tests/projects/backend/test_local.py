@@ -22,7 +22,7 @@ def test_docker_s3_artifact_cmd_and_envs_from_home():
     with mock.patch.dict("os.environ", mock_env), \
             mock.patch("posixpath.exists", return_value=True), \
             mock.patch("posixpath.expanduser", return_value="mock_volume"), \
-            mock.patch("ntpath.expanduser", return_value="mock_volume"):
+            mock.patch("os.path.expanduser", return_value="mock_volume"):
         cmds, envs = _get_docker_artifact_storage_cmd_and_envs("s3://mock_bucket")
         assert cmds == ["-v", "mock_volume:/.aws"]
         assert envs == mock_env
