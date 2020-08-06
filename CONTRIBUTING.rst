@@ -75,7 +75,7 @@ proposed implementation:
 - Makes changes to critical internal abstractions. Examples include: the Tracking Artifact Repository,
   the Tracking Abstract Store, and the Model Registry Abstract Store.
 
-Make changes backwards compatibile
+Make changes backwards compatible
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 MLflow's users rely on specific platform and API behaviors in their daily workflows. As new versions
 of MLflow are developed and released, it is important to ensure that users' workflows continue to
@@ -147,6 +147,12 @@ by running the following from your checkout of MLflow:
 You may need to run ``conda install cmake`` for the test requirements to properly install, as ``onnx`` needs ``cmake``.
 
 Ensure `Docker <https://www.docker.com/>`_ is installed.
+
+Finally, we use ``pytest`` to run all Python contributed code. Install ``pytest``:
+
+.. code-block:: bash
+
+    pip install pytest
 
 JavaScript and UI
 ~~~~~~~~~~~~~~~~~
@@ -283,13 +289,8 @@ If opening a PR that makes API changes, please regenerate API documentation as d
 
 Python
 ~~~~~~
-
-Majority of contributions to MLflow are in Python, and we use ``pytest`` to run all Python contributed code. Install ``pytest``:
-
-.. code-block:: bash
-
-    pip install pytest
-
+If you are contributing in Python, make sure that you have satisfied all the `General prerequisites and dependencies`_,
+including installing ``pytest``, as you will need it for the sections described below.
 
 Writing Python Tests
 ++++++++++++++++++++
