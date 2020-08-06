@@ -68,7 +68,7 @@ def parse_gs_uri(uri):
 
 
 def is_uri_windows(string):
-    return re.match(".*://.*]") is not None
+    return re.match(".*://.*]", string) is not None
 
 
 def is_uri(string):
