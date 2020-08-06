@@ -120,6 +120,7 @@ def test_get_workspace_info_from_dbutils_when_no_dbutils_available():
 
 @pytest.mark.parametrize("tracking_uri, result", [
     ('databricks', True),
+    ('databricks://profile:prefix', False),
     ('databricks://profile/prefix', False),
     ('nondatabricks', False),
     ('databricks\t\r', True),
