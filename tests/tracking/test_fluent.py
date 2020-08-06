@@ -7,7 +7,6 @@ import mock
 import numpy as np
 import pandas as pd
 import pytest
-from collections import Callable
 from six.moves import reload_module as reload
 
 import mlflow
