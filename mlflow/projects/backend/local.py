@@ -230,14 +230,13 @@ def _get_local_artifact_cmd_and_envs(artifact_repo):
 def _get_s3_artifact_cmd_and_envs(artifact_repo):
     # pylint: disable=unused-argument
     if platform.system() == "Windows":
-        win_user_dir = os.environ["USERPROFILE"]
-        aws_path = os.path.join(win_user_dir, ".aws")
+        aws_path = ntpath.expanduser(os.path.join("~"), ".aws")
     else:
         aws_path = posixpath.expanduser("~/.aws")
 
     volumes = []
     if posixpath.exists(aws_path):
-        volumes = ["-v", "%s:%s" % (str(aws_path), "/.aws")]
+        volumes = ["-v", "%s:%s" % (str(aws_path), os.path.sep+".aws")]
     envs = {
         "AWS_SECRET_ACCESS_KEY": os.environ.get("AWS_SECRET_ACCESS_KEY"),
         "AWS_ACCESS_KEY_ID": os.environ.get("AWS_ACCESS_KEY_ID"),
