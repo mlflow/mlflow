@@ -130,9 +130,11 @@ class MlflowClient(object):
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags)
 
-    def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
+    def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY,
+                       max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
         """:return: List of :py:class:`mlflow.entities.RunInfo`"""
-        return self._tracking_client.list_run_infos(experiment_id, run_view_type)
+        return self._tracking_client.list_run_infos(experiment_id, run_view_type, max_results,
+                                                    order_by, page_token)
 
     def list_experiments(self, view_type=None):
         """
