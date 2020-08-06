@@ -2,6 +2,7 @@ import logging
 import os
 import platform
 import posixpath
+import ntpath
 import subprocess
 import sys
 
