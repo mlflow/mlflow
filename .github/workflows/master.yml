@@ -232,5 +232,5 @@ jobs:
       - name: Run tests
         run: |
           SET MLFLOW_HOME=%cd%
-          pytest --verbose --ignore-flavors tests/projects::test_docker_s3_artifact_cmd_and_envs_from_home
+          pytest --verbose --ignore-flavors tests/projects/backend/test_local.py::test_docker_s3_artifact_cmd_and_envs_from_home
         shell: cmd
