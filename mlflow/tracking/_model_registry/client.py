@@ -156,21 +156,22 @@ class ModelRegistryClient(object):
 
     # Model Version Methods
 
-    def create_model_version(self, name, source, run_id, tags=None):
+    def create_model_version(self, name, source, run_id, tags=None, run_link=None):
         """
-        Create a new model version from given source or run ID.
+        Create a new model version from given source.
 
-        :param name: Name ID for containing registered model.
+        :param name: Name of the containing registered model.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
+        :param run_link: Link to the run from an MLflow tracking server that generated this model.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
         tags = tags if tags else {}
         tags = [ModelVersionTag(key, str(value)) for key, value in tags.items()]
-        return self.store.create_model_version(name, source, run_id, tags)
+        return self.store.create_model_version(name, source, run_id, tags, run_link)
 
     def update_model_version(self, name, version, description):
         """

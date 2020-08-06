@@ -6,15 +6,16 @@ describe('unit tests', () => {
   let wrapper;
   let instance;
   const minimalProps = {
-    runUuid: 'runUuid1',
     tags: {
       tag1: { getKey: () => 'tag1', getValue: () => 'value1' },
       tag2: { getKey: () => 'tag2', getValue: () => 'value2' },
     },
     // eslint-disable-next-line no-unused-vars
     form: { getFieldDecorator: jest.fn((opts) => (c) => c) },
-    setTagApi: () => {},
-    deleteTagApi: () => {},
+    handleAddTag: () => {},
+    handleSaveEdit: () => {},
+    handleDeleteTag: () => {},
+    isRequestPending: false,
   };
 
   test('should render with minimal props without exploding', () => {

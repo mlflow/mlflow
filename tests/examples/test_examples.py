@@ -48,7 +48,8 @@ def replace_mlflow_with_dev_version(yml_path):
     (os.path.join('sklearn_elasticnet_diabetes', 'linux'), []),
     ('spacy', []),
     (os.path.join('tensorflow', 'tf1'), ['-P', 'steps=10']),
-    ('xgboost', ['-P', 'learning_rate=0.3', '-P', 'colsample_bytree=0.8', '-P', 'subsample=0.9'])
+    ('xgboost', ['-P', 'learning_rate=0.3', '-P', 'colsample_bytree=0.8', '-P', 'subsample=0.9']),
+    ('fastai', ['-P', 'lr=0.02', '-P', 'epochs=3']),
 ])
 def test_mlflow_run_example(directory, params, tmpdir):
     example_dir = os.path.join(EXAMPLES_DIR, directory)

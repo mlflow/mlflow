@@ -9,14 +9,19 @@ from mlflow.entities import ViewType
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._model_registry import utils as registry_utils
-from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
+from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
+from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import experimental
+from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri, \
+    is_in_databricks_notebook, get_workspace_info_from_dbutils, \
+    get_workspace_info_from_databricks_secrets
+from mlflow.utils.uri import is_databricks_uri, construct_run_url
 
 _logger = logging.getLogger(__name__)
 
@@ -490,19 +495,69 @@ class MlflowClient(object):
     # Model Version Methods
 
     @experimental
-    def create_model_version(self, name, source, run_id, tags=None):
+    def create_model_version(self, name, source, run_id, tags=None, run_link=None):
         """
-        Create a new model version from given source or run ID.
+        Create a new model version from given source (artifact URI).
 
-        :param name: Name ID for containing registered model.
+        :param name: Name for the containing registered model.
         :param source: Source path where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
+        :param run_link: Link to the run from an MLflow tracking server that generated this model.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
-        return self._get_registry_client().create_model_version(name, source, run_id, tags)
+        tracking_uri = self._tracking_client.tracking_uri
+        if not run_link and is_databricks_uri(tracking_uri) and tracking_uri != self._registry_uri:
+            run_link = self._get_run_link(tracking_uri, run_id)
+        new_source = source
+        if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
+            # Print out some info for user since the copy may take a while for large models.
+            _logger.info("=== Copying model files from the source location to the model " +
+                         " registry workspace ===")
+            new_source = _upload_artifacts_to_databricks(source, run_id, tracking_uri,
+                                                         self._registry_uri)
+            # NOTE: we can't easily delete the target temp location due to the async nature
+            # of the model version creation - printing to let the user know.
+            _logger.info(
+                """
+                === Source model files were copied to %s
+                    in the model registry workspace. You may want to delete the files once the
+                    model version is in 'READY' status. You can also find this location in the
+                    `source` field of the created model version. ===
+                """,
+                new_source)
+        return self._get_registry_client().create_model_version(
+            name=name,
+            source=new_source,
+            run_id=run_id,
+            tags=tags,
+            run_link=run_link)
+
+    def _get_run_link(self, tracking_uri, run_id):
+        # if using the default Databricks tracking URI and in a notebook, we can automatically
+        # figure out the run-link.
+        if is_databricks_default_tracking_uri(tracking_uri) and is_in_databricks_notebook():
+            # use DBUtils to determine workspace information.
+            workspace_host, workspace_id = get_workspace_info_from_dbutils()
+        else:
+            # in this scenario, we're not able to automatically extract the workspace ID
+            # to proceed, and users will need to pass in a databricks profile with the scheme:
+            # databricks://scope/prefix and store the host and workspace-ID as a secret in the
+            # Databricks Secret Manager with scope=<scope> and key=<prefix>-workspaceid.
+            workspace_host, workspace_id = \
+                get_workspace_info_from_databricks_secrets(tracking_uri)
+            if not workspace_id:
+                print("No workspace ID specified; if your Databricks workspaces share the same"
+                      " host URL, you may want to specify the workspace ID (along with the host"
+                      " information in the secret manager) for run lineage tracking. For more"
+                      " details on how to specify this information in the secret manager,"
+                      " please refer to the model registry documentation.")
+        # retrieve experiment ID of the run for the URL
+        experiment_id = self.get_run(run_id).info.experiment_id
+        if workspace_host and run_id and experiment_id:
+            return construct_run_url(workspace_host, experiment_id, run_id, workspace_id)
 
     @experimental
     def update_model_version(self, name, version, description=None):

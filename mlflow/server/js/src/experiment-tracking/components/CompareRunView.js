@@ -15,7 +15,7 @@ import Utils from '../../common/utils/Utils';
 import { Tabs } from 'antd';
 import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
 
-const TabPane = Tabs.TabPane;
+const { TabPane } = Tabs;
 
 export class CompareRunView extends Component {
   static propTypes = {
@@ -40,7 +40,7 @@ export class CompareRunView extends Component {
   }
 
   render() {
-    const experiment = this.props.experiment;
+    const { experiment } = this.props;
     const experimentId = experiment.getExperimentId();
     const { runInfos, runNames } = this.props;
     return (

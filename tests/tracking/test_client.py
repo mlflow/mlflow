@@ -1,7 +1,7 @@
 import mock
 import pytest
 
-from mlflow.entities import SourceType, ViewType, RunTag
+from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
@@ -10,6 +10,7 @@ from mlflow.tracking import set_registry_uri, MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
+from mlflow.utils.uri import construct_run_url
 
 
 @pytest.fixture
@@ -252,3 +253,130 @@ def test_registry_uri_from_implicit_tracking_uri():
         get_tracking_uri_mock.return_value = tracking_uri
         client = MlflowClient()
         assert client._registry_uri == tracking_uri
+
+
+def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_store):
+    run_id = 'runid'
+    client = MlflowClient(tracking_uri='http://10.123.1231.11')
+    mock_registry_store.create_model_version.return_value = \
+        ModelVersion('name', 1, 0, 1, source='source', run_id=run_id)
+    model_version = client.create_model_version('name', 'source', 'runid')
+    assert(model_version.name == 'name')
+    assert(model_version.source == 'source')
+    assert(model_version.run_id == 'runid')
+    # verify that the store was not provided a run link
+    mock_registry_store.create_model_version.assert_called_once_with(
+        "name", 'source', 'runid', [], None)
+
+
+def test_create_model_version_explicitly_set_run_link(mock_registry_store):
+    run_id = 'runid'
+    run_link = 'my-run-link'
+    hostname = 'https://workspace.databricks.com/'
+    workspace_id = '10002'
+    mock_registry_store.create_model_version.return_value = \
+        ModelVersion('name', 1, 0, 1, source='source', run_id=run_id, run_link=run_link)
+    # mocks to make sure that even if you're in a notebook, this setting is respected.
+    with mock.patch('mlflow.tracking.client.is_in_databricks_notebook',
+                    return_value=True), \
+            mock.patch('mlflow.tracking.client.get_workspace_info_from_dbutils',
+                       return_value=(hostname, workspace_id)):
+        client = MlflowClient(tracking_uri='databricks', registry_uri='otherplace')
+        model_version = client.create_model_version('name', 'source', 'runid', run_link=run_link)
+        assert(model_version.run_link == run_link)
+        # verify that the store was provided with the explicitly passed in run link
+        mock_registry_store.create_model_version.assert_called_once_with(
+            "name", 'source', 'runid', [], run_link)
+
+
+def test_create_model_version_run_link_in_notebook_with_default_profile(mock_registry_store):
+    experiment_id = 'test-exp-id'
+    hostname = 'https://workspace.databricks.com/'
+    workspace_id = '10002'
+    run_id = 'runid'
+    workspace_url = construct_run_url(hostname, experiment_id, run_id, workspace_id)
+    get_run_mock = mock.MagicMock()
+    get_run_mock.return_value = Run(RunInfo(run_id, experiment_id, 'userid', 'status', 0, 1, None),
+                                    None)
+    with mock.patch('mlflow.tracking.client.is_in_databricks_notebook',
+                    return_value=True), \
+            mock.patch('mlflow.tracking.client.get_workspace_info_from_dbutils',
+                       return_value=(hostname, workspace_id)):
+        client = MlflowClient(tracking_uri='databricks', registry_uri='otherplace')
+        client.get_run = get_run_mock
+        mock_registry_store.create_model_version.return_value = \
+            ModelVersion('name', 1, 0, 1, source='source', run_id=run_id, run_link=workspace_url)
+        model_version = client.create_model_version('name', 'source', 'runid')
+        assert(model_version.run_link == workspace_url)
+        # verify that the client generated the right URL
+        mock_registry_store.create_model_version.assert_called_once_with(
+            "name", 'source', 'runid', [], workspace_url)
+
+
+def test_create_model_version_run_link_with_configured_profile(mock_registry_store):
+    experiment_id = 'test-exp-id'
+    hostname = 'https://workspace.databricks.com/'
+    workspace_id = '10002'
+    run_id = 'runid'
+    workspace_url = construct_run_url(hostname, experiment_id, run_id, workspace_id)
+    get_run_mock = mock.MagicMock()
+    get_run_mock.return_value = Run(RunInfo(run_id, experiment_id, 'userid', 'status', 0, 1, None),
+                                    None)
+    with mock.patch('mlflow.tracking.client.is_in_databricks_notebook', return_value=False), \
+            mock.patch('mlflow.tracking.client.get_workspace_info_from_databricks_secrets',
+                       return_value=(hostname, workspace_id)):
+        client = MlflowClient(tracking_uri='databricks', registry_uri='otherplace')
+        client.get_run = get_run_mock
+        mock_registry_store.create_model_version.return_value = \
+            ModelVersion('name', 1, 0, 1, source='source', run_id=run_id, run_link=workspace_url)
+        model_version = client.create_model_version('name', 'source', 'runid')
+        assert(model_version.run_link == workspace_url)
+        # verify that the client generated the right URL
+        mock_registry_store.create_model_version.assert_called_once_with(
+            "name", 'source', 'runid', [], workspace_url)
+
+
+def test_create_model_version_copy_called_db_to_db(mock_registry_store):
+    client = MlflowClient(tracking_uri="databricks://tracking",
+                          registry_uri="databricks://registry:workspace")
+    mock_registry_store.create_model_version.return_value = ""
+    with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") \
+            as upload_mock:
+        client.create_model_version("model name", "dbfs:/source", "run_12345",
+                                    run_link='not:/important/for/test')
+        upload_mock.assert_called_once_with("dbfs:/source", "run_12345", "databricks://tracking",
+                                            "databricks://registry:workspace")
+
+
+def test_create_model_version_copy_called_nondb_to_db(mock_registry_store):
+    client = MlflowClient(tracking_uri="https://tracking",
+                          registry_uri="databricks://registry:workspace")
+    mock_registry_store.create_model_version.return_value = ""
+    with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") \
+            as upload_mock:
+        client.create_model_version("model name", "s3:/source", "run_12345",
+                                    run_link='not:/important/for/test')
+        upload_mock.assert_called_once_with("s3:/source", "run_12345", "https://tracking",
+                                            "databricks://registry:workspace")
+
+
+def test_create_model_version_copy_not_called_to_db(mock_registry_store):
+    client = MlflowClient(tracking_uri="databricks://registry:workspace",
+                          registry_uri="databricks://registry:workspace")
+    mock_registry_store.create_model_version.return_value = ""
+    with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") \
+            as upload_mock:
+        client.create_model_version("model name", "dbfs:/source", "run_12345",
+                                    run_link='not:/important/for/test')
+        upload_mock.assert_not_called()
+
+
+def test_create_model_version_copy_not_called_to_nondb(mock_registry_store):
+    client = MlflowClient(tracking_uri="databricks://tracking",
+                          registry_uri="https://registry")
+    mock_registry_store.create_model_version.return_value = ""
+    with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") \
+            as upload_mock:
+        client.create_model_version("model name", "dbfs:/source", "run_12345",
+                                    run_link='not:/important/for/test')
+        upload_mock.assert_not_called()

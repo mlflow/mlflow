@@ -94,7 +94,7 @@ test('URL can encode order_by', () => {
 
 test('Loading state without any URL params', () => {
   const wrapper = getExperimentPageMock();
-  const state = wrapper.instance().state;
+  const { state } = wrapper.instance();
   expect(state.persistedState.paramKeyFilterString).toEqual('');
   expect(state.persistedState.metricKeyFilterString).toEqual('');
   expect(state.persistedState.searchInput).toEqual('');
@@ -105,7 +105,7 @@ test('Loading state without any URL params', () => {
 test('Loading state with all URL params', () => {
   location.search = 'params=a&metrics=b&search=c&orderByKey=d&orderByAsc=false';
   const wrapper = getExperimentPageMock();
-  const state = wrapper.instance().state;
+  const { state } = wrapper.instance();
   expect(state.persistedState.paramKeyFilterString).toEqual('a');
   expect(state.persistedState.metricKeyFilterString).toEqual('b');
   expect(state.persistedState.searchInput).toEqual('c');
