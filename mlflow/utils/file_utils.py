@@ -34,7 +34,7 @@ def is_file(name):
 
 
 def is_valid_windows_path(name):
-    return re.match(r"^[a-zA-Z]:\\.*", name)
+    return re.match("^[a-zA-Z]:\\\\.*", name)
 
 
 def exists(name):

@@ -148,7 +148,7 @@ def test_docker_mount_local_artifact_uri(artifact_uri, host_artifact_uri,
     image.tags = ["image:tag"]
 
     docker_command = _get_docker_command(image, active_run)
-    if os.name == 'nt' and not is_valid_windows_path(host_artifact_uri):
+    if os.name == 'nt' and (host_artifact_uri is not None) and (not is_valid_windows_path(host_artifact_uri)):
         drive = os.getcwd()[0]
         docker_volume_expected = "-v {}:{}:{}".format(drive, host_artifact_uri, container_artifact_uri)
     else:
