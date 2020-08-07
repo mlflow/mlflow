@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
-import { getArtifactContent } from './ShowArtifactUtils';
+import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactMapView.css';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';

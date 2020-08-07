@@ -16,6 +16,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking import artifact_utils
 from mlflow.tracking.context import registry as context_registry
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -420,8 +421,15 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     """
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
-    runs = _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
-                               order_by)
+
+    # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
+    # full thing is a mess
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
+                                          number_to_get, order_by, next_page_token)
+
+    runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)
+
     info = {'run_id': [], 'experiment_id': [],
             'status': [], 'artifact_uri': [],
             'start_time': [], 'end_time': []}
@@ -482,24 +490,57 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     return pd.DataFrame(data)
 
 
-def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
-                        order_by):
-    all_runs = []
+def list_run_infos(experiment_id, run_view_type=ViewType.ACTIVE_ONLY,
+                   max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None):
+    """
+    Return run information for runs which belong to the experiment_id.
+
+    :param experiment_id: The experiment id which to search
+    :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+    :param max_results: Maximum number of results desired.
+    :param order_by: List of order_by clauses.
+
+    :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
+        search expressions.
+    """
+    # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
+    # full thing is a mess
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().list_run_infos(experiment_id, run_view_type, number_to_get,
+                                             order_by, next_page_token)
+
+    return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
+
+
+def _paginate(paginated_fn, max_results_per_page, max_results):
+    """
+    Intended to be a general use pagination utility.
+
+    :param paginated_fn:
+    :type paginated_fn: This function is expected to take in the number of results to retrieve
+        per page and a pagination token, and return a PagedList object
+    :param max_results_per_page:
+    :type max_results_per_page: The maximum number of results to retrieve per page
+    :param max_results:
+    :type max_results: The maximum number of results to retrieve overall
+    :return: Returns a list of entities, as determined by the paginated_fn parameter, with no more
+        entities than specified by max_results
+    :rtype: list[object]
+    """
+    all_results = []
     next_page_token = None
-    while(len(all_runs) < max_results):
-        runs_to_get = max_results-len(all_runs)
-        if runs_to_get < NUM_RUNS_PER_PAGE_PANDAS:
-            runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
-                                              runs_to_get, order_by, next_page_token)
+    while(len(all_results) < max_results):
+        num_to_get = max_results - len(all_results)
+        if num_to_get < max_results_per_page:
+            page_results = paginated_fn(num_to_get, next_page_token)
         else:
-            runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
-                                              NUM_RUNS_PER_PAGE_PANDAS, order_by, next_page_token)
-        all_runs.extend(runs)
-        if hasattr(runs, 'token') and runs.token != '' and runs.token is not None:
-            next_page_token = runs.token
+            page_results = paginated_fn(max_results_per_page, next_page_token)
+        all_results.extend(page_results)
+        if hasattr(page_results, 'token') and page_results.token:
+            next_page_token = page_results.token
         else:
             break
-    return all_runs
+    return all_results
 
 
 def _get_or_start_run():

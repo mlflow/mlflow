@@ -4,6 +4,11 @@ import ModelRegistryReducers, {
   getModelVersions,
   getRegisteredModelTags,
   getModelVersionTags,
+  getModelVersionSchemas,
+  getModelVersionSchemaInputsByIndex,
+  getModelVersionSchemaInputsByName,
+  getModelVersionSchemaOutputsByIndex,
+  getModelVersionSchemaOutputsByName,
 } from './reducers';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from './test-utils';
 import {
@@ -17,6 +22,7 @@ import {
   DELETE_REGISTERED_MODEL_TAG,
   SET_MODEL_VERSION_TAG,
   DELETE_MODEL_VERSION_TAG,
+  PARSE_MLMODEL_FILE,
 } from './actions';
 import { fulfilled } from '../common/utils/ActionUtils';
 import { ModelVersionTag, RegisteredModelTag } from './sdk/ModelRegistryMessages';
@@ -26,6 +32,7 @@ const {
   modelVersionsByModel,
   tagsByRegisteredModel,
   tagsByModelVersion,
+  mlModelArtifactByModelVersion,
 } = ModelRegistryReducers;
 
 describe('test modelByName', () => {
@@ -464,6 +471,309 @@ describe('test getAllModelVersions', () => {
       },
     };
     expect(getAllModelVersions(state)).toEqual([versionA1, versionB1]);
+  });
+});
+
+describe('test mlModelArtifactByModelVersion', () => {
+  test('when state and payload is empty', () => {
+    const state = {};
+    const action = {
+      type: fulfilled(PARSE_MLMODEL_FILE),
+      meta: { modelName: 'model_A', version: 1 },
+      payload: {},
+    };
+    expect(mlModelArtifactByModelVersion(state, action)).toEqual({
+      model_A: { '1': {} },
+    });
+  });
+
+  test('when adding a version to current state', () => {
+    const state = { model_A: { '1': {} } };
+    const action = {
+      type: fulfilled(PARSE_MLMODEL_FILE),
+      meta: { modelName: 'model_A', version: 2 },
+      payload: { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
+    };
+    expect(mlModelArtifactByModelVersion(state, action)).toEqual({
+      model_A: {
+        '1': {},
+        '2': { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
+      },
+    });
+  });
+
+  test('when adding a new model to current state', () => {
+    const state = { model_A: { '1': {} } };
+    const action = {
+      type: fulfilled(PARSE_MLMODEL_FILE),
+      meta: { modelName: 'model_B', version: 1 },
+      payload: { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
+    };
+    expect(mlModelArtifactByModelVersion(state, action)).toEqual({
+      model_A: { '1': {} },
+      model_B: {
+        '1': { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
+      },
+    });
+  });
+
+  test('when adding a model version that already exist in store', () => {
+    const state = { model_A: { '1': {} } };
+    const action = {
+      type: fulfilled(PARSE_MLMODEL_FILE),
+      meta: { modelName: 'model_A', version: 1 },
+      payload: { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
+    };
+    expect(mlModelArtifactByModelVersion(state, action)).toEqual({
+      model_A: {
+        '1': { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
+      },
+    });
+  });
+});
+
+describe('test getModelVersionSchemas', () => {
+  test('getting schema when mlModelArtifactByModelVersion missing entry', () => {
+    const state = {
+      entities: {
+        mlModelArtifactByModelVersion: {},
+      },
+    };
+    expect(getModelVersionSchemas(state, 'model_A', 1)).toEqual({
+      inputs: [],
+      outputs: [],
+    });
+    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({});
+  });
+
+  test('getting schema when modelName does not exist', () => {
+    const state = {
+      entities: {
+        mlModelArtifactByModelVersion: {
+          model_B: {},
+        },
+      },
+    };
+    expect(getModelVersionSchemas(state, 'model_A', 1)).toEqual({
+      inputs: [],
+      outputs: [],
+    });
+    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({});
+  });
+
+  test('getting schema when model version does not exist', () => {
+    const state = {
+      entities: {
+        mlModelArtifactByModelVersion: {
+          model_A: {
+            2: {},
+          },
+        },
+      },
+    };
+    expect(getModelVersionSchemas(state, 'model_A', 1)).toEqual({
+      inputs: [],
+      outputs: [],
+    });
+    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({});
+  });
+
+  test('getting schema when model version exist but no schema', () => {
+    const state = {
+      entities: {
+        mlModelArtifactByModelVersion: {
+          model_A: {
+            1: { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
+          },
+        },
+      },
+    };
+    expect(getModelVersionSchemas(state, 'model_A', 1)).toEqual({
+      inputs: [],
+      outputs: [],
+    });
+    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({});
+  });
+
+  test('getting schema when only input exist', () => {
+    const state = {
+      entities: {
+        mlModelArtifactByModelVersion: {
+          model_A: {
+            1: {
+              artifact_path: 'xxx',
+              run_id: 'xxx',
+              signature: {
+                inputs:
+                  '[{"name": "column1", "type": "long"}, ' +
+                  '{"name": "column2", "type": "string"}]',
+              },
+            },
+          },
+        },
+      },
+    };
+    expect(getModelVersionSchemas(state, 'model_A', 1)).toEqual({
+      inputs: [
+        { name: 'column1', type: 'long' },
+        { name: 'column2', type: 'string' },
+      ],
+      outputs: [],
+    });
+    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({
+      0: {
+        key: 0,
+        value: 'column1: long',
+      },
+      1: {
+        key: 1,
+        value: 'column2: string',
+      },
+    });
+    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({
+      column1: {
+        key: 'column1',
+        value: 'long',
+      },
+      column2: {
+        key: 'column2',
+        value: 'string',
+      },
+    });
+    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({});
+  });
+
+  test('getting schema when only output exist', () => {
+    const state = {
+      entities: {
+        mlModelArtifactByModelVersion: {
+          model_A: {
+            1: {
+              artifact_path: 'xxx',
+              run_id: 'xxx',
+              signature: {
+                outputs:
+                  '[{"name": "column1", "type": "long"}, ' +
+                  '{"name": "column2", "type": "string"}]',
+              },
+            },
+          },
+        },
+      },
+    };
+    expect(getModelVersionSchemas(state, 'model_A', 1)).toEqual({
+      inputs: [],
+      outputs: [
+        { name: 'column1', type: 'long' },
+        { name: 'column2', type: 'string' },
+      ],
+    });
+    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({});
+    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({
+      0: {
+        key: 0,
+        value: 'column1: long',
+      },
+      1: {
+        key: 1,
+        value: 'column2: string',
+      },
+    });
+    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({
+      column1: {
+        key: 'column1',
+        value: 'long',
+      },
+      column2: {
+        key: 'column2',
+        value: 'string',
+      },
+    });
+  });
+
+  test('getting schema when both input output exist', () => {
+    const state = {
+      entities: {
+        mlModelArtifactByModelVersion: {
+          model_A: {
+            1: {
+              artifact_path: 'xxx',
+              run_id: 'xxx',
+              signature: {
+                inputs:
+                  '[{"name": "column1", "type": "long"}, ' +
+                  '{"name": "column2", "type": "string"}]',
+                outputs: '[{"name": "score1", "type": "long"}, {"name": "score2", "type": "long"}]',
+              },
+            },
+          },
+        },
+      },
+    };
+    expect(getModelVersionSchemas(state, 'model_A', 1)).toEqual({
+      inputs: [
+        { name: 'column1', type: 'long' },
+        { name: 'column2', type: 'string' },
+      ],
+      outputs: [
+        { name: 'score1', type: 'long' },
+        { name: 'score2', type: 'long' },
+      ],
+    });
+    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({
+      0: {
+        key: 0,
+        value: 'column1: long',
+      },
+      1: {
+        key: 1,
+        value: 'column2: string',
+      },
+    });
+    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({
+      column1: {
+        key: 'column1',
+        value: 'long',
+      },
+      column2: {
+        key: 'column2',
+        value: 'string',
+      },
+    });
+    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({
+      0: {
+        key: 0,
+        value: 'score1: long',
+      },
+      1: {
+        key: 1,
+        value: 'score2: long',
+      },
+    });
+    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({
+      score1: {
+        key: 'score1',
+        value: 'long',
+      },
+      score2: {
+        key: 'score2',
+        value: 'long',
+      },
+    });
   });
 });
 

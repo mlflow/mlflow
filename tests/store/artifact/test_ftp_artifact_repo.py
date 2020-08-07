@@ -66,6 +66,44 @@ def test_list_artifacts(ftp_mock):
     assert artifacts[1].file_size is None
 
 
+def test_list_artifacts_when_ftp_nlst_returns_absolute_paths(ftp_mock):
+    artifact_root_path = "/experiment_id/run_id/"
+    repo = FTPArtifactRepository("ftp://test_ftp"+artifact_root_path)
+
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
+
+    # mocked file structure
+    #  |- file
+    #  |- model
+    #     |- model.pb
+
+    file_path = "file"
+    dir_path = "model"
+    file_size = 678
+    ftp_mock.cwd = MagicMock(side_effect=[None, ftplib.error_perm, None])
+    ftp_mock.nlst = MagicMock(return_value=[
+       posixpath.join(artifact_root_path, file_path),
+       posixpath.join(artifact_root_path, dir_path)
+    ])
+
+    ftp_mock.size = MagicMock(return_value=file_size)
+
+    artifacts = repo.list_artifacts(path=None)
+
+    ftp_mock.nlst.assert_called_once_with(artifact_root_path)
+    ftp_mock.size.assert_called_once_with(artifact_root_path + file_path)
+
+    assert len(artifacts) == 2
+    assert artifacts[0].path == file_path
+    assert artifacts[0].is_dir is False
+    assert artifacts[0].file_size == file_size
+    assert artifacts[1].path == dir_path
+    assert artifacts[1].is_dir is True
+    assert artifacts[1].file_size is None
+
+
 def test_list_artifacts_with_subdir(ftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
     repo = FTPArtifactRepository("sftp://test_sftp"+artifact_root_path)
@@ -176,7 +214,8 @@ def test_log_artifact_multiple_calls(ftp_mock, tmpdir):
     assert ftp_mock.storbinary.call_args_list[0][0][0] == 'STOR test2.txt'
 
 
-def test_log_artifacts(ftp_mock, tmpdir):
+@pytest.mark.parametrize("artifact_path", [None, 'dir', 'dir1/dir2'])
+def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
     repo = FTPArtifactRepository("ftp://test_ftp/some/path")
 
     repo.get_ftp_client = MagicMock()
@@ -190,10 +229,14 @@ def test_log_artifacts(ftp_mock, tmpdir):
 
     ftp_mock.cwd = MagicMock(side_effect=[ftplib.error_perm, None, None, None, None, None])
 
-    repo.log_artifacts(subd.strpath)
+    repo.log_artifacts(subd.strpath, artifact_path)
 
-    ftp_mock.mkd.assert_any_call('/some/path/subdir')
-    ftp_mock.cwd.assert_any_call('/some/path/subdir')
+    arg_expected = (
+        '/some/path' if artifact_path is None else posixpath.join('/some/path', artifact_path)
+    )
+    ftp_mock.mkd.assert_any_call(arg_expected)
+    ftp_mock.cwd.assert_any_call(arg_expected)
+
     assert ftp_mock.storbinary.call_count == 3
     storbinary_call_args = sorted([ftp_mock.storbinary.call_args_list[i][0][0] for i in range(3)])
     assert storbinary_call_args == ['STOR a.txt', 'STOR b.txt', 'STOR c.txt']
