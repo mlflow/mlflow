@@ -17,11 +17,11 @@ def newTrackingServiceClient():
 
 @pytest.mark.parametrize("artifact_uri, databricks_uri, uri_for_repo", [
     ('dbfs:/path', 'databricks://profile', 'dbfs://profile@databricks/path'),
-    ('dbfs:/path', 'databricks://scope/key', 'dbfs://scope:key@databricks/path'),
-    ('runs:/path', 'databricks://scope/key', 'runs://scope:key@databricks/path'),
-    ('models:/path', 'databricks://scope/key', 'models://scope:key@databricks/path'),
+    ('dbfs:/path', 'databricks://scope:key', 'dbfs://scope:key@databricks/path'),
+    ('runs:/path', 'databricks://scope:key', 'runs://scope:key@databricks/path'),
+    ('models:/path', 'databricks://scope:key', 'models://scope:key@databricks/path'),
     # unaffected uri cases
-    ('dbfs://profile@databricks/path', 'databricks://scope/key', 'dbfs://profile@databricks/path'),
+    ('dbfs://profile@databricks/path', 'databricks://scope:key', 'dbfs://profile@databricks/path'),
     ('dbfs://profile@databricks/path', 'databricks://profile2', 'dbfs://profile@databricks/path'),
     ('s3:/path', 'databricks://profile', 's3:/path'),
     ('ftp://user:pass@host/path', 'databricks://profile', 'ftp://user:pass@host/path'),
