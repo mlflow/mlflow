@@ -280,8 +280,6 @@ def test_is_databricks_acled_artifacts_uri():
     ('dbfs://profile@databricks:port/path/to/nowhere', 'databricks://profile'),
     ('dbfs://scope:key_prefix@databricks/path/abc', 'databricks://scope:key_prefix'),
     ('dbfs://scope:key_prefix@databricks:port/path/abc', 'databricks://scope:key_prefix'),
-    # Treats secret key prefixes with ":" to be valid
-    ('dbfs://incorrect:netloc:format@databricks/path/a', 'databricks://incorrect:netloc:format'),
     # Doesn't care about the scheme of the artifact URI
     ('runs://scope:key_prefix@databricks/path/abc', 'databricks://scope:key_prefix'),
     ('models://scope:key_prefix@databricks/path/abc', 'databricks://scope:key_prefix'),
@@ -289,6 +287,17 @@ def test_is_databricks_acled_artifacts_uri():
 ])
 def test_get_databricks_profile_uri_from_artifact_uri(uri, result):
     assert get_databricks_profile_uri_from_artifact_uri(uri) == result
+
+
+@pytest.mark.parametrize("uri", [
+    # Treats secret key prefixes with ":" to be invalid
+    'dbfs://incorrect:netloc:format@databricks/path/a',
+    "dbfs://scope::key_prefix@databricks/path/abc",
+    "dbfs://scope:key_prefix:@databricks/path/abc"
+])
+def test_get_databricks_profile_uri_from_artifact_uri_error_cases(uri):
+    with pytest.raises(MlflowException):
+        get_databricks_profile_uri_from_artifact_uri(uri)
 
 
 @pytest.mark.parametrize("uri, result", [
@@ -327,6 +336,8 @@ def test_remove_databricks_profile_info_from_artifact_uri(uri, result):
     ('dbfs:/path/a/b/', 'databricks://Profile', 'dbfs://Profile@databricks/path/a/b/'),
     ('dbfs:/path/a/b/', 'databricks://profile/', 'dbfs://profile@databricks/path/a/b/'),
     ('dbfs:/path/a/b/', 'databricks://scope:key', 'dbfs://scope:key@databricks/path/a/b/'),
+    ('dbfs:/path/a/b/', 'databricks://scope:key/random_stuff',
+     'dbfs://scope:key@databricks/path/a/b/'),
     ('dbfs:/path/a/b/', 'nondatabricks://profile', 'dbfs:/path/a/b/'),
     # test various artifact schemes
     ('runs:/path/a/b/', 'databricks://Profile', 'runs://Profile@databricks/path/a/b/'),
@@ -370,6 +381,8 @@ def test_add_databricks_profile_info_to_artifact_uri_errors(artifact_uri, profil
     ('dbfs://@databricks/a/b', True),
     ('dbfs://profile@databricks/a/b', True),
     ('dbfs://scope:key@databricks/a/b', True),
+    ('dbfs://scope:key:@databricks/a/b', False),
+    ('dbfs://scope::key@databricks/a/b', False),
     ('dbfs://profile@notdatabricks/a/b', False),
     ('dbfs://scope:key@notdatabricks/a/b', False),
     ('dbfs://scope:key/a/b', False),

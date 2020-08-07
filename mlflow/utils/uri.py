@@ -79,6 +79,7 @@ def get_databricks_profile_uri_from_artifact_uri(uri):
         return None
     if not parsed.username:  # no profile or scope:key
         return 'databricks'  # the default tracking/registry URI
+    validate_db_scope_prefix_info(parsed.username, parsed.password)
     key_prefix = ':' + parsed.password if parsed.password else ''
     return 'databricks://' + parsed.username + key_prefix
 
@@ -241,5 +242,8 @@ def is_valid_dbfs_uri(uri):
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != 'dbfs':
         return False
-    db_profile_uri = get_databricks_profile_uri_from_artifact_uri(uri)
+    try:
+        db_profile_uri = get_databricks_profile_uri_from_artifact_uri(uri)
+    except MlflowException:
+        db_profile_uri = None
     return not parsed.netloc or db_profile_uri is not None
