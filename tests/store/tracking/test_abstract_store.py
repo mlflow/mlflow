@@ -109,28 +109,32 @@ def test_list_run_infos():
     runs = [mock.Mock(info=info) for info in run_infos]
     token = "adfoiweroh12334kj129318934u"
 
-    with mock.patch.object(AbstractStoreTestImpl, "search_runs",
-                           return_value=PagedList(runs, token)):
+    with mock.patch.object(
+        AbstractStoreTestImpl, "search_runs", return_value=PagedList(runs, token)
+    ):
         store = AbstractStoreTestImpl()
         result = store.list_run_infos(experiment_id, view_type)
         for i in range(len(result)):
             assert result[i] == run_infos[i]
         assert result.token == token
-        store.search_runs.assert_called_once_with([experiment_id], None, view_type,
-                                                  SEARCH_MAX_RESULTS_DEFAULT, None, None)
+        store.search_runs.assert_called_once_with(
+            [experiment_id], None, view_type, SEARCH_MAX_RESULTS_DEFAULT, None, None
+        )
 
     run_infos = [mock.Mock()]
     runs = [mock.Mock(info=info) for info in run_infos]
 
-    with mock.patch.object(AbstractStoreTestImpl, "search_runs",
-                           return_value=PagedList(runs, None)):
+    with mock.patch.object(
+        AbstractStoreTestImpl, "search_runs", return_value=PagedList(runs, None)
+    ):
         store = AbstractStoreTestImpl()
         result = store.list_run_infos(experiment_id, view_type, page_token=token)
         for i in range(len(result)):
             assert result[i] == run_infos[i]
         assert result.token is None
-        store.search_runs.assert_called_once_with([experiment_id], None, view_type,
-                                                  SEARCH_MAX_RESULTS_DEFAULT, None, token)
+        store.search_runs.assert_called_once_with(
+            [experiment_id], None, view_type, SEARCH_MAX_RESULTS_DEFAULT, None, token
+        )
 
 
 def test_search_runs():

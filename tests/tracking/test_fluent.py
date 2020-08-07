@@ -12,17 +12,32 @@ from six.moves import reload_module as reload
 import mlflow
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
-from mlflow.entities import (LifecycleStage, Metric, Param, Run, RunData,
-                             RunInfo, RunStatus, RunTag, SourceType)
+from mlflow.entities import (
+    LifecycleStage,
+    Metric,
+    Param,
+    Run,
+    RunData,
+    RunInfo,
+    RunStatus,
+    RunTag,
+    SourceType,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import (_EXPERIMENT_ID_ENV_VAR,
-                                    _EXPERIMENT_NAME_ENV_VAR, _RUN_ID_ENV_VAR,
-                                    _get_experiment_id,
-                                    _get_experiment_id_from_env,
-                                    _paginate, search_runs,
-                                    set_experiment, start_run, get_run)
+from mlflow.tracking.fluent import (
+    _EXPERIMENT_ID_ENV_VAR,
+    _EXPERIMENT_NAME_ENV_VAR,
+    _RUN_ID_ENV_VAR,
+    _get_experiment_id,
+    _get_experiment_id_from_env,
+    _paginate,
+    search_runs,
+    set_experiment,
+    start_run,
+    get_run,
+)
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 
@@ -51,9 +66,18 @@ class HelperEnv:
             del os.environ[_EXPERIMENT_NAME_ENV_VAR]
 
 
-def create_run(run_id="", exp_id="", uid="", start=0, end=0,
-               metrics=None, params=None, tags=None,
-               status=RunStatus.FINISHED, a_uri=None):
+def create_run(
+    run_id="",
+    exp_id="",
+    uid="",
+    start=0,
+    end=0,
+    metrics=None,
+    params=None,
+    tags=None,
+    status=RunStatus.FINISHED,
+    a_uri=None,
+):
     return Run(
         RunInfo(
             run_uuid=run_id,
@@ -64,12 +88,10 @@ def create_run(run_id="", exp_id="", uid="", start=0, end=0,
             start_time=start,
             end_time=end,
             lifecycle_stage=LifecycleStage.ACTIVE,
-            artifact_uri=a_uri
-        ), RunData(
-            metrics=metrics,
-            params=params,
-            tags=tags
-        ))
+            artifact_uri=a_uri,
+        ),
+        RunData(metrics=metrics, params=params, tags=tags),
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -93,8 +115,11 @@ def test_all_fluent_apis_are_included_in_dunder_all():
     def _is_function_or_class(obj):
         return callable(obj) or inspect.isclass(obj)
 
-    apis = [a for a in dir(mlflow)
-            if _is_function_or_class(getattr(mlflow, a)) and not a.startswith('_')]
+    apis = [
+        a
+        for a in dir(mlflow)
+        if _is_function_or_class(getattr(mlflow, a)) and not a.startswith("_")
+    ]
     assert sorted(apis) == sorted(mlflow.__all__)
 
 
@@ -146,8 +171,11 @@ def test_get_experiment_id_with_no_active_experiments_returns_zero():
 def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
     notebook_id = 768
 
-    with mock.patch("mlflow.tracking.fluent.is_in_databricks_notebook") as notebook_detection_mock,\
-            mock.patch("mlflow.tracking.fluent.get_notebook_id") as notebook_id_mock:
+    with mock.patch(
+        "mlflow.tracking.fluent.is_in_databricks_notebook"
+    ) as notebook_detection_mock, mock.patch(
+        "mlflow.tracking.fluent.get_notebook_id"
+    ) as notebook_id_mock:
         notebook_detection_mock.return_value = True
         notebook_id_mock.return_value = notebook_id
         assert _get_experiment_id() == notebook_id
@@ -160,8 +188,11 @@ def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_e
         mlflow.set_experiment(exp_name)
         notebook_id = str(int(exp_id) + 73)
 
-    with mock.patch("mlflow.tracking.fluent.is_in_databricks_notebook") as notebook_detection_mock,\
-            mock.patch("mlflow.tracking.fluent.get_notebook_id") as notebook_id_mock:
+    with mock.patch(
+        "mlflow.tracking.fluent.is_in_databricks_notebook"
+    ) as notebook_detection_mock, mock.patch(
+        "mlflow.tracking.fluent.get_notebook_id"
+    ) as notebook_id_mock:
         notebook_detection_mock.return_value = True
         notebook_id_mock.return_value = notebook_id
 
@@ -176,8 +207,11 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
         notebook_id = str(int(exp_id) + 73)
         HelperEnv.set_values(experiment_id=exp_id)
 
-    with mock.patch("mlflow.tracking.fluent.is_in_databricks_notebook") as notebook_detection_mock,\
-            mock.patch("mlflow.tracking.fluent.get_notebook_id") as notebook_id_mock:
+    with mock.patch(
+        "mlflow.tracking.fluent.is_in_databricks_notebook"
+    ) as notebook_detection_mock, mock.patch(
+        "mlflow.tracking.fluent.get_notebook_id"
+    ) as notebook_id_mock:
         notebook_detection_mock.side_effect = lambda *args, **kwargs: True
         notebook_id_mock.side_effect = lambda *args, **kwargs: notebook_id
 
@@ -243,17 +277,15 @@ def test_start_run_defaults(empty_active_run_stack):
         mlflow_tags.MLFLOW_USER: mock_user,
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
         mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
-        mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version
+        mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
     }
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, user_patch, source_name_patch, \
-            source_type_patch, source_version_patch, create_run_patch:
+    with experiment_id_patch, databricks_notebook_patch, user_patch, source_name_patch, source_type_patch, source_version_patch, create_run_patch:
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id,
-            tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -295,17 +327,15 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_ID: mock_notebook_id,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_PATH: mock_notebook_path,
-        mlflow_tags.MLFLOW_DATABRICKS_WEBAPP_URL: mock_webapp_url
+        mlflow_tags.MLFLOW_DATABRICKS_WEBAPP_URL: mock_webapp_url,
     }
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, user_patch, source_version_patch, \
-            notebook_id_patch, notebook_path_patch, webapp_url_patch, create_run_patch:
+    with experiment_id_patch, databricks_notebook_patch, user_patch, source_version_patch, notebook_id_patch, notebook_path_patch, webapp_url_patch, create_run_patch:
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id,
-            tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -333,19 +363,15 @@ def test_start_run_with_parent():
         mlflow_tags.MLFLOW_USER: mock_user,
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
         mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.LOCAL),
-        mlflow_tags.MLFLOW_PARENT_RUN_ID: parent_run.info.run_id
+        mlflow_tags.MLFLOW_PARENT_RUN_ID: parent_run.info.run_id,
     }
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with databricks_notebook_patch, active_run_stack_patch, create_run_patch, user_patch, \
-            source_name_patch:
-        active_run = start_run(
-            experiment_id=mock_experiment_id, nested=True
-        )
+    with databricks_notebook_patch, active_run_stack_patch, create_run_patch, user_patch, source_name_patch:
+        active_run = start_run(experiment_id=mock_experiment_id, nested=True)
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id,
-            tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -417,16 +443,20 @@ def test_get_run():
 
 
 def test_search_runs_attributes():
-    runs = [create_run(status=RunStatus.FINISHED, a_uri="dbfs:/test", run_id='abc', exp_id="123"),
-            create_run(status=RunStatus.SCHEDULED, a_uri="dbfs:/test2", run_id='def', exp_id="321")]
-    with mock.patch('mlflow.tracking.fluent._paginate', return_value=runs):
+    runs = [
+        create_run(status=RunStatus.FINISHED, a_uri="dbfs:/test", run_id="abc", exp_id="123"),
+        create_run(status=RunStatus.SCHEDULED, a_uri="dbfs:/test2", run_id="def", exp_id="321"),
+    ]
+    with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
         pdf = search_runs()
-        data = {'status': [RunStatus.FINISHED, RunStatus.SCHEDULED],
-                'artifact_uri': ["dbfs:/test", "dbfs:/test2"],
-                'run_id': ['abc', 'def'],
-                'experiment_id': ["123", "321"],
-                'start_time': [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)],
-                'end_time': [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)]}
+        data = {
+            "status": [RunStatus.FINISHED, RunStatus.SCHEDULED],
+            "artifact_uri": ["dbfs:/test", "dbfs:/test2"],
+            "run_id": ["abc", "def"],
+            "experiment_id": ["123", "321"],
+            "start_time": [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)],
+            "end_time": [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)],
+        }
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
 
@@ -438,31 +468,39 @@ def test_search_runs_data():
             params=[Param("param", "value")],
             tags=[RunTag("tag", "value")],
             start=1564675200000,
-            end=1564683035000),
+            end=1564683035000,
+        ),
         create_run(
             metrics=[Metric("mse", 0.6, 0, 0), Metric("loss", 1.2, 0, 5)],
             params=[Param("param2", "val"), Param("k", "v")],
             tags=[RunTag("tag2", "v2")],
             start=1564765200000,
-            end=1564783200000)]
-    with mock.patch('mlflow.tracking.fluent._paginate', return_value=runs):
+            end=1564783200000,
+        ),
+    ]
+    with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
         pdf = search_runs()
         data = {
-            'status': [RunStatus.FINISHED]*2,
-            'artifact_uri': [None]*2,
-            'run_id': ['']*2,
-            'experiment_id': [""]*2,
-            'metrics.mse': [0.2, 0.6],
-            'metrics.loss': [np.nan, 1.2],
-            'params.param': ["value", None],
-            'params.param2': [None, "val"],
-            'params.k': [None, "v"],
-            'tags.tag': ["value", None],
-            'tags.tag2': [None, "v2"],
-            'start_time': [pd.to_datetime(1564675200000, unit="ms", utc=True),
-                           pd.to_datetime(1564765200000, unit="ms", utc=True)],
-            'end_time': [pd.to_datetime(1564683035000, unit="ms", utc=True),
-                         pd.to_datetime(1564783200000, unit="ms", utc=True)]}
+            "status": [RunStatus.FINISHED] * 2,
+            "artifact_uri": [None] * 2,
+            "run_id": [""] * 2,
+            "experiment_id": [""] * 2,
+            "metrics.mse": [0.2, 0.6],
+            "metrics.loss": [np.nan, 1.2],
+            "params.param": ["value", None],
+            "params.param2": [None, "val"],
+            "params.k": [None, "v"],
+            "tags.tag": ["value", None],
+            "tags.tag2": [None, "v2"],
+            "start_time": [
+                pd.to_datetime(1564675200000, unit="ms", utc=True),
+                pd.to_datetime(1564765200000, unit="ms", utc=True),
+            ],
+            "end_time": [
+                pd.to_datetime(1564683035000, unit="ms", utc=True),
+                pd.to_datetime(1564783200000, unit="ms", utc=True),
+            ],
+        }
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
 
@@ -472,9 +510,10 @@ def test_search_runs_no_arguments():
     When no experiment ID is specified, it should try to get the implicit one.
     """
     mock_experiment_id = mock.Mock()
-    experiment_id_patch = mock.patch("mlflow.tracking.fluent._get_experiment_id",
-                                     return_value=mock_experiment_id)
-    get_paginated_runs_patch = mock.patch('mlflow.tracking.fluent._paginate', return_value=[])
+    experiment_id_patch = mock.patch(
+        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
+    )
+    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=[])
     with experiment_id_patch, get_paginated_runs_patch:
         search_runs()
         mlflow.tracking.fluent._paginate.assert_called_once()
@@ -580,9 +619,7 @@ def test_paginate_gt_maxresults_multipage():
     mocked_lambda = mock.Mock(side_effect=[full_page_runs, full_page_runs, partial_page])
 
     paginated_runs = _paginate(mocked_lambda, max_per_page, max_results)
-    calls = [mock.call(8, None),
-             mock.call(8, "abc"),
-             mock.call(20 % 8, "abc")]
+    calls = [mock.call(8, None), mock.call(8, "abc"), mock.call(20 % 8, "abc")]
     mocked_lambda.assert_has_calls(calls)
     assert len(paginated_runs) == 20
 
@@ -608,15 +645,15 @@ def test_delete_tag():
     Confirm that fluent API delete tags actually works
     :return:
     """
-    mlflow.set_tag('a', 'b')
+    mlflow.set_tag("a", "b")
     run = MlflowClient().get_run(mlflow.active_run().info.run_id)
     print(run.info.run_id)
-    assert 'a' in run.data.tags
-    mlflow.delete_tag('a')
+    assert "a" in run.data.tags
+    mlflow.delete_tag("a")
     run = MlflowClient().get_run(mlflow.active_run().info.run_id)
-    assert 'a' not in run.data.tags
+    assert "a" not in run.data.tags
     with pytest.raises(MlflowException):
-        mlflow.delete_tag('a')
+        mlflow.delete_tag("a")
     with pytest.raises(MlflowException):
-        mlflow.delete_tag('b')
+        mlflow.delete_tag("b")
     mlflow.end_run()

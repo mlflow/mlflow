@@ -6,19 +6,21 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.validation import _validate_db_type_string
 
-_INVALID_DB_URI_MSG = "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for " \
-                      "format specifications."
+_INVALID_DB_URI_MSG = (
+    "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
+    "format specifications."
+)
 
 
 def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
     scheme = urllib.parse.urlparse(uri).scheme
-    return uri != 'databricks' and (scheme == '' or scheme == 'file')
+    return uri != "databricks" and (scheme == "" or scheme == "file")
 
 
 def is_http_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == 'http' or scheme == 'https'
+    return scheme == "http" or scheme == "https"
 
 
 def is_databricks_uri(uri):
@@ -27,12 +29,12 @@ def is_databricks_uri(uri):
     or 'databricks://secret_scope:secret_key_prefix'.
     """
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == 'databricks' or uri == 'databricks'
+    return scheme == "databricks" or uri == "databricks"
 
 
 def construct_db_uri_from_profile(profile):
     if profile:
-        return 'databricks://' + profile
+        return "databricks://" + profile
 
 
 def get_db_info_from_uri(uri):
@@ -42,7 +44,7 @@ def get_db_info_from_uri(uri):
     """
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.scheme == "databricks":
-        parsed_path = parsed_uri.path.lstrip('/') or None
+        parsed_path = parsed_uri.path.lstrip("/") or None
         parsed_profile = parsed_uri.netloc
         return parsed_profile, parsed_path
     return None, None
@@ -55,13 +57,13 @@ def get_databricks_profile_uri_from_artifact_uri(uri):
     ``profile@databricks`` or ``secret_scope:key_prefix@databricks``.
     """
     parsed = urllib.parse.urlparse(uri)
-    if not parsed.netloc or parsed.hostname != 'databricks':
+    if not parsed.netloc or parsed.hostname != "databricks":
         return None
     if not parsed.username:  # no profile or scope:key
-        return 'databricks'  # the default tracking/registry URI
+        return "databricks"  # the default tracking/registry URI
     # TODO: we may change the delimiter to ":" from "/" for key_prefix
-    key_prefix = '/' + parsed.password if parsed.password else ''
-    return 'databricks://' + parsed.username + key_prefix
+    key_prefix = "/" + parsed.password if parsed.password else ""
+    return "databricks://" + parsed.username + key_prefix
 
 
 def remove_databricks_profile_info_from_artifact_uri(artifact_uri):
@@ -71,9 +73,9 @@ def remove_databricks_profile_info_from_artifact_uri(artifact_uri):
     ``profile@databricks`` or ``secret_scope:key_prefix@databricks``.
     """
     parsed = urllib.parse.urlparse(artifact_uri)
-    if not parsed.netloc or parsed.hostname != 'databricks':
+    if not parsed.netloc or parsed.hostname != "databricks":
         return artifact_uri
-    return urllib.parse.urlunparse(parsed._replace(netloc=''))
+    return urllib.parse.urlunparse(parsed._replace(netloc=""))
 
 
 def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile_uri):
@@ -88,17 +90,21 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
         return artifact_uri
 
     scheme = artifact_uri_parsed.scheme
-    if scheme == 'dbfs' or scheme == 'runs' or scheme == 'models':
-        if databricks_profile_uri == 'databricks':
-            netloc = 'databricks'
+    if scheme == "dbfs" or scheme == "runs" or scheme == "models":
+        if databricks_profile_uri == "databricks":
+            netloc = "databricks"
         else:
             (profile, key_prefix) = get_db_info_from_uri(databricks_profile_uri)
-            if ':' in profile:
-                raise MlflowException("Unsupported Databricks profile name: %s." % profile +
-                                      " Profile names cannot contain ':'.")
-            if key_prefix and '/' in key_prefix:
-                raise MlflowException("Unsupported Databricks profile key prefix: %s."
-                                      % key_prefix + " Key prefixes cannot contain '/'.")
+            if ":" in profile:
+                raise MlflowException(
+                    "Unsupported Databricks profile name: %s." % profile
+                    + " Profile names cannot contain ':'."
+                )
+            if key_prefix and "/" in key_prefix:
+                raise MlflowException(
+                    "Unsupported Databricks profile key prefix: %s." % key_prefix
+                    + " Key prefixes cannot contain '/'."
+                )
             prefix = ":" + key_prefix if key_prefix else ""
             netloc = profile + prefix + "@databricks"
         new_parsed = artifact_uri_parsed._replace(netloc=netloc)
@@ -113,12 +119,12 @@ def extract_db_type_from_uri(db_uri):
     supported. If a driver is specified, confirm it passes a plausible regex.
     """
     scheme = urllib.parse.urlparse(db_uri).scheme
-    scheme_plus_count = scheme.count('+')
+    scheme_plus_count = scheme.count("+")
 
     if scheme_plus_count == 0:
         db_type = scheme
     elif scheme_plus_count == 1:
-        db_type, _ = scheme.split('+')
+        db_type, _ = scheme.split("+")
     else:
         error_msg = "Invalid database URI: '%s'. %s" % (db_uri, _INVALID_DB_URI_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
@@ -214,19 +220,20 @@ def is_databricks_acled_artifacts_uri(artifact_uri):
 
 def construct_run_url(hostname, experiment_id, run_id, workspace_id=None):
     if not hostname or not experiment_id or not run_id:
-        raise MlflowException('Hostname, experiment ID, and run ID are all required to construct'
-                              'a run URL')
+        raise MlflowException(
+            "Hostname, experiment ID, and run ID are all required to construct" "a run URL"
+        )
     prefix = hostname
-    if workspace_id and workspace_id != '0':
+    if workspace_id and workspace_id != "0":
         prefix += "?o=" + workspace_id
-    return prefix + '#mlflow/experiments/{experiment_id}/runs/{run_id}'.format(
-        experiment_id=experiment_id,
-        run_id=run_id)
+    return prefix + "#mlflow/experiments/{experiment_id}/runs/{run_id}".format(
+        experiment_id=experiment_id, run_id=run_id
+    )
 
 
 def is_valid_dbfs_uri(uri):
     parsed = urllib.parse.urlparse(uri)
-    if parsed.scheme != 'dbfs':
+    if parsed.scheme != "dbfs":
         return False
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(uri)
     return not parsed.netloc or db_profile_uri is not None

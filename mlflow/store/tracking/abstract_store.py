@@ -254,8 +254,14 @@ class AbstractStore:
         """
         pass
 
-    def list_run_infos(self, experiment_id, run_view_type, max_results=SEARCH_MAX_RESULTS_DEFAULT,
-                       order_by=None, page_token=None):
+    def list_run_infos(
+        self,
+        experiment_id,
+        run_view_type,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+    ):
         """
         Return run information for runs which belong to the experiment_id.
 
@@ -271,8 +277,9 @@ class AbstractStore:
             ``token`` attribute of the object; however, some store implementations may not support
             pagination and thus the returned token would not be meaningful in such cases.
         """
-        search_result = self.search_runs([experiment_id], None, run_view_type, max_results,
-                                         order_by, page_token)
+        search_result = self.search_runs(
+            [experiment_id], None, run_view_type, max_results, order_by, page_token
+        )
         return PagedList([run.info for run in search_result], search_result.token)
 
     @abstractmethod
