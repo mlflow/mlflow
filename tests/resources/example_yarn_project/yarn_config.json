@@ -1,9 +1,0 @@
-
-{
-  "additional_files": [],
-  "num_cores": 1,
-  "memory": 1024,
-  "queue": "default",
-  "hadoop_filesystems": "viewfs://root",
-  "hadoop_conf_dir": "/etc/hadoop/conf"
-}
