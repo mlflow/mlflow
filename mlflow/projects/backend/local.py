@@ -4,6 +4,13 @@ import platform
 import posixpath
 import subprocess
 import sys
+import tempfile
+
+try:
+    import cluster_pack
+except ModuleNotFoundError:
+    # optional dependency
+    pass
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -81,6 +88,16 @@ class LocalBackend(AbstractBackend):
                 volumes=project.docker_env.get("volumes"),
                 user_env_vars=project.docker_env.get("environment"),
             )
+            command_args += get_entry_point_command(project, entry_point, params, storage_dir)
+        elif project.pip_path and use_conda:
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "pip")
+            cmd = get_entry_point_command(project, entry_point, params, storage_dir)[0]
+            tmp_dir = storage_dir if storage_dir else tempfile.mkdtemp()
+            package_path = cluster_pack.upload_spec(
+                project.pip_path, os.path.join(tmp_dir, project.name.replace(" ", "_") + ".pex")
+            )
+            command_args += [package_path]
+            command_args += [_strip_python(cmd)]
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
         elif use_conda:
@@ -88,11 +105,13 @@ class LocalBackend(AbstractBackend):
             command_separator = " && "
             conda_env_name = get_or_create_conda_env(project.conda_env_path)
             command_args += get_conda_command(conda_env_name)
+            command_args += get_entry_point_command(project, entry_point, params, storage_dir)
+        else:
+            command_args += get_entry_point_command(project, entry_point, params, storage_dir)
         # In synchronous mode, run the entry point command in a blocking fashion, sending status
         # updates to the tracking server when finished. Note that the run state may not be
         # persisted to the tracking server if interrupted
         if synchronous:
-            command_args += get_entry_point_command(project, entry_point, params, storage_dir)
             command_str = command_separator.join(command_args)
             return _run_entry_point(
                 command_str, work_dir, experiment_id, run_id=active_run.info.run_id
@@ -332,3 +351,13 @@ def _get_docker_artifact_storage_cmd_and_envs(artifact_uri):
         return _get_cmd_and_envs(artifact_repo)
     else:
         return [], {}
+
+
+def _strip_python(cmd):
+    import shlex
+
+    parts = shlex.split(cmd)
+    if len(parts) > 0 and parts[0].startswith("python"):
+        parts = parts[1:]
+
+    return " ".join(parts)

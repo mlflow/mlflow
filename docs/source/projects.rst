@@ -38,7 +38,8 @@ Environment
     The software environment that should be used to execute project entry points. This includes all
     library dependencies required by the project code. See :ref:`project-environments` for more
     information about the software environments supported by MLflow Projects, including
-    :ref:`Conda environments <project-conda-environments>` and 
+    :ref:`Conda environments <project-conda-environments>`, 
+    :ref:`Pip environments <project-pip-environments>` and 
     :ref:`Docker containers <project-docker-container-environments>`.
 
 You can run any project from a Git URI or from a local directory using the ``mlflow run``
@@ -70,7 +71,7 @@ that is used to execute project entry points.
 
 Project Environments
 ^^^^^^^^^^^^^^^^^^^^
-MLflow currently supports the following project environments: Conda environment, Docker container environment, and system environment.
+MLflow currently supports the following project environments: Conda environment, Pip environment, Docker container environment, and system environment.
 
 .. _project-conda-environments:
 
@@ -86,6 +87,13 @@ Conda environment
   You can specify a Conda environment for your MLflow project by including a ``conda.yaml``
   file in the root of the project directory or by including a ``conda_env`` entry in your
   ``MLproject`` file. For details, see the :ref:`project-directories` and :ref:`mlproject-specify-environment` sections.
+
+  .. _project-pip-environments:
+
+Pip environment
+  You can specify a pip environment for your MLflow project by including a ``requirements.txt``
+  file in the root of the project directory or by including a ``pip_path`` entry in your
+  ``MLproject`` file. For details, see :ref:`mlproject-specify-environment` sections.
 
 .. _project-docker-container-environments:
 
@@ -188,7 +196,7 @@ Specifying an Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This section describes how to specify Conda and Docker container environments in an ``MLproject`` file.
-``MLproject`` files cannot specify *both* a Conda environment and a Docker environment.
+``MLproject`` files can only specify either a Conda environment, a Pip environment or a Docker environment.
 
 Conda environment
   Include a top-level ``conda_env`` entry in the ``MLproject`` file.
@@ -202,6 +210,20 @@ Conda environment
 
   ``conda_env`` refers to an environment file located at 
   ``<MLFLOW_PROJECT_DIRECTORY>/files/config/conda_environment.yaml``, where 
+  ``<MLFLOW_PROJECT_DIRECTORY>`` is the path to the MLflow project's root directory.
+
+Pip environment
+  Include a top-level ``pip_path`` entry in the ``MLproject`` file.
+  The value of this entry must be a *relative* path to a `requirements file
+  <https://pip.pypa.io/en/stable/user_guide/#requirements-files>`_
+  within the MLflow project's directory. In the following example: 
+
+  .. code-block:: yaml
+
+    pip_env: files/config/requirements.txt
+
+  ``pip_path`` refers to an environment file located at 
+  ``<MLFLOW_PROJECT_DIRECTORY>/files/config/requirements.txt``, where 
   ``<MLFLOW_PROJECT_DIRECTORY>`` is the path to the MLflow project's root directory.
 
 Docker container environment

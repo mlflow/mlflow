@@ -1,7 +1,12 @@
 import mock
 import os
+import pytest
 
+import mlflow
 from mlflow.projects.backend.local import _get_docker_artifact_storage_cmd_and_envs
+from tests.projects.utils import TEST_PIP_PROJECT_DIR, validate_exit_status
+from mlflow.entities import RunStatus
+from mlflow.store.tracking.file_store import FileStore
 
 
 def test_docker_s3_artifact_cmd_and_envs_from_env():
@@ -81,3 +86,22 @@ def test_docker_unknown_uri_artifact_cmd_and_envs():
     cmd, envs = _get_docker_artifact_storage_cmd_and_envs("file-plugin://some_path")
     assert cmd == []
     assert envs == {}
+
+
+@pytest.mark.large
+def test_run_pip_project():
+    submitted_run = mlflow.projects.run(
+        TEST_PIP_PROJECT_DIR,
+        entry_point="compute_intersection",
+        parameters={"size": 10000},
+        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+    )
+    assert submitted_run.run_id is not None
+    validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
+
+    run_id = submitted_run.run_id
+    mlflow_service = mlflow.tracking.MlflowClient()
+    run = mlflow_service.get_run(run_id)
+
+    assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
+    assert run.data.params == {"size": "10000"}

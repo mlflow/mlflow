@@ -14,6 +14,7 @@ from mlflow.utils.string_utils import is_string_type
 
 MLPROJECT_FILE_NAME = "mlproject"
 DEFAULT_CONDA_FILE_NAME = "conda.yaml"
+DEFAULT_REQUIREMENTS_FILE_NAME = "requirements.txt"
 
 
 def _find_mlproject(directory):
@@ -68,10 +69,19 @@ def load_project(directory):
                     """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])"""
                 )
 
-    # Validate config if conda_env parameter is present
     conda_path = yaml_obj.get("conda_env")
-    if conda_path and docker_env:
-        raise ExecutionException("Project cannot contain both a docker and " "conda environment.")
+
+    pip_path = yaml_obj.get("pip_path")
+
+    if (
+        (conda_path and pip_path)
+        or (conda_path and docker_env)
+        or (docker_env and pip_path)
+        or (docker_env and pip_path and conda_path)
+    ):
+        raise ExecutionException(
+            "Project can only contain either docker_env, conda_env or pip_path."
+        )
 
     # Parse entry points
     entry_points = {}
@@ -80,41 +90,42 @@ def load_project(directory):
         command = entry_point_yaml.get("command")
         entry_points[name] = EntryPoint(name, parameters, command)
 
-    if conda_path:
-        conda_env_path = os.path.join(directory, conda_path)
-        if not os.path.exists(conda_env_path):
-            raise ExecutionException(
-                "Project specified conda environment file %s, but no such "
-                "file was found." % conda_env_path
-            )
-        return Project(
-            conda_env_path=conda_env_path,
-            entry_points=entry_points,
-            docker_env=docker_env,
-            name=project_name,
-        )
-
-    default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
-    if os.path.exists(default_conda_path):
-        return Project(
-            conda_env_path=default_conda_path,
-            entry_points=entry_points,
-            docker_env=docker_env,
-            name=project_name,
-        )
+    conda_env_path = _get_path_from_spec(conda_path, directory, DEFAULT_CONDA_FILE_NAME)
+    pip_env_path = _get_path_from_spec(pip_path, directory, DEFAULT_REQUIREMENTS_FILE_NAME)
 
     return Project(
-        conda_env_path=None, entry_points=entry_points, docker_env=docker_env, name=project_name
+        conda_env_path=conda_env_path,
+        entry_points=entry_points,
+        docker_env=docker_env,
+        pip_path=pip_env_path,
+        name=project_name,
     )
+
+
+def _get_path_from_spec(spec, directory, default_file_name):
+    if spec:
+        env_path = os.path.join(directory, spec)
+        if not os.path.exists(env_path):
+            raise ExecutionException(
+                "Project specified environment file %s, but no such " "file was found." % env_path
+            )
+        return env_path
+
+    default_env_path = os.path.join(directory, default_file_name)
+    if os.path.exists(default_env_path):
+        return default_env_path
+
+    return None
 
 
 class Project(object):
     """A project specification loaded from an MLproject file in the passed-in directory."""
 
-    def __init__(self, conda_env_path, entry_points, docker_env, name):
+    def __init__(self, conda_env_path, entry_points, docker_env, pip_path, name):
         self.conda_env_path = conda_env_path
         self._entry_points = entry_points
         self.docker_env = docker_env
+        self.pip_path = pip_path
         self.name = name
 
     def get_entry_point(self, entry_point):

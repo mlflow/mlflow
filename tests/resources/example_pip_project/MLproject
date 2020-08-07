@@ -1,0 +1,7 @@
+name: Example yarn project with pip
+
+entry_points:
+  compute_intersection:
+    parameters:
+      size: {type: int, default: 10000}
+    command: "python compute_intersection.py {size}"
