@@ -119,7 +119,7 @@ def test_log_artifact(gcs_mock, tmpdir):
 
     # This will call isfile on the code path being used,
     # thus testing that it's being called with an actually file path
-    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.upload_from_filename.side_effect = (
+    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.upload_from_filename.side_effect = (  # noqa
         os.path.isfile
     )
     repo.log_artifact(fpath)
@@ -137,7 +137,7 @@ def test_log_artifacts(gcs_mock, tmpdir):
     subd.join("b.txt").write("B")
     subd.join("c.txt").write("C")
 
-    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.upload_from_filename.side_effect = (
+    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.upload_from_filename.side_effect = (  # noqa
         os.path.isfile
     )
     repo.log_artifacts(subd.strpath)
@@ -161,7 +161,7 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
         f = tmpdir.join(fname)
         f.write("hello world!")
 
-    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.download_to_filename.side_effect = (
+    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.download_to_filename.side_effect = (  # noqa
         mkfile
     )
 
@@ -228,7 +228,7 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
 
     gcs_mock.Client.return_value.bucket.return_value.list_blobs.side_effect = get_mock_listing
 
-    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.download_to_filename.side_effect = (
+    gcs_mock.Client.return_value.bucket.return_value.blob.return_value.download_to_filename.side_effect = (  # noqa
         mkfile
     )
 

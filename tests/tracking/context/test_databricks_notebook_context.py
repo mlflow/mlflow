@@ -21,7 +21,7 @@ def test_databricks_notebook_run_context_tags():
     patch_notebook_path = mock.patch("mlflow.utils.databricks_utils.get_notebook_path")
     patch_webapp_url = mock.patch("mlflow.utils.databricks_utils.get_webapp_url")
 
-    with patch_notebook_id as notebook_id_mock, patch_notebook_path as notebook_path_mock, patch_webapp_url as webapp_url_mock:
+    with patch_notebook_id as notebook_id_mock, patch_notebook_path as notebook_path_mock, patch_webapp_url as webapp_url_mock:  # noqa
         assert DatabricksNotebookRunContext().tags() == {
             MLFLOW_SOURCE_NAME: notebook_path_mock.return_value,
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),

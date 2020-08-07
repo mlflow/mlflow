@@ -766,8 +766,8 @@ def _create_sagemaker_endpoint(
             failure_reason = endpoint_info.get(
                 "FailureReason",
                 (
-                    "An unknown SageMaker failure occurred. Please see the SageMaker console logs for"
-                    " more information."
+                    "An unknown SageMaker failure occurred. Please see the SageMaker console logs"
+                    " for more information."
                 ),
             )
             return _SageMakerOperationStatus.failed(failure_reason)
@@ -888,7 +888,7 @@ def _update_sagemaker_endpoint(
             failure_reason = endpoint_info.get(
                 "FailureReason",
                 (
-                    "An unknown SageMaker failure occurred. Please see the SageMaker console logs for"
+                    "An unknown SageMaker failure occurred. Please see the SageMaker console logs for"  # noqa
                     " more information."
                 ),
             )

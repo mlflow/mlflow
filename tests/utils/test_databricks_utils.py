@@ -103,7 +103,7 @@ def test_get_workspace_info_from_databricks_secrets():
 
 def test_get_workspace_info_from_dbutils():
     mock_dbutils = mock.MagicMock()
-    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.toJson.return_value = (
+    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.toJson.return_value = (  # noqa
         '{"extraContext":'
         '{"api_url": "https://mlflow.databricks.com"},'
         '"tags": {"orgId" : "1111"}}'

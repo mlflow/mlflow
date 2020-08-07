@@ -893,8 +893,8 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
     assert any(
         [
             (
-                "The version of CloudPickle used to save the model could not be found in the MLmodel"
-                " configuration"
+                "The version of CloudPickle used to save the model could not be found"
+                " in the MLmodel configuration"
             )
             in log_message
             for log_message in log_messages

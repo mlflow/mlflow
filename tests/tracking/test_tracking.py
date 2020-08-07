@@ -575,7 +575,7 @@ def test_get_artifact_uri_uses_currently_active_run_id():
         ),
         (
             "mysql+driver://user:password@host:port/dbname/subpath/#fragment",
-            "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",
+            "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",  # noqa
         ),
         ("s3://bucketname/rootpath", "s3://bucketname/rootpath/{run_id}/artifacts/{path}",),
         ("/dirname/rootpa#th?", "/dirname/rootpa#th?/{run_id}/artifacts/{path}",),
