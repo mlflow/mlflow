@@ -94,7 +94,7 @@ class TestDatabricksArtifactRepository(object):
          'databricks://someProfile'),
         ('dbfs://scope:key@databricks/databricks/mlflow-tracking/experiment/1/run/2',
          'dbfs:/databricks/mlflow-tracking/experiment/1/run/2',
-         'databricks://scope/key'),
+         'databricks://scope:key'),
         ('dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts',
          'dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts',
          'databricks://getTrackingUriDefault'),

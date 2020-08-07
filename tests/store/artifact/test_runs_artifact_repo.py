@@ -42,7 +42,7 @@ def test_parse_runs_uri_invalid_input(uri):
          's3:/some/path', 's3:/some/path'),
         ('runs://profile@databricks/1234abcdf1394asdfwer33/path/model', 'databricks://profile',
          'dbfs:/some/path', 'dbfs://profile@databricks/some/path'),
-        ('runs://scope:key@databricks/1234abcdf1394asdfwer33/path/model', 'databricks://scope/key',
+        ('runs://scope:key@databricks/1234abcdf1394asdfwer33/path/model', 'databricks://scope:key',
          'dbfs:/some/path', 'dbfs://scope:key@databricks/some/path'),
     ]
 )

@@ -57,7 +57,7 @@ def test_upload_artifacts_to_databricks():
             mock.patch(import_root + ".DbfsRestArtifactRepository") as repo_mock:
         new_source = _upload_artifacts_to_databricks('dbfs:/original/sourcedir/', 'runid12345',
                                                      'databricks://tracking',
-                                                     'databricks://registry/ws')
+                                                     'databricks://registry:ws')
         download_mock.assert_called_once_with('dbfs://tracking@databricks/original/sourcedir/',
                                               ANY)
         repo_mock.assert_called_once_with(
@@ -72,7 +72,7 @@ def test_upload_artifacts_to_databricks_no_run_id():
             mock.patch(import_root + ".DbfsRestArtifactRepository") as repo_mock, \
             mock.patch("uuid.uuid4", return_value=UUID("4f746cdcc0374da2808917e81bb53323")):
         new_source = _upload_artifacts_to_databricks('dbfs:/original/sourcedir/', None,
-                                                     'databricks://tracking/ws',
+                                                     'databricks://tracking:ws',
                                                      'databricks://registry')
         download_mock.assert_called_once_with('dbfs://tracking:ws@databricks/original/sourcedir/',
                                               ANY)
