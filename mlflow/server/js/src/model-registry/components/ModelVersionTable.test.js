@@ -26,10 +26,10 @@ describe('ModelVersionTable', () => {
     const props = {
       ...minimalProps,
       modelVersions: [
-        mockModelVersionDetailed('Model A', 1, Stages.NONE, ModelVersionStatus.READY, []),
-        mockModelVersionDetailed('Model A', 2, Stages.PRODUCTION, ModelVersionStatus.READY, []),
-        mockModelVersionDetailed('Model A', 3, Stages.STAGING, ModelVersionStatus.READY, []),
-        mockModelVersionDetailed('Model A', 4, Stages.ARCHIVED, ModelVersionStatus.READY, []),
+        mockModelVersionDetailed('Model A', 1, Stages.NONE, ModelVersionStatus.READY),
+        mockModelVersionDetailed('Model A', 2, Stages.PRODUCTION, ModelVersionStatus.READY),
+        mockModelVersionDetailed('Model A', 3, Stages.STAGING, ModelVersionStatus.READY),
+        mockModelVersionDetailed('Model A', 4, Stages.ARCHIVED, ModelVersionStatus.READY),
       ],
     };
     wrapper = shallow(<ModelVersionTable {...props} />);

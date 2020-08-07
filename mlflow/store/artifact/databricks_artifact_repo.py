@@ -12,22 +12,17 @@ import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
-from mlflow.protos.databricks_artifacts_pb2 import (
-    DatabricksMlflowArtifactsService,
-    GetCredentialsForWrite,
-    GetCredentialsForRead,
-    ArtifactCredentialType,
-)
+from mlflow.protos.databricks_artifacts_pb2 import DatabricksMlflowArtifactsService, \
+    GetCredentialsForWrite, GetCredentialsForRead, ArtifactCredentialType
 from mlflow.protos.service_pb2 import MlflowService, GetRun, ListArtifacts
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path, yield_file_in_chunks
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
-from mlflow.utils.uri import (
-    extract_and_normalize_path,
-    is_databricks_acled_artifacts_uri,
-)
+from mlflow.utils.uri import extract_and_normalize_path, \
+    get_databricks_profile_uri_from_artifact_uri, is_databricks_acled_artifacts_uri, \
+    is_valid_dbfs_uri, remove_databricks_profile_info_from_artifact_uri
 
 _logger = logging.getLogger(__name__)
 _PATH_PREFIX = "/api/2.0"
@@ -52,22 +47,22 @@ class DatabricksArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        super(DatabricksArtifactRepository, self).__init__(artifact_uri)
-        if not artifact_uri.startswith("dbfs:/"):
-            raise MlflowException(
-                message="DatabricksArtifactRepository URI must start with dbfs:/",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        if not is_valid_dbfs_uri(artifact_uri):
+            raise MlflowException(message="DBFS URI must be of the form dbfs:/<path> or " +
+                                  "dbfs://profile@databricks/<path>",
+                                  error_code=INVALID_PARAMETER_VALUE)
         if not is_databricks_acled_artifacts_uri(artifact_uri):
-            raise MlflowException(
-                message=(
-                    "Artifact URI incorrect. Expected path prefix to be"
-                    " databricks/mlflow-tracking/path/to/artifact/.."
-                ),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        self.run_id = self._extract_run_id(self.artifact_uri)
+            raise MlflowException(message=('Artifact URI incorrect. Expected path prefix to be'
+                                           ' databricks/mlflow-tracking/path/to/artifact/..'),
+                                  error_code=INVALID_PARAMETER_VALUE)
+        # The dbfs:/ path ultimately used for artifact operations should not contain the
+        # Databricks profile info, so strip it before setting ``artifact_uri``.
+        super(DatabricksArtifactRepository, self).__init__(
+            remove_databricks_profile_info_from_artifact_uri(artifact_uri))
 
+        self.databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri) \
+            or mlflow.tracking.get_tracking_uri()
+        self.run_id = self._extract_run_id(self.artifact_uri)
         # Fetch the artifact root for the MLflow Run associated with `artifact_uri` and compute
         # the path of `artifact_uri` relative to the MLflow Run's artifact root
         # (the `run_relative_artifact_repo_root_path`). All operations performed on this artifact
@@ -79,9 +74,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
             path=artifact_repo_root_path, start=run_artifact_root_path
         )
         # If the paths are equal, then use empty string over "./" for ListArtifact compatibility.
-        self.run_relative_artifact_repo_root_path = (
+        self.run_relative_artifact_repo_root_path = \
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
-        )
 
     @staticmethod
     def _extract_run_id(artifact_uri):
@@ -97,33 +91,34 @@ class DatabricksArtifactRepository(ArtifactRepository):
         :return: run_id extracted from the artifact_uri
         """
         artifact_path = extract_and_normalize_path(artifact_uri)
-        return artifact_path.split("/")[3]
+        return artifact_path.split('/')[3]
 
     def _call_endpoint(self, service, api, json_body):
-        db_creds = get_databricks_host_creds(mlflow.tracking.get_tracking_uri())
+        db_creds = get_databricks_host_creds(self.databricks_profile_uri)
         endpoint, method = _SERVICE_AND_METHOD_TO_INFO[service][api]
         response_proto = api.Response()
         return call_endpoint(db_creds, endpoint, method, json_body, response_proto)
 
     def _get_run_artifact_root(self, run_id):
         json_body = message_to_json(GetRun(run_id=run_id))
-        run_response = self._call_endpoint(MlflowService, GetRun, json_body)
+        run_response = self._call_endpoint(MlflowService,
+                                           GetRun, json_body)
         return run_response.run.info.artifact_uri
 
     def _get_write_credentials(self, run_id, path=None):
         json_body = message_to_json(GetCredentialsForWrite(run_id=run_id, path=path))
-        return self._call_endpoint(
-            DatabricksMlflowArtifactsService, GetCredentialsForWrite, json_body
-        )
+        return self._call_endpoint(DatabricksMlflowArtifactsService,
+                                   GetCredentialsForWrite, json_body)
 
     def _get_read_credentials(self, run_id, path=None):
         json_body = message_to_json(GetCredentialsForRead(run_id=run_id, path=path))
-        return self._call_endpoint(
-            DatabricksMlflowArtifactsService, GetCredentialsForRead, json_body
-        )
+        return self._call_endpoint(DatabricksMlflowArtifactsService,
+                                   GetCredentialsForRead, json_body)
 
     def _extract_headers_from_credentials(self, headers):
-        return {header.name: header.value for header in headers}
+        return {
+            header.name: header.value for header in headers
+        }
 
     def _azure_upload_file(self, credentials, local_file, artifact_path):
         """
@@ -140,9 +135,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            service = BlobClient.from_blob_url(
-                blob_url=credentials.signed_uri, credential=None, headers=headers
-            )
+            service = BlobClient.from_blob_url(blob_url=credentials.signed_uri, credential=None,
+                                               headers=headers)
             uploading_block_list = list()
             for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
                 block_id = base64.b64encode(uuid.uuid4().hex.encode())
@@ -151,11 +145,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 except ClientAuthenticationError:
                     _logger.warning(
                         "Failed to authorize request, possibly due to credential expiration."
-                        "Refreshing credentials and trying again.."
-                    )
-                    credentials = self._get_write_credentials(
-                        self.run_id, artifact_path
-                    ).credentials.signed_uri
+                        "Refreshing credentials and trying again..")
+                    credentials = self._get_write_credentials(self.run_id,
+                                                              artifact_path).credentials.signed_uri
                     service = BlobClient.from_blob_url(blob_url=credentials, credential=None)
                     service.stage_block(block_id, chunk, headers=headers)
                 uploading_block_list.append(block_id)
@@ -164,11 +156,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
             except ClientAuthenticationError:
                 _logger.warning(
                     "Failed to authorize request, possibly due to credential expiration."
-                    "Refreshing credentials and trying again.."
-                )
-                credentials = self._get_write_credentials(
-                    self.run_id, artifact_path
-                ).credentials.signed_uri
+                    "Refreshing credentials and trying again..")
+                credentials = self._get_write_credentials(self.run_id,
+                                                          artifact_path).credentials.signed_uri
                 service = BlobClient.from_blob_url(blob_url=credentials, credential=None)
                 service.commit_block_list(uploading_block_list, headers=headers)
         except Exception as err:
@@ -182,7 +172,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             if os.stat(local_file).st_size == 0:
                 put_request = requests.put(signed_write_uri, "", headers=headers)
             else:
-                with open(local_file, "rb") as file:
+                with open(local_file, 'rb') as file:
                     put_request = requests.put(signed_write_uri, file, headers=headers)
             put_request.raise_for_status()
         except Exception as err:
@@ -194,9 +184,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         elif cloud_credentials.credentials.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
             self._aws_upload_file(cloud_credentials.credentials, local_file)
         else:
-            raise MlflowException(
-                message="Cloud provider not supported.", error_code=INTERNAL_ERROR
-            )
+            raise MlflowException(message='Cloud provider not supported.',
+                                  error_code=INTERNAL_ERROR)
 
     def _download_from_cloud(self, cloud_credential, local_file_path):
         """
@@ -211,13 +200,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
         allowing content retrieval to be made via `iter_content`.
         In addition, since the connection is kept open, refreshing credentials is not required.
         """
-        if cloud_credential.type not in [
-            ArtifactCredentialType.AZURE_SAS_URI,
-            ArtifactCredentialType.AWS_PRESIGNED_URL,
-        ]:
-            raise MlflowException(
-                message="Cloud provider not supported.", error_code=INTERNAL_ERROR
-            )
+        if cloud_credential.type not in [ArtifactCredentialType.AZURE_SAS_URI,
+                                         ArtifactCredentialType.AWS_PRESIGNED_URL]:
+            raise MlflowException(message='Cloud provider not supported.',
+                                  error_code=INTERNAL_ERROR)
         try:
             signed_read_uri = cloud_credential.signed_uri
             with requests.get(signed_read_uri, stream=True) as response:
@@ -236,8 +222,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         artifact_path = posixpath.join(artifact_path, basename)
         if len(artifact_path) > 0:
             run_relative_artifact_path = posixpath.join(
-                self.run_relative_artifact_repo_root_path, artifact_path
-            )
+                self.run_relative_artifact_repo_root_path, artifact_path)
         else:
             run_relative_artifact_path = self.run_relative_artifact_repo_root_path
         write_credentials = self._get_write_credentials(self.run_id, run_relative_artifact_path)
@@ -257,7 +242,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def list_artifacts(self, path=None):
         if path:
-            run_relative_path = posixpath.join(self.run_relative_artifact_repo_root_path, path)
+            run_relative_path = posixpath.join(
+                self.run_relative_artifact_repo_root_path, path)
         else:
             run_relative_path = self.run_relative_artifact_repo_root_path
         infos = []
@@ -265,29 +251,22 @@ class DatabricksArtifactRepository(ArtifactRepository):
         while True:
             if page_token:
                 json_body = message_to_json(
-                    ListArtifacts(
-                        run_id=self.run_id, path=run_relative_path, page_token=page_token,
-                    )
-                )
+                    ListArtifacts(run_id=self.run_id, path=run_relative_path,
+                                  page_token=page_token))
             else:
                 json_body = message_to_json(
-                    ListArtifacts(run_id=self.run_id, path=run_relative_path)
-                )
+                    ListArtifacts(run_id=self.run_id, path=run_relative_path))
             response = self._call_endpoint(MlflowService, ListArtifacts, json_body)
             artifact_list = response.files
             # If `path` is a file, ListArtifacts returns a single list element with the
             # same name as `path`. The list_artifacts API expects us to return an empty list in this
             # case, so we do so here.
-            if (
-                len(artifact_list) == 1
-                and artifact_list[0].path == run_relative_path
-                and not artifact_list[0].is_dir
-            ):
+            if len(artifact_list) == 1 and artifact_list[0].path == run_relative_path \
+                    and not artifact_list[0].is_dir:
                 return []
             for output_file in artifact_list:
                 file_rel_path = posixpath.relpath(
-                    path=output_file.path, start=self.run_relative_artifact_repo_root_path,
-                )
+                    path=output_file.path, start=self.run_relative_artifact_repo_root_path)
                 artifact_size = None if output_file.is_dir else output_file.file_size
                 infos.append(FileInfo(file_rel_path, output_file.is_dir, artifact_size))
             if len(artifact_list) == 0 or not response.next_page_token:
@@ -297,10 +276,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         run_relative_remote_file_path = posixpath.join(
-            self.run_relative_artifact_repo_root_path, remote_file_path
-        )
+            self.run_relative_artifact_repo_root_path, remote_file_path)
         read_credentials = self._get_read_credentials(self.run_id, run_relative_remote_file_path)
         self._download_from_cloud(read_credentials.credentials, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException("Not implemented yet")
+        raise MlflowException('Not implemented yet')

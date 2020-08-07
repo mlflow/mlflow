@@ -160,7 +160,7 @@ class ModelRegistryClient(object):
 
     def create_model_version(self, name, source, run_id, tags=None, run_link=None):
         """
-        Create a new model version from given source or run ID.
+        Create a new model version from given source.
 
         :param name: Name of the containing registered model.
         :param source: Source path where the MLflow model is stored.

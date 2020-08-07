@@ -94,9 +94,11 @@ class TrackingServiceClient(object):
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
         )
 
-    def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
+    def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY,
+                       max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
         """:return: List of :py:class:`mlflow.entities.RunInfo`"""
-        return self.store.list_run_infos(experiment_id, run_view_type)
+        return self.store.list_run_infos(experiment_id, run_view_type, max_results, order_by,
+                                         page_token)
 
     def list_experiments(self, view_type=None):
         """
@@ -252,6 +254,8 @@ class TrackingServiceClient(object):
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
+        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
+        #   for DBFS artifact repositories to use the correct tracking URI.
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         if os.path.isdir(local_path):
             dir_name = os.path.basename(os.path.normpath(local_path))
@@ -270,6 +274,8 @@ class TrackingServiceClient(object):
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
+        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
+        #   for DBFS artifact repositories to use the correct tracking URI.
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.log_artifacts(local_dir, artifact_path)
 
@@ -284,6 +290,8 @@ class TrackingServiceClient(object):
         """
         run = self.get_run(run_id)
         artifact_root = run.info.artifact_uri
+        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
+        #   for DBFS artifact repositories to use the correct tracking URI.
         artifact_repo = get_artifact_repository(artifact_root)
         return artifact_repo.list_artifacts(path)
 
@@ -303,6 +311,8 @@ class TrackingServiceClient(object):
         """
         run = self.get_run(run_id)
         artifact_root = run.info.artifact_uri
+        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
+        #   for DBFS artifact repositories to use the correct tracking URI.
         artifact_repo = get_artifact_repository(artifact_root)
         return artifact_repo.download_artifacts(path, dst_path)
 

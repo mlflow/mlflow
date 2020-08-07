@@ -6,11 +6,8 @@ import textwrap
 from flask import Flask, send_from_directory, Response
 
 from mlflow.server import handlers
-from mlflow.server.handlers import (
-    get_artifact_handler,
-    STATIC_PREFIX_ENV_VAR,
-    _add_static_prefix,
-)
+from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, \
+    _add_static_prefix, get_model_version_artifact_handler
 from mlflow.utils.process import exec_cmd
 
 # NB: These are intenrnal environment variables used for communication between
@@ -30,7 +27,6 @@ for http_path, handler, methods in handlers.get_endpoints():
 
 if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter
-
     prometheus_metrics_path = os.getenv(PROMETHEUS_EXPORTER_ENV_VAR)
     if not os.path.exists(prometheus_metrics_path):
         os.makedirs(prometheus_metrics_path)
@@ -44,26 +40,31 @@ def health():
 
 
 # Serve the "get-artifact" route.
-@app.route(_add_static_prefix("/get-artifact"))
+@app.route(_add_static_prefix('/get-artifact'))
 def serve_artifacts():
     return get_artifact_handler()
 
 
+# Serve the "model-versions/get-artifact" route.
+@app.route(_add_static_prefix('/model-versions/get-artifact'))
+def serve_model_version_artifact():
+    return get_model_version_artifact_handler()
+
+
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
 # CSS/JS resources will be made to e.g. /static-files/main.css and we can handle them here.
-@app.route(_add_static_prefix("/static-files/<path:path>"))
+@app.route(_add_static_prefix('/static-files/<path:path>'))
 def serve_static_file(path):
     return send_from_directory(STATIC_DIR, path)
 
 
 # Serve the index.html for the React App for all other routes.
-@app.route(_add_static_prefix("/"))
+@app.route(_add_static_prefix('/'))
 def serve():
     if os.path.exists(os.path.join(STATIC_DIR, "index.html")):
-        return send_from_directory(STATIC_DIR, "index.html")
+        return send_from_directory(STATIC_DIR, 'index.html')
 
-    text = textwrap.dedent(
-        """
+    text = textwrap.dedent('''
     Unable to display MLflow UI - landing page (index.html) not found.
 
     You are very likely running the MLflow server using a source installation of the Python MLflow
@@ -75,18 +76,19 @@ def serve():
 
     Otherwise, uninstall MLflow via 'pip uninstall mlflow', reinstall an official MLflow release
     from PyPI via 'pip install mlflow', and rerun the MLflow server.
-    """
-    )
-    return Response(text, mimetype="text/plain")
+    ''')
+    return Response(text, mimetype='text/plain')
 
 
 def _build_waitress_command(waitress_opts, host, port):
     opts = shlex.split(waitress_opts) if waitress_opts else []
-    return (
-        ["waitress-serve"]
-        + opts
-        + ["--host=%s" % host, "--port=%s" % port, "--ident=mlflow", "mlflow.server:app",]
-    )
+    return ['waitress-serve'] + \
+        opts + [
+            "--host=%s" % host,
+            "--port=%s" % port,
+            "--ident=mlflow",
+            "mlflow.server:app"
+    ]
 
 
 def _build_gunicorn_command(gunicorn_opts, host, port, workers):
@@ -95,17 +97,8 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers):
     return ["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"]
 
 
-def _run_server(
-    file_store_path,
-    default_artifact_root,
-    host,
-    port,
-    static_prefix=None,
-    workers=None,
-    gunicorn_opts=None,
-    waitress_opts=None,
-    expose_prometheus=None,
-):
+def _run_server(file_store_path, default_artifact_root, host, port, static_prefix=None,
+                workers=None, gunicorn_opts=None, waitress_opts=None, expose_prometheus=None):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
     :param static_prefix: If set, the index.html asset will be served from the path static_prefix.
@@ -124,7 +117,7 @@ def _run_server(
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
     # TODO: eventually may want waitress on non-win32
-    if sys.platform == "win32":
+    if sys.platform == 'win32':
         full_command = _build_waitress_command(waitress_opts, host, port)
     else:
         full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4)
