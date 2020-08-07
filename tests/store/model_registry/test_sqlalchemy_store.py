@@ -820,17 +820,29 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual([str(x) for x in parsed], ['registered_models.name DESC'])
 
         # test that an exception is raised when order_by contains duplicate fields
-        order_bys = [
-            ['name', 'name'],
-            ['last_updated_timestamp', 'last_updated_timestamp'],
-            ['timestamp', 'timestamp'],
-            ['timestamp', 'last_updated_timestamp'],
-            ['last_updated_timestamp ASC', 'last_updated_timestamp DESC'],
-            ['last_updated_timestamp', 'last_updated_timestamp DESC'],
-        ]
-        for order_by in order_bys:
-            with self.assertRaisesRegex(MlflowException, 'order_by contains duplicate fields:'):
-                SqlAlchemyStore._parse_search_registered_models_order_by(order_by)
+        msg = 'order_by contains duplicate fields:'
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_registered_models_order_by(
+                ['last_updated_timestamp', 'last_updated_timestamp']
+            )
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_registered_models_order_by(['timestamp', 'timestamp'])
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_registered_models_order_by(
+                ['timestamp', 'last_updated_timestamp'],
+            )
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_registered_models_order_by(
+                ['last_updated_timestamp ASC', 'last_updated_timestamp DESC'],
+            )
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_registered_models_order_by(
+                ['last_updated_timestamp', 'last_updated_timestamp DESC'],
+            )
 
     def test_search_registered_model_pagination(self):
         rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
