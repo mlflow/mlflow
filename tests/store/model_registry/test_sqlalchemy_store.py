@@ -815,11 +815,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         parsed = SqlAlchemyStore._parse_search_registered_models_order_by([])
         self.assertEqual([str(x) for x in parsed], ['registered_models.name ASC'])
 
-        # test that when order_by contains a name field, the given name field is used
+        # test that the given 'name' replaces the default one ('registered_models.name ASC')
         parsed = SqlAlchemyStore._parse_search_registered_models_order_by(['name DESC'])
         self.assertEqual([str(x) for x in parsed], ['registered_models.name DESC'])
 
-        # test that an exception is thrown when order_by contains duplicate fields
+        # test that an exception is raised when order_by contains duplicate fields
         order_bys = [
             ['name', 'name'],
             ['last_updated_timestamp', 'last_updated_timestamp'],
