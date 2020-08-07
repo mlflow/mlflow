@@ -660,7 +660,7 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
             obj = sess.resource("s3").Bucket(bucket).Object(key)
             obj.upload_fileobj(fobj)
             response = s3_client.put_object_tagging(
-                Bucket=bucket, Key=key, Tagging={"TagSet": [{"Key": "SageMaker", "Value": "true"},]}
+                Bucket=bucket, Key=key, Tagging={"TagSet": [{"Key": "SageMaker", "Value": "true"}]}
             )
             _logger.info("tag response: %s", response)
             return "{}/{}/{}".format(s3_client.meta.endpoint_url, bucket, key)
@@ -735,7 +735,7 @@ def _create_sagemaker_endpoint(
     endpoint_config_response = sage_client.create_endpoint_config(
         EndpointConfigName=config_name,
         ProductionVariants=[production_variant],
-        Tags=[{"Key": "app_name", "Value": endpoint_name,},],
+        Tags=[{"Key": "app_name", "Value": endpoint_name}],
     )
     _logger.info(
         "Created endpoint configuration with arn: %s", endpoint_config_response["EndpointConfigArn"]
@@ -860,7 +860,7 @@ def _update_sagemaker_endpoint(
     endpoint_config_response = sage_client.create_endpoint_config(
         EndpointConfigName=new_config_name,
         ProductionVariants=production_variants,
-        Tags=[{"Key": "app_name", "Value": endpoint_name,},],
+        Tags=[{"Key": "app_name", "Value": endpoint_name}],
     )
     _logger.info(
         "Created new endpoint configuration with arn: %s",

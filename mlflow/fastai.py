@@ -52,7 +52,7 @@ def get_default_conda_env(include_cloudpickle=False):
 
         pip_deps = ["cloudpickle=={}".format(cloudpickle.__version__)]
     return _mlflow_conda_env(
-        additional_conda_deps=["fastai={}".format(fastai.__version__),],
+        additional_conda_deps=["fastai={}".format(fastai.__version__)],
         additional_pip_deps=pip_deps,
         additional_conda_channels=None,
     )

@@ -113,7 +113,7 @@ def test_download_artifacts_returns_absolute_paths(local_artifact_repo):
             assert dst_path == os.path.abspath(dst_path)
 
 
-@pytest.mark.parametrize("repo_subdir_path", ["aaa", "aaa/bbb", "aaa/bbb/ccc/ddd",])
+@pytest.mark.parametrize("repo_subdir_path", ["aaa", "aaa/bbb", "aaa/bbb/ccc/ddd"])
 def test_artifacts_are_logged_to_and_downloaded_from_repo_subdirectory_successfully(
     local_artifact_repo, repo_subdir_path
 ):

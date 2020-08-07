@@ -549,7 +549,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
         pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
             python_model=TorchValidatorModel(),
-            artifacts={"pytorch_model": model_path,},
+            artifacts={"pytorch_model": model_path},
         )
         pyfunc_model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(

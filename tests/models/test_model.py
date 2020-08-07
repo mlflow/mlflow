@@ -15,7 +15,7 @@ def test_model_save_load():
     m = Model(
         artifact_path="some/path",
         run_id="123",
-        flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2},},
+        flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2}},
         signature=ModelSignature(
             inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
             outputs=Schema([ColSpec(name=None, type="double")]),
@@ -31,7 +31,7 @@ def test_model_save_load():
     n = Model(
         artifact_path="some/path",
         run_id="123",
-        flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2},},
+        flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2}},
         signature=ModelSignature(
             inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
             outputs=Schema([ColSpec(name=None, type="double")]),

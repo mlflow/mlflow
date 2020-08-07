@@ -303,7 +303,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_
     app_name = "test-app"
     result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
         mfscli.commands,
-        ["deploy", "-a", app_name, "-m", model_s3_uri, "--mode", mfs.DEPLOYMENT_MODE_CREATE,],
+        ["deploy", "-a", app_name, "-m", model_s3_uri, "--mode", mfs.DEPLOYMENT_MODE_CREATE],
     )
     assert result.exit_code == 0
 

@@ -243,7 +243,7 @@ def test_schema_enforcement_no_col_names():
             return pdf
 
     m = Model()
-    input_schema = Schema([ColSpec("double"), ColSpec("double"), ColSpec("double"),])
+    input_schema = Schema([ColSpec("double"), ColSpec("double"), ColSpec("double")])
     m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
     test_data = [[1.0, 2.0, 3.0]]

@@ -68,7 +68,7 @@ class TestRun(TestRunInfo, TestRunData):
         self._check_run(run2, run_info, metrics, params, tags)
 
         run3 = Run(run_info, None)
-        self.assertEqual(run3.to_dictionary(), {"info": expected_info_dict,})
+        self.assertEqual(run3.to_dictionary(), {"info": expected_info_dict})
 
     def test_string_repr(self):
         run_info = RunInfo(

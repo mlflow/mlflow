@@ -55,7 +55,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(
         additional_conda_deps=None,
         # LightGBM is not yet available via the default conda channels, so we install it via pip
-        additional_pip_deps=["lightgbm=={}".format(lgb.__version__),],
+        additional_pip_deps=["lightgbm=={}".format(lgb.__version__)],
         additional_conda_channels=None,
     )
 

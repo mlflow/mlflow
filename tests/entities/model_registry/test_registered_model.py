@@ -97,7 +97,7 @@ class TestRegisteredModel(unittest.TestCase):
         self.assertEqual(proto.creation_timestamp, 1)
         self.assertEqual(proto.last_updated_timestamp, 4000)
         self.assertEqual(set([mvd.version for mvd in proto.latest_versions]), set(["1", "4"]))
-        self.assertEqual(set([mvd.name for mvd in proto.latest_versions]), set([name,]))
+        self.assertEqual(set([mvd.name for mvd in proto.latest_versions]), set([name]))
         self.assertEqual(
             set([mvd.current_stage for mvd in proto.latest_versions]),
             set(["Production", "Staging"]),

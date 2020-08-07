@@ -144,7 +144,7 @@ def test_list_artifacts_root(hdfs_system_mock):
     expected = [FileInfo("model", True, 0)]
 
     hdfs_system_mock.return_value.ls.return_value = [
-        {"kind": "directory", "name": "hdfs://host/some/path/model", "size": 0,}
+        {"kind": "directory", "name": "hdfs://host/some/path/model", "size": 0}
     ]
 
     actual = repo.list_artifacts()
@@ -163,9 +163,9 @@ def test_list_artifacts_nested(hdfs_system_mock):
     ]
 
     hdfs_system_mock.return_value.ls.return_value = [
-        {"kind": "file", "name": "hdfs://host/some/path/model/conda.yaml", "size": 33,},
-        {"kind": "file", "name": "hdfs://host/some/path/model/model.pkl", "size": 33,},
-        {"kind": "file", "name": "hdfs://host/some/path/model/MLmodel", "size": 33,},
+        {"kind": "file", "name": "hdfs://host/some/path/model/conda.yaml", "size": 33},
+        {"kind": "file", "name": "hdfs://host/some/path/model/model.pkl", "size": 33},
+        {"kind": "file", "name": "hdfs://host/some/path/model/MLmodel", "size": 33},
     ]
 
     actual = repo.list_artifacts("model")

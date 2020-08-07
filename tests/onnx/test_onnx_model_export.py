@@ -111,7 +111,7 @@ def onnx_model_multiple_inputs_float64(tf_model_multiple_inputs_float64):
     sess = tf.Session(graph=tf_model_multiple_inputs_float64)
 
     onnx_graph = tf2onnx.tfonnx.process_tf_graph(
-        sess.graph, input_names=["first_input:0", "second_input:0",], output_names=["output:0"]
+        sess.graph, input_names=["first_input:0", "second_input:0"], output_names=["output:0"]
     )
     model_proto = onnx_graph.make_model("test")
     return model_proto
@@ -124,7 +124,7 @@ def onnx_model_multiple_inputs_float32(tf_model_multiple_inputs_float32):
     sess = tf.Session(graph=tf_model_multiple_inputs_float32)
 
     onnx_graph = tf2onnx.tfonnx.process_tf_graph(
-        sess.graph, input_names=["first_input:0", "second_input:0",], output_names=["output:0"]
+        sess.graph, input_names=["first_input:0", "second_input:0"], output_names=["output:0"]
     )
     model_proto = onnx_graph.make_model("test")
     return model_proto
@@ -133,7 +133,7 @@ def onnx_model_multiple_inputs_float32(tf_model_multiple_inputs_float32):
 @pytest.fixture(scope="module")
 def data_multiple_inputs():
     return pd.DataFrame(
-        {"first_input:0": np.random.random(10), "second_input:0": np.random.random(10),}
+        {"first_input:0": np.random.random(10), "second_input:0": np.random.random(10)}
     )
 
 

@@ -12,7 +12,7 @@ from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRep
 
 @pytest.mark.parametrize(
     "artifact_uri, uri_at_init",
-    [("dbfs:/path", "file:///dbfs/path"), ("dbfs://databricks/path", "file:///dbfs/path"),],
+    [("dbfs:/path", "file:///dbfs/path"), ("dbfs://databricks/path", "file:///dbfs/path")],
 )
 def test_dbfs_artifact_repo_factory_local_repo(artifact_uri, uri_at_init):
     with mock.patch(
@@ -27,7 +27,7 @@ def test_dbfs_artifact_repo_factory_local_repo(artifact_uri, uri_at_init):
 
 @pytest.mark.parametrize(
     "artifact_uri",
-    [("dbfs://someProfile@databricks/path"), ("dbfs://somewhere:else@databricks/path"),],
+    [("dbfs://someProfile@databricks/path"), ("dbfs://somewhere:else@databricks/path")],
 )
 def test_dbfs_artifact_repo_factory_dbfs_rest_repo(artifact_uri):
     with mock.patch(
@@ -66,7 +66,7 @@ def test_dbfs_artifact_repo_factory_acled_paths(artifact_uri):
 
 
 @pytest.mark.parametrize(
-    "artifact_uri", [("notdbfs:/path"), ("dbfs://some:where@notdatabricks/path"),]
+    "artifact_uri", [("notdbfs:/path"), ("dbfs://some:where@notdatabricks/path")]
 )
 def test_dbfs_artifact_repo_factory_errors(artifact_uri):
     with pytest.raises(MlflowException):

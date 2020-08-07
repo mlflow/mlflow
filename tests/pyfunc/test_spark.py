@@ -127,7 +127,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
             return [model_input.columns] * len(model_input)
 
     signature = ModelSignature(
-        inputs=Schema([ColSpec("long", "a"), ColSpec("long", "b"), ColSpec("long", "c"),]),
+        inputs=Schema([ColSpec("long", "a"), ColSpec("long", "b"), ColSpec("long", "c")]),
         outputs=Schema([ColSpec("integer")]),
     )
     with mlflow.start_run() as run:

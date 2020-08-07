@@ -51,7 +51,7 @@ def test_download_artifacts_does_not_infinitely_loop(base_uri, download_arg, lis
 
 @pytest.mark.parametrize(
     "base_uri, download_arg, list_return_val",
-    [("", "12345/model", ["12345/model", "12345/model/modelfile", "12345/model/emptydir"]),],
+    [("", "12345/model", ["12345/model", "12345/model/modelfile", "12345/model/emptydir"])],
 )
 def test_download_artifacts_handles_empty_dir(base_uri, download_arg, list_return_val):
     def list_artifacts(path):

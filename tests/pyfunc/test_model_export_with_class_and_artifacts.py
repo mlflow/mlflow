@@ -197,7 +197,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
-            artifacts={"sk_model": sklearn_model_uri,},
+            artifacts={"sk_model": sklearn_model_uri},
             python_model=main_scoped_model_class(test_predict),
         )
         pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
@@ -761,7 +761,7 @@ def test_save_model_with_python_model_argument_of_invalid_type_raises_exeption(t
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.save_model(
-            path=model_path, artifacts={"artifact": "/path/to/artifact",}, python_model=None
+            path=model_path, artifacts={"artifact": "/path/to/artifact"}, python_model=None
         )
     assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
 
@@ -780,7 +780,7 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
             path=model_path,
             python_model=python_model,
             data_path="/path/to/data",
-            artifacts={"artifact": "/path/to/artifact",},
+            artifacts={"artifact": "/path/to/artifact"},
         )
     assert "The following sets of parameters cannot be specified together" in str(exc_info)
 
@@ -794,7 +794,7 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
     with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.log_model(
             artifact_path="pyfunc_model",
-            artifacts={"artifact": "/path/to/artifact",},
+            artifacts={"artifact": "/path/to/artifact"},
             python_model=None,
         )
     assert (
@@ -818,7 +818,7 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
             artifact_path="pyfunc_model",
             python_model=python_model,
             data_path="/path/to/data",
-            artifacts={"artifact1": "/path/to/artifact",},
+            artifacts={"artifact1": "/path/to/artifact"},
         )
     assert "The following sets of parameters cannot be specified together" in str(exc_info)
 

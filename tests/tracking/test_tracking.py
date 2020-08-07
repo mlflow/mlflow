@@ -224,9 +224,9 @@ def test_log_batch():
     for key, value in finished_run.data.metrics.items():
         assert expected_metrics[key] == value
     metric_history0 = client.get_metric_history(run_id, "metric-key0")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history0]) == set([(1.0, t, 0),])
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history0]) == set([(1.0, t, 0)])
     metric_history1 = client.get_metric_history(run_id, "metric-key1")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history1]) == set([(4.0, t, 1),])
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history1]) == set([(4.0, t, 1)])
 
     # Validate tags (for automatically-set tags)
     assert len(finished_run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
@@ -267,35 +267,29 @@ def test_log_metric():
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_id, "name_1")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == set(
-        [(25, 123 * 1000, 0), (30, 123 * 1000, 5), (40, 123 * 1000, -2),]
+        [(25, 123 * 1000, 0), (30, 123 * 1000, 5), (40, 123 * 1000, -2)]
     )
     metric_history_name2 = client.get_metric_history(run_id, "name_2")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name2]) == set(
-        [(-3, 123 * 1000, 0),]
+        [(-3, 123 * 1000, 0)]
     )
 
 
 def test_log_metrics_uses_millisecond_timestamp_resolution_fluent():
     with start_run() as active_run, mock.patch("time.time") as time_mock:
         time_mock.side_effect = lambda: 123
-        mlflow.log_metrics(
-            {"name_1": 25, "name_2": -3,}
-        )
-        mlflow.log_metrics(
-            {"name_1": 30,}
-        )
-        mlflow.log_metrics(
-            {"name_1": 40,}
-        )
+        mlflow.log_metrics({"name_1": 25, "name_2": -3})
+        mlflow.log_metrics({"name_1": 30})
+        mlflow.log_metrics({"name_1": 40})
         run_id = active_run.info.run_id
 
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_id, "name_1")
     assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set(
-        [(25, 123 * 1000), (30, 123 * 1000), (40, 123 * 1000),]
+        [(25, 123 * 1000), (30, 123 * 1000), (40, 123 * 1000)]
     )
     metric_history_name2 = client.get_metric_history(run_id, "name_2")
-    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([(-3, 123 * 1000),])
+    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([(-3, 123 * 1000)])
 
 
 def test_log_metrics_uses_millisecond_timestamp_resolution_client():
@@ -311,10 +305,10 @@ def test_log_metrics_uses_millisecond_timestamp_resolution_client():
 
     metric_history_name1 = mlflow_client.get_metric_history(run_id, "name_1")
     assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set(
-        [(25, 123 * 1000), (30, 123 * 1000), (40, 123 * 1000),]
+        [(25, 123 * 1000), (30, 123 * 1000), (40, 123 * 1000)]
     )
     metric_history_name2 = mlflow_client.get_metric_history(run_id, "name_2")
-    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([(-3, 123 * 1000),])
+    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([(-3, 123 * 1000)])
 
 
 @pytest.mark.parametrize("step_kwarg", [None, -10, 5])

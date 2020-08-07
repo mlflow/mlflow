@@ -55,13 +55,13 @@ def test_dir(tmpdir):
 
 LIST_ARTIFACTS_RESPONSE = {
     "files": [
-        {"path": "/test/a.txt", "is_dir": False, "file_size": 100,},
-        {"path": "/test/dir", "is_dir": True, "file_size": 0,},
+        {"path": "/test/a.txt", "is_dir": False, "file_size": 100},
+        {"path": "/test/dir", "is_dir": True, "file_size": 0},
     ]
 }
 
 LIST_ARTIFACTS_SINGLE_FILE_RESPONSE = {
-    "files": [{"path": "/test/a.txt", "is_dir": False, "file_size": 0,}]
+    "files": [{"path": "/test/a.txt", "is_dir": False, "file_size": 0}]
 }
 
 
@@ -99,7 +99,7 @@ class TestDbfsArtifactRepository(object):
 
     @pytest.mark.parametrize(
         "artifact_path,expected_endpoint",
-        [(None, "/dbfs/test/test.txt"), ("output", "/dbfs/test/output/test.txt"),],
+        [(None, "/dbfs/test/test.txt"), ("output", "/dbfs/test/output/test.txt")],
     )
     def test_log_artifact(self, dbfs_artifact_repo, test_file, artifact_path, expected_endpoint):
         with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:

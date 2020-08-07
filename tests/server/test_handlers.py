@@ -123,8 +123,8 @@ def test_all_model_registry_endpoints_available():
             _rename_registered_model,
             _transition_stage,
         ],
-        "PATCH": [_update_registered_model, _update_model_version,],
-        "DELETE": [_delete_registered_model, _delete_registered_model,],
+        "PATCH": [_update_registered_model, _update_model_version],
+        "DELETE": [_delete_registered_model, _delete_registered_model],
         "GET": [
             _list_registered_models,
             _search_model_versions,

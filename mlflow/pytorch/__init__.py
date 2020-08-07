@@ -57,7 +57,7 @@ def get_default_conda_env():
             # and `log_model()`: `mlflow.pytorch.pickle_module`.
             "cloudpickle=={}".format(cloudpickle.__version__)
         ],
-        additional_conda_channels=["pytorch",],
+        additional_conda_channels=["pytorch"],
     )
 
 

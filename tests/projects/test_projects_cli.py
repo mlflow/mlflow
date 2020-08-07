@@ -43,9 +43,7 @@ def test_run_local_params():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize(
-    "experiment_name", [b"test-experiment".decode("utf-8"), "test-experiment",]
-)
+@pytest.mark.parametrize("experiment_name", [b"test-experiment".decode("utf-8"), "test-experiment"])
 def test_run_local_experiment_specification(experiment_name):
     invoke_cli_runner(
         cli.run,
@@ -65,7 +63,7 @@ def test_run_local_experiment_specification(experiment_name):
 
     invoke_cli_runner(
         cli.run,
-        [TEST_PROJECT_DIR, "-e", "greeter", "-P", "name=test", "--experiment-id", experiment_id,],
+        [TEST_PROJECT_DIR, "-e", "greeter", "-P", "name=test", "--experiment-id", experiment_id],
     )
 
 

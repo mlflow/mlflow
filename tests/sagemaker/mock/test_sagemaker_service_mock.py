@@ -282,7 +282,7 @@ def test_created_endpoint_is_listed_by_list_endpoints_function(sagemaker_client)
     sagemaker_client.create_endpoint(
         EndpointConfigName=endpoint_config_name,
         EndpointName=endpoint_name,
-        Tags=[{"Key": "Some Key", "Value": "Some Value",},],
+        Tags=[{"Key": "Some Key", "Value": "Some Value"}],
     )
 
     endpoints_response = sagemaker_client.list_endpoints()
@@ -309,7 +309,7 @@ def test_create_endpoint_returns_arn_containing_endpoint_name(sagemaker_client):
     create_endpoint_response = sagemaker_client.create_endpoint(
         EndpointConfigName=endpoint_config_name,
         EndpointName=endpoint_name,
-        Tags=[{"Key": "Some Key", "Value": "Some Value",},],
+        Tags=[{"Key": "Some Key", "Value": "Some Value"}],
     )
 
     assert "EndpointArn" in create_endpoint_response
@@ -333,14 +333,14 @@ def test_creating_endpoint_with_name_already_in_use_raises_exception(sagemaker_c
     sagemaker_client.create_endpoint(
         EndpointConfigName=endpoint_config_name,
         EndpointName=endpoint_name,
-        Tags=[{"Key": "Some Key", "Value": "Some Value",},],
+        Tags=[{"Key": "Some Key", "Value": "Some Value"}],
     )
 
     with pytest.raises(ValueError):
         sagemaker_client.create_endpoint(
             EndpointConfigName=endpoint_config_name,
             EndpointName=endpoint_name,
-            Tags=[{"Key": "Some Key", "Value": "Some Value",},],
+            Tags=[{"Key": "Some Key", "Value": "Some Value"}],
         )
 
 
@@ -365,7 +365,7 @@ def test_all_endpoint_are_listed_after_creating_many_endpoints(sagemaker_client)
         sagemaker_client.create_endpoint(
             EndpointConfigName=endpoint_config_name,
             EndpointName=endpoint_name,
-            Tags=[{"Key": "Some Key", "Value": "Some Value",},],
+            Tags=[{"Key": "Some Key", "Value": "Some Value"}],
         )
 
     listed_endpoints = sagemaker_client.list_endpoints()["Endpoints"]
