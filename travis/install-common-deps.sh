@@ -35,7 +35,7 @@ pip install --upgrade pip==19.3.1
 if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
   # When downloading large packages from PyPI, the connection is sometimes aborted by the
   # remote host. See https://github.com/pypa/pip/issues/8510.
-  # As a workaround, we retry installation of packages.
+  # As a workaround, we retry installation of large packages.
   retry-with-backoff pip install --quiet -r ./travis/small-requirements.txt
 fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
