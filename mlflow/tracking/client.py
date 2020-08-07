@@ -18,12 +18,10 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import experimental
-from mlflow.utils.databricks_utils import (
-    is_databricks_default_tracking_uri,
-    is_in_databricks_notebook,
-    get_workspace_info_from_dbutils,
-    get_workspace_info_from_databricks_secrets,
-)
+from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri, \
+    is_in_databricks_job, is_in_databricks_notebook, get_workspace_info_from_dbutils, \
+    get_workspace_info_from_databricks_secrets
+from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
 
 _logger = logging.getLogger(__name__)
@@ -85,8 +83,7 @@ class MlflowClient(object):
                     "Model Registry features are not supported by the store with URI:"
                     " '{uri}'. Stores with the following URI schemes are supported:"
                     " {schemes}.".format(uri=self._registry_uri, schemes=exc.supported_uri_schemes),
-                    FEATURE_DISABLED,
-                )
+                    FEATURE_DISABLED)
         return registry_client
 
     # Tracking API
@@ -134,18 +131,11 @@ class MlflowClient(object):
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags)
 
-    def list_run_infos(
-        self,
-        experiment_id,
-        run_view_type=ViewType.ACTIVE_ONLY,
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
-        order_by=None,
-        page_token=None,
-    ):
+    def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY,
+                       max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
         """:return: List of :py:class:`mlflow.entities.RunInfo`"""
-        return self._tracking_client.list_run_infos(
-            experiment_id, run_view_type, max_results, order_by, page_token
-        )
+        return self._tracking_client.list_run_infos(experiment_id, run_view_type, max_results,
+                                                    order_by, page_token)
 
     def list_experiments(self, view_type=None):
         """
@@ -343,15 +333,8 @@ class MlflowClient(object):
         """
         self._tracking_client.restore_run(run_id)
 
-    def search_runs(
-        self,
-        experiment_ids,
-        filter_string="",
-        run_view_type=ViewType.ACTIVE_ONLY,
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
-        order_by=None,
-        page_token=None,
-    ):
+    def search_runs(self, experiment_ids, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
         """
         Search experiments that fit the search criteria.
 
@@ -370,9 +353,8 @@ class MlflowClient(object):
             expressions. If the underlying tracking store supports pagination, the token for
             the next page may be obtained via the ``token`` attribute of the returned object.
         """
-        return self._tracking_client.search_runs(
-            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
-        )
+        return self._tracking_client.search_runs(experiment_ids, filter_string, run_view_type,
+                                                 max_results, order_by, page_token)
 
     # Registry API
 
@@ -416,9 +398,8 @@ class MlflowClient(object):
         if description is None:
             raise MlflowException("Attempting to update registered model with no new field values.")
 
-        return self._get_registry_client().update_registered_model(
-            name=name, description=description
-        )
+        return self._get_registry_client().update_registered_model(name=name,
+                                                                   description=description)
 
     @experimental
     def delete_registered_model(self, name):
@@ -431,9 +412,9 @@ class MlflowClient(object):
         self._get_registry_client().delete_registered_model(name)
 
     @experimental
-    def list_registered_models(
-        self, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, page_token=None
-    ):
+    def list_registered_models(self,
+                               max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+                               page_token=None):
         """
         List of all registered models
 
@@ -447,13 +428,11 @@ class MlflowClient(object):
         return self._get_registry_client().list_registered_models(max_results, page_token)
 
     @experimental
-    def search_registered_models(
-        self,
-        filter_string=None,
-        max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-        order_by=None,
-        page_token=None,
-    ):
+    def search_registered_models(self,
+                                 filter_string=None,
+                                 max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+                                 order_by=None,
+                                 page_token=None):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
@@ -467,9 +446,8 @@ class MlflowClient(object):
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
         """
-        return self._get_registry_client().search_registered_models(
-            filter_string, max_results, order_by, page_token
-        )
+        return self._get_registry_client().search_registered_models(filter_string, max_results,
+                                                                    order_by, page_token)
 
     @experimental
     def get_registered_model(self, name):
@@ -537,48 +515,43 @@ class MlflowClient(object):
         new_source = source
         if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
             # Print out some info for user since the copy may take a while for large models.
-            _logger.info(
-                "=== Copying model files from the source location to the model "
-                + " registry workspace ==="
-            )
-            new_source = _upload_artifacts_to_databricks(
-                source, run_id, tracking_uri, self._registry_uri
-            )
+            eprint("=== Copying model files from the source location to the model" +
+                   " registry workspace ===")
+            new_source = _upload_artifacts_to_databricks(source, run_id, tracking_uri,
+                                                         self._registry_uri)
             # NOTE: we can't easily delete the target temp location due to the async nature
             # of the model version creation - printing to let the user know.
-            _logger.info(
-                """
-                === Source model files were copied to %s
-                    in the model registry workspace. You may want to delete the files once the
-                    model version is in 'READY' status. You can also find this location in the
-                    `source` field of the created model version. ===
-                """,
-                new_source,
-            )
+            eprint("=== Source model files were copied to %s" % new_source +
+                   " in the model registry workspace. You may want to delete the files once the" +
+                   " model version is in 'READY' status. You can also find this location in the" +
+                   " `source` field of the created model version. ===")
         return self._get_registry_client().create_model_version(
-            name=name, source=new_source, run_id=run_id, tags=tags, run_link=run_link
-        )
+            name=name,
+            source=new_source,
+            run_id=run_id,
+            tags=tags,
+            run_link=run_link)
 
     def _get_run_link(self, tracking_uri, run_id):
         # if using the default Databricks tracking URI and in a notebook, we can automatically
         # figure out the run-link.
-        if is_databricks_default_tracking_uri(tracking_uri) and is_in_databricks_notebook():
+        if is_databricks_default_tracking_uri(tracking_uri) and \
+                (is_in_databricks_notebook() or is_in_databricks_job()):
             # use DBUtils to determine workspace information.
             workspace_host, workspace_id = get_workspace_info_from_dbutils()
         else:
             # in this scenario, we're not able to automatically extract the workspace ID
             # to proceed, and users will need to pass in a databricks profile with the scheme:
-            # databricks://scope/prefix and store the host and workspace-ID as a secret in the
+            # databricks://scope:prefix and store the host and workspace-ID as a secret in the
             # Databricks Secret Manager with scope=<scope> and key=<prefix>-workspaceid.
-            workspace_host, workspace_id = get_workspace_info_from_databricks_secrets(tracking_uri)
+            workspace_host, workspace_id = \
+                get_workspace_info_from_databricks_secrets(tracking_uri)
             if not workspace_id:
-                print(
-                    "No workspace ID specified; if your Databricks workspaces share the same"
-                    " host URL, you may want to specify the workspace ID (along with the host"
-                    " information in the secret manager) for run lineage tracking. For more"
-                    " details on how to specify this information in the secret manager,"
-                    " please refer to the model registry documentation."
-                )
+                print("No workspace ID specified; if your Databricks workspaces share the same"
+                      " host URL, you may want to specify the workspace ID (along with the host"
+                      " information in the secret manager) for run lineage tracking. For more"
+                      " details on how to specify this information in the secret manager,"
+                      " please refer to the model registry documentation.")
         # retrieve experiment ID of the run for the URL
         experiment_id = self.get_run(run_id).info.experiment_id
         if workspace_host and run_id and experiment_id:
@@ -598,9 +571,8 @@ class MlflowClient(object):
         if description is None:
             raise MlflowException("Attempting to update model version with no new field values.")
 
-        return self._get_registry_client().update_model_version(
-            name=name, version=version, description=description
-        )
+        return self._get_registry_client().update_model_version(name=name, version=version,
+                                                                description=description)
 
     @experimental
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):

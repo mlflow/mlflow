@@ -23,6 +23,7 @@ from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, Experime
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
 
 
 class TrackingServiceClient(object):
@@ -253,6 +254,12 @@ class TrackingServiceClient(object):
             )
         self.store.record_logged_model(run_id, mlflow_model)
 
+    def _get_artifact_repo(self, run_id):
+        run = self.get_run(run_id)
+        artifact_uri = add_databricks_profile_info_to_artifact_uri(run.info.artifact_uri,
+                                                                   self.tracking_uri)
+        return get_artifact_repository(artifact_uri)
+
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
         Write a local file or directory to the remote ``artifact_uri``.
@@ -260,10 +267,7 @@ class TrackingServiceClient(object):
         :param local_path: Path to the file or directory to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
-        run = self.get_run(run_id)
-        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
-        #   for DBFS artifact repositories to use the correct tracking URI.
-        artifact_repo = get_artifact_repository(run.info.artifact_uri)
+        artifact_repo = self._get_artifact_repo(run_id)
         if os.path.isdir(local_path):
             dir_name = os.path.basename(os.path.normpath(local_path))
             path_name = (
@@ -280,11 +284,7 @@ class TrackingServiceClient(object):
         :param local_dir: Path to the directory of files to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
-        run = self.get_run(run_id)
-        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
-        #   for DBFS artifact repositories to use the correct tracking URI.
-        artifact_repo = get_artifact_repository(run.info.artifact_uri)
-        artifact_repo.log_artifacts(local_dir, artifact_path)
+        self._get_artifact_repo(run_id).log_artifacts(local_dir, artifact_path)
 
     def list_artifacts(self, run_id, path=None):
         """
@@ -295,12 +295,7 @@ class TrackingServiceClient(object):
                      or the root artifact path.
         :return: List of :py:class:`mlflow.entities.FileInfo`
         """
-        run = self.get_run(run_id)
-        artifact_root = run.info.artifact_uri
-        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
-        #   for DBFS artifact repositories to use the correct tracking URI.
-        artifact_repo = get_artifact_repository(artifact_root)
-        return artifact_repo.list_artifacts(path)
+        return self._get_artifact_repo(run_id).list_artifacts(path)
 
     def download_artifacts(self, run_id, path, dst_path=None):
         """
@@ -316,12 +311,7 @@ class TrackingServiceClient(object):
                          directly in the case of the LocalArtifactRepository.
         :return: Local path of desired artifact.
         """
-        run = self.get_run(run_id)
-        artifact_root = run.info.artifact_uri
-        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
-        #   for DBFS artifact repositories to use the correct tracking URI.
-        artifact_repo = get_artifact_repository(artifact_root)
-        return artifact_repo.download_artifacts(path, dst_path)
+        return self._get_artifact_repo(run_id).download_artifacts(path, dst_path)
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
